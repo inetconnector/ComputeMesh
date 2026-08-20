@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/reservation.schema.json",
+  "title": "ComputeMesh Reservation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "reservation_id", "node_id", "state", "revision", "resource_request", "lease_expires_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "reservation_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "job_id": {"type": ["string", "null"], "maxLength": 128},
+    "stage_id": {"type": ["string", "null"], "maxLength": 128},
+    "state": {"enum": ["CANDIDATE", "LEASED", "COMMITTED", "ACTIVE", "RELEASED", "EXPIRED", "REJECTED"]},
+    "revision": {"type": "integer", "minimum": 0},
+    "resource_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_ids", "memory_bytes"],
+      "properties": {
+        "device_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "memory_bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "lease_expires_at": {"type": "string", "format": "date-time"},
+    "price_terms": {"type": ["object", "null"], "additionalProperties": true}
+  }
+}

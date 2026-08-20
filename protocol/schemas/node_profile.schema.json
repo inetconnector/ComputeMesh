@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/node_profile.schema.json",
+  "title": "ComputeMesh Node Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "profile_revision", "captured_at", "platform", "cpu", "memory", "devices", "runtime_capabilities", "provider_limits", "benchmark_refs"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "profile_revision": {"type": "integer", "minimum": 0},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "release", "architecture"],
+      "properties": {
+        "os": {"type": "string", "minLength": 1},
+        "release": {"type": "string"},
+        "architecture": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string"}
+      }
+    },
+    "cpu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_cores"],
+      "properties": {
+        "model": {"type": "string"},
+        "logical_cores": {"type": "integer", "minimum": 1}
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_bytes", "available_bytes"],
+      "properties": {
+        "total_bytes": {"type": "integer", "minimum": 0},
+        "available_bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["device_id", "kind", "vendor", "name", "memory_total_bytes"],
+        "properties": {
+          "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "kind": {"enum": ["cpu", "gpu", "accelerator"]},
+          "vendor": {"type": "string"},
+          "name": {"type": "string"},
+          "memory_total_bytes": {"type": "integer", "minimum": 0},
+          "driver_version": {"type": "string"},
+          "backend": {"type": "string"}
+        }
+      }
+    },
+    "runtime_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runtime", "version"],
+        "properties": {
+          "runtime": {"type": "string", "minLength": 1},
+          "version": {"type": "string"},
+          "features": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        }
+      }
+    },
+    "provider_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["draining"],
+      "properties": {
+        "draining": {"type": "boolean"},
+        "max_memory_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_power_watts": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "benchmark_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "model_id": "computemesh/lab-transformer",
+  "model_version": "lab-transformer-v1",
+  "architecture": "transformer",
+  "license": {
+    "id": "test-only",
+    "source": "internal-lab-fixture",
+    "redistribution_allowed": false
+  },
+  "runtime_compatibility": [
+    {
+      "runtime": "llama",
+      "min_version": "research-baseline"
+    }
+  ],
+  "quantizations": ["q4-research"],
+  "partitioning": {
+    "allowed": ["contiguous_layers"]
+  },
+  "artifacts": [
+    {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 1024,
+      "media_type": "application/octet-stream"
+    }
+  ]
+}

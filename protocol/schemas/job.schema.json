@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/job.schema.json",
+  "title": "ComputeMesh Job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job_id", "principal_id", "model_version", "state", "revision", "policy", "created_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "principal_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "model_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "state": {"enum": ["CREATED", "VALIDATING", "PLANNING", "RESERVING", "PREPARING", "RUNNING", "VERIFYING", "COMPLETED", "SETTLED", "CANCELLED", "FAILED", "REFUNDED"]},
+    "revision": {"type": "integer", "minimum": 0},
+    "placement_revision": {"type": ["integer", "null"], "minimum": 0},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["privacy_tier", "latency_class"],
+      "properties": {
+        "privacy_tier": {"enum": ["public_compute", "region_verified", "datacenter_only", "confidential_compute"]},
+        "latency_class": {"enum": ["interactive", "balanced", "batch", "cheapest"]},
+        "deadline_ms": {"type": ["integer", "null"], "minimum": 1},
+        "max_budget_minor": {"type": ["integer", "null"], "minimum": 0},
+        "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"},
+        "preferred_regions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "verification_policy": {"type": ["string", "null"]}
+      }
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

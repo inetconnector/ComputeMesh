@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "job_id": "job-lab-001",
+  "principal_id": "principal-lab",
+  "model_version": "lab-transformer-v1",
+  "state": "RESERVING",
+  "revision": 2,
+  "placement_revision": 1,
+  "policy": {
+    "privacy_tier": "public_compute",
+    "latency_class": "interactive",
+    "deadline_ms": 15000,
+    "max_budget_minor": 250,
+    "currency": "EUR",
+    "preferred_regions": ["eu-central"],
+    "verification_policy": "standard"
+  },
+  "created_at": "2026-08-21T00:00:00Z",
+  "updated_at": "2026-08-21T00:01:00Z"
+}

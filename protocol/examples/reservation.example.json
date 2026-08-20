@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "reservation_id": "reservation-lab-001",
+  "node_id": "lab-node-a",
+  "job_id": "job-lab-001",
+  "stage_id": "stage-0",
+  "state": "LEASED",
+  "revision": 1,
+  "resource_request": {
+    "device_ids": ["gpu:0"],
+    "memory_bytes": 1073741824
+  },
+  "lease_expires_at": "2026-08-21T00:10:00Z",
+  "price_terms": null
+}

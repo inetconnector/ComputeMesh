@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "shard_id": "lab-transformer-v1-layers-0-7",
+  "model_version": "lab-transformer-v1",
+  "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "size_bytes": 512,
+  "range": {
+    "layers": [0, 7]
+  },
+  "quantization": "q4-research",
+  "runtime_compatibility": ["llama"],
+  "memory_estimate_bytes": 1048576,
+  "signature": null
+}
