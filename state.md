@@ -3,7 +3,8 @@
 **Last updated:** 2026-08-20  
 **Phase:** M0 — documentation/architecture bootstrap  
 **Production code:** none  
-**Public release:** none
+**Public release:** none  
+**Documentation baseline:** v0.2 accepted and merged to `main`
 
 This file is a handoff document. It records **facts and current decisions**, not product marketing.
 
@@ -16,10 +17,11 @@ Repository:
 - visibility: public at current inspection; repository was private at initial bootstrap
 - bootstrap commit: `6e8d9fe` — `docs: bootstrap ComputeMesh implementation plan`
 - follow-up commit: `f214457` — `docs: record repository push state`
+- documentation v0.2 commit: `cf85a47` — `docs: expand v0.2 specification and bilingual readmes`
 
 ## What exists
 
-- project README;
+- synchronized English/German root READMEs with language selector;
 - implementation plan;
 - architecture;
 - protocol outline/specification;
@@ -123,18 +125,17 @@ Before M1:
 
 ## Next actions in order
 
-1. Review/accept documentation v0.2.
-2. Select M1 runtime candidate via ADR.
-3. Define node profile and benchmark schemas.
-4. Define model/shard manifests.
-5. Define reservation/job state semantics.
-6. Prepare two-node lab.
-7. Implement local runtime baseline.
-8. Implement authenticated node session skeleton.
-9. Implement reservation skeleton.
-10. Run first two-node transport microbenchmark.
-11. Produce first shared-inference experiment.
-12. Compare predicted versus observed timings.
+1. Select M1 runtime candidate via ADR.
+2. Define node profile and benchmark schemas.
+3. Define model/shard manifests.
+4. Define reservation/job state semantics.
+5. Prepare two-node lab.
+6. Implement local runtime baseline.
+7. Implement authenticated node session skeleton.
+8. Implement reservation skeleton.
+9. Run first two-node transport microbenchmark.
+10. Produce first shared-inference experiment.
+11. Compare predicted versus observed timings.
 
 ## State-update rule
 
