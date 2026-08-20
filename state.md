@@ -33,7 +33,11 @@ Remote:
 - GitHub repository: `inetconnector/ComputeMesh`
 - Visibility: private at creation time
 
-The expected next Git step is the initial bootstrap commit and push to `origin/main`.
+The bootstrap repository has been committed and pushed to `origin/main`.
+
+Initial bootstrap commit:
+
+- `6e8d9fe` - `docs: bootstrap ComputeMesh implementation plan`
 
 ## Files Created
 
@@ -237,12 +241,11 @@ No public alpha exists.
 
 ## Concrete Next Steps
 
-1. Commit and push the bootstrap repository to `origin/main`.
-2. Add M0 ADRs for runtime, transport, model manifest, node identity, and telemetry envelope.
-3. Define exact benchmark harness schema.
-4. Select first two-node lab hardware.
-5. Choose first model target and runtime integration path.
-6. Prototype node profile schema.
-7. Define Gate 1 measurements.
-8. Begin QUIC/gRPC transport experiment.
-9. Keep `state.md` updated after each meaningful change.
+1. Add M0 ADRs for runtime, transport, model manifest, node identity, and telemetry envelope.
+2. Define exact benchmark harness schema.
+3. Select first two-node lab hardware.
+4. Choose first model target and runtime integration path.
+5. Prototype node profile schema.
+6. Define Gate 1 measurements.
+7. Begin QUIC/gRPC transport experiment.
+8. Keep `state.md` updated after each meaningful change.
