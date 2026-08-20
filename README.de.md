@@ -26,14 +26,15 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
   - Job;
 - konkrete Beispiel-Manifeste, Jobs und Reservierungen;
 - ein M0-Benchmark-Collector in Python nur mit Standardbibliothek, der Host-Inventar und bei vorhandenem `nvidia-smi` NVIDIA-GPU/VRAM/Treiber erfasst;
-- Unit-Tests für den Benchmark-Collector.
+- Unit-Tests für den Benchmark-Collector;
+- eine In-Memory-Referenz-State-Machine für Job/Reservation mit monotonen Revisionen, Idempotenz, Lease-Expiry, Cancellation-/Failure-Pfaden und Race-/Stale-Writer-Tests.
 
 ### Noch nicht implementiert
 
 - produktiver Provider-Node-Agent;
 - Runtime Worker oder verteilte Inferenz;
 - Gateway/API;
-- Scheduler/Orchestrator;
+- produktiver Scheduler sowie Orchestrator-Service/Persistenz;
 - Model-Registry-Service;
 - Verification-/Reputation-Service;
 - Billing-/Ledger-Service;
@@ -105,7 +106,7 @@ Ein nicht bestandenes Gate kann die geeignete Workload-Klasse ändern, ohne auto
 ```text
 ComputeMesh/
 ├─ apps/                 # geplante Node/Desktop/Dashboard/Admin-Oberflächen
-├─ services/             # geplante Gateway/Scheduler/Registry/Billing/Verification/Telemetry-Services
+├─ services/             # Gateway/Scheduler/Orchestrator/Registry/Billing/Verification/Telemetry
 ├─ runtime/              # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
 ├─ protocol/
 │  ├─ schemas/           # maschinenlesbare M0-Verträge
@@ -135,6 +136,7 @@ git clone <repository-url>
 cd ComputeMesh
 python tools/benchmark/benchmark.py --dry-run
 python -m unittest discover -s tools/benchmark/tests -v
+python -m unittest discover -s services/orchestrator/tests -v
 ```
 
 Ein Lab-Profil schreiben:
@@ -171,7 +173,7 @@ Auch Control- und Data-Transport werden noch evaluiert. Transportverschlüsselun
 maschinenlesbare Verträge + Inventory-Harness   [gestartet]
 -> Zwei-Node-Lab-Profile
 -> Runtime-Spike
--> Reservation-/Job-State-Skeleton
+-> persistente Reservation-/Job-Storage + Protocol-Binding
 -> Activation-Transport-Benchmark
 -> gemeinsame Zwei-Node-Inferenz
 -> Scheduler-Automatisierung

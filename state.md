@@ -26,6 +26,8 @@ Repository:
 - example model/shard/job/reservation documents;
 - standard-library Python inventory benchmark collector;
 - benchmark collector unit tests;
+- in-memory reference state machine for reservation/job lifecycle, revisions, idempotency, lease expiry, cancellation, and failure;
+- state-machine unit tests;
 - directory skeleton for planned product components.
 
 ## What does not exist
@@ -35,7 +37,7 @@ No production implementation exists yet for:
 - provider node agent;
 - runtime worker or distributed inference;
 - gateway;
-- orchestrator;
+- production orchestrator service/persistence;
 - scheduler;
 - registry;
 - verification;
@@ -49,7 +51,8 @@ No production implementation exists yet for:
 
 The first executable collector was tested before repository publication of the implementation commit:
 
-- Python unit tests: 3/3 passing;
+- benchmark Python unit tests: 3/3 passing;
+- orchestrator state-machine unit tests: 8/8 passing;
 - JSON syntax checks: all six schemas parse successfully;
 - JSON Schema Draft 2020-12 validation: generated node profile and benchmark result pass;
 - example model manifest, shard manifest, reservation, and job pass their corresponding schemas.
@@ -118,7 +121,7 @@ These are M0 drafts and are not wire-stable.
 3. Control/data transport choices remain unaccepted.
 4. No two-node lab profiles exist yet.
 5. No local runtime prefill/decode baseline exists yet.
-6. No reservation/job state implementation exists beyond schema contracts.
+6. Reservation/job state exists only as an in-memory semantic reference; durable persistence and protocol binding are not implemented.
 7. WAN viability remains unmeasured.
 8. Verification economics remain unmeasured.
 9. No release/update security implementation exists.
@@ -129,7 +132,7 @@ These are M0 drafts and are not wire-stable.
 2. Record exact hardware/OS/driver/runtime candidates for the two-node lab.
 3. Execute the ADR 0002 llama.cpp-oriented runtime spike without exposing upstream RPC as the ComputeMesh security boundary.
 4. Add local runtime prefill/decode benchmark adapters.
-5. Implement reservation/job state-machine skeleton against the current schemas.
+5. Replace in-memory reservation/job state with a transactional persistence adapter and bind it to protocol/schema validation.
 6. Implement authenticated node-session skeleton after node-identity details are selected.
 7. Run the first activation-transport microbenchmark.
 8. Produce the first correct two-node shared-inference experiment.

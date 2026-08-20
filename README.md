@@ -26,14 +26,15 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
   - job;
 - concrete example manifests/jobs/reservations;
 - a standard-library Python M0 benchmark collector that records host inventory and NVIDIA GPU/VRAM/driver information when `nvidia-smi` is available;
-- unit tests for the benchmark collector.
+- unit tests for the benchmark collector;
+- an in-memory reference Job/Reservation state machine with monotonic revisions, idempotency, lease expiry, cancellation/failure paths, and race/stale-writer tests.
 
 ### Not implemented
 
 - production provider node agent;
 - runtime worker or distributed inference execution;
 - gateway/API;
-- scheduler/orchestrator;
+- production scheduler and orchestrator service/persistence;
 - model registry service;
 - verification/reputation service;
 - billing/ledger service;
@@ -105,7 +106,7 @@ A failed gate may change the viable workload class rather than end the project.
 ```text
 ComputeMesh/
 ├─ apps/                 # planned node/desktop/dashboard/admin surfaces
-├─ services/             # planned gateway/scheduler/registry/billing/verification/telemetry
+├─ services/             # gateway/scheduler/orchestrator/registry/billing/verification/telemetry
 ├─ runtime/              # planned CUDA/llama.cpp/vLLM/network integrations
 ├─ protocol/
 │  ├─ schemas/           # machine-readable M0 contracts
@@ -135,6 +136,7 @@ git clone <repository-url>
 cd ComputeMesh
 python tools/benchmark/benchmark.py --dry-run
 python -m unittest discover -s tools/benchmark/tests -v
+python -m unittest discover -s services/orchestrator/tests -v
 ```
 
 To write a lab profile:
@@ -171,7 +173,7 @@ Control and data transports are also still under evaluation. Transport encryptio
 machine-readable contracts + inventory harness   [started]
 -> two-node lab profiles
 -> runtime spike
--> reservation/job state skeleton
+-> durable reservation/job persistence + protocol binding
 -> activation transport benchmark
 -> shared two-node inference
 -> scheduler automation
