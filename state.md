@@ -1,8 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-20  
-**Phase:** M0 — documentation/architecture bootstrap  
-**Production code:** none  
+**Last updated:** 2026-08-21  
+**Phase:** M0 — contracts and benchmark bootstrap  
+**Production services/runtime:** none  
+**Executable engineering tooling:** M0 inventory benchmark harness  
 **Public release:** none  
 **Documentation baseline:** v0.2 accepted and merged to `main`
 
@@ -14,29 +15,25 @@ Repository:
 
 - `inetconnector/ComputeMesh`
 - default branch: `main`
-- visibility: public at current inspection; repository was private at initial bootstrap
-- bootstrap commit: `6e8d9fe` — `docs: bootstrap ComputeMesh implementation plan`
-- follow-up commit: `f214457` — `docs: record repository push state`
 - documentation v0.2 commit: `cf85a47` — `docs: expand v0.2 specification and bilingual readmes`
+- first M0 implementation branch: `m0/contracts-benchmark-harness`
 
 ## What exists
 
-- synchronized English/German root READMEs with language selector;
-- implementation plan;
-- architecture;
-- protocol outline/specification;
-- threat model;
-- security policy;
-- contribution guide;
-- ADR template/bootstrap ADR;
-- directory skeleton.
+- synchronized English/German root READMEs;
+- implementation plan, architecture, protocol, threat model, security policy, contribution guide, ADR process;
+- JSON Schema Draft 2020-12 contracts for node profile, benchmark result, model manifest, shard manifest, reservation, and job;
+- example model/shard/job/reservation documents;
+- standard-library Python inventory benchmark collector;
+- benchmark collector unit tests;
+- directory skeleton for planned product components.
 
 ## What does not exist
 
-No implementation exists yet for:
+No production implementation exists yet for:
 
-- node agent;
-- runtime worker;
+- provider node agent;
+- runtime worker or distributed inference;
 - gateway;
 - orchestrator;
 - scheduler;
@@ -46,10 +43,18 @@ No implementation exists yet for:
 - telemetry;
 - SDK;
 - UI;
-- deployment;
-- tests.
+- deployment/update pipeline.
 
-Any wording implying these are operational is incorrect.
+## Verified M0 implementation evidence
+
+The first executable collector was tested before repository publication of the implementation commit:
+
+- Python unit tests: 3/3 passing;
+- JSON syntax checks: all six schemas parse successfully;
+- JSON Schema Draft 2020-12 validation: generated node profile and benchmark result pass;
+- example model manifest, shard manifest, reservation, and job pass their corresponding schemas.
+
+The collector currently measures inventory only. It is not yet a compute/network performance benchmark.
 
 ## Fixed V1 constraints
 
@@ -74,75 +79,68 @@ Until superseded by an ADR:
 4. Tensor parallelism is expected to need tightly coupled links; do not plan generic WAN tensor parallelism.
 5. The scheduler should use constraint filtering plus predicted multi-objective plan evaluation, not a single permanent score formula.
 6. Capacity reservation/lease semantics are required before dispatch.
-7. “Confidential compute” must remain disabled as a guarantee until a real attestation/TEE design exists.
+7. `confidential_compute` remains disabled as a guarantee until a real attestation/TEE design exists.
 
-## External technology observations checked 2026-08-20
+## ADR status
 
-- vLLM documents distributed tensor and pipeline parallel serving, with multi-node configurations aimed at coordinated cluster environments.
-- llama.cpp has an RPC backend useful for research, but its upstream documentation still warns that it is proof-of-concept/fragile/insecure for open networks.
-- These upstream systems are reference implementations, not the ComputeMesh security boundary.
+Accepted:
 
-## M0 ADR backlog
+- ADR 0001 — repository bootstrap from blueprint.
 
-Required decisions:
+Still proposed:
 
-- M1 runtime baseline;
-- serialization format;
-- control transport;
-- M1 data-plane transport;
-- node identity/key lifecycle;
-- model/shard manifest format;
-- artifact signature/canonicalization;
-- reservation semantics;
-- telemetry envelope;
-- ledger units/precision;
-- privacy-tier enforcement.
+- ADR 0002 — M1 runtime baseline;
+- ADR 0003 — control/data transport evaluation;
+- ADR 0004 — model/artifact identity;
+- ADR 0005 — node identity/key lifecycle;
+- ADR 0006 — telemetry envelope;
+- ADR 0007 — ledger units.
 
-## Required new engineering artifacts
+Do not describe proposed ADRs as accepted decisions.
 
-Before M1:
+## Current machine-readable contracts
 
-- node profile schema;
-- benchmark result schema;
-- model manifest schema;
-- shard manifest schema;
-- job/reservation schema;
-- protocol message schemas;
-- two-node lab inventory;
-- reproducible benchmark harness;
-- threat-model-to-test mapping.
+Under `protocol/schemas/`:
+
+- `node_profile.schema.json`;
+- `benchmark_result.schema.json`;
+- `model_manifest.schema.json`;
+- `shard_manifest.schema.json`;
+- `reservation.schema.json`;
+- `job.schema.json`.
+
+These are M0 drafts and are not wire-stable.
 
 ## Primary blockers
 
-1. No runtime selected.
-2. No benchmark harness exists.
-3. No machine-readable schemas exist.
-4. No node identity design exists.
-5. No reservation/job state implementation exists.
-6. WAN viability remains unmeasured.
-7. Verification economics remain unmeasured.
-8. No release/update security implementation exists.
+1. M1 runtime baseline is not accepted; the required two-node spike has not been run.
+2. Node identity/key lifecycle remains proposed.
+3. Control/data transport choices remain unaccepted.
+4. No two-node lab profiles exist yet.
+5. No local runtime prefill/decode baseline exists yet.
+6. No reservation/job state implementation exists beyond schema contracts.
+7. WAN viability remains unmeasured.
+8. Verification economics remain unmeasured.
+9. No release/update security implementation exists.
 
 ## Next actions in order
 
-1. Select M1 runtime candidate via ADR.
-2. Define node profile and benchmark schemas.
-3. Define model/shard manifests.
-4. Define reservation/job state semantics.
-5. Prepare two-node lab.
-6. Implement local runtime baseline.
-7. Implement authenticated node session skeleton.
-8. Implement reservation skeleton.
-9. Run first two-node transport microbenchmark.
-10. Produce first shared-inference experiment.
-11. Compare predicted versus observed timings.
+1. Run the inventory harness on two real lab machines and retain profiles/results.
+2. Record exact hardware/OS/driver/runtime candidates for the two-node lab.
+3. Execute the ADR 0002 llama.cpp-oriented runtime spike without exposing upstream RPC as the ComputeMesh security boundary.
+4. Add local runtime prefill/decode benchmark adapters.
+5. Implement reservation/job state-machine skeleton against the current schemas.
+6. Implement authenticated node-session skeleton after node-identity details are selected.
+7. Run the first activation-transport microbenchmark.
+8. Produce the first correct two-node shared-inference experiment.
+9. Compare predicted versus observed timings and update the scheduler model.
 
 ## State-update rule
 
 Update this file after a meaningful change in:
 
 - accepted ADR;
-- implemented component;
+- implemented component/tool;
 - milestone/gate status;
 - measured result;
 - blocker;
@@ -157,4 +155,4 @@ Root README documentation is permanently maintained in two synchronized files:
 - `README.md` — English;
 - `README.de.md` — German.
 
-Both include a language selector at the top. Any public-facing change to project status, product boundaries, architecture overview, setup, roadmap, security warnings, or other README-level information must update both files in the same change. Treat README drift as a documentation defect.
+Any public-facing change to project status, product boundaries, architecture overview, setup, roadmap, security warnings, or other README-level information must update both files in the same change. Treat README drift as a documentation defect.

@@ -2,144 +2,116 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Project stage:** M0 — architecture, protocol, security, benchmarking, and feasibility research.  
-> **Production status:** no production runtime, marketplace, scheduler, billing system, or public node software exists yet.
+> **Project stage:** M0 — contracts, benchmarking, architecture, protocol, security, and feasibility research.  
+> **Implementation status:** the first executable M0 engineering tooling now exists; no production runtime, marketplace, scheduler, billing system, or public provider-node software exists yet.
 
-ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. The core product thesis is that a client with limited local VRAM should be able to run a model whose memory and compute requirements exceed the client machine by using trusted remote compute without manually managing shards, hosts, ports, or placement.
+ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. A client with limited local VRAM should eventually be able to run a model whose memory and compute requirements exceed the client machine by using approved remote compute without manually managing shards, hosts, ports, or placement.
 
-**North Star:** the user chooses a model and a policy; ComputeMesh determines whether the request is feasible, selects compatible capacity, prepares model partitions, executes inference, handles failures, verifies results according to risk, and produces an auditable cost record.
+**North Star:** the user chooses a model and a policy; ComputeMesh determines feasibility, selects compatible capacity, prepares verified model partitions, executes inference, handles failures, verifies results according to risk, and produces an auditable cost record.
 
-The phrase **“The internet is your GPU”** is a product metaphor, not a claim that arbitrary internet-connected GPUs can be coupled with datacenter-like efficiency. Network latency, bandwidth, jitter, hardware heterogeneity, provider trust, model licensing, and failure probability are first-class constraints.
+“The internet is your GPU” is a product metaphor, not a performance guarantee. WAN latency, bandwidth, jitter, hardware heterogeneity, provider trust, model licensing, and failure probability are first-class constraints.
 
-## What ComputeMesh is
+## Current status
 
-ComputeMesh is designed as a **model-aware distributed inference fabric** with:
+### Implemented
 
-- automatic provider-node enrollment, hardware discovery, and benchmarking;
-- signed model and shard manifests;
-- topology-aware placement with hard privacy, compatibility, memory, and policy constraints;
-- pipeline, expert, data-parallel, and local tensor-parallel execution where appropriate;
-- capacity reservation and failure-aware replanning;
-- structured telemetry and reproducible benchmark evidence;
-- risk-based verification and node reputation;
-- auditable fiat-denominated billing and provider settlement;
-- a Windows-first provider experience for V1;
-- an OpenAI-compatible public API plus ComputeMesh-specific policy controls.
+- bilingual root documentation and ADR process;
+- architecture, protocol, security, benchmark, failure, privacy, and data-model specifications;
+- JSON Schema Draft 2020-12 contracts for:
+  - node profile;
+  - benchmark result;
+  - model manifest;
+  - shard manifest;
+  - reservation;
+  - job;
+- concrete example manifests/jobs/reservations;
+- a standard-library Python M0 benchmark collector that records host inventory and NVIDIA GPU/VRAM/driver information when `nvidia-smi` is available;
+- unit tests for the benchmark collector.
 
-## What ComputeMesh is not
+### Not implemented
 
-V1 is intentionally **not**:
+- production provider node agent;
+- runtime worker or distributed inference execution;
+- gateway/API;
+- scheduler/orchestrator;
+- model registry service;
+- verification/reputation service;
+- billing/ledger service;
+- telemetry service;
+- desktop/dashboard applications;
+- production deployment/update pipeline;
+- public release.
 
-- a generic VM or container marketplace;
-- a platform for arbitrary customer shell, Python, CUDA, or container execution on provider PCs;
-- a cryptocurrency, ICO, mining, or yield product;
-- a claim that WAN tensor parallelism is practical;
-- a promise that prompts are confidential on untrusted consumer nodes;
-- a replacement for high-speed intra-datacenter GPU interconnect;
-- a production-ready system today.
+The canonical handoff is `state.md`.
 
-## Core engineering invariants
-
-These are stronger than implementation preferences. Changes require an ADR.
+## Engineering invariants
 
 1. **No arbitrary customer code on provider nodes in V1.**
 2. **Hard scheduling constraints are evaluated before optimization.**
 3. **No job is billed for work the platform cannot attribute and audit.**
-4. **A retry, replay, timeout, or duplicate event must not create duplicate payout or state advancement.**
+4. **Retries, replays, timeouts, and duplicate events must not create duplicate business effects.**
 5. **Provider nodes are assumed to fail, disconnect, lie, or be compromised.**
-6. **Public-compute nodes do not imply prompt confidentiality.**
+6. **Public compute does not imply prompt confidentiality.**
 7. **Performance claims require reproducible measurements and test conditions.**
-8. **The data plane carries only approved inference protocol data.**
+8. **The data plane carries only approved inference-protocol data.**
 9. **Model artifacts are immutable, content-addressed, versioned, and verified before execution.**
-10. **The system must be able to explain why a placement was accepted or rejected.**
+10. **The system must explain why a placement was accepted or rejected.**
+
+Changes to these invariants require an ADR.
 
 ## Architecture at a glance
 
 ```text
-                         +-----------------------+
- Client / SDK ---------->| Gateway / API         |
-                         +-----------+-----------+
-                                     |
-                                     v
-                         +-----------------------+
-                         | Job Orchestrator      |
-                         +-----------+-----------+
-                                     |
-                  +------------------+------------------+
-                  |                  |                  |
-                  v                  v                  v
-          +---------------+  +---------------+  +----------------+
-          | Scheduler     |  | Registry      |  | Policy/Trust   |
-          | + topology    |  | models/shards |  | verification   |
-          +-------+-------+  +-------+-------+  +--------+-------+
-                  |                  |                   |
-                  +------------------+-------------------+
-                                     |
-                              reservations
-                                     |
-                                     v
-             +---------------- Provider execution mesh ----------------+
-             |                                                          |
-             |  Node A  <---- activation/result streams ---->  Node B   |
-             |    |                                             |       |
-             | local layers/KV                              local layers/KV|
-             |                                                          |
-             +----------------------------------------------------------+
-                                     |
-                                     v
-                         +-----------------------+
-                         | Telemetry + Ledger    |
-                         +-----------------------+
+Client / SDK
+    |
+    v
+Gateway / API
+    |
+    v
+Job Orchestrator
+    |
+    +------> Scheduler + Topology
+    +------> Registry
+    +------> Policy / Verification
+    |
+    v
+Capacity reservations
+    |
+    v
+Provider execution mesh
+Node A <---- activation/result streams ----> Node B
+    |
+    v
+Telemetry / Metering / Ledger
 ```
 
-### Control plane
-
-The control plane owns identity, enrollment, policy, topology, model metadata, scheduling, reservations, job state, verification policy, telemetry aggregation, and billing records.
-
-### Data plane
-
-The data plane executes an already-approved plan. For a dense pipeline path, the normal per-token inter-node traffic is primarily **activation data between stages**, not continuous transfer of all KV cache. KV state should normally remain co-located with the layers that own it; KV migration is a recovery, migration, or rebalancing operation.
-
-### Provider node
-
-A provider node exposes constrained inference capacity, not a remote general-purpose machine. It reports capabilities and availability, accepts signed assignments, prepares verified model artifacts, executes approved stages, emits bounded telemetry, and can drain safely.
+For dense pipeline execution, normal inter-node token traffic is expected to be stage activations/results. KV cache normally remains with the layers that own it; KV movement is primarily a migration, recovery, or rebalancing concern.
 
 ## Feasibility gates
 
-ComputeMesh is research-driven. Product work expands only after evidence exists.
-
 | Gate | Question | Minimum evidence |
 | --- | --- | --- |
-| G1 — Execution | Can heterogeneous devices automatically execute one model path? | automatic placement, shared inference result, measurable compute/transfer/queue timings |
-| G2 — Network | Which distributed modes remain usable over real links? | LAN/WAN measurements for TTFT, decode rate, traffic/token, jitter, loss, recovery |
-| G3 — Economics | Is cost/token credible after all overhead? | provider cost model, verification overhead, network cost, reserve, platform margin |
-| G4 — Trust | Can untrusted capacity be used without unacceptable security/correctness risk? | signed workload boundary, identity, auditability, verification evidence, abuse controls |
-| G5 — Operability | Can non-specialist providers run nodes safely? | installer/update/rollback, diagnostics, thermal limits, clean drain, supportability |
+| G0 | Is M1 defined well enough to implement? | accepted required ADRs, schemas, lab definition, testable DoD |
+| G1 | Can heterogeneous devices execute one model path automatically? | automatic placement, correct shared inference, measured timings |
+| G2 | Which modes remain usable over real networks? | LAN/WAN TTFT, decode, traffic, jitter/loss/recovery |
+| G3 | Is cost/token credible? | measured execution + verification/network/payment economics |
+| G4 | Can untrusted capacity be used safely enough? | workload boundary, identity, auditability, verification, abuse controls |
+| G5 | Can non-specialists operate provider nodes? | install/update/rollback/diagnostics/drain/uninstall |
 
-A failed gate is not automatically a failed project. It may change positioning from global interactive dense inference toward regional clusters, batch work, dedicated providers, or MoE/expert-oriented research.
+A failed gate may change the viable workload class rather than end the project.
 
 ## Repository map
 
 ```text
 ComputeMesh/
-├─ apps/
-│  ├─ node/          # provider daemon/local UX
-│  ├─ desktop/       # end-user desktop UX
-│  ├─ dashboard/     # web UX
-│  └─ admin/         # operations UX
-├─ services/
-│  ├─ gateway/
-│  ├─ scheduler/
-│  ├─ registry/
-│  ├─ billing/
-│  ├─ verification/
-│  └─ telemetry/
-├─ runtime/
-│  ├─ cuda/
-│  ├─ llama/
-│  ├─ vllm/
-│  └─ network/
+├─ apps/                 # planned node/desktop/dashboard/admin surfaces
+├─ services/             # planned gateway/scheduler/registry/billing/verification/telemetry
+├─ runtime/              # planned CUDA/llama.cpp/vLLM/network integrations
 ├─ protocol/
+│  ├─ schemas/           # machine-readable M0 contracts
+│  └─ examples/          # contract examples
+├─ tools/
+│  └─ benchmark/         # first executable M0 collector + unit tests
 ├─ models/
 ├─ sdk/
 ├─ tests/
@@ -154,87 +126,75 @@ ComputeMesh/
    └─ TEST_MATRIX.md
 ```
 
-## Documentation map
+## Run the first M0 tool
 
-Start here:
-
-1. `README.md` / `README.de.md` — project boundaries and current status in English and German.
-2. `IMPLEMENTATION_PLAN.md` — milestones, dependencies, gates, and definitions of done.
-3. `ARCHITECTURE.md` — system boundaries, flows, consistency model, and scheduling model.
-4. `PROTOCOL.md` — protocol envelope, control messages, transport semantics, errors, retries, and compatibility.
-5. `THREAT_MODEL.md` — assets, actors, trust boundaries, threats, mitigations, and residual risk.
-6. `docs/BENCHMARK_SPEC.md` — reproducible measurements required before scheduler decisions.
-7. `docs/DATA_MODEL.md` — canonical entities and invariants.
-8. `docs/FAILURE_SEMANTICS.md` — state transitions, leases, retries, replanning, and billing neutrality.
-9. `docs/PRIVACY_TIERS.md` — what each privacy tier guarantees and explicitly does not guarantee.
-10. `state.md` — current facts, decisions, blockers, and next actions.
-
-## Planned technology direction
-
-These are **candidates**, not frozen choices:
-
-- **Go** — control-plane services and node daemon;
-- **C++/CUDA** — performance-critical runtime integration;
-- **Python** — ML systems research and benchmark tooling;
-- **TypeScript/React** — desktop/web interfaces;
-- **PostgreSQL** — durable control-plane and ledger state;
-- **gRPC/HTTP2 and QUIC-based transports** — experiment candidates for control/data-plane needs;
-- **llama.cpp and vLLM** — reference runtime integrations to evaluate rather than blindly wrap.
-
-An ADR must record each choice before it becomes a project dependency.
-
-## Current reality
-
-Implemented:
-
-- repository structure;
-- architecture, protocol, security, and implementation planning;
-- ADR process;
-- documentation bootstrap.
-
-Not implemented:
-
-- executable node;
-- gateway/API;
-- scheduler;
-- model registry;
-- distributed runtime;
-- verification service;
-- billing ledger;
-- telemetry service;
-- desktop/dashboard apps;
-- deployment;
-- automated tests.
-
-## Development setup
-
-There is no application to build yet. At M0, setup is documentation and research oriented.
+Python 3.10+ is sufficient for the current collector; it has no third-party runtime dependency.
 
 ```powershell
 git clone <repository-url>
 cd ComputeMesh
-Get-Content README.md
-Get-Content state.md
-Get-Content IMPLEMENTATION_PLAN.md
+python tools/benchmark/benchmark.py --dry-run
+python -m unittest discover -s tools/benchmark/tests -v
 ```
 
-When code is introduced, exact toolchain versions must be pinned in a reproducible bootstrap script and CI image rather than maintained only as prose.
+To write a lab profile:
+
+```powershell
+python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
+```
+
+Output is written below `artifacts/benchmark/` and ignored by Git.
+
+The collector currently records OS/architecture, Python version, CPU/logical cores, physical memory, and NVIDIA GPU name/VRAM/driver when available. It deliberately does not collect hostnames, GPU UUIDs, prompts, outputs, or other unnecessary identifiers.
+
+## Documentation order
+
+1. `state.md` — current facts, blockers, and next actions.
+2. `IMPLEMENTATION_PLAN.md` — gates, milestones, workstreams, and definitions of done.
+3. `ARCHITECTURE.md` — service boundaries and execution/scheduling model.
+4. `PROTOCOL.md` — control/data-plane semantics, retries, errors, leases, cancellation.
+5. `THREAT_MODEL.md` and `SECURITY.md` — trust assumptions and launch blockers.
+6. `docs/BENCHMARK_SPEC.md` — reproducible measurement rules.
+7. `docs/DATA_MODEL.md` and `docs/FAILURE_SEMANTICS.md` — canonical entities/state behavior.
+8. `protocol/schemas/` — current machine-readable M0 contracts.
+9. `docs/adr/` — accepted/proposed architecture decisions.
+
+## Runtime direction
+
+The first proposed M1 research path is llama.cpp-oriented, wrapped behind the ComputeMesh node/worker boundary. vLLM remains a comparison/reference for coordinated datacenter-style serving. ADR 0002 is still **Proposed**, not accepted; the runtime choice is accepted only after a two-node spike proves deterministic placement, measurable transfer, correctness, bounded memory, cancellation/failure behavior, and a workable Windows path.
+
+Control and data transports are also still under evaluation. Transport encryption must never be confused with confidential execution on a provider-controlled host.
+
+## Immediate engineering sequence
+
+```text
+machine-readable contracts + inventory harness   [started]
+-> two-node lab profiles
+-> runtime spike
+-> reservation/job state skeleton
+-> activation transport benchmark
+-> shared two-node inference
+-> scheduler automation
+-> failure/replan tests
+```
+
+The scheduler should be driven by measured node/runtime/network behavior rather than static GPU-name tables.
 
 ## Security warning
 
-Do not expose experimental runtime RPC endpoints directly to the public internet. Any third-party runtime integration must be treated according to its own security posture and wrapped behind ComputeMesh authentication, authorization, workload restrictions, rate limits, and network policy before provider use.
+Do not expose experimental runtime RPC endpoints directly to the public internet. Third-party runtimes are implementation details behind ComputeMesh authentication, authorization, workload restrictions, rate limits, artifact verification, and network policy.
 
-See `SECURITY.md` and `THREAT_MODEL.md`.
+`confidential_compute` is not a valid guarantee until a concrete trusted-execution and attestation design exists.
 
-## Language and synchronization rule
+## Language synchronization rule
 
-The root documentation is maintained bilingually:
+Root documentation is permanently maintained in two synchronized files:
 
 - `README.md` — English;
 - `README.de.md` — German.
 
-Both files must be updated **in the same change** whenever project status, product boundaries, architecture overview, setup, roadmap, security warnings, or other public-facing information changes. Neither README may be allowed to drift behind the other.
+Any public-facing change to project status, product boundaries, architecture overview, setup, roadmap, or security warnings must update both files in the same change.
 
 ## License
 
-The project remains all-rights-reserved until the owner selects and publishes an explicit license. Do not infer open-source rights from repository visibility or source availability.
+The project remains all-rights-reserved until the owner selects and publishes an explicit license. Repository visibility does not grant open-source rights.
