@@ -1,0 +1,232 @@
+[
+  {
+    "path": ".gitignore",
+    "lines": 62,
+    "bytes": 587
+  },
+  {
+    "path": "ARCHITECTURE.md",
+    "lines": 541,
+    "bytes": 15229
+  },
+  {
+    "path": "CONTRIBUTING.md",
+    "lines": 178,
+    "bytes": 4818
+  },
+  {
+    "path": "IMPLEMENTATION_PLAN.md",
+    "lines": 666,
+    "bytes": 16651
+  },
+  {
+    "path": "LICENSE",
+    "lines": 7,
+    "bytes": 302
+  },
+  {
+    "path": "PROTOCOL.md",
+    "lines": 520,
+    "bytes": 11490
+  },
+  {
+    "path": "README.de.md",
+    "lines": 240,
+    "bytes": 13120
+  },
+  {
+    "path": "README.md",
+    "lines": 240,
+    "bytes": 11527
+  },
+  {
+    "path": "SECURITY.md",
+    "lines": 112,
+    "bytes": 3422
+  },
+  {
+    "path": "THREAT_MODEL.md",
+    "lines": 400,
+    "bytes": 12630
+  },
+  {
+    "path": "apps/admin/README.md",
+    "lines": 53,
+    "bytes": 1223
+  },
+  {
+    "path": "apps/dashboard/README.md",
+    "lines": 51,
+    "bytes": 1185
+  },
+  {
+    "path": "apps/desktop/README.md",
+    "lines": 56,
+    "bytes": 1360
+  },
+  {
+    "path": "apps/node/README.md",
+    "lines": 66,
+    "bytes": 1791
+  },
+  {
+    "path": "deploy/README.md",
+    "lines": 52,
+    "bytes": 1166
+  },
+  {
+    "path": "docs/BENCHMARK_SPEC.md",
+    "lines": 229,
+    "bytes": 4171
+  },
+  {
+    "path": "docs/DATA_MODEL.md",
+    "lines": 224,
+    "bytes": 4164
+  },
+  {
+    "path": "docs/DOCUMENTATION_REVIEW.md",
+    "lines": 123,
+    "bytes": 3422
+  },
+  {
+    "path": "docs/FAILURE_SEMANTICS.md",
+    "lines": 197,
+    "bytes": 4471
+  },
+  {
+    "path": "docs/PRIVACY_TIERS.md",
+    "lines": 112,
+    "bytes": 2678
+  },
+  {
+    "path": "docs/TEST_MATRIX.md",
+    "lines": 103,
+    "bytes": 2299
+  },
+  {
+    "path": "docs/adr/0000-adr-template.md",
+    "lines": 122,
+    "bytes": 1585
+  },
+  {
+    "path": "docs/adr/0001-bootstrap-from-blueprint.md",
+    "lines": 70,
+    "bytes": 2047
+  },
+  {
+    "path": "docs/adr/0002-m1-runtime-baseline.md",
+    "lines": 70,
+    "bytes": 2024
+  },
+  {
+    "path": "docs/adr/0003-m1-transport-evaluation.md",
+    "lines": 49,
+    "bytes": 1189
+  },
+  {
+    "path": "docs/adr/0004-model-artifact-identity.md",
+    "lines": 38,
+    "bytes": 971
+  },
+  {
+    "path": "docs/adr/0005-node-identity.md",
+    "lines": 36,
+    "bytes": 920
+  },
+  {
+    "path": "docs/adr/0006-telemetry-envelope.md",
+    "lines": 28,
+    "bytes": 756
+  },
+  {
+    "path": "docs/adr/0007-ledger-units.md",
+    "lines": 28,
+    "bytes": 973
+  },
+  {
+    "path": "models/README.md",
+    "lines": 45,
+    "bytes": 1099
+  },
+  {
+    "path": "protocol/README.md",
+    "lines": 48,
+    "bytes": 1132
+  },
+  {
+    "path": "research/README.md",
+    "lines": 48,
+    "bytes": 1121
+  },
+  {
+    "path": "research/TECHNOLOGY_BASELINE.md",
+    "lines": 100,
+    "bytes": 2637
+  },
+  {
+    "path": "runtime/cuda/README.md",
+    "lines": 47,
+    "bytes": 1190
+  },
+  {
+    "path": "runtime/llama/README.md",
+    "lines": 50,
+    "bytes": 1232
+  },
+  {
+    "path": "runtime/network/README.md",
+    "lines": 53,
+    "bytes": 1149
+  },
+  {
+    "path": "runtime/vllm/README.md",
+    "lines": 47,
+    "bytes": 1165
+  },
+  {
+    "path": "sdk/README.md",
+    "lines": 46,
+    "bytes": 964
+  },
+  {
+    "path": "services/billing/README.md",
+    "lines": 55,
+    "bytes": 1261
+  },
+  {
+    "path": "services/gateway/README.md",
+    "lines": 57,
+    "bytes": 1210
+  },
+  {
+    "path": "services/registry/README.md",
+    "lines": 55,
+    "bytes": 1234
+  },
+  {
+    "path": "services/scheduler/README.md",
+    "lines": 58,
+    "bytes": 1396
+  },
+  {
+    "path": "services/telemetry/README.md",
+    "lines": 55,
+    "bytes": 1218
+  },
+  {
+    "path": "services/verification/README.md",
+    "lines": 55,
+    "bytes": 1231
+  },
+  {
+    "path": "state.md",
+    "lines": 159,
+    "bytes": 4995
+  },
+  {
+    "path": "tests/README.md",
+    "lines": 47,
+    "bytes": 1083
+  }
+]

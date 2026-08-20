@@ -16,13 +16,47 @@ dist/
 build/
 .next/
 
-# OS and editors
+# C/C++ / CMake
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+
+# Go
+bin/
+coverage.out
+
+# Test / benchmark artifacts
+artifacts/
+benchmarks/raw/
+coverage/
+*.prof
+*.trace
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# JetBrains
+.idea/
+
+# OS
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
 
 # Secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Never commit local signing material
+signing/
+secrets/

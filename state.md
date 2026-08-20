@@ -1,251 +1,159 @@
 # ComputeMesh State
 
-Last updated: 2026-08-20
+**Last updated:** 2026-08-20  
+**Phase:** M0 — documentation/architecture bootstrap  
+**Production code:** none  
+**Public release:** none
 
-## Current Status
+This file is a handoff document. It records **facts and current decisions**, not product marketing.
 
-The workspace has been bootstrapped from `ComputeMesh_Blueprint_v1.0.pdf`. Before this work, the project directory contained only the PDF and was not a Git repository. `README.md` and `state.md` did not exist.
+## Repository
 
-The repository now contains planning and architecture documentation plus the initial blueprint-aligned directory structure. No production code has been implemented yet.
+Repository:
 
-## Source Material
+- `inetconnector/ComputeMesh`
+- default branch: `main`
+- visibility: public at current inspection; repository was private at initial bootstrap
+- bootstrap commit: `6e8d9fe` — `docs: bootstrap ComputeMesh implementation plan`
+- follow-up commit: `f214457` — `docs: record repository push state`
 
-Primary source:
+## What exists
 
-- `ComputeMesh_Blueprint_v1.0.pdf`
+- project README;
+- implementation plan;
+- architecture;
+- protocol outline/specification;
+- threat model;
+- security policy;
+- contribution guide;
+- ADR template/bootstrap ADR;
+- directory skeleton.
 
-PDF inspection performed:
+## What does not exist
 
-- extracted 23 pages of text to `tmp/pdfs/ComputeMesh_Blueprint_v1.0_extracted.txt`
-- rendered pages to PNGs under `tmp/pdfs/`
-- visually inspected representative pages 1, 13, and 22
-- Poppler metadata reported 23 pages, letter page size, unencrypted PDF, no forms, PDF 1.7
+No implementation exists yet for:
 
-`tmp/` is ignored by Git and should remain an intermediate workspace only.
+- node agent;
+- runtime worker;
+- gateway;
+- orchestrator;
+- scheduler;
+- registry;
+- verification;
+- billing/ledger;
+- telemetry;
+- SDK;
+- UI;
+- deployment;
+- tests.
 
-## Branch and Git Situation
+Any wording implying these are operational is incorrect.
 
-Local Git repository initialized on branch `main`.
+## Fixed V1 constraints
 
-Remote:
+Until superseded by an ADR:
 
-- `origin`: `https://github.com/inetconnector/ComputeMesh.git`
-- GitHub repository: `inetconnector/ComputeMesh`
-- Visibility: private at creation time
+- no arbitrary customer code on provider nodes;
+- Windows-first provider UX;
+- approved inference workloads only;
+- model/runtime-aware scheduling;
+- hard policy/compatibility constraints before optimization;
+- fiat-denominated accounting first;
+- public compute does not imply confidential execution;
+- content-addressed verified model artifacts;
+- duplicate/retry-safe business effects;
+- performance claims require reproducible evidence.
 
-The bootstrap repository has been committed and pushed to `origin/main`.
+## Important architecture clarifications
 
-Initial bootstrap commit:
+1. The normal dense pipeline data path should transfer stage activations/results; KV cache normally remains with the layers that own it.
+2. KV transfer is primarily a migration/recovery/rebalance concern.
+3. Prefill and decode need separate performance models.
+4. Tensor parallelism is expected to need tightly coupled links; do not plan generic WAN tensor parallelism.
+5. The scheduler should use constraint filtering plus predicted multi-objective plan evaluation, not a single permanent score formula.
+6. Capacity reservation/lease semantics are required before dispatch.
+7. “Confidential compute” must remain disabled as a guarantee until a real attestation/TEE design exists.
 
-- `6e8d9fe` - `docs: bootstrap ComputeMesh implementation plan`
+## External technology observations checked 2026-08-20
 
-## Files Created
+- vLLM documents distributed tensor and pipeline parallel serving, with multi-node configurations aimed at coordinated cluster environments.
+- llama.cpp has an RPC backend useful for research, but its upstream documentation still warns that it is proof-of-concept/fragile/insecure for open networks.
+- These upstream systems are reference implementations, not the ComputeMesh security boundary.
 
-Root documents:
+## M0 ADR backlog
 
-- `README.md`
-- `IMPLEMENTATION_PLAN.md`
-- `ARCHITECTURE.md`
-- `PROTOCOL.md`
-- `THREAT_MODEL.md`
-- `SECURITY.md`
-- `CONTRIBUTING.md`
-- `LICENSE`
-- `.gitignore`
-- `state.md`
+Required decisions:
 
-ADR documents:
+- M1 runtime baseline;
+- serialization format;
+- control transport;
+- M1 data-plane transport;
+- node identity/key lifecycle;
+- model/shard manifest format;
+- artifact signature/canonicalization;
+- reservation semantics;
+- telemetry envelope;
+- ledger units/precision;
+- privacy-tier enforcement.
 
-- `docs/adr/0000-adr-template.md`
-- `docs/adr/0001-bootstrap-from-blueprint.md`
+## Required new engineering artifacts
 
-Directory READMEs:
+Before M1:
 
-- `apps/node/README.md`
-- `apps/desktop/README.md`
-- `apps/dashboard/README.md`
-- `apps/admin/README.md`
-- `services/gateway/README.md`
-- `services/scheduler/README.md`
-- `services/registry/README.md`
-- `services/billing/README.md`
-- `services/verification/README.md`
-- `services/telemetry/README.md`
-- `runtime/cuda/README.md`
-- `runtime/llama/README.md`
-- `runtime/vllm/README.md`
-- `runtime/network/README.md`
-- `protocol/README.md`
-- `sdk/README.md`
-- `models/README.md`
-- `tests/README.md`
-- `deploy/README.md`
-- `research/README.md`
+- node profile schema;
+- benchmark result schema;
+- model manifest schema;
+- shard manifest schema;
+- job/reservation schema;
+- protocol message schemas;
+- two-node lab inventory;
+- reproducible benchmark harness;
+- threat-model-to-test mapping.
 
-## Architecture and Data Flow
+## Primary blockers
 
-ComputeMesh is planned as a distributed AI execution layer with strict separation of control plane and data plane.
+1. No runtime selected.
+2. No benchmark harness exists.
+3. No machine-readable schemas exist.
+4. No node identity design exists.
+5. No reservation/job state implementation exists.
+6. WAN viability remains unmeasured.
+7. Verification economics remain unmeasured.
+8. No release/update security implementation exists.
 
-Control plane:
+## Next actions in order
 
-- gateway
-- scheduler
-- registry
-- billing
-- verification
-- telemetry
-- identity and node enrollment
-- topology and reputation
+1. Review/accept documentation v0.2.
+2. Select M1 runtime candidate via ADR.
+3. Define node profile and benchmark schemas.
+4. Define model/shard manifests.
+5. Define reservation/job state semantics.
+6. Prepare two-node lab.
+7. Implement local runtime baseline.
+8. Implement authenticated node session skeleton.
+9. Implement reservation skeleton.
+10. Run first two-node transport microbenchmark.
+11. Produce first shared-inference experiment.
+12. Compare predicted versus observed timings.
 
-Data plane:
+## State-update rule
 
-- shard transfer
-- activation and KV-cache transport
-- inference worker execution
-- result streaming
-- failover route updates
-- verification traces
+Update this file after a meaningful change in:
 
-The scheduler uses hardware profiles, model manifests, topology data, network metrics, reliability, privacy tier, price, and failure risk to place model shards or experts.
+- accepted ADR;
+- implemented component;
+- milestone/gate status;
+- measured result;
+- blocker;
+- repository/release state.
 
-## Important Design Constraints
+Do not copy the full architecture or roadmap here. Link to canonical documents instead.
 
-- V1 must not run arbitrary customer code on provider machines.
-- V1 starts with fiat billing and an internal ledger, not a token.
-- Windows is the first target platform for the provider node.
-- Communication cost is a first-class scheduling resource.
-- Dense WAN pipeline inference is unproven and must be measured early.
-- MoE and expert routing are strategic fallback and long-term differentiation paths.
-- Every meaningful architecture decision should be recorded as an ADR.
-- `README.md` and `state.md` must stay current after meaningful project changes.
+## Bilingual README rule
 
-## Planned Technology Direction
+Root README documentation is permanently maintained in two synchronized files:
 
-- Go for control plane, scheduler, node daemon, networking, registry, and billing
-- C++/CUDA for performance-critical runtime work
-- Python for ML systems research, benchmarks, and experiments
-- TypeScript/React for desktop and web UI
-- PostgreSQL for durable business, topology, ledger, and audit data
-- QUIC and gRPC as data-plane candidates to compare
+- `README.md` — English;
+- `README.de.md` — German.
 
-These are provisional until confirmed by ADRs.
-
-## Data Contracts
-
-Planned core entities:
-
-- users
-- nodes
-- hardware
-- benchmarks
-- models
-- model_shards
-- jobs
-- job_segments
-- payments
-- ledger
-- reputation
-- verification
-- sessions
-- clusters
-- network_metrics
-
-Planned node states:
-
-- OFFLINE
-- CONNECTING
-- AUTHENTICATING
-- BENCHMARKING
-- READY
-- ASSIGNED
-- LOADING
-- SERVING
-- DRAINING
-- FAILED
-- QUARANTINED
-- BANNED
-
-Planned job states:
-
-- CREATED
-- PLANNING
-- RESERVING
-- DISPATCHING
-- RUNNING
-- VERIFYING
-- COMPLETED
-- SETTLED
-- RETRY
-- REPLAN
-- FAILED
-- REFUNDED
-
-All state transitions must be idempotent, logged, and recoverable.
-
-## Implemented Behavior
-
-Implemented:
-
-- repository documentation
-- implementation plan
-- architecture outline
-- protocol outline
-- threat model
-- security policy
-- contribution guide
-- ADR template and bootstrap ADR
-- initial directory structure
-
-Not implemented:
-
-- node daemon
-- gateway
-- scheduler
-- registry
-- billing ledger
-- verification service
-- telemetry service
-- runtime integration
-- desktop app
-- API
-- tests
-- deployment
-
-## Verification Commands and Results
-
-Commands actually run:
-
-- `pdfinfo` through bundled Poppler: succeeded with 23 pages, unencrypted, no forms
-- `pdftoppm` through bundled Poppler: succeeded and rendered page PNGs under `tmp/pdfs/`
-- Python `pypdf` extraction: succeeded and produced 34,486 characters across 23 pages
-- visual inspection with `view_image`: checked representative rendered pages 1, 13, and 22
-
-No code tests exist yet.
-
-## Known Issues and Risks
-
-- Technical feasibility remains unproven.
-- WAN latency may force a pivot away from dense interactive pipeline inference.
-- Unit economics cannot be validated until real measurements exist.
-- Provider security requires strong signed-worker and update design before alpha.
-- Legal review is needed for IP, patentability, trademark, privacy, payment, and terms.
-- The license is intentionally pending; public reuse rights are not granted yet.
-
-## Release and Deployment State
-
-No release exists.
-
-No deployment exists.
-
-No public alpha exists.
-
-## Concrete Next Steps
-
-1. Add M0 ADRs for runtime, transport, model manifest, node identity, and telemetry envelope.
-2. Define exact benchmark harness schema.
-3. Select first two-node lab hardware.
-4. Choose first model target and runtime integration path.
-5. Prototype node profile schema.
-6. Define Gate 1 measurements.
-7. Begin QUIC/gRPC transport experiment.
-8. Keep `state.md` updated after each meaningful change.
+Both include a language selector at the top. Any public-facing change to project status, product boundaries, architecture overview, setup, roadmap, security warnings, or other README-level information must update both files in the same change. Treat README drift as a documentation defect.
