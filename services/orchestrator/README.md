@@ -1,6 +1,6 @@
 # Job Orchestrator
 
-**Status:** M0 state-machine skeleton implemented; no network service or persistence yet.
+**Status:** M0 transactional state/persistence reference implemented; no network service or production database yet.
 
 ## Purpose
 
@@ -8,18 +8,25 @@ Own the canonical job lifecycle and coordinate reservation, dispatch, cancellati
 
 ## Current implementation
 
-`state_machine.py` implements an in-memory reference state machine for:
+The M0 reference now has three layers:
 
-- reservation lifecycle;
-- job lifecycle;
+- `state_machine.py` — deterministic job/reservation transition semantics;
+- `persistence.py` — transactional SQLite reference storage with durable idempotency and optimistic revisions;
+- `contracts.py` — JSON Schema Draft 2020-12 validation and admission of initial Job/Reservation documents.
+
+### Durable semantics already covered
+
+- reservation and job lifecycle;
 - monotonic revisions;
-- stale-writer rejection;
-- idempotent state-changing requests;
+- stale-writer rejection across independent database connections;
+- durable idempotency across process restart;
 - conflicting idempotency-key detection;
-- reservation lease expiry;
-- cancellation/failure terminal transitions.
+- reservation lease persistence and expiry;
+- cancellation/failure terminal transitions;
+- atomic rollback when validation/transition fails;
+- initial Job/Reservation schema validation before durable admission.
 
-This is a semantic reference implementation for M0. It is deliberately not yet a production service and does not claim durable exactly-once delivery.
+SQLite is deliberately a **reference persistence adapter**, not the final control-plane database decision. The production architecture still targets a transactional durable database such as PostgreSQL. The behavior being stabilized here is the contract: atomic state mutation, revision checks, durable deduplication, and restart recovery.
 
 ## Reservation lifecycle
 
@@ -47,23 +54,27 @@ Alternative terminal outcomes:
 
 Retries and replans are not represented as job states. They become new attempts and placement revisions in the durable model.
 
-## Test
+## Setup and test
+
+The state machine and SQLite adapter use the Python standard library. Contract validation uses `jsonschema`:
 
 ```powershell
+python -m pip install -r services/orchestrator/requirements.txt
 python -m unittest discover -s services/orchestrator/tests -v
 ```
 
-The tests cover:
+Current local verification before publication:
 
-- normal reservation lifecycle;
-- duplicate request idempotency;
-- conflicting idempotency keys;
-- expiry/commit race behavior;
-- normal job lifecycle;
-- cancellation idempotency;
-- stale revisions;
-- invalid transitions.
+- 8 state-machine tests;
+- 8 persistence/restart/concurrency tests;
+- 5 contract/admission tests;
+- **21/21 total passing**;
+- all orchestrator Python modules pass `py_compile`.
+
+## Security/reliability boundary
+
+The admission layer rejects unknown schema fields and invalid privacy/state values before durable creation. This is not yet authentication or authorization: protocol identity, signed node sessions, and service-level authorization remain future work.
 
 ## Next step
 
-Replace the in-memory idempotency/revision store with a transactional persistence adapter, then bind the state machine to the machine-readable job/reservation schemas and protocol handlers.
+Bind these semantics to concrete protocol handlers and implement the authenticated node-session skeleton after the node-identity ADR is sufficiently specified. In parallel, run the inventory harness on two real lab machines and start the runtime/transport measurements required by M1.
