@@ -50,13 +50,32 @@ The helper refuses public IPs, hostnames, IPv6 and wildcard binds. It deliberate
 
 ## 2. Discover coordinator-visible devices
 
+Direct connection:
+
 ```bash
 python -m runtime.llama.rpc_spike discover \
   --llama-server /path/to/llama-server \
   --rpc 192.168.1.20:50052
 ```
 
-This runs current llama.cpp `--list-devices` with the RPC backend attached. Use the exact reported device names for the measured run; the harness does not guess backend ordering.
+For instrumented experiments, start `runtime.network.tcp_relay` locally and use its loopback endpoint instead:
+
+```bash
+python -m runtime.network.tcp_relay \
+  --target 192.168.1.20:50052 \
+  --listen-port 50053 \
+  --metrics artifacts/m1/relay/discover.json
+```
+
+Then:
+
+```bash
+python -m runtime.llama.rpc_spike discover \
+  --llama-server /path/to/llama-server \
+  --rpc 127.0.0.1:50053
+```
+
+The discovery step reports the exact local/RPC device names from the current llama.cpp build. The relay is one-shot, so start a fresh relay for the measured shared run.
 
 ## 3. Create a local correctness/performance baseline
 
@@ -84,7 +103,9 @@ python -m runtime.llama.rpc_spike run \
   --output-dir artifacts/m1/shared-rpc
 ```
 
-The coordinator process is local-only at `127.0.0.1`; only the upstream RPC connection reaches the private worker.
+For byte/timing/fault instrumentation, instead start a fresh relay and use `127.0.0.1:50053` in both the `--rpc` value and the exact RPC device name returned by discovery for that relayed topology.
+
+The coordinator HTTP process remains local-only at `127.0.0.1`; only the upstream RPC connection traverses the trusted private network.
 
 ## 5. Compare baseline and shared result
 
@@ -98,6 +119,22 @@ python -m runtime.llama.rpc_spike compare \
 Comparison requires the exact same model SHA-256 and prompt SHA-256. When both responses expose token IDs, correctness is compared by token-ID digest; otherwise it falls back to output-text digest. A mismatch returns a non-zero exit status.
 
 The comparison also reports shared/baseline ratios for prefill tokens/s, decode tokens/s, and end-to-end request time. A successful match is evidence for that exact binary/model/topology only — not a general llama.cpp or ComputeMesh correctness claim.
+
+## Network instrumentation
+
+`runtime/network/tcp_relay.py` is a separate lab instrument, not part of the llama runtime protocol. It can:
+
+- count opaque TCP-stream bytes in both directions;
+- separate setup/wait time from active connected relay time;
+- add deterministic userspace one-way delay and chunk jitter;
+- force a disconnect after active time or total forwarded bytes;
+- persist content-free failure/termination evidence.
+
+It does not parse RPC frames, so byte counts include all RPC framing/control/data traffic and are **not** activation-tensor byte counts.
+
+It also does not emulate packet loss. Dropping arbitrary bytes from a reliable TCP stream would corrupt the protocol rather than model IP loss/retransmission. Packet-level loss/reordering remains a later OS/network-emulation experiment.
+
+See [../network/README.md](../network/README.md).
 
 ## Evidence records
 
@@ -121,18 +158,21 @@ The result schema is `spike_result.schema.json`.
 
 ```bash
 python -m unittest discover -s runtime/llama/tests -v
+python -m unittest discover -s runtime/network/tests -v
 ```
 
-The initial harness adds 12 unit/schema/negative tests covering private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison and result schema constraints.
+The llama harness has 12 unit/schema/negative tests covering private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison and result schema constraints.
+
+The network relay has its own real-loopback forwarding/fault/timing/schema tests and is also included in the user-facing **all tests** path.
 
 ## Important limitations
 
 This code does **not** yet prove M1. In particular:
 
 - no real private-LAN shared run has been recorded yet;
-- no activation-byte accounting exists yet;
-- no controlled latency/jitter/loss injection exists yet;
-- no cancellation/disconnect experiment is recorded yet;
+- opaque RPC byte accounting now exists, but activation tensors are not identified separately;
+- controlled TCP-stream delay/jitter injection exists, but no packet-level loss/reordering result exists;
+- controlled relay disconnect injection exists, but no real llama.cpp disconnect experiment has been recorded yet;
 - no ComputeMesh scheduler chooses the split yet;
 - no artifact preparation/verification wire path drives the runtime yet;
 - upstream RPC provides no ComputeMesh authentication/security boundary.
