@@ -17,7 +17,12 @@
       "required": ["warm_state"],
       "properties": {
         "warm_state": {"enum": ["cold", "warm", "not_applicable"]},
-        "notes": {"type": "string", "maxLength": 4096}
+        "notes": {"type": "string", "maxLength": 4096},
+        "local_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_identity_binding": {
+          "enum": ["unauthenticated_server_report_v1", "caller_asserted_v1"]
+        }
       }
     },
     "metrics": {
