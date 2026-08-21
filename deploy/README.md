@@ -1,52 +1,35 @@
 # Deployment and Release
 
-**Status:** planned component
+**Status:** production deployment/release tooling is planned. A local Windows M0 Lab Setup now exists, but it is **not** a production installer.
 
-## Purpose
+## Current lab setup
 
-Infrastructure, environment definitions, release packaging, signing, rollout, rollback, and operational runbooks.
+For current Windows experiments, users can double-click repository-root `SETUP.cmd`. It prepares only local development/lab prerequisites and benchmark workflows:
 
-## Responsibilities
+- user-scoped Python when needed;
+- repository-local `.venv`;
+- local ignored `artifacts/lab/` state/results;
+- temporary private-LAN firewall rule for the one-shot network benchmark;
+- optional official upstream llama.cpp benchmark binaries.
 
-- control-plane deployment
-- provider installer packaging
-- release manifests
-- signing integration
-- SBOM/provenance
-- rollback
-- environment config
+It does not install a Windows service, register a public provider, configure production credentials, enable automatic updates, or expose runtime endpoints publicly.
+
+## Production release responsibilities still planned
+
+- control-plane deployment;
+- provider installer packaging;
+- release manifests and signing;
+- SBOM/provenance;
+- staged rollout/rollback;
+- environment configuration;
+- credential/revocation integration;
+- reproducible release validation.
 
 ## Non-goals
 
-- committing secrets
-- unsigned public releases
-- irreversible auto-update
+- committed secrets;
+- unsigned public releases;
+- irreversible auto-update;
+- treating the M0 Lab Setup as a security-reviewed production distribution.
 
-## Canonical interfaces
-
-- Security policy
-- CI/CD
-- node updater
-
-## M1 scope
-
-- local/dev deployment only; define release architecture before alpha
-
-## Required tests / evidence
-
-- reproducibility
-- rollback
-- revocation
-- config validation
-
-## Security and reliability rules
-
-- Treat external inputs as untrusted.
-- Use bounded messages/resources.
-- Preserve idempotency for state changes.
-- Emit structured errors and metrics without raw prompt/output content.
-- Do not widen the V1 arbitrary-code boundary without an accepted ADR.
-
-## Implementation status
-
-No production implementation exists yet. Update this file when the component acquires real entry points, configuration, dependencies, and run/test commands.
+The release architecture must be defined and tested before any public alpha/provider installer is described as production-capable.

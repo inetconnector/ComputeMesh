@@ -1,47 +1,34 @@
 # ComputeMesh Tests
 
-**Status:** planned component
+Component unit tests live beside their code; this directory remains reserved for future cross-component/distributed/chaos tests.
 
-## Purpose
+## Simplest Windows path
 
-Cross-component test harnesses and reproducible distributed/chaos scenarios.
+Double-click:
 
-## Responsibilities
+```text
+setup\TESTS.cmd
+```
 
-- integration fixtures
-- distributed lab tests
-- chaos tests
-- performance harness integration
-- billing/security scenarios
+It prepares the local `.venv`, installs `requirements-dev.txt`, and runs the current benchmark, orchestrator, protocol, and setup test suites.
 
-## Non-goals
+Manual equivalent:
 
-- hiding component unit tests that belong near code
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tools/benchmark/tests -v
+python -m unittest discover -s services/orchestrator/tests -v
+python -m unittest discover -s protocol/tests -v
+python -m unittest discover -s setup/tests -v
+```
 
-## Canonical interfaces
+## Future system-test scope
 
-- `docs/TEST_MATRIX.md`
-- `docs/BENCHMARK_SPEC.md`
+- two-node end-to-end inference;
+- duplicate command/replay;
+- node loss/reconnect;
+- artifact corruption;
+- activation transport under latency/jitter/loss;
+- billing/security invariants.
 
-## M1 scope
-
-- two-node end-to-end test
-- duplicate command
-- node loss
-- artifact corruption
-
-## Required tests / evidence
-
-- this directory is itself the system-test layer
-
-## Security and reliability rules
-
-- Treat external inputs as untrusted.
-- Use bounded messages/resources.
-- Preserve idempotency for state changes.
-- Emit structured errors and metrics without raw prompt/output content.
-- Do not widen the V1 arbitrary-code boundary without an accepted ADR.
-
-## Implementation status
-
-No production implementation exists yet. Update this file when the component acquires real entry points, configuration, dependencies, and run/test commands.
+No production system-test harness exists yet; the one-click test launcher only orchestrates the implemented local suites.

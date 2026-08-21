@@ -1,46 +1,48 @@
 # M0 benchmark harness
 
-The benchmark directory contains three executable M0 tools:
+The benchmark directory contains the underlying engineering tools used by the Windows Lab Setup.
+
+## Normal Windows users: use the setup
+
+From the repository root, **double-click `SETUP.cmd`**. It handles Python, `.venv`, node IDs/profile revisions, result folders, safe LAN guidance, file selection, and short summaries.
+
+See `setup/README.md` / `setup/README.de.md` for the two-computer walkthrough.
+
+The direct Python commands below remain available for engineering, automation, and debugging.
+
+## Tools
 
 - `benchmark.py` — reproducible node inventory capture;
 - `network_benchmark.py` — application-level TCP path measurement for controlled lab/LAN experiments;
-- `llama_bench_adapter.py` — run or import current llama.cpp `llama-bench` JSON/JSONL and convert prompt-processing/decode measurements into ComputeMesh benchmark records.
+- `llama_bench_adapter.py` — run/import llama.cpp `llama-bench` JSON/JSONL and convert prompt-processing/decode measurements into ComputeMesh benchmark records.
 
 ## Inventory capture
 
 ```powershell
-python tools/benchmark/benchmark.py --dry-run
 python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
 ```
 
-The inventory collector records OS/release/architecture, Python version, CPU/logical cores, physical memory, NVIDIA GPU name/VRAM/driver when `nvidia-smi` is available, and collection time. It deliberately excludes hostnames, GPU UUIDs, prompts, outputs, and unnecessary identifiers.
+Records OS/architecture, Python, CPU/logical cores, physical memory, NVIDIA GPU name/VRAM/driver when available, and collection time. Hostnames, GPU UUIDs, prompts, outputs, and unnecessary identifiers are excluded.
 
 ## TCP network microbenchmark
 
-The server defaults to loopback and has **no authentication or encryption**. Do not expose it to the public internet. For a two-machine lab, bind it only on a trusted LAN interface and restrict the port with the host firewall.
-
-On node B:
+Manual server on a trusted LAN:
 
 ```powershell
-python tools/benchmark/network_benchmark.py server --bind 0.0.0.0 --port 43191 --once
+python tools/benchmark/network_benchmark.py server --bind <PRIVATE-LAN-IP> --port 43191 --once
 ```
 
-On node A:
+Manual client:
 
 ```powershell
-python tools/benchmark/network_benchmark.py client --host <NODE-B-LAN-IP> --port 43191 --profile-revision 1
+python tools/benchmark/network_benchmark.py client --host <SERVER-LAN-IP> --port 43191 --profile-revision 1
 ```
 
 The client measures TCP connection setup, small-frame RTT p50/p95, upload/download throughput p50, and raw samples. Results conform to `benchmark_result.schema.json`.
 
+**Security:** this benchmark protocol has no authentication or encryption. Do not expose it to the public internet. The Windows Setup adds a temporary `Private`/`LocalSubnet` firewall rule and binds to a specific private address; manual runs must provide equivalent protection themselves.
+
 ## llama.cpp prefill/decode adapter
-
-The adapter uses `llama-bench` prompt-processing (`-p`) and generation (`-n`) rows separately. It accepts JSON arrays/objects and JSONL. From these rows it emits two ComputeMesh results:
-
-- `llama_cpp_prefill` — prompt tokens, average prefill elapsed time, average/stddev tokens/s;
-- `llama_cpp_decode` — generated tokens, average decode elapsed time, average/stddev tokens/s, and average inter-token milliseconds.
-
-Run a real local benchmark:
 
 ```powershell
 python tools/benchmark/llama_bench_adapter.py `
@@ -49,7 +51,7 @@ python tools/benchmark/llama_bench_adapter.py `
   --profile-revision 1
 ```
 
-Or convert a previously captured upstream JSON/JSONL file without running the model again:
+Or convert existing upstream JSON/JSONL:
 
 ```powershell
 python tools/benchmark/llama_bench_adapter.py `
@@ -57,36 +59,28 @@ python tools/benchmark/llama_bench_adapter.py `
   --profile-revision 1
 ```
 
-Defaults are 512 prompt tokens, 128 generated tokens, and five repetitions. Extra upstream flags can be forwarded with repeated `--extra-arg` options.
+The adapter emits:
 
-Privacy rule: the converted ComputeMesh metrics keep the model **file name**, but not its complete local filesystem path. Raw prompt/output text is not part of `llama-bench` records produced by this adapter.
+- `llama_cpp_prefill` — prompt tokens, average prefill elapsed time, average/stddev tokens/s;
+- `llama_cpp_decode` — generated tokens, average decode elapsed time, average/stddev tokens/s, and average inter-token milliseconds.
 
-`llama-bench` timing does not include the sampling step, so the prefill elapsed value is a benchmark proxy for preparing first-token logits rather than a full application-level TTFT measurement. Application/server TTFT must be measured separately later.
+The converted metrics keep the model file name but not its full local filesystem path. `llama-bench` timing excludes sampling, so the prefill value is a benchmark proxy rather than full application TTFT.
 
-## Test
+## Tests
+
+Normal Windows path: double-click `setup/TESTS.cmd`.
+
+Manual path:
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tools/benchmark/tests -v
 ```
 
-Verified before publication of the current M0 blocks:
+Current benchmark unit evidence remains:
 
-- inventory collector tests: 3/3 passing;
-- TCP network benchmark tests: 4/4 passing, including loopback and result-schema validation;
-- llama-bench adapter tests: 6/6 passing, including JSON/JSONL parsing, prefill/decode conversion, inter-token calculation, and result-schema validation.
+- inventory: 3/3;
+- TCP benchmark: 4/4, including loopback + result-schema validation;
+- llama-bench adapter: 6/6, including JSON/JSONL conversion + result-schema validation.
 
-No real cross-node or real-model performance result is committed as evidence yet.
-
-## Next benchmark families
-
-1. run inventory/network/llama-bench measurements on the real two-node lab;
-2. application-level TTFT and streamed inter-token latency;
-3. host/device memory bandwidth;
-4. representative GEMM/quantized matmul where the runtime does not already expose sufficient evidence;
-5. activation-payload transfer sizes representative of stage boundaries;
-6. controlled latency/jitter/loss experiments;
-7. artifact preparation/load;
-8. failure/reconnect injection.
-
-The benchmark executables use only the Python standard library. JSON-Schema validation in tests/admission uses the project development dependency.
+Real cross-node and target-model/GPU evidence is still pending.
