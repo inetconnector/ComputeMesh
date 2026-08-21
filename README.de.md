@@ -33,11 +33,12 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - Protokollversionsaushandlung, Bindung des authentifizierten Actors, optimistische Session-Revisionen, Replay-/Konfliktbehandlung und Capability-/Profile-/Benchmark-Readiness-Gates;
 - den M1-Referenzpfad `computemesh-ed25519-v1` mit kurzlebigen Challenge-Proofs;
 - ein SQLite-Referenzregister für Identity mit gehashten Enrollment-Tokens, stabilen schlüsselunabhängigen Node-IDs, Rotation und monotoner Key-/Node-Revocation;
-- einen kontrollierten llama.cpp-RPC-**Research-Harness** für das erste M1-Shared-Runtime-Experiment.
+- einen kontrollierten llama.cpp-RPC-**Research-Harness** für das erste M1-Shared-Runtime-Experiment;
+- ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Verbindungsabbrüche.
 
 ## Kontrolliertes llama.cpp-M1-Experiment
 
-`runtime/llama/rpc_spike.py` ist jetzt der erste ausführbare Experiment-Controller für eine gemeinsame Runtime. Er macht Upstream-llama.cpp-RPC ausdrücklich **nicht** zum ComputeMesh-Protokoll.
+`runtime/llama/rpc_spike.py` ist der erste ausführbare Experiment-Controller für eine gemeinsame Runtime. Er macht Upstream-llama.cpp-RPC ausdrücklich **nicht** zum ComputeMesh-Protokoll.
 
 Der Harness kann:
 
@@ -52,6 +53,21 @@ Für das erste Experiment wird der Coordinator-HTTP-Server zwingend an `127.0.0.
 
 **ADR 0002 bleibt Proposed.** Der Harness ist die Infrastruktur für den Nachweis; ein echter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht erbracht.
 
+## Runtime-Netzwerkmess-Relay
+
+`runtime/network/tcp_relay.py` kann lokal zwischen llama-Coordinator und einem RPC-Worker im vertrauenswürdigen privaten LAN sitzen. Es:
+
+- lauscht ausschließlich auf `127.0.0.1`;
+- verbindet ausschließlich zu literalem Loopback/RFC1918-IPv4;
+- verwendet begrenzte Queues/Backpressure;
+- zählt opake TCP-Stream-Bytes getrennt in beide Richtungen;
+- trennt Setup-/Wartezeit von der aktiv verbundenen Relay-Zeit;
+- kann reproduzierbare Userspace-One-Way-Latenz und Chunk-Jitter hinzufügen;
+- kann nach aktiver Zeit oder übertragenen Bytes gezielt trennen;
+- persistiert inhaltsfreie Terminierungs-/Fehlermetriken.
+
+Das Relay parst keine RPC-Frames. Seine Byte-Summen enthalten deshalb Framing, Control und Daten und sind **keine** Activation-Tensor-Bytezahlen. Paketverlust wird ebenfalls nicht simuliert: beliebige Bytes aus einem TCP-Stream zu entfernen würde das Protokoll beschädigen, nicht IP-Verlust und Retransmission modellieren. Paket-Level-Loss/Reordering bleibt ein separates OS-/Netzwerkemulations-Experiment. Details: [runtime/network/README.md](runtime/network/README.md).
+
 ## Verifizierte echte Zielsysteme
 
 Bereits vorhandene physische Evidenz vom 21.08.2026:
@@ -62,7 +78,7 @@ Bereits vorhandene physische Evidenz vom 21.08.2026:
 - Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
 - Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz.
+Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Für das neue RPC-Mess-Relay gibt es plattformübergreifende Softwaretests, aber noch kein echtes Zwei-Rechner-Relay-Ergebnis.
 
 ## Identity-Entscheidung und Sicherheitsgrenze
 
@@ -70,13 +86,13 @@ ADR 0005 ist **nur für die enge M1-Referenzimplementierung** akzeptiert: stabil
 
 Das macht das Identity-System nicht produktionsreif. Vor öffentlicher Netzwerkexposition fehlen unter anderem Provider-/User-Authentifizierung um Identity-APIs, OS-geschützte private Node-Key-Speicherung, Revocation-Fan-out an aktive Sessions, authentifizierter/verschlüsselter Transport, Authorization/Rate-/Resource-Limits und produktiver Service-/Datenbankbetrieb. Ein kopierter privater Schlüssel ist weiterhin kryptografisch dieselbe Identität; Signaturen beweisen keinen einzelnen physischen Rechner.
 
-Für den Upstream-llama.cpp-RPC-Worker gilt eine noch engere Grenze: **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht. Niemals öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
+Für den Upstream-llama.cpp-RPC-Worker gilt eine noch engere Grenze: **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht. Das lokale Mess-Relay ändert diese Sicherheitsgrenze nicht. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
 `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, keinen automatischen M1-Scheduler/Placement-Planner, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, keinen automatischen M1-Scheduler/Placement-Planner, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
 
 ## Unmittelbarer Ablauf
 
@@ -91,7 +107,9 @@ expliziter Local + RPC Layer-Split
         ↓
 Korrektheits- + Timingvergleich
         ↓
-Activation/Transfer + Latenz/Jitter/Loss messen
+opake RPC-Bytezählung + Latenz/Jitter/Disconnect-Experimente
+        ↓
+bei Bedarf Paket-Level-Loss-/Reordering-Experiment
         ↓
 erste reproduzierbare gemeinsame Zwei-Node-Inferenz
         ↓
@@ -109,6 +127,7 @@ ComputeMesh/
 ├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
 ├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier
 ├─ runtime/llama/         # kontrollierter llama.cpp-M1-Research-Spike
+├─ runtime/network/       # begrenztes M1-TCP-Mess-Relay
 ├─ docs/                  # Spezifikationen und ADRs
 └─ state.md               # kanonischer Engineering-Handoff
 ```
