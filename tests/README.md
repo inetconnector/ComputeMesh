@@ -45,8 +45,29 @@ The Linux setup adds Bash-specific regression coverage; those tests skip automat
 
 The runtime-network suite performs real loopback TCP forwarding tests on the test host. It does not contact public or remote hosts. Scheduler tests use synthetic contract-valid evidence and do not claim real placement performance.
 
+## Evidence-binding coverage
+
+The current M1 evidence-binding tests additionally enforce:
+
+- current benchmark servers can self-report a bounded Lab node ID;
+- legacy benchmark servers remain compatible when an expected peer is not required;
+- expected peer-ID mismatches are rejected;
+- `peer_node_id` and `peer_identity_binding` are schema-paired;
+- Setup passes its own stable random Lab node ID into network server/client commands;
+- a placement decision prefers embedded network peer evidence over caller assertions;
+- embedded network local/peer IDs must match coordinator/worker profiles;
+- caller assertions may support legacy records but may not conflict with embedded evidence;
+- optional `model_manifest.layer_count` is preferred over the legacy caller layer count;
+- manifest/caller layer-count conflicts are rejected;
+- no shared latency/speedup prediction is fabricated from these stronger bookkeeping fields.
+
+`unauthenticated_server_report_v1` remains a traceability label, not an authentication guarantee.
+
+The latest cross-platform suite counts and workflow evidence are recorded in `state.md`.
+
 ## Future system-test scope
 
+- fresh trusted-private-LAN A↔B evidence carrying current Lab-ID metadata;
 - two-node end-to-end inference;
 - scheduler calibration against correct measured shared-runtime evidence;
 - mixed Windows/Linux node scenarios;
