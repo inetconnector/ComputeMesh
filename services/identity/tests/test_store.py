@@ -57,6 +57,12 @@ class IdentityStoreTests(unittest.TestCase):
         with self.assertRaises(EnrollmentConflict):
             self.store.enroll(token, pubkey(), now=self.now)
 
+    def test_same_public_key_cannot_enroll_second_node(self):
+        key = pubkey()
+        self.store.enroll(self.token(), key, now=self.now)
+        with self.assertRaises(EnrollmentConflict):
+            self.store.enroll(self.token(), key, now=self.now)
+
     def test_expired_token_rejected(self):
         token = self.token(expires=self.now + timedelta(seconds=1))
         with self.assertRaises(EnrollmentTokenExpired):
@@ -143,6 +149,14 @@ class IdentityStoreTests(unittest.TestCase):
             self.store.create_enrollment_token(
                 "provider-1",
                 expires_at=self.now + timedelta(minutes=16),
+                now=self.now,
+            )
+
+    def test_enrollment_times_must_be_timezone_aware(self):
+        with self.assertRaises(ValueError):
+            self.store.create_enrollment_token(
+                "provider-1",
+                expires_at=datetime(2026, 8, 21, 19, 5),
                 now=self.now,
             )
 
