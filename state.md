@@ -1,9 +1,9 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts, durable orchestration, protocol foundations, and measurable lab networking  
+**Phase:** M0 — contracts, durable orchestration, protocol foundations, and measurable lab/runtime benchmarking  
 **Production services/runtime:** none  
-**Executable engineering tooling:** inventory benchmark + TCP network benchmark + orchestrator reference + control-envelope parser  
+**Executable engineering tooling:** inventory + TCP network + llama-bench adapters, orchestrator reference, control-envelope parser  
 **Public release:** none
 
 ## Repository
@@ -16,14 +16,16 @@
 - transactional persistence/schema admission: `bfea175`
 - control envelope/structured errors: `9ed33be`
 - TCP network microbenchmark: `197a1ad`
+- llama-bench prefill/decode adapter: `6b0356a`
 
 ## What exists
 
 - synchronized English/German root READMEs;
 - M0 architecture/protocol/security/benchmark/failure/privacy/data-model documentation;
-- Draft-2020-12 contracts including control envelope and structured errors;
+- Draft-2020-12 machine-readable contracts;
 - node inventory collector;
 - TCP application-level network microbenchmark;
+- llama.cpp llama-bench prefill/decode adapter;
 - deterministic Job/Reservation state machine;
 - transactional SQLite reference persistence with durable idempotency/revisions/restart recovery/leases;
 - initial Job/Reservation schema admission;
@@ -32,21 +34,28 @@
 
 ## Verified M0 implementation evidence
 
-- original inventory collector tests: 3/3 passing;
+- inventory collector tests: 3/3 passing;
+- TCP network benchmark tests: 4/4 passing;
+- llama-bench adapter tests: 6/6 passing;
+- generated loopback network result validates against the benchmark-result schema;
+- converted llama-bench fixture results validate against the benchmark-result schema;
 - orchestrator state/persistence/admission: 21/21 passing;
 - protocol envelope/schema block: 10/10 passing;
-- TCP network benchmark unit/loopback tests: 4/4 passing;
-- generated loopback `tcp_network_path` result validated against `benchmark_result.schema.json` Draft 2020-12;
 - relevant Python modules pass `py_compile`.
 
-The TCP benchmark currently proves the tool on loopback only. It does **not** yet provide real two-node LAN/WAN evidence.
+Important evidence boundary:
+
+- TCP network benchmark is validated on loopback only, not yet between real nodes;
+- llama-bench adapter is validated against representative upstream JSON/JSONL fixtures, not yet against a real local model/GPU run;
+- no distributed inference result exists yet.
 
 ## What does not exist
 
+- real two-node hardware/network evidence;
+- real llama.cpp prefill/decode evidence from the target lab;
 - production provider node agent;
-- runtime worker/distributed inference;
-- gateway/API;
-- scheduler;
+- distributed runtime/shared inference;
+- gateway/API/scheduler;
 - production orchestrator service/database;
 - authenticated node sessions/authz;
 - message-specific protocol handlers;
@@ -70,9 +79,9 @@ Still proposed:
 
 ## Primary blockers
 
-1. No real two-node profiles or cross-node network results exist yet.
-2. No local runtime prefill/decode baseline exists yet.
-3. M1 runtime baseline remains unaccepted until the two-node spike.
+1. No real two-node profiles/cross-node network results exist yet.
+2. No real local llama.cpp prefill/decode baseline exists yet.
+3. M1 runtime baseline remains unaccepted until the required real two-node spike.
 4. Node identity/authentication remains proposed/unimplemented.
 5. Message-specific protocol handlers are missing.
 6. No activation-payload transport benchmark exists yet.
@@ -82,14 +91,14 @@ Still proposed:
 ## Next actions in order
 
 1. Run `benchmark.py` on two real lab machines and retain both profiles.
-2. Run `network_benchmark.py` between those machines on a trusted LAN in both directions.
-3. Add local runtime prefill/decode benchmark adapter with reproducible result records.
-4. Execute the llama.cpp-oriented ADR 0002 runtime spike behind the ComputeMesh boundary.
-5. Add message-specific payload schemas/handlers and bind protocol request IDs to durable state effects.
-6. Implement authenticated node-session skeleton once ADR 0005 details are sufficient.
-7. Add activation-payload-size benchmark modes and controlled latency/jitter/loss experiments.
-8. Produce the first correct two-node shared-inference experiment.
-9. Compare predicted versus observed timings and begin scheduler calibration.
+2. Run `network_benchmark.py` between those machines in both directions on a trusted LAN.
+3. Run `llama_bench_adapter.py` with the selected local GGUF/model and current llama-bench on each relevant machine.
+4. Compare prefill/decode results and choose the exact two-node M1 spike configuration.
+5. Execute the llama.cpp-oriented ADR 0002 runtime spike behind the ComputeMesh boundary.
+6. Add message-specific payload schemas/handlers and bind protocol request IDs to durable state effects.
+7. Implement authenticated node-session skeleton once ADR 0005 details are sufficient.
+8. Add activation-payload-size modes and controlled latency/jitter/loss experiments.
+9. Produce first correct two-node shared inference and begin scheduler calibration.
 
 ## Bilingual README rule
 

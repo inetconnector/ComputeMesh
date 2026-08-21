@@ -1,9 +1,10 @@
 # M0 benchmark harness
 
-The benchmark directory now contains two executable M0 tools:
+The benchmark directory contains three executable M0 tools:
 
 - `benchmark.py` — reproducible node inventory capture;
-- `network_benchmark.py` — application-level TCP path measurement for controlled lab/LAN experiments.
+- `network_benchmark.py` — application-level TCP path measurement for controlled lab/LAN experiments;
+- `llama_bench_adapter.py` — run or import current llama.cpp `llama-bench` JSON/JSONL and convert prompt-processing/decode measurements into ComputeMesh benchmark records.
 
 ## Inventory capture
 
@@ -30,32 +31,62 @@ On node A:
 python tools/benchmark/network_benchmark.py client --host <NODE-B-LAN-IP> --port 43191 --profile-revision 1
 ```
 
-The client measures:
+The client measures TCP connection setup, small-frame RTT p50/p95, upload/download throughput p50, and raw samples. Results conform to `benchmark_result.schema.json`.
 
-- TCP connection setup time;
-- small-frame RTT p50/p95;
-- upload throughput p50;
-- download throughput p50;
-- raw per-sample values.
+## llama.cpp prefill/decode adapter
 
-Default client transfer size is 16 MiB repeated three times; the server rejects transfers above its configured maximum (64 MiB by default). Results are emitted as `benchmark_result.schema.json`-compatible `tcp_network_path` records below `artifacts/benchmark/`.
+The adapter uses `llama-bench` prompt-processing (`-p`) and generation (`-n`) rows separately. It accepts JSON arrays/objects and JSONL. From these rows it emits two ComputeMesh results:
+
+- `llama_cpp_prefill` — prompt tokens, average prefill elapsed time, average/stddev tokens/s;
+- `llama_cpp_decode` — generated tokens, average decode elapsed time, average/stddev tokens/s, and average inter-token milliseconds.
+
+Run a real local benchmark:
+
+```powershell
+python tools/benchmark/llama_bench_adapter.py `
+  --llama-bench C:\path\to\llama-bench.exe `
+  --model C:\path\to\model.gguf `
+  --profile-revision 1
+```
+
+Or convert a previously captured upstream JSON/JSONL file without running the model again:
+
+```powershell
+python tools/benchmark/llama_bench_adapter.py `
+  --parse-file artifacts\raw\llama-bench.json `
+  --profile-revision 1
+```
+
+Defaults are 512 prompt tokens, 128 generated tokens, and five repetitions. Extra upstream flags can be forwarded with repeated `--extra-arg` options.
+
+Privacy rule: the converted ComputeMesh metrics keep the model **file name**, but not its complete local filesystem path. Raw prompt/output text is not part of `llama-bench` records produced by this adapter.
+
+`llama-bench` timing does not include the sampling step, so the prefill elapsed value is a benchmark proxy for preparing first-token logits rather than a full application-level TTFT measurement. Application/server TTFT must be measured separately later.
 
 ## Test
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tools/benchmark/tests -v
 ```
 
-The network benchmark was locally verified with loopback client/server tests, transfer-limit rejection, percentile behavior, and Draft-2020-12 validation of a generated result against the existing benchmark-result schema.
+Verified before publication of the current M0 blocks:
+
+- inventory collector tests: 3/3 passing;
+- TCP network benchmark tests: 4/4 passing, including loopback and result-schema validation;
+- llama-bench adapter tests: 6/6 passing, including JSON/JSONL parsing, prefill/decode conversion, inter-token calculation, and result-schema validation.
+
+No real cross-node or real-model performance result is committed as evidence yet.
 
 ## Next benchmark families
 
-1. host/device memory bandwidth;
-2. representative GEMM/quantized matmul;
-3. local runtime prefill/decode;
-4. activation-transfer payload microbenchmark;
-5. multi-condition RTT/jitter/loss experiments;
-6. artifact preparation/load;
-7. failure/reconnect injection.
+1. run inventory/network/llama-bench measurements on the real two-node lab;
+2. application-level TTFT and streamed inter-token latency;
+3. host/device memory bandwidth;
+4. representative GEMM/quantized matmul where the runtime does not already expose sufficient evidence;
+5. activation-payload transfer sizes representative of stage boundaries;
+6. controlled latency/jitter/loss experiments;
+7. artifact preparation/load;
+8. failure/reconnect injection.
 
-Both benchmark executables use only the Python standard library. JSON-Schema validation in tests uses the project development dependency.
+The benchmark executables use only the Python standard library. JSON-Schema validation in tests/admission uses the project development dependency.

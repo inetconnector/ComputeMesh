@@ -3,7 +3,7 @@
 **Languages:** **English** | [Deutsch](README.de.md)
 
 > **Project stage:** M0 — contracts, benchmarking, orchestration semantics, protocol foundations, security, and feasibility research.  
-> **Implementation status:** executable M0 inventory/network benchmarks, machine-readable contracts, transactional Job/Reservation persistence, and a transport-neutral control-envelope parser now exist. There is still no production runtime, scheduler, marketplace, billing system, or public provider-node software.
+> **Implementation status:** executable M0 inventory/network/runtime-benchmark tooling, machine-readable contracts, transactional Job/Reservation persistence, and a transport-neutral control-envelope parser now exist. There is still no production distributed runtime, scheduler, marketplace, billing system, or public provider-node software.
 
 ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. A client with limited local VRAM should eventually be able to run a model whose memory and compute requirements exceed the client machine by using approved remote compute without manually managing shards, hosts, ports, or placement.
 
@@ -19,19 +19,21 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 - architecture, protocol, security, benchmark, failure, privacy, and data-model specifications;
 - Draft-2020-12 schemas for node profile, benchmark result, model/shard manifests, reservation, job, common control envelope, and structured protocol errors;
 - standard-library Python inventory benchmark collector;
-- standard-library TCP network microbenchmark for connection setup, small-frame RTT p50/p95, upload throughput, download throughput, and raw samples;
+- standard-library TCP network microbenchmark for connection setup, small-frame RTT p50/p95, upload/download throughput, and raw samples;
+- llama.cpp `llama-bench` adapter that converts separate prompt-processing and generation measurements into `llama_cpp_prefill` and `llama_cpp_decode` benchmark records;
 - deterministic Job/Reservation state-machine semantics;
 - transactional SQLite M0 persistence with durable idempotency, revisions, lease persistence/expiry, stale-writer rejection, rollback, and restart recovery;
 - JSON-Schema-based Job/Reservation admission;
 - transport-neutral common control-envelope parser with version/time/shape checks and structured errors;
-- tests for benchmark, orchestrator, persistence/concurrency/restart, admission, protocol envelope, and protocol schemas.
+- tests for the implemented M0 components.
 
-### Not implemented
+### Not implemented / not yet evidenced
 
+- real llama.cpp benchmark evidence from a lab GPU/model;
+- real two-node LAN/WAN benchmark evidence;
 - production provider node agent;
-- runtime worker or distributed inference execution;
-- gateway/API;
-- production scheduler;
+- distributed runtime worker/shared inference;
+- gateway/API and production scheduler;
 - production orchestrator network service/database adapter;
 - authenticated node sessions and authorization;
 - message-specific node/orchestrator protocol handlers;
@@ -82,7 +84,7 @@ ComputeMesh/
 ├─ services/orchestrator/ # M0 state machine, persistence, schema admission
 ├─ runtime/               # planned CUDA/llama.cpp/vLLM/network integrations
 ├─ protocol/              # control envelope, schemas, tests
-├─ tools/benchmark/       # inventory + TCP network benchmark
+├─ tools/benchmark/       # inventory, TCP network, llama-bench adapter
 ├─ models/
 ├─ sdk/
 ├─ tests/
@@ -92,8 +94,6 @@ ComputeMesh/
 ```
 
 ## Run the current M0 tooling
-
-Python 3.10+ is sufficient for the standard-library tools. JSON-Schema tests/admission use `jsonschema`.
 
 ```powershell
 git clone <repository-url>
@@ -125,9 +125,18 @@ On node A:
 python tools/benchmark/network_benchmark.py client --host <NODE-B-LAN-IP> --port 43191 --profile-revision 1
 ```
 
-The benchmark server has **no authentication or encryption** and defaults to loopback. Bind it to a LAN interface only for a controlled test, restrict the port with the firewall, and never expose it to the public internet.
+The benchmark server has **no authentication or encryption**. Use it only on a controlled trusted LAN with firewall restriction; never expose it to the public internet.
 
-Results are written below `artifacts/benchmark/` and use the existing benchmark-result contract.
+### Measure local llama.cpp prefill/decode
+
+```powershell
+python tools/benchmark/llama_bench_adapter.py `
+  --llama-bench C:\path\to\llama-bench.exe `
+  --model C:\path\to\model.gguf `
+  --profile-revision 1
+```
+
+The adapter runs upstream `llama-bench` with separate prompt-processing/generation tests and converts the resulting JSON into ComputeMesh benchmark records. It is an **adapter**, not evidence that M1 has passed: a real model/hardware run is still required.
 
 ## Protocol and persistence foundations
 
@@ -146,8 +155,8 @@ machine-readable contracts + inventory harness              [implemented M0]
 transactional Job/Reservation persistence + schema admission [implemented M0]
 common control envelope + structured errors                  [implemented M0]
 TCP lab network microbenchmark                               [implemented M0]
--> run inventory + network measurements on two real nodes
--> local runtime prefill/decode benchmark adapter
+llama-bench prefill/decode adapter                            [implemented M0]
+-> run inventory/network/runtime measurements on real nodes
 -> llama.cpp-oriented M1 runtime spike
 -> message-specific protocol handlers
 -> authenticated node-session skeleton

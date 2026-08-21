@@ -3,7 +3,7 @@
 **Sprachen:** [English](README.md) | **Deutsch**
 
 > **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Protokollgrundlagen, Sicherheit und Machbarkeitsforschung.  
-> **Implementierungsstatus:** Ausführbare M0-Inventory-/Netzwerk-Benchmarks, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz und ein transportneutraler Control-Envelope-Parser existieren. Es gibt weiterhin keine produktive Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
+> **Implementierungsstatus:** Ausführbare M0-Inventory-/Netzwerk-/Runtime-Benchmark-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz und ein transportneutraler Control-Envelope-Parser existieren. Es gibt weiterhin keine produktive verteilte Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
 
 ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogene Rechenressourcen sollen als logisch einheitliche Ausführungsumgebung nutzbar werden. Ein Client mit wenig lokalem VRAM soll später ein Modell ausführen können, dessen Speicher- und Rechenanforderungen den eigenen Rechner übersteigen, ohne Shards, Hosts, Ports oder Platzierung manuell verwalten zu müssen.
 
@@ -19,19 +19,21 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 - Architektur-, Protokoll-, Sicherheits-, Benchmark-, Failure-, Privacy- und Data-Model-Spezifikationen;
 - Draft-2020-12-Schemas für Node Profile, Benchmark Result, Model-/Shard-Manifeste, Reservation, Job, gemeinsamen Control Envelope und strukturierte Protokollfehler;
 - Python-Inventory-Benchmark-Collector nur mit Standardbibliothek;
-- TCP-Netzwerk-Microbenchmark nur mit Standardbibliothek für Connection Setup, Small-Frame-RTT p50/p95, Upload-, Download-Durchsatz und Rohsamples;
+- TCP-Netzwerk-Microbenchmark nur mit Standardbibliothek für Connection Setup, Small-Frame-RTT p50/p95, Upload-/Download-Durchsatz und Rohsamples;
+- llama.cpp-`llama-bench`-Adapter, der getrennte Prompt-Processing-/Generation-Messungen in `llama_cpp_prefill`- und `llama_cpp_decode`-Benchmark-Records umwandelt;
 - deterministische Job-/Reservation-State-Machine-Semantik;
 - transaktionale SQLite-M0-Persistenz mit dauerhafter Idempotenz, Revisionen, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
 - JSON-Schema-basierte Job-/Reservation-Admission;
 - transportneutraler gemeinsamer Control-Envelope-Parser mit Versions-/Zeit-/Formprüfung und strukturierten Fehlern;
-- Tests für Benchmark, Orchestrator, Persistenz/Konkurrenz/Restart, Admission, Protocol Envelope und Protokollschemas.
+- Tests für die implementierten M0-Komponenten.
 
-### Noch nicht implementiert
+### Noch nicht implementiert / noch nicht nachgewiesen
 
+- reale llama.cpp-Benchmark-Evidenz mit Lab-GPU/Modell;
+- reale Zwei-Node-LAN-/WAN-Benchmark-Evidenz;
 - produktiver Provider-Node-Agent;
-- Runtime Worker oder verteilte Inferenz;
-- Gateway/API;
-- produktiver Scheduler;
+- Runtime Worker bzw. gemeinsame verteilte Inferenz;
+- Gateway/API und produktiver Scheduler;
 - produktiver Orchestrator-Netzwerkservice/Datenbankadapter;
 - authentifizierte Node-Sessions und Autorisierung;
 - nachrichtenspezifische Node-/Orchestrator-Protokollhandler;
@@ -82,7 +84,7 @@ ComputeMesh/
 ├─ services/orchestrator/ # M0 State Machine, Persistenz, Schema-Admission
 ├─ runtime/               # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
 ├─ protocol/              # Control Envelope, Schemas, Tests
-├─ tools/benchmark/       # Inventory + TCP-Netzwerk-Benchmark
+├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ models/
 ├─ sdk/
 ├─ tests/
@@ -92,8 +94,6 @@ ComputeMesh/
 ```
 
 ## Aktuelle M0-Werkzeuge ausführen
-
-Für die Standardbibliothek-Werkzeuge genügt Python 3.10+. JSON-Schema-Tests/Admission verwenden `jsonschema`.
 
 ```powershell
 git clone <repository-url>
@@ -125,9 +125,18 @@ Auf Node A:
 python tools/benchmark/network_benchmark.py client --host <NODE-B-LAN-IP> --port 43191 --profile-revision 1
 ```
 
-Der Benchmark-Server hat **keine Authentifizierung oder Verschlüsselung** und bindet standardmäßig nur an Loopback. Für einen Zwei-Rechner-Test nur an einem vertrauenswürdigen LAN-Interface binden, den Port per Firewall einschränken und niemals öffentlich ins Internet stellen.
+Der Benchmark-Server hat **keine Authentifizierung oder Verschlüsselung**. Nur in einem kontrollierten vertrauenswürdigen LAN mit Firewall-Einschränkung verwenden; niemals öffentlich ins Internet stellen.
 
-Ergebnisse werden unter `artifacts/benchmark/` geschrieben und verwenden den bestehenden Benchmark-Result-Vertrag.
+### Lokales llama.cpp-Prefill/Decode messen
+
+```powershell
+python tools/benchmark/llama_bench_adapter.py `
+  --llama-bench C:\path\to\llama-bench.exe `
+  --model C:\path\to\model.gguf `
+  --profile-revision 1
+```
+
+Der Adapter führt Upstream-`llama-bench` mit getrennten Prompt-Processing-/Generation-Tests aus und konvertiert das JSON in ComputeMesh-Benchmark-Records. Er ist ein **Adapter und noch kein Nachweis für M1**: Ein realer Modell-/Hardware-Lauf fehlt weiterhin.
 
 ## Protokoll- und Persistenzgrundlagen
 
@@ -146,8 +155,8 @@ maschinenlesbare Verträge + Inventory-Harness                 [M0 implementiert
 transaktionale Job-/Reservation-Persistenz + Schema-Admission [M0 implementiert]
 gemeinsamer Control Envelope + strukturierte Fehler            [M0 implementiert]
 TCP-Lab-Netzwerk-Microbenchmark                                [M0 implementiert]
--> Inventory + Netzwerk auf zwei realen Nodes messen
--> lokaler Runtime-Prefill-/Decode-Benchmark-Adapter
+llama-bench-Prefill-/Decode-Adapter                            [M0 implementiert]
+-> Inventory-/Netzwerk-/Runtime-Messungen auf realen Nodes
 -> llama.cpp-orientierter M1-Runtime-Spike
 -> nachrichtenspezifische Protocol-Handler
 -> authentifizierter Node-Session-Skeleton
