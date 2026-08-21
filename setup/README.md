@@ -2,7 +2,7 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-This folder is the simplest way to run the **currently implemented M0 lab workflow**. It is intentionally not a production installer: the provider application, distributed runtime, scheduler, and production authentication stack do not exist yet.
+This folder is the simplest way to run the **currently implemented M0/M1 lab workflow**. It is intentionally not a production installer: the provider application, production distributed runtime, production scheduler, and production authentication/transport stack do not exist yet.
 
 ## Start
 
@@ -36,6 +36,8 @@ First on **both** computers:
 2. Choose **1 — Prepare this computer**.
 3. Check the displayed CPU/GPU/RAM summary.
 
+Each setup has a random Lab node ID such as `lab-1a2b3c4d`. It is not derived from the hostname.
+
 Then measure the LAN in both directions.
 
 ### A → B
@@ -47,6 +49,8 @@ On computer **B**:
 3. Allow the temporary firewall action if the OS asks for elevation.
 4. Note the displayed private IP.
 
+The current server also self-reports B's Lab node ID over the benchmark connection.
+
 On computer **A**:
 
 1. Start setup.
@@ -54,9 +58,11 @@ On computer **A**:
 3. Enter B's displayed private IP.
 4. Read RTT p50/p95 and upload/download throughput.
 
+The generated network result carries A's local Lab node ID and, with a current server, B's self-reported Lab node ID. The binding is labelled `unauthenticated_server_report_v1`: it improves experiment traceability but is **not authentication**.
+
 ### B → A
 
-Swap the roles and repeat once. This records directionality instead of assuming symmetry.
+Swap the roles and repeat once. This records directionality instead of assuming symmetry and produces the opposite local/peer association.
 
 ## Windows behavior
 
@@ -64,6 +70,7 @@ Swap the roles and repeat once. This records directionality instead of assuming 
 - finds Python 3.10+ or attempts user-scoped installation with `winget`;
 - creates repository-local `.venv`;
 - binds the network benchmark to a concrete private address;
+- passes the current random Lab node ID into the benchmark server/client evidence path;
 - temporarily opens TCP 43191 only for Windows `Private` + `LocalSubnet` and removes the rule after the one-shot test;
 - offers Windows file pickers for `llama-bench.exe` and GGUF;
 - can download the official Windows llama.cpp build selected by the setup.
@@ -76,6 +83,7 @@ Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`
 - requires Python 3.10+ and creates repository-local `.venv`;
 - if required base packages are missing, offers installation through `apt`, `dnf`, `zypper`, `pacman`, or `apk` using root/`sudo` only after confirmation;
 - detects a private RFC1918 interface with `iproute2` and binds the benchmark to that exact address;
+- passes the current random Lab node ID into the benchmark server/client evidence path;
 - if `firewalld` is active, creates a runtime-only rich rule limited to the detected subnet/address/port and removes it afterwards;
 - if `ufw` is active, creates a temporary source-subnet rule and deletes it afterwards;
 - if neither supported firewall frontend is active, it changes no firewall state and still binds only to the private interface;
@@ -124,22 +132,19 @@ The underlying benchmark protocol has no authentication or encryption. Both assi
 - use temporary firewall rules where the supported firewall integration is active;
 - remove those temporary rules when the one-shot server exits.
 
+The optional Lab node-ID exchange does **not** change this security boundary. A peer can self-report any Lab ID because the benchmark connection is unauthenticated. For real authenticated node identity, ComputeMesh has a separate narrow M1 Ed25519/session reference path; that is not used to authenticate this benchmark socket.
+
 Never expose the benchmark server to the public internet.
 
 ## Test status
 
-Shared Python setup helper evidence remains in place. The Linux layer additionally has automated tests for:
+The complete setup test action runs benchmark, orchestrator, protocol, identity, scheduler, llama-runtime, network-runtime, and setup suites. Current cross-platform counts and the exact latest validation run are recorded in `state.md`.
 
-- Bash syntax;
-- root `setup.sh` entry point;
-- private/public IPv4 filtering;
-- current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection;
-- private-bind and temporary-firewall invariants;
-- direct Linux launcher routing.
+The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing.
 
-The new Linux-specific test block passes **6/6** in a real Linux environment. In addition, a real Bash frontend smoke test exercised menu localization plus Node, network-client, network-server, and llama workflow routing with a synthetic helper/results fixture.
+The evidence-binding tests additionally verify that the setup passes its own Lab node ID into both network roles, that current benchmark peers can self-report a bounded ID, and that peer mismatches fail instead of being silently accepted.
 
-This validates the Linux launcher/UI/integration logic; it is still not real two-machine performance evidence. The next evidence step is running the setup on the actual target computers.
+This remains software/loopback evidence until a fresh trusted-private-LAN two-computer run is retained.
 
 Additional real target smoke evidence exists from 2026-08-21:
 
@@ -148,7 +153,7 @@ Additional real target smoke evidence exists from 2026-08-21:
 - Windows -> Linux internet TCP benchmark using a temporary source-limited firewall rule.
 - Real llama.cpp runs on Windows CUDA with a 7B Q4 GGUF and on Linux CPU with a 0.5B Q4 GGUF.
 
-This does not change the network safety rule: the assisted benchmark server remains a trusted-private-LAN tool.
+The internet benchmark predates the bound peer-ID path and is not a trusted-private-LAN proof or shared-inference result.
 
 ## Engineering/manual commands
 
