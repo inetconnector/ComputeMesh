@@ -2,7 +2,7 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0-Lab-Ablauf** auszuführen. Er ist bewusst kein Produktions-Installer: Provider-App, verteilte Runtime, Scheduler und produktiver Authentifizierungsstack existieren noch nicht.
+Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0/M1-Lab-Ablauf** auszuführen. Er ist bewusst kein Produktions-Installer: Provider-App, produktive verteilte Runtime, produktiver Scheduler und produktiver Authentifizierungs-/Transport-Stack existieren noch nicht.
 
 ## Start
 
@@ -36,6 +36,8 @@ Zuerst auf **beiden** Rechnern:
 2. **1 — Diesen Rechner vorbereiten** wählen.
 3. CPU-/GPU-/RAM-Kurzergebnis prüfen.
 
+Jedes Setup besitzt eine zufällige Lab-Node-ID wie `lab-1a2b3c4d`. Sie wird nicht aus dem Hostnamen abgeleitet.
+
 Danach das LAN in beide Richtungen messen.
 
 ### A → B
@@ -47,6 +49,8 @@ Auf Rechner **B**:
 3. Eine temporäre Firewall-/Administratorfreigabe bestätigen, falls das Betriebssystem sie verlangt.
 4. Die angezeigte private IP merken.
 
+Der aktuelle Server meldet zusätzlich die Lab-Node-ID von B über die Benchmark-Verbindung selbst.
+
 Auf Rechner **A**:
 
 1. Setup starten.
@@ -54,9 +58,11 @@ Auf Rechner **A**:
 3. Die private IP von B eingeben.
 4. RTT p50/p95 sowie Upload-/Download-Durchsatz ablesen.
 
+Der erzeugte Netzwerkdatensatz enthält die lokale Lab-Node-ID von A und bei einem aktuellen Server die selbst gemeldete Lab-Node-ID von B. Die Bindung wird als `unauthenticated_server_report_v1` gekennzeichnet: Das verbessert die Nachvollziehbarkeit des Experiments, ist aber **keine Authentifizierung**.
+
 ### B → A
 
-Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemessen statt Symmetrie nur anzunehmen.
+Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemessen statt Symmetrie nur anzunehmen und die umgekehrte Local-/Peer-Zuordnung aufgezeichnet.
 
 ## Verhalten unter Windows
 
@@ -64,6 +70,7 @@ Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemesse
 - Python 3.10+ finden oder benutzerbezogen über `winget` installieren;
 - lokale `.venv` anlegen;
 - den Netzwerkbenchmark an eine konkrete private Adresse binden;
+- die aktuelle zufällige Lab-Node-ID in den Netzwerk-Server-/Client-Evidenzpfad geben;
 - TCP 43191 nur vorübergehend für Windows `Private` + `LocalSubnet` öffnen und die Regel nach dem einmaligen Test entfernen;
 - Windows-Dateidialoge für `llama-bench.exe` und GGUF anbieten;
 - den vom Setup ausgewählten offiziellen Windows-llama.cpp-Build herunterladen können.
@@ -76,6 +83,7 @@ Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`,
 - Python 3.10+ verwenden und lokale `.venv` anlegen;
 - fehlende Basispakete nach Rückfrage über `apt`, `dnf`, `zypper`, `pacman` oder `apk` installieren; Root/`sudo` wird nur dafür verwendet;
 - mit `iproute2` ein privates RFC1918-Interface erkennen und den Benchmark an genau diese Adresse binden;
+- die aktuelle zufällige Lab-Node-ID in den Netzwerk-Server-/Client-Evidenzpfad geben;
 - bei aktivem `firewalld` eine nicht-permanente Rich Rule nur für erkanntes Subnetz/Adresse/Port anlegen und danach entfernen;
 - bei aktivem `ufw` eine temporäre Regel für das Quellsubnetz anlegen und danach löschen;
 - bei keiner unterstützten aktiven Firewall keine Firewall verändern und trotzdem nur an das private Interface binden;
@@ -124,22 +132,19 @@ Das zugrunde liegende Benchmark-Protokoll besitzt keine Authentifizierung oder V
 - verwenden temporäre Firewallregeln, wenn die unterstützte Firewallintegration aktiv ist;
 - entfernen diese Regeln nach Ende des einmaligen Serverlaufs.
 
+Der optionale Austausch der Lab-Node-ID ändert diese Sicherheitsgrenze **nicht**. Eine Gegenseite kann irgendeine Lab-ID selbst melden, weil die Benchmark-Verbindung nicht authentifiziert ist. Für echte authentifizierte Node-Identity besitzt ComputeMesh einen separaten engen M1-Ed25519-/Session-Referenzpfad; dieser authentifiziert den Benchmark-Socket nicht.
+
 Den Benchmark-Server niemals öffentlich ins Internet stellen.
 
 ## Teststand
 
-Die gemeinsamen Python-Setup-Tests bleiben bestehen. Die Linux-Schicht besitzt zusätzlich automatisierte Tests für:
+Die vollständige Setup-Testaktion führt Benchmark-, Orchestrator-, Protocol-, Identity-, Scheduler-, llama-Runtime-, Network-Runtime- und Setup-Suites aus. Die aktuellen plattformübergreifenden Testzahlen und der exakte letzte Validierungslauf stehen in `state.md`.
 
-- Bash-Syntax;
-- Root-Einstieg `setup.sh`;
-- private/öffentliche IPv4-Filterung;
-- aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl;
-- Private-Bind-/temporäre-Firewall-Invarianten;
-- Routing der direkten Linux-Starter.
+Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab.
 
-Der neue Linux-spezifische Testblock besteht **6/6** in einer echten Linux-Umgebung. Zusätzlich wurde ein realer Bash-Frontend-Smoke-Test mit Menü-Lokalisierung sowie Node-, Netzwerk-Client-, Netzwerk-Server- und llama-Workflow-Routing gegen synthetische Helper-/Ergebnisdaten ausgeführt.
+Die neuen Evidenzbindungs-Tests prüfen außerdem, dass das Setup seine eigene Lab-Node-ID an beide Netzwerkrollen weitergibt, aktuelle Benchmark-Peers eine begrenzte ID selbst melden können und Peer-Konflikte nicht stillschweigend akzeptiert werden.
 
-Damit ist die Linux-Starter-/UI-/Integrationslogik getestet; es ist noch kein realer Zwei-Rechner-Performance-Nachweis. Der nächste Evidenzschritt ist der Lauf auf den tatsächlichen Zielrechnern.
+Bis ein frischer Zwei-Rechner-Lauf in einem vertrauenswürdigen privaten LAN gespeichert ist, bleibt dies Software-/Loopback-Evidenz.
 
 Zusätzliche echte Zielsystem-Evidenz existiert seit dem 21.08.2026:
 
@@ -148,7 +153,7 @@ Zusätzliche echte Zielsystem-Evidenz existiert seit dem 21.08.2026:
 - Windows -> Linux-Internet-TCP-Benchmark mit temporärer, quell-IP-begrenzter Firewallregel.
 - Echte llama.cpp-Läufe auf Windows CUDA mit einem 7B-Q4-GGUF und auf Linux CPU mit einem 0.5B-Q4-GGUF.
 
-Das ändert nicht die Netzwerksicherheitsregel: Der assistierte Benchmark-Server bleibt ein Werkzeug für vertrauenswürdige private LANs.
+Der Internet-Benchmark stammt noch vor dem gebundenen Peer-ID-Pfad und ist weder ein Trusted-Private-LAN-Nachweis noch ein Shared-Inference-Ergebnis.
 
 ## Engineering-/manuelle Befehle
 
