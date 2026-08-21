@@ -32,5 +32,12 @@ class WindowsScriptTests(unittest.TestCase):
         self.assertIn("'.venv'", text)
         self.assertIn('Python.Python.3.13', text)
 
+    def test_uac_restarts_setup_entrypoint_not_module(self):
+        common = self.read('common.ps1')
+        network = self.read('network.ps1')
+        self.assertIn("SetupEntrypoint = Join-Path $PSScriptRoot 'setup.ps1'", common)
+        self.assertIn('$script:SetupEntrypoint', network)
+        self.assertNotIn('$PSCommandPath', network)
+
 if __name__ == '__main__':
     unittest.main()
