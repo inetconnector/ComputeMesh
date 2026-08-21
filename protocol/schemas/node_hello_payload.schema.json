@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/node_hello_payload.schema.json",
+  "title": "ComputeMesh NodeHello payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_major", "protocol_minor", "agent_version", "platform", "supported_auth_methods", "capabilities"],
+  "properties": {
+    "protocol_major": {"type": "integer", "minimum": 0},
+    "protocol_minor": {"type": "integer", "minimum": 0},
+    "agent_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "platform": {"type": "string", "minLength": 1, "maxLength": 128},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "supported_auth_methods": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 64}
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    }
+  }
+}
