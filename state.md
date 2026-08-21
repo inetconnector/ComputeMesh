@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts, durable orchestration, protocol/session foundations, lab/runtime measurement tooling, Windows/Linux lab UX, and first real Windows↔Linux target evidence  
+**Phase:** M0 — contracts, durable orchestration, node-session wire/readiness binding, lab/runtime measurement tooling, Windows/Linux lab UX, and first real Windows↔Linux target evidence  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -21,7 +21,8 @@ This file records current engineering facts, evidence boundaries, and next actio
 - authentication-gated node-session semantics: `d7a110e`
 - one-click Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
 - Linux Lab Setup: `3c99457`
-- real target-machine smoke/fix pass: branch `fix/real-target-lab-setup`, commit `a360c97`, draft PR `#1`, prepared from the 2026-08-21 Windows + `supersrv-trixie` run
+- real target-machine smoke/fix pass: merged in `86ea6a7`; PR `#1` is merged/closed and its feature branch has been deleted
+- initial node-session wire binding: `5d9e8ce` plus protocol/documentation hardening on `m0/node-session-wire-binding`
 
 ## What exists
 
@@ -33,8 +34,28 @@ This file records current engineering facts, evidence boundaries, and next actio
 - transactional SQLite reference persistence with durable idempotency, revisions, leases, restart recovery, request fingerprints, schema migration, and atomic reservation → job/stage binding;
 - transport-neutral control envelope, structured errors, and first durable handlers (`ReserveCapacity`, `CommitReservation`, `CancelJob`);
 - authentication-gated node-session state machine with a mandatory injected verifier boundary and no permissive default;
+- strict node-session payload contracts for `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`;
+- transport-neutral `ControlEnvelope` → `NodeSession` binding with protocol-version negotiation, authenticated actor binding, optimistic session revisions, exact request replay, semantic request-ID conflict detection, profile/node binding, and injected benchmark-readiness policy;
 - Windows M0 Lab Setup with `SETUP.cmd` and direct `.cmd` role launchers;
 - Linux M0 Lab Setup with root `setup.sh`, direct `.sh` launchers, package-manager support, private-interface/firewall handling, and official llama.cpp Linux asset selection.
+
+## Node-session wire/readiness behavior
+
+The initial M0 session wire subset deliberately remains separate from the durable orchestration message dispatcher.
+
+- `NodeHello` payload version must match its common envelope; unsupported protocol major is rejected and a higher compatible minor is negotiated down to the current local minor.
+- `NodeAuthenticate` carries only auth method + bounded opaque credential. Credential meaning is owned by the injected `AuthenticationVerifier`.
+- Authentication advances only if verifier-confirmed `node_id` matches an advertised node ID (when present) and the envelope `actor_id`.
+- Every later session message must use the authenticated node as `actor_id`.
+- First-time messages require `expected_revision == current session revision`.
+- Successful request IDs are fingerprinted for the life of the session: exact replay returns the original snapshot; changed semantic reuse is rejected.
+- `CapabilityNegotiation` cannot add a capability absent from either peer and cannot silently drop configured required capabilities.
+- `NodeProfileUpdate` reuses the full node-profile v1 schema; its `node_id` must match the authenticated node.
+- `BenchmarkReport` reuses the benchmark-result v1 schema and must match the synced profile revision.
+- Benchmark readiness is decided by an injected `BenchmarkAcceptancePolicy`; there is no accept-all default and several accepted reports may be required before `READY`.
+- `DrainRequest` binds its reason to the existing `READY -> DRAINING` transition.
+
+This is not enrollment, production authentication, general authorization, durable network-session persistence, or a network listener. ADR 0005 remains Proposed.
 
 ## Cross-platform Lab Setup behavior
 
@@ -71,18 +92,26 @@ This remains a **lab workflow**, not a production provider installer.
 
 ## Verified implementation evidence
 
-Previously verified benchmark blocks:
+Benchmark blocks:
 
 - inventory tests: 3/3;
 - TCP network benchmark tests: 4/4;
 - llama-bench adapter tests: 6/6;
 - loopback network result and converted llama-bench fixture results validate against benchmark-result schema.
 
-Control/session evidence:
+Control/orchestration evidence:
 
-- control/orchestrator handler + persistence regression workspace: 37/37;
-- protocol envelope/payload/schema/node-session suite: 29/29;
-- node-session-specific portion: 14/14.
+- control/orchestrator handler + persistence regression workspace: 37/37.
+
+Current protocol/session evidence:
+
+- complete local protocol regression: **53/53 passing**;
+- existing common-envelope + durable-message-contract + schema tests remain green;
+- node-session semantic tests: **17/17**;
+- new session-message contract tests: **6/6**;
+- new envelope→session wire-binding tests: **15/15**;
+- relevant protocol Python files pass `py_compile`;
+- negative coverage includes unsupported protocol major, minor-version binding, authentication actor mismatch, later actor mismatch, stale session revision, exact replay, changed request-ID reuse, capability injection, profile/node mismatch, stale benchmark revision, rejected readiness, multi-report readiness, drain ordering, and unsupported message family.
 
 Previously verified shared/Windows setup evidence:
 
@@ -91,7 +120,7 @@ Previously verified shared/Windows setup evidence:
 - prior combined setup tests: 12/12;
 - synthetic helper smoke flow inventory → network-client → llama-adapter → persisted config: passed.
 
-New Linux setup evidence:
+Linux setup evidence:
 
 - Linux-specific automated tests: 6/6 passing on a real Linux environment;
 - Bash syntax for root/direct launchers and `setup/linux.sh`: passing;
@@ -109,15 +138,15 @@ Real target-machine evidence from 2026-08-21:
 - Windows `.venv` creation now tolerates a concurrent starter completing the venv first.
 - Linux `download_llama` bug fixed: `runtime` and `tmp` are initialized on separate lines under `set -u`.
 - Linux llama.cpp acceptance fixed from unsupported `llama-bench --version` to supported `llama-bench --help`.
-- Windows direct `setup/TESTS.cmd`: passed 13 benchmark tests, 34 orchestrator tests, 29 protocol tests, 19 setup tests, with 6 Linux-specific tests skipped on Windows because Bash is unavailable there.
+- Windows direct `setup/TESTS.cmd`: passed 13 benchmark tests, 34 orchestrator tests, 29 protocol tests, 19 setup tests, with 6 Linux-specific tests skipped on Windows because Bash is unavailable there. This was recorded before the new session-wire tests increased the protocol suite to 53.
 - Windows direct `setup/NODE.cmd`: passed and captured profile at `artifacts/lab/lab-d6332cbe/20260821-133030Z-inventory`.
-- Linux direct `setup/TESTS.sh` on `supersrv-trixie`: passed 13 benchmark tests, 34 orchestrator tests, 29 protocol tests, and 19 setup tests.
+- Linux direct `setup/TESTS.sh` on `supersrv-trixie`: passed 13 benchmark tests, 34 orchestrator tests, 29 protocol tests, and 19 setup tests. This was recorded before the new session-wire tests increased the protocol suite to 53.
 - Linux direct `setup/NODE.sh` on `supersrv-trixie`: passed and captured profile at `/root/ComputeMesh/artifacts/lab/lab-144a13f1/20260821-133107Z-inventory`.
-- Real Windows -> internet Linux TCP benchmark, source-limited by temporary `ufw` rule from `92.117.115.62` to `89.58.11.237:43191`, then rule removed: RTT p50 11.884 ms, RTT p95 13.369 ms, upload p50 42.276 Mbit/s, download p50 226.597 Mbit/s. Local artifact: `artifacts/lab/lab-d6332cbe/20260821-133137Z-network`.
+- Real Windows -> internet Linux TCP benchmark, source-limited by a temporary `ufw` rule and removed afterwards: RTT p50 11.884 ms, RTT p95 13.369 ms, upload p50 42.276 Mbit/s, download p50 226.597 Mbit/s. Local artifact: `artifacts/lab/lab-d6332cbe/20260821-133137Z-network`.
 - Real Windows CUDA llama.cpp benchmark using `qwen2.5-coder-7b-instruct-q4_k_m.gguf` and existing llama.cpp b9987 CUDA build: prefill 2866.127 tokens/s for 512 prompt tokens; decode 76.210 tokens/s for 128 generated tokens; backend CUDA; artifact `artifacts/lab/lab-d6332cbe/20260821-133336Z-llama`.
-- Real Linux CPU llama.cpp smoke using official downloaded llama.cpp b10549 CPU build plus copied `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`: prefill 12.382 tokens/s for 128 prompt tokens; decode 0.201 tokens/s for 32 generated tokens; backend CPU; server artifact `/root/ComputeMesh/artifacts/lab/lab-144a13f1/20260821-134100Z-llama-cpu-smoke`, mirrored locally below `artifacts/lab/server-supersrv-trixie/`.
+- Real Linux CPU llama.cpp smoke using official downloaded llama.cpp b10549 CPU build plus `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`: prefill 12.382 tokens/s for 128 prompt tokens; decode 0.201 tokens/s for 32 generated tokens; backend CPU; server artifact `/root/ComputeMesh/artifacts/lab/lab-144a13f1/20260821-134100Z-llama-cpu-smoke`, mirrored locally below `artifacts/lab/server-supersrv-trixie/`.
 
-**Evidence boundary:** this is real Windows↔Linux target evidence, but not a trusted private-LAN two-computer test. The server is on the public internet and has only a public `eth0` plus Docker private bridge addresses, so the assisted LAN setup cannot use it as a normal private LAN peer. The public network measurement was intentionally run through the engineering CLI with a temporary source-limited firewall rule, not through the unauthenticated LAN UI flow. No distributed shared inference exists yet.
+**Evidence boundary:** the Windows↔Linux measurements are real target evidence, but not a trusted private-LAN two-computer test. The Linux server is on the public internet, so the public network measurement was intentionally run through the engineering CLI with a temporary source-limited firewall rule, not through the unauthenticated LAN UI flow. The new node-session wire binding has only local semantic/schema evidence; it is not production auth and has not been exposed as a network service. No distributed shared inference exists yet.
 
 ## What does not exist / is not yet evidenced
 
@@ -125,9 +154,11 @@ Real target-machine evidence from 2026-08-21:
 - production provider-node application/service/installer;
 - distributed runtime/shared inference;
 - Gateway/API/scheduler;
-- production orchestrator service/database;
-- production node credential verifier/enrollment/key lifecycle;
-- full NodeHello/Auth/Profile wire binding and remaining runtime/artifact handlers;
+- production orchestrator network service/database adapter;
+- concrete production node credential verifier, enrollment/issuer, OS-protected key storage, rotation, and revocation lifecycle;
+- authorization policy beyond authenticated node-actor consistency;
+- network transport binding for the session/control protocol;
+- remaining availability/job/artifact/runtime/result/failure/heartbeat wire operations required by M1;
 - registry/verification/billing/telemetry/SDK/UI;
 - signed production release/update system.
 
@@ -146,20 +177,20 @@ Still proposed:
 - ADR 0006 — telemetry envelope;
 - ADR 0007 — ledger units.
 
-Neither the Lab Setup nor the session skeleton accepts ADR 0002/0005 by implication.
+Neither the Lab Setup nor the session/wire skeleton accepts ADR 0002/0005 by implication.
 
 ## Next actions in order
 
-1. On two real target machines, use `SETUP.cmd` on Windows or `./setup.sh` on Linux.
-2. Choose **Prepare this computer** on both and retain both profiles.
-3. Run network server/client A→B and B→A on a trusted LAN, including mixed Windows/Linux if that matches the target environment.
-4. Run the llama.cpp benchmark workflow on each relevant machine with the selected GGUF.
-5. Compare measured memory, RTT/throughput, prefill/decode, and choose the exact M1 two-node spike.
-6. Specify/implement the concrete ADR-0005 credential verification path without weakening the no-default verifier boundary.
-7. Bind NodeHello/NodeAuthenticate/Capability/Profile/Benchmark wire payloads to the session skeleton.
-8. Execute the llama.cpp-oriented ADR-0002 runtime spike behind the ComputeMesh boundary.
-9. Add activation-payload-size and controlled latency/jitter/loss experiments.
-10. Produce the first correct two-node shared inference and begin scheduler calibration.
+1. When two machines on the same trusted private LAN are available, run the assisted A→B and B→A LAN workflow and retain the evidence. This is a lab-evidence task and no longer blocks hardware-independent protocol work.
+2. Specify and decide the concrete ADR-0005 M1 node identity/credential path, including enrollment, challenge proof, short-lived session credential, OS-protected private-key storage, rotation, and revocation semantics.
+3. Implement the selected ADR-0005 verifier/enrollment prototype behind the existing no-default `AuthenticationVerifier` boundary; add replay/expiry/rotation/revocation negative tests.
+4. Use the measured llama.cpp evidence to decide/accept or reject ADR 0002 for the narrow M1 runtime baseline.
+5. Execute the first controlled llama.cpp-oriented remote-stage/runtime spike behind the ComputeMesh boundary; do not expose upstream experimental RPC directly as the public node protocol.
+6. Add activation-payload-size benchmarks plus controlled latency/jitter/loss experiments.
+7. Bind the minimum remaining reservation/job/artifact/runtime/failure messages required by that exact M1 spike.
+8. Produce the first correct two-node shared inference with explicit correctness and failure evidence.
+9. Add the first machine-readable placement/scheduler decision from real node profiles and measured topology.
+10. Re-evaluate G0/G1 and only then widen the runtime/message surface.
 
 ## Bilingual README rule
 
