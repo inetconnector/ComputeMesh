@@ -14,7 +14,7 @@ Clone/download the repository and use the launcher for your OS:
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
 
-Both launchers expose the same simple menu for profile capture, trusted-LAN RTT/throughput measurement, local llama.cpp benchmarking, and the current complete local test set. Model weights are never downloaded automatically.
+Both launchers expose the same simple menu for profile capture, trusted-LAN RTT/throughput measurement, local llama.cpp benchmarking, and the current complete local test set. New network measurements also carry the local Lab Setup node ID and, when the peer uses the current benchmark server, its self-reported Lab Setup node ID. Model weights are never downloaded automatically.
 
 The detailed two-computer walkthrough is in [setup/README.md](setup/README.md).
 
@@ -44,7 +44,8 @@ It checks:
 - selected model artifact size against all four llama-bench records;
 - `contiguous_layers` permission in the model manifest;
 - provider memory fractions plus a conservative planner memory cap;
-- a required coordinator→worker network measurement and caller-asserted peer node ID.
+- a coordinator→worker network measurement whose embedded local/peer Lab IDs are checked when present;
+- a model layer count taken from the manifest when present.
 
 It can emit:
 
@@ -61,7 +62,7 @@ predicted_shared_request_ms = null
 predicted_speedup_vs_local = null
 ```
 
-The current benchmark-result v1 does not structurally encode the network target node, so the planner labels that binding `caller_asserted_v1` instead of pretending it is stronger evidence. The model layer count is also an explicit experiment input because model-manifest v1 does not carry it yet. See [services/scheduler/README.md](services/scheduler/README.md).
+Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks, and embedded evidence must never conflict with a supplied fallback. See [services/scheduler/README.md](services/scheduler/README.md).
 
 ## Controlled llama.cpp M1 experiment
 
@@ -87,11 +88,13 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
+The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
 
 ## Identity and runtime security boundary
 
 ADR 0005 is accepted **only for the narrow M1 reference implementation**. Missing before public network exposure include provider/user authentication around identity APIs, OS-protected node private-key storage, active-session revocation fan-out, authenticated/encrypted transport, authorization/rate/resource limits, and production service/database operation.
+
+The TCP benchmark's `unauthenticated_server_report_v1` Lab ID is not the ADR-0005 identity proof. The benchmark still has no application authentication/encryption and remains trusted-private-LAN-only.
 
 Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay nor the feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
 
@@ -104,7 +107,7 @@ There is still no production provider-node installer/service, no completed distr
 ## Immediate path
 
 ```text
-profiles + local benchmarks + trusted-LAN path evidence
+profiles + local benchmarks + bound trusted-LAN path evidence
         ↓
 machine-readable conservative placement candidate
         ↓
