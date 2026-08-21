@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 foundation with M1 reference identity plus a cross-platform-validated controlled llama.cpp M1 runtime experiment harness; real shared inference is not yet evidenced  
+**Phase:** M0 foundation with M1 reference identity, a controlled llama.cpp runtime harness, and a cross-platform-validated TCP measurement/fault relay; real shared inference is not yet evidenced  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -23,8 +23,9 @@ This file records current engineering facts, evidence boundaries, and next actio
 - Linux Lab Setup: `3c99457`
 - real Windows/Linux target smoke/fix pass: `86ea6a7`
 - node-session wire/readiness binding landed through `2f1f33b`
-- M1 reference node identity landed on `main` through `d45406f`
-- controlled llama.cpp RPC M1 spike harness: current changeset; ADR 0002 remains Proposed pending real two-node evidence
+- M1 reference node identity landed through `d45406f`
+- controlled llama.cpp RPC M1 spike harness landed through `3db6ef9`
+- bounded TCP measurement relay: current PR #4 changeset; validated cross-platform before merge
 
 ## What exists
 
@@ -36,7 +37,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - llama.cpp `llama-bench` prefill/decode adapter;
 - stable random non-hostname lab node IDs;
 - versioned local profile revisions and ignored `artifacts/lab/` evidence paths;
-- the user-facing `tests` action now executes benchmark, orchestrator, protocol, identity, llama-runtime, and setup suites.
+- user-facing `tests` action runs benchmark, orchestrator, protocol, identity, llama-runtime, network-runtime, and setup suites.
 
 ### Durable control/orchestration foundation
 
@@ -72,85 +73,84 @@ Current strict session wire subset:
 - `BenchmarkReport`;
 - `DrainRequest`.
 
-Properties:
-
-- no permissive/default authenticator;
-- explicit protocol major/minor negotiation;
-- verifier-confirmed node identity bound to `actor_id`;
-- optimistic session revisions;
-- exact session-local request replay and semantic request-ID conflict detection;
-- capability intersection and mandatory configured capabilities;
-- profile node/revision binding;
-- benchmark profile revision binding;
-- injected benchmark-readiness policy with no accept-all default;
-- external termination path for revocation/incident signals.
+Properties include mandatory injected authentication, protocol-version negotiation, authenticated actor binding, optimistic session revisions, exact replay/semantic request-ID conflict detection, capability intersection, profile/revision binding, benchmark readiness policy, and external termination for revocation/incident signals.
 
 ### M1 reference node identity
 
-ADR 0005 is accepted for the **narrow M1 reference implementation**, not as a claim of public-alpha readiness.
+ADR 0005 is accepted for the **narrow M1 reference implementation**, not as production identity readiness.
 
 Authentication method: `computemesh-ed25519-v1`.
 
-The Ed25519 challenge signature is domain-separated and binds session ID, per-session challenge, stable node ID, key ID, negotiated protocol version, proof issue/expiry time, and a canonical digest of accepted `NodeHello` semantics including capabilities and supported auth methods.
+The Ed25519 challenge proof binds session ID, per-session challenge, stable node ID, key ID, negotiated protocol version, proof issue/expiry time, and canonical accepted `NodeHello` semantics.
 
-Reference identity registry (`services/identity/`) provides:
+`services/identity/` provides a SQLite reference registry with:
 
-- random stable `node_id` independent of key rotation;
-- one-time provider-authorized enrollment tokens capped at 15 minutes and stored only as SHA-256 hashes;
-- Ed25519 public keys only — no node private keys in the control-plane reference store;
+- stable random node IDs independent of key rotation;
+- one-time provider-authorized enrollment tokens capped at 15 minutes and stored only as SHA-256;
+- Ed25519 public keys only — no node private keys in the control plane;
 - idempotent same-token/same-key enrollment;
-- changed-key replay and duplicate-key-across-nodes rejection;
+- conflict rejection for changed-key token replay and duplicate keys across nodes;
 - rotation preserving node ID;
-- monotonic key/node revocation and no revoked-key reactivation;
-- restart-persistent SQLite state.
+- monotonic key/node revocation;
+- restart persistence.
 
-A revoked key or node is unavailable to **new authentication attempts**. Existing authenticated sessions still require external revocation fan-out to the session termination path.
+Revoked keys/nodes are rejected on new authentication. Existing sessions still require external revocation fan-out to the session termination path.
 
 ### Controlled llama.cpp M1 runtime experiment
 
-`runtime/llama/rpc_spike.py` now provides the first executable shared-runtime experiment controller. It is a **research harness**, not a production worker and not a ComputeMesh network protocol.
+`runtime/llama/rpc_spike.py` is the first executable shared-runtime research harness. It does not make upstream llama.cpp RPC the ComputeMesh node protocol.
 
-Experiment guardrails:
+Guardrails:
 
-- upstream RPC worker endpoint must be a literal loopback or RFC1918 IPv4 address;
-- DNS names, public IPs, IPv6 and wildcard binds are rejected by the assisted path;
-- coordinator llama-server HTTP binds only to `127.0.0.1`;
-- runtime-side acquisition is disabled with `--offline`;
-- shared mode requires explicit local + RPC device names discovered from the actual llama.cpp build;
-- shared placement uses explicit `--split-mode layer` and `--tensor-split`;
-- `--fit off` prevents automatic placement from silently rewriting the experiment;
-- prompt cache is disabled (`--cache-ram 0`, request `cache_prompt=false`);
-- upstream RPC file cache is not enabled;
-- one parallel server slot and deterministic greedy request settings are used for the first correctness comparison;
-- advanced tensor overrides are deliberately absent from the baseline experiment.
+- upstream RPC endpoint limited to literal loopback/RFC1918 IPv4;
+- no DNS/public/IPv6/wildcard assisted endpoint;
+- coordinator HTTP bound to `127.0.0.1`;
+- `--offline` runtime mode;
+- explicit discovered local + RPC device names;
+- explicit `layer` split and tensor ratios;
+- `--fit off`;
+- prompt/RPC cache surfaces disabled for the first experiment;
+- deterministic request settings and one server slot;
+- no advanced tensor overrides in the baseline experiment.
 
 Commands:
 
-- `worker` — start a caller-supplied upstream RPC worker binary with private-bind checks;
-- `discover` — attach private RPC endpoint(s) and print current llama.cpp device names;
-- `baseline` — run deterministic local-only llama-server reference execution;
-- `run` — run explicit local + RPC shared placement;
+- `worker` — start caller-supplied private RPC worker;
+- `discover` — obtain exact current llama.cpp local/RPC device names;
+- `baseline` — deterministic local-only reference;
+- `run` — explicit local + RPC placement;
 - `compare` — require same model/prompt digests and compare token-ID digest when available, otherwise output digest.
 
-Evidence output:
+Evidence records include model SHA-256/size, bounded llama.cpp version, topology/placement, model-ready/request timing, prefill/decode metrics and content digests without raw prompt/output persistence.
 
-- full model SHA-256 and size;
-- bounded `llama-server --version` output;
-- private RPC topology and local coordinator endpoint;
-- explicit device names, split mode and tensor ratios;
-- model-ready time and end-to-end request time;
-- upstream prefill/decode timing metrics;
-- SHA-256 digests of prompt, output and returned token IDs when available;
-- no persisted raw prompt or output content;
-- bounded structured failure artifact with phase/type/diagnostic when a measured run fails after output creation.
+**Evidence boundary:** no actual successful shared local+RPC two-machine inference artifact has yet been recorded. ADR 0002 remains Proposed.
 
-Result schema: `runtime/llama/spike_result.schema.json`.
+### M1 TCP measurement relay
 
-**Evidence boundary:** no actual shared local+RPC run has yet been recorded. The harness does not prove that llama.cpp RPC satisfies M1.
+`runtime/network/tcp_relay.py` is a lab measurement instrument for the current llama.cpp RPC experiment. It is **not** the production ComputeMesh transport or security boundary.
+
+Behavior:
+
+- listener is hard-coded to `127.0.0.1`;
+- target must be literal loopback/RFC1918 IPv4;
+- DNS, public IPv4, wildcard, link-local and IPv6 targets are rejected;
+- full-duplex forwarding uses bounded userspace queues/backpressure;
+- counts successfully forwarded opaque TCP-stream bytes independently as coordinator → worker and worker → coordinator;
+- separates `setup_elapsed_ms`, `active_elapsed_ms`, and `total_elapsed_ms`;
+- supports deterministic userspace one-way stream-chunk delay and bounded jitter;
+- supports deliberate disconnect after active connected time or total successfully forwarded bytes;
+- persists content-free `connect_error` / `relay_error` evidence with bounded exception type / errno metadata;
+- records no payload, prompt, model output or arbitrary stream content.
+
+The relay does not parse llama.cpp RPC framing. Its byte totals therefore contain RPC control/framing/data traffic and are **not activation-tensor byte counts**.
+
+Delay/jitter are TCP-stream-chunk forwarding effects, not physical packet-level network emulation. The relay deliberately does not emulate packet loss by dropping TCP bytes because that would corrupt the reliable byte stream rather than model IP loss/retransmission. Packet-level loss/reordering requires a controlled OS/network layer such as `tc netem` or an equivalent testbed.
+
+Result schema: `runtime/network/relay_metrics.schema.json`.
 
 ## Latest cross-platform validation
 
-A temporary branch-only GitHub workflow validated the actual runtime-harness code on Windows and Ubuntu. The workflow file is removed before merge and is not intended to exist on `main`.
+A temporary branch-only GitHub workflow validated the code changes on both supported development platforms. The temporary workflow is removed before merge and is not intended to exist on `main`.
 
 **Windows Server 2025 / Python 3.11.9:**
 
@@ -159,6 +159,7 @@ A temporary branch-only GitHub workflow validated the actual runtime-harness cod
 - protocol: **64/64**;
 - identity/integration: **13/13**;
 - llama runtime spike: **12/12**;
+- network runtime relay: **10/10**;
 - setup: **20/20**.
 
 **Ubuntu 24.04 / Python 3.11.16:**
@@ -168,17 +169,19 @@ A temporary branch-only GitHub workflow validated the actual runtime-harness cod
 - protocol: **64/64**;
 - identity/integration: **13/13**;
 - llama runtime spike: **12/12**;
+- network runtime relay: **10/10**;
 - setup: **20/20**.
 
-The runtime tests cover private endpoint restrictions, no-cache worker construction, offline discovery, explicit local+RPC placement invariants, loopback-only coordinator HTTP, deterministic/no-prompt-cache request shape, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, and a schema that forbids raw prompt/output fields.
+Network relay coverage includes public/DNS/IPv6/wildcard/link-local rejection, bounded configuration, real loopback full-duplex forwarding with exact byte accounting, delayed forwarding, setup-vs-active timing, byte-triggered disconnect, active-time-triggered disconnect, worker-connect failure evidence, and content-free schema validation.
+
+This is local software/loopback evidence on both OS families. It is not real two-machine RPC relay performance evidence.
 
 ## Real target-machine evidence from 2026-08-21
 
 - Windows target: `lab-d6332cbe`, Windows 10, Python 3.11.9, Intel i7-11800H-class CPU, 31.7 GiB RAM, NVIDIA GeForce RTX 3080 Laptop GPU, 16 GiB VRAM, driver 595.79.
 - Linux target: Debian 13/trixie, Linux 6.12.94, Python 3.13.5, 4 logical cores, 7.8 GiB RAM, no GPU detected.
-- Windows direct setup/profile and earlier full test flow passed on the real target.
-- Linux direct setup/profile and earlier full test flow passed on the real target.
-- Windows → internet Linux TCP engineering benchmark with temporary source-limited firewall rule: RTT p50 11.884 ms, p95 13.369 ms, upload p50 42.276 Mbit/s, download p50 226.597 Mbit/s; rule removed afterwards.
+- Windows and Linux direct setup/profile and earlier test flows passed on the real targets.
+- Windows → internet Linux engineering TCP benchmark with temporary source-limited firewall rule: RTT p50 11.884 ms, p95 13.369 ms, upload p50 42.276 Mbit/s, download p50 226.597 Mbit/s; rule removed afterwards.
 - Windows CUDA llama.cpp with `qwen2.5-coder-7b-instruct-q4_k_m.gguf`: prefill 2866.127 tokens/s for 512 prompt tokens; decode 76.210 tokens/s for 128 generated tokens.
 - Linux CPU llama.cpp smoke with `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`: prefill 12.382 tokens/s for 128 prompt tokens; decode 0.201 tokens/s for 32 generated tokens.
 
@@ -188,11 +191,12 @@ The public-internet TCP measurement is not a trusted private-LAN A↔B result an
 
 - trusted private-LAN A↔B assisted benchmark evidence;
 - an actual successful two-device local+RPC shared-inference artifact;
-- activation/RPC transfer byte accounting;
-- controlled latency/jitter/loss experiments;
-- deliberate worker-disconnect/cancellation evidence;
+- real llama.cpp-through-relay byte/timing results on the target machines;
+- activation-tensor-specific transfer accounting;
+- real-runtime delay/jitter/disconnect sensitivity evidence;
+- packet-level loss/reordering evidence;
 - production provider-node application/service/installer;
-- automatic scheduler/placement selection for the runtime split;
+- automatic scheduler/placement selection;
 - Gateway/API;
 - production orchestrator network service/database adapter;
 - authenticated/authorized provider-facing identity APIs;
@@ -201,11 +205,11 @@ The public-internet TCP measurement is not a trusted private-LAN A↔B result an
 - authenticated/encrypted ComputeMesh control/data transport;
 - general authorization policy, rate/resource limits and abuse controls;
 - hardware attestation or Sybil-proof physical-node identity;
-- minimum artifact/runtime/result/failure/heartbeat wire operations required by the finally selected M1 path;
+- minimum artifact/runtime/result/failure/heartbeat wire operations required by the selected M1 path;
 - production registry/verification/billing/telemetry/SDK/UI;
 - signed production release/update system.
 
-The current ComputeMesh identity/session layer does **not** authenticate the upstream llama.cpp RPC socket. Upstream RPC remains trusted-lab-only and must not be treated as the provider-node API. A copied private key remains cryptographically the same node identity. `confidential_compute` remains invalid without a concrete TEE/attestation design.
+The current ComputeMesh identity/session layer does **not** authenticate the upstream llama.cpp RPC socket. The local relay does not change this. Upstream RPC remains trusted-private-lab-only and must not be treated as the provider-node API. `confidential_compute` remains invalid without a concrete TEE/attestation design.
 
 ## ADR status
 
@@ -216,7 +220,7 @@ Accepted:
 
 Still proposed:
 
-- ADR 0002 — M1 runtime baseline; controlled llama.cpp RPC experiment harness exists, but no real shared proof yet;
+- ADR 0002 — M1 runtime baseline; controlled llama.cpp RPC harness + measurement relay exist, but no real shared proof yet;
 - ADR 0003 — control/data transport;
 - ADR 0004 — model/artifact identity;
 - ADR 0006 — telemetry envelope;
@@ -226,14 +230,14 @@ Still proposed:
 
 1. On two machines sharing a trusted private LAN, retain A→B and B→A network evidence.
 2. Use compatible current llama.cpp builds and the same GGUF; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
-3. Run the deterministic `baseline` on the coordinator.
-4. Run `run` with an explicit local+RPC layer split and fixed tensor ratios.
-5. Run `compare`; require same model/prompt digests and exact token/output correctness before making any shared-inference claim.
-6. Record host/device memory behavior and deliberately disconnect the worker during controlled runs; retain structured failure evidence.
-7. Add activation/RPC transfer-size accounting and controlled latency/jitter/loss experiments.
-8. Accept, reject, or supersede ADR 0002 from the measured evidence.
-9. Bind only the minimum artifact/runtime/failure messages and first machine-readable placement decision required by the winning M1 path.
-10. Produce a reproducible correct two-node inference and begin scheduler calibration.
+3. Run deterministic local `baseline` on the coordinator.
+4. Start a fresh local measurement relay and run an explicit local+RPC layer split through it with fixed tensor ratios.
+5. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
+6. Retain relay directional byte totals plus setup/active timing for that exact successful run.
+7. Repeat controlled runs with added stream delay/jitter and deliberate disconnects; retain correctness/performance/failure evidence.
+8. If packet loss/reordering sensitivity is material, test it separately through a controlled OS/network-emulation layer rather than dropping TCP bytes in the relay.
+9. Accept, reject, or supersede ADR 0002 from measured evidence.
+10. Bind only the minimum artifact/runtime/failure messages and first machine-readable placement decision required by the winning path; then produce a reproducible correct two-node inference and begin scheduler calibration.
 
 Before any public authenticated node service is introduced, separately complete node private-key storage, provider-authenticated identity APIs, active-session revocation fan-out, transport security, authorization and resource limits.
 
