@@ -164,7 +164,10 @@ class SQLiteIdentityStore:
     ) -> str:
         if not (1 <= len(principal_id) <= 256):
             raise ValueError("principal_id must be 1..256 characters")
-        now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_value = now or datetime.now(timezone.utc)
+        if now_value.tzinfo is None or expires_at.tzinfo is None:
+            raise ValueError("enrollment token times must be timezone-aware")
+        now_utc = now_value.astimezone(timezone.utc)
         expiry = expires_at.astimezone(timezone.utc)
         if expiry <= now_utc:
             raise ValueError("enrollment token expiry must be in the future")
@@ -217,8 +220,13 @@ class SQLiteIdentityStore:
             if expires_at <= now_utc:
                 raise EnrollmentTokenExpired("enrollment token has expired")
 
-            node_id = "node_" + secrets.token_hex(16)
             key_id = key_id_from_public_key(public_key)
+            existing_key = self._db.execute(
+                "SELECT node_id FROM node_key WHERE key_id=?", (key_id,)
+            ).fetchone()
+            if existing_key is not None:
+                raise EnrollmentConflict("public key is already bound to another node")
+            node_id = "node_" + secrets.token_hex(16)
             now_text = _utc_text(now_utc)
             self._db.execute(
                 "INSERT INTO node_identity(node_id, principal_id, status, created_at) "
