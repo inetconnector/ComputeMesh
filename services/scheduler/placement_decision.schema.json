@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/m1_placement_decision.schema.json",
+  "title": "ComputeMesh M1 Two-Node Placement Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "decision_id", "captured_at", "scope", "model", "nodes",
+    "network_evidence", "hard_constraints", "candidates", "performance_evidence", "recommendation"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "decision_id": {"type": "string", "pattern": "^placement-[0-9a-f]{16}$"},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "scope": {"const": "m1_two_node_llama_experiment"},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "model_version", "artifact_digest", "artifact_size_bytes", "benchmark_model_name", "layer_count"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "model_version": {"type": "string", "minLength": 1, "maxLength": 256},
+        "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact_size_bytes": {"type": "integer", "minimum": 1},
+        "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},
+        "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000}
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coordinator", "worker"],
+      "properties": {
+        "coordinator": {"$ref": "#/$defs/nodeMemory"},
+        "worker": {"$ref": "#/$defs/nodeMemory"}
+      }
+    },
+    "network_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "peer_node_id", "peer_binding"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_binding": {"const": "caller_asserted_v1"}
+      }
+    },
+    "hard_constraints": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "passed", "detail"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 128},
+          "passed": {"type": "boolean"},
+          "detail": {"type": "string", "maxLength": 512}
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/candidate"},
+        {"$ref": "#/$defs/candidate"}
+      ],
+      "items": false
+    },
+    "performance_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "coordinator_prefill_tokens_per_second", "coordinator_decode_tokens_per_second",
+        "worker_prefill_tokens_per_second", "worker_decode_tokens_per_second", "network_rtt_ms_p50",
+        "network_rtt_ms_p95", "network_upload_mbps_p50", "network_download_mbps_p50",
+        "predicted_shared_request_ms", "predicted_speedup_vs_local", "reason"
+      ],
+      "properties": {
+        "status": {"const": "insufficient_shared_runtime_evidence"},
+        "coordinator_prefill_tokens_per_second": {"type": "number", "exclusiveMinimum": 0},
+        "coordinator_decode_tokens_per_second": {"type": "number", "exclusiveMinimum": 0},
+        "worker_prefill_tokens_per_second": {"type": "number", "exclusiveMinimum": 0},
+        "worker_decode_tokens_per_second": {"type": "number", "exclusiveMinimum": 0},
+        "network_rtt_ms_p50": {"type": "number", "exclusiveMinimum": 0},
+        "network_rtt_ms_p95": {"type": "number", "exclusiveMinimum": 0},
+        "network_upload_mbps_p50": {"type": "number", "exclusiveMinimum": 0},
+        "network_download_mbps_p50": {"type": "number", "exclusiveMinimum": 0},
+        "predicted_shared_request_ms": {"type": "null"},
+        "predicted_speedup_vs_local": {"type": "null"},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 1024}
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "production_scheduling", "explanation"],
+      "properties": {
+        "mode": {"enum": ["shared_experiment", "local_only", "no_plan"]},
+        "production_scheduling": {"const": false},
+        "explanation": {"type": "string", "minLength": 1, "maxLength": 1024}
+      }
+    }
+  },
+  "$defs": {
+    "nodeMemory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id", "device_id", "kind", "name", "raw_memory_bytes", "provider_memory_fraction",
+        "planner_memory_fraction", "effective_memory_fraction", "usable_memory_bytes", "profile_revision", "profile_age_hours"
+      ],
+      "properties": {
+        "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "kind": {"enum": ["cpu", "gpu", "accelerator"]},
+        "name": {"type": "string"},
+        "raw_memory_bytes": {"type": "integer", "minimum": 0},
+        "provider_memory_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "planner_memory_fraction": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "effective_memory_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "usable_memory_bytes": {"type": "integer", "minimum": 0},
+        "profile_revision": {"type": "integer", "minimum": 0},
+        "profile_age_hours": {"type": "number", "minimum": 0}
+      }
+    },
+    "layerRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "start_layer", "end_layer_exclusive"],
+      "properties": {
+        "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "start_layer": {"type": "integer", "minimum": 0},
+        "end_layer_exclusive": {"type": "integer", "minimum": 1}
+      }
+    },
+    "memoryModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixed_coordinator_bytes", "estimated_layer_bytes", "coordinator_max_layers", "worker_max_layers"],
+      "properties": {
+        "fixed_coordinator_bytes": {"type": "integer", "minimum": 0},
+        "estimated_layer_bytes": {"type": "integer", "minimum": 1},
+        "coordinator_max_layers": {"type": "integer", "minimum": 0},
+        "worker_max_layers": {"type": "integer", "minimum": 0}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "feasible", "layer_ranges", "tensor_split", "explanation"],
+      "properties": {
+        "mode": {"enum": ["local_only", "shared_contiguous_layers"]},
+        "feasible": {"type": "boolean"},
+        "layer_ranges": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/layerRange"}},
+        "tensor_split": {"type": "array", "maxItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
+        "memory_model": {"$ref": "#/$defs/memoryModel"},
+        "explanation": {"type": "string", "minLength": 1, "maxLength": 1024}
+      }
+    }
+  }
+}
