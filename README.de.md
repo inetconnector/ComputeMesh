@@ -3,7 +3,7 @@
 **Sprachen:** [English](README.md) | **Deutsch**
 
 > **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Protokollgrundlagen, Sicherheit und Machbarkeitsforschung.  
-> **Implementierungsstatus:** Ausführbare M0-Inventory-/Netzwerk-/Runtime-Benchmark-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz und ein transportneutraler Control-Envelope-Parser existieren. Es gibt weiterhin keine produktive verteilte Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
+> **Implementierungsstatus:** Ausführbare M0-Benchmark-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz, der transportneutrale Control Envelope und die ersten nachrichtenspezifischen Control-Handler existieren. Es gibt weiterhin keine produktive verteilte Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
 
 ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogene Rechenressourcen sollen als logisch einheitliche Ausführungsumgebung nutzbar werden. Ein Client mit wenig lokalem VRAM soll später ein Modell ausführen können, dessen Speicher- und Rechenanforderungen den eigenen Rechner übersteigen, ohne Shards, Hosts, Ports oder Platzierung manuell verwalten zu müssen.
 
@@ -13,35 +13,37 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 
 ## Aktueller Stand
 
-### Implementiert
+### In M0 implementiert
 
 - zweisprachige Root-Dokumentation und ADR-Prozess;
 - Architektur-, Protokoll-, Sicherheits-, Benchmark-, Failure-, Privacy- und Data-Model-Spezifikationen;
-- Draft-2020-12-Schemas für Node Profile, Benchmark Result, Model-/Shard-Manifeste, Reservation, Job, gemeinsamen Control Envelope und strukturierte Protokollfehler;
+- Draft-2020-12-Schemas für Node Profile, Benchmark Results, Model-/Shard-Manifeste, Reservations, Jobs, gemeinsamen Control Envelope, strukturierte Fehler und die ersten Control-Message-Payloads;
 - Python-Inventory-Benchmark-Collector nur mit Standardbibliothek;
-- TCP-Netzwerk-Microbenchmark nur mit Standardbibliothek für Connection Setup, Small-Frame-RTT p50/p95, Upload-/Download-Durchsatz und Rohsamples;
-- llama.cpp-`llama-bench`-Adapter, der getrennte Prompt-Processing-/Generation-Messungen in `llama_cpp_prefill`- und `llama_cpp_decode`-Benchmark-Records umwandelt;
+- TCP-Netzwerk-Microbenchmark für Connection Setup, RTT p50/p95, Upload-/Download-Durchsatz und Rohsamples;
+- llama.cpp-`llama-bench`-Adapter, der Prompt-Processing-/Generation-Messungen in ComputeMesh-Prefill-/Decode-Records überführt;
 - deterministische Job-/Reservation-State-Machine-Semantik;
-- transaktionale SQLite-M0-Persistenz mit dauerhafter Idempotenz, Revisionen, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
+- transaktionale SQLite-Referenzpersistenz mit dauerhafter Idempotenz, Optimistic Revisions, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
+- SQLite-Schema-Migration v1 → v2 mit dauerhaften Request-Fingerprints;
+- atomare `CommitReservation`-Bindung einer Reservation an konkreten Job + Stage;
 - JSON-Schema-basierte Job-/Reservation-Admission;
-- transportneutraler gemeinsamer Control-Envelope-Parser mit Versions-/Zeit-/Formprüfung und strukturierten Fehlern;
-- Tests für die implementierten M0-Komponenten.
+- transportneutrale Control-Envelope-Prüfung mit Versions-/Zeit-/Formprüfung und strukturierten Fehlern;
+- nachrichtenspezifische Payload-Validierung und dauerhafte Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`.
 
 ### Noch nicht implementiert / noch nicht nachgewiesen
 
-- reale llama.cpp-Benchmark-Evidenz mit Lab-GPU/Modell;
+- reale llama.cpp-Benchmark-Evidenz mit Ziel-Lab-GPU/Modell;
 - reale Zwei-Node-LAN-/WAN-Benchmark-Evidenz;
 - produktiver Provider-Node-Agent;
 - Runtime Worker bzw. gemeinsame verteilte Inferenz;
 - Gateway/API und produktiver Scheduler;
 - produktiver Orchestrator-Netzwerkservice/Datenbankadapter;
 - authentifizierte Node-Sessions und Autorisierung;
-- nachrichtenspezifische Node-/Orchestrator-Protokollhandler;
-- Registry, Verification, Billing/Ledger, Telemetry, SDK, UI;
+- die übrigen Node-/Runtime-/Artifact-Protokollnachrichten jenseits der ersten drei Handler;
+- Registry, Verification, Billing/Ledger, Telemetry, SDK und UI;
 - produktive Deployment-/Update-Pipeline;
 - öffentliche Veröffentlichung.
 
-Der kanonische Handoff steht in `state.md`.
+Der kanonische Engineering-Handoff steht in `state.md`.
 
 ## Engineering-Invarianten
 
@@ -81,9 +83,9 @@ Bei dichter Pipeline-Ausführung sollen zwischen Nodes normalerweise Stage-Aktiv
 ```text
 ComputeMesh/
 ├─ apps/                  # geplante Produktoberflächen
-├─ services/orchestrator/ # M0 State Machine, Persistenz, Schema-Admission
+├─ services/orchestrator/ # M0 State Machine, Persistenz, Admission, Handler
 ├─ runtime/               # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
-├─ protocol/              # Control Envelope, Schemas, Tests
+├─ protocol/              # Control Envelope, Payload-Verträge, Schemas, Tests
 ├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ models/
 ├─ sdk/
@@ -136,13 +138,21 @@ python tools/benchmark/llama_bench_adapter.py `
   --profile-revision 1
 ```
 
-Der Adapter führt Upstream-`llama-bench` mit getrennten Prompt-Processing-/Generation-Tests aus und konvertiert das JSON in ComputeMesh-Benchmark-Records. Er ist ein **Adapter und noch kein Nachweis für M1**: Ein realer Modell-/Hardware-Lauf fehlt weiterhin.
+Der Adapter ist ein Messadapter und noch kein Nachweis, dass M1 bestanden ist. Ein realer Modell-/Hardware-Lauf fehlt weiterhin.
 
 ## Protokoll- und Persistenzgrundlagen
 
-`services/orchestrator/persistence.py` ist eine M0-SQLite-Referenz für atomare State-/Idempotency-Effekte, Optimistic Revision Checks, restartfeste Replays, Leases und Stale-Writer-Schutz. SQLite ist **nicht** als Produktionsdatenbank ausgewählt; PostgreSQL bleibt die Control-Plane-Richtung.
+`services/orchestrator/persistence.py` ist eine M0-SQLite-Referenz für transaktionale State-Effekte, dauerhafte Deduplizierung, Optimistic Revision Checks, restartfeste Replays, Leases und atomare Reservation-zu-Job-/Stage-Bindung. SQLite ist **nicht** als Produktionsdatenbank ausgewählt.
 
-`protocol/control.py` implementiert die gemeinsame Control-Envelope-Semantik aus `PROTOCOL.md`, ohne gRPC, QUIC, HTTP oder einen anderen Transport auszuwählen. Authentifizierung, Autorisierung, nachrichtenspezifische Payload-Handler und Capability Negotiation fehlen noch.
+`protocol/control.py` implementiert die gemeinsame Control-Envelope-Semantik, ohne gRPC, QUIC, HTTP oder einen anderen Transport auszuwählen. Die initiale Message-Schicht validiert und verarbeitet nur drei bereits in `PROTOCOL.md` definierte Operationen:
+
+- `ReserveCapacity`;
+- `CommitReservation`;
+- `CancelJob`.
+
+Bei diesen Operationen wird die Envelope-`request_id` bis in die dauerhafte Idempotenzspeicherung durchgereicht; zusätzlich wird Message Type + Payload gefingert. Ein Replay derselben Anfrage hat genau einen Geschäftseffekt. Dieselbe Request-ID mit verändertem Payload wird als Idempotenzkonflikt abgelehnt.
+
+**Authentifizierung und Autorisierung werden durch diese Handler nicht implementiert.** Die Actor-Identität bleibt unvertrauenswürdig, bis das Node-Identity-/Session-Design implementiert ist.
 
 ## Runtime-Ausrichtung
 
@@ -154,12 +164,13 @@ Der erste vorgeschlagene M1-Forschungspfad ist llama.cpp-orientiert und wird hin
 maschinenlesbare Verträge + Inventory-Harness                 [M0 implementiert]
 transaktionale Job-/Reservation-Persistenz + Schema-Admission [M0 implementiert]
 gemeinsamer Control Envelope + strukturierte Fehler            [M0 implementiert]
+erste dokumentierte Control-Handler                            [M0 implementiert]
 TCP-Lab-Netzwerk-Microbenchmark                                [M0 implementiert]
 llama-bench-Prefill-/Decode-Adapter                            [M0 implementiert]
 -> Inventory-/Netzwerk-/Runtime-Messungen auf realen Nodes
 -> llama.cpp-orientierter M1-Runtime-Spike
--> nachrichtenspezifische Protocol-Handler
 -> authentifizierter Node-Session-Skeleton
+-> übrige Node-/Runtime-/Artifact-Protokollhandler
 -> Activation-Payload-Transport-Benchmark
 -> gemeinsame Zwei-Node-Inferenz
 -> Scheduler-Automatisierung

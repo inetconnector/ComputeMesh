@@ -1,6 +1,6 @@
 # Job Orchestrator
 
-**Status:** M0 transactional state/persistence reference implemented; no network service or production database yet.
+**Status:** M0 transactional state/persistence and initial durable control handlers implemented; no authenticated network service or production database yet.
 
 ## Purpose
 
@@ -8,25 +8,38 @@ Own the canonical job lifecycle and coordinate reservation, dispatch, cancellati
 
 ## Current implementation
 
-The M0 reference now has three layers:
+The M0 reference has four layers:
 
-- `state_machine.py` — deterministic job/reservation transition semantics;
-- `persistence.py` — transactional SQLite reference storage with durable idempotency and optimistic revisions;
-- `contracts.py` — JSON Schema Draft 2020-12 validation and admission of initial Job/Reservation documents.
+- `state_machine.py` — deterministic Job/Reservation transition semantics;
+- `persistence.py` — transactional SQLite reference storage with durable idempotency, revisions, leases, restart recovery, request fingerprints, and reservation bindings;
+- `contracts.py` — JSON Schema Draft 2020-12 validation/admission of initial Job/Reservation documents;
+- `handlers.py` — transport-neutral dispatch from validated control envelopes into durable state effects.
 
-### Durable semantics already covered
+### Durable semantics covered
 
 - reservation and job lifecycle;
 - monotonic revisions;
 - stale-writer rejection across independent database connections;
 - durable idempotency across process restart;
-- conflicting idempotency-key detection;
+- rejection of the same `request_id` when message payload/operation changes;
 - reservation lease persistence and expiry;
 - cancellation/failure terminal transitions;
-- atomic rollback when validation/transition fails;
-- initial Job/Reservation schema validation before durable admission.
+- atomic rollback on validation/transition errors;
+- initial Job/Reservation schema validation before durable admission;
+- SQLite state-store migration v1 → v2;
+- atomic `CommitReservation` binding to an existing job and concrete stage.
 
-SQLite is deliberately a **reference persistence adapter**, not the final control-plane database decision. The production architecture still targets a transactional durable database such as PostgreSQL. The behavior being stabilized here is the contract: atomic state mutation, revision checks, durable deduplication, and restart recovery.
+SQLite is deliberately a **reference persistence adapter**, not the final control-plane database decision. The behavior being stabilized is the contract: atomic mutation, revision checks, durable deduplication, explicit binding, and restart recovery.
+
+## Initial control handlers
+
+Only operations already named in `PROTOCOL.md` are exposed by the initial handler set:
+
+- `ReserveCapacity` — leases an existing reservation until the validated expiry;
+- `CommitReservation` — commits the lease and atomically stores job/stage binding;
+- `CancelJob` — transitions a cancellable job to `CANCELLED` after validating reason and cutoff policy.
+
+The common envelope `request_id` becomes the durable idempotency key. Message type + payload are fingerprinted, so a replay is harmless but reuse of the same request ID for a changed payload is rejected.
 
 ## Reservation lifecycle
 
@@ -35,9 +48,9 @@ CANDIDATE -> LEASED -> COMMITTED -> ACTIVE -> RELEASED
     |           |          |
     v           v          v
  REJECTED     EXPIRED    RELEASED
-
-LEASED may also be explicitly RELEASED before commit.
 ```
+
+The first network-facing M0 handlers currently implement only the lease and commit portions; the remaining lifecycle messages will be added only when their protocol contracts are defined.
 
 ## Job lifecycle
 
@@ -46,35 +59,28 @@ CREATED -> VALIDATING -> PLANNING -> RESERVING -> PREPARING
 -> RUNNING -> VERIFYING -> COMPLETED -> SETTLED
 ```
 
-Alternative terminal outcomes:
-
-- `CANCELLED` before completion;
-- `FAILED` before completion;
-- `REFUNDED` from `COMPLETED` or `SETTLED`.
-
-Retries and replans are not represented as job states. They become new attempts and placement revisions in the durable model.
+Alternative terminal outcomes include `CANCELLED`, `FAILED`, and `REFUNDED`. Retries and replans are represented by attempts/placement revisions rather than permanent job states.
 
 ## Setup and test
-
-The state machine and SQLite adapter use the Python standard library. Contract validation uses `jsonschema`:
 
 ```powershell
 python -m pip install -r services/orchestrator/requirements.txt
 python -m unittest discover -s services/orchestrator/tests -v
+python -m unittest discover -s protocol/tests -v
 ```
 
-Current local verification before publication:
+The latest isolated regression work verified:
 
-- 8 state-machine tests;
-- 8 persistence/restart/concurrency tests;
-- 5 contract/admission tests;
-- **21/21 total passing**;
-- all orchestrator Python modules pass `py_compile`.
+- existing state/persistence/admission behavior plus the new handler/migration cases: 37/37 passing in the assembled regression workspace;
+- protocol envelope/payload/schema tests: 15/15 passing;
+- relevant Python modules pass `py_compile`.
 
-## Security/reliability boundary
+## Security and reliability boundary
 
-The admission layer rejects unknown schema fields and invalid privacy/state values before durable creation. This is not yet authentication or authorization: protocol identity, signed node sessions, and service-level authorization remain future work.
+The handler path validates envelope shape/version/expiry, message-specific payloads, revisions, state transitions, and idempotency. It **does not authenticate or authorize `actor_id`**. Signed/authenticated node sessions and service authorization remain required before this can be exposed as a network service.
+
+The handler is also transport-neutral: it does not select gRPC, QUIC, HTTP, or another wire transport.
 
 ## Next step
 
-Bind these semantics to concrete protocol handlers and implement the authenticated node-session skeleton after the node-identity ADR is sufficiently specified. In parallel, run the inventory harness on two real lab machines and start the runtime/transport measurements required by M1.
+Implement the authenticated node-session skeleton once ADR 0005 is sufficiently specified, then add only the remaining protocol operations required by the selected M1 runtime path. In parallel, collect real two-node and llama.cpp benchmark evidence.
