@@ -84,7 +84,9 @@ Implemented M0 foundations include:
 - transport-neutral control-envelope validation and structured errors;
 - durable initial handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`;
 - authentication-gated node-session semantics for `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- a mandatory injected `AuthenticationVerifier` boundary with no permissive default.
+- a mandatory injected `AuthenticationVerifier` boundary with no permissive default;
+- strict initial node-session wire contracts and envelope-to-session binding for `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`;
+- session-level protocol-version negotiation, authenticated `actor_id` binding, optimistic session revisions, exact request replay, semantic request-ID conflict detection, and an injected benchmark-readiness policy with no accept-all default.
 
 ## Verified real-target evidence
 
@@ -100,9 +102,9 @@ The internet TCP test was intentionally run through the engineering CLI with a t
 
 ## Not implemented yet
 
-There is still no production provider-node application/installer, distributed shared-inference runtime, Gateway/API, scheduler, production credential system, complete wire protocol, billing/verification/telemetry product stack, or signed release/update pipeline.
+There is still no production provider-node application/installer, distributed shared-inference runtime, Gateway/API, scheduler, production credential/enrollment/revocation system, complete wire protocol, billing/verification/telemetry product stack, or signed release/update pipeline.
 
-ADR 0005 (node identity) and ADR 0002 (M1 runtime baseline) remain **Proposed**, not accepted.
+The new node-session wire binder is **not** production authentication and is **not** a network service. ADR 0005 (node identity) and ADR 0002 (M1 runtime baseline) remain **Proposed**, not accepted.
 
 ## Two-computer M0 path
 
@@ -130,7 +132,7 @@ The two computers may be Windows, Linux, or one of each; the benchmark record fo
 
 The TCP benchmark protocol has no application authentication or encryption. Use the assisted server only on a trusted private LAN. Neither launcher makes the experimental runtime safe for public-Internet exposure.
 
-The existing `AuthenticationVerifier` is a semantic interface, not a production credential system. `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
+The existing `AuthenticationVerifier` is a semantic interface, not a production credential system. The session wire binder only enforces ordering, version/revision, replay, and authenticated actor consistency around whatever verifier is injected. `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
 ## Repository map
 
@@ -141,7 +143,7 @@ ComputeMesh/
 ├─ setup/                 # shared helper + Windows/Linux launchers
 ├─ tools/benchmark/       # inventory, TCP network, llama-bench adapter
 ├─ services/orchestrator/ # durable M0 state + initial control handlers
-├─ protocol/              # contracts, envelope, session semantics, tests
+├─ protocol/              # contracts, envelope, session semantics/wire binding, tests
 ├─ apps/                  # planned product applications
 ├─ runtime/               # planned/runtime research integrations
 ├─ docs/                  # specifications and ADRs
