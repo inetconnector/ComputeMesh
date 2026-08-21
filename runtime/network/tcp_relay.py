@@ -277,6 +277,7 @@ def run_relay_once(
         )
         worker.settimeout(None)
         coordinator.settimeout(None)
+        connected_mono = time.monotonic()
         sockets = (coordinator, worker)
         controller = _Controller(sockets, config.disconnect_after_bytes)
         queue_slots = max(1, config.max_buffer_bytes // config.chunk_bytes)
@@ -314,7 +315,7 @@ def run_relay_once(
             thread.start()
 
         deadline = (
-            started_mono + float(config.disconnect_after_seconds)
+            connected_mono + float(config.disconnect_after_seconds)
             if config.disconnect_after_seconds is not None
             else None
         )
