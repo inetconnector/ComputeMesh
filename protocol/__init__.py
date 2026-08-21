@@ -2,6 +2,18 @@
 
 from .control import ControlEnvelope, ProtocolFault, StructuredError, parse_control_envelope
 from .message_contracts import MessageContractError, MessageContractValidator
+from .node_identity import (
+    AUTH_METHOD,
+    Ed25519ChallengeVerifier,
+    NodeAuthProof,
+    NodeIdentityError,
+    NodeProofMalformed,
+    VerificationKey,
+    VerificationKeyResolver,
+    create_node_auth_proof,
+    key_id_from_public_key,
+    signing_message,
+)
 from .node_session import (
     AuthenticationAttempt,
     AuthenticationDecision,
@@ -43,6 +55,16 @@ __all__ = [
     "parse_control_envelope",
     "MessageContractError",
     "MessageContractValidator",
+    "AUTH_METHOD",
+    "Ed25519ChallengeVerifier",
+    "NodeAuthProof",
+    "NodeIdentityError",
+    "NodeProofMalformed",
+    "VerificationKey",
+    "VerificationKeyResolver",
+    "create_node_auth_proof",
+    "key_id_from_public_key",
+    "signing_message",
     "AuthenticationAttempt",
     "AuthenticationDecision",
     "AuthenticationExpired",
