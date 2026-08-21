@@ -5,9 +5,9 @@ This tool measures application-level connection setup, small-frame RTT, upload
 throughput, and download throughput. The server defaults to loopback and has no
 authentication; it is intended only for controlled lab/LAN experiments.
 
-Newer servers can self-report a lab node ID over the same unauthenticated
-benchmark connection. This improves evidence traceability but is not a security
-identity proof.
+Current servers may also self-report a bounded Lab Setup node ID on the same
+connection. That label is experiment traceability only, not authenticated node
+identity.
 """
 
 from __future__ import annotations
@@ -31,21 +31,6 @@ MAX_NODE_ID_BYTES = 512
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _node_id(value: str | None, label: str, *, required: bool = False) -> str | None:
-    if value is None:
-        if required:
-            raise ValueError(f"{label} is required")
-        return None
-    if not isinstance(value, str):
-        raise ValueError(f"{label} must be a string")
-    normalized = value.strip()
-    if not normalized or len(normalized) > 128 or any(ord(ch) < 32 or ord(ch) == 127 for ch in normalized):
-        raise ValueError(f"{label} must be 1..128 printable characters")
-    if len(normalized.encode("utf-8")) > MAX_NODE_ID_BYTES:
-        raise ValueError(f"{label} UTF-8 encoding is too large")
-    return normalized
 
 
 def percentile(samples: list[float], q: float) -> float:
@@ -102,6 +87,23 @@ def recv_header(sock: socket.socket) -> tuple[bytes, int]:
     return HEADER.unpack(raw)
 
 
+def _node_id(value: str | None, label: str, *, required: bool = False) -> str | None:
+    if value is None:
+        if required:
+            raise ValueError(f"{label} is required")
+        return None
+    normalized = value.strip()
+    if not normalized:
+        if required:
+            raise ValueError(f"{label} is required")
+        return None
+    if len(normalized) > 128 or len(normalized.encode("utf-8")) > MAX_NODE_ID_BYTES:
+        raise ValueError(f"{label} must be at most 128 characters / {MAX_NODE_ID_BYTES} UTF-8 bytes")
+    if any(not ch.isprintable() for ch in normalized):
+        raise ValueError(f"{label} must contain printable characters only")
+    return normalized
+
+
 def handle_connection(
     conn: socket.socket,
     *,
@@ -119,8 +121,12 @@ def handle_connection(
         if op == b"Q":
             return
         if op == b"I":
+            # Identity queries are header-only. Closing after a malformed query
+            # prevents unread bytes from being interpreted as the next frame.
             if size != 0 or reported_node_id is None:
                 send_header(conn, b"E", 0)
+                if size != 0:
+                    return
                 continue
             encoded = reported_node_id.encode("utf-8")
             send_header(conn, b"I", len(encoded))
@@ -151,7 +157,6 @@ def serve(
     once: bool = False,
     node_id: str | None = None,
 ) -> None:
-    reported_node_id = _node_id(node_id, "node_id")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((host, port))
@@ -161,7 +166,7 @@ def serve(
         while True:
             conn, _ = listener.accept()
             with conn:
-                handle_connection(conn, max_transfer_bytes=max_transfer_bytes, node_id=reported_node_id)
+                handle_connection(conn, max_transfer_bytes=max_transfer_bytes, node_id=node_id)
             if once:
                 return
 
@@ -175,20 +180,19 @@ def _expect(sock: socket.socket, expected: bytes) -> int:
     return size
 
 
-def query_peer_node_id(sock: socket.socket) -> str | None:
-    """Return a newer server's unauthenticated lab node ID, or None for legacy servers."""
+def _query_peer_node_id(sock: socket.socket) -> str | None:
     send_header(sock, b"I", 0)
     op, size = recv_header(sock)
     if op == b"E":
         return None
-    if op != b"I" or not 1 <= size <= MAX_NODE_ID_BYTES:
+    if op != b"I" or size < 1 or size > MAX_NODE_ID_BYTES:
         raise RuntimeError("invalid benchmark peer identity response")
     try:
         decoded = recv_exact(sock, size).decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise RuntimeError("invalid benchmark peer node ID encoding") from exc
+        raise RuntimeError("benchmark peer node ID is not valid UTF-8") from exc
     try:
-        return _node_id(decoded, "reported peer node_id", required=True)
+        return _node_id(decoded, "benchmark peer node ID", required=True)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
@@ -198,13 +202,13 @@ def run_client(
     port: int,
     *,
     profile_revision: int,
-    local_node_id: str | None = None,
-    expected_peer_node_id: str | None = None,
     rtt_samples: int = 20,
     ping_bytes: int = 32,
     transfer_bytes: int = 16 * 1024 * 1024,
     transfer_repeats: int = 3,
     timeout: float = 30.0,
+    local_node_id: str | None = None,
+    expected_peer_node_id: str | None = None,
 ) -> dict[str, Any]:
     if profile_revision < 0:
         raise ValueError("profile_revision must be >= 0")
@@ -212,8 +216,8 @@ def run_client(
         raise ValueError("sample counts must be >= 1")
     if ping_bytes < 1 or transfer_bytes < 1:
         raise ValueError("payload sizes must be >= 1")
-    local_id = _node_id(local_node_id, "local_node_id")
-    expected_peer = _node_id(expected_peer_node_id, "expected_peer_node_id")
+    local_node_id = _node_id(local_node_id, "local_node_id")
+    expected_peer_node_id = _node_id(expected_peer_node_id, "expected_peer_node_id")
 
     started_connect = time.perf_counter_ns()
     sock = socket.create_connection((host, port), timeout=timeout)
@@ -226,12 +230,14 @@ def run_client(
     try:
         sock.settimeout(timeout)
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        peer_node_id = query_peer_node_id(sock)
-        if expected_peer is not None:
+        peer_node_id = _query_peer_node_id(sock)
+        if expected_peer_node_id is not None:
             if peer_node_id is None:
                 raise RuntimeError("benchmark server did not report a node ID")
-            if peer_node_id != expected_peer:
-                raise RuntimeError("benchmark peer node ID mismatch")
+            if peer_node_id != expected_peer_node_id:
+                raise RuntimeError(
+                    f"benchmark peer node ID mismatch: expected {expected_peer_node_id!r}, got {peer_node_id!r}"
+                )
 
         ping_payload = b"P" * ping_bytes
         for index in range(rtt_samples):
@@ -276,8 +282,8 @@ def run_client(
         "warm_state": "warm",
         "notes": f"TCP application benchmark target={host}:{port}; no transport encryption/authentication",
     }
-    if local_id is not None:
-        conditions["local_node_id"] = local_id
+    if local_node_id is not None:
+        conditions["local_node_id"] = local_node_id
     if peer_node_id is not None:
         conditions["peer_node_id"] = peer_node_id
         conditions["peer_identity_binding"] = "unauthenticated_server_report_v1"
@@ -316,8 +322,8 @@ def main(argv: list[str] | None = None) -> int:
     server = sub.add_parser("server", help="run a lab benchmark server")
     server.add_argument("--bind", default="127.0.0.1")
     server.add_argument("--port", type=int, default=43191)
-    server.add_argument("--node-id")
     server.add_argument("--max-transfer-bytes", type=int, default=DEFAULT_MAX_TRANSFER)
+    server.add_argument("--node-id")
     server.add_argument("--once", action="store_true")
 
     client = sub.add_parser("client", help="measure a server")
@@ -344,7 +350,13 @@ def main(argv: list[str] | None = None) -> int:
             node_id = _node_id(args.node_id, "--node-id")
         except ValueError as exc:
             parser.error(str(exc))
-        serve(args.bind, args.port, max_transfer_bytes=args.max_transfer_bytes, once=args.once, node_id=node_id)
+        serve(
+            args.bind,
+            args.port,
+            max_transfer_bytes=args.max_transfer_bytes,
+            once=args.once,
+            node_id=node_id,
+        )
         return 0
 
     try:
@@ -352,13 +364,13 @@ def main(argv: list[str] | None = None) -> int:
             args.host,
             args.port,
             profile_revision=args.profile_revision,
-            local_node_id=args.local_node_id,
-            expected_peer_node_id=args.expected_peer_node_id,
             rtt_samples=args.rtt_samples,
             ping_bytes=args.ping_bytes,
             transfer_bytes=args.transfer_bytes,
             transfer_repeats=args.transfer_repeats,
             timeout=args.timeout,
+            local_node_id=args.local_node_id,
+            expected_peer_node_id=args.expected_peer_node_id,
         )
     except (ValueError, RuntimeError) as exc:
         parser.error(str(exc))
