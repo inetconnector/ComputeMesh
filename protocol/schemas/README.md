@@ -1,6 +1,6 @@
 # ComputeMesh machine-readable schemas
 
-**Status:** M0 draft contracts; not wire-stable.
+**Status:** M0/M1 draft contracts; not wire-stable.
 
 This directory is the machine-readable implementation of concepts defined in `PROTOCOL.md`, `docs/DATA_MODEL.md`, `docs/BENCHMARK_SPEC.md`, and the ADR backlog.
 
@@ -34,6 +34,18 @@ Initial node-session payloads:
 
 The durable orchestration contracts remain separate from the node-session contracts so extending readiness/session semantics cannot silently enlarge the set of operations handled by `services/orchestrator/handlers.py`.
 
+## M1 evidence-binding extensions
+
+The v1 documents remain backward compatible while carrying stronger experiment traceability when available:
+
+- `model_manifest.schema.json` accepts optional `layer_count` for runtimes/planners that need a structural layer count. Legacy manifests may omit it.
+- `benchmark_result.schema.json` conditions may include `local_node_id`, `peer_node_id`, and `peer_identity_binding`.
+- `peer_node_id` and `peer_identity_binding` are paired: neither may appear without the other.
+- current TCP benchmark peer self-report uses `peer_identity_binding = unauthenticated_server_report_v1`.
+- legacy/imported evidence may be explicitly labelled `caller_asserted_v1` where the caller supplies the association.
+
+These fields improve evidence bookkeeping but do not strengthen the benchmark transport. In particular, `unauthenticated_server_report_v1` is **not** an authenticated node identity assertion: the TCP benchmark remains an unauthenticated, unencrypted trusted-private-LAN tool. The separate ADR-0005 Ed25519/session path is the narrow M1 reference authentication mechanism.
+
 ## Rules
 
 - schemas use JSON Schema Draft 2020-12;
@@ -47,4 +59,4 @@ The durable orchestration contracts remain separate from the node-session contra
 
 The benchmark harness produces node-profile/benchmark-result documents compatible with these contracts. The protocol package validates the common control envelope, the initial durable-message payloads, and the initial node-session payload family. The orchestrator handlers bind only their documented durable requests to SQLite effects; `NodeSessionWireHandler` separately binds the readiness/session family to the in-memory semantic session.
 
-Authentication **mechanism**, enrollment, authorization beyond authenticated actor binding, transport security, and the remaining runtime/artifact/heartbeat message families are still future responsibilities. ADR 0005 remains Proposed.
+ADR 0005 is accepted only for the narrow M1 reference node-identity implementation. Production provider/user authentication around identity APIs, authorization, transport security, protected private-key storage, active-session revocation fan-out, and the remaining runtime/artifact/heartbeat message families still require additional design and implementation.
