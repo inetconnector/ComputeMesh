@@ -93,7 +93,7 @@ def ensure_profile(config: LabConfig, config_path: Path, output_root: Path) -> N
         capture_inventory(config, config_path, output_root)
 
 
-def network_server(bind: str, port: int, *, runner=subprocess.run) -> None:
+def network_server(config: LabConfig, bind: str, port: int, *, runner=subprocess.run) -> None:
     command = [
         sys.executable,
         str(REPO_ROOT / "tools" / "benchmark" / "network_benchmark.py"),
@@ -102,6 +102,8 @@ def network_server(bind: str, port: int, *, runner=subprocess.run) -> None:
         bind,
         "--port",
         str(port),
+        "--node-id",
+        config.node_id,
         "--once",
     ]
     _run(command, runner=runner)
@@ -113,6 +115,7 @@ def network_client(
     port: int,
     output_root: Path,
     *,
+    expected_peer_node_id: str | None = None,
     runner=subprocess.run,
 ) -> Path:
     if config.profile_revision <= 0:
@@ -128,9 +131,13 @@ def network_client(
         str(port),
         "--profile-revision",
         str(config.profile_revision),
+        "--local-node-id",
+        config.node_id,
         "--output-dir",
         str(output),
     ]
+    if expected_peer_node_id:
+        command.extend(["--expected-peer-node-id", expected_peer_node_id])
     _run(command, runner=runner)
     return output
 
@@ -211,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     client = sub.add_parser("network-client")
     client.add_argument("--host", required=True)
     client.add_argument("--port", type=int, default=43191)
+    client.add_argument("--expected-peer-node-id")
 
     llama = sub.add_parser("llama")
     llama.add_argument("--llama-bench", required=True)
@@ -232,12 +240,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "network-server":
         ensure_profile(config, args.config, args.output_root)
-        network_server(args.bind, args.port)
+        network_server(config, args.bind, args.port)
         emit_result("network-server", config)
         return 0
     if args.command == "network-client":
         ensure_profile(config, args.config, args.output_root)
-        output = network_client(config, args.host, args.port, args.output_root)
+        output = network_client(
+            config,
+            args.host,
+            args.port,
+            args.output_root,
+            expected_peer_node_id=args.expected_peer_node_id,
+        )
         emit_result("network-client", config, output)
         return 0
     if args.command == "llama":
