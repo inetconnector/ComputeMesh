@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# Final branch-state validation; this file is removed before main is advanced.
 jobs:
   matrix:
     strategy:
