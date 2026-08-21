@@ -16,14 +16,15 @@
     "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["model_id", "model_version", "artifact_digest", "artifact_size_bytes", "benchmark_model_name", "layer_count"],
+      "required": ["model_id", "model_version", "artifact_digest", "artifact_size_bytes", "benchmark_model_name", "layer_count", "layer_count_source"],
       "properties": {
         "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
         "model_version": {"type": "string", "minLength": 1, "maxLength": 256},
         "artifact_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "artifact_size_bytes": {"type": "integer", "minimum": 1},
         "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},
-        "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000}
+        "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000},
+        "layer_count_source": {"enum": ["model_manifest_v1", "caller_asserted_v1"]}
       }
     },
     "nodes": {
@@ -42,7 +43,7 @@
       "properties": {
         "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "peer_binding": {"const": "caller_asserted_v1"}
+        "peer_binding": {"enum": ["unauthenticated_server_report_v1", "caller_asserted_v1"]}
       }
     },
     "hard_constraints": {
