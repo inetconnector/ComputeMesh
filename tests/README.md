@@ -22,6 +22,7 @@ Both prepare/use repository-local `.venv`, install `requirements-dev.txt`, and r
 - durable orchestrator/state;
 - protocol/session/identity-verifier contracts;
 - identity registry/integration;
+- deterministic M1 two-node placement planner;
 - llama.cpp M1 runtime-spike harness;
 - TCP network measurement relay;
 - setup/launcher regressions.
@@ -34,6 +35,7 @@ python -m unittest discover -s tools/benchmark/tests -v
 python -m unittest discover -s services/orchestrator/tests -v
 python -m unittest discover -s protocol/tests -v
 python -m unittest discover -s services/identity/tests -v
+python -m unittest discover -s services/scheduler/tests -v
 python -m unittest discover -s runtime/llama/tests -v
 python -m unittest discover -s runtime/network/tests -v
 python -m unittest discover -s setup/tests -v
@@ -41,11 +43,12 @@ python -m unittest discover -s setup/tests -v
 
 The Linux setup adds Bash-specific regression coverage; those tests skip automatically when Bash is unavailable (for example on a normal Windows-only Python environment).
 
-The runtime-network suite performs real loopback TCP forwarding tests on the test host. It does not contact public or remote hosts.
+The runtime-network suite performs real loopback TCP forwarding tests on the test host. It does not contact public or remote hosts. Scheduler tests use synthetic contract-valid evidence and do not claim real placement performance.
 
 ## Future system-test scope
 
 - two-node end-to-end inference;
+- scheduler calibration against correct measured shared-runtime evidence;
 - mixed Windows/Linux node scenarios;
 - duplicate command/replay;
 - authenticated node loss/reconnect;
@@ -54,6 +57,6 @@ The runtime-network suite performs real loopback TCP forwarding tests on the tes
 - packet-level latency/jitter/loss/reordering through controlled OS/network emulation;
 - billing/security invariants.
 
-The current TCP measurement relay can inject userspace stream delay/jitter and deliberate disconnects, but it is not a packet-loss emulator and is not the production runtime transport.
+The current TCP measurement relay can inject userspace stream delay/jitter and deliberate disconnects, but it is not a packet-loss emulator and is not the production runtime transport. The current planner is feasibility-only and deliberately does not predict shared speedup before a correct shared run exists.
 
 No production system-test harness exists yet; the launchers only orchestrate the implemented local suites.
