@@ -173,6 +173,7 @@ def run_tests(*, runner=subprocess.run) -> None:
         [sys.executable, "-m", "unittest", "discover", "-s", "protocol/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "services/identity/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "runtime/llama/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "runtime/network/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "setup/tests", "-v"],
     ]
     for command in commands:
