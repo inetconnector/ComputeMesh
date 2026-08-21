@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/cancel_job_payload.schema.json",
+  "title": "ComputeMesh CancelJob Payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reason", "cutoff_policy"],
+  "properties": {
+    "reason": {"type": "string", "minLength": 1, "maxLength": 512},
+    "cutoff_policy": {"const": "stop_new_billable_work"}
+  }
+}

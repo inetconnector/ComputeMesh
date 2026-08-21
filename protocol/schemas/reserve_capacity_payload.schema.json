@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/reserve_capacity_payload.schema.json",
+  "title": "ComputeMesh ReserveCapacity Payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lease_expires_at"],
+  "properties": {
+    "lease_expires_at": {"type": "string", "format": "date-time"}
+  }
+}

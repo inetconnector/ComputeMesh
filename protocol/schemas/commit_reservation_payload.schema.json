@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/commit_reservation_payload.schema.json",
+  "title": "ComputeMesh CommitReservation Payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "stage_id"],
+  "properties": {
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "stage_id": {"type": "string", "minLength": 1, "maxLength": 128}
+  }
+}
