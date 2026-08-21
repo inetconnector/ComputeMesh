@@ -2,8 +2,8 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Phase:** M0 — Engineering-/Lab-Implementierung.  
-> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup unten richtet den Lab-/Benchmark-Ablauf ein, der heute tatsächlich existiert; es ist kein öffentlicher Provider-Node-Installer.
+> **Phase:** M0 — Engineering-/Lab-Implementierung auf dem Weg zum ersten M1-Runtime-Nachweis.  
+> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup unten richtet den heute tatsächlich vorhandenen Lab-/Benchmark-Ablauf ein; es ist kein öffentlicher Provider-Node-Installer.
 
 ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
 
@@ -64,16 +64,16 @@ Plattformspezifische Vereinfachung:
 
 Das Setup kann ein vorhandenes `llama-bench` verwenden oder einen offiziellen Upstream-Build laden.
 
-- Windows verwendet den passenden offiziellen Windows-Pfad des bestehenden Setups.
+- Windows verwendet den passenden offiziellen Windows-Build des bestehenden Setup-Pfads.
 - Linux wählt dynamisch einen offiziellen Ubuntu-CPU-, Vulkan- oder ROCm-Build für unterstützte x64-/arm64-Fälle und prüft einen von GitHub gelieferten SHA-256-Digest, sofern vorhanden.
 - Unter Linux wird die heruntergeladene Binary über einen lokalen Library-Wrapper gestartet und nur akzeptiert, wenn `llama-bench --help` auf genau diesem Rechner erfolgreich startet.
-- Auf Linux-Desktops wird `zenity` als GGUF-Dateiauswahl verwendet, wenn vorhanden; sonst wird der Pfad im Terminal mit Shell-Vervollständigung abgefragt.
+- Auf Linux-Desktops wird `zenity` zur GGUF-Auswahl verwendet, wenn vorhanden; sonst wird der Pfad im Terminal mit Shell-Vervollständigung abgefragt.
 
-Die offiziellen Linux-Releases enthalten derzeit unter anderem Ubuntu-Builds für CPU, Vulkan, ROCm, OpenVINO und SYCL. Das automatische M0-Setup beschränkt sich bewusst auf CPU/Vulkan/ROCm.
+Modellgewichte werden niemals automatisch heruntergeladen.
 
 ## Aktuell implementiert
 
-Zu den M0-Grundlagen gehören inzwischen:
+Zu den vorhandenen Grundlagen gehören inzwischen:
 
 - plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
@@ -84,13 +84,16 @@ Zu den M0-Grundlagen gehören inzwischen:
 - transportneutrale Control-Envelope-Prüfung und strukturierte Fehler;
 - dauerhafte erste Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
 - authentifizierungspflichtige Node-Session-Semantik für `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default;
-- strikte erste Node-Session-Wire-Verträge und Envelope→Session-Bindung für `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport` und `DrainRequest`;
-- Session-Protokollversionsaushandlung, Bindung des authentifizierten `actor_id`, optimistische Session-Revisionen, exakte Request-Replays, Erkennung semantisch veränderter Request-ID-Wiederverwendung und eine injizierte Benchmark-Readiness-Policy ohne Accept-all-Default.
+- strikte Node-Session-Wire-Verträge und Envelope→Session-Bindung für `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport` und `DrainRequest`;
+- Session-Protokollversionsaushandlung, Bindung des authentifizierten Actors, optimistische Revisionen, exakte Replay-Behandlung, Erkennung semantisch veränderter Request-ID-Wiederverwendung und eine injizierte Benchmark-Readiness-Policy;
+- ein M1-Referenzpfad für Node Identity mit `computemesh-ed25519-v1`-Challenge-Signaturen hinter der zwingenden `AuthenticationVerifier`-Grenze;
+- ein SQLite-Referenzregister für Identity mit kurzlebigen gehashten Enrollment-Tokens, stabilen zufälligen Node-IDs, Public-Key-Lookup, Key-Rotation und monotoner Key-/Node-Revocation.
+
+Der Ed25519-Proof ist an Session-ID, Session-Challenge, stabile Node-ID, Key-ID, Protokollversion, Proof-Laufzeit und die akzeptierte `NodeHello`-Semantik gebunden. Die Control Plane speichert nur öffentliche Schlüssel und niemals die privaten Node-Schlüssel.
 
 ## Verifizierte echte Zielsysteme
 
-Der Lab-Ablauf wurde inzwischen auf echten Windows- und Linux-Zielen ausgeführt:
+Der Lab-Ablauf wurde auf echten Windows- und Linux-Zielen ausgeführt:
 
 - Windows-Ziel: RTX 3080 Laptop GPU, 16 GiB VRAM, 31,7 GiB RAM.
 - Linux-Ziel: Debian-13-Server, 4 logische CPU-Kerne, 7,8 GiB RAM, keine GPU erkannt.
@@ -100,13 +103,31 @@ Der Lab-Ablauf wurde inzwischen auf echten Windows- und Linux-Zielen ausgeführt
 
 Der Internet-TCP-Test wurde bewusst über die Engineering-CLI mit temporärer, quell-IP-begrenzter Firewallregel ausgeführt, nicht über die unauthentifizierte Trusted-LAN-Oberfläche. Das ist echte Zielsystem-Evidenz, aber kein privater LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz.
 
+## Identity-Entscheidung und Sicherheitsgrenze
+
+ADR 0005 ist jetzt **für die enge M1-Referenzimplementierung akzeptiert**: stabile Node-IDs plus Ed25519-Challenge-Proofs, kurzlebiges Enrollment, Key-Rotation und Revocation-Semantik.
+
+Das bedeutet ausdrücklich **nicht**, dass das Identity-System produktionsreif ist. Vor einer öffentlichen Netzwerkexposition fehlen weiterhin:
+
+- Provider-/User-Authentifizierung um Enrollment-/Rotation-/Revocation-APIs;
+- OS-geschützte Speicherung des privaten Node-Schlüssels für die unterstützten Windows-/Linux-Node-Agent-Pfade;
+- Verteilung einer Revocation an bereits aktive Sessions;
+- authentifizierter/verschlüsselter Control-Transport;
+- Rate-/Resource-Limits und Abuse-Schutz;
+- produktiver Service-/Datenbankbetrieb;
+- Hardware-Attestation oder Sybil-Resistenz.
+
+Ein widerrufener Node/Key wird bei neuer Authentifizierung abgelehnt. Bereits authentifizierte Sessions benötigen weiterhin ein externes Revocation-Signal zur Beendigung. Ein kopierter privater Schlüssel ist kryptografisch dieselbe Identität; Signaturen allein beweisen keinen einzelnen physischen Rechner.
+
+Das Trusted-LAN-TCP-Benchmark-Protokoll besitzt weiterhin keine Anwendungs-Authentifizierung oder Verschlüsselung. Den assistierten Server nur in einem vertrauenswürdigen privaten LAN verwenden. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, kein produktives Credential-/Enrollment-/Revocation-System, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, keinen produktiven Identity-Netzwerkservice, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
 
-Der neue Node-Session-Wire-Binder ist **keine** produktive Authentifizierung und **kein** Netzwerkservice. ADR 0005 (Node Identity) und ADR 0002 (M1 Runtime Baseline) bleiben **Proposed**, nicht Accepted.
+ADR 0002 (M1 Runtime Baseline) bleibt **Proposed**. Das nächste Software-Gate ist der enge llama.cpp-orientierte M1-Runtime-Spike hinter der ComputeMesh-Grenze.
 
-## M0-Ablauf mit zwei Rechnern
+## Zwei-Rechner-Ablauf
 
 ```text
 SETUP.cmd (Windows) oder ./setup.sh (Linux) auf beiden Rechnern
@@ -117,9 +138,9 @@ LAN A → B und B → A messen
         ↓
 llama.cpp Prefill/Decode auf jedem relevanten Rechner messen
         ↓
-konkreten M1-Zwei-Node-Spike auswählen
+engen M1-Runtime-Baseline-Pfad auswählen/validieren
         ↓
-Activation-Transport messen
+Activation-/Remote-Stage-Transport experimentieren
         ↓
 erste korrekte gemeinsame Zwei-Node-Inferenz
         ↓
@@ -127,12 +148,6 @@ Scheduler kalibrieren
 ```
 
 Die beiden Rechner dürfen Windows, Linux oder gemischt Windows/Linux sein; Benchmarkformat und Python-Helfer sind gemeinsam.
-
-## Sicherheitsgrenze
-
-Das TCP-Benchmark-Protokoll besitzt keine Anwendungs-Authentifizierung oder Verschlüsselung. Den assistierten Server nur in einem vertrauenswürdigen privaten LAN verwenden. Keiner der Starter macht die experimentelle Runtime für eine öffentliche Internet-Exposition sicher.
-
-Der vorhandene `AuthenticationVerifier` ist eine semantische Schnittstelle und noch kein produktives Credential-System. Der Session-Wire-Binder erzwingt lediglich Reihenfolge, Versions-/Revisionskonsistenz, Replay-Semantik und die Konsistenz des authentifizierten Actors um den jeweils injizierten Verifier herum. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Repository-Struktur
 
@@ -143,7 +158,8 @@ ComputeMesh/
 ├─ setup/                 # gemeinsamer Helper + Windows-/Linux-Starter
 ├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ services/orchestrator/ # dauerhafter M0-State + erste Control-Handler
-├─ protocol/              # Verträge, Envelope, Session-Semantik/Wire-Bindung, Tests
+├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
+├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier, Tests
 ├─ apps/                  # geplante Produktanwendungen
 ├─ runtime/               # geplante/erforschte Runtime-Integrationen
 ├─ docs/                  # Spezifikationen und ADRs
