@@ -72,7 +72,8 @@ class LabSetupTests(unittest.TestCase):
         cfg = lab.LabConfig(node_id="lab-12345678", profile_revision=2)
         exe = self.root / "llama-bench.exe"
         model = self.root / "model.gguf"
-        exe.touch(); model.touch()
+        exe.touch()
+        model.touch()
         runner = FakeRunner()
         with patch.object(lab, "REPO_ROOT", self.root):
             lab.llama_benchmark(cfg, self.config_path, str(exe), str(model), self.output_root, runner=runner)
@@ -81,9 +82,15 @@ class LabSetupTests(unittest.TestCase):
         self.assertEqual(Path(persisted["model_path"]), model.resolve())
 
     def test_status_output_can_expose_local_remembered_paths(self):
-        cfg = lab.LabConfig(node_id="lab-12345678", profile_revision=2, llama_bench="C:/tools/llama-bench.exe", model_path="D:/models/a.gguf")
+        cfg = lab.LabConfig(
+            node_id="lab-12345678",
+            profile_revision=2,
+            llama_bench="C:/tools/llama-bench.exe",
+            model_path="D:/models/a.gguf",
+        )
         import io
         from contextlib import redirect_stdout
+
         buf = io.StringIO()
         with redirect_stdout(buf):
             lab.emit_result("status", cfg)
@@ -95,7 +102,7 @@ class LabSetupTests(unittest.TestCase):
         runner = FakeRunner()
         with patch.object(lab, "REPO_ROOT", self.root):
             lab.run_tests(runner=runner)
-        self.assertEqual(len(runner.commands), 6)
+        self.assertEqual(len(runner.commands), 7)
         commands = [" ".join(cmd) for cmd, _, _ in runner.commands]
         for suite in (
             "tools/benchmark/tests",
@@ -103,6 +110,7 @@ class LabSetupTests(unittest.TestCase):
             "protocol/tests",
             "services/identity/tests",
             "runtime/llama/tests",
+            "runtime/network/tests",
             "setup/tests",
         ):
             self.assertTrue(any(suite in command for command in commands), suite)
