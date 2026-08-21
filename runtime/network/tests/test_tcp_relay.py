@@ -156,7 +156,10 @@ class TcpRelayTests(unittest.TestCase):
             self.assertEqual(metrics.traffic["worker_to_coordinator_bytes"], len(payload))
             self.assertEqual(metrics.traffic["total_forwarded_bytes"], len(payload) * 2)
             self.assertIsNotNone(metrics.connected_at)
-            self.assertGreater(metrics.active_elapsed_ms, 0)
+            # A very fast Windows loopback run may begin/end inside one
+            # monotonic-clock tick, so zero is a valid measured duration.
+            self.assertGreaterEqual(metrics.active_elapsed_ms, 0.0)
+            self.assertGreaterEqual(metrics.total_elapsed_ms, metrics.setup_elapsed_ms)
             persisted = json.loads(metrics_path.read_text(encoding="utf-8"))
             self.assertNotIn(payload[:20].decode("ascii"), json.dumps(persisted))
 
