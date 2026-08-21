@@ -27,7 +27,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - controlled llama.cpp RPC M1 spike harness landed through `3db6ef9`
 - bounded TCP measurement relay landed through `206248a`
 - deterministic M1 two-node feasibility planner landed through `6177218`
-- M1 network-peer/model-layer evidence binding introduced through PR #6; cross-platform software validation passed before merge
+- M1 network-peer/model-layer evidence binding introduced through PR #6; cross-platform software validation is required before merge
 
 ## What exists
 
@@ -59,6 +59,7 @@ Properties/limits:
 - `peer_node_id` and `peer_identity_binding` are schema-paired;
 - `--expected-peer-node-id` can make the client fail closed when the current server reports a different ID or no ID;
 - legacy benchmark servers remain usable if an expected peer is not required;
+- malformed identity queries with a nonzero declared payload are rejected and the connection is closed so unread bytes cannot be reinterpreted as a following benchmark frame;
 - Lab Setup automatically passes its own random Lab ID into both server and client benchmark roles.
 
 **Evidence boundary:** `unauthenticated_server_report_v1` is traceability/bookkeeping only. The server can self-report any Lab ID because this benchmark socket is unauthenticated. This is not the ADR-0005 Ed25519/session identity proof and must not be used as a production trust decision.
@@ -205,11 +206,11 @@ Result schema: `services/scheduler/placement_decision.schema.json`.
 
 ## Latest cross-platform validation
 
-Temporary branch-only GitHub validation run `32531949366` passed on both Windows and Ubuntu before merge. The workflow is temporary and is removed from the feature branch before `main` is advanced.
+The evidence-binding branch uses a temporary branch-only Windows/Ubuntu workflow before merge. The workflow is removed before `main` is advanced.
 
-Current validated suite counts on each OS:
+Current expected suite counts on each OS after the identity-query framing regression was added:
 
-- benchmark: **17/17**;
+- benchmark: **18/18**;
 - orchestrator: **34/34**;
 - protocol: **66/66**;
 - identity/integration: **13/13**;
@@ -218,7 +219,7 @@ Current validated suite counts on each OS:
 - network runtime relay: **10/10**;
 - setup: **21/21**.
 
-The evidence-binding coverage includes legacy/current benchmark interoperability, bounded server-reported Lab IDs, expected-peer mismatch failure, paired benchmark identity fields, optional manifest layer count, embedded-vs-caller conflict rejection, coordinator/worker network-ID binding, deterministic placement identity and the explicit no-speedup-prediction boundary.
+Evidence-binding coverage includes legacy/current benchmark interoperability, bounded server-reported Lab IDs, malformed identity-query framing rejection, expected-peer mismatch failure, paired benchmark identity fields, optional manifest layer count, embedded-vs-caller conflict rejection, coordinator/worker network-ID binding, deterministic placement identity and the explicit no-speedup-prediction boundary.
 
 This is software/loopback/synthetic-evidence validation on both OS families. It is **not** real two-machine shared-runtime or placement-performance evidence.
 
