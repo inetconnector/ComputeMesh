@@ -2,8 +2,8 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Project stage:** M0 — contracts, benchmarking, orchestration semantics, protocol foundations, security, and feasibility research.  
-> **Implementation status:** executable M0 benchmark tooling, machine-readable contracts, transactional Job/Reservation persistence, the transport-neutral control envelope, and the first message-specific control handlers now exist. There is still no production distributed runtime, scheduler, marketplace, billing system, or public provider-node software.
+> **Project stage:** M0 — contracts, benchmarking, orchestration semantics, protocol/session foundations, security, and feasibility research.  
+> **Implementation status:** executable M0 benchmark tooling, machine-readable contracts, transactional Job/Reservation persistence, initial durable control handlers, and an authentication-gated node-session state machine now exist. There is still no production distributed runtime, scheduler, marketplace, billing system, credential verifier, or public provider-node software.
 
 ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. A client with limited local VRAM should eventually be able to run a model whose memory and compute requirements exceed the client machine by using approved remote compute without manually managing shards, hosts, ports, or placement.
 
@@ -17,17 +17,16 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 
 - bilingual root documentation and ADR process;
 - architecture, protocol, security, benchmark, failure, privacy, and data-model specifications;
-- Draft 2020-12 schemas for node profiles, benchmark results, model/shard manifests, reservations, jobs, the common control envelope, structured errors, and the first control-message payloads;
-- standard-library Python inventory benchmark collector;
-- TCP network microbenchmark for connection setup, RTT p50/p95, upload/download throughput, and raw samples;
-- llama.cpp `llama-bench` adapter that maps prompt-processing and generation measurements to ComputeMesh prefill/decode benchmark records;
+- Draft 2020-12 machine-readable contracts for core state/control records and the first control-message payloads;
+- inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
 - deterministic Job/Reservation state-machine semantics;
-- transactional SQLite reference persistence with durable idempotency, optimistic revisions, lease persistence/expiry, stale-writer rejection, rollback, and restart recovery;
-- SQLite schema migration v1 → v2 with durable request fingerprints;
+- transactional SQLite reference persistence with durable idempotency, optimistic revisions, leases, restart recovery, request fingerprints, and schema migration;
 - atomic `CommitReservation` binding from reservation to concrete job + stage;
-- JSON-Schema-based Job/Reservation admission;
-- transport-neutral common control-envelope parsing with version/time/shape checks and structured errors;
-- message-specific payload validation and durable handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`.
+- common control-envelope validation and structured errors;
+- durable handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`;
+- transport-neutral node-session lifecycle: `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
+- a mandatory injected `AuthenticationVerifier` interface with **no permissive default**;
+- session challenge binding, credential-expiry enforcement, NodeHello/authenticated-node identity consistency, capability intersection, profile/benchmark revision gating, and external session termination for revocation signals.
 
 ### Not implemented / not yet evidenced
 
@@ -37,8 +36,8 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 - distributed runtime worker/shared inference;
 - gateway/API and production scheduler;
 - production orchestrator network service/database adapter;
-- authenticated node sessions and authorization;
-- the remaining node/runtime/artifact protocol messages beyond the initial three handlers;
+- a production node credential format, cryptographic verifier, issuer/enrollment service, OS-protected private-key integration, rotation, or revocation backend;
+- wire handlers/contracts for NodeHello/NodeAuthenticate/ProfileSync and the remaining node/runtime/artifact protocol messages;
 - registry, verification, billing/ledger, telemetry, SDK, and UI;
 - production deployment/update pipeline;
 - public release.
@@ -76,26 +75,24 @@ Client / SDK -> Gateway / API -> Job Orchestrator
                        Telemetry / Metering / Ledger
 ```
 
-For dense pipeline execution, normal inter-node token traffic is expected to be stage activations/results. KV cache normally remains with the layers that own it; KV movement is primarily a migration, recovery, or rebalancing concern.
-
 ## Repository map
 
 ```text
 ComputeMesh/
 ├─ apps/                  # planned product surfaces
-├─ services/orchestrator/ # M0 state machine, persistence, admission, handlers
+├─ services/orchestrator/ # durable M0 state + initial control handlers
 ├─ runtime/               # planned CUDA/llama.cpp/vLLM/network integrations
-├─ protocol/              # control envelope, payload contracts, schemas, tests
+├─ protocol/              # envelope, payload contracts, session semantics, tests
 ├─ tools/benchmark/       # inventory, TCP network, llama-bench adapter
 ├─ models/
 ├─ sdk/
 ├─ tests/
 ├─ deploy/
 ├─ research/
-└─ docs/                  # architecture/security/benchmark/ADR documents
+└─ docs/
 ```
 
-## Run the current M0 tooling
+## Run the current M0 tooling/tests
 
 ```powershell
 git clone <repository-url>
@@ -138,21 +135,15 @@ python tools/benchmark/llama_bench_adapter.py `
   --profile-revision 1
 ```
 
-The adapter is a measurement adapter, not evidence that M1 has passed. A real model/hardware run is still required.
+A real model/hardware run is still required before making M1 performance claims.
 
-## Protocol and persistence foundations
+## Protocol, persistence, and session foundations
 
-`services/orchestrator/persistence.py` is an M0 SQLite reference proving transactional state effects, durable deduplication, optimistic revision checks, restart-safe replay, leases, and atomic reservation-to-job/stage binding. SQLite is **not** selected as the production database.
+The initial durable control path validates the common envelope and operation-specific payload, fingerprints message type + payload, then applies an atomic SQLite state effect using the envelope `request_id` as durable idempotency key. Replays have one business effect; changed payload reuse is rejected.
 
-`protocol/control.py` implements the common control-envelope semantics without selecting gRPC, QUIC, HTTP, or another transport. The initial message layer validates and dispatches only three operations already defined by `PROTOCOL.md`:
+The first handlers cover only operations already named in `PROTOCOL.md`: `ReserveCapacity`, `CommitReservation`, and `CancelJob`.
 
-- `ReserveCapacity`;
-- `CommitReservation`;
-- `CancelJob`.
-
-For these operations, the application carries the envelope `request_id` into durable idempotency storage and also fingerprints message type + payload. Replaying the same request has one business effect; reusing the same request ID with a changed payload is rejected as an idempotency conflict.
-
-**Authentication and authorization are not implemented by these handlers.** Actor identity remains untrusted until the node-identity/session design is implemented.
+`protocol/node_session.py` now models the documented readiness sequence and refuses to advance past authentication unless a caller supplies an `AuthenticationVerifier` that returns a valid, non-expired identity decision bound to the session challenge. **The interface is not itself a production authentication mechanism.** ADR 0005 remains Proposed.
 
 ## Runtime direction
 
@@ -161,16 +152,14 @@ The first proposed M1 research path is llama.cpp-oriented, wrapped behind the Co
 ## Immediate engineering sequence
 
 ```text
-machine-readable contracts + inventory harness               [implemented M0]
-transactional Job/Reservation persistence + schema admission  [implemented M0]
-common control envelope + structured errors                   [implemented M0]
-initial documented control handlers                           [implemented M0]
-TCP lab network microbenchmark                                [implemented M0]
-llama-bench prefill/decode adapter                             [implemented M0]
+machine-readable contracts + benchmark harnesses              [implemented M0]
+durable Job/Reservation state + initial handlers               [implemented M0]
+common envelope + structured errors                            [implemented M0]
+authentication-gated node-session semantics                    [implemented M0]
 -> run inventory/network/runtime measurements on real nodes
+-> select/implement concrete node credential verification via ADR 0005
+-> bind NodeHello/Auth/Profile messages to the session skeleton
 -> llama.cpp-oriented M1 runtime spike
--> authenticated node-session skeleton
--> remaining node/runtime/artifact protocol handlers
 -> activation-payload transport benchmark
 -> shared two-node inference
 -> scheduler automation
@@ -178,7 +167,7 @@ llama-bench prefill/decode adapter                             [implemented M0]
 
 ## Security warning
 
-Do not expose experimental runtime RPC or benchmark endpoints directly to the public internet. `confidential_compute` is not a valid guarantee until a concrete trusted-execution and attestation design exists.
+Do not expose experimental runtime RPC or benchmark endpoints directly to the public internet. Do not treat the `AuthenticationVerifier` interface as proof that node authentication is production-ready. `confidential_compute` is not a valid guarantee until a concrete trusted-execution and attestation design exists.
 
 ## Language synchronization rule
 

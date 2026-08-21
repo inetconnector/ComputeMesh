@@ -1,9 +1,9 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts, durable orchestration, protocol foundations, and measurable lab/runtime benchmarking  
+**Phase:** M0 — contracts, durable orchestration, protocol/session foundations, and measurable lab/runtime benchmarking  
 **Production services/runtime:** none  
-**Executable engineering tooling:** inventory + TCP network + llama-bench adapters, durable orchestrator reference, control-envelope parser, initial durable control handlers  
+**Executable engineering tooling:** inventory + TCP network + llama-bench adapters, durable orchestrator reference, initial control handlers, authentication-gated node-session semantics  
 **Public release:** none
 
 ## Repository
@@ -12,30 +12,27 @@
 - default branch: `main`
 - documentation v0.2: `cf85a47`
 - contracts/benchmark bootstrap: `7df5b4e`
-- in-memory state machine: `c9733b1`
 - transactional persistence/schema admission: `bfea175`
 - control envelope/structured errors: `9ed33be`
 - TCP network microbenchmark: `197a1ad`
 - llama-bench prefill/decode adapter: `6b0356a`
-- initial durable control handlers: `9bb4a72`, restricted to documented M0 messages by `b23bf60`
+- initial durable control handlers: `9bb4a72` + restriction `b23bf60`
+- authentication-gated node-session semantics: `d7a110e`
 
 ## What exists
 
 - synchronized English/German root READMEs;
 - M0 architecture/protocol/security/benchmark/failure/privacy/data-model documentation;
 - Draft-2020-12 machine-readable contracts;
-- node inventory collector;
-- TCP application-level network microbenchmark;
-- llama.cpp `llama-bench` prefill/decode adapter;
-- deterministic Job/Reservation state machine;
-- transactional SQLite reference persistence with durable idempotency/revisions/restart recovery/leases;
-- SQLite state-store schema v2 migration;
-- durable request fingerprints for message type + payload;
-- atomic reservation → job + stage binding during `CommitReservation`;
-- initial Job/Reservation schema admission;
+- node inventory, TCP network, and llama-bench measurement tooling;
+- deterministic Job/Reservation state semantics;
+- transactional SQLite reference persistence with durable idempotency, revisions, restart recovery, leases, request fingerprints, and schema migration;
+- atomic reservation → job + stage binding;
 - transport-neutral control-envelope parser and structured errors;
-- message-specific payload contracts and handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`;
-- tests for the above components.
+- message-specific payload contracts/handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`;
+- transport-neutral node-session state machine matching the documented Hello/Auth/Capability/Profile/Benchmark/Ready lifecycle;
+- mandatory injected `AuthenticationVerifier` interface with no permissive default;
+- challenge-bound verification inputs, credential-expiry checks, hello/authenticated-node identity matching, capability negotiation, profile/benchmark revision gating, drain, close, and external termination semantics.
 
 ## Verified M0 implementation evidence
 
@@ -44,61 +41,65 @@ Previously verified and unchanged:
 - inventory collector tests: 3/3 passing;
 - TCP network benchmark tests: 4/4 passing;
 - llama-bench adapter tests: 6/6 passing;
-- generated loopback network result validates against the benchmark-result schema;
-- converted llama-bench fixture results validate against the benchmark-result schema.
+- loopback network output and converted llama-bench fixture outputs validate against benchmark-result schema.
 
-Current control/orchestration verification before publication:
+Current control/session verification:
 
-- existing state/persistence/admission behavior plus new handler/migration regression: 37/37 passing in the assembled local regression workspace;
-- protocol control-envelope + payload-contract + schema tests: 15/15 passing;
-- relevant Python modules pass `py_compile`;
-- migration from the previous SQLite schema is exercised;
-- same `request_id` + changed payload is rejected;
-- `CommitReservation` binding survives restart;
-- missing target job causes full transaction rollback;
-- stale revision is returned as a structured retryable conflict;
-- expired control envelope creates no durable effect.
+- control/orchestrator handler and persistence regression workspace: 37/37 passing;
+- protocol envelope + message payload + schema + node-session suite: 29/29 passing;
+- node-session-specific tests: 14/14 passing;
+- relevant Python modules pass `py_compile`.
+
+Session tests cover:
+
+- normal `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY` path;
+- verifier receives session ID and challenge;
+- failed/expired credentials do not advance state;
+- authenticated node ID must match advertised stable node ID when one is present;
+- unadvertised auth methods are rejected before verifier invocation;
+- required capability mismatch prevents readiness;
+- authentication cannot be skipped;
+- credential expiry blocks later session progress;
+- benchmark status must match synced profile revision;
+- drain is allowed only from `READY`;
+- external revocation signal can terminate a session.
 
 Important evidence boundary:
 
-- the TCP benchmark is validated on loopback only, not yet between real nodes;
-- the llama-bench adapter is validated against representative upstream JSON/JSONL fixtures, not yet against a real target model/GPU run;
-- the three control handlers are transport-neutral application handlers, not an authenticated network service;
+- `AuthenticationVerifier` is an interface, not a production verifier;
+- no key algorithm, credential format, issuer, OS key store, enrollment protocol, rotation service, or revocation backend has been selected;
+- ADR 0005 remains Proposed;
+- TCP benchmark remains loopback-only evidence;
+- llama-bench adapter still lacks real target-model/GPU evidence;
 - no distributed inference result exists yet.
 
 ## What does not exist
 
 - real two-node hardware/network evidence;
-- real llama.cpp prefill/decode evidence from the target lab;
+- real target-lab llama.cpp prefill/decode evidence;
 - production provider node agent;
 - distributed runtime/shared inference;
 - gateway/API/scheduler;
 - production orchestrator service/database;
-- authenticated node sessions/authz;
-- remaining node/runtime/artifact protocol handlers;
+- production node credential verifier/enrollment/key lifecycle;
+- wire binding for NodeHello/NodeAuthenticate/ProfileSync and remaining node/runtime/artifact messages;
 - registry/verification/billing/telemetry/SDK/UI;
 - production release/update system.
 
-## Initial implemented control path
+## Session lifecycle now represented
 
 ```text
-Control document
- -> base-envelope parse/version/expiry checks
- -> message-specific payload schema
- -> operation fingerprint
- -> durable SQLite transaction
- -> revision/state check
- -> exactly-once business effect by request_id
- -> structured result/error
+CONNECTED
+ -> HELLO_RECEIVED
+ -> AUTHENTICATED
+ -> CAPABILITIES_NEGOTIATED
+ -> PROFILE_SYNCED
+ -> READY
+ -> DRAINING
+ -> CLOSED
 ```
 
-Implemented message effects:
-
-- `ReserveCapacity`: `CANDIDATE -> LEASED` with durable lease expiry;
-- `CommitReservation`: `LEASED -> COMMITTED` plus atomic job/stage binding;
-- `CancelJob`: cancellable job state -> `CANCELLED` with explicit reason/cutoff payload validation.
-
-No authentication or authorization is implied by this path.
+Authentication is gated by an injected verifier. A successful decision must include stable node identity, provider principal, and a timezone-aware future credential expiry. The verifier is expected to bind proof to both session ID and per-session challenge. No default verifier exists.
 
 ## ADR status
 
@@ -115,13 +116,15 @@ Still proposed:
 - ADR 0006 — telemetry envelope;
 - ADR 0007 — ledger units.
 
+The session skeleton does **not** constitute acceptance of ADR 0005.
+
 ## Primary blockers
 
 1. No real two-node profiles/cross-node network results exist yet.
 2. No real local llama.cpp prefill/decode baseline exists yet.
 3. M1 runtime baseline remains unaccepted until the required real two-node spike.
-4. Node identity/authentication remains proposed and unimplemented.
-5. Only the first three documented control handlers exist; remaining node/runtime/artifact flows are not bound yet.
+4. ADR 0005 still needs a concrete credential/key/enrollment/rotation/revocation design and production verifier.
+5. NodeHello/Auth/Profile wire contracts and remaining node/runtime/artifact handlers are not bound yet.
 6. No activation-payload transport benchmark exists yet.
 7. WAN viability and verification economics remain unmeasured.
 8. No release/update security implementation exists.
@@ -132,11 +135,11 @@ Still proposed:
 2. Run `network_benchmark.py` between those machines in both directions on a trusted LAN.
 3. Run `llama_bench_adapter.py` with the selected local GGUF/model and current `llama-bench` on each relevant machine.
 4. Compare prefill/decode results and choose the exact two-node M1 spike configuration.
-5. Execute the llama.cpp-oriented ADR 0002 runtime spike behind the ComputeMesh boundary.
-6. Implement the authenticated node-session skeleton once ADR 0005 details are sufficient.
-7. Add the remaining protocol handlers required by the selected M1 runtime path.
+5. Specify/implement the concrete ADR-0005 credential verification path without weakening the no-default verifier boundary.
+6. Define and bind NodeHello/NodeAuthenticate/Capability/Profile/Benchmark wire payloads to the session skeleton.
+7. Execute the llama.cpp-oriented ADR 0002 runtime spike behind the ComputeMesh boundary.
 8. Add activation-payload-size modes and controlled latency/jitter/loss experiments.
-9. Produce the first correct two-node shared inference and begin scheduler calibration.
+9. Produce first correct two-node shared inference and begin scheduler calibration.
 
 ## Bilingual README rule
 

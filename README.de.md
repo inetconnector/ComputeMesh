@@ -2,8 +2,8 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Protokollgrundlagen, Sicherheit und Machbarkeitsforschung.  
-> **Implementierungsstatus:** Ausführbare M0-Benchmark-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz, der transportneutrale Control Envelope und die ersten nachrichtenspezifischen Control-Handler existieren. Es gibt weiterhin keine produktive verteilte Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
+> **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Protokoll-/Session-Grundlagen, Sicherheit und Machbarkeitsforschung.  
+> **Implementierungsstatus:** Ausführbare M0-Benchmark-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz, erste dauerhafte Control-Handler und eine authentifizierungspflichtige Node-Session-State-Machine existieren. Es gibt weiterhin keine produktive verteilte Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem, keinen produktiven Credential-Verifier und keine öffentlich nutzbare Provider-Node-Software.
 
 ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogene Rechenressourcen sollen als logisch einheitliche Ausführungsumgebung nutzbar werden. Ein Client mit wenig lokalem VRAM soll später ein Modell ausführen können, dessen Speicher- und Rechenanforderungen den eigenen Rechner übersteigen, ohne Shards, Hosts, Ports oder Platzierung manuell verwalten zu müssen.
 
@@ -17,17 +17,16 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 
 - zweisprachige Root-Dokumentation und ADR-Prozess;
 - Architektur-, Protokoll-, Sicherheits-, Benchmark-, Failure-, Privacy- und Data-Model-Spezifikationen;
-- Draft-2020-12-Schemas für Node Profile, Benchmark Results, Model-/Shard-Manifeste, Reservations, Jobs, gemeinsamen Control Envelope, strukturierte Fehler und die ersten Control-Message-Payloads;
-- Python-Inventory-Benchmark-Collector nur mit Standardbibliothek;
-- TCP-Netzwerk-Microbenchmark für Connection Setup, RTT p50/p95, Upload-/Download-Durchsatz und Rohsamples;
-- llama.cpp-`llama-bench`-Adapter, der Prompt-Processing-/Generation-Messungen in ComputeMesh-Prefill-/Decode-Records überführt;
+- maschinenlesbare Draft-2020-12-Verträge für zentrale State-/Control-Records und die ersten Control-Message-Payloads;
+- Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
 - deterministische Job-/Reservation-State-Machine-Semantik;
-- transaktionale SQLite-Referenzpersistenz mit dauerhafter Idempotenz, Optimistic Revisions, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
-- SQLite-Schema-Migration v1 → v2 mit dauerhaften Request-Fingerprints;
+- transaktionale SQLite-Referenzpersistenz mit dauerhafter Idempotenz, Optimistic Revisions, Leases, Restart-Recovery, Request-Fingerprints und Schema-Migration;
 - atomare `CommitReservation`-Bindung einer Reservation an konkreten Job + Stage;
-- JSON-Schema-basierte Job-/Reservation-Admission;
-- transportneutrale Control-Envelope-Prüfung mit Versions-/Zeit-/Formprüfung und strukturierten Fehlern;
-- nachrichtenspezifische Payload-Validierung und dauerhafte Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`.
+- gemeinsame Control-Envelope-Prüfung und strukturierte Fehler;
+- dauerhafte Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
+- transportneutraler Node-Session-Lifecycle: `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
+- zwingend einzuspeisende `AuthenticationVerifier`-Schnittstelle **ohne permissiven Default**;
+- Session-Challenge-Bindung, Credential-Expiry-Prüfung, Konsistenz von NodeHello-/authentifizierter Node-ID, Capability-Intersection, Profile-/Benchmark-Revision-Gating und externes Session-Terminate für Revocation-Signale.
 
 ### Noch nicht implementiert / noch nicht nachgewiesen
 
@@ -37,8 +36,8 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 - Runtime Worker bzw. gemeinsame verteilte Inferenz;
 - Gateway/API und produktiver Scheduler;
 - produktiver Orchestrator-Netzwerkservice/Datenbankadapter;
-- authentifizierte Node-Sessions und Autorisierung;
-- die übrigen Node-/Runtime-/Artifact-Protokollnachrichten jenseits der ersten drei Handler;
+- produktives Node-Credential-Format, kryptografischer Verifier, Issuer-/Enrollment-Service, OS-geschützte Private-Key-Integration, Rotation oder Revocation-Backend;
+- Wire-Handler/-Verträge für NodeHello/NodeAuthenticate/ProfileSync und die übrigen Node-/Runtime-/Artifact-Protokollnachrichten;
 - Registry, Verification, Billing/Ledger, Telemetry, SDK und UI;
 - produktive Deployment-/Update-Pipeline;
 - öffentliche Veröffentlichung.
@@ -76,26 +75,24 @@ Client / SDK -> Gateway / API -> Job Orchestrator
                        Telemetry / Metering / Ledger
 ```
 
-Bei dichter Pipeline-Ausführung sollen zwischen Nodes normalerweise Stage-Aktivierungen/-Ergebnisse übertragen werden. Der KV-Cache verbleibt grundsätzlich bei den Layern, zu denen er gehört; KV-Transfer ist primär ein Migrations-, Recovery- oder Rebalancing-Vorgang.
-
 ## Repository-Struktur
 
 ```text
 ComputeMesh/
 ├─ apps/                  # geplante Produktoberflächen
-├─ services/orchestrator/ # M0 State Machine, Persistenz, Admission, Handler
+├─ services/orchestrator/ # dauerhafter M0-State + erste Control-Handler
 ├─ runtime/               # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
-├─ protocol/              # Control Envelope, Payload-Verträge, Schemas, Tests
+├─ protocol/              # Envelope, Payload-Verträge, Session-Semantik, Tests
 ├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ models/
 ├─ sdk/
 ├─ tests/
 ├─ deploy/
 ├─ research/
-└─ docs/                  # Architektur-/Security-/Benchmark-/ADR-Dokumente
+└─ docs/
 ```
 
-## Aktuelle M0-Werkzeuge ausführen
+## Aktuelle M0-Werkzeuge/Tests ausführen
 
 ```powershell
 git clone <repository-url>
@@ -138,21 +135,15 @@ python tools/benchmark/llama_bench_adapter.py `
   --profile-revision 1
 ```
 
-Der Adapter ist ein Messadapter und noch kein Nachweis, dass M1 bestanden ist. Ein realer Modell-/Hardware-Lauf fehlt weiterhin.
+Ein realer Modell-/Hardware-Lauf ist weiterhin erforderlich, bevor M1-Performanceaussagen zulässig sind.
 
-## Protokoll- und Persistenzgrundlagen
+## Protokoll-, Persistenz- und Session-Grundlagen
 
-`services/orchestrator/persistence.py` ist eine M0-SQLite-Referenz für transaktionale State-Effekte, dauerhafte Deduplizierung, Optimistic Revision Checks, restartfeste Replays, Leases und atomare Reservation-zu-Job-/Stage-Bindung. SQLite ist **nicht** als Produktionsdatenbank ausgewählt.
+Der initiale dauerhafte Control-Pfad validiert gemeinsamen Envelope und operationsspezifischen Payload, bildet einen Fingerprint aus Message Type + Payload und führt danach einen atomaren SQLite-State-Effekt aus; die Envelope-`request_id` dient als dauerhafter Idempotency-Key. Replays haben genau einen Geschäftseffekt, veränderte Payload-Wiederverwendung wird abgelehnt.
 
-`protocol/control.py` implementiert die gemeinsame Control-Envelope-Semantik, ohne gRPC, QUIC, HTTP oder einen anderen Transport auszuwählen. Die initiale Message-Schicht validiert und verarbeitet nur drei bereits in `PROTOCOL.md` definierte Operationen:
+Die ersten Handler decken ausschließlich bereits in `PROTOCOL.md` benannte Operationen ab: `ReserveCapacity`, `CommitReservation` und `CancelJob`.
 
-- `ReserveCapacity`;
-- `CommitReservation`;
-- `CancelJob`.
-
-Bei diesen Operationen wird die Envelope-`request_id` bis in die dauerhafte Idempotenzspeicherung durchgereicht; zusätzlich wird Message Type + Payload gefingert. Ein Replay derselben Anfrage hat genau einen Geschäftseffekt. Dieselbe Request-ID mit verändertem Payload wird als Idempotenzkonflikt abgelehnt.
-
-**Authentifizierung und Autorisierung werden durch diese Handler nicht implementiert.** Die Actor-Identität bleibt unvertrauenswürdig, bis das Node-Identity-/Session-Design implementiert ist.
+`protocol/node_session.py` modelliert nun die dokumentierte Readiness-Reihenfolge und lässt keinen Fortschritt über Authentication hinaus zu, solange der Aufrufer keinen `AuthenticationVerifier` bereitstellt, der eine gültige, nicht abgelaufene und an die Session-Challenge gebundene Identity-Entscheidung zurückgibt. **Die Schnittstelle selbst ist noch kein produktiver Authentifizierungsmechanismus.** ADR 0005 bleibt Proposed.
 
 ## Runtime-Ausrichtung
 
@@ -161,16 +152,14 @@ Der erste vorgeschlagene M1-Forschungspfad ist llama.cpp-orientiert und wird hin
 ## Unmittelbare Engineering-Reihenfolge
 
 ```text
-maschinenlesbare Verträge + Inventory-Harness                 [M0 implementiert]
-transaktionale Job-/Reservation-Persistenz + Schema-Admission [M0 implementiert]
-gemeinsamer Control Envelope + strukturierte Fehler            [M0 implementiert]
-erste dokumentierte Control-Handler                            [M0 implementiert]
-TCP-Lab-Netzwerk-Microbenchmark                                [M0 implementiert]
-llama-bench-Prefill-/Decode-Adapter                            [M0 implementiert]
+maschinenlesbare Verträge + Benchmark-Harnesses                [M0 implementiert]
+dauerhafter Job-/Reservation-State + erste Handler             [M0 implementiert]
+gemeinsamer Envelope + strukturierte Fehler                     [M0 implementiert]
+authentifizierungspflichtige Node-Session-Semantik              [M0 implementiert]
 -> Inventory-/Netzwerk-/Runtime-Messungen auf realen Nodes
+-> konkrete Node-Credential-Verifikation über ADR 0005 auswählen/implementieren
+-> NodeHello/Auth/Profile-Nachrichten an den Session-Skeleton binden
 -> llama.cpp-orientierter M1-Runtime-Spike
--> authentifizierter Node-Session-Skeleton
--> übrige Node-/Runtime-/Artifact-Protokollhandler
 -> Activation-Payload-Transport-Benchmark
 -> gemeinsame Zwei-Node-Inferenz
 -> Scheduler-Automatisierung
@@ -178,7 +167,7 @@ llama-bench-Prefill-/Decode-Adapter                            [M0 implementiert
 
 ## Sicherheitshinweis
 
-Experimentelle Runtime-RPC- oder Benchmark-Endpunkte dürfen nicht direkt dem öffentlichen Internet ausgesetzt werden. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+Experimentelle Runtime-RPC- oder Benchmark-Endpunkte dürfen nicht direkt dem öffentlichen Internet ausgesetzt werden. Die `AuthenticationVerifier`-Schnittstelle darf nicht als Nachweis einer produktionsreifen Node-Authentifizierung behandelt werden. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Sprach-Synchronisationsregel
 
