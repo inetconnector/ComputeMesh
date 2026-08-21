@@ -72,7 +72,12 @@ class ControlHandlerTests(unittest.TestCase):
         with SQLiteStateStore(self.path) as store:
             store.ensure_job("job-1")
             document = envelope(
-                "ValidateJob", "job-1", "request-1", 0, {}, self.now
+                "CancelJob",
+                "job-1",
+                "request-1",
+                0,
+                {"reason": "user_request", "cutoff_policy": "stop_new_billable_work"},
+                self.now,
             )
             first = handle_control_message(document, store, now=self.now)
             second = handle_control_message(document, store, now=self.now)
@@ -180,13 +185,29 @@ class ControlHandlerTests(unittest.TestCase):
     def test_stale_revision_becomes_structured_retryable_error(self):
         with SQLiteStateStore(self.path) as store:
             store.ensure_job("job-1")
+            store.ensure_reservation("res-1")
+            lease = (self.now + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
             handle_control_message(
-                envelope("ValidateJob", "job-1", "v", 0, {}, self.now),
+                envelope(
+                    "ReserveCapacity",
+                    "res-1",
+                    "lease-1",
+                    0,
+                    {"lease_expires_at": lease},
+                    self.now,
+                ),
                 store,
                 now=self.now,
             )
             result = handle_control_message(
-                envelope("PlanJob", "job-1", "p", 0, {}, self.now),
+                envelope(
+                    "CommitReservation",
+                    "res-1",
+                    "commit-1",
+                    0,
+                    {"job_id": "job-1", "stage_id": "stage-1"},
+                    self.now,
+                ),
                 store,
                 now=self.now,
             )

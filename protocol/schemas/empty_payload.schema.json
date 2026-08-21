@@ -1,8 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://computemesh.dev/schema/empty_payload.schema.json",
-  "title": "ComputeMesh Empty Control Payload",
-  "type": "object",
-  "additionalProperties": false,
-  "maxProperties": 0
-}

@@ -19,7 +19,6 @@ from .state_machine import (
     IdempotencyConflict,
     InvalidTransition,
     JobState,
-    ReservationState,
     StaleRevision,
 )
 
@@ -89,31 +88,11 @@ def _parse_lease(env: ControlEnvelope) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-_JOB_MESSAGE_TARGETS = {
-    "ValidateJob": JobState.VALIDATING,
-    "PlanJob": JobState.PLANNING,
-    "ReserveJob": JobState.RESERVING,
-    "PrepareJob": JobState.PREPARING,
-    "StartJob": JobState.RUNNING,
-    "VerifyJob": JobState.VERIFYING,
-    "CompleteJob": JobState.COMPLETED,
-    "SettleJob": JobState.SETTLED,
-    "CancelJob": JobState.CANCELLED,
-    "FailJob": JobState.FAILED,
-    "RefundJob": JobState.REFUNDED,
-}
-
-_RESERVATION_MESSAGE_TARGETS = {
-    "ActivateReservation": ReservationState.ACTIVE,
-    "ReleaseReservation": ReservationState.RELEASED,
-    "RejectReservation": ReservationState.REJECTED,
-}
-
 _MESSAGE_VALIDATOR = MessageContractValidator()
 
 
 def dispatch_control_envelope(env: ControlEnvelope, store: SQLiteStateStore):
-    """Apply one validated control message to durable orchestration state."""
+    """Apply one implemented M0 control message to durable orchestration state."""
     try:
         _MESSAGE_VALIDATOR.validate(env.message_type, env.payload)
     except KeyError as exc:
@@ -151,21 +130,12 @@ def dispatch_control_envelope(env: ControlEnvelope, store: SQLiteStateStore):
             request_fingerprint=fingerprint,
         )
 
-    if env.message_type in _RESERVATION_MESSAGE_TARGETS:
-        return store.transition_reservation(
-            env.target_id,
-            request_id=env.request_id,
-            expected_revision=env.expected_revision,
-            target=_RESERVATION_MESSAGE_TARGETS[env.message_type],
-            request_fingerprint=fingerprint,
-        )
-
-    if env.message_type in _JOB_MESSAGE_TARGETS:
+    if env.message_type == "CancelJob":
         return store.transition_job(
             env.target_id,
             request_id=env.request_id,
             expected_revision=env.expected_revision,
-            target=_JOB_MESSAGE_TARGETS[env.message_type],
+            target=JobState.CANCELLED,
             request_fingerprint=fingerprint,
         )
 

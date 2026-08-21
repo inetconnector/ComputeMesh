@@ -11,24 +11,7 @@ class MessageContractError(ValueError):
     pass
 
 
-_EMPTY_MESSAGES = {
-    "ActivateReservation",
-    "ReleaseReservation",
-    "RejectReservation",
-    "ValidateJob",
-    "PlanJob",
-    "ReserveJob",
-    "PrepareJob",
-    "StartJob",
-    "VerifyJob",
-    "CompleteJob",
-    "SettleJob",
-    "FailJob",
-    "RefundJob",
-}
-
 _SCHEMA_BY_MESSAGE = {
-    **{name: "empty_payload.schema.json" for name in _EMPTY_MESSAGES},
     "ReserveCapacity": "reserve_capacity_payload.schema.json",
     "CommitReservation": "commit_reservation_payload.schema.json",
     "CancelJob": "cancel_job_payload.schema.json",
@@ -36,7 +19,7 @@ _SCHEMA_BY_MESSAGE = {
 
 
 class MessageContractValidator:
-    """Validate message payloads independently of the chosen transport."""
+    """Validate currently implemented M0 control-message payloads."""
 
     def __init__(self, schema_dir: str | Path | None = None):
         self.schema_dir = (

@@ -7,11 +7,11 @@ class MessageContractTests(unittest.TestCase):
     def setUp(self):
         self.validator = MessageContractValidator()
 
-    def test_expected_messages_are_registered(self):
-        supported = self.validator.supported_messages()
-        self.assertIn("ReserveCapacity", supported)
-        self.assertIn("CommitReservation", supported)
-        self.assertIn("CancelJob", supported)
+    def test_exact_initial_handler_set(self):
+        self.assertEqual(
+            self.validator.supported_messages(),
+            frozenset({"ReserveCapacity", "CommitReservation", "CancelJob"}),
+        )
 
     def test_reserve_capacity_requires_lease_expiry(self):
         self.validator.validate(
@@ -40,14 +40,9 @@ class MessageContractTests(unittest.TestCase):
         with self.assertRaises(MessageContractError):
             self.validator.validate("CancelJob", {"reason": "user_request"})
 
-    def test_empty_internal_payload_rejects_unknown_fields(self):
-        self.validator.validate("ValidateJob", {})
-        with self.assertRaises(MessageContractError):
-            self.validator.validate("ValidateJob", {"arbitrary": True})
-
     def test_unknown_message_is_not_silently_accepted(self):
         with self.assertRaises(KeyError):
-            self.validator.validate("ArbitraryCommand", {})
+            self.validator.validate("ValidateJob", {})
 
 
 if __name__ == "__main__":
