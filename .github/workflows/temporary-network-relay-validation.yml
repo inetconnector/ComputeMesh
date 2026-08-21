@@ -1,6 +1,8 @@
 name: Temporary Network Relay Validation
 
 on:
+  push:
+    branches: [m1/tcp-measurement-relay]
   pull_request:
     branches: [main]
 
