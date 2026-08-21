@@ -290,8 +290,11 @@ class Ed25519ChallengeVerifier:
             return self._deny("malformed node proof")
 
         now_utc = now.astimezone(timezone.utc)
-        issued = datetime.fromtimestamp(proof.issued_at, tz=timezone.utc)
-        expires = datetime.fromtimestamp(proof.expires_at, tz=timezone.utc)
+        try:
+            issued = datetime.fromtimestamp(proof.issued_at, tz=timezone.utc)
+            expires = datetime.fromtimestamp(proof.expires_at, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return self._deny("malformed node proof timestamp")
         if expires - issued > self.max_proof_ttl:
             return self._deny("node proof ttl exceeds policy")
         if issued > now_utc + self.clock_skew:
