@@ -2,8 +2,8 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Project stage:** M0 — contracts, benchmarking, orchestration semantics, architecture, protocol, security, and feasibility research.  
-> **Implementation status:** executable M0 tooling, machine-readable contracts, and a transactional Job/Reservation persistence reference now exist. There is still no production runtime, scheduler, marketplace, billing system, or public provider-node software.
+> **Project stage:** M0 — contracts, benchmarking, orchestration semantics, protocol foundations, security, and feasibility research.  
+> **Implementation status:** executable M0 tooling, machine-readable contracts, transactional Job/Reservation persistence, and a transport-neutral control-envelope parser now exist. There is still no production runtime, scheduler, marketplace, billing system, or public provider-node software.
 
 ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. A client with limited local VRAM should eventually be able to run a model whose memory and compute requirements exceed the client machine by using approved remote compute without manually managing shards, hosts, ports, or placement.
 
@@ -17,13 +17,14 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 
 - bilingual root documentation and ADR process;
 - architecture, protocol, security, benchmark, failure, privacy, and data-model specifications;
-- JSON Schema Draft 2020-12 contracts for node profile, benchmark result, model manifest, shard manifest, reservation, and job;
+- JSON Schema Draft 2020-12 contracts for node profile, benchmark result, model manifest, shard manifest, reservation, job, common control envelope, and structured protocol errors;
 - concrete example manifests/jobs/reservations;
 - a standard-library Python inventory benchmark collector with NVIDIA GPU/VRAM/driver discovery when `nvidia-smi` is available;
 - deterministic in-memory Job/Reservation state-machine semantics;
 - a transactional SQLite M0 persistence adapter with monotonic revisions, durable idempotency, lease persistence/expiry, stale-writer rejection, rollback, and restart recovery;
 - JSON-Schema-based Job/Reservation admission before durable creation;
-- unit tests for benchmark, state-machine, persistence, concurrency/restart, and contract-admission behavior.
+- a transport-neutral protocol parser for the common control envelope with version-major checks, expiry/clock-skew enforcement, unknown-field rejection, and structured errors;
+- unit tests for benchmark, state-machine, persistence/concurrency/restart, contract admission, control-envelope behavior, and protocol schemas.
 
 ### Not implemented
 
@@ -32,6 +33,8 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 - gateway/API;
 - production scheduler;
 - production orchestrator network service and production database adapter;
+- authenticated node sessions and authorization;
+- message-specific node/orchestrator protocol handlers;
 - model registry service;
 - verification/reputation service;
 - billing/ledger service;
@@ -96,8 +99,6 @@ For dense pipeline execution, normal inter-node token traffic is expected to be 
 | G4 | Can untrusted capacity be used safely enough? | workload boundary, identity, auditability, verification, abuse controls |
 | G5 | Can non-specialists operate provider nodes? | install/update/rollback/diagnostics/drain/uninstall |
 
-A failed gate may change the viable workload class rather than end the project.
-
 ## Repository map
 
 ```text
@@ -107,8 +108,10 @@ ComputeMesh/
 │  └─ orchestrator/      # M0 state machine, SQLite reference persistence, schema admission
 ├─ runtime/              # planned CUDA/llama.cpp/vLLM/network integrations
 ├─ protocol/
+│  ├─ control.py         # transport-neutral common control-envelope parser
 │  ├─ schemas/           # machine-readable M0 contracts
-│  └─ examples/          # contract examples
+│  ├─ examples/          # contract examples
+│  └─ tests/             # protocol and schema tests
 ├─ tools/
 │  └─ benchmark/         # executable M0 inventory collector + unit tests
 ├─ models/
@@ -117,25 +120,21 @@ ComputeMesh/
 ├─ deploy/
 ├─ research/
 └─ docs/
-   ├─ adr/
-   ├─ BENCHMARK_SPEC.md
-   ├─ DATA_MODEL.md
-   ├─ FAILURE_SEMANTICS.md
-   ├─ PRIVACY_TIERS.md
-   └─ TEST_MATRIX.md
+   └─ adr/               # architecture decisions
 ```
 
 ## Run the current M0 tooling
 
-Python 3.10+ is sufficient for the benchmark collector and state store. Contract validation uses `jsonschema`.
+Python 3.10+ is sufficient for the standard-library collectors/state store. JSON-Schema tests and admission use `jsonschema`.
 
 ```powershell
 git clone <repository-url>
 cd ComputeMesh
-python -m pip install -r services/orchestrator/requirements.txt
+python -m pip install -r requirements-dev.txt
 python tools/benchmark/benchmark.py --dry-run
 python -m unittest discover -s tools/benchmark/tests -v
 python -m unittest discover -s services/orchestrator/tests -v
+python -m unittest discover -s protocol/tests -v
 ```
 
 To write a lab profile:
@@ -148,33 +147,19 @@ Benchmark output is written below `artifacts/benchmark/` and ignored by Git. The
 
 ## Orchestrator reference persistence
 
-`services/orchestrator/persistence.py` is intentionally an M0 reference adapter. It uses SQLite transactions to prove the required semantics:
+`services/orchestrator/persistence.py` is intentionally an M0 reference adapter. SQLite transactions prove atomic state/idempotency effects, optimistic revision checks, durable replay results across restart, reservation lease persistence/expiry, and stale-writer rejection. This does **not** select SQLite for production; PostgreSQL remains the control-plane direction.
 
-- atomic state + idempotency effects;
-- optimistic revision checks;
-- durable replay results across restart;
-- reservation lease persistence/expiry;
-- stale-writer rejection across connections.
+`services/orchestrator/contracts.py` validates initial Job/Reservation documents against repository JSON Schemas before durable admission.
 
-This does **not** select SQLite for production. A production control-plane database such as PostgreSQL remains the architectural direction.
+## Protocol foundation
 
-`services/orchestrator/contracts.py` validates incoming M0 Job/Reservation documents against the repository JSON Schemas before initial durable admission. Authentication and authorization are separate future protocol responsibilities.
+`protocol/control.py` implements the common control-envelope semantics from `PROTOCOL.md` without selecting a wire transport. It checks the supported major version, identifiers, expected revision shape, timestamps, expiry, bounded clock skew, and unknown fields, and returns structured machine-readable errors.
 
-## Documentation order
-
-1. `state.md` — current facts, blockers, and next actions.
-2. `IMPLEMENTATION_PLAN.md` — gates, milestones, workstreams, and definitions of done.
-3. `ARCHITECTURE.md` — service boundaries and execution/scheduling model.
-4. `PROTOCOL.md` — control/data-plane semantics, retries, errors, leases, cancellation.
-5. `THREAT_MODEL.md` and `SECURITY.md` — trust assumptions and launch blockers.
-6. `docs/BENCHMARK_SPEC.md` — reproducible measurement rules.
-7. `docs/DATA_MODEL.md` and `docs/FAILURE_SEMANTICS.md` — canonical entities/state behavior.
-8. `protocol/schemas/` — current machine-readable M0 contracts.
-9. `docs/adr/` — accepted/proposed architecture decisions.
+Higher minor versions are not automatically rejected at the base-envelope layer; capability negotiation remains separate. Authentication, authorization, message-specific payload validation, and gRPC/QUIC/HTTP transport binding are not implemented yet.
 
 ## Runtime direction
 
-The first proposed M1 research path is llama.cpp-oriented, wrapped behind the ComputeMesh node/worker boundary. vLLM remains a comparison/reference for coordinated datacenter-style serving. ADR 0002 is still **Proposed**, not accepted; the runtime choice is accepted only after a two-node spike proves deterministic placement, measurable transfer, correctness, bounded memory, cancellation/failure behavior, and a workable Windows path.
+The first proposed M1 research path is llama.cpp-oriented, wrapped behind the ComputeMesh node/worker boundary. vLLM remains a comparison/reference for coordinated datacenter-style serving. ADR 0002 is still **Proposed**, not accepted.
 
 Control and data transports are also still under evaluation. Transport encryption must never be confused with confidential execution on a provider-controlled host.
 
@@ -183,10 +168,12 @@ Control and data transports are also still under evaluation. Transport encryptio
 ```text
 machine-readable contracts + inventory harness              [implemented M0]
 transactional Job/Reservation persistence + schema admission [implemented M0]
+common control envelope + structured errors                  [implemented M0]
 -> two-node lab profiles
 -> local/runtime prefill-decode benchmark adapter
 -> llama.cpp-oriented M1 runtime spike
--> protocol handlers + authenticated node-session skeleton
+-> message-specific protocol handlers
+-> authenticated node-session skeleton
 -> activation transport benchmark
 -> shared two-node inference
 -> scheduler automation
