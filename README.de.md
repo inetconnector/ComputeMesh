@@ -86,6 +86,18 @@ Zu den M0-Grundlagen gehören inzwischen:
 - authentifizierungspflichtige Node-Session-Semantik für `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
 - eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default.
 
+## Verifizierte echte Zielsysteme
+
+Der Lab-Ablauf wurde inzwischen auf echten Windows- und Linux-Zielen ausgeführt:
+
+- Windows-Ziel: RTX 3080 Laptop GPU, 16 GiB VRAM, 31,7 GiB RAM.
+- Linux-Ziel: Debian-13-Server, 4 logische CPU-Kerne, 7,8 GiB RAM, keine GPU erkannt.
+- Windows -> Internet-Linux-TCP-Benchmark: RTT p50 `11,884 ms`, RTT p95 `13,369 ms`, Upload p50 `42,276 Mbit/s`, Download p50 `226,597 Mbit/s`.
+- Windows-CUDA-llama.cpp-Benchmark mit 7B-Q4-GGUF: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`.
+- Linux-CPU-llama.cpp-Smoke mit 0.5B-Q4-GGUF: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
+
+Der Internet-TCP-Test wurde bewusst über die Engineering-CLI mit temporärer, quell-IP-begrenzter Firewallregel ausgeführt, nicht über die unauthentifizierte Trusted-LAN-Oberfläche. Das ist echte Zielsystem-Evidenz, aber kein privater LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz.
+
 ## Noch nicht implementiert
 
 Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, kein produktives Credential-System, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.

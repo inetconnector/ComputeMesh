@@ -21,7 +21,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - authentication-gated node-session semantics: `d7a110e`
 - one-click Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
 - Linux Lab Setup: `3c99457`
-- real target-machine smoke/fix pass: branch `fix/real-target-lab-setup`, prepared from the 2026-08-21 Windows + `supersrv-trixie` run
+- real target-machine smoke/fix pass: branch `fix/real-target-lab-setup`, commit `a360c97`, draft PR `#1`, prepared from the 2026-08-21 Windows + `supersrv-trixie` run
 
 ## What exists
 

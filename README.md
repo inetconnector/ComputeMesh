@@ -86,6 +86,18 @@ Implemented M0 foundations include:
 - authentication-gated node-session semantics for `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
 - a mandatory injected `AuthenticationVerifier` boundary with no permissive default.
 
+## Verified real-target evidence
+
+The lab flow has now been exercised on real Windows and Linux targets:
+
+- Windows target: RTX 3080 Laptop GPU, 16 GiB VRAM, 31.7 GiB RAM.
+- Linux target: Debian 13 server, 4 logical CPU cores, 7.8 GiB RAM, no GPU detected.
+- Windows -> internet Linux TCP benchmark: RTT p50 `11.884 ms`, RTT p95 `13.369 ms`, upload p50 `42.276 Mbit/s`, download p50 `226.597 Mbit/s`.
+- Windows CUDA llama.cpp benchmark with a 7B Q4 GGUF: prefill `2866.127 tok/s`, decode `76.210 tok/s`.
+- Linux CPU llama.cpp smoke with a 0.5B Q4 GGUF: prefill `12.382 tok/s`, decode `0.201 tok/s`.
+
+The internet TCP test was intentionally run through the engineering CLI with a temporary source-limited firewall rule, not through the unauthenticated trusted-LAN UI. It is real target-machine evidence, but it is not a private-LAN A/B proof and not distributed shared inference.
+
 ## Not implemented yet
 
 There is still no production provider-node application/installer, distributed shared-inference runtime, Gateway/API, scheduler, production credential system, complete wire protocol, billing/verification/telemetry product stack, or signed release/update pipeline.

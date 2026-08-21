@@ -141,6 +141,15 @@ The new Linux-specific test block passes **6/6** in a real Linux environment. In
 
 This validates the Linux launcher/UI/integration logic; it is still not real two-machine performance evidence. The next evidence step is running the setup on the actual target computers.
 
+Additional real target smoke evidence exists from 2026-08-21:
+
+- Windows direct launcher profile capture on an RTX 3080 Laptop GPU machine.
+- Linux direct launcher profile capture and full test suite on a Debian 13 internet server.
+- Windows -> Linux internet TCP benchmark using a temporary source-limited firewall rule.
+- Real llama.cpp runs on Windows CUDA with a 7B Q4 GGUF and on Linux CPU with a 0.5B Q4 GGUF.
+
+This does not change the network safety rule: the assisted benchmark server remains a trusted-private-LAN tool.
+
 ## Engineering/manual commands
 
 Advanced users can still call the underlying tools under `tools/benchmark/` directly. Those CLIs remain the canonical engineering layer; the setup launchers are simpler user-facing orchestrators around them.

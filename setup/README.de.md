@@ -141,6 +141,15 @@ Der neue Linux-spezifische Testblock besteht **6/6** in einer echten Linux-Umgeb
 
 Damit ist die Linux-Starter-/UI-/Integrationslogik getestet; es ist noch kein realer Zwei-Rechner-Performance-Nachweis. Der nächste Evidenzschritt ist der Lauf auf den tatsächlichen Zielrechnern.
 
+Zusätzliche echte Zielsystem-Evidenz existiert seit dem 21.08.2026:
+
+- Windows-Direktstarter-Profil auf einem Rechner mit RTX 3080 Laptop GPU.
+- Linux-Direktstarter-Profil und vollständige Testsuite auf einem Debian-13-Internetserver.
+- Windows -> Linux-Internet-TCP-Benchmark mit temporärer, quell-IP-begrenzter Firewallregel.
+- Echte llama.cpp-Läufe auf Windows CUDA mit einem 7B-Q4-GGUF und auf Linux CPU mit einem 0.5B-Q4-GGUF.
+
+Das ändert nicht die Netzwerksicherheitsregel: Der assistierte Benchmark-Server bleibt ein Werkzeug für vertrauenswürdige private LANs.
+
 ## Engineering-/manuelle Befehle
 
 Fortgeschrittene Nutzer können weiterhin die Werkzeuge unter `tools/benchmark/` direkt aufrufen. Diese CLIs bleiben die kanonische Engineering-Schicht; die Setup-Starter sind die einfachere Benutzeroberfläche darüber.
