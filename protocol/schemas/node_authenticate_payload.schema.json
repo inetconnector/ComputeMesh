@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/node_authenticate_payload.schema.json",
+  "title": "ComputeMesh NodeAuthenticate payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "credential"],
+  "properties": {
+    "method": {"type": "string", "minLength": 1, "maxLength": 64},
+    "credential": {"type": "string", "minLength": 1, "maxLength": 16384}
+  }
+}
