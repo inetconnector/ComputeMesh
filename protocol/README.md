@@ -42,14 +42,7 @@ CONNECTED
  -> CLOSED
 ```
 
-The current wire subset is:
-
-- `NodeHello`;
-- `NodeAuthenticate`;
-- `CapabilityNegotiation`;
-- `NodeProfileUpdate`;
-- `BenchmarkReport`;
-- `DrainRequest`.
+The current wire subset is `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`.
 
 Key properties:
 
@@ -73,15 +66,7 @@ This is not a network listener and it is not durable network-session persistence
 
 ADR 0005 is accepted for the **narrow M1 reference implementation**. `node_identity.py` implements authentication method `computemesh-ed25519-v1` using Ed25519 challenge signatures.
 
-The signed context is domain-separated and binds:
-
-- session ID;
-- per-session challenge;
-- stable node ID;
-- key ID;
-- protocol major/minor;
-- proof issue/expiry time;
-- a canonical digest of the accepted `NodeHello` semantics, including capabilities and supported authentication methods.
+The signed context is domain-separated and binds session ID, per-session challenge, stable node ID, key ID, protocol major/minor, proof issue/expiry time, and a canonical digest of the accepted `NodeHello` semantics including capabilities and supported authentication methods.
 
 Reference proof policy:
 
@@ -106,17 +91,7 @@ A revoked key/node is unavailable to **new** authentication attempts. Already-au
 
 ## Security boundary
 
-The M1 reference identity is not the complete production identity system. It does **not** provide:
-
-- provider/user login or derive `principal_id` from a network principal;
-- node private-key storage;
-- Windows DPAPI/CNG or Linux secret/keyring integration;
-- TLS/QUIC or another authenticated transport;
-- hardware attestation;
-- Sybil resistance or cloned-key detection;
-- active-session revocation distribution;
-- rate limits/abuse controls;
-- production database/high availability.
+The M1 reference identity is not the complete production identity system. It does **not** provide provider/user login, network-derived `principal_id`, node private-key storage, Windows DPAPI/CNG or Linux secret/keyring integration, TLS/QUIC, hardware attestation, Sybil resistance, cloned-key detection, active-session revocation distribution, rate limits/abuse controls, or production database/high availability.
 
 A syntactically valid `actor_id` is still not trusted until authentication succeeds. Network exposure remains blocked until transport security, service authorization, key storage, limits, and operational revocation are implemented and reviewed.
 
@@ -128,7 +103,9 @@ python -m unittest discover -s protocol/tests -v
 python -m unittest discover -s services/identity/tests -v
 ```
 
-Current local evidence before cross-platform CI: **64/64 protocol tests** and **13/13 identity/integration tests** passing. Coverage includes protocol/version/actor/revision/replay failures, real Ed25519 proof verification, capability/hello tampering, expired/future/extreme proof timestamps, unknown/revoked keys, enrollment replay/conflict/expiry, duplicate-key rejection, rotation, monotonic revocation, ownership checks, restart persistence, and an enrollment → Ed25519 verifier → `NodeSessionWireHandler` integration flow.
+Cross-platform GitHub validation passed on both Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Each platform passed the same full matrix: **13/13 benchmark**, **34/34 orchestrator**, **64/64 protocol**, **13/13 identity/integration**, and **20/20 setup** tests. Both installed `cryptography 46.0.7` from `requirements-dev.txt` successfully.
+
+Coverage includes protocol/version/actor/revision/replay failures, real Ed25519 proof verification, capability/hello tampering, expired/future/extreme proof timestamps, unknown/revoked keys, enrollment replay/conflict/expiry, duplicate-key rejection, rotation, monotonic revocation, ownership checks, restart persistence, and an enrollment → Ed25519 verifier → `NodeSessionWireHandler` integration flow.
 
 ## Remaining work
 
