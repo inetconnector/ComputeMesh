@@ -84,7 +84,9 @@ Zu den M0-Grundlagen gehören inzwischen:
 - transportneutrale Control-Envelope-Prüfung und strukturierte Fehler;
 - dauerhafte erste Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
 - authentifizierungspflichtige Node-Session-Semantik für `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default.
+- eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default;
+- strikte erste Node-Session-Wire-Verträge und Envelope→Session-Bindung für `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport` und `DrainRequest`;
+- Session-Protokollversionsaushandlung, Bindung des authentifizierten `actor_id`, optimistische Session-Revisionen, exakte Request-Replays, Erkennung semantisch veränderter Request-ID-Wiederverwendung und eine injizierte Benchmark-Readiness-Policy ohne Accept-all-Default.
 
 ## Verifizierte echte Zielsysteme
 
@@ -100,9 +102,9 @@ Der Internet-TCP-Test wurde bewusst über die Engineering-CLI mit temporärer, q
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, kein produktives Credential-System, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, kein produktives Credential-/Enrollment-/Revocation-System, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
 
-ADR 0005 (Node Identity) und ADR 0002 (M1 Runtime Baseline) bleiben **Proposed**, nicht Accepted.
+Der neue Node-Session-Wire-Binder ist **keine** produktive Authentifizierung und **kein** Netzwerkservice. ADR 0005 (Node Identity) und ADR 0002 (M1 Runtime Baseline) bleiben **Proposed**, nicht Accepted.
 
 ## M0-Ablauf mit zwei Rechnern
 
@@ -130,7 +132,7 @@ Die beiden Rechner dürfen Windows, Linux oder gemischt Windows/Linux sein; Benc
 
 Das TCP-Benchmark-Protokoll besitzt keine Anwendungs-Authentifizierung oder Verschlüsselung. Den assistierten Server nur in einem vertrauenswürdigen privaten LAN verwenden. Keiner der Starter macht die experimentelle Runtime für eine öffentliche Internet-Exposition sicher.
 
-Der vorhandene `AuthenticationVerifier` ist eine semantische Schnittstelle und noch kein produktives Credential-System. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+Der vorhandene `AuthenticationVerifier` ist eine semantische Schnittstelle und noch kein produktives Credential-System. Der Session-Wire-Binder erzwingt lediglich Reihenfolge, Versions-/Revisionskonsistenz, Replay-Semantik und die Konsistenz des authentifizierten Actors um den jeweils injizierten Verifier herum. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Repository-Struktur
 
@@ -141,7 +143,7 @@ ComputeMesh/
 ├─ setup/                 # gemeinsamer Helper + Windows-/Linux-Starter
 ├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ services/orchestrator/ # dauerhafter M0-State + erste Control-Handler
-├─ protocol/              # Verträge, Envelope, Session-Semantik, Tests
+├─ protocol/              # Verträge, Envelope, Session-Semantik/Wire-Bindung, Tests
 ├─ apps/                  # geplante Produktanwendungen
 ├─ runtime/               # geplante/erforschte Runtime-Integrationen
 ├─ docs/                  # Spezifikationen und ADRs
