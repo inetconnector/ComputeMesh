@@ -121,7 +121,13 @@ class NetworkBenchmarkTests(unittest.TestCase):
             sock.sendall(b"JUNK")
             op, size = nb.recv_header(sock)
             self.assertEqual((op, size), (b"E", 0))
-            self.assertEqual(sock.recv(1), b"")
+            # Because the server intentionally closes while unread client bytes
+            # may still be queued, TCP may expose that close as EOF or RST.
+            try:
+                trailing = sock.recv(1)
+            except ConnectionResetError:
+                trailing = b""
+            self.assertEqual(trailing, b"")
         finally:
             sock.close()
         thread.join(timeout=2)
