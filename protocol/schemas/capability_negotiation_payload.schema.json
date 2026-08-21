@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/capability_negotiation_payload.schema.json",
+  "title": "ComputeMesh CapabilityNegotiation payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted_capabilities"],
+  "properties": {
+    "accepted_capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    }
+  }
+}
