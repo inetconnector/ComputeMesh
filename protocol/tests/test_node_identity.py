@@ -183,6 +183,19 @@ class NodeIdentityTests(unittest.TestCase):
         self.assertFalse(result.authenticated)
         self.assertIn("malformed", result.reason)
 
+    def test_extreme_epoch_is_denied_not_raised(self):
+        proof = NodeAuthProof.decode(self.proof())
+        credential = NodeAuthProof(
+            node_id=proof.node_id,
+            key_id=proof.key_id,
+            issued_at=10**30,
+            expires_at=10**30 + 30,
+            signature=proof.signature,
+        ).encode()
+        result = self.verify(credential)
+        self.assertFalse(result.authenticated)
+        self.assertIn("timestamp", result.reason)
+
     def test_malformed_json_field_types_are_denied_not_raised(self):
         document = {
             "v": True,
