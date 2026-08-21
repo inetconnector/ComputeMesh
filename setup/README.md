@@ -1,24 +1,38 @@
-# ComputeMesh Windows Lab Setup
+# ComputeMesh Lab Setup — Windows and Linux
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-This folder is the simplest way to run the **currently implemented M0 lab workflow** on Windows. It is intentionally not branded as a production installer: the provider application, distributed runtime, scheduler, and production authentication stack do not exist yet.
+This folder is the simplest way to run the **currently implemented M0 lab workflow**. It is intentionally not a production installer: the provider application, distributed runtime, scheduler, and production authentication stack do not exist yet.
 
-## One-click start
+## Start
 
-From the repository root, double-click:
+**Windows** — from the repository root, double-click:
 
 ```text
 SETUP.cmd
 ```
 
-The setup detects German/English from Windows and opens a menu. If Python 3.10+ is unavailable, it attempts a user-scoped install with `winget`, then creates `.venv` locally.
+**Linux** — from the repository root:
+
+```bash
+./setup.sh
+```
+
+If the executable bit was lost during download/extraction:
+
+```bash
+bash setup.sh
+```
+
+Both paths open the same menu with profile capture, network server/client, llama.cpp benchmark, and tests.
 
 ## Recommended two-computer workflow
 
-On **both** computers first:
+The two machines may be Windows, Linux, or mixed.
 
-1. Run `SETUP.cmd`.
+First on **both** computers:
+
+1. Start the OS-specific setup launcher.
 2. Choose **1 — Prepare this computer**.
 3. Check the displayed CPU/GPU/RAM summary.
 
@@ -28,77 +42,105 @@ Then measure the LAN in both directions.
 
 On computer **B**:
 
-1. Run `SETUP.cmd`.
+1. Start setup.
 2. Choose **2 — Network server**.
-3. Approve the one Windows administrator prompt needed for the temporary firewall rule.
-4. Note the displayed private IP (the setup also tries to copy it to the clipboard).
+3. Allow the temporary firewall action if the OS asks for elevation.
+4. Note the displayed private IP.
 
 On computer **A**:
 
-1. Run `SETUP.cmd`.
+1. Start setup.
 2. Choose **3 — Network client**.
-3. Enter B's displayed IP.
-4. Read RTT p50/p95 and upload/download throughput from the summary.
+3. Enter B's displayed private IP.
+4. Read RTT p50/p95 and upload/download throughput.
 
 ### B → A
 
-Swap the roles and repeat once. This gives directional evidence instead of assuming both paths behave identically.
+Swap the roles and repeat once. This records directionality instead of assuming symmetry.
+
+## Windows behavior
+
+- detects German/English from Windows;
+- finds Python 3.10+ or attempts user-scoped installation with `winget`;
+- creates repository-local `.venv`;
+- binds the network benchmark to a concrete private address;
+- temporarily opens TCP 43191 only for Windows `Private` + `LocalSubnet` and removes the rule after the one-shot test;
+- offers Windows file pickers for `llama-bench.exe` and GGUF;
+- can download the official Windows llama.cpp build selected by the setup.
+
+Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `TESTS.cmd`.
+
+## Linux behavior
+
+- detects German/English from the Linux locale;
+- requires Python 3.10+ and creates repository-local `.venv`;
+- if required base packages are missing, offers installation through `apt`, `dnf`, `zypper`, `pacman`, or `apk` using root/`sudo` only after confirmation;
+- detects a private RFC1918 interface with `iproute2` and binds the benchmark to that exact address;
+- if `firewalld` is active, creates a runtime-only rich rule limited to the detected subnet/address/port and removes it afterwards;
+- if `ufw` is active, creates a temporary source-subnet rule and deletes it afterwards;
+- if neither supported firewall frontend is active, it changes no firewall state and still binds only to the private interface;
+- can use an existing `llama-bench` or query the latest official llama.cpp release for a matching Linux asset;
+- prefers ROCm when `rocminfo` is present, otherwise Vulkan when Vulkan/NVIDIA/DRI evidence is present, otherwise CPU;
+- supports official Ubuntu x64/arm64 CPU/Vulkan assets and x64 ROCm assets selected dynamically from release metadata;
+- verifies a GitHub `sha256:` asset digest when available;
+- wraps the downloaded executable with local `LD_LIBRARY_PATH` handling and accepts it only if `llama-bench --version` succeeds;
+- uses `zenity` for GGUF selection when available on a desktop, otherwise asks for a path with shell completion.
+
+Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.
+
+The official automatic Linux downloads are Ubuntu binaries. They often work on compatible glibc distributions, but the setup does not assume this: if the downloaded executable cannot start, it is rejected and you can point the setup at a distro-native/self-built `llama-bench`. On musl-based systems such as Alpine, an existing compatible build is the safer llama.cpp path.
 
 ## llama.cpp benchmark
 
 On each relevant computer:
 
-1. Run `SETUP.cmd`.
+1. Start setup.
 2. Choose **4 — llama.cpp prefill/decode**.
-3. If `llama-bench.exe` is not already available, choose automatic download or select an existing executable.
-4. Select your `.gguf` model in the Windows file picker.
-5. Read prefill tokens/s, decode tokens/s, and ms/token from the summary.
+3. Select automatic official download or an existing `llama-bench`.
+4. Select/provide a local `.gguf` model.
+5. Read prefill tokens/s, decode tokens/s, and ms/token.
 
-Automatic download uses the latest official `ggml-org/llama.cpp` GitHub release. NVIDIA systems prefer the official CUDA 12.4 x64 package; otherwise the setup uses the official Vulkan x64 package. If GitHub exposes a `sha256:` asset digest, the downloaded archive is verified before extraction.
+Model weights are **never downloaded automatically**.
 
-Model weights are never downloaded automatically by this setup.
+## Local files
 
-## Direct starters
-
-You can skip the menu and double-click one of these files:
-
-- `NODE.cmd` — capture/refresh this computer's profile;
-- `NETWORK-SERVER.cmd` — wait for one LAN test;
-- `NETWORK-CLIENT.cmd` — measure the other machine;
-- `LLAMA-BENCH.cmd` — run/select llama.cpp benchmark inputs;
-- `TESTS.cmd` — install development test dependencies in `.venv` and run all current local tests.
-
-## Where files go
-
-Everything generated by the setup stays local and is already ignored by Git:
+Everything generated by setup stays local and is already ignored by Git:
 
 ```text
 .venv/                           # isolated Python environment
-artifacts/lab/config.json        # local lab node id/revision + remembered paths
+artifacts/lab/config.json        # local node id/revision + remembered paths
 artifacts/lab/<node>/<run>/      # benchmark outputs
 artifacts/lab/runtime/llama.cpp/ # optional upstream llama.cpp downloads
 ```
 
-The lab node ID is random (`lab-xxxxxxxx`) and does not use the Windows hostname.
+The lab node ID is random (`lab-xxxxxxxx`) and does not use the hostname.
 
 ## Network safety
 
-The underlying benchmark protocol has no authentication or encryption. The assisted Windows server therefore:
+The underlying benchmark protocol has no authentication or encryption. Both assisted server implementations:
 
-- accepts only a private RFC1918 LAN interface;
-- requires/sets the Windows network profile to `Private` with user approval;
-- binds the benchmark to that specific private address, not `0.0.0.0`;
-- opens TCP 43191 only for `RemoteAddress LocalSubnet`, profile `Private`, and the local `.venv` Python executable;
-- removes the firewall rule automatically when the one-shot server exits.
+- accept only RFC1918 private addresses;
+- bind to one concrete private address, not `0.0.0.0`;
+- use temporary firewall rules where the supported firewall integration is active;
+- remove those temporary rules when the one-shot server exits.
 
-Do not expose the benchmark server to the public internet.
+Never expose the benchmark server to the public internet.
 
-## Test status and evidence boundary
+## Test status
 
-The Python setup helper and script-security invariants have automated tests. The helper has also passed a synthetic end-to-end smoke flow covering inventory → network client → llama adapter → persisted local configuration.
+Shared Python setup helper evidence remains in place. The Linux layer additionally has automated tests for:
 
-The current development environment is not Windows and does not provide Windows PowerShell, so the PowerShell UI itself has been statically checked but still needs execution on the real Windows lab machines. Running `SETUP.cmd` on those machines is part of the next evidence step.
+- Bash syntax;
+- root `setup.sh` entry point;
+- private/public IPv4 filtering;
+- current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection;
+- private-bind and temporary-firewall invariants;
+- direct Linux launcher routing.
+
+The new Linux-specific test block passes **6/6** in a real Linux environment. In addition, a real Bash frontend smoke test exercised menu localization plus Node, network-client, network-server, and llama workflow routing with a synthetic helper/results fixture.
+
+This validates the Linux launcher/UI/integration logic; it is still not real two-machine performance evidence. The next evidence step is running the setup on the actual target computers.
 
 ## Engineering/manual commands
 
-Advanced users can still call the underlying tools directly under `tools/benchmark/`. Those CLIs remain the canonical engineering layer; this setup is only a simpler, safer user-facing orchestrator around them.
+Advanced users can still call the underlying tools under `tools/benchmark/` directly. Those CLIs remain the canonical engineering layer; the setup launchers are simpler user-facing orchestrators around them.

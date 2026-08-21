@@ -3,52 +3,79 @@
 **Sprachen:** [English](README.md) | **Deutsch**
 
 > **Phase:** M0 — Engineering-/Lab-Implementierung.  
-> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-Setup unten richtet den heute tatsächlich implementierten Lab-/Benchmark-Ablauf ein; es ist kein öffentlicher Provider-Node-Installer.
+> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup unten richtet den Lab-/Benchmark-Ablauf ein, der heute tatsächlich existiert; es ist kein öffentlicher Provider-Node-Installer.
 
 ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
 
-## Der einfachste Einstieg unter Windows
+## Der einfachste Einstieg
 
-1. Dieses Repository klonen oder herunterladen.
-2. Den ComputeMesh-Ordner öffnen.
-3. **`SETUP.cmd` doppelklicken.**
-4. Im Menü auswählen, was gemacht werden soll.
+Repository klonen oder herunterladen und dann den Starter für das Betriebssystem verwenden:
 
-Das ist der normale M0-Einstieg. Du musst **keine** Python-Befehle eintippen, keine virtuelle Umgebung selbst anlegen, keine Profilrevision merken und keine Benchmark-Kommandozeilen zusammenbauen.
+**Windows**
 
-Das Menü bietet:
+```text
+SETUP.cmd doppelklicken
+```
+
+**Linux**
+
+```bash
+./setup.sh
+```
+
+Falls beim Herunterladen/Entpacken das Ausführungsbit verloren gegangen ist:
+
+```bash
+bash setup.sh
+```
+
+Beide Starter öffnen dasselbe einfache Menü. Du musst **keine** darunterliegenden Python-Benchmarkbefehle eintippen, `.venv` selbst anlegen, Profilrevisionen merken oder Ergebnisordner zusammenbauen.
 
 | Auswahl | Funktion |
 | --- | --- |
 | 1 | Diesen Rechner vorbereiten und CPU/RAM/GPU-Profil erfassen |
-| 2 | Auf diesem Rechner auf einen LAN-Netzwerktest warten (Server / Node B) |
-| 3 | RTT und Durchsatz zum anderen Rechner messen (Client / Node A) |
+| 2 | Auf diesem Rechner auf einen vertrauenswürdigen LAN-Test warten (Node B) |
+| 3 | RTT und Durchsatz zum anderen Rechner messen (Node A) |
 | 4 | Lokale llama.cpp-Prefill-/Decode-Leistung messen |
 | 5 | Lokale Testabhängigkeiten installieren und alle aktuellen Tests ausführen |
 
-Zusätzlich gibt es direkte Starter unter `setup/`: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd` und `TESTS.cmd`.
+Die genaue Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
 
-Die konkrete Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
+## Was das Setup automatisch erledigt
 
-## Was das Windows Lab Setup automatisch erledigt
+Unter Windows und Linux gleichermaßen:
 
-- Deutsch/Englisch anhand der Windows-Sprache wählen;
-- Python 3.10+ finden oder eine benutzerbezogene Installation über `winget` versuchen;
-- eine isolierte `.venv` im Repository anlegen;
-- eine stabile zufällige Lab-Node-ID erzeugen, statt den Windows-Hostnamen zu verwenden;
+- Deutsch/Englisch aus der Systemsprache bzw. Locale auswählen;
+- Python 3.10+ finden und eine lokale `.venv` im Repository anlegen;
+- eine stabile zufällige Lab-Node-ID statt des Hostnamens erzeugen;
 - die Profilrevision nur nach erfolgreicher Rechnererfassung erhöhen;
-- lokale Konfiguration, Downloads und Ergebnisse unter den von Git ignorierten `artifacts/lab/`-Pfaden ablegen;
-- nach Messungen direkt CPU/GPU/RAM, RTT/Durchsatz bzw. llama.cpp-Leistungswerte anzeigen;
-- beim LAN-Server Port 43191 nur vorübergehend für die konkrete private IP, das Windows-Profil `Private` und `LocalSubnet` öffnen und die Regel danach wieder entfernen;
-- auf Wunsch die neueste offizielle Windows-Version von llama.cpp aus `ggml-org/llama.cpp` laden und einen von GitHub gelieferten SHA-256-Digest prüfen, sofern vorhanden;
-- erfolgreich verwendete Pfade zu `llama-bench.exe` und GGUF lokal für den nächsten Lauf merken.
+- lokale Konfiguration, Downloads und Ergebnisse unter den von Git ignorierten `artifacts/lab/`-Pfaden speichern;
+- CPU/GPU/RAM, RTT/Durchsatz und llama.cpp-Werte direkt zusammenfassen;
+- den assistierten Netzwerkserver an eine konkrete private RFC1918-Adresse statt an `0.0.0.0` binden;
+- eine temporär angelegte Firewallregel nach dem einmaligen Netzwerktest wieder entfernen;
+- Modellgewichte niemals automatisch herunterladen.
 
-Modelldateien werden bewusst **nicht** automatisch heruntergeladen. Du wählst eine lokale `.gguf`-Datei aus, damit Lizenz, Modellgröße und Modellauswahl ausdrücklich unter deiner Kontrolle bleiben.
+Plattformspezifische Vereinfachung:
+
+- **Windows:** fehlendes Python kann benutzerbezogen über `winget` installiert werden; der Netzwerkhelfer verwendet eine temporäre Windows-`Private`-/`LocalSubnet`-Firewallregel.
+- **Linux:** fehlende Basispakete können nach Rückfrage über `apt`, `dnf`, `zypper`, `pacman` oder `apk` installiert werden; aktive `firewalld`- oder `ufw`-Firewalls werden mit einer temporären, auf das erkannte private Subnetz begrenzten Regel behandelt.
+
+## llama.cpp-Setup
+
+Das Setup kann ein vorhandenes `llama-bench` verwenden oder einen offiziellen Upstream-Build laden.
+
+- Windows verwendet den passenden offiziellen Windows-Pfad des bestehenden Setups.
+- Linux wählt dynamisch einen offiziellen Ubuntu-CPU-, Vulkan- oder ROCm-Build für unterstützte x64-/arm64-Fälle und prüft einen von GitHub gelieferten SHA-256-Digest, sofern vorhanden.
+- Unter Linux wird die heruntergeladene Binary über einen lokalen Library-Wrapper gestartet und nur akzeptiert, wenn `llama-bench --version` auf genau diesem Rechner funktioniert.
+- Auf Linux-Desktops wird `zenity` als GGUF-Dateiauswahl verwendet, wenn vorhanden; sonst wird der Pfad im Terminal mit Shell-Vervollständigung abgefragt.
+
+Die offiziellen Linux-Releases enthalten derzeit unter anderem Ubuntu-Builds für CPU, Vulkan, ROCm, OpenVINO und SYCL. Das automatische M0-Setup beschränkt sich bewusst auf CPU/Vulkan/ROCm.
 
 ## Aktuell implementiert
 
 Zu den M0-Grundlagen gehören inzwischen:
 
+- plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
 - maschinenlesbare Draft-2020-12-Verträge für zentrale State-/Control-Daten und erste Nachrichten-Payloads;
 - deterministische Job-/Reservation-State-Semantik;
@@ -57,34 +84,24 @@ Zu den M0-Grundlagen gehören inzwischen:
 - transportneutrale Control-Envelope-Prüfung und strukturierte Fehler;
 - dauerhafte erste Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
 - authentifizierungspflichtige Node-Session-Semantik für `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default;
-- das oben beschriebene Windows-M0-Lab-Setup.
+- eine zwingende `AuthenticationVerifier`-Grenze ohne permissiven Default.
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven:
-
-- Provider-Node bzw. Provider-Installer;
-- verteilten Runtime-Worker und noch kein korrektes gemeinsames Zwei-Node-Inferenzergebnis;
-- Gateway/API oder Scheduler;
-- produktiven Orchestrator-Service/Datenbankadapter;
-- Enrollment-/Key-/Credential-Verifier, Issuer, Rotation oder Revocation-Backend;
-- vollständigen NodeHello/Auth/Profile-Wire-Pfad;
-- Registry-, Verification-, Billing/Ledger-, Telemetry-, SDK-, Dashboard- oder Desktop-Dienst;
-- signierten Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, kein produktives Credential-System, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
 
 ADR 0005 (Node Identity) und ADR 0002 (M1 Runtime Baseline) bleiben **Proposed**, nicht Accepted.
 
 ## M0-Ablauf mit zwei Rechnern
 
 ```text
-SETUP.cmd auf beiden Rechnern
+SETUP.cmd (Windows) oder ./setup.sh (Linux) auf beiden Rechnern
         ↓
 beide Rechner profilieren
         ↓
 LAN A → B und B → A messen
         ↓
-llama.cpp Prefill/Decode auf beiden Rechnern messen
+llama.cpp Prefill/Decode auf jedem relevanten Rechner messen
         ↓
 konkreten M1-Zwei-Node-Spike auswählen
         ↓
@@ -95,11 +112,11 @@ erste korrekte gemeinsame Zwei-Node-Inferenz
 Scheduler kalibrieren
 ```
 
-Das Vorhandensein des Setups ist noch kein Zwei-Node-Nachweis; die Messungen müssen auf den realen Zielrechnern durchgeführt werden.
+Die beiden Rechner dürfen Windows, Linux oder gemischt Windows/Linux sein; Benchmarkformat und Python-Helfer sind gemeinsam.
 
 ## Sicherheitsgrenze
 
-Der TCP-Benchmark-Server besitzt keine Anwendungs-Authentifizierung oder Verschlüsselung. Der assistierte Windows-Ablauf beschränkt ihn deshalb auf ein privates RFC1918-LAN und eine temporäre `LocalSubnet`-Firewall-Regel. Benchmark-/Runtime-Endpunkte niemals öffentlich ins Internet stellen.
+Das TCP-Benchmark-Protokoll besitzt keine Anwendungs-Authentifizierung oder Verschlüsselung. Den assistierten Server nur in einem vertrauenswürdigen privaten LAN verwenden. Keiner der Starter macht die experimentelle Runtime für eine öffentliche Internet-Exposition sicher.
 
 Der vorhandene `AuthenticationVerifier` ist eine semantische Schnittstelle und noch kein produktives Credential-System. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
@@ -107,8 +124,9 @@ Der vorhandene `AuthenticationVerifier` ist eine semantische Schnittstelle und n
 
 ```text
 ComputeMesh/
-├─ SETUP.cmd              # einfachster Windows-M0-Einstieg
-├─ setup/                 # Windows-Lab-Ablauf + direkte Starter
+├─ SETUP.cmd              # Windows-M0-Einstieg
+├─ setup.sh               # Linux-M0-Einstieg
+├─ setup/                 # gemeinsamer Helper + Windows-/Linux-Starter
 ├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
 ├─ services/orchestrator/ # dauerhafter M0-State + erste Control-Handler
 ├─ protocol/              # Verträge, Envelope, Session-Semantik, Tests

@@ -1,23 +1,28 @@
 # Deployment and Release
 
-**Status:** production deployment/release tooling is planned. A local Windows M0 Lab Setup now exists, but it is **not** a production installer.
+**Status:** production deployment/release tooling is planned. Local Windows and Linux M0 Lab Setup launchers exist, but they are **not** production installers.
 
 ## Current lab setup
 
-For current Windows experiments, users can double-click repository-root `SETUP.cmd`. It prepares only local development/lab prerequisites and benchmark workflows:
+- Windows: `SETUP.cmd`
+- Linux: `./setup.sh` or `bash setup.sh`
 
-- user-scoped Python when needed;
+They prepare only local development/lab prerequisites and benchmark workflows:
+
 - repository-local `.venv`;
 - local ignored `artifacts/lab/` state/results;
-- temporary private-LAN firewall rule for the one-shot network benchmark;
-- optional official upstream llama.cpp benchmark binaries.
+- private-LAN network benchmark assistance with temporary supported firewall rules;
+- optional official upstream llama.cpp benchmark binaries;
+- current local test suites.
 
-It does not install a Windows service, register a public provider, configure production credentials, enable automatic updates, or expose runtime endpoints publicly.
+Windows may install Python user-scoped via `winget`. Linux can offer base-package installation via `apt`, `dnf`, `zypper`, `pacman`, or `apk` after explicit confirmation.
+
+Neither setup installs a system service, registers public provider capacity, configures production credentials, enables automatic updates, or makes runtime endpoints safe for public exposure.
 
 ## Production release responsibilities still planned
 
 - control-plane deployment;
-- provider installer packaging;
+- provider installer/package formats for supported operating systems;
 - release manifests and signing;
 - SBOM/provenance;
 - staged rollout/rollback;

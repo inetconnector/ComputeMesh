@@ -1,14 +1,20 @@
 # M0 benchmark harness
 
-The benchmark directory contains the underlying engineering tools used by the Windows Lab Setup.
+The benchmark directory contains the underlying engineering tools used by the Windows/Linux Lab Setup.
 
-## Normal Windows users: use the setup
+## Normal users: use setup
 
-From the repository root, **double-click `SETUP.cmd`**. It handles Python, `.venv`, node IDs/profile revisions, result folders, safe LAN guidance, file selection, and short summaries.
+Windows: double-click `SETUP.cmd`.
 
-See `setup/README.md` / `setup/README.de.md` for the two-computer walkthrough.
+Linux:
 
-The direct Python commands below remain available for engineering, automation, and debugging.
+```bash
+./setup.sh
+```
+
+The setup handles Python/`.venv`, random node ID, profile revisions, result folders, private-LAN guidance, llama.cpp selection/download, and short summaries. See `setup/README.md` / `setup/README.de.md` for the two-computer walkthrough.
+
+The Python commands below remain available for engineering, automation, and debugging on both operating systems.
 
 ## Tools
 
@@ -18,7 +24,7 @@ The direct Python commands below remain available for engineering, automation, a
 
 ## Inventory capture
 
-```powershell
+```bash
 python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
 ```
 
@@ -28,36 +34,32 @@ Records OS/architecture, Python, CPU/logical cores, physical memory, NVIDIA GPU 
 
 Manual server on a trusted LAN:
 
-```powershell
+```bash
 python tools/benchmark/network_benchmark.py server --bind <PRIVATE-LAN-IP> --port 43191 --once
 ```
 
 Manual client:
 
-```powershell
+```bash
 python tools/benchmark/network_benchmark.py client --host <SERVER-LAN-IP> --port 43191 --profile-revision 1
 ```
 
 The client measures TCP connection setup, small-frame RTT p50/p95, upload/download throughput p50, and raw samples. Results conform to `benchmark_result.schema.json`.
 
-**Security:** this benchmark protocol has no authentication or encryption. Do not expose it to the public internet. The Windows Setup adds a temporary `Private`/`LocalSubnet` firewall rule and binds to a specific private address; manual runs must provide equivalent protection themselves.
+**Security:** this benchmark protocol has no authentication or encryption. Do not expose it to the public internet. Windows Setup uses a temporary `Private`/`LocalSubnet` rule; Linux Setup uses a detected RFC1918 bind and temporary `firewalld`/`ufw` rule when that supported firewall frontend is active. Manual runs must provide equivalent protection themselves.
 
 ## llama.cpp prefill/decode adapter
 
-```powershell
-python tools/benchmark/llama_bench_adapter.py `
-  --llama-bench C:\path\to\llama-bench.exe `
-  --model C:\path\to\model.gguf `
+Cross-platform form:
+
+```bash
+python tools/benchmark/llama_bench_adapter.py \
+  --llama-bench /path/to/llama-bench \
+  --model /path/to/model.gguf \
   --profile-revision 1
 ```
 
-Or convert existing upstream JSON/JSONL:
-
-```powershell
-python tools/benchmark/llama_bench_adapter.py `
-  --parse-file artifacts\raw\llama-bench.json `
-  --profile-revision 1
-```
+Windows paths work equally through Python/PowerShell.
 
 The adapter emits:
 
@@ -68,14 +70,8 @@ The converted metrics keep the model file name but not its full local filesystem
 
 ## Tests
 
-Normal Windows path: double-click `setup/TESTS.cmd`.
-
-Manual path:
-
-```powershell
-python -m pip install -r requirements-dev.txt
-python -m unittest discover -s tools/benchmark/tests -v
-```
+Windows: `setup\TESTS.cmd`  
+Linux: `./setup/TESTS.sh`
 
 Current benchmark unit evidence remains:
 
@@ -83,4 +79,4 @@ Current benchmark unit evidence remains:
 - TCP benchmark: 4/4, including loopback + result-schema validation;
 - llama-bench adapter: 6/6, including JSON/JSONL conversion + result-schema validation.
 
-Real cross-node and target-model/GPU evidence is still pending.
+Linux launcher/integration tests live under `setup/tests/`. Real cross-node and target-model/GPU performance evidence is still pending.

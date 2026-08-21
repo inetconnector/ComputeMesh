@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts, durable orchestration, protocol/session foundations, lab/runtime measurement tooling, and Windows lab UX  
+**Phase:** M0 — contracts, durable orchestration, protocol/session foundations, lab/runtime measurement tooling, and Windows/Linux lab UX  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -20,6 +20,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - initial durable control handlers: `9bb4a72` + restriction `b23bf60`
 - authentication-gated node-session semantics: `d7a110e`
 - one-click Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
+- Linux Lab Setup: `3c99457`
 
 ## What exists
 
@@ -31,24 +32,41 @@ This file records current engineering facts, evidence boundaries, and next actio
 - transactional SQLite reference persistence with durable idempotency, revisions, leases, restart recovery, request fingerprints, schema migration, and atomic reservation → job/stage binding;
 - transport-neutral control envelope, structured errors, and first durable handlers (`ReserveCapacity`, `CommitReservation`, `CancelJob`);
 - authentication-gated node-session state machine with a mandatory injected verifier boundary and no permissive default;
-- **Windows M0 Lab Setup** with root `SETUP.cmd` and direct role launchers for profile, network server/client, llama benchmark, and tests.
+- Windows M0 Lab Setup with `SETUP.cmd` and direct `.cmd` role launchers;
+- Linux M0 Lab Setup with root `setup.sh`, direct `.sh` launchers, package-manager support, private-interface/firewall handling, and official llama.cpp Linux asset selection.
 
-## Windows Lab Setup behavior
+## Cross-platform Lab Setup behavior
 
-The setup:
+Shared behavior:
 
-- detects German/English from Windows;
-- finds Python 3.10+ or attempts user-scoped installation via `winget`;
-- creates repository-local `.venv`;
-- generates a stable random non-hostname lab node ID;
-- advances profile revision only after successful inventory;
-- stores configuration/results/downloads below ignored `artifacts/lab/`;
-- shows concise measurement summaries;
-- restricts the assisted TCP server to a private RFC1918 address and temporary Windows `Private` + `LocalSubnet` firewall rule, removed after the one-shot run;
-- can fetch the latest official Windows llama.cpp release and verify a GitHub-provided SHA-256 digest when available;
-- never downloads model weights automatically.
+- German/English locale selection;
+- Python 3.10+ and repository-local `.venv`;
+- stable random non-hostname lab node ID;
+- profile revision advances only after successful inventory;
+- config/results/downloads below ignored `artifacts/lab/`;
+- concise inventory/network/llama summaries;
+- one-shot private-RFC1918 network server;
+- no automatic model-weight download.
 
-This is a **lab workflow**, not a production provider installer.
+Windows-specific:
+
+- user-scoped Python installation attempt via `winget`;
+- temporary Windows `Private` + `LocalSubnet` firewall rule;
+- Windows file pickers;
+- official Windows llama.cpp package path.
+
+Linux-specific:
+
+- dependency installation after confirmation via `apt`, `dnf`, `zypper`, `pacman`, or `apk`;
+- private LAN discovery through `iproute2`;
+- temporary runtime `firewalld` rich rule or temporary `ufw` source-subnet rule when that firewall is active;
+- concrete private-IP bind even when no supported firewall frontend is active;
+- official upstream Ubuntu CPU/Vulkan/ROCm asset selection for supported x64/arm64 cases;
+- GitHub-provided SHA-256 verification when available;
+- generated local `LD_LIBRARY_PATH` wrapper and `llama-bench --version` acceptance check;
+- `zenity` GGUF picker when available, terminal path fallback otherwise.
+
+This remains a **lab workflow**, not a production provider installer.
 
 ## Verified implementation evidence
 
@@ -65,19 +83,26 @@ Control/session evidence:
 - protocol envelope/payload/schema/node-session suite: 29/29;
 - node-session-specific portion: 14/14.
 
-Setup evidence:
+Previously verified shared/Windows setup evidence:
 
 - `setup/lab.py` unit tests: 7/7;
 - Windows script invariant/static tests: 5/5;
-- combined setup tests: 12/12;
-- synthetic helper smoke flow inventory → network-client → llama-adapter → persisted config: passed;
-- relevant Python setup files pass `py_compile`.
+- prior combined setup tests: 12/12;
+- synthetic helper smoke flow inventory → network-client → llama-adapter → persisted config: passed.
 
-**Evidence boundary:** the development execution environment used for this implementation is not Windows and has no Windows PowerShell runtime. The PowerShell/CMD layer has therefore been statically checked, not executed end-to-end on Windows. A real Windows run is the next required evidence step.
+New Linux setup evidence:
+
+- Linux-specific automated tests: 6/6 passing on a real Linux environment;
+- Bash syntax for root/direct launchers and `setup/linux.sh`: passing;
+- real Linux private RFC1918 interface/subnet detection: passing in the development environment;
+- release-asset selection fixtures for x64 Vulkan, x64 ROCm, and arm64 CPU: passing;
+- Bash frontend smoke routing with synthetic helper/results: Node, network client, network server, llama workflow, and German menu all passed.
+
+**Evidence boundary:** the Linux shell/UX has now been executed on Linux, but not yet against two real target machines or a real downloaded target GGUF/llama.cpp run. The Windows PowerShell/CMD layer remains statically tested rather than end-to-end executed in the development environment.
 
 ## What does not exist / is not yet evidenced
 
-- real two-node Windows profiles and A↔B LAN results;
+- real target-machine A↔B LAN results (Windows, Linux, or mixed);
 - real target-lab llama.cpp prefill/decode results;
 - production provider-node application/service/installer;
 - distributed runtime/shared inference;
@@ -107,9 +132,9 @@ Neither the Lab Setup nor the session skeleton accepts ADR 0002/0005 by implicat
 
 ## Next actions in order
 
-1. On two real Windows lab machines, clone/download the same `main` and double-click `SETUP.cmd`.
+1. On two real target machines, use `SETUP.cmd` on Windows or `./setup.sh` on Linux.
 2. Choose **Prepare this computer** on both and retain both profiles.
-3. Run the network server/client workflow A→B and B→A on a trusted LAN.
+3. Run network server/client A→B and B→A on a trusted LAN, including mixed Windows/Linux if that matches the target environment.
 4. Run the llama.cpp benchmark workflow on each relevant machine with the selected GGUF.
 5. Compare measured memory, RTT/throughput, prefill/decode, and choose the exact M1 two-node spike.
 6. Specify/implement the concrete ADR-0005 credential verification path without weakening the no-default verifier boundary.

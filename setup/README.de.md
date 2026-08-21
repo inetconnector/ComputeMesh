@@ -1,24 +1,38 @@
-# ComputeMesh Windows Lab Setup
+# ComputeMesh Lab Setup — Windows und Linux
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0-Lab-Ablauf** unter Windows auszuführen. Er ist bewusst kein „Produktions-Installer“: Provider-App, verteilte Runtime, Scheduler und produktiver Authentifizierungsstack existieren noch nicht.
+Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0-Lab-Ablauf** auszuführen. Er ist bewusst kein Produktions-Installer: Provider-App, verteilte Runtime, Scheduler und produktiver Authentifizierungsstack existieren noch nicht.
 
-## Ein Klick zum Start
+## Start
 
-Im Hauptordner des Repositories einfach doppelklicken:
+**Windows** — im Repository-Hauptordner doppelklicken:
 
 ```text
 SETUP.cmd
 ```
 
-Das Setup erkennt Deutsch/Englisch aus Windows und öffnet ein Menü. Fehlt Python 3.10+, versucht es eine benutzerbezogene Installation über `winget` und erstellt anschließend lokal `.venv`.
+**Linux** — im Repository-Hauptordner:
+
+```bash
+./setup.sh
+```
+
+Falls beim Herunterladen/Entpacken das Ausführungsbit verloren gegangen ist:
+
+```bash
+bash setup.sh
+```
+
+Beide Wege öffnen dasselbe Menü für Rechnerprofil, Netzwerk-Server/-Client, llama.cpp-Benchmark und Tests.
 
 ## Empfohlener Ablauf mit zwei Rechnern
 
+Die beiden Rechner dürfen Windows, Linux oder gemischt sein.
+
 Zuerst auf **beiden** Rechnern:
 
-1. `SETUP.cmd` starten.
+1. Den jeweiligen Setup-Starter starten.
 2. **1 — Diesen Rechner vorbereiten** wählen.
 3. CPU-/GPU-/RAM-Kurzergebnis prüfen.
 
@@ -28,77 +42,105 @@ Danach das LAN in beide Richtungen messen.
 
 Auf Rechner **B**:
 
-1. `SETUP.cmd` starten.
+1. Setup starten.
 2. **2 — Netzwerk-Server** wählen.
-3. Die einmalige Windows-Administratorfreigabe für die temporäre Firewall-Regel bestätigen.
-4. Die angezeigte private IP merken; das Setup versucht sie zusätzlich in die Zwischenablage zu kopieren.
+3. Eine temporäre Firewall-/Administratorfreigabe bestätigen, falls das Betriebssystem sie verlangt.
+4. Die angezeigte private IP merken.
 
 Auf Rechner **A**:
 
-1. `SETUP.cmd` starten.
+1. Setup starten.
 2. **3 — Netzwerk-Client** wählen.
-3. Die auf B angezeigte IP eingeben.
-4. RTT p50/p95 sowie Upload-/Download-Durchsatz im Kurzergebnis ablesen.
+3. Die private IP von B eingeben.
+4. RTT p50/p95 sowie Upload-/Download-Durchsatz ablesen.
 
 ### B → A
 
-Danach die Rollen genau einmal tauschen. So erhalten wir Messwerte in beide Richtungen, statt Symmetrie nur anzunehmen.
+Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemessen statt Symmetrie nur anzunehmen.
+
+## Verhalten unter Windows
+
+- Deutsch/Englisch aus Windows erkennen;
+- Python 3.10+ finden oder benutzerbezogen über `winget` installieren;
+- lokale `.venv` anlegen;
+- den Netzwerkbenchmark an eine konkrete private Adresse binden;
+- TCP 43191 nur vorübergehend für Windows `Private` + `LocalSubnet` öffnen und die Regel nach dem einmaligen Test entfernen;
+- Windows-Dateidialoge für `llama-bench.exe` und GGUF anbieten;
+- den vom Setup ausgewählten offiziellen Windows-llama.cpp-Build herunterladen können.
+
+Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `TESTS.cmd`.
+
+## Verhalten unter Linux
+
+- Deutsch/Englisch aus der Linux-Locale erkennen;
+- Python 3.10+ verwenden und lokale `.venv` anlegen;
+- fehlende Basispakete nach Rückfrage über `apt`, `dnf`, `zypper`, `pacman` oder `apk` installieren; Root/`sudo` wird nur dafür verwendet;
+- mit `iproute2` ein privates RFC1918-Interface erkennen und den Benchmark an genau diese Adresse binden;
+- bei aktivem `firewalld` eine nicht-permanente Rich Rule nur für erkanntes Subnetz/Adresse/Port anlegen und danach entfernen;
+- bei aktivem `ufw` eine temporäre Regel für das Quellsubnetz anlegen und danach löschen;
+- bei keiner unterstützten aktiven Firewall keine Firewall verändern und trotzdem nur an das private Interface binden;
+- vorhandenes `llama-bench` verwenden oder das aktuelle offizielle llama.cpp-Release nach einem passenden Linux-Asset abfragen;
+- ROCm bevorzugen, wenn `rocminfo` vorhanden ist, sonst Vulkan bei Vulkan-/NVIDIA-/DRI-Nachweis, sonst CPU;
+- offizielle Ubuntu-x64-/arm64-CPU-/Vulkan-Assets und x64-ROCm-Assets dynamisch auswählen;
+- einen von GitHub gelieferten `sha256:`-Digest prüfen, sofern vorhanden;
+- die heruntergeladene Binary mit lokalem `LD_LIBRARY_PATH`-Wrapper starten und nur akzeptieren, wenn `llama-bench --version` funktioniert;
+- auf Desktops `zenity` zur GGUF-Auswahl verwenden, wenn vorhanden, sonst den Pfad im Terminal mit Shell-Vervollständigung abfragen.
+
+Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.
+
+Die automatisch geladenen offiziellen Linux-Pakete sind Ubuntu-Binaries. Auf kompatiblen glibc-Distributionen funktionieren sie häufig, aber das Setup verlässt sich nicht darauf: Startet die Binary nicht, wird sie verworfen und du kannst ein distributionspassendes oder selbst gebautes `llama-bench` angeben. Auf musl-Systemen wie Alpine ist ein vorhandener kompatibler Build für llama.cpp der sicherere Weg.
 
 ## llama.cpp messen
 
 Auf jedem relevanten Rechner:
 
-1. `SETUP.cmd` starten.
+1. Setup starten.
 2. **4 — llama.cpp Prefill/Decode** wählen.
-3. Falls `llama-bench.exe` noch nicht vorhanden ist: automatischen Download wählen oder eine vorhandene EXE auswählen.
-4. Im Windows-Dateidialog die gewünschte `.gguf`-Datei auswählen.
-5. Prefill Tokens/s, Decode Tokens/s und ms/Token im Kurzergebnis ablesen.
+3. Automatischen offiziellen Download oder vorhandenes `llama-bench` auswählen.
+4. Lokale `.gguf`-Modelldatei auswählen/angeben.
+5. Prefill Tokens/s, Decode Tokens/s und ms/Token ablesen.
 
-Der automatische Download verwendet das neueste offizielle GitHub-Release von `ggml-org/llama.cpp`. Bei NVIDIA wird bevorzugt das offizielle CUDA-12.4-x64-Paket verwendet; sonst der offizielle Vulkan-x64-Build. Liefert GitHub einen `sha256:`-Digest für das Asset, wird das Archiv vor dem Entpacken geprüft.
+Modellgewichte werden **niemals automatisch heruntergeladen**.
 
-Modellgewichte lädt dieses Setup bewusst niemals automatisch herunter.
-
-## Direkte Starter
-
-Wer das Menü überspringen möchte, kann direkt eine dieser Dateien doppelklicken:
-
-- `NODE.cmd` — Rechnerprofil erfassen/aktualisieren;
-- `NETWORK-SERVER.cmd` — auf einen LAN-Test warten;
-- `NETWORK-CLIENT.cmd` — den anderen Rechner messen;
-- `LLAMA-BENCH.cmd` — llama.cpp auswählen/starten;
-- `TESTS.cmd` — Testabhängigkeiten nur in `.venv` installieren und alle aktuellen lokalen Tests ausführen.
-
-## Wo lokale Dateien landen
+## Lokale Dateien
 
 Alles vom Setup Erzeugte bleibt lokal und wird bereits von Git ignoriert:
 
 ```text
 .venv/                           # isolierte Python-Umgebung
-artifacts/lab/config.json        # lokale Lab-Node-ID/Revision + gemerkte Pfade
+artifacts/lab/config.json        # lokale Node-ID/Revision + gemerkte Pfade
 artifacts/lab/<node>/<run>/      # Benchmark-Ergebnisse
-artifacts/lab/runtime/llama.cpp/ # optionale offizielle llama.cpp-Downloads
+artifacts/lab/runtime/llama.cpp/ # optionale Upstream-llama.cpp-Downloads
 ```
 
-Die Lab-Node-ID ist zufällig (`lab-xxxxxxxx`) und verwendet nicht den Windows-Hostnamen.
+Die Lab-Node-ID ist zufällig (`lab-xxxxxxxx`) und verwendet nicht den Hostnamen.
 
 ## Netzwerksicherheit
 
-Das zugrunde liegende Benchmark-Protokoll besitzt keine Authentifizierung oder Verschlüsselung. Der assistierte Windows-Server:
+Das zugrunde liegende Benchmark-Protokoll besitzt keine Authentifizierung oder Verschlüsselung. Beide assistierten Server:
 
-- akzeptiert nur ein privates RFC1918-LAN-Interface;
-- verlangt bzw. setzt nach Bestätigung das Windows-Netzwerkprofil `Private`;
-- bindet an genau diese private Adresse und nicht an `0.0.0.0`;
-- öffnet TCP 43191 ausschließlich für `RemoteAddress LocalSubnet`, Profil `Private` und die lokale `.venv`-Python-Exe;
-- entfernt die Firewall-Regel automatisch, sobald der einmalige Serverlauf endet.
+- akzeptieren nur private RFC1918-Adressen;
+- binden an genau eine private Adresse und nicht an `0.0.0.0`;
+- verwenden temporäre Firewallregeln, wenn die unterstützte Firewallintegration aktiv ist;
+- entfernen diese Regeln nach Ende des einmaligen Serverlaufs.
 
 Den Benchmark-Server niemals öffentlich ins Internet stellen.
 
-## Teststand und Nachweisgrenze
+## Teststand
 
-Der Python-Setup-Helper und Sicherheitsinvarianten der Skripte besitzen automatisierte Tests. Zusätzlich hat der Helper einen synthetischen End-to-End-Smoke-Lauf Inventory → Netzwerk-Client → llama-Adapter → gespeicherte lokale Konfiguration bestanden.
+Die gemeinsamen Python-Setup-Tests bleiben bestehen. Die Linux-Schicht besitzt zusätzlich automatisierte Tests für:
 
-Die aktuelle Entwicklungsumgebung ist kein Windows-System und stellt kein Windows PowerShell bereit. Die PowerShell-Oberfläche wurde deshalb statisch geprüft, muss aber noch auf den realen Windows-Lab-Rechnern ausgeführt werden. Genau dieser Lauf ist Teil des nächsten Evidenzschritts.
+- Bash-Syntax;
+- Root-Einstieg `setup.sh`;
+- private/öffentliche IPv4-Filterung;
+- aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl;
+- Private-Bind-/temporäre-Firewall-Invarianten;
+- Routing der direkten Linux-Starter.
+
+Der neue Linux-spezifische Testblock besteht **6/6** in einer echten Linux-Umgebung. Zusätzlich wurde ein realer Bash-Frontend-Smoke-Test mit Menü-Lokalisierung sowie Node-, Netzwerk-Client-, Netzwerk-Server- und llama-Workflow-Routing gegen synthetische Helper-/Ergebnisdaten ausgeführt.
+
+Damit ist die Linux-Starter-/UI-/Integrationslogik getestet; es ist noch kein realer Zwei-Rechner-Performance-Nachweis. Der nächste Evidenzschritt ist der Lauf auf den tatsächlichen Zielrechnern.
 
 ## Engineering-/manuelle Befehle
 
-Fortgeschrittene Nutzer können weiterhin die Werkzeuge unter `tools/benchmark/` direkt aufrufen. Diese CLIs bleiben die kanonische Engineering-Schicht; das Setup ist eine einfachere und sicherere Benutzeroberfläche darüber.
+Fortgeschrittene Nutzer können weiterhin die Werkzeuge unter `tools/benchmark/` direkt aufrufen. Diese CLIs bleiben die kanonische Engineering-Schicht; die Setup-Starter sind die einfachere Benutzeroberfläche darüber.
