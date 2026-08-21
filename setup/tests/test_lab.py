@@ -58,14 +58,31 @@ class LabSetupTests(unittest.TestCase):
         self.assertEqual(cfg.profile_revision, 0)
         self.assertFalse(self.config_path.exists())
 
-    def test_network_client_uses_current_profile_revision(self):
+    def test_network_server_reports_local_lab_node_id(self):
+        cfg = lab.LabConfig(node_id="lab-server01", profile_revision=4)
+        runner = FakeRunner()
+        with patch.object(lab, "REPO_ROOT", self.root):
+            lab.network_server(cfg, "192.168.1.50", 43191, runner=runner)
+        command = runner.commands[0][0]
+        self.assertEqual(command[command.index("--node-id") + 1], "lab-server01")
+        self.assertEqual(command[command.index("--bind") + 1], "192.168.1.50")
+
+    def test_network_client_uses_current_profile_revision_and_node_id(self):
         cfg = lab.LabConfig(node_id="lab-12345678", profile_revision=7)
         runner = FakeRunner()
         with patch.object(lab, "REPO_ROOT", self.root):
-            lab.network_client(cfg, "192.168.1.50", 43191, self.output_root, runner=runner)
+            lab.network_client(
+                cfg,
+                "192.168.1.50",
+                43191,
+                self.output_root,
+                expected_peer_node_id="lab-peer0001",
+                runner=runner,
+            )
         command = runner.commands[0][0]
-        self.assertIn("--profile-revision", command)
         self.assertEqual(command[command.index("--profile-revision") + 1], "7")
+        self.assertEqual(command[command.index("--local-node-id") + 1], "lab-12345678")
+        self.assertEqual(command[command.index("--expected-peer-node-id") + 1], "lab-peer0001")
         self.assertEqual(command[command.index("--host") + 1], "192.168.1.50")
 
     def test_llama_paths_are_remembered_only_after_success(self):
