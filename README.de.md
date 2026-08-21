@@ -2,74 +2,21 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Phase:** M0 — Engineering-/Lab-Implementierung auf dem Weg zum ersten M1-Runtime-Nachweis.  
-> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup unten richtet den heute tatsächlich vorhandenen Lab-/Benchmark-Ablauf ein; es ist kein öffentlicher Provider-Node-Installer.
+> **Phase:** M0-Grundlage beim Übergang zum ersten kontrollierten M1-Runtime-Experiment.  
+> **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup richtet den heute tatsächlich vorhandenen Lab-/Benchmark-Ablauf ein; es ist kein öffentlicher Provider-Node-Installer.
 
 ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
 
-## Der einfachste Einstieg
+## Einfachster Einstieg in die Lab-Werkzeuge
 
-Repository klonen oder herunterladen und dann den Starter für das Betriebssystem verwenden:
+Repository klonen/herunterladen und den Starter für das Betriebssystem verwenden:
 
-**Windows**
+**Windows:** `SETUP.cmd` doppelklicken  
+**Linux:** `./setup.sh` ausführen (oder `bash setup.sh`, falls das Ausführungsbit verloren ging).
 
-```text
-SETUP.cmd doppelklicken
-```
-
-**Linux**
-
-```bash
-./setup.sh
-```
-
-Falls beim Herunterladen/Entpacken das Ausführungsbit verloren gegangen ist:
-
-```bash
-bash setup.sh
-```
-
-Beide Starter öffnen dasselbe einfache Menü. Du musst **keine** darunterliegenden Python-Benchmarkbefehle eintippen, `.venv` selbst anlegen, Profilrevisionen merken oder Ergebnisordner zusammenbauen.
-
-| Auswahl | Funktion |
-| --- | --- |
-| 1 | Diesen Rechner vorbereiten und CPU/RAM/GPU-Profil erfassen |
-| 2 | Auf diesem Rechner auf einen vertrauenswürdigen LAN-Test warten (Node B) |
-| 3 | RTT und Durchsatz zum anderen Rechner messen (Node A) |
-| 4 | Lokale llama.cpp-Prefill-/Decode-Leistung messen |
-| 5 | Lokale Testabhängigkeiten installieren und alle aktuellen Tests ausführen |
+Beide Starter bieten dasselbe einfache Menü für Rechnerprofil, vertrauenswürdige LAN-RTT-/Durchsatzmessung, lokales llama.cpp-Benchmarking und die aktuell vollständige Testsuite. Modellgewichte werden niemals automatisch heruntergeladen.
 
 Die genaue Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
-
-## Was das Setup automatisch erledigt
-
-Unter Windows und Linux gleichermaßen:
-
-- Deutsch/Englisch aus der Systemsprache bzw. Locale auswählen;
-- Python 3.10+ finden und eine lokale `.venv` im Repository anlegen;
-- eine stabile zufällige Lab-Node-ID statt des Hostnamens erzeugen;
-- die Profilrevision nur nach erfolgreicher Rechnererfassung erhöhen;
-- lokale Konfiguration, Downloads und Ergebnisse unter den von Git ignorierten `artifacts/lab/`-Pfaden speichern;
-- CPU/GPU/RAM, RTT/Durchsatz und llama.cpp-Werte direkt zusammenfassen;
-- den assistierten Netzwerkserver an eine konkrete private RFC1918-Adresse statt an `0.0.0.0` binden;
-- eine temporär angelegte Firewallregel nach dem einmaligen Netzwerktest wieder entfernen;
-- Modellgewichte niemals automatisch herunterladen.
-
-Plattformspezifische Vereinfachung:
-
-- **Windows:** fehlendes Python kann benutzerbezogen über `winget` installiert werden; der Netzwerkhelfer verwendet eine temporäre Windows-`Private`-/`LocalSubnet`-Firewallregel.
-- **Linux:** fehlende Basispakete können nach Rückfrage über `apt`, `dnf`, `zypper`, `pacman` oder `apk` installiert werden; aktive `firewalld`- oder `ufw`-Firewalls werden mit einer temporären, auf das erkannte private Subnetz begrenzten Regel behandelt.
-
-## llama.cpp-Setup
-
-Das Setup kann ein vorhandenes `llama-bench` verwenden oder einen offiziellen Upstream-Build laden.
-
-- Windows verwendet den passenden offiziellen Windows-Build des bestehenden Setup-Pfads.
-- Linux wählt dynamisch einen offiziellen Ubuntu-CPU-, Vulkan- oder ROCm-Build für unterstützte x64-/arm64-Fälle und prüft einen von GitHub gelieferten SHA-256-Digest, sofern vorhanden.
-- Unter Linux wird die heruntergeladene Binary über einen lokalen Library-Wrapper gestartet und nur akzeptiert, wenn `llama-bench --help` auf genau diesem Rechner erfolgreich startet.
-- Auf Linux-Desktops wird `zenity` zur GGUF-Auswahl verwendet, wenn vorhanden; sonst wird der Pfad im Terminal mit Shell-Vervollständigung abgefragt.
-
-Modellgewichte werden niemals automatisch heruntergeladen.
 
 ## Aktuell implementiert
 
@@ -77,91 +24,91 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 
 - plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
-- maschinenlesbare Draft-2020-12-Verträge für zentrale State-/Control-Daten und erste Nachrichten-Payloads;
-- deterministische Job-/Reservation-State-Semantik;
-- transaktionale SQLite-Referenzpersistenz mit dauerhafter Idempotenz, Revisionen, Leases, Restart-Recovery, Request-Fingerprints und Schema-Migration;
-- atomare `CommitReservation`-Bindung an Job + Stage;
-- transportneutrale Control-Envelope-Prüfung und strukturierte Fehler;
-- dauerhafte erste Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
-- authentifizierungspflichtige Node-Session-Semantik für `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- strikte Node-Session-Wire-Verträge und Envelope→Session-Bindung für `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport` und `DrainRequest`;
-- Session-Protokollversionsaushandlung, Bindung des authentifizierten Actors, optimistische Revisionen, exakte Replay-Behandlung, Erkennung semantisch veränderter Request-ID-Wiederverwendung und eine injizierte Benchmark-Readiness-Policy;
-- ein M1-Referenzpfad für Node Identity mit `computemesh-ed25519-v1`-Challenge-Signaturen hinter der zwingenden `AuthenticationVerifier`-Grenze;
-- ein SQLite-Referenzregister für Identity mit kurzlebigen gehashten Enrollment-Tokens, stabilen zufälligen Node-IDs, Public-Key-Lookup, Key-Rotation und monotoner Key-/Node-Revocation.
+- maschinenlesbare Draft-2020-12-State-/Control-Verträge;
+- deterministische Job-/Reservation-Semantik;
+- transaktionale SQLite-Referenzpersistenz mit dauerhafter Idempotenz, Revisionen, Leases, Restart-Recovery, Request-Fingerprints und atomarer Reservation→Job/Stage-Bindung;
+- strikte transportneutrale `ControlEnvelope`-Prüfung und strukturierte Fehler;
+- dauerhafte Handler für `ReserveCapacity`, `CommitReservation` und `CancelJob`;
+- authentifizierungspflichtige Node-Session-Semantik und strikte Wire-Bindung für `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport` und `DrainRequest`;
+- Protokollversionsaushandlung, Bindung des authentifizierten Actors, optimistische Session-Revisionen, Replay-/Konfliktbehandlung und Capability-/Profile-/Benchmark-Readiness-Gates;
+- den M1-Referenzpfad `computemesh-ed25519-v1` mit kurzlebigen Challenge-Proofs;
+- ein SQLite-Referenzregister für Identity mit gehashten Enrollment-Tokens, stabilen schlüsselunabhängigen Node-IDs, Rotation und monotoner Key-/Node-Revocation;
+- einen kontrollierten llama.cpp-RPC-**Research-Harness** für das erste M1-Shared-Runtime-Experiment.
 
-Der Ed25519-Proof ist an Session-ID, Session-Challenge, stabile Node-ID, Key-ID, Protokollversion, Proof-Laufzeit und die akzeptierte `NodeHello`-Semantik gebunden. Die Control Plane speichert nur öffentliche Schlüssel und niemals die privaten Node-Schlüssel.
+## Kontrolliertes llama.cpp-M1-Experiment
+
+`runtime/llama/rpc_spike.py` ist jetzt der erste ausführbare Experiment-Controller für eine gemeinsame Runtime. Er macht Upstream-llama.cpp-RPC ausdrücklich **nicht** zum ComputeMesh-Protokoll.
+
+Der Harness kann:
+
+1. einen Upstream-RPC-Worker nur auf Loopback/RFC1918-Literal-IPv4 starten;
+2. die exakten Local-/RPC-Gerätenamen des aktuellen llama.cpp-Builds ermitteln;
+3. eine deterministische lokale Baseline aufzeichnen;
+4. einen expliziten lokalen + RPC-`layer`-Split mit fester Geräteliste und festen Tensor-Verhältnissen ausführen;
+5. exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest;
+6. Modell-SHA-256, llama.cpp-Version, Topologie, Placement, Model-Ready-/Request-Zeit und Prefill-/Decode-Metriken speichern, ohne Rohprompt oder Rohoutput zu persistieren.
+
+Für das erste Experiment wird der Coordinator-HTTP-Server zwingend an `127.0.0.1` gebunden, `--offline` verwendet, automatisches Fit und Prompt-/RPC-Cache-Flächen werden deaktiviert und fortgeschrittene Tensor-Overrides werden nicht verwendet. Details: [runtime/llama/README.md](runtime/llama/README.md).
+
+**ADR 0002 bleibt Proposed.** Der Harness ist die Infrastruktur für den Nachweis; ein echter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht erbracht.
 
 ## Verifizierte echte Zielsysteme
 
-Der Lab-Ablauf wurde auf echten Windows- und Linux-Zielen ausgeführt:
+Bereits vorhandene physische Evidenz vom 21.08.2026:
 
-- Windows-Ziel: RTX 3080 Laptop GPU, 16 GiB VRAM, 31,7 GiB RAM.
-- Linux-Ziel: Debian-13-Server, 4 logische CPU-Kerne, 7,8 GiB RAM, keine GPU erkannt.
-- Windows -> Internet-Linux-TCP-Benchmark: RTT p50 `11,884 ms`, RTT p95 `13,369 ms`, Upload p50 `42,276 Mbit/s`, Download p50 `226,597 Mbit/s`.
-- Windows-CUDA-llama.cpp-Benchmark mit 7B-Q4-GGUF: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`.
-- Linux-CPU-llama.cpp-Smoke mit 0.5B-Q4-GGUF: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
+- Windows-Ziel: RTX 3080 Laptop GPU, 16 GiB VRAM, 31,7 GiB RAM;
+- Linux-Ziel: Debian-13-Server, 4 logische CPU-Kerne, 7,8 GiB RAM, CPU-only;
+- Windows → Internet-Linux Engineering-TCP: RTT p50 `11,884 ms`, p95 `13,369 ms`, Upload p50 `42,276 Mbit/s`, Download p50 `226,597 Mbit/s`;
+- Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
+- Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Der Internet-TCP-Test wurde bewusst über die Engineering-CLI mit temporärer, quell-IP-begrenzter Firewallregel ausgeführt, nicht über die unauthentifizierte Trusted-LAN-Oberfläche. Das ist echte Zielsystem-Evidenz, aber kein privater LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz.
+Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz.
 
 ## Identity-Entscheidung und Sicherheitsgrenze
 
-ADR 0005 ist jetzt **für die enge M1-Referenzimplementierung akzeptiert**: stabile Node-IDs plus Ed25519-Challenge-Proofs, kurzlebiges Enrollment, Key-Rotation und Revocation-Semantik.
+ADR 0005 ist **nur für die enge M1-Referenzimplementierung** akzeptiert: stabile Node-IDs plus Ed25519-Challenge-Proofs, kurzlebiges Enrollment, Key-Rotation und Revocation-Semantik.
 
-Das bedeutet ausdrücklich **nicht**, dass das Identity-System produktionsreif ist. Vor einer öffentlichen Netzwerkexposition fehlen weiterhin:
+Das macht das Identity-System nicht produktionsreif. Vor öffentlicher Netzwerkexposition fehlen unter anderem Provider-/User-Authentifizierung um Identity-APIs, OS-geschützte private Node-Key-Speicherung, Revocation-Fan-out an aktive Sessions, authentifizierter/verschlüsselter Transport, Authorization/Rate-/Resource-Limits und produktiver Service-/Datenbankbetrieb. Ein kopierter privater Schlüssel ist weiterhin kryptografisch dieselbe Identität; Signaturen beweisen keinen einzelnen physischen Rechner.
 
-- Provider-/User-Authentifizierung um Enrollment-/Rotation-/Revocation-APIs;
-- OS-geschützte Speicherung des privaten Node-Schlüssels für die unterstützten Windows-/Linux-Node-Agent-Pfade;
-- Verteilung einer Revocation an bereits aktive Sessions;
-- authentifizierter/verschlüsselter Control-Transport;
-- Rate-/Resource-Limits und Abuse-Schutz;
-- produktiver Service-/Datenbankbetrieb;
-- Hardware-Attestation oder Sybil-Resistenz.
+Für den Upstream-llama.cpp-RPC-Worker gilt eine noch engere Grenze: **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht. Niemals öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
-Ein widerrufener Node/Key wird bei neuer Authentifizierung abgelehnt. Bereits authentifizierte Sessions benötigen weiterhin ein externes Revocation-Signal zur Beendigung. Ein kopierter privater Schlüssel ist kryptografisch dieselbe Identität; Signaturen allein beweisen keinen einzelnen physischen Rechner.
-
-Das Trusted-LAN-TCP-Benchmark-Protokoll besitzt weiterhin keine Anwendungs-Authentifizierung oder Verschlüsselung. Den assistierten Server nur in einem vertrauenswürdigen privaten LAN verwenden. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+`confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node/Installer, keine verteilte gemeinsame Inferenz-Runtime, kein Gateway/API, keinen Scheduler, keinen produktiven Identity-Netzwerkservice, kein vollständiges Wire-Protokoll, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, keinen automatischen M1-Scheduler/Placement-Planner, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
 
-ADR 0002 (M1 Runtime Baseline) bleibt **Proposed**. Das nächste Software-Gate ist der enge llama.cpp-orientierte M1-Runtime-Spike hinter der ComputeMesh-Grenze.
-
-## Zwei-Rechner-Ablauf
+## Unmittelbarer Ablauf
 
 ```text
-SETUP.cmd (Windows) oder ./setup.sh (Linux) auf beiden Rechnern
+Profile + lokale Benchmarks
         ↓
-beide Rechner profilieren
+vertrauenswürdige Private-LAN-A↔B-Messung
         ↓
-LAN A → B und B → A messen
+lokale deterministische llama-server-Baseline
         ↓
-llama.cpp Prefill/Decode auf jedem relevanten Rechner messen
+expliziter Local + RPC Layer-Split
         ↓
-engen M1-Runtime-Baseline-Pfad auswählen/validieren
+Korrektheits- + Timingvergleich
         ↓
-Activation-/Remote-Stage-Transport experimentieren
+Activation/Transfer + Latenz/Jitter/Loss messen
         ↓
-erste korrekte gemeinsame Zwei-Node-Inferenz
+erste reproduzierbare gemeinsame Zwei-Node-Inferenz
         ↓
-Scheduler kalibrieren
+erste maschinenlesbare Placement-Entscheidung
 ```
-
-Die beiden Rechner dürfen Windows, Linux oder gemischt Windows/Linux sein; Benchmarkformat und Python-Helfer sind gemeinsam.
 
 ## Repository-Struktur
 
 ```text
 ComputeMesh/
-├─ SETUP.cmd              # Windows-M0-Einstieg
-├─ setup.sh               # Linux-M0-Einstieg
-├─ setup/                 # gemeinsamer Helper + Windows-/Linux-Starter
-├─ tools/benchmark/       # Inventory, TCP-Netzwerk, llama-bench-Adapter
-├─ services/orchestrator/ # dauerhafter M0-State + erste Control-Handler
+├─ SETUP.cmd / setup.sh   # einfache Windows-/Linux-Lab-Einstiege
+├─ setup/                 # plattformübergreifende Lab-Orchestrierung
+├─ tools/benchmark/       # Inventory, TCP, llama-bench-Adapter
+├─ services/orchestrator/ # dauerhafte M0-State-/Control-Grundlage
 ├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
-├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier, Tests
-├─ apps/                  # geplante Produktanwendungen
-├─ runtime/               # geplante/erforschte Runtime-Integrationen
+├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier
+├─ runtime/llama/         # kontrollierter llama.cpp-M1-Research-Spike
 ├─ docs/                  # Spezifikationen und ADRs
 └─ state.md               # kanonischer Engineering-Handoff
 ```
