@@ -14,7 +14,7 @@ Repository klonen/herunterladen und den Starter für das Betriebssystem verwende
 **Windows:** `SETUP.cmd` doppelklicken  
 **Linux:** `./setup.sh` ausführen (oder `bash setup.sh`, falls das Ausführungsbit verloren ging).
 
-Beide Starter bieten dasselbe einfache Menü für Rechnerprofil, vertrauenswürdige LAN-RTT-/Durchsatzmessung, lokales llama.cpp-Benchmarking und die aktuell vollständige lokale Testsuite. Modellgewichte werden niemals automatisch heruntergeladen.
+Beide Starter bieten dasselbe einfache Menü für Rechnerprofil, vertrauenswürdige LAN-RTT-/Durchsatzmessung, lokales llama.cpp-Benchmarking und die aktuell vollständige lokale Testsuite. Neue Netzwerkmessungen tragen zusätzlich die lokale Lab-Setup-Node-ID und – wenn die Gegenseite den aktuellen Benchmark-Server verwendet – dessen selbst gemeldete Lab-Setup-Node-ID. Modellgewichte werden niemals automatisch heruntergeladen.
 
 Die genaue Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
 
@@ -44,7 +44,8 @@ Geprüft werden unter anderem:
 - Größe des ausgewählten Modellartefakts gegen alle vier llama-bench-Datensätze;
 - `contiguous_layers`-Erlaubnis im Modellmanifest;
 - Provider-Memory-Fraction plus konservative Planer-Memory-Grenze;
-- eine zwingende Coordinator→Worker-Netzwerkmessung und die explizit angegebene Worker-Node-ID.
+- eine Coordinator→Worker-Netzwerkmessung, deren eingebettete lokale/Peer-Lab-IDs geprüft werden, sofern vorhanden;
+- eine Layerzahl aus dem Modellmanifest, sofern dort vorhanden.
 
 Mögliche Ergebnisse:
 
@@ -61,7 +62,7 @@ predicted_shared_request_ms = null
 predicted_speedup_vs_local = null
 ```
 
-Das aktuelle `benchmark_result` v1 bindet den Ziel-Node einer Netzwerkmessung strukturell noch nicht. Der Planer kennzeichnet die Peer-Bindung deshalb als `caller_asserted_v1`, statt stärkere Evidenz vorzutäuschen. Auch die Layerzahl ist ein expliziter Experimentparameter, weil `model_manifest` v1 sie noch nicht enthält. Details: [services/scheduler/README.md](services/scheduler/README.md).
+Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen. Details: [services/scheduler/README.md](services/scheduler/README.md).
 
 ## Kontrolliertes llama.cpp-M1-Experiment
 
@@ -87,11 +88,13 @@ Bereits vorhandene physische Evidenz vom 21.08.2026:
 - Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
 - Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
+Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
 
 ## Identity- und Runtime-Sicherheitsgrenze
 
 ADR 0005 ist **nur für die enge M1-Referenzimplementierung** akzeptiert. Vor öffentlicher Netzwerkexposition fehlen unter anderem Provider-/User-Authentifizierung um Identity-APIs, OS-geschützte private Node-Key-Speicherung, Revocation-Fan-out an aktive Sessions, authentifizierter/verschlüsselter Transport, Authorization/Rate-/Resource-Limits und produktiver Service-/Datenbankbetrieb.
+
+Die Lab-ID `unauthenticated_server_report_v1` des TCP-Benchmarks ist **nicht** der Identity-Nachweis aus ADR 0005. Der Benchmark besitzt weiterhin keine Anwendungs-Authentifizierung/-Verschlüsselung und bleibt ausschließlich für ein vertrauenswürdiges privates LAN bestimmt.
 
 Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht; weder lokales Relay noch Machbarkeitsplaner ändern diese Grenze. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
@@ -104,7 +107,7 @@ Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen ab
 ## Unmittelbarer Ablauf
 
 ```text
-Profile + lokale Benchmarks + vertrauenswürdige LAN-Pfadevidenz
+Profile + lokale Benchmarks + gebundene vertrauenswürdige LAN-Pfadevidenz
         ↓
 maschinenlesbarer konservativer Placement-Kandidat
         ↓
