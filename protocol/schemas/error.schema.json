@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/error.schema.json",
+  "title": "ComputeMesh Structured Error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "category", "retryable", "message", "details", "request_id"],
+  "properties": {
+    "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$"},
+    "category": {"enum": ["invalid_argument", "unauthenticated", "forbidden", "not_found", "conflict", "resource_exhausted", "deadline_exceeded", "temporarily_unavailable", "incompatible", "integrity_failure", "internal"]},
+    "retryable": {"type": "boolean"},
+    "message": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "details": {"type": "object"},
+    "request_id": {"type": ["string", "null"], "maxLength": 256}
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/control_envelope.schema.json",
+  "title": "ComputeMesh Control Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_major", "protocol_minor", "message_type", "request_id", "correlation_id", "actor_id", "target_id", "issued_at", "expires_at", "expected_revision", "payload"],
+  "properties": {
+    "protocol_major": {"type": "integer", "minimum": 0},
+    "protocol_minor": {"type": "integer", "minimum": 0},
+    "message_type": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "correlation_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "actor_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "target_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "expected_revision": {"type": "integer", "minimum": 0},
+    "payload": {"type": "object"}
+  }
+}
