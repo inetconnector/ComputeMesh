@@ -1,9 +1,9 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts and benchmark bootstrap  
+**Phase:** M0 — contracts, benchmark bootstrap, and durable orchestration semantics  
 **Production services/runtime:** none  
-**Executable engineering tooling:** M0 inventory benchmark harness  
+**Executable engineering tooling:** inventory benchmark + orchestrator reference implementation  
 **Public release:** none  
 **Documentation baseline:** v0.2 accepted and merged to `main`
 
@@ -11,12 +11,12 @@ This file is a handoff document. It records **facts and current decisions**, not
 
 ## Repository
 
-Repository:
-
-- `inetconnector/ComputeMesh`
+- repository: `inetconnector/ComputeMesh`
 - default branch: `main`
-- documentation v0.2 commit: `cf85a47` — `docs: expand v0.2 specification and bilingual readmes`
-- first M0 implementation branch: `m0/contracts-benchmark-harness`
+- documentation v0.2 commit: `cf85a47`
+- first M0 contracts/benchmark commit: `7df5b4e`
+- in-memory state-machine commit: `c9733b1`
+- transactional persistence/schema-admission commit: `bfea175`
 
 ## What exists
 
@@ -24,11 +24,11 @@ Repository:
 - implementation plan, architecture, protocol, threat model, security policy, contribution guide, ADR process;
 - JSON Schema Draft 2020-12 contracts for node profile, benchmark result, model manifest, shard manifest, reservation, and job;
 - example model/shard/job/reservation documents;
-- standard-library Python inventory benchmark collector;
-- benchmark collector unit tests;
-- in-memory reference state machine for reservation/job lifecycle, revisions, idempotency, lease expiry, cancellation, and failure;
-- state-machine unit tests;
-- directory skeleton for planned product components.
+- standard-library Python inventory benchmark collector and tests;
+- deterministic in-memory reservation/job state machine;
+- transactional SQLite M0 state store with durable idempotency, revisions, restart recovery, lease persistence/expiry, and stale-writer rejection;
+- Job/Reservation JSON Schema validation and initial durable admission;
+- orchestrator tests covering state-machine, persistence/concurrency/restart, and contract admission.
 
 ## What does not exist
 
@@ -37,8 +37,9 @@ No production implementation exists yet for:
 - provider node agent;
 - runtime worker or distributed inference;
 - gateway;
-- production orchestrator service/persistence;
 - scheduler;
+- production orchestrator network service;
+- production/PostgreSQL persistence adapter;
 - registry;
 - verification;
 - billing/ledger;
@@ -49,15 +50,19 @@ No production implementation exists yet for:
 
 ## Verified M0 implementation evidence
 
-The first executable collector was tested before repository publication of the implementation commit:
+Current verified evidence accumulated from the implementation work:
 
-- benchmark Python unit tests: 3/3 passing;
-- orchestrator state-machine unit tests: 8/8 passing;
-- JSON syntax checks: all six schemas parse successfully;
-- JSON Schema Draft 2020-12 validation: generated node profile and benchmark result pass;
-- example model manifest, shard manifest, reservation, and job pass their corresponding schemas.
+- benchmark collector unit tests: 3/3 passing (collector unchanged by the persistence work);
+- orchestrator state-machine tests: 8/8 passing;
+- SQLite persistence/concurrency/restart tests: 8/8 passing;
+- contract/admission tests: 5/5 passing;
+- orchestrator total: **21/21 passing**;
+- orchestrator modules pass Python `py_compile`;
+- all six JSON schemas parse successfully;
+- generated node profile and benchmark result validated against Draft 2020-12 schemas;
+- example model, shard, reservation, and job documents validated against their schemas.
 
-The collector currently measures inventory only. It is not yet a compute/network performance benchmark.
+The benchmark collector currently measures inventory only. It is not yet a compute/network performance benchmark.
 
 ## Fixed V1 constraints
 
@@ -76,13 +81,14 @@ Until superseded by an ADR:
 
 ## Important architecture clarifications
 
-1. The normal dense pipeline data path should transfer stage activations/results; KV cache normally remains with the layers that own it.
-2. KV transfer is primarily a migration/recovery/rebalance concern.
+1. Dense pipeline execution normally transfers stage activations/results; KV cache remains with owning layers.
+2. KV transfer is primarily migration/recovery/rebalance.
 3. Prefill and decode need separate performance models.
-4. Tensor parallelism is expected to need tightly coupled links; do not plan generic WAN tensor parallelism.
-5. The scheduler should use constraint filtering plus predicted multi-objective plan evaluation, not a single permanent score formula.
+4. Tensor parallelism is expected to need tightly coupled links; generic WAN TP is not assumed.
+5. Scheduling uses hard constraints plus predicted multi-objective evaluation, not a permanent scalar formula.
 6. Capacity reservation/lease semantics are required before dispatch.
 7. `confidential_compute` remains disabled as a guarantee until a real attestation/TEE design exists.
+8. SQLite is an M0 reference persistence adapter, not a production database decision.
 
 ## ADR status
 
@@ -116,12 +122,12 @@ These are M0 drafts and are not wire-stable.
 
 ## Primary blockers
 
-1. M1 runtime baseline is not accepted; the required two-node spike has not been run.
-2. Node identity/key lifecycle remains proposed.
-3. Control/data transport choices remain unaccepted.
-4. No two-node lab profiles exist yet.
-5. No local runtime prefill/decode baseline exists yet.
-6. Reservation/job state exists only as an in-memory semantic reference; durable persistence and protocol binding are not implemented.
+1. No two-node lab profiles exist yet.
+2. M1 runtime baseline is not accepted; the required two-node spike has not been run.
+3. No local runtime prefill/decode baseline exists yet.
+4. Node identity/key lifecycle remains proposed.
+5. Control/data transport choices remain unaccepted.
+6. Orchestrator semantics are durable in the SQLite reference, but network protocol handlers, authentication/authorization, and a production DB adapter do not exist.
 7. WAN viability remains unmeasured.
 8. Verification economics remain unmeasured.
 9. No release/update security implementation exists.
@@ -130,26 +136,13 @@ These are M0 drafts and are not wire-stable.
 
 1. Run the inventory harness on two real lab machines and retain profiles/results.
 2. Record exact hardware/OS/driver/runtime candidates for the two-node lab.
-3. Execute the ADR 0002 llama.cpp-oriented runtime spike without exposing upstream RPC as the ComputeMesh security boundary.
-4. Add local runtime prefill/decode benchmark adapters.
-5. Replace in-memory reservation/job state with a transactional persistence adapter and bind it to protocol/schema validation.
-6. Implement authenticated node-session skeleton after node-identity details are selected.
+3. Add a local runtime prefill/decode benchmark adapter with reproducible result records.
+4. Execute the ADR 0002 llama.cpp-oriented runtime spike without exposing upstream RPC as the ComputeMesh security boundary.
+5. Define concrete protocol handlers around the durable Job/Reservation semantics.
+6. Implement authenticated node-session skeleton after node-identity details are sufficiently specified.
 7. Run the first activation-transport microbenchmark.
 8. Produce the first correct two-node shared-inference experiment.
 9. Compare predicted versus observed timings and update the scheduler model.
-
-## State-update rule
-
-Update this file after a meaningful change in:
-
-- accepted ADR;
-- implemented component/tool;
-- milestone/gate status;
-- measured result;
-- blocker;
-- repository/release state.
-
-Do not copy the full architecture or roadmap here. Link to canonical documents instead.
 
 ## Bilingual README rule
 

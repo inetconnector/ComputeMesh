@@ -2,12 +2,12 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Project stage:** M0 — contracts, benchmarking, architecture, protocol, security, and feasibility research.  
-> **Implementation status:** the first executable M0 engineering tooling now exists; no production runtime, marketplace, scheduler, billing system, or public provider-node software exists yet.
+> **Project stage:** M0 — contracts, benchmarking, orchestration semantics, architecture, protocol, security, and feasibility research.  
+> **Implementation status:** executable M0 tooling, machine-readable contracts, and a transactional Job/Reservation persistence reference now exist. There is still no production runtime, scheduler, marketplace, billing system, or public provider-node software.
 
 ComputeMesh is an experimental distributed AI inference system intended to make heterogeneous compute resources usable as one logical execution fabric. A client with limited local VRAM should eventually be able to run a model whose memory and compute requirements exceed the client machine by using approved remote compute without manually managing shards, hosts, ports, or placement.
 
-**North Star:** the user chooses a model and a policy; ComputeMesh determines feasibility, selects compatible capacity, prepares verified model partitions, executes inference, handles failures, verifies results according to risk, and produces an auditable cost record.
+**North Star:** the user chooses a model and policy; ComputeMesh determines feasibility, selects compatible capacity, prepares verified model partitions, executes inference, handles failures, verifies results according to risk, and produces an auditable cost record.
 
 “The internet is your GPU” is a product metaphor, not a performance guarantee. WAN latency, bandwidth, jitter, hardware heterogeneity, provider trust, model licensing, and failure probability are first-class constraints.
 
@@ -17,24 +17,21 @@ ComputeMesh is an experimental distributed AI inference system intended to make 
 
 - bilingual root documentation and ADR process;
 - architecture, protocol, security, benchmark, failure, privacy, and data-model specifications;
-- JSON Schema Draft 2020-12 contracts for:
-  - node profile;
-  - benchmark result;
-  - model manifest;
-  - shard manifest;
-  - reservation;
-  - job;
+- JSON Schema Draft 2020-12 contracts for node profile, benchmark result, model manifest, shard manifest, reservation, and job;
 - concrete example manifests/jobs/reservations;
-- a standard-library Python M0 benchmark collector that records host inventory and NVIDIA GPU/VRAM/driver information when `nvidia-smi` is available;
-- unit tests for the benchmark collector;
-- an in-memory reference Job/Reservation state machine with monotonic revisions, idempotency, lease expiry, cancellation/failure paths, and race/stale-writer tests.
+- a standard-library Python inventory benchmark collector with NVIDIA GPU/VRAM/driver discovery when `nvidia-smi` is available;
+- deterministic in-memory Job/Reservation state-machine semantics;
+- a transactional SQLite M0 persistence adapter with monotonic revisions, durable idempotency, lease persistence/expiry, stale-writer rejection, rollback, and restart recovery;
+- JSON-Schema-based Job/Reservation admission before durable creation;
+- unit tests for benchmark, state-machine, persistence, concurrency/restart, and contract-admission behavior.
 
 ### Not implemented
 
 - production provider node agent;
 - runtime worker or distributed inference execution;
 - gateway/API;
-- production scheduler and orchestrator service/persistence;
+- production scheduler;
+- production orchestrator network service and production database adapter;
 - model registry service;
 - verification/reputation service;
 - billing/ledger service;
@@ -106,13 +103,14 @@ A failed gate may change the viable workload class rather than end the project.
 ```text
 ComputeMesh/
 ├─ apps/                 # planned node/desktop/dashboard/admin surfaces
-├─ services/             # gateway/scheduler/orchestrator/registry/billing/verification/telemetry
+├─ services/
+│  └─ orchestrator/      # M0 state machine, SQLite reference persistence, schema admission
 ├─ runtime/              # planned CUDA/llama.cpp/vLLM/network integrations
 ├─ protocol/
 │  ├─ schemas/           # machine-readable M0 contracts
 │  └─ examples/          # contract examples
 ├─ tools/
-│  └─ benchmark/         # first executable M0 collector + unit tests
+│  └─ benchmark/         # executable M0 inventory collector + unit tests
 ├─ models/
 ├─ sdk/
 ├─ tests/
@@ -127,13 +125,14 @@ ComputeMesh/
    └─ TEST_MATRIX.md
 ```
 
-## Run the first M0 tool
+## Run the current M0 tooling
 
-Python 3.10+ is sufficient for the current collector; it has no third-party runtime dependency.
+Python 3.10+ is sufficient for the benchmark collector and state store. Contract validation uses `jsonschema`.
 
 ```powershell
 git clone <repository-url>
 cd ComputeMesh
+python -m pip install -r services/orchestrator/requirements.txt
 python tools/benchmark/benchmark.py --dry-run
 python -m unittest discover -s tools/benchmark/tests -v
 python -m unittest discover -s services/orchestrator/tests -v
@@ -145,9 +144,21 @@ To write a lab profile:
 python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
 ```
 
-Output is written below `artifacts/benchmark/` and ignored by Git.
+Benchmark output is written below `artifacts/benchmark/` and ignored by Git. The collector deliberately excludes hostnames, GPU UUIDs, prompts, outputs, and other unnecessary identifiers.
 
-The collector currently records OS/architecture, Python version, CPU/logical cores, physical memory, and NVIDIA GPU name/VRAM/driver when available. It deliberately does not collect hostnames, GPU UUIDs, prompts, outputs, or other unnecessary identifiers.
+## Orchestrator reference persistence
+
+`services/orchestrator/persistence.py` is intentionally an M0 reference adapter. It uses SQLite transactions to prove the required semantics:
+
+- atomic state + idempotency effects;
+- optimistic revision checks;
+- durable replay results across restart;
+- reservation lease persistence/expiry;
+- stale-writer rejection across connections.
+
+This does **not** select SQLite for production. A production control-plane database such as PostgreSQL remains the architectural direction.
+
+`services/orchestrator/contracts.py` validates incoming M0 Job/Reservation documents against the repository JSON Schemas before initial durable admission. Authentication and authorization are separate future protocol responsibilities.
 
 ## Documentation order
 
@@ -170,10 +181,12 @@ Control and data transports are also still under evaluation. Transport encryptio
 ## Immediate engineering sequence
 
 ```text
-machine-readable contracts + inventory harness   [started]
+machine-readable contracts + inventory harness              [implemented M0]
+transactional Job/Reservation persistence + schema admission [implemented M0]
 -> two-node lab profiles
--> runtime spike
--> durable reservation/job persistence + protocol binding
+-> local/runtime prefill-decode benchmark adapter
+-> llama.cpp-oriented M1 runtime spike
+-> protocol handlers + authenticated node-session skeleton
 -> activation transport benchmark
 -> shared two-node inference
 -> scheduler automation

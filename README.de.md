@@ -2,12 +2,12 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Architektur, Protokoll, Sicherheit und Machbarkeitsforschung.  
-> **Implementierungsstatus:** Die ersten ausführbaren M0-Engineering-Werkzeuge existieren; es gibt noch keine produktive Runtime, keinen Marktplatz, Scheduler, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
+> **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Architektur, Protokoll, Sicherheit und Machbarkeitsforschung.  
+> **Implementierungsstatus:** Ausführbare M0-Werkzeuge, maschinenlesbare Verträge und eine transaktionale Job-/Reservation-Persistenzreferenz existieren inzwischen. Es gibt weiterhin keine produktive Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
 
 ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogene Rechenressourcen sollen als logisch einheitliche Ausführungsumgebung nutzbar werden. Ein Client mit wenig lokalem VRAM soll später ein Modell ausführen können, dessen Speicher- und Rechenanforderungen den eigenen Rechner übersteigen, ohne Shards, Hosts, Ports oder Platzierung manuell verwalten zu müssen.
 
-**North Star:** Der Nutzer wählt Modell und Richtlinie. ComputeMesh prüft die Machbarkeit, wählt kompatible Kapazität, bereitet verifizierte Modellpartitionen vor, führt Inferenz aus, behandelt Ausfälle, verifiziert Ergebnisse risikobasiert und erzeugt einen auditierbaren Kostennachweis.
+**North Star:** Der Nutzer wählt Modell und Richtlinie. ComputeMesh prüft Machbarkeit, wählt kompatible Kapazität, bereitet verifizierte Modellpartitionen vor, führt Inferenz aus, behandelt Ausfälle, verifiziert Ergebnisse risikobasiert und erzeugt einen auditierbaren Kostennachweis.
 
 „The internet is your GPU“ ist eine Produktmetapher und keine Performance-Garantie. WAN-Latenz, Bandbreite, Jitter, Hardware-Heterogenität, Provider-Vertrauen, Modelllizenzen und Ausfallwahrscheinlichkeit sind zentrale Systemgrenzen.
 
@@ -17,24 +17,21 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 
 - zweisprachige Root-Dokumentation und ADR-Prozess;
 - Architektur-, Protokoll-, Sicherheits-, Benchmark-, Failure-, Privacy- und Data-Model-Spezifikationen;
-- JSON-Schema-Draft-2020-12-Verträge für:
-  - Node Profile;
-  - Benchmark Result;
-  - Model Manifest;
-  - Shard Manifest;
-  - Reservation;
-  - Job;
+- JSON-Schema-Draft-2020-12-Verträge für Node Profile, Benchmark Result, Model Manifest, Shard Manifest, Reservation und Job;
 - konkrete Beispiel-Manifeste, Jobs und Reservierungen;
-- ein M0-Benchmark-Collector in Python nur mit Standardbibliothek, der Host-Inventar und bei vorhandenem `nvidia-smi` NVIDIA-GPU/VRAM/Treiber erfasst;
-- Unit-Tests für den Benchmark-Collector;
-- eine In-Memory-Referenz-State-Machine für Job/Reservation mit monotonen Revisionen, Idempotenz, Lease-Expiry, Cancellation-/Failure-Pfaden und Race-/Stale-Writer-Tests.
+- ein Python-Inventory-Benchmark-Collector mit NVIDIA-GPU-/VRAM-/Treiber-Erkennung, wenn `nvidia-smi` verfügbar ist;
+- deterministische In-Memory-State-Machine-Semantik für Job/Reservation;
+- ein transaktionaler SQLite-M0-Persistenzadapter mit monotonen Revisionen, dauerhafter Idempotenz, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
+- JSON-Schema-basierte Job-/Reservation-Admission vor der dauerhaften Anlage;
+- Unit-Tests für Benchmark, State Machine, Persistenz, Konkurrenz/Restart und Contract-Admission.
 
 ### Noch nicht implementiert
 
 - produktiver Provider-Node-Agent;
 - Runtime Worker oder verteilte Inferenz;
 - Gateway/API;
-- produktiver Scheduler sowie Orchestrator-Service/Persistenz;
+- produktiver Scheduler;
+- produktiver Orchestrator-Netzwerkservice und produktiver Datenbankadapter;
 - Model-Registry-Service;
 - Verification-/Reputation-Service;
 - Billing-/Ledger-Service;
@@ -106,13 +103,14 @@ Ein nicht bestandenes Gate kann die geeignete Workload-Klasse ändern, ohne auto
 ```text
 ComputeMesh/
 ├─ apps/                 # geplante Node/Desktop/Dashboard/Admin-Oberflächen
-├─ services/             # Gateway/Scheduler/Orchestrator/Registry/Billing/Verification/Telemetry
+├─ services/
+│  └─ orchestrator/      # M0 State Machine, SQLite-Referenzpersistenz, Schema-Admission
 ├─ runtime/              # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
 ├─ protocol/
 │  ├─ schemas/           # maschinenlesbare M0-Verträge
 │  └─ examples/          # Vertragsbeispiele
 ├─ tools/
-│  └─ benchmark/         # erster ausführbarer M0-Collector + Unit-Tests
+│  └─ benchmark/         # ausführbarer M0-Inventory-Collector + Unit-Tests
 ├─ models/
 ├─ sdk/
 ├─ tests/
@@ -127,13 +125,14 @@ ComputeMesh/
    └─ TEST_MATRIX.md
 ```
 
-## Erstes M0-Werkzeug ausführen
+## Aktuelle M0-Werkzeuge ausführen
 
-Für den aktuellen Collector genügt Python 3.10+; er hat keine Third-Party-Runtime-Abhängigkeit.
+Für Benchmark-Collector und State Store genügt Python 3.10+. Die Contract-Validierung verwendet `jsonschema`.
 
 ```powershell
 git clone <repository-url>
 cd ComputeMesh
+python -m pip install -r services/orchestrator/requirements.txt
 python tools/benchmark/benchmark.py --dry-run
 python -m unittest discover -s tools/benchmark/tests -v
 python -m unittest discover -s services/orchestrator/tests -v
@@ -145,9 +144,21 @@ Ein Lab-Profil schreiben:
 python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
 ```
 
-Die Ausgabe landet unter `artifacts/benchmark/` und wird von Git ignoriert.
+Benchmark-Ausgaben landen unter `artifacts/benchmark/` und werden von Git ignoriert. Hostnamen, GPU-UUIDs, Prompts, Outputs und andere unnötige Identifikatoren werden bewusst nicht erfasst.
 
-Aktuell werden OS/Architektur, Python-Version, CPU/logische Kerne, physischer Speicher sowie – wenn vorhanden – NVIDIA-GPU-Name, VRAM und Treiberversion erfasst. Hostnamen, GPU-UUIDs, Prompts, Outputs und andere unnötige Identifikatoren werden bewusst nicht gesammelt.
+## Orchestrator-Referenzpersistenz
+
+`services/orchestrator/persistence.py` ist bewusst ein M0-Referenzadapter. SQLite-Transaktionen dienen dazu, die benötigte Semantik nachzuweisen:
+
+- atomare State- und Idempotency-Effekte;
+- Optimistic-Revision-Checks;
+- dauerhafte Replay-Ergebnisse über Neustarts hinweg;
+- Reservation-Lease-Persistenz/-Expiry;
+- Stale-Writer-Schutz über mehrere Verbindungen.
+
+Damit ist **SQLite nicht als Produktionsdatenbank ausgewählt**. Für die produktive Control Plane bleibt eine transaktionale Datenbank wie PostgreSQL die architektonische Richtung.
+
+`services/orchestrator/contracts.py` validiert eingehende M0-Job-/Reservation-Dokumente gegen die Repository-JSON-Schemas, bevor initialer dauerhafter Zustand angelegt wird. Authentifizierung und Autorisierung bleiben getrennte zukünftige Protokollaufgaben.
 
 ## Empfohlene Dokumentationsreihenfolge
 
@@ -170,10 +181,12 @@ Auch Control- und Data-Transport werden noch evaluiert. Transportverschlüsselun
 ## Unmittelbare Engineering-Reihenfolge
 
 ```text
-maschinenlesbare Verträge + Inventory-Harness   [gestartet]
+maschinenlesbare Verträge + Inventory-Harness                 [M0 implementiert]
+transaktionale Job-/Reservation-Persistenz + Schema-Admission [M0 implementiert]
 -> Zwei-Node-Lab-Profile
--> Runtime-Spike
--> persistente Reservation-/Job-Storage + Protocol-Binding
+-> lokaler Runtime-Prefill-/Decode-Benchmark-Adapter
+-> llama.cpp-orientierter M1-Runtime-Spike
+-> Protocol-Handler + authentifizierter Node-Session-Skeleton
 -> Activation-Transport-Benchmark
 -> gemeinsame Zwei-Node-Inferenz
 -> Scheduler-Automatisierung
