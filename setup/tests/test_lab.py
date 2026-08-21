@@ -91,12 +91,21 @@ class LabSetupTests(unittest.TestCase):
         self.assertEqual(data["llama_bench"], cfg.llama_bench)
         self.assertEqual(data["model_path"], cfg.model_path)
 
-    def test_run_tests_includes_setup_tests(self):
+    def test_run_tests_includes_all_current_suites(self):
         runner = FakeRunner()
         with patch.object(lab, "REPO_ROOT", self.root):
             lab.run_tests(runner=runner)
-        self.assertEqual(len(runner.commands), 4)
-        self.assertTrue(any("setup/tests" in " ".join(cmd) for cmd, _, _ in runner.commands))
+        self.assertEqual(len(runner.commands), 6)
+        commands = [" ".join(cmd) for cmd, _, _ in runner.commands]
+        for suite in (
+            "tools/benchmark/tests",
+            "services/orchestrator/tests",
+            "protocol/tests",
+            "services/identity/tests",
+            "runtime/llama/tests",
+            "setup/tests",
+        ):
+            self.assertTrue(any(suite in command for command in commands), suite)
 
 
 if __name__ == "__main__":
