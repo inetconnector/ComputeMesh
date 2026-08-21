@@ -119,15 +119,20 @@ class NetworkBenchmarkTests(unittest.TestCase):
         try:
             nb.send_header(sock, b"I", 4)
             sock.sendall(b"JUNK")
-            op, size = nb.recv_header(sock)
-            self.assertEqual((op, size), (b"E", 0))
-            # Because the server intentionally closes while unread client bytes
-            # may still be queued, TCP may expose that close as EOF or RST.
+            # The server attempts to send E before closing, but a TCP close with
+            # unread inbound bytes may surface as an immediate RST on Windows.
+            # Either an E frame followed by close, or immediate close/reset,
+            # proves the malformed stream is not resynchronized as valid input.
             try:
-                trailing = sock.recv(1)
-            except ConnectionResetError:
-                trailing = b""
-            self.assertEqual(trailing, b"")
+                op, size = nb.recv_header(sock)
+                self.assertEqual((op, size), (b"E", 0))
+                try:
+                    trailing = sock.recv(1)
+                except ConnectionResetError:
+                    trailing = b""
+                self.assertEqual(trailing, b"")
+            except ConnectionError:
+                pass
         finally:
             sock.close()
         thread.join(timeout=2)
