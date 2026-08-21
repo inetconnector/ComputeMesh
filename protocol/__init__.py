@@ -14,8 +14,26 @@ from .node_session import (
     NodeSessionError,
     NodeSessionState,
     ProfileMismatch,
+    ProtocolVersionMismatch,
     SessionSnapshot,
     SessionTransitionError,
+)
+from .session_contracts import (
+    SessionMessageContractError,
+    SessionMessageContractValidator,
+)
+from .session_wire import (
+    BenchmarkAcceptanceDecision,
+    BenchmarkAcceptancePolicy,
+    BenchmarkRejected,
+    NodeSessionWireError,
+    NodeSessionWireHandler,
+    SessionActorMismatch,
+    SessionMessageBindingError,
+    SessionMessageIdempotencyConflict,
+    SessionProtocolMismatch,
+    SessionRevisionMismatch,
+    UnsupportedSessionMessage,
 )
 
 __all__ = [
@@ -36,6 +54,20 @@ __all__ = [
     "NodeSessionError",
     "NodeSessionState",
     "ProfileMismatch",
+    "ProtocolVersionMismatch",
     "SessionSnapshot",
     "SessionTransitionError",
+    "SessionMessageContractError",
+    "SessionMessageContractValidator",
+    "BenchmarkAcceptanceDecision",
+    "BenchmarkAcceptancePolicy",
+    "BenchmarkRejected",
+    "NodeSessionWireError",
+    "NodeSessionWireHandler",
+    "SessionActorMismatch",
+    "SessionMessageBindingError",
+    "SessionMessageIdempotencyConflict",
+    "SessionProtocolMismatch",
+    "SessionRevisionMismatch",
+    "UnsupportedSessionMessage",
 ]
