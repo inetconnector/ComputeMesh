@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Protocol, Iterable
 import secrets
 
+from .control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR
+
 
 class NodeSessionError(RuntimeError):
     pass
@@ -31,6 +33,10 @@ class ProfileMismatch(NodeSessionError):
     pass
 
 
+class ProtocolVersionMismatch(NodeSessionError):
+    pass
+
+
 class NodeSessionState(str, Enum):
     CONNECTED = "CONNECTED"
     HELLO_RECEIVED = "HELLO_RECEIVED"
@@ -49,8 +55,14 @@ class NodeHelloInfo:
     supported_auth_methods: tuple[str, ...]
     capabilities: frozenset[str]
     node_id: str | None = None
+    protocol_major: int = SUPPORTED_PROTOCOL_MAJOR
+    protocol_minor: int = CURRENT_PROTOCOL_MINOR
 
     def __post_init__(self) -> None:
+        if isinstance(self.protocol_major, bool) or not isinstance(self.protocol_major, int) or self.protocol_major < 0:
+            raise ValueError("protocol_major must be a non-negative integer")
+        if isinstance(self.protocol_minor, bool) or not isinstance(self.protocol_minor, int) or self.protocol_minor < 0:
+            raise ValueError("protocol_minor must be a non-negative integer")
         if not (1 <= len(self.agent_version) <= 128):
             raise ValueError("agent_version must be 1..128 characters")
         if not (1 <= len(self.platform) <= 128):
@@ -124,6 +136,8 @@ class SessionSnapshot:
     session_id: str
     state: NodeSessionState
     revision: int
+    protocol_major: int | None
+    protocol_minor: int | None
     node_id: str | None
     principal_id: str | None
     auth_method: str | None
@@ -141,6 +155,8 @@ class NodeSession:
     state: NodeSessionState = NodeSessionState.CONNECTED
     revision: int = 0
     hello_info: NodeHelloInfo | None = None
+    protocol_major: int | None = None
+    protocol_minor: int | None = None
     node_id: str | None = None
     principal_id: str | None = None
     auth_method: str | None = None
@@ -164,6 +180,8 @@ class NodeSession:
             session_id=self.session_id,
             state=self.state,
             revision=self.revision,
+            protocol_major=self.protocol_major,
+            protocol_minor=self.protocol_minor,
             node_id=self.node_id,
             principal_id=self.principal_id,
             auth_method=self.auth_method,
@@ -187,7 +205,13 @@ class NodeSession:
 
     def receive_hello(self, hello: NodeHelloInfo) -> SessionSnapshot:
         self._require(NodeSessionState.CONNECTED)
+        if hello.protocol_major != SUPPORTED_PROTOCOL_MAJOR:
+            raise ProtocolVersionMismatch(
+                f"unsupported protocol major {hello.protocol_major}; supported major is {SUPPORTED_PROTOCOL_MAJOR}"
+            )
         self.hello_info = hello
+        self.protocol_major = SUPPORTED_PROTOCOL_MAJOR
+        self.protocol_minor = min(hello.protocol_minor, CURRENT_PROTOCOL_MINOR)
         return self._advance(NodeSessionState.HELLO_RECEIVED)
 
     def authenticate(
@@ -195,6 +219,7 @@ class NodeSession:
         attempt: AuthenticationAttempt,
         verifier: AuthenticationVerifier,
         *,
+        actor_id: str | None = None,
         now: datetime | None = None,
     ) -> SessionSnapshot:
         self._require(NodeSessionState.HELLO_RECEIVED)
@@ -217,6 +242,8 @@ class NodeSession:
             raise AuthenticationExpired("credential is already expired")
         if self.hello_info.node_id is not None and decision.node_id != self.hello_info.node_id:
             raise AuthenticationFailed("authenticated node_id does not match NodeHello")
+        if actor_id is not None and decision.node_id != actor_id:
+            raise AuthenticationFailed("authenticated node_id does not match control actor_id")
         self.node_id = decision.node_id
         self.principal_id = decision.principal_id
         self.auth_method = attempt.method
