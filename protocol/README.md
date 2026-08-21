@@ -1,10 +1,10 @@
 # Protocol Package
 
-**Status:** M0 control envelope, durable initial handlers, authentication-gated node-session semantics, and the first strict node-session wire binding are implemented; no production credential verifier or network transport binding exists yet.
+**Status:** M0 control envelope, durable initial handlers, node-session semantics/wire binding, and an M1 Ed25519 reference verifier are implemented. There is still no production network transport or production identity service.
 
 ## Purpose
 
-Provide machine-readable protocol contracts, transport-neutral control semantics, compatibility checks, structured errors, and session readiness rules without prematurely coupling the design to a transport or cryptographic implementation.
+Provide machine-readable protocol contracts, transport-neutral control semantics, compatibility checks, structured errors, session readiness rules, and a narrow reference node-authentication mechanism without coupling the public protocol to one transport.
 
 ## Common control envelope
 
@@ -15,21 +15,21 @@ Provide machine-readable protocol contracts, transport-neutral control semantics
 - enforces protocol-major compatibility;
 - validates identifiers, revision shape, RFC3339 timestamps, expiry, and bounded clock skew;
 - emits structured machine-readable errors;
-- does not authenticate or authorize actors.
+- does not by itself authenticate or authorize actors.
 
-## Initial message payload contracts and durable handlers
+## Durable orchestration messages
 
-The durable orchestration payload contracts deliberately remain limited to operations already implemented in `services/orchestrator/handlers.py`:
+The durable orchestration payload contracts remain limited to operations implemented in `services/orchestrator/handlers.py`:
 
 - `ReserveCapacity`;
 - `CommitReservation`;
 - `CancelJob`.
 
-Those handlers bind envelope `request_id` to durable SQLite state effects. Message type + payload are fingerprinted so exact replays have one business effect and changed-payload request-ID reuse is rejected.
+Those handlers bind envelope `request_id` to durable SQLite state effects. Exact replay has one business effect; changed semantic reuse of the same request ID is rejected.
 
-## Node-session semantic skeleton
+## Node-session semantics and wire binding
 
-`node_session.py` implements the protocol-level readiness sequence:
+`node_session.py`, `session_contracts.py`, and `session_wire.py` implement the initial readiness path:
 
 ```text
 CONNECTED
@@ -42,26 +42,7 @@ CONNECTED
  -> CLOSED
 ```
 
-Key properties:
-
-- no built-in permissive authenticator exists;
-- callers must inject an `AuthenticationVerifier`;
-- the verifier receives session ID and a per-session challenge so the eventual proof mechanism can bind credentials to the session;
-- successful authentication requires stable node ID, provider principal, and a future credential expiry;
-- an advertised stable node ID must match the authenticated node ID;
-- a supplied control-envelope `actor_id` can be bound to the verifier-confirmed node ID before authentication advances;
-- protocol-major mismatch is rejected and the current M0 minor version is negotiated down from a higher compatible peer minor;
-- credentials are rechecked for expiry before later session progress;
-- capability negotiation is intersection-based and required capabilities cannot be silently dropped;
-- profile revision must match accepted benchmark status before `READY`;
-- drain is only valid from `READY`;
-- an external revocation/incident signal can terminate the session.
-
-This module defines **session semantics and a verifier boundary only**. It does not select Ed25519, X.509, JWT, mTLS, TPM/TEE attestation, or another credential mechanism. It also does not implement enrollment, issuance, key storage, rotation, or revocation lookup. ADR 0005 remains Proposed.
-
-## Initial node-session wire binding
-
-`session_contracts.py` and `session_wire.py` now bind an already parsed `ControlEnvelope` to the semantic session for the documented M0 readiness subset:
+The current wire subset is:
 
 - `NodeHello`;
 - `NodeAuthenticate`;
@@ -70,43 +51,90 @@ This module defines **session semantics and a verifier boundary only**. It does 
 - `BenchmarkReport`;
 - `DrainRequest`.
 
-The binding is intentionally narrow and strict:
+Key properties:
 
-- `NodeHello` carries protocol major/minor, agent/platform data, optional stable node ID, advertised auth methods, and capabilities;
-- the `NodeHello` payload version must match its envelope, then the session records the negotiated version;
-- `NodeAuthenticate` carries only a bounded opaque credential + advertised method; credential interpretation remains entirely inside the injected verifier;
-- successful authentication must bind envelope `actor_id` to the verifier-confirmed node ID before state advances;
-- every later session message requires that authenticated `actor_id`;
-- `expected_revision` is checked against the session revision before a first-time message is applied;
-- successful `request_id` effects are session-locally fingerprinted: an exact replay returns the original snapshot, while semantic request-ID reuse is rejected;
-- `CapabilityNegotiation` can accept only capabilities present in both the node advertisement and the configured control-plane set, and configured required capabilities remain mandatory;
-- `NodeProfileUpdate` reuses the complete `node_profile.schema.json` contract and its `node_id` must equal the authenticated node;
-- `BenchmarkReport` reuses `benchmark_result.schema.json` and must match the synced profile revision;
-- benchmark readiness is decided by an injected `BenchmarkAcceptancePolicy`; there is deliberately no accept-all default, and policy may require several accepted reports before returning `READY`;
-- `DrainRequest` binds the documented reason to the existing `READY -> DRAINING` transition.
+- there is no permissive authenticator;
+- callers must inject an `AuthenticationVerifier`;
+- the verifier receives session ID and a per-session challenge;
+- protocol-major mismatch is rejected and a higher compatible peer minor is negotiated down to the current local minor;
+- successful authentication binds verifier-confirmed `node_id` to an advertised node ID, when present, and to the control-envelope `actor_id`;
+- later session messages must continue using that authenticated node actor;
+- first-time messages require the current optimistic session revision;
+- successful request IDs are fingerprinted for the session: exact replay returns the prior snapshot, changed semantic reuse is rejected;
+- capability negotiation cannot add unoffered capabilities or silently drop configured required capabilities;
+- profile node/revision and benchmark profile revision are bound before readiness;
+- readiness is decided by an injected `BenchmarkAcceptancePolicy`; there is no accept-all default;
+- drain is allowed only from `READY`;
+- an external incident/revocation signal can terminate an active session.
 
-This is **not a network service**. A transport/router must first parse and validate the common envelope and route it to the correct session. Authorization beyond the authenticated node-actor binding, rate/resource limits, persistence of session state, and production transport security remain separate responsibilities.
+This is not a network listener and it is not durable network-session persistence.
 
-## Test
+## M1 reference node identity
+
+ADR 0005 is accepted for the **narrow M1 reference implementation**. `node_identity.py` implements authentication method `computemesh-ed25519-v1` using Ed25519 challenge signatures.
+
+The signed context is domain-separated and binds:
+
+- session ID;
+- per-session challenge;
+- stable node ID;
+- key ID;
+- protocol major/minor;
+- proof issue/expiry time;
+- a canonical digest of the accepted `NodeHello` semantics, including capabilities and supported authentication methods.
+
+Reference proof policy:
+
+- proof TTL defaults to 30 seconds and is capped at 60 seconds;
+- bounded clock skew is checked;
+- malformed/oversized proofs and extreme timestamps are denied rather than propagated as verifier failures;
+- the verifier resolves an enrolled active public key and checks its deterministic key fingerprint before signature verification;
+- successful proof returns a bounded authenticated session lifetime rather than a bearer token supplied by the node.
+
+`services/identity/` provides the control-plane reference registry:
+
+- random stable `node_id` independent of key rotation;
+- short-lived provider-authorized enrollment tokens stored only as SHA-256;
+- public Ed25519 keys only — no node private keys are stored by the control plane;
+- idempotent same-token/same-key enrollment;
+- rejection of token/key conflicts and duplicate key enrollment across nodes;
+- key rotation with optional atomic revocation of prior active keys;
+- monotonic key/node revocation;
+- restart-persistent SQLite reference state.
+
+A revoked key/node is unavailable to **new** authentication attempts. Already-authenticated sessions still require external revocation fan-out to the session termination path.
+
+## Security boundary
+
+The M1 reference identity is not the complete production identity system. It does **not** provide:
+
+- provider/user login or derive `principal_id` from a network principal;
+- node private-key storage;
+- Windows DPAPI/CNG or Linux secret/keyring integration;
+- TLS/QUIC or another authenticated transport;
+- hardware attestation;
+- Sybil resistance or cloned-key detection;
+- active-session revocation distribution;
+- rate limits/abuse controls;
+- production database/high availability.
+
+A syntactically valid `actor_id` is still not trusted until authentication succeeds. Network exposure remains blocked until transport security, service authorization, key storage, limits, and operational revocation are implemented and reviewed.
+
+## Tests
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m unittest discover -s protocol/tests -v
+python -m unittest discover -s services/identity/tests -v
 ```
 
-Latest combined local protocol verification: **53/53 passing**. This includes the existing envelope/durable-message/schema tests, 17 node-session semantic tests, 6 session-contract tests, and 15 wire-binding tests. The new negative coverage includes protocol-version mismatch, actor mismatch, stale session revision, request-ID semantic reuse, unoffered capabilities, profile/node mismatch, stale benchmark revision, rejected benchmark readiness, and invalid session-message families.
-
-Relevant Python modules also pass `py_compile`.
+Current local evidence before cross-platform CI: **64/64 protocol tests** and **13/13 identity/integration tests** passing. Coverage includes protocol/version/actor/revision/replay failures, real Ed25519 proof verification, capability/hello tampering, expired/future/extreme proof timestamps, unknown/revoked keys, enrollment replay/conflict/expiry, duplicate-key rejection, rotation, monotonic revocation, ownership checks, restart persistence, and an enrollment → Ed25519 verifier → `NodeSessionWireHandler` integration flow.
 
 ## Remaining work
 
-- choose and implement the concrete ADR-0005 node identity, enrollment, credential, rotation, and revocation path;
-- add authorization policy beyond authenticated node-actor binding;
-- select and implement the control/data transport under ADR 0003;
-- bind remaining availability/reservation/job/artifact/runtime/result/failure/heartbeat operations required by M1;
-- decide which session state/evidence must become durable when the real network service is introduced;
+- implement OS-protected node private-key storage for supported Windows/Linux node-agent paths;
+- put the reference registry behind authenticated/authorized service APIs rather than caller-supplied principal assertions;
+- add active-session revocation fan-out;
+- select and implement control/data transport under ADR 0003;
+- bind the minimum remaining availability/job/artifact/runtime/result/failure/heartbeat messages required by the exact M1 runtime spike;
 - add protocol fuzz/property coverage before production exposure.
-
-## Security boundary
-
-A syntactically valid `actor_id` is not trusted identity. A successful test `FakeVerifier` is not production authentication. The new wire binder only ensures that, **if** an injected verifier authenticates a node, subsequent session messages cannot silently claim another actor or bypass session revision/readiness ordering. Network exposure remains blocked until a real verifier, authorization layer, rate/resource limits, and transport security are selected, implemented, and reviewed.
