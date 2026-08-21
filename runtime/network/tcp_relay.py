@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Bounded loopback TCP relay for M1 runtime measurement experiments.
 
-This is a lab instrument, not a ComputeMesh transport. It can count forwarded
-bytes, delay stream chunks, add bounded deterministic jitter, and force a
-connection drop. It never inspects or persists payload contents.
+This is a lab instrument, not a ComputeMesh transport. It counts forwarded
+bytes, can add bounded deterministic delay/jitter, and can force a connection
+drop. It never inspects or persists payload contents.
 """
 from __future__ import annotations
 
@@ -91,7 +91,11 @@ class RelayConfig:
             raise ValueError("seed must be an integer")
         if isinstance(self.chunk_bytes, bool) or not isinstance(self.chunk_bytes, int) or not 1024 <= self.chunk_bytes <= 1024 * 1024:
             raise ValueError("chunk_bytes must be 1 KiB..1 MiB")
-        if isinstance(self.max_buffer_bytes, bool) or not isinstance(self.max_buffer_bytes, int) or not self.chunk_bytes <= self.max_buffer_bytes <= 256 * 1024 * 1024:
+        if (
+            isinstance(self.max_buffer_bytes, bool)
+            or not isinstance(self.max_buffer_bytes, int)
+            or not self.chunk_bytes <= self.max_buffer_bytes <= 256 * 1024 * 1024
+        ):
             raise ValueError("max_buffer_bytes must be at least one chunk and <= 256 MiB")
         if self.disconnect_after_bytes is not None and (
             isinstance(self.disconnect_after_bytes, bool)
@@ -105,7 +109,11 @@ class RelayConfig:
             or self.disconnect_after_seconds <= 0
         ):
             raise ValueError("disconnect_after_seconds must be positive")
-        if isinstance(self.connect_timeout_seconds, bool) or not isinstance(self.connect_timeout_seconds, (int, float)) or not 0 < self.connect_timeout_seconds <= 120:
+        if (
+            isinstance(self.connect_timeout_seconds, bool)
+            or not isinstance(self.connect_timeout_seconds, (int, float))
+            or not 0 < self.connect_timeout_seconds <= 120
+        ):
             raise ValueError("connect_timeout_seconds must be >0 and <=120")
 
 
@@ -113,10 +121,13 @@ class RelayConfig:
 class RelayMetrics:
     schema_version: int
     started_at: str
+    connected_at: str | None
     ended_at: str
     listen: str
     target: str
-    elapsed_ms: float
+    setup_elapsed_ms: float
+    active_elapsed_ms: float
+    total_elapsed_ms: float
     configured: dict[str, object]
     traffic: dict[str, int]
     termination: dict[str, object]
@@ -154,9 +165,9 @@ class _Controller:
     def fail(self, exc: BaseException) -> None:
         with self.lock:
             if self.reason is None:
-                self.reason = "error"
+                self.reason = "relay_error"
                 self.error_type = type(exc).__name__[:128]
-                self.error_message = (str(exc) or type(exc).__name__)[:1024]
+                self.error_message = _safe_error_message(exc)
         self.stop_event.set()
         self._shutdown_all()
 
@@ -173,6 +184,17 @@ class _Controller:
                 sock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
+
+
+def _safe_error_message(exc: BaseException) -> str:
+    errno = getattr(exc, "errno", None)
+    if isinstance(errno, int):
+        return f"errno={errno}"
+    return type(exc).__name__[:128]
+
+
+def _iso(value: datetime) -> str:
+    return value.isoformat().replace("+00:00", "Z")
 
 
 def _put_with_stop(items: queue.Queue, value: object, stop_event: threading.Event) -> bool:
@@ -202,8 +224,7 @@ def _receiver(
                 return
             variation = rng.uniform(-config.jitter_ms, config.jitter_ms) if config.jitter_ms else 0.0
             delay_seconds = max(0.0, (config.one_way_delay_ms + variation) / 1000.0)
-            candidate = time.monotonic() + delay_seconds
-            ready_at = max(last_ready, candidate)
+            ready_at = max(last_ready, time.monotonic() + delay_seconds)
             last_ready = ready_at
             if not _put_with_stop(items, (ready_at, data), controller.stop_event):
                 return
@@ -231,7 +252,6 @@ def _sender(
                     destination.shutdown(socket.SHUT_WR)
                 except OSError:
                     pass
-                finished.set()
                 return
             ready_at, data = item
             remaining = ready_at - time.monotonic()
@@ -246,6 +266,72 @@ def _sender(
         finished.set()
 
 
+def _build_metrics(
+    config: RelayConfig,
+    *,
+    actual_endpoint: PrivateEndpoint,
+    started_wall: datetime,
+    started_mono: float,
+    connected_wall: datetime | None,
+    connected_mono: float | None,
+    traffic: dict[str, int],
+    reason: str,
+    error_type: str | None,
+    error_message: str | None,
+) -> RelayMetrics:
+    ended_wall = datetime.now(timezone.utc)
+    ended_mono = time.monotonic()
+    total_elapsed_ms = max(0.0, (ended_mono - started_mono) * 1000.0)
+    if connected_mono is None:
+        setup_elapsed_ms = total_elapsed_ms
+        active_elapsed_ms = 0.0
+    else:
+        setup_elapsed_ms = max(0.0, (connected_mono - started_mono) * 1000.0)
+        active_elapsed_ms = max(0.0, (ended_mono - connected_mono) * 1000.0)
+    total = traffic.get("coordinator_to_worker", 0) + traffic.get("worker_to_coordinator", 0)
+    return RelayMetrics(
+        schema_version=1,
+        started_at=_iso(started_wall),
+        connected_at=_iso(connected_wall) if connected_wall is not None else None,
+        ended_at=_iso(ended_wall),
+        listen=actual_endpoint.text(),
+        target=config.target.text(),
+        setup_elapsed_ms=setup_elapsed_ms,
+        active_elapsed_ms=active_elapsed_ms,
+        total_elapsed_ms=total_elapsed_ms,
+        configured={
+            "one_way_delay_ms": float(config.one_way_delay_ms),
+            "jitter_ms": float(config.jitter_ms),
+            "seed": config.seed,
+            "chunk_bytes": config.chunk_bytes,
+            "max_buffer_bytes": config.max_buffer_bytes,
+            "disconnect_after_bytes": config.disconnect_after_bytes,
+            "disconnect_after_seconds": config.disconnect_after_seconds,
+            "connect_timeout_seconds": float(config.connect_timeout_seconds),
+        },
+        traffic={
+            "coordinator_to_worker_bytes": traffic.get("coordinator_to_worker", 0),
+            "worker_to_coordinator_bytes": traffic.get("worker_to_coordinator", 0),
+            "total_forwarded_bytes": total,
+        },
+        termination={
+            "reason": reason,
+            "error_type": error_type,
+            "message": error_message,
+        },
+    )
+
+
+def _persist_metrics(metrics: RelayMetrics, metrics_path: Path | None) -> None:
+    if metrics_path is None:
+        return
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        json.dumps(metrics.to_dict(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def run_relay_once(
     config: RelayConfig,
     *,
@@ -255,11 +341,11 @@ def run_relay_once(
     """Relay one TCP connection and return content-free traffic metrics."""
     started_wall = datetime.now(timezone.utc)
     started_mono = time.monotonic()
-    reason = "eof"
-    error_type = None
-    error_message = None
     coordinator: socket.socket | None = None
     worker: socket.socket | None = None
+    connected_wall: datetime | None = None
+    connected_mono: float | None = None
+    traffic = {"coordinator_to_worker": 0, "worker_to_coordinator": 0}
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -271,15 +357,32 @@ def run_relay_once(
         coordinator, _ = listener.accept()
 
     try:
-        worker = socket.create_connection(
-            (config.target.host, config.target.port),
-            timeout=float(config.connect_timeout_seconds),
-        )
+        try:
+            worker = socket.create_connection(
+                (config.target.host, config.target.port),
+                timeout=float(config.connect_timeout_seconds),
+            )
+        except OSError as exc:
+            metrics = _build_metrics(
+                config,
+                actual_endpoint=actual_endpoint,
+                started_wall=started_wall,
+                started_mono=started_mono,
+                connected_wall=None,
+                connected_mono=None,
+                traffic=traffic,
+                reason="connect_error",
+                error_type=type(exc).__name__[:128],
+                error_message=_safe_error_message(exc),
+            )
+            _persist_metrics(metrics, metrics_path)
+            return metrics
+
         worker.settimeout(None)
         coordinator.settimeout(None)
+        connected_wall = datetime.now(timezone.utc)
         connected_mono = time.monotonic()
-        sockets = (coordinator, worker)
-        controller = _Controller(sockets, config.disconnect_after_bytes)
+        controller = _Controller((coordinator, worker), config.disconnect_after_bytes)
         queue_slots = max(1, config.max_buffer_bytes // config.chunk_bytes)
         forward: queue.Queue = queue.Queue(maxsize=queue_slots)
         reverse: queue.Queue = queue.Queue(maxsize=queue_slots)
@@ -328,17 +431,26 @@ def run_relay_once(
             controller.stop("eof")
         for thread in threads:
             thread.join(timeout=2.0)
+
         with controller.lock:
             reason = controller.reason or "eof"
             error_type = controller.error_type
             error_message = controller.error_message
             traffic = dict(controller.bytes_by_direction)
-    except Exception as exc:
-        reason = "error"
-        error_type = type(exc).__name__[:128]
-        error_message = (str(exc) or type(exc).__name__)[:1024]
-        traffic = {"coordinator_to_worker": 0, "worker_to_coordinator": 0}
-        raise
+        metrics = _build_metrics(
+            config,
+            actual_endpoint=actual_endpoint,
+            started_wall=started_wall,
+            started_mono=started_mono,
+            connected_wall=connected_wall,
+            connected_mono=connected_mono,
+            traffic=traffic,
+            reason=reason,
+            error_type=error_type,
+            error_message=error_message,
+        )
+        _persist_metrics(metrics, metrics_path)
+        return metrics
     finally:
         for sock in (coordinator, worker):
             if sock is not None:
@@ -346,43 +458,6 @@ def run_relay_once(
                     sock.close()
                 except OSError:
                     pass
-        ended_wall = datetime.now(timezone.utc)
-        elapsed_ms = (time.monotonic() - started_mono) * 1000.0
-        total = traffic.get("coordinator_to_worker", 0) + traffic.get("worker_to_coordinator", 0)
-        metrics = RelayMetrics(
-            schema_version=1,
-            started_at=started_wall.isoformat().replace("+00:00", "Z"),
-            ended_at=ended_wall.isoformat().replace("+00:00", "Z"),
-            listen=actual_endpoint.text(),
-            target=config.target.text(),
-            elapsed_ms=elapsed_ms,
-            configured={
-                "one_way_delay_ms": float(config.one_way_delay_ms),
-                "jitter_ms": float(config.jitter_ms),
-                "seed": config.seed,
-                "chunk_bytes": config.chunk_bytes,
-                "max_buffer_bytes": config.max_buffer_bytes,
-                "disconnect_after_bytes": config.disconnect_after_bytes,
-                "disconnect_after_seconds": config.disconnect_after_seconds,
-            },
-            traffic={
-                "coordinator_to_worker_bytes": traffic.get("coordinator_to_worker", 0),
-                "worker_to_coordinator_bytes": traffic.get("worker_to_coordinator", 0),
-                "total_forwarded_bytes": total,
-            },
-            termination={
-                "reason": reason,
-                "error_type": error_type,
-                "message": error_message,
-            },
-        )
-        if metrics_path is not None:
-            metrics_path.parent.mkdir(parents=True, exist_ok=True)
-            metrics_path.write_text(
-                json.dumps(metrics.to_dict(), indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-    return metrics
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -420,7 +495,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        print(f"relay failed: {type(exc).__name__}: {exc}", flush=True)
+        print(f"relay failed: {type(exc).__name__}", flush=True)
         return 2
     print(json.dumps(metrics.to_dict(), sort_keys=True))
     return 0 if metrics.termination["reason"] == "eof" else 3
