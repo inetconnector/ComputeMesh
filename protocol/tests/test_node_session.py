@@ -11,6 +11,7 @@ from protocol.node_session import (
     NodeSession,
     NodeSessionState,
     ProfileMismatch,
+    ProtocolVersionMismatch,
     SessionTransitionError,
 )
 
@@ -202,6 +203,47 @@ class NodeSessionTests(unittest.TestCase):
     def test_invalid_hello_is_bounded(self):
         with self.assertRaises(ValueError):
             NodeHelloInfo("v", "p", (), frozenset())
+
+    def test_protocol_major_mismatch_does_not_advance(self):
+        session = self.session()
+        bad = NodeHelloInfo(
+            agent_version="0.0.1",
+            platform="linux-amd64",
+            supported_auth_methods=("test-proof",),
+            capabilities=frozenset(),
+            protocol_major=1,
+            protocol_minor=0,
+        )
+        with self.assertRaises(ProtocolVersionMismatch):
+            session.receive_hello(bad)
+        self.assertEqual(session.state, NodeSessionState.CONNECTED)
+        self.assertEqual(session.revision, 0)
+
+    def test_protocol_minor_negotiates_to_local_current(self):
+        session = self.session()
+        hello = NodeHelloInfo(
+            agent_version="0.0.1",
+            platform="linux-amd64",
+            supported_auth_methods=("test-proof",),
+            capabilities=frozenset(),
+            protocol_major=0,
+            protocol_minor=99,
+        )
+        result = session.receive_hello(hello)
+        self.assertEqual(result.protocol_major, 0)
+        self.assertEqual(result.protocol_minor, 2)
+
+    def test_actor_binding_failure_does_not_advance_authentication(self):
+        session = self.session()
+        session.receive_hello(self.hello)
+        with self.assertRaises(AuthenticationFailed):
+            session.authenticate(
+                AuthenticationAttempt("test-proof", "credential"),
+                self.verifier(),
+                actor_id="node-other",
+                now=self.now,
+            )
+        self.assertEqual(session.state, NodeSessionState.HELLO_RECEIVED)
 
 
 if __name__ == "__main__":
