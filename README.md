@@ -33,11 +33,12 @@ Implemented foundations now include:
 - protocol negotiation, authenticated actor binding, optimistic session revisions, replay/conflict handling, capability/profile/benchmark readiness gates;
 - the M1 reference identity path `computemesh-ed25519-v1` with short-lived challenge proofs;
 - a SQLite reference identity registry with hashed enrollment tokens, stable node IDs independent of keys, rotation, and monotonic key/node revocation;
-- a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment.
+- a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
+- a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments.
 
 ## Controlled llama.cpp M1 experiment
 
-`runtime/llama/rpc_spike.py` is now the first executable shared-runtime experiment controller. It does **not** make upstream llama.cpp RPC a ComputeMesh protocol.
+`runtime/llama/rpc_spike.py` is the first executable shared-runtime experiment controller. It does **not** make upstream llama.cpp RPC a ComputeMesh protocol.
 
 The harness can:
 
@@ -52,6 +53,21 @@ The first experiment deliberately forces the coordinator HTTP server to `127.0.0
 
 **ADR 0002 remains Proposed.** The harness is infrastructure for the proof; no real shared two-node inference result has been produced yet.
 
+## Runtime network measurement relay
+
+`runtime/network/tcp_relay.py` can sit locally between the llama coordinator and a trusted-private-LAN RPC worker. It:
+
+- listens only on `127.0.0.1`;
+- connects only to literal loopback/RFC1918 IPv4 targets;
+- uses bounded queues/backpressure;
+- counts opaque TCP-stream bytes separately in both directions;
+- separates setup/wait time from active connected relay time;
+- can add reproducible userspace one-way delay and chunk jitter;
+- can force a disconnect after active time or forwarded bytes;
+- persists content-free termination/failure metrics.
+
+The relay does not parse RPC frames, so its byte totals include framing/control/data and are **not** activation-tensor byte counts. It also does not simulate packet loss: dropping arbitrary bytes from TCP would corrupt the stream rather than model IP loss/retransmission. Packet-level loss/reordering remains a separate OS/network-emulation experiment. See [runtime/network/README.md](runtime/network/README.md).
+
 ## Verified real-target evidence
 
 Existing physical-target evidence from 2026-08-21 includes:
@@ -62,7 +78,7 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference.
+The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The new RPC measurement relay has cross-platform software tests, but no real two-machine relay result yet.
 
 ## Identity decision and security boundary
 
@@ -70,13 +86,13 @@ ADR 0005 is accepted **only for the narrow M1 reference implementation**: stable
 
 That does not make the identity system production-ready. Missing before public network exposure include provider/user authentication around identity APIs, OS-protected node private-key storage, active-session revocation fan-out, authenticated/encrypted transport, authorization/rate/resource limits, and production service/database operation. A copied private key is still cryptographically the same identity; signatures do not prove one physical machine.
 
-The upstream llama.cpp RPC worker is even more restricted: it is **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket. Never expose it to the public internet or an untrusted network.
+The upstream llama.cpp RPC worker is even more restricted: it is **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket. The loopback measurement relay does not change that security boundary. Never expose the RPC worker to the public internet or an untrusted network.
 
 `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
 ## Not implemented yet
 
-There is still no production provider-node installer/service, no completed distributed shared-inference result, no automatic M1 scheduler/placement planner, no production Gateway/API, no production identity network service, no complete artifact/runtime/failure wire path, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
+There is still no production provider-node installer/service, no completed distributed shared-inference result, no automatic M1 scheduler/placement planner, no production Gateway/API, no production identity network service, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
 
 ## Immediate path
 
@@ -91,7 +107,9 @@ explicit local + RPC layer split
         ↓
 correctness + timing comparison
         ↓
-activation/transfer + latency/jitter/loss measurement
+opaque RPC byte accounting + delay/jitter/disconnect experiments
+        ↓
+packet-level loss/reordering experiment where useful
         ↓
 first reproducible shared two-node inference
         ↓
@@ -109,6 +127,7 @@ ComputeMesh/
 ├─ services/identity/     # M1 reference enrollment/key registry
 ├─ protocol/              # contracts, session wire binding, Ed25519 verifier
 ├─ runtime/llama/         # controlled llama.cpp M1 research spike
+├─ runtime/network/       # bounded M1 TCP measurement relay
 ├─ docs/                  # specifications and ADRs
 └─ state.md               # canonical engineering handoff
 ```
