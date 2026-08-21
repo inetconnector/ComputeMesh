@@ -17,13 +17,22 @@ Core/control:
 - `reservation.schema.json`
 - `job.schema.json`
 
-Initial message payloads:
+Initial durable orchestration message payloads:
 
 - `reserve_capacity_payload.schema.json`
 - `commit_reservation_payload.schema.json`
 - `cancel_job_payload.schema.json`
 
-These payload contracts intentionally cover only `ReserveCapacity`, `CommitReservation`, and `CancelJob`, because those operations are already specified in `PROTOCOL.md`. Other protocol operations receive their own contracts only when implemented.
+Initial node-session payloads:
+
+- `node_hello_payload.schema.json`
+- `node_authenticate_payload.schema.json`
+- `capability_negotiation_payload.schema.json`
+- `drain_request_payload.schema.json`
+
+`NodeProfileUpdate` intentionally reuses the complete `node_profile.schema.json` document rather than defining a second profile shape. `BenchmarkReport` likewise reuses `benchmark_result.schema.json`. `protocol/session_contracts.py` maps those six documented session message types to their contracts.
+
+The durable orchestration contracts remain separate from the node-session contracts so extending readiness/session semantics cannot silently enlarge the set of operations handled by `services/orchestrator/handlers.py`.
 
 ## Rules
 
@@ -36,6 +45,6 @@ These payload contracts intentionally cover only `ReserveCapacity`, `CommitReser
 - adding a field that changes security, billing, privacy, or compatibility semantics requires the matching documentation/ADR update;
 - these schemas may change before protocol v1 freeze.
 
-The benchmark harness produces node-profile/benchmark-result documents compatible with these contracts. The protocol package validates the common control envelope and the initial message-specific payloads. The orchestrator handlers then bind validated requests to durable state effects.
+The benchmark harness produces node-profile/benchmark-result documents compatible with these contracts. The protocol package validates the common control envelope, the initial durable-message payloads, and the initial node-session payload family. The orchestrator handlers bind only their documented durable requests to SQLite effects; `NodeSessionWireHandler` separately binds the readiness/session family to the in-memory semantic session.
 
-Authentication, authorization, capability negotiation, and the remaining message families are still separate future responsibilities.
+Authentication **mechanism**, enrollment, authorization beyond authenticated actor binding, transport security, and the remaining runtime/artifact/heartbeat message families are still future responsibilities. ADR 0005 remains Proposed.
