@@ -85,6 +85,14 @@ class LinuxSetupTests(unittest.TestCase):
         self.assertIn("trap cleanup_firewall EXIT INT TERM", text)
         self.assertIn("is_private_ipv4", text)
 
+    def test_download_llama_does_not_reference_runtime_before_assignment(self):
+        text = LINUX.read_text(encoding="utf-8")
+        self.assertIn('local runtime="$REPO_ROOT/artifacts/lab/runtime/llama.cpp"', text)
+        self.assertIn('local tmp="$runtime/release.json"', text)
+        self.assertNotIn('local runtime="$REPO_ROOT/artifacts/lab/runtime/llama.cpp" tmp="$runtime/release.json"', text)
+        self.assertIn('"$wrapper" --help', text)
+        self.assertNotIn('"$wrapper" --version', text)
+
     def test_direct_launchers_route_to_expected_modes(self):
         expected = {
             "NODE.sh": "node",

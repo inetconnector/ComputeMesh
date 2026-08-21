@@ -83,7 +83,7 @@ Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`
 - prefers ROCm when `rocminfo` is present, otherwise Vulkan when Vulkan/NVIDIA/DRI evidence is present, otherwise CPU;
 - supports official Ubuntu x64/arm64 CPU/Vulkan assets and x64 ROCm assets selected dynamically from release metadata;
 - verifies a GitHub `sha256:` asset digest when available;
-- wraps the downloaded executable with local `LD_LIBRARY_PATH` handling and accepts it only if `llama-bench --version` succeeds;
+- wraps the downloaded executable with local `LD_LIBRARY_PATH` handling and accepts it only if `llama-bench --help` starts successfully;
 - uses `zenity` for GGUF selection when available on a desktop, otherwise asks for a path with shell completion.
 
 Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.

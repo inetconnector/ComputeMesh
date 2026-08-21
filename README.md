@@ -66,7 +66,7 @@ The setup can use an existing `llama-bench` or download an official upstream bui
 
 - Windows selects the official Windows build appropriate to the current setup path.
 - Linux dynamically selects an official Ubuntu CPU, Vulkan, or ROCm build for supported x64/arm64 cases and verifies a GitHub-provided SHA-256 asset digest when available.
-- The Linux download is executed with a local wrapper for bundled libraries and is accepted only if `llama-bench --version` succeeds on that machine.
+- The Linux download is executed with a local wrapper for bundled libraries and is accepted only if `llama-bench --help` starts successfully on that machine.
 - On Linux desktops, `zenity` is used for the GGUF picker when available; otherwise the terminal asks for the path with shell completion.
 
 Official Linux release assets currently include Ubuntu CPU, Vulkan, ROCm, OpenVINO, and SYCL variants. Automatic setup intentionally uses only the small CPU/Vulkan/ROCm decision surface needed for the M0 benchmark workflow.

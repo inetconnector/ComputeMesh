@@ -83,7 +83,7 @@ Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`,
 - ROCm bevorzugen, wenn `rocminfo` vorhanden ist, sonst Vulkan bei Vulkan-/NVIDIA-/DRI-Nachweis, sonst CPU;
 - offizielle Ubuntu-x64-/arm64-CPU-/Vulkan-Assets und x64-ROCm-Assets dynamisch auswählen;
 - einen von GitHub gelieferten `sha256:`-Digest prüfen, sofern vorhanden;
-- die heruntergeladene Binary mit lokalem `LD_LIBRARY_PATH`-Wrapper starten und nur akzeptieren, wenn `llama-bench --version` funktioniert;
+- die heruntergeladene Binary mit lokalem `LD_LIBRARY_PATH`-Wrapper starten und nur akzeptieren, wenn `llama-bench --help` erfolgreich startet;
 - auf Desktops `zenity` zur GGUF-Auswahl verwenden, wenn vorhanden, sonst den Pfad im Terminal mit Shell-Vervollständigung abfragen.
 
 Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.

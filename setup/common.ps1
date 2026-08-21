@@ -63,14 +63,17 @@ function Ensure-Python {
     Write-Host (T 'Preparing')
     $args = @($candidate.Prefix) + @('-m','venv',$script:VenvDir)
     & $candidate.Exe @args
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $script:VenvPython)) { throw 'Unable to create .venv' }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $script:VenvPython)) {
+        if ((Test-Path $script:VenvPython) -and (Test-Python $script:VenvPython)) { return $script:VenvPython }
+        throw 'Unable to create .venv'
+    }
     return $script:VenvPython
 }
-function Invoke-Lab([string[]]$Args) {
+function Invoke-Lab([string[]]$CommandArgs) {
     $python = Ensure-Python
     Push-Location $RepoRoot
     try {
-        $lines = & $python $script:LabHelper @Args
+        $lines = & $python $script:LabHelper @CommandArgs
         if ($LASTEXITCODE -ne 0) { throw "Lab helper failed ($LASTEXITCODE)" }
         if ($lines) { $lines | ForEach-Object { Write-Host $_ } }
         return $lines

@@ -31,6 +31,17 @@ class WindowsScriptTests(unittest.TestCase):
         self.assertIn('Get-Culture', text)
         self.assertIn("'.venv'", text)
         self.assertIn('Python.Python.3.13', text)
+        self.assertIn('(Test-Path $script:VenvPython) -and (Test-Python $script:VenvPython)', text)
+        self.assertIn('function Invoke-Lab([string[]]$CommandArgs)', text)
+        self.assertIn('$script:LabHelper @CommandArgs', text)
+        self.assertNotIn('$script:LabHelper @Args', text)
+
+    def test_setup_preserves_requested_mode_across_dot_sourcing(self):
+        text = self.read('setup.ps1')
+        self.assertIn('$RequestedMode = $Mode', text)
+        self.assertIn('$RequestedLanguage = $Language', text)
+        self.assertIn('Initialize-Setup -RequestedLanguage $RequestedLanguage -RequestedMode $RequestedMode', text)
+        self.assertIn('switch ($RequestedMode)', text)
 
     def test_uac_restarts_setup_entrypoint_not_module(self):
         common = self.read('common.ps1')

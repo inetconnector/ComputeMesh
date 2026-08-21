@@ -299,7 +299,8 @@ PY
 download_llama() {
   ensure_tool curl; ensure_tool tar
   local py; py="$(ensure_python)"
-  local runtime="$REPO_ROOT/artifacts/lab/runtime/llama.cpp" tmp="$runtime/release.json" backend=cpu arch asset tag name url digest dest archive bench wrapper
+  local runtime="$REPO_ROOT/artifacts/lab/runtime/llama.cpp"
+  local tmp="$runtime/release.json" backend=cpu arch asset tag name url digest dest archive bench wrapper
   mkdir -p "$runtime"
   echo "$(text ubuntu_note)"; echo "$(text download)"
   curl -fsSL --retry 3 --connect-timeout 15 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest' -o "$tmp"
@@ -325,7 +326,7 @@ download_llama() {
     echo '#!/usr/bin/env bash'; echo 'set -Eeuo pipefail'; printf 'BENCH=%q\n' "$bench"; printf 'BASE=%q\n' "$dest";
     echo 'export LD_LIBRARY_PATH="$(dirname "$BENCH"):$BASE:$BASE/lib:$BASE/build/bin:${LD_LIBRARY_PATH:-}"'; echo 'exec "$BENCH" "$@"'
   } > "$wrapper"; chmod +x "$wrapper"
-  if ! "$wrapper" --version >/dev/null 2>&1; then echo 'Downloaded llama-bench could not run on this distribution. Choose an existing compatible build.' >&2; return 1; fi
+  if ! "$wrapper" --help >/dev/null 2>&1; then echo 'Downloaded llama-bench could not run on this distribution. Choose an existing compatible build.' >&2; return 1; fi
   printf '%s\n' "$wrapper"
 }
 

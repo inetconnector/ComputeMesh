@@ -66,7 +66,7 @@ Das Setup kann ein vorhandenes `llama-bench` verwenden oder einen offiziellen Up
 
 - Windows verwendet den passenden offiziellen Windows-Pfad des bestehenden Setups.
 - Linux wählt dynamisch einen offiziellen Ubuntu-CPU-, Vulkan- oder ROCm-Build für unterstützte x64-/arm64-Fälle und prüft einen von GitHub gelieferten SHA-256-Digest, sofern vorhanden.
-- Unter Linux wird die heruntergeladene Binary über einen lokalen Library-Wrapper gestartet und nur akzeptiert, wenn `llama-bench --version` auf genau diesem Rechner funktioniert.
+- Unter Linux wird die heruntergeladene Binary über einen lokalen Library-Wrapper gestartet und nur akzeptiert, wenn `llama-bench --help` auf genau diesem Rechner erfolgreich startet.
 - Auf Linux-Desktops wird `zenity` als GGUF-Dateiauswahl verwendet, wenn vorhanden; sonst wird der Pfad im Terminal mit Shell-Vervollständigung abgefragt.
 
 Die offiziellen Linux-Releases enthalten derzeit unter anderem Ubuntu-Builds für CPU, Vulkan, ROCm, OpenVINO und SYCL. Das automatische M0-Setup beschränkt sich bewusst auf CPU/Vulkan/ROCm.

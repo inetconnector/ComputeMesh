@@ -6,13 +6,15 @@ param(
     [string]$Language='auto'
 )
 $ErrorActionPreference='Stop'
+$RequestedMode = $Mode
+$RequestedLanguage = $Language
 $RepoRoot=Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'common.ps1')
 . (Join-Path $PSScriptRoot 'network.ps1')
 . (Join-Path $PSScriptRoot 'llama.ps1')
-Initialize-Setup -RequestedLanguage $Language -RequestedMode $Mode
+Initialize-Setup -RequestedLanguage $RequestedLanguage -RequestedMode $RequestedMode
 try {
-    switch ($Mode) {
+    switch ($RequestedMode) {
         'menu' { Show-SetupMenu }
         'node' { Invoke-NodeSetup }
         'network-server' { Invoke-NetworkServer }
