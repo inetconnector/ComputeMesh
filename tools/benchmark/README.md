@@ -35,18 +35,35 @@ Records OS/architecture, Python, CPU/logical cores, physical memory, NVIDIA GPU 
 Manual server on a trusted LAN:
 
 ```bash
-python tools/benchmark/network_benchmark.py server --bind <PRIVATE-LAN-IP> --port 43191 --once
+python tools/benchmark/network_benchmark.py server \
+  --bind <PRIVATE-LAN-IP> \
+  --port 43191 \
+  --node-id lab-node-b \
+  --once
 ```
 
 Manual client:
 
 ```bash
-python tools/benchmark/network_benchmark.py client --host <SERVER-LAN-IP> --port 43191 --profile-revision 1
+python tools/benchmark/network_benchmark.py client \
+  --host <SERVER-LAN-IP> \
+  --port 43191 \
+  --profile-revision 1 \
+  --local-node-id lab-node-a \
+  --expected-peer-node-id lab-node-b
 ```
+
+`--expected-peer-node-id` is optional. When the server supplies `--node-id`, a newer client queries it before measurement and records:
+
+- `conditions.local_node_id` for the client Lab Setup identity when supplied;
+- `conditions.peer_node_id` for the server-reported Lab Setup identity;
+- `conditions.peer_identity_binding = unauthenticated_server_report_v1`.
+
+The peer report is deliberately bounded and content-free. It improves experiment traceability but is **not authenticated identity**. A legacy server that does not implement the identity query remains measurable when `--expected-peer-node-id` is omitted.
 
 The client measures TCP connection setup, small-frame RTT p50/p95, upload/download throughput p50, and raw samples. Results conform to `benchmark_result.schema.json`.
 
-**Security:** this benchmark protocol has no authentication or encryption. Do not expose it to the public internet. Windows Setup uses a temporary `Private`/`LocalSubnet` rule; Linux Setup uses a detected RFC1918 bind and temporary `firewalld`/`ufw` rule when that supported firewall frontend is active. Manual runs must provide equivalent protection themselves.
+**Security:** this benchmark protocol has no authentication or encryption. Do not expose it to the public internet. Windows Setup uses a temporary `Private`/`LocalSubnet` rule; Linux Setup uses a detected RFC1918 bind and temporary `firewalld`/`ufw` rule when that supported firewall frontend is active. Manual runs must provide equivalent protection themselves. The optional lab-node ID exchange does not change this boundary.
 
 ## llama.cpp prefill/decode adapter
 
@@ -73,10 +90,6 @@ The converted metrics keep the model file name but not its full local filesystem
 Windows: `setup\TESTS.cmd`  
 Linux: `./setup/TESTS.sh`
 
-Current benchmark unit evidence remains:
+Benchmark coverage includes inventory, legacy and identity-capable TCP loopback paths, peer mismatch handling, bounded node IDs, result-schema validation, and llama-bench JSON/JSONL conversion. Exact current test counts are recorded in `state.md` after cross-platform validation.
 
-- inventory: 3/3;
-- TCP benchmark: 4/4, including loopback + result-schema validation;
-- llama-bench adapter: 6/6, including JSON/JSONL conversion + result-schema validation.
-
-Linux launcher/integration tests live under `setup/tests/`. Real cross-node and target-model/GPU performance evidence is still pending.
+Linux launcher/integration tests live under `setup/tests/`. Real cross-node shared-runtime performance evidence is still pending.
