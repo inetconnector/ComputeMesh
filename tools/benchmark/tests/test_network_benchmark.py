@@ -113,6 +113,20 @@ class NetworkBenchmarkTests(unittest.TestCase):
         thread.join(timeout=2)
         self.assertFalse(thread.is_alive())
 
+    def test_malformed_identity_query_closes_connection_after_error(self):
+        port, thread = start_server(node_id="lab-worker01")
+        sock = socket.create_connection(("127.0.0.1", port), timeout=2)
+        try:
+            nb.send_header(sock, b"I", 4)
+            sock.sendall(b"JUNK")
+            op, size = nb.recv_header(sock)
+            self.assertEqual((op, size), (b"E", 0))
+            self.assertEqual(sock.recv(1), b"")
+        finally:
+            sock.close()
+        thread.join(timeout=2)
+        self.assertFalse(thread.is_alive())
+
     def test_node_id_validation_is_bounded(self):
         self.assertEqual(nb._node_id(" lab-a ", "node"), "lab-a")
         with self.assertRaises(ValueError):
