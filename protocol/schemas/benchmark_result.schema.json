@@ -15,6 +15,10 @@
       "type": "object",
       "additionalProperties": true,
       "required": ["warm_state"],
+      "dependentRequired": {
+        "peer_node_id": ["peer_identity_binding"],
+        "peer_identity_binding": ["peer_node_id"]
+      },
       "properties": {
         "warm_state": {"enum": ["cold", "warm", "not_applicable"]},
         "notes": {"type": "string", "maxLength": 4096},
