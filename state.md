@@ -1,7 +1,7 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-21  
-**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, and a deterministic two-node experiment placement planner; real shared inference is not yet evidenced  
+**Last updated:** 2026-08-22  
+**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, deterministic two-node feasibility planning, and stronger experiment evidence binding; real shared inference is not yet evidenced  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -26,19 +26,54 @@ This file records current engineering facts, evidence boundaries, and next actio
 - M1 reference node identity landed through `d45406f`
 - controlled llama.cpp RPC M1 spike harness landed through `3db6ef9`
 - bounded TCP measurement relay landed through `206248a`
-- deterministic M1 two-node feasibility planner: current PR #5 changeset; final branch state validated cross-platform before merge
+- deterministic M1 two-node feasibility planner landed through `6177218`
+- M1 network-peer/model-layer evidence binding introduced through PR #6; cross-platform software validation passed before merge
 
 ## What exists
 
 ### Lab and measurements
 
-- synchronized Windows/Linux lab setup;
-- machine-readable node inventory;
+- synchronized Windows/Linux Lab Setup;
+- stable random non-hostname Lab node IDs;
+- machine-readable node inventory and versioned local profile revisions;
 - TCP RTT/throughput benchmark;
 - llama.cpp `llama-bench` prefill/decode adapter;
-- stable random non-hostname lab node IDs;
-- versioned local profile revisions and ignored `artifacts/lab/` evidence paths;
+- ignored local evidence under `artifacts/lab/`;
 - user-facing `tests` action runs benchmark, orchestrator, protocol, identity, scheduler, llama-runtime, network-runtime, and setup suites.
+
+### Network benchmark evidence binding
+
+The TCP benchmark remains a controlled trusted-private-LAN engineering tool with **no application authentication or encryption**.
+
+Current servers may receive their existing Lab Setup node ID via `--node-id`. On the same benchmark connection a current client can issue the bounded identity query and receive that self-reported Lab ID before measurement.
+
+New network benchmark records can therefore contain:
+
+- `conditions.local_node_id` — the client Lab Setup ID;
+- `conditions.peer_node_id` — the server's self-reported Lab Setup ID;
+- `conditions.peer_identity_binding = unauthenticated_server_report_v1`.
+
+Properties/limits:
+
+- IDs are bounded to 1..128 printable characters and at most 512 UTF-8 bytes in the benchmark implementation;
+- `peer_node_id` and `peer_identity_binding` are schema-paired;
+- `--expected-peer-node-id` can make the client fail closed when the current server reports a different ID or no ID;
+- legacy benchmark servers remain usable if an expected peer is not required;
+- Lab Setup automatically passes its own random Lab ID into both server and client benchmark roles.
+
+**Evidence boundary:** `unauthenticated_server_report_v1` is traceability/bookkeeping only. The server can self-report any Lab ID because this benchmark socket is unauthenticated. This is not the ADR-0005 Ed25519/session identity proof and must not be used as a production trust decision.
+
+### Model manifest evidence binding
+
+`model_manifest.schema.json` now accepts optional:
+
+```json
+"layer_count": 32
+```
+
+The field remains optional so older manifests remain schema-compatible. The M1 planner prefers a manifest `layer_count` and records `layer_count_source = model_manifest_v1`. If a caller also supplies a layer count it must match exactly.
+
+For a legacy manifest without `layer_count`, an explicit caller layer count remains supported and is recorded as `caller_asserted_v1`. If neither source exists the planner rejects the input rather than guessing.
 
 ### Durable control/orchestration foundation
 
@@ -50,7 +85,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - strict common `ControlEnvelope` parsing and structured errors;
 - durable handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`.
 
-### Node session and initial wire binding
+### Node session and M1 reference identity
 
 Implemented readiness sequence:
 
@@ -76,11 +111,7 @@ Current strict session wire subset:
 
 Properties include mandatory injected authentication, protocol-version negotiation, authenticated actor binding, optimistic session revisions, exact replay/semantic request-ID conflict detection, capability intersection, profile/revision binding, benchmark readiness policy, and external termination for revocation/incident signals.
 
-### M1 reference node identity
-
-ADR 0005 is accepted for the **narrow M1 reference implementation**, not as production identity readiness.
-
-Authentication method: `computemesh-ed25519-v1`.
+ADR 0005 is accepted for the **narrow M1 reference implementation**, not as production identity readiness. Authentication method: `computemesh-ed25519-v1`.
 
 The Ed25519 challenge proof binds session ID, per-session challenge, stable node ID, key ID, negotiated protocol version, proof issue/expiry time, and canonical accepted `NodeHello` semantics.
 
@@ -116,51 +147,49 @@ The relay does not parse llama.cpp RPC framing. Byte totals include RPC control/
 
 ### Deterministic M1 two-node placement planner
 
-`services/scheduler/placement.py` now provides the first machine-readable placement component for the exact two-node llama.cpp experiment. It is a **feasibility planner**, not a production scheduler or performance oracle.
+`services/scheduler/placement.py` is an experiment **feasibility planner**, not a production scheduler or performance oracle.
 
-Inputs are existing contract-valid evidence:
+Inputs are contract-valid coordinator/worker profiles, model manifest/artifact, four llama-bench records, and coordinator→worker TCP path evidence.
 
-- coordinator and worker node profiles;
-- model manifest + selected artifact;
-- coordinator llama prefill/decode benchmarks;
-- worker llama prefill/decode benchmarks;
-- coordinator → worker TCP network benchmark;
-- explicit worker node ID assertion for that network record;
-- explicit model layer count.
+Evidence resolution now prefers embedded facts:
 
-Validation/binding behavior:
+- if `model_manifest.layer_count` exists, it is authoritative for the decision and recorded as `model_manifest_v1`;
+- if network conditions contain `local_node_id`, it must equal the coordinator profile node ID;
+- if network conditions contain `peer_node_id`, it must equal the worker profile node ID and its `peer_identity_binding` is propagated into the decision;
+- an additionally supplied caller peer/layer value may not conflict with embedded evidence;
+- older network records/manifests remain usable only through explicit `caller_asserted_v1` fallbacks;
+- missing required legacy fallback evidence is rejected rather than inferred.
 
-- validates node-profile, model-manifest, benchmark-result and placement-result schemas;
-- coordinator and worker must have different node IDs;
-- llama benchmark types and profile revisions must match the exact current node profiles;
-- all four llama benchmark records must carry one model basename and an exact `model_size_bytes` equal to the selected model-manifest artifact;
-- model manifest must allow `contiguous_layers`;
-- profiles older than policy or beyond bounded future clock skew are not usable;
+Other validation/binding behavior:
+
+- llama benchmark types/profile revisions must match the exact current node profiles;
+- all four llama benchmark records must carry one model basename and exact model size equal to the selected manifest artifact;
+- manifest must allow `contiguous_layers`;
+- stale/future-skewed profiles are rejected for candidates that need them;
 - a draining/stale coordinator blocks both local and shared candidates;
-- a draining/stale worker blocks shared placement but does not invalidate an otherwise feasible local coordinator baseline;
-- provider `max_memory_fraction` is combined with a conservative planner memory fraction;
-- largest reported GPU/accelerator memory is used where present, otherwise currently available system RAM is the CPU fallback.
+- a draining/stale worker blocks shared placement but not an otherwise feasible local coordinator baseline;
+- provider `max_memory_fraction` combines with a conservative planner memory fraction;
+- largest reported GPU/accelerator memory is selected where present, otherwise currently available system RAM is the CPU fallback.
 
 Conservative shared-memory model:
 
-- explicit layer count is required because `model_manifest` v1 does not yet encode it;
-- default 10% model-size fixed coordinator overhead is reserved;
-- remaining model bytes are spread uniformly over the explicit layer count for this first feasibility approximation;
+- default 10% model-size fixed coordinator overhead;
+- remaining bytes spread uniformly over the resolved layer count;
 - at least one layer must fit on each node;
-- emitted layer ranges are contiguous, non-overlapping and cover `[0, layer_count)`;
+- emitted ranges are contiguous/non-overlapping and cover `[0, layer_count)`;
 - layer counts become relative `tensor_split` experiment weights.
 
-This memory model is intentionally an approximation. Real GGUF tensor placement may differ; the actual llama.cpp run remains authoritative.
+This is a planning approximation; real GGUF tensor placement may differ and the actual llama.cpp run remains authoritative.
 
 Recommendation modes:
 
 - `shared_experiment` — memory-feasible candidate for the controlled experiment only;
-- `local_only` — shared candidate unavailable, local coordinator baseline feasible;
+- `local_only` — shared unavailable, local coordinator baseline feasible;
 - `no_plan` — neither candidate currently satisfies hard/memory constraints.
 
 Every decision sets `production_scheduling = false`.
 
-Performance evidence boundary is explicit. The decision records measured node prefill/decode rates and network RTT/throughput, but until a correct measured shared runtime exists it **must** emit:
+Until a correct measured shared runtime exists, the planner must emit:
 
 ```text
 performance_evidence.status = insufficient_shared_runtime_evidence
@@ -170,46 +199,28 @@ predicted_speedup_vs_local = null
 
 No formula converts independent node/network measurements into a fabricated shared speedup.
 
-`decision_id` is deterministic over model digest, layer count, node IDs/profile revisions, exact benchmark run IDs and planner policy.
-
-Known contract gaps remain visible:
-
-- `benchmark_result` v1 does not encode the target node ID for a network measurement, so `network_peer_node_id` is a required caller assertion and output labels it `caller_asserted_v1`;
-- `model_manifest` v1 does not encode transformer layer count, so layer count is an explicit experiment input.
+`decision_id` includes model digest, resolved layer count and source, node IDs/profile revisions, exact benchmark run IDs, network-peer binding source and planner policy.
 
 Result schema: `services/scheduler/placement_decision.schema.json`.
 
 ## Latest cross-platform validation
 
-A temporary branch-only GitHub workflow validated the **final current placement branch state** on both supported development platforms. The temporary workflow is removed before merge and is not intended to exist on `main`.
+Temporary branch-only GitHub validation run `32531949366` passed on both Windows and Ubuntu before merge. The workflow is temporary and is removed from the feature branch before `main` is advanced.
 
-**Windows Server 2025 / Python 3.11.9:**
+Current validated suite counts on each OS:
 
-- scheduler placement: **14/14**;
-- benchmark: **13/13**;
+- benchmark: **17/17**;
 - orchestrator: **34/34**;
-- protocol: **64/64**;
+- protocol: **66/66**;
 - identity/integration: **13/13**;
+- scheduler placement: **21/21**;
 - llama runtime spike: **12/12**;
 - network runtime relay: **10/10**;
-- setup: **20/20**.
+- setup: **21/21**.
 
-**Ubuntu 24.04 / Python 3.11.16:**
+The evidence-binding coverage includes legacy/current benchmark interoperability, bounded server-reported Lab IDs, expected-peer mismatch failure, paired benchmark identity fields, optional manifest layer count, embedded-vs-caller conflict rejection, coordinator/worker network-ID binding, deterministic placement identity and the explicit no-speedup-prediction boundary.
 
-- scheduler placement: **14/14**;
-- benchmark: **13/13**;
-- orchestrator: **34/34**;
-- protocol: **64/64**;
-- identity/integration: **13/13**;
-- llama runtime spike: **12/12**;
-- network runtime relay: **10/10**;
-- setup: **20/20**.
-
-Final branch-state workflow run `32530904884` completed successfully on both OS jobs.
-
-Scheduler negative/semantic coverage includes deterministic IDs, contiguous complete ranges, explicit no-speedup prediction, worker-drain local fallback, stale-coordinator no-plan behavior, small-worker fallback, no-memory plan, profile revision mismatch, model-size mismatch, network-peer mismatch, partition permission, CPU-memory fallback, output schema validation and bounded policy values.
-
-The scheduler tests use synthetic contract-valid evidence. They do **not** constitute real target placement/performance evidence.
+This is software/loopback/synthetic-evidence validation on both OS families. It is **not** real two-machine shared-runtime or placement-performance evidence.
 
 ## Real target-machine evidence from 2026-08-21
 
@@ -220,14 +231,15 @@ The scheduler tests use synthetic contract-valid evidence. They do **not** const
 - Windows CUDA llama.cpp with `qwen2.5-coder-7b-instruct-q4_k_m.gguf`: prefill 2866.127 tokens/s for 512 prompt tokens; decode 76.210 tokens/s for 128 generated tokens.
 - Linux CPU llama.cpp smoke with `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`: prefill 12.382 tokens/s for 128 prompt tokens; decode 0.201 tokens/s for 32 generated tokens.
 
-The public-internet TCP measurement is not a trusted private-LAN A↔B result and is not distributed shared inference. No real placement decision has yet been claimed from the synthetic scheduler tests.
+The public-internet TCP measurement predates the new peer-ID binding path, is not a trusted private-LAN A↔B result, and is not distributed shared inference. No real placement decision has yet been claimed from synthetic scheduler tests.
 
 ## What does not exist / remains a security or M1 blocker
 
-- trusted private-LAN A↔B assisted benchmark evidence;
+- fresh trusted-private-LAN A↔B benchmark evidence using the current embedded Lab-ID metadata;
 - a placement decision generated from a fresh complete real two-node evidence bundle;
 - an actual successful two-device local+RPC shared-inference artifact;
 - real llama.cpp-through-relay byte/timing results on the target machines;
+- authenticated identity on the benchmark or upstream llama.cpp RPC socket;
 - activation-tensor-specific transfer accounting;
 - real-runtime delay/jitter/disconnect sensitivity evidence;
 - packet-level loss/reordering evidence;
@@ -245,7 +257,7 @@ The public-internet TCP measurement is not a trusted private-LAN A↔B result an
 - production registry/verification/billing/telemetry/SDK/UI;
 - signed production release/update system.
 
-The current ComputeMesh identity/session layer does **not** authenticate the upstream llama.cpp RPC socket. The relay and planner do not change this. Upstream RPC remains trusted-private-lab-only and must not be treated as the provider-node API. `confidential_compute` remains invalid without a concrete TEE/attestation design.
+The current ComputeMesh identity/session layer does **not** authenticate the TCP benchmark or upstream llama.cpp RPC socket. The benchmark Lab-ID self-report, relay and planner do not change this. Upstream RPC and the benchmark remain trusted-private-lab-only. `confidential_compute` remains invalid without a concrete TEE/attestation design.
 
 ## ADR status
 
@@ -264,16 +276,17 @@ Still proposed:
 
 ## Next actions in order
 
-1. On two machines sharing a trusted private LAN, retain fresh A→B and B→A network evidence and fresh node profiles.
-2. Use the same GGUF/model manifest and llama-bench evidence on both nodes; generate the first real `services.scheduler.placement` decision and retain its explicit evidence gaps/constraints.
-3. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
-4. Run deterministic local `baseline` on the coordinator.
-5. Start a fresh local measurement relay and execute the planner-selected explicit local+RPC layer split through it.
-6. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
-7. Retain relay directional byte totals plus setup/active timing for that exact successful run.
-8. Repeat controlled runs with added stream delay/jitter and deliberate disconnects; retain correctness/performance/failure evidence. If packet loss/reordering is material, test it separately through controlled OS/network emulation.
-9. Accept, reject, or supersede ADR 0002 from measured evidence, then calibrate scheduler prediction/ranking from the correct shared result rather than invented coefficients.
-10. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward a reproducible correct two-node inference under ComputeMesh control.
+1. On two machines sharing a trusted private LAN, capture fresh node profiles and A→B/B→A network measurements with the current embedded local/peer Lab-ID metadata.
+2. Use the same GGUF and a model manifest carrying the correct `layer_count`; retain matching llama-bench evidence on both nodes.
+3. Generate the first real `services.scheduler.placement` decision without legacy caller peer/layer fallbacks and retain its hard constraints/candidate.
+4. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
+5. Run deterministic local `baseline` on the coordinator.
+6. Start a fresh local measurement relay and execute the planner-selected explicit local+RPC layer split through it.
+7. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
+8. Retain relay directional byte totals plus setup/active timing for that exact successful run.
+9. Repeat controlled runs with added stream delay/jitter and deliberate disconnects. If packet loss/reordering is material, test it separately through controlled OS/network emulation.
+10. Accept, reject, or supersede ADR 0002 from measured evidence, then calibrate scheduler prediction/ranking from the correct shared result rather than invented coefficients.
+11. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
 
 Before any public authenticated node service is introduced, separately complete node private-key storage, provider-authenticated identity APIs, active-session revocation fan-out, transport security, authorization and resource limits.
 
