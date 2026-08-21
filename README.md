@@ -2,8 +2,8 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Stage:** M0 — engineering/lab implementation.  
-> **Important:** ComputeMesh is **not yet a production distributed-inference product**. The Windows/Linux setup below prepares the lab and benchmark workflow that actually exists today; it is not a public provider-node installer.
+> **Stage:** M0 — engineering/lab implementation moving toward the first M1 runtime proof.  
+> **Important:** ComputeMesh is **not yet a production distributed-inference product**. The Windows/Linux setup below prepares the lab/benchmark workflow that actually exists today; it is not a public provider-node installer.
 
 ComputeMesh explores whether heterogeneous computers can cooperate as one model-aware AI inference fabric. The long-term goal is simple: choose a model and policy, while ComputeMesh handles feasibility, placement, preparation, execution, failures, verification, and auditable accounting.
 
@@ -69,11 +69,11 @@ The setup can use an existing `llama-bench` or download an official upstream bui
 - The Linux download is executed with a local wrapper for bundled libraries and is accepted only if `llama-bench --help` starts successfully on that machine.
 - On Linux desktops, `zenity` is used for the GGUF picker when available; otherwise the terminal asks for the path with shell completion.
 
-Official Linux release assets currently include Ubuntu CPU, Vulkan, ROCm, OpenVINO, and SYCL variants. Automatic setup intentionally uses only the small CPU/Vulkan/ROCm decision surface needed for the M0 benchmark workflow.
+Model weights are never downloaded automatically.
 
 ## Current implementation
 
-Implemented M0 foundations include:
+Implemented foundations include:
 
 - cross-platform Windows/Linux Lab Setup;
 - inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
@@ -84,13 +84,16 @@ Implemented M0 foundations include:
 - transport-neutral control-envelope validation and structured errors;
 - durable initial handlers for `ReserveCapacity`, `CommitReservation`, and `CancelJob`;
 - authentication-gated node-session semantics for `Hello -> Authenticate -> CapabilityNegotiation -> ProfileSync -> BenchmarkStatus -> READY -> DRAINING/CLOSED`;
-- a mandatory injected `AuthenticationVerifier` boundary with no permissive default;
-- strict initial node-session wire contracts and envelope-to-session binding for `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`;
-- session-level protocol-version negotiation, authenticated `actor_id` binding, optimistic session revisions, exact request replay, semantic request-ID conflict detection, and an injected benchmark-readiness policy with no accept-all default.
+- strict node-session wire contracts and envelope-to-session binding for `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`;
+- session protocol negotiation, authenticated actor binding, optimistic revisions, exact replay handling, semantic request-ID conflict detection, and an injected benchmark-readiness policy;
+- an M1 reference node-identity path using `computemesh-ed25519-v1` challenge signatures behind the mandatory `AuthenticationVerifier` boundary;
+- a SQLite reference identity registry with short-lived hashed enrollment tokens, stable random node IDs, public-key lookup, key rotation, and monotonic key/node revocation.
+
+The Ed25519 proof is bound to session ID, per-session challenge, stable node ID, key ID, protocol version, proof lifetime, and the accepted `NodeHello` semantics. The control plane stores public keys only; it never stores node private keys.
 
 ## Verified real-target evidence
 
-The lab flow has now been exercised on real Windows and Linux targets:
+The lab flow has been exercised on real Windows and Linux targets:
 
 - Windows target: RTX 3080 Laptop GPU, 16 GiB VRAM, 31.7 GiB RAM.
 - Linux target: Debian 13 server, 4 logical CPU cores, 7.8 GiB RAM, no GPU detected.
@@ -100,13 +103,31 @@ The lab flow has now been exercised on real Windows and Linux targets:
 
 The internet TCP test was intentionally run through the engineering CLI with a temporary source-limited firewall rule, not through the unauthenticated trusted-LAN UI. It is real target-machine evidence, but it is not a private-LAN A/B proof and not distributed shared inference.
 
+## Identity decision and security boundary
+
+ADR 0005 is now **accepted for the narrow M1 reference implementation**: stable node IDs plus Ed25519 challenge proofs, short-lived enrollment, key rotation, and revocation semantics.
+
+That does **not** mean the identity system is production-ready. Still missing before public network exposure are:
+
+- provider/user authentication around enrollment/rotation/revocation APIs;
+- OS-protected node private-key storage (for example the supported Windows and Linux node-agent paths);
+- active-session revocation fan-out;
+- authenticated/encrypted control transport;
+- rate/resource limits and abuse controls;
+- production service/database operations;
+- hardware attestation or Sybil resistance.
+
+A revoked node/key is rejected for new authentication. Existing authenticated sessions still require an external revocation signal to terminate them. A cloned private key remains cryptographically the same identity; signatures alone do not prove one physical machine.
+
+The trusted-LAN TCP benchmark still has no application authentication or encryption. Use its assisted server only on a trusted private LAN. `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
+
 ## Not implemented yet
 
-There is still no production provider-node application/installer, distributed shared-inference runtime, Gateway/API, scheduler, production credential/enrollment/revocation system, complete wire protocol, billing/verification/telemetry product stack, or signed release/update pipeline.
+There is still no production provider-node application/installer, distributed shared-inference runtime, Gateway/API, scheduler, production identity network service, complete wire protocol, billing/verification/telemetry product stack, or signed release/update pipeline.
 
-The new node-session wire binder is **not** production authentication and is **not** a network service. ADR 0005 (node identity) and ADR 0002 (M1 runtime baseline) remain **Proposed**, not accepted.
+ADR 0002 (M1 runtime baseline) remains **Proposed**. The next software gate is the narrow llama.cpp-oriented M1 runtime spike behind the ComputeMesh boundary.
 
-## Two-computer M0 path
+## Two-computer path
 
 ```text
 SETUP.cmd (Windows) or ./setup.sh (Linux) on both computers
@@ -117,9 +138,9 @@ measure LAN A → B and B → A
         ↓
 measure llama.cpp prefill/decode on each relevant machine
         ↓
-choose the concrete M1 two-node spike
+choose/validate the narrow M1 runtime baseline
         ↓
-activation transport benchmark
+activation/remote-stage transport experiment
         ↓
 first correct shared two-node inference
         ↓
@@ -127,12 +148,6 @@ scheduler calibration
 ```
 
 The two computers may be Windows, Linux, or one of each; the benchmark record format and the underlying Python helpers are shared.
-
-## Security boundary
-
-The TCP benchmark protocol has no application authentication or encryption. Use the assisted server only on a trusted private LAN. Neither launcher makes the experimental runtime safe for public-Internet exposure.
-
-The existing `AuthenticationVerifier` is a semantic interface, not a production credential system. The session wire binder only enforces ordering, version/revision, replay, and authenticated actor consistency around whatever verifier is injected. `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
 ## Repository map
 
@@ -143,7 +158,8 @@ ComputeMesh/
 ├─ setup/                 # shared helper + Windows/Linux launchers
 ├─ tools/benchmark/       # inventory, TCP network, llama-bench adapter
 ├─ services/orchestrator/ # durable M0 state + initial control handlers
-├─ protocol/              # contracts, envelope, session semantics/wire binding, tests
+├─ services/identity/     # M1 reference enrollment/key registry
+├─ protocol/              # contracts, session wire binding, Ed25519 verifier, tests
 ├─ apps/                  # planned product applications
 ├─ runtime/               # planned/runtime research integrations
 ├─ docs/                  # specifications and ADRs
