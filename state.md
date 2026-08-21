@@ -1,147 +1,96 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-21  
-**Phase:** M0 — contracts, benchmark bootstrap, durable orchestration, and protocol foundations  
+**Phase:** M0 — contracts, durable orchestration, protocol foundations, and measurable lab networking  
 **Production services/runtime:** none  
-**Executable engineering tooling:** inventory benchmark + orchestrator reference + control-envelope parser  
-**Public release:** none  
-**Documentation baseline:** v0.2 accepted and merged to `main`
-
-This file is a handoff document. It records **facts and current decisions**, not product marketing.
+**Executable engineering tooling:** inventory benchmark + TCP network benchmark + orchestrator reference + control-envelope parser  
+**Public release:** none
 
 ## Repository
 
 - repository: `inetconnector/ComputeMesh`
 - default branch: `main`
-- documentation v0.2 commit: `cf85a47`
-- first M0 contracts/benchmark commit: `7df5b4e`
-- in-memory state-machine commit: `c9733b1`
-- transactional persistence/schema-admission commit: `bfea175`
-- control-envelope/structured-error commit: `9ed33be`
+- documentation v0.2: `cf85a47`
+- contracts/benchmark bootstrap: `7df5b4e`
+- in-memory state machine: `c9733b1`
+- transactional persistence/schema admission: `bfea175`
+- control envelope/structured errors: `9ed33be`
+- TCP network microbenchmark: `197a1ad`
 
 ## What exists
 
 - synchronized English/German root READMEs;
-- architecture, protocol, threat model, security policy, implementation plan, contribution guide, ADR process;
-- Draft 2020-12 schemas for node profile, benchmark result, model/shard manifests, reservation, job, common control envelope, and structured error;
-- standard-library Python inventory benchmark collector;
+- M0 architecture/protocol/security/benchmark/failure/privacy/data-model documentation;
+- Draft-2020-12 contracts including control envelope and structured errors;
+- node inventory collector;
+- TCP application-level network microbenchmark;
 - deterministic Job/Reservation state machine;
-- transactional SQLite M0 state store with durable idempotency, revisions, restart recovery, lease persistence/expiry, and stale-writer rejection;
-- Job/Reservation JSON Schema validation and initial durable admission;
-- transport-neutral common control-envelope parser;
-- structured protocol-error model;
-- tests for benchmark, orchestrator state/persistence/admission, protocol envelope, and new protocol schemas.
-
-## What does not exist
-
-No production implementation exists yet for:
-
-- provider node agent;
-- runtime worker or distributed inference;
-- gateway;
-- scheduler;
-- production orchestrator network service;
-- production/PostgreSQL persistence adapter;
-- authenticated node sessions/authz;
-- message-specific node/orchestrator payload handlers;
-- registry;
-- verification;
-- billing/ledger;
-- telemetry;
-- SDK;
-- UI;
-- deployment/update pipeline.
+- transactional SQLite reference persistence with durable idempotency/revisions/restart recovery/leases;
+- initial Job/Reservation schema admission;
+- transport-neutral control-envelope parser and structured errors;
+- tests for the above components.
 
 ## Verified M0 implementation evidence
 
-- benchmark collector unit tests: 3/3 passing (collector unchanged by later work);
-- orchestrator state-machine tests: 8/8 passing;
-- SQLite persistence/concurrency/restart tests: 8/8 passing;
-- contract/admission tests: 5/5 passing;
-- orchestrator total: **21/21 passing**;
-- control-envelope/parser tests: 8/8 passing;
-- control-envelope/error schema tests: 2/2 passing;
-- protocol block total: **10/10 passing**;
-- orchestrator and protocol modules pass Python `py_compile`;
-- existing schema/example validation from the contracts bootstrap remains passing.
+- original inventory collector tests: 3/3 passing;
+- orchestrator state/persistence/admission: 21/21 passing;
+- protocol envelope/schema block: 10/10 passing;
+- TCP network benchmark unit/loopback tests: 4/4 passing;
+- generated loopback `tcp_network_path` result validated against `benchmark_result.schema.json` Draft 2020-12;
+- relevant Python modules pass `py_compile`.
 
-The benchmark collector currently measures inventory only. It is not yet a compute/network performance benchmark.
+The TCP benchmark currently proves the tool on loopback only. It does **not** yet provide real two-node LAN/WAN evidence.
 
-## Fixed V1 constraints
+## What does not exist
 
-Until superseded by an ADR:
-
-- no arbitrary customer code on provider nodes;
-- Windows-first provider UX;
-- approved inference workloads only;
-- model/runtime-aware scheduling;
-- hard policy/compatibility constraints before optimization;
-- fiat-denominated accounting first;
-- public compute does not imply confidential execution;
-- content-addressed verified model artifacts;
-- duplicate/retry-safe business effects;
-- performance claims require reproducible evidence.
+- production provider node agent;
+- runtime worker/distributed inference;
+- gateway/API;
+- scheduler;
+- production orchestrator service/database;
+- authenticated node sessions/authz;
+- message-specific protocol handlers;
+- registry/verification/billing/telemetry/SDK/UI;
+- production release/update system.
 
 ## ADR status
 
-Accepted:
+Accepted only:
 
-- ADR 0001 — repository bootstrap from blueprint.
+- ADR 0001 — repository bootstrap.
 
 Still proposed:
 
 - ADR 0002 — M1 runtime baseline;
-- ADR 0003 — control/data transport evaluation;
+- ADR 0003 — control/data transport;
 - ADR 0004 — model/artifact identity;
 - ADR 0005 — node identity/key lifecycle;
 - ADR 0006 — telemetry envelope;
 - ADR 0007 — ledger units.
 
-Do not describe proposed ADRs as accepted decisions.
-
-## Protocol status
-
-The common envelope now has executable semantics and a schema. It enforces base structural/version/time constraints only.
-
-Still missing:
-
-- authentication and authorization;
-- capability negotiation behavior beyond major-version compatibility;
-- message-specific schemas/handlers;
-- replay dedupe binding between protocol request IDs and durable state;
-- transport binding;
-- node session lifecycle implementation.
-
 ## Primary blockers
 
-1. No two-node lab profiles exist yet.
-2. M1 runtime baseline is not accepted; the required two-node spike has not been run.
-3. No local runtime prefill/decode baseline exists yet.
-4. Node identity/key lifecycle remains proposed.
-5. Control/data transport choices remain unaccepted.
-6. Message-specific protocol handlers and authenticated sessions do not exist.
-7. WAN viability remains unmeasured.
-8. Verification economics remain unmeasured.
-9. No release/update security implementation exists.
+1. No real two-node profiles or cross-node network results exist yet.
+2. No local runtime prefill/decode baseline exists yet.
+3. M1 runtime baseline remains unaccepted until the two-node spike.
+4. Node identity/authentication remains proposed/unimplemented.
+5. Message-specific protocol handlers are missing.
+6. No activation-payload transport benchmark exists yet.
+7. WAN viability and verification economics remain unmeasured.
+8. No release/update security implementation exists.
 
 ## Next actions in order
 
-1. Run the inventory harness on two real lab machines and retain profiles/results.
-2. Record exact hardware/OS/driver/runtime candidates for the two-node lab.
-3. Add a local runtime prefill/decode benchmark adapter with reproducible result records.
-4. Execute the ADR 0002 llama.cpp-oriented runtime spike without exposing upstream RPC as the ComputeMesh security boundary.
-5. Add message-specific payload schemas/handlers around the durable Job/Reservation semantics.
-6. Bind protocol `request_id`/revision semantics to durable idempotency effects.
-7. Implement authenticated node-session skeleton after node-identity details are sufficiently specified.
-8. Run the first activation-transport microbenchmark.
-9. Produce the first correct two-node shared-inference experiment.
-10. Compare predicted versus observed timings and update the scheduler model.
+1. Run `benchmark.py` on two real lab machines and retain both profiles.
+2. Run `network_benchmark.py` between those machines on a trusted LAN in both directions.
+3. Add local runtime prefill/decode benchmark adapter with reproducible result records.
+4. Execute the llama.cpp-oriented ADR 0002 runtime spike behind the ComputeMesh boundary.
+5. Add message-specific payload schemas/handlers and bind protocol request IDs to durable state effects.
+6. Implement authenticated node-session skeleton once ADR 0005 details are sufficient.
+7. Add activation-payload-size benchmark modes and controlled latency/jitter/loss experiments.
+8. Produce the first correct two-node shared-inference experiment.
+9. Compare predicted versus observed timings and begin scheduler calibration.
 
 ## Bilingual README rule
 
-Root README documentation is permanently maintained in two synchronized files:
-
-- `README.md` — English;
-- `README.de.md` — German.
-
-Any public-facing change to project status, product boundaries, architecture overview, setup, roadmap, security warnings, or other README-level information must update both files in the same change. Treat README drift as a documentation defect.
+`README.md` and `README.de.md` are synchronized project entry points and must be updated together for every public-facing change.

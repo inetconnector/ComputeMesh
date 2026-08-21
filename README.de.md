@@ -3,7 +3,7 @@
 **Sprachen:** [English](README.md) | **Deutsch**
 
 > **Projektphase:** M0 — Verträge/Schemas, Benchmarking, Orchestrierungssemantik, Protokollgrundlagen, Sicherheit und Machbarkeitsforschung.  
-> **Implementierungsstatus:** Ausführbare M0-Werkzeuge, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz und ein transportneutraler Control-Envelope-Parser existieren inzwischen. Es gibt weiterhin keine produktive Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
+> **Implementierungsstatus:** Ausführbare M0-Inventory-/Netzwerk-Benchmarks, maschinenlesbare Verträge, transaktionale Job-/Reservation-Persistenz und ein transportneutraler Control-Envelope-Parser existieren. Es gibt weiterhin keine produktive Runtime, keinen Scheduler, Marktplatz, kein Abrechnungssystem und keine öffentlich nutzbare Provider-Node-Software.
 
 ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogene Rechenressourcen sollen als logisch einheitliche Ausführungsumgebung nutzbar werden. Ein Client mit wenig lokalem VRAM soll später ein Modell ausführen können, dessen Speicher- und Rechenanforderungen den eigenen Rechner übersteigen, ohne Shards, Hosts, Ports oder Platzierung manuell verwalten zu müssen.
 
@@ -17,14 +17,14 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 
 - zweisprachige Root-Dokumentation und ADR-Prozess;
 - Architektur-, Protokoll-, Sicherheits-, Benchmark-, Failure-, Privacy- und Data-Model-Spezifikationen;
-- JSON-Schema-Draft-2020-12-Verträge für Node Profile, Benchmark Result, Model Manifest, Shard Manifest, Reservation, Job, gemeinsamen Control Envelope und strukturierte Protokollfehler;
-- konkrete Beispiel-Manifeste, Jobs und Reservierungen;
-- ein Python-Inventory-Benchmark-Collector mit NVIDIA-GPU-/VRAM-/Treiber-Erkennung, wenn `nvidia-smi` verfügbar ist;
-- deterministische In-Memory-State-Machine-Semantik für Job/Reservation;
-- ein transaktionaler SQLite-M0-Persistenzadapter mit monotonen Revisionen, dauerhafter Idempotenz, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
-- JSON-Schema-basierte Job-/Reservation-Admission vor der dauerhaften Anlage;
-- ein transportneutraler Parser für den gemeinsamen Control Envelope mit Major-Versionsprüfung, Expiry-/Clock-Skew-Prüfung, Ablehnung unbekannter Felder und strukturierten Fehlern;
-- Unit-Tests für Benchmark, State Machine, Persistenz/Konkurrenz/Restart, Contract-Admission, Control-Envelope-Verhalten und Protokollschemas.
+- Draft-2020-12-Schemas für Node Profile, Benchmark Result, Model-/Shard-Manifeste, Reservation, Job, gemeinsamen Control Envelope und strukturierte Protokollfehler;
+- Python-Inventory-Benchmark-Collector nur mit Standardbibliothek;
+- TCP-Netzwerk-Microbenchmark nur mit Standardbibliothek für Connection Setup, Small-Frame-RTT p50/p95, Upload-, Download-Durchsatz und Rohsamples;
+- deterministische Job-/Reservation-State-Machine-Semantik;
+- transaktionale SQLite-M0-Persistenz mit dauerhafter Idempotenz, Revisionen, Lease-Persistenz/-Expiry, Stale-Writer-Schutz, Rollback und Restart-Recovery;
+- JSON-Schema-basierte Job-/Reservation-Admission;
+- transportneutraler gemeinsamer Control-Envelope-Parser mit Versions-/Zeit-/Formprüfung und strukturierten Fehlern;
+- Tests für Benchmark, Orchestrator, Persistenz/Konkurrenz/Restart, Admission, Protocol Envelope und Protokollschemas.
 
 ### Noch nicht implementiert
 
@@ -32,14 +32,10 @@ ComputeMesh ist ein experimentelles System für verteilte KI-Inferenz. Heterogen
 - Runtime Worker oder verteilte Inferenz;
 - Gateway/API;
 - produktiver Scheduler;
-- produktiver Orchestrator-Netzwerkservice und produktiver Datenbankadapter;
+- produktiver Orchestrator-Netzwerkservice/Datenbankadapter;
 - authentifizierte Node-Sessions und Autorisierung;
 - nachrichtenspezifische Node-/Orchestrator-Protokollhandler;
-- Model-Registry-Service;
-- Verification-/Reputation-Service;
-- Billing-/Ledger-Service;
-- Telemetry-Service;
-- Desktop-/Dashboard-Anwendungen;
+- Registry, Verification, Billing/Ledger, Telemetry, SDK, UI;
 - produktive Deployment-/Update-Pipeline;
 - öffentliche Veröffentlichung.
 
@@ -63,69 +59,41 @@ Der kanonische Handoff steht in `state.md`.
 ## Architektur im Überblick
 
 ```text
-Client / SDK
-    |
-    v
-Gateway / API
-    |
-    v
-Job Orchestrator
-    |
-    +------> Scheduler + Topology
-    +------> Registry
-    +------> Policy / Verification
-    |
-    v
-Kapazitätsreservierungen
-    |
-    v
-Provider Execution Mesh
-Node A <---- Activation-/Result-Streams ----> Node B
-    |
-    v
-Telemetry / Metering / Ledger
+Client / SDK -> Gateway / API -> Job Orchestrator
+                                  |-> Scheduler + Topology
+                                  |-> Registry
+                                  |-> Policy / Verification
+                                  v
+                           Kapazitätsreservierungen
+                                  v
+                         Provider Execution Mesh
+                    Node A <---- Streams ----> Node B
+                                  v
+                       Telemetry / Metering / Ledger
 ```
 
 Bei dichter Pipeline-Ausführung sollen zwischen Nodes normalerweise Stage-Aktivierungen/-Ergebnisse übertragen werden. Der KV-Cache verbleibt grundsätzlich bei den Layern, zu denen er gehört; KV-Transfer ist primär ein Migrations-, Recovery- oder Rebalancing-Vorgang.
-
-## Machbarkeits-Gates
-
-| Gate | Frage | Mindestnachweis |
-| --- | --- | --- |
-| G0 | Ist M1 ausreichend definiert? | erforderliche ADRs, Schemas, Labordefinition, testbare DoD |
-| G1 | Können heterogene Geräte automatisch einen Modellpfad ausführen? | automatische Platzierung, korrektes gemeinsames Ergebnis, gemessene Zeiten |
-| G2 | Welche Modi funktionieren über reale Netze? | LAN/WAN-TTFT, Decode, Traffic, Jitter/Loss/Recovery |
-| G3 | Ist Cost/Token glaubwürdig? | gemessene Ausführung + Verifikations-/Netzwerk-/Payment-Ökonomie |
-| G4 | Kann nicht vertrauenswürdige Kapazität sicher genug genutzt werden? | Workload-Grenze, Identität, Auditierbarkeit, Verifikation, Missbrauchsschutz |
-| G5 | Können Nicht-Spezialisten Provider-Nodes betreiben? | Install/Update/Rollback/Diagnostik/Drain/Uninstall |
 
 ## Repository-Struktur
 
 ```text
 ComputeMesh/
-├─ apps/                 # geplante Node/Desktop/Dashboard/Admin-Oberflächen
-├─ services/
-│  └─ orchestrator/      # M0 State Machine, SQLite-Referenzpersistenz, Schema-Admission
-├─ runtime/              # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
-├─ protocol/
-│  ├─ control.py         # transportneutraler gemeinsamer Control-Envelope-Parser
-│  ├─ schemas/           # maschinenlesbare M0-Verträge
-│  ├─ examples/          # Vertragsbeispiele
-│  └─ tests/             # Protokoll- und Schema-Tests
-├─ tools/
-│  └─ benchmark/         # ausführbarer M0-Inventory-Collector + Unit-Tests
+├─ apps/                  # geplante Produktoberflächen
+├─ services/orchestrator/ # M0 State Machine, Persistenz, Schema-Admission
+├─ runtime/               # geplante CUDA/llama.cpp/vLLM/Network-Integrationen
+├─ protocol/              # Control Envelope, Schemas, Tests
+├─ tools/benchmark/       # Inventory + TCP-Netzwerk-Benchmark
 ├─ models/
 ├─ sdk/
 ├─ tests/
 ├─ deploy/
 ├─ research/
-└─ docs/
-   └─ adr/               # Architekturentscheidungen
+└─ docs/                  # Architektur-/Security-/Benchmark-/ADR-Dokumente
 ```
 
 ## Aktuelle M0-Werkzeuge ausführen
 
-Für Standardbibliothek-Collector und State Store genügt Python 3.10+. JSON-Schema-Tests und Admission verwenden `jsonschema`.
+Für die Standardbibliothek-Werkzeuge genügt Python 3.10+. JSON-Schema-Tests/Admission verwenden `jsonschema`.
 
 ```powershell
 git clone <repository-url>
@@ -137,31 +105,39 @@ python -m unittest discover -s services/orchestrator/tests -v
 python -m unittest discover -s protocol/tests -v
 ```
 
-Ein Lab-Profil schreiben:
+### Node-Profil erfassen
 
 ```powershell
 python tools/benchmark/benchmark.py --node-id lab-node-a --profile-revision 1
 ```
 
-Benchmark-Ausgaben landen unter `artifacts/benchmark/` und werden von Git ignoriert. Hostnamen, GPU-UUIDs, Prompts, Outputs und andere unnötige Identifikatoren werden bewusst nicht erfasst.
+### Vertrauenswürdigen LAN-Pfad messen
 
-## Orchestrator-Referenzpersistenz
+Auf Node B:
 
-`services/orchestrator/persistence.py` ist bewusst ein M0-Referenzadapter. SQLite-Transaktionen weisen atomare State-/Idempotency-Effekte, Optimistic-Revision-Checks, dauerhafte Replay-Ergebnisse über Neustarts, Reservation-Lease-Persistenz/-Expiry und Stale-Writer-Schutz nach. Damit ist **SQLite nicht als Produktionsdatenbank ausgewählt**; PostgreSQL bleibt die Control-Plane-Richtung.
+```powershell
+python tools/benchmark/network_benchmark.py server --bind 0.0.0.0 --port 43191 --once
+```
 
-`services/orchestrator/contracts.py` validiert initiale Job-/Reservation-Dokumente gegen die Repository-JSON-Schemas vor der dauerhaften Admission.
+Auf Node A:
 
-## Protokollgrundlage
+```powershell
+python tools/benchmark/network_benchmark.py client --host <NODE-B-LAN-IP> --port 43191 --profile-revision 1
+```
 
-`protocol/control.py` implementiert die gemeinsame Control-Envelope-Semantik aus `PROTOCOL.md`, ohne einen Wire-Transport auszuwählen. Geprüft werden unterstützte Major-Version, IDs, erwartete Revision, Zeitstempel, Ablaufzeit, begrenzter Clock Skew und unbekannte Felder; Fehler werden strukturiert maschinenlesbar ausgegeben.
+Der Benchmark-Server hat **keine Authentifizierung oder Verschlüsselung** und bindet standardmäßig nur an Loopback. Für einen Zwei-Rechner-Test nur an einem vertrauenswürdigen LAN-Interface binden, den Port per Firewall einschränken und niemals öffentlich ins Internet stellen.
 
-Höhere Minor-Versionen werden auf der Base-Envelope-Ebene nicht automatisch verworfen; Capability Negotiation bleibt getrennt. Authentifizierung, Autorisierung, nachrichtenspezifische Payload-Validierung sowie gRPC-/QUIC-/HTTP-Transportbindung fehlen noch.
+Ergebnisse werden unter `artifacts/benchmark/` geschrieben und verwenden den bestehenden Benchmark-Result-Vertrag.
+
+## Protokoll- und Persistenzgrundlagen
+
+`services/orchestrator/persistence.py` ist eine M0-SQLite-Referenz für atomare State-/Idempotency-Effekte, Optimistic Revision Checks, restartfeste Replays, Leases und Stale-Writer-Schutz. SQLite ist **nicht** als Produktionsdatenbank ausgewählt; PostgreSQL bleibt die Control-Plane-Richtung.
+
+`protocol/control.py` implementiert die gemeinsame Control-Envelope-Semantik aus `PROTOCOL.md`, ohne gRPC, QUIC, HTTP oder einen anderen Transport auszuwählen. Authentifizierung, Autorisierung, nachrichtenspezifische Payload-Handler und Capability Negotiation fehlen noch.
 
 ## Runtime-Ausrichtung
 
-Der erste vorgeschlagene M1-Forschungspfad ist llama.cpp-orientiert und wird hinter der ComputeMesh-Node-/Worker-Grenze gekapselt. vLLM bleibt Referenz für koordinierte Datacenter-Szenarien. ADR 0002 ist weiterhin **Proposed**, nicht Accepted.
-
-Auch Control- und Data-Transport werden noch evaluiert. Transportverschlüsselung darf niemals mit vertraulicher Ausführung auf einem providerkontrollierten Host gleichgesetzt werden.
+Der erste vorgeschlagene M1-Forschungspfad ist llama.cpp-orientiert und wird hinter der ComputeMesh-Node-/Worker-Grenze gekapselt. vLLM bleibt Vergleich/Referenz. ADR 0002 ist weiterhin **Proposed**, nicht Accepted.
 
 ## Unmittelbare Engineering-Reihenfolge
 
@@ -169,34 +145,25 @@ Auch Control- und Data-Transport werden noch evaluiert. Transportverschlüsselun
 maschinenlesbare Verträge + Inventory-Harness                 [M0 implementiert]
 transaktionale Job-/Reservation-Persistenz + Schema-Admission [M0 implementiert]
 gemeinsamer Control Envelope + strukturierte Fehler            [M0 implementiert]
--> Zwei-Node-Lab-Profile
+TCP-Lab-Netzwerk-Microbenchmark                                [M0 implementiert]
+-> Inventory + Netzwerk auf zwei realen Nodes messen
 -> lokaler Runtime-Prefill-/Decode-Benchmark-Adapter
 -> llama.cpp-orientierter M1-Runtime-Spike
 -> nachrichtenspezifische Protocol-Handler
 -> authentifizierter Node-Session-Skeleton
--> Activation-Transport-Benchmark
+-> Activation-Payload-Transport-Benchmark
 -> gemeinsame Zwei-Node-Inferenz
 -> Scheduler-Automatisierung
--> Failure-/Replan-Tests
 ```
-
-Der Scheduler soll auf gemessenem Node-/Runtime-/Netzwerkverhalten basieren und nicht auf statischen GPU-Namenstabellen.
 
 ## Sicherheitshinweis
 
-Experimentelle Runtime-RPC-Endpunkte dürfen nicht direkt dem öffentlichen Internet ausgesetzt werden. Drittanbieter-Runtimes sind Implementierungsdetails hinter ComputeMesh-Authentifizierung, Autorisierung, Workload-Beschränkungen, Rate Limits, Artefaktverifikation und Netzwerk-Policies.
-
-`confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+Experimentelle Runtime-RPC- oder Benchmark-Endpunkte dürfen nicht direkt dem öffentlichen Internet ausgesetzt werden. `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Sprach-Synchronisationsregel
 
-Die Root-Dokumentation wird dauerhaft in zwei synchronen Dateien gepflegt:
-
-- `README.md` — Englisch;
-- `README.de.md` — Deutsch.
-
-Jede öffentlich relevante Änderung an Projektstatus, Produktgrenzen, Architekturüberblick, Setup, Roadmap oder Sicherheitswarnungen muss beide Dateien im selben Change aktualisieren.
+`README.md` und `README.de.md` müssen bei jeder öffentlich relevanten Projektänderung gemeinsam aktualisiert werden.
 
 ## Lizenz
 
-Das Projekt bleibt „all rights reserved“, bis ausdrücklich eine Lizenz ausgewählt und veröffentlicht wird. Die Sichtbarkeit des Repositories gewährt keine Open-Source-Nutzungsrechte.
+Alle Rechte bleiben vorbehalten, bis ausdrücklich eine Lizenz ausgewählt und veröffentlicht wird. Repository-Sichtbarkeit gewährt keine Open-Source-Nutzungsrechte.
