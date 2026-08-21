@@ -27,7 +27,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - controlled llama.cpp RPC M1 spike harness landed through `3db6ef9`
 - bounded TCP measurement relay landed through `206248a`
 - deterministic M1 two-node feasibility planner landed through `6177218`
-- M1 network-peer/model-layer evidence binding introduced through PR #6; cross-platform software validation is required before merge
+- M1 network-peer/model-layer evidence binding introduced through PR #6; final cross-platform software validation passed before merge
 
 ## What exists
 
@@ -146,6 +146,8 @@ It listens only on `127.0.0.1`, targets only literal loopback/RFC1918 IPv4, reje
 
 The relay does not parse llama.cpp RPC framing. Byte totals include RPC control/framing/data and are **not activation-tensor byte counts**. Delay/jitter are stream-forwarding effects, not physical packet emulation. Packet loss is deliberately not simulated by dropping TCP bytes; real loss/reordering requires a controlled OS/network layer.
 
+A cross-platform regression check also documents that an ultra-fast Windows loopback relay can begin/end within one `time.monotonic()` clock tick, so `active_elapsed_ms == 0.0` is valid for that synthetic case. Exact echoed content and byte counts remain the correctness assertions; longer timing tests still require the configured elapsed bounds.
+
 ### Deterministic M1 two-node placement planner
 
 `services/scheduler/placement.py` is an experiment **feasibility planner**, not a production scheduler or performance oracle.
@@ -206,9 +208,20 @@ Result schema: `services/scheduler/placement_decision.schema.json`.
 
 ## Latest cross-platform validation
 
-The evidence-binding branch uses a temporary branch-only Windows/Ubuntu workflow before merge. The workflow is removed before `main` is advanced.
+Final evidence-binding validation run `32532730410` passed on both supported development OS families before merge. The temporary workflow is removed before `main` is advanced.
 
-Current expected suite counts on each OS after the identity-query framing regression was added:
+**Windows Server 2025 / Python 3.11.9:**
+
+- benchmark: **18/18**;
+- orchestrator: **34/34**;
+- protocol: **66/66**;
+- identity/integration: **13/13**;
+- scheduler placement: **21/21**;
+- llama runtime spike: **12/12**;
+- network runtime relay: **10/10**;
+- setup: **21/21**.
+
+**Ubuntu 24.04 / Python 3.11.16:**
 
 - benchmark: **18/18**;
 - orchestrator: **34/34**;
