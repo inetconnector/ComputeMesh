@@ -5,6 +5,8 @@ on:
     branches: [docs/state-current-handoff]
     paths:
       - .github/workflows/temporary-update-state-handoff.yml
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
