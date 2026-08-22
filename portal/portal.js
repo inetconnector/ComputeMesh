@@ -141,6 +141,8 @@ const translations = {
     contact_msg_lbl: "Message",
     contact_send_btn: "Send Message",
     contact_success: "✓ Your message has been sent successfully! Our engineering team will respond within 24 hours.",
+    playground_title: "⚡ Live In-Browser API Playground",
+    playground_send: "▶ Run Inference",
 
     footer_rights: "All rights reserved. Decentralized AI Mesh Architecture.",
   },
@@ -283,6 +285,8 @@ const translations = {
     contact_msg_lbl: "Nachricht",
     contact_send_btn: "Nachricht absenden",
     contact_success: "✓ Deine Nachricht wurde erfolgreich gesendet! Unser Support-Team antwortet innerhalb von 24 Stunden.",
+    playground_title: "⚡ Live In-Browser API Playground",
+    playground_send: "▶ Inferenz starten",
 
     footer_rights: "Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.",
   }
@@ -420,6 +424,99 @@ function handleContactSubmit(e) {
   const msgEl = document.getElementById('contact-success-msg');
   if (msgEl) {
     msgEl.style.display = 'block';
+  }
+}
+
+async function runPlaygroundPrompt() {
+  const modelEl = document.getElementById('playground-model');
+  const inputEl = document.getElementById('playground-input');
+  const outputEl = document.getElementById('playground-output');
+  const statsEl = document.getElementById('playground-stats');
+  const btnEl = document.getElementById('playground-btn');
+
+  if (!modelEl || !inputEl || !outputEl || !statsEl) return;
+
+  const model = modelEl.value;
+  const prompt = inputEl.value.trim();
+  if (!prompt) return;
+
+  outputEl.textContent = "";
+  statsEl.textContent = "Connecting to distributed mesh...";
+  statsEl.style.color = "var(--primary)";
+  if (btnEl) btnEl.disabled = true;
+
+  const startTime = performance.now();
+  let tokenCount = 0;
+
+  try {
+    const response = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer cm_live_playground_guest_token'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: 'user', content: prompt }],
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      outputEl.textContent = `Error (${response.status}): ${errText}`;
+      statsEl.textContent = "Inference Failed";
+      statsEl.style.color = "var(--accent-red)";
+      if (btnEl) btnEl.disabled = false;
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
+          const dataStr = trimmed.slice(6);
+          if (dataStr === "[DONE]") {
+            break;
+          }
+          try {
+            const parsed = JSON.parse(dataStr);
+            const delta = parsed.choices?.[0]?.delta?.content || "";
+            if (delta) {
+              outputEl.textContent += delta;
+              tokenCount++;
+              const elapsedSec = (performance.now() - startTime) / 1000;
+              const tps = (tokenCount / elapsedSec).toFixed(1);
+              statsEl.textContent = `Streaming: ${tokenCount} tokens • ${tps} tok/s`;
+            }
+          } catch (e) {
+            // Ignore partial SSE JSON parse
+          }
+        }
+      }
+    }
+
+    const totalElapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
+    const finalTps = (tokenCount / (totalElapsedSec > 0 ? totalElapsedSec : 1)).toFixed(1);
+    statsEl.textContent = `✓ Completed in ${totalElapsedSec}s • ${tokenCount} tokens • ${finalTps} tok/s • Cost: ~$0.0001`;
+    statsEl.style.color = "var(--accent-emerald)";
+  } catch (err) {
+    outputEl.textContent = `Network Error: Could not connect to API gateway.\n${err.message}`;
+    statsEl.textContent = "Connection Error";
+    statsEl.style.color = "var(--accent-red)";
+  } finally {
+    if (btnEl) btnEl.disabled = false;
   }
 }
 

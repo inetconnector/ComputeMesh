@@ -69,18 +69,46 @@
             <pre><code>from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.computemesh.net/v1",
+    base_url="https://computemesh.inetconnector.com/v1",
     api_key="cm_live_your_api_key_here"
 )
 
 response = client.chat.completions.create(
-    model="qwen/qwen2.5-32b-instruct",
+    model="qwen/qwen2.5-7b-instruct",
     messages=[{"role": "user", "content": "How does ComputeMesh layer sharding work?"}],
     stream=True
 )
 
 for chunk in response:
     print(chunk.choices[0].delta.content or "", end="")</code></pre>
+          </div>
+
+          <!-- Live Interactive Web API Playground -->
+          <div style="margin-top: 2rem; background: rgba(17, 24, 39, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h3 style="font-size: 1.2rem; color: var(--primary);" data-i18n="playground_title">⚡ Live In-Browser API Playground</h3>
+              <span class="badge badge-emerald" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-emerald);"></span> Connected to Live Gateway</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
+              <select id="playground-model" class="form-control">
+                <option value="qwen/qwen2.5-7b-instruct">qwen/qwen2.5-7b-instruct (Fast • 4K Context)</option>
+                <option value="qwen/qwen2.5-14b-instruct">qwen/qwen2.5-14b-instruct (Balanced)</option>
+                <option value="qwen/qwen2.5-32b-instruct">qwen/qwen2.5-32b-instruct (High Reasoning)</option>
+                <option value="llama/llama-3.1-70b-instruct">llama/llama-3.1-70b-instruct (Expert Deep)</option>
+              </select>
+              <button id="playground-btn" class="btn btn-primary" onclick="runPlaygroundPrompt()" data-i18n="playground_send">▶ Run Inference</button>
+            </div>
+
+            <textarea id="playground-input" class="form-control" rows="2" style="width: 100%; margin-bottom: 1rem; font-family: var(--font-sans);" placeholder="Enter your prompt here...">How does ComputeMesh achieve low latency on PCIe 1x mining risers?</textarea>
+
+            <div class="code-window" style="margin-top: 0.5rem;">
+              <div class="code-header" style="display: flex; justify-content: space-between;">
+                <span>Live Response Terminal</span>
+                <span id="playground-stats" style="font-size: 0.75rem; color: var(--accent-emerald);">Ready</span>
+              </div>
+              <pre style="max-height: 240px; overflow-y: auto; background: #080c14; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; color: #f3f4f6; white-space: pre-wrap;"><code id="playground-output">Click "Run Inference" above to stream tokens in real-time directly through the decentralized mesh.</code></pre>
+            </div>
           </div>
         </section>
 
