@@ -33,6 +33,7 @@ from services.billing.stripe_integration import (
     StripeIntegrationError,
     StripePaymentService,
 )
+from services.gateway.metrics_exporter import MetricsRegistry
 
 DEFAULT_PORT = 8000
 MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB payload limit
@@ -58,6 +59,7 @@ AVAILABLE_MODELS: list[ModelEntry] = [
 class GatewayHandler(BaseHTTPRequestHandler):
     ledger: Ledger = Ledger()
     stripe_svc: StripePaymentService = StripePaymentService(ledger=ledger)
+    metrics: MetricsRegistry = MetricsRegistry()
     # Mock account store: api_key -> account_id
     api_keys: dict[str, str] = {
         "cm_live_default_test_key": "cust_test_default",
@@ -69,6 +71,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         clean_path = self.path.split("?")[0].rstrip("/")
+        if clean_path in ("/metrics", "/v1/metrics"):
+            text = self.metrics.render_prometheus_text()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            self.send_header("Content-Length", str(len(text.encode("utf-8"))))
+            self.end_headers()
+            self.wfile.write(text.encode("utf-8"))
+            return
+
         if clean_path == "/healthz":
             self._send_json({"status": "healthy", "service": "computemesh-gateway"})
             return
@@ -253,6 +264,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 model_id=model_id,
                 prompt_tokens=tokens_prompt,
                 completion_tokens=tokens_completion,
+            )
+            # Record Prometheus operational telemetry
+            self.metrics.record_request(
+                model=model_id,
+                prompt_tokens=tokens_prompt,
+                completion_tokens=tokens_completion,
+                cost_micro_units=tokens_prompt * 100 + tokens_completion * 300,
+                status_code=200,
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)

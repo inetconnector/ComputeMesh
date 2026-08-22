@@ -148,6 +148,15 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(wh_data["status"], "credited")
             self.assertEqual(wh_data["amount_usd"], 50.00)
 
+    def test_prometheus_metrics_endpoint(self) -> None:
+        metrics_req = urllib.request.Request("http://127.0.0.1:18000/metrics")
+        with urllib.request.urlopen(metrics_req) as resp:
+            self.assertEqual(resp.status, 200)
+            text = resp.read().decode("utf-8")
+            self.assertIn("computemesh_active_gpus", text)
+            self.assertIn("computemesh_total_vram_bytes", text)
+            self.assertIn("computemesh_requests_total", text)
+
 
 if __name__ == "__main__":
     unittest.main()

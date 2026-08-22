@@ -828,6 +828,18 @@ Implemented in `services/scheduler/health_monitor.py`:
 3. **Automated Layer Evacuation & Re-Sharding:** `failover_rebalance(...)` automatically recalculates shard boundaries for active neural networks when worker nodes fail or disconnect, preserving client inference sessions without crashing.
 4. **Automated Unit Tests:** `services/scheduler/tests/test_health_monitor.py` (6/6 tests passing, total 48 scheduler tests).
 
+---
+
+## 26. Prometheus & OpenMetrics Telemetry Exporter
+
+### Architecture & Observability
+Implemented in `services/gateway/metrics_exporter.py`:
+1. **OpenMetrics / Prometheus Endpoint:** Serves `GET /metrics` and `GET /v1/metrics` in standard OpenMetrics text format.
+2. **Infrastructure Telemetry Gauges:** Exposes `computemesh_active_nodes`, `computemesh_active_gpus`, and `computemesh_total_vram_bytes`.
+3. **Inference & Billing Counters:** Meters `computemesh_requests_total{model, status}`, `computemesh_tokens_generated_total{model}`, `computemesh_tokens_prompt_total{model}`, and `computemesh_invoiced_usd_total`.
+4. **Automated Unit Tests:** `services/gateway/tests/test_gateway_server.py` (8/8 tests passing, total 14 suites, 317+ tests passing 100% on Windows and Linux).
+
+
 
 
 
