@@ -1,7 +1,7 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-22 15:35 CEST  
-**Phase:** M0 foundation + M1 physical distributed inference verified. Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
+**Last updated:** 2026-08-22 16:27 CEST  
+**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -13,7 +13,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- canonical merged **code baseline before this documentation-only handoff update**: `030b7bdb9bdc7bd0ddb4b6dfaec300595778fab5`
+- canonical merged **code baseline**: `48da999` (PR #15 + Milestone M1 & M2 Foundation)
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -28,6 +28,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - TCP network microbenchmark: `197a1ad`
 - llama-bench prefill/decode adapter: `6b0356a`
 - durable initial control handlers: `9bb4a72` + restriction `b23bf60`
+- physical distributed proof & M2 foundation: `48da999`
 - authentication-gated node-session semantics: `d7a110e`
 - Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
 - Linux Lab Setup: `3c99457`
