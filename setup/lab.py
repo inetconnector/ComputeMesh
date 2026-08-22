@@ -17,6 +17,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Sequence
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from setup.evidence_transfer import (
     EvidenceTransferError,
     build_lab_bundle,
@@ -24,7 +28,6 @@ from setup.evidence_transfer import (
     import_node_export,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_ROOT = REPO_ROOT / "artifacts" / "lab"
 DEFAULT_CONFIG = DEFAULT_OUTPUT_ROOT / "config.json"
 
