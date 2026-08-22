@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Safe local transfer helpers for the two-machine ComputeMesh M1 lab.
 
-The archive format contains only contract-valid node-profile / benchmark JSON
-records from one Lab node. It never includes model weights, llama.cpp binaries,
-local config, or arbitrary files. Imports are bounded, hash-verified, traversal-
-resistant and extracted atomically before being exposed to the bundle builder.
+Export/import use only the Python standard library. The archive contains only
+bounded node-profile / benchmark JSON records from one Lab node; it never
+contains model weights, llama.cpp binaries, local config, or arbitrary files.
+Imports are hash-verified, traversal-resistant and extracted atomically.
+
+The optional bundle step loads the scheduler lazily because that layer uses the
+repository JSON-schema dependency.
 """
 from __future__ import annotations
 
@@ -21,15 +24,6 @@ import tempfile
 from typing import Any
 import zipfile
 
-from services.scheduler.evidence_bundle import (
-    EvidenceBundleError,
-    build_experiment_bundle,
-    discover_evidence,
-    select_evidence,
-    write_json,
-)
-from services.scheduler.placement import PlacementInputError
-
 EXPORT_SCHEMA_VERSION = 1
 EXPORT_MANIFEST_NAME = "computemesh-lab-export.json"
 EVIDENCE_PREFIX = "evidence"
@@ -40,6 +34,29 @@ MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 _EXPORT_ID_RE = re.compile(r"^lab-export-[a-f0-9]{16}$")
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
+_PROFILE_KEYS = {
+    "schema_version",
+    "node_id",
+    "profile_revision",
+    "captured_at",
+    "platform",
+    "cpu",
+    "memory",
+    "devices",
+    "runtime_capabilities",
+    "provider_limits",
+    "benchmark_refs",
+}
+_BENCHMARK_KEYS = {
+    "schema_version",
+    "run_id",
+    "benchmark_name",
+    "captured_at",
+    "profile_revision",
+    "conditions",
+    "metrics",
+    "raw_samples",
+}
 
 
 class EvidenceTransferError(ValueError):
@@ -64,11 +81,18 @@ class ImportResult:
     file_count: int
 
 
+@dataclass(frozen=True)
+class _LocalDocument:
+    path: Path
+    value: dict[str, Any]
+    sha256: str
+
+
 def _utc_now(now: datetime | None = None) -> datetime:
-    value = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    value = now or datetime.now(timezone.utc)
     if value.tzinfo is None:
         raise EvidenceTransferError("timestamp must be timezone-aware")
-    return value
+    return value.astimezone(timezone.utc)
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -108,6 +132,74 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _load_local_document(path: Path) -> _LocalDocument:
+    if path.is_symlink():
+        raise EvidenceTransferError(f"local JSON must not be a symlink: {path.name}")
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        raise EvidenceTransferError(f"cannot stat local evidence file {path.name}: {exc}") from exc
+    if not 1 <= size <= MAX_EVIDENCE_FILE_BYTES:
+        raise EvidenceTransferError(f"local JSON {path.name} is outside the evidence size bound")
+    try:
+        raw = path.read_bytes()
+        value = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise EvidenceTransferError(f"local JSON is invalid: {path.name}") from exc
+    if not isinstance(value, dict):
+        raise EvidenceTransferError(f"local JSON root must be an object: {path.name}")
+    return _LocalDocument(path=path, value=value, sha256=hashlib.sha256(raw).hexdigest())
+
+
+def _discover_local_evidence(root: Path) -> tuple[list[_LocalDocument], list[_LocalDocument]]:
+    try:
+        resolved_root = Path(root).resolve(strict=True)
+    except OSError as exc:
+        raise EvidenceTransferError(f"cannot resolve local evidence root: {exc}") from exc
+    if not resolved_root.is_dir():
+        raise EvidenceTransferError("local evidence root is not a directory")
+    candidates = sorted(resolved_root.rglob("*.json"), key=lambda path: path.as_posix())
+    if len(candidates) > MAX_EVIDENCE_FILES:
+        raise EvidenceTransferError(f"more than {MAX_EVIDENCE_FILES} local JSON files")
+
+    profiles: list[_LocalDocument] = []
+    benchmarks: list[_LocalDocument] = []
+    for path in candidates:
+        if not path.is_file() and not path.is_symlink():
+            continue
+        document = _load_local_document(path)
+        keys = set(document.value)
+        looks_profile = {"node_id", "profile_revision", "provider_limits"}.issubset(keys)
+        looks_benchmark = {"run_id", "benchmark_name", "metrics"}.issubset(keys)
+        if looks_profile:
+            if keys != _PROFILE_KEYS:
+                raise EvidenceTransferError(f"profile-shaped JSON differs from contract: {path.name}")
+            value = document.value
+            if value.get("schema_version") != 1:
+                raise EvidenceTransferError(f"unsupported node-profile schema: {path.name}")
+            _validate_node_id(value.get("node_id"))
+            revision = value.get("profile_revision")
+            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+                raise EvidenceTransferError(f"invalid profile revision: {path.name}")
+            profiles.append(document)
+        elif looks_benchmark:
+            if keys != _BENCHMARK_KEYS:
+                raise EvidenceTransferError(f"benchmark-shaped JSON differs from contract: {path.name}")
+            value = document.value
+            if value.get("schema_version") != 1:
+                raise EvidenceTransferError(f"unsupported benchmark schema: {path.name}")
+            if not isinstance(value.get("run_id"), str) or not value["run_id"]:
+                raise EvidenceTransferError(f"invalid benchmark run_id: {path.name}")
+            if not isinstance(value.get("benchmark_name"), str) or not value["benchmark_name"]:
+                raise EvidenceTransferError(f"invalid benchmark name: {path.name}")
+            revision = value.get("profile_revision")
+            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+                raise EvidenceTransferError(f"invalid benchmark profile revision: {path.name}")
+            benchmarks.append(document)
+        # Unknown local JSON (if any) is deliberately not exported.
+    return profiles, benchmarks
+
+
 def _export_id(node_id: str, profile_revision: int, files: list[dict[str, Any]]) -> str:
     identity = {
         "node_id": node_id,
@@ -130,13 +222,7 @@ def _collect_export_files(
         resolved_root = Path(node_root).resolve(strict=True)
     except OSError as exc:
         raise EvidenceTransferError(f"cannot resolve local evidence root: {exc}") from exc
-    if not resolved_root.is_dir():
-        raise EvidenceTransferError("local evidence root is not a directory")
-
-    try:
-        profiles, benchmarks = discover_evidence(resolved_root)
-    except EvidenceBundleError as exc:
-        raise EvidenceTransferError(str(exc)) from exc
+    profiles, benchmarks = _discover_local_evidence(resolved_root)
     if not profiles:
         raise EvidenceTransferError("local evidence root contains no node profile")
     profile_node_ids = {str(doc.value["node_id"]) for doc in profiles}
@@ -160,8 +246,6 @@ def _collect_export_files(
     seen: set[str] = set()
     total = 0
     for doc in documents:
-        if doc.path.is_symlink():
-            raise EvidenceTransferError(f"evidence file must not be a symlink: {doc.path.name}")
         try:
             resolved = doc.path.resolve(strict=True)
             relative = resolved.relative_to(resolved_root).as_posix()
@@ -520,6 +604,20 @@ def build_lab_bundle(
     benchmark_model_name: str | None = None,
     network_run_id: str | None = None,
 ) -> Path:
+    try:
+        from services.scheduler.evidence_bundle import (
+            EvidenceBundleError,
+            build_experiment_bundle,
+            select_evidence,
+            write_json,
+        )
+        from services.scheduler.placement import PlacementInputError
+    except ModuleNotFoundError as exc:
+        raise EvidenceTransferError(
+            "building a placement bundle requires the repository lab dependencies; "
+            "install requirements-dev.txt in the active environment"
+        ) from exc
+
     try:
         selected = select_evidence(
             coordinator_root=Path(local_node_root),
