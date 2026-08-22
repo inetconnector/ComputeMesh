@@ -13,6 +13,10 @@ jobs:
   real-rpc-loopback:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      GGML_VK_VISIBLE_DEVICES: '0'
+      GGML_VK_DISABLE_F16: '1'
+      GGML_VK_DISABLE_COOPMAT: '1'
     steps:
       - uses: actions/checkout@v4
 
