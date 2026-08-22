@@ -64,6 +64,14 @@ def standard_entries(*, include_version=True, include_license=True, file_type=15
     return entries
 
 
+def split_entries(split_no: int, split_count: int, tensors_count: int):
+    return [
+        ("split.no", gm.TYPE_UINT16, split_no),
+        ("split.count", gm.TYPE_UINT16, split_count),
+        ("split.tensors.count", gm.TYPE_INT32, tensors_count),
+    ]
+
+
 class GgufManifestTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -84,6 +92,7 @@ class GgufManifestTests(unittest.TestCase):
         self.assertEqual(info.license_id, "Apache-2.0")
         self.assertEqual(info.file_type, 15)
         self.assertEqual(info.summary()["quantization"], "Q4_K_M")
+        self.assertIsNone(info.split_count)
 
     def test_arrays_are_skipped_without_becoming_manifest_content(self):
         write_gguf(self.gguf, standard_entries())
@@ -182,6 +191,70 @@ class GgufManifestTests(unittest.TestCase):
         ]
         write_gguf(self.gguf, entries)
         self.assertEqual(gm.inspect_gguf(self.gguf).block_count, 28)
+
+    def test_primary_split_is_reported_and_manifest_build_is_rejected(self):
+        write_gguf(
+            self.gguf,
+            standard_entries() + split_entries(0, 3, 8),
+            tensor_count=3,
+        )
+        info = gm.inspect_gguf(self.gguf)
+        self.assertEqual(info.split_no, 0)
+        self.assertEqual(info.split_count, 3)
+        self.assertEqual(info.split_tensors_count, 8)
+        self.assertEqual(info.summary()["split_count"], 3)
+        with self.assertRaisesRegex(gm.GGUFError, "split into 3 shards"):
+            gm.build_manifest(self.gguf, info, partitioning=("contiguous_layers",))
+
+    def test_non_primary_split_without_full_metadata_is_identified(self):
+        write_gguf(
+            self.gguf,
+            split_entries(1, 3, 8),
+            tensor_count=3,
+        )
+        with self.assertRaisesRegex(gm.GGUFError, "split shard 2/3.*split.no=0"):
+            gm.inspect_gguf(self.gguf)
+
+    def test_split_metadata_must_be_complete_and_bounded(self):
+        write_gguf(
+            self.gguf,
+            standard_entries() + [("split.no", gm.TYPE_UINT16, 0)],
+            tensor_count=1,
+        )
+        with self.assertRaisesRegex(gm.GGUFError, "split metadata is incomplete"):
+            gm.inspect_gguf(self.gguf)
+
+        write_gguf(
+            self.gguf,
+            standard_entries() + split_entries(2, 2, 3),
+            tensor_count=1,
+        )
+        with self.assertRaisesRegex(gm.GGUFError, "split.no"):
+            gm.inspect_gguf(self.gguf)
+
+        write_gguf(
+            self.gguf,
+            standard_entries() + split_entries(0, 2, 1),
+            tensor_count=2,
+        )
+        with self.assertRaisesRegex(gm.GGUFError, "tensor_count"):
+            gm.inspect_gguf(self.gguf)
+
+    def test_single_split_metadata_remains_buildable(self):
+        write_gguf(
+            self.gguf,
+            standard_entries() + split_entries(0, 1, 3),
+            tensor_count=3,
+        )
+        info = gm.inspect_gguf(self.gguf)
+        self.assertEqual(info.split_count, 1)
+        manifest = gm.build_manifest(
+            self.gguf,
+            info,
+            partitioning=("contiguous_layers",),
+        )
+        self.assertEqual(manifest["layer_count"], 28)
+        self.assertEqual(len(manifest["artifacts"]), 1)
 
 
 if __name__ == "__main__":
