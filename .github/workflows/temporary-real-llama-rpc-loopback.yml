@@ -3,8 +3,6 @@ name: Temporary real llama.cpp RPC loopback
 on:
   push:
     branches: [test/real-llama-rpc-loopback]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: write
@@ -14,6 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
+      LLAMA_TAG: b10580
       GGML_VK_VISIBLE_DEVICES: '0'
       GGML_VK_DISABLE_F16: '1'
       GGML_VK_DISABLE_COOPMAT: '1'
@@ -24,63 +23,49 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install test dependencies
+      - name: Prepare llvmpipe and build llama.cpp with Vulkan + RPC
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers vulkan-tools curl ca-certificates
-          python -m pip install -r requirements-dev.txt
-          vulkaninfo --summary || true
-
-      - name: Resolve newest official Ubuntu Vulkan llama.cpp nightly
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json, os, re, urllib.request
-          req = urllib.request.Request(
-              'https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=30',
-              headers={'User-Agent': 'ComputeMesh-real-rpc-test'},
-          )
-          with urllib.request.urlopen(req, timeout=30) as response:
-              releases = json.load(response)
-          pattern = re.compile(r'^llama-.*-bin-ubuntu-vulkan-x64\.tar\.gz$')
-          for release in releases:
-              for asset in release.get('assets', []):
-                  name = asset.get('name', '')
-                  if pattern.match(name):
-                      with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
-                          f.write(f"LLAMA_TAG={release['tag_name']}\n")
-                          f.write(f"LLAMA_ASSET={name}\n")
-                          f.write(f"LLAMA_URL={asset['browser_download_url']}\n")
-                      print('selected', release['tag_name'], name)
-                      raise SystemExit(0)
-          raise SystemExit('no recent official Ubuntu Vulkan x64 llama.cpp asset found')
-          PY
-
-      - name: Download llama.cpp and real GGUF
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/cm-real/llama /tmp/cm-real/out
-          curl -fL --retry 3 --retry-delay 2 "$LLAMA_URL" -o /tmp/cm-real/llama.tar.gz
-          tar -xzf /tmp/cm-real/llama.tar.gz -C /tmp/cm-real/llama
-          SERVER="$(find /tmp/cm-real/llama -type f -name llama-server | head -n1)"
-          RPC="$(find /tmp/cm-real/llama -type f \( -name rpc-server -o -name ggml-rpc-server \) | head -n1)"
-          test -n "$SERVER" && test -x "$SERVER"
-          test -n "$RPC" && test -x "$RPC"
-          BIN_DIR="$(dirname "$SERVER")"
+          mkdir -p /tmp/cm-real/out
+          echo prepare > /tmp/cm-real/out/phase.txt
+          sudo add-apt-repository -y ppa:kisak/kisak-mesa
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git curl ca-certificates \
+            mesa-vulkan-drivers vulkan-tools libvulkan-dev glslc spirv-headers \
+            libxcb-xinput0 libxcb-xinerama0 libxcb-cursor-dev libssl-dev
+          vulkaninfo --summary > /tmp/cm-real/out/vulkaninfo.txt 2>&1 || true
+          echo clone > /tmp/cm-real/out/phase.txt
+          git clone --depth 1 --branch "$LLAMA_TAG" https://github.com/ggml-org/llama.cpp /tmp/cm-real/llama-src
+          echo configure > /tmp/cm-real/out/phase.txt
+          cmake -S /tmp/cm-real/llama-src -B /tmp/cm-real/llama-src/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DGGML_VULKAN=ON \
+            -DGGML_RPC=ON \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_CURL=OFF
+          echo build > /tmp/cm-real/out/phase.txt
+          cmake --build /tmp/cm-real/llama-src/build --config Release -j 2
+          SERVER=/tmp/cm-real/llama-src/build/bin/llama-server
+          RPC=/tmp/cm-real/llama-src/build/bin/rpc-server
+          test -x "$SERVER"
+          test -x "$RPC"
           echo "SERVER=$SERVER" >> "$GITHUB_ENV"
           echo "RPC=$RPC" >> "$GITHUB_ENV"
-          echo "BIN_DIR=$BIN_DIR" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=$BIN_DIR:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          "$SERVER" --version | tee /tmp/cm-real/out/llama-version.txt
+          "$SERVER" --list-devices 2>&1 | tee /tmp/cm-real/out/local-devices-preflight.txt
+
+      - name: Download and verify real GGUF
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo model_download > /tmp/cm-real/out/phase.txt
           curl -fL --retry 3 --retry-delay 2 \
             'https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf?download=true' \
             -o /tmp/cm-real/SmolLM2-135M-Instruct-Q4_K_M.gguf
           echo 'ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747  /tmp/cm-real/SmolLM2-135M-Instruct-Q4_K_M.gguf' | sha256sum -c -
-          "$SERVER" --version | tee /tmp/cm-real/out/llama-version.txt
-          "$RPC" --help > /tmp/cm-real/out/rpc-help.txt 2>&1 || true
 
       - name: Run real baseline, RPC split, relay and correctness compare
         shell: bash
@@ -96,34 +81,36 @@ jobs:
           }
           trap cleanup EXIT
 
+          echo local_discovery > "$OUT/phase.txt"
           "$SERVER" --list-devices 2>&1 | tee "$OUT/local-devices.txt"
           LOCALDEV="$(awk -F: '/^[[:space:]]*[A-Za-z0-9_.-]+:[[:space:]]/ && $1 !~ /RPC/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit}' "$OUT/local-devices.txt")"
           test -n "$LOCALDEV" || { echo 'No explicit local accelerator device available'; exit 31; }
           echo "local device: $LOCALDEV"
 
+          echo rpc_start > "$OUT/phase.txt"
           "$RPC" --host 127.0.0.1 --port 50052 > "$OUT/rpc-server.log" 2>&1 &
           RPC_PID=$!
-          for i in $(seq 1 100); do
-            if grep -q '127.0.0.1:50052' "$OUT/rpc-server.log"; then break; fi
-            if ! kill -0 "$RPC_PID" 2>/dev/null; then cat "$OUT/rpc-server.log"; exit 32; fi
-            sleep 0.1
-          done
+          sleep 1
+          kill -0 "$RPC_PID"
 
+          echo rpc_discovery > "$OUT/phase.txt"
           python -m runtime.llama.rpc_spike discover \
             --llama-server "$SERVER" \
             --rpc 127.0.0.1:50052 2>&1 | tee "$OUT/discover.txt"
           "$SERVER" --offline --rpc 127.0.0.1:50052 --list-devices 2>&1 | tee "$OUT/rpc-devices.txt"
           RPCDEV="$(awk -F: '/^[[:space:]]*RPC[0-9]+:[[:space:]]/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit}' "$OUT/rpc-devices.txt")"
-          test -n "$RPCDEV" || { echo 'RPC device not visible to llama-server'; cat "$OUT/rpc-devices.txt"; exit 33; }
+          test -n "$RPCDEV" || { echo 'RPC device not visible to llama-server'; exit 33; }
           echo "rpc device: $RPCDEV"
 
+          echo baseline > "$OUT/phase.txt"
           python -m runtime.llama.rpc_spike baseline \
             --llama-server "$SERVER" \
             --model "$MODEL" \
             --devices "$LOCALDEV" \
             --output-dir "$OUT/baseline"
 
-          python -m runtime.network.tcp_relay \
+          echo relay_start > "$OUT/phase.txt"
+          python -u -m runtime.network.tcp_relay \
             --target 127.0.0.1:50052 \
             --listen-port 50053 \
             --metrics "$OUT/relay.json" > "$OUT/relay.log" 2>&1 &
@@ -135,6 +122,7 @@ jobs:
           done
           grep '^READY ' "$OUT/relay.log"
 
+          echo shared > "$OUT/phase.txt"
           python -m runtime.llama.rpc_spike run \
             --llama-server "$SERVER" \
             --model "$MODEL" \
@@ -146,33 +134,15 @@ jobs:
           wait "$RELAY_PID"
           RELAY_PID=''
 
+          echo compare > "$OUT/phase.txt"
           python -m runtime.llama.rpc_spike compare \
             --baseline "$OUT/baseline/runtime_spike_result.json" \
             --shared "$OUT/shared/runtime_spike_result.json" \
             --output "$OUT/comparison.json"
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          out = Path('/tmp/cm-real/out')
-          base = json.loads((out/'baseline/runtime_spike_result.json').read_text())
-          shared = json.loads((out/'shared/runtime_spike_result.json').read_text())
-          comp = json.loads((out/'comparison.json').read_text())
-          relay = json.loads((out/'relay.json').read_text())
-          print('=== COMPUTEMESH REAL RPC LOOPBACK RESULT ===')
-          print('correctness:', json.dumps(comp.get('correctness'), sort_keys=True))
-          print('baseline request_ms:', base['timings']['request_ms'])
-          print('shared request_ms:', shared['timings']['request_ms'])
-          print('baseline upstream timings:', json.dumps(base['timings']['upstream'], sort_keys=True))
-          print('shared upstream timings:', json.dumps(shared['timings']['upstream'], sort_keys=True))
-          print('shared placement:', json.dumps(shared['placement'], sort_keys=True))
-          print('relay bytes c2w:', relay['bytes']['coordinator_to_worker'])
-          print('relay bytes w2c:', relay['bytes']['worker_to_coordinator'])
-          print('relay termination:', json.dumps(relay['termination'], sort_keys=True))
-          PY
+          echo success > "$OUT/phase.txt"
 
       - name: Persist bounded result on temporary branch
-        if: always() && github.event_name == 'push'
+        if: always()
         shell: bash
         env:
           JOB_STATUS: ${{ job.status }}
@@ -181,54 +151,46 @@ jobs:
           python - <<'PY'
           import json, os
           from pathlib import Path
-
           out = Path('/tmp/cm-real/out')
           def load_json(rel):
-              path = out / rel
-              if not path.is_file():
-                  return None
-              try:
-                  return json.loads(path.read_text(encoding='utf-8'))
-              except Exception as exc:
-                  return {'read_error': type(exc).__name__}
-          def load_text(rel, limit=8192):
-              path = out / rel
-              if not path.is_file():
-                  return None
-              return path.read_text(encoding='utf-8', errors='replace')[:limit]
-
+              p = out / rel
+              if not p.is_file(): return None
+              try: return json.loads(p.read_text(encoding='utf-8'))
+              except Exception as exc: return {'read_error': type(exc).__name__}
+          def load_text(rel, limit=12000):
+              p = out / rel
+              if not p.is_file(): return None
+              return p.read_text(encoding='utf-8', errors='replace')[:limit]
           doc = {
               'schema_version': 1,
               'job_status': os.environ.get('JOB_STATUS', 'unknown'),
+              'phase': load_text('phase.txt', 256),
               'llama_tag': os.environ.get('LLAMA_TAG'),
-              'llama_asset': os.environ.get('LLAMA_ASSET'),
               'model': {
                   'basename': 'SmolLM2-135M-Instruct-Q4_K_M.gguf',
                   'sha256': 'ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747',
               },
               'llama_version': load_text('llama-version.txt', 4096),
-              'local_devices': load_text('local-devices.txt', 8192),
-              'rpc_devices': load_text('rpc-devices.txt', 8192),
-              'discover': load_text('discover.txt', 8192),
+              'vulkaninfo': load_text('vulkaninfo.txt'),
+              'local_devices_preflight': load_text('local-devices-preflight.txt'),
+              'local_devices': load_text('local-devices.txt'),
+              'rpc_devices': load_text('rpc-devices.txt'),
+              'discover': load_text('discover.txt'),
               'baseline': load_json('baseline/runtime_spike_result.json'),
               'baseline_failure': load_json('baseline/runtime_spike_failure.json'),
               'shared': load_json('shared/runtime_spike_result.json'),
               'shared_failure': load_json('shared/runtime_spike_failure.json'),
               'relay': load_json('relay.json'),
               'comparison': load_json('comparison.json'),
-              'relay_log': load_text('relay.log', 8192),
-              'rpc_server_log': load_text('rpc-server.log', 8192),
+              'relay_log': load_text('relay.log'),
+              'rpc_server_log': load_text('rpc-server.log'),
           }
-          Path('temporary-real-rpc-loopback-result.json').write_text(
-              json.dumps(doc, indent=2, sort_keys=True) + '\n', encoding='utf-8'
-          )
+          Path('temporary-real-rpc-loopback-result.json').write_text(json.dumps(doc, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add temporary-real-rpc-loopback-result.json
-          if git diff --cached --quiet; then
-            exit 0
-          fi
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m 'test: persist real llama.cpp RPC loopback result'
           git push origin HEAD:test/real-llama-rpc-loopback
 
