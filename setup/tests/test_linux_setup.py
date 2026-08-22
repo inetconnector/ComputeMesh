@@ -17,6 +17,10 @@ DIRECT = [
     REPO / "setup" / "LLAMA-BENCH.sh",
     REPO / "setup" / "TESTS.sh",
 ]
+EVIDENCE_DIRECT = [
+    REPO / "setup" / "EVIDENCE-EXPORT.sh",
+    REPO / "setup" / "BUILD-BUNDLE.sh",
+]
 BASH = shutil.which("bash")
 
 
@@ -33,7 +37,10 @@ class LinuxSetupTests(unittest.TestCase):
         )
 
     def test_shell_syntax(self):
-        subprocess.run([BASH, "-n", str(SETUP), str(LINUX), *(str(x) for x in DIRECT)], check=True)
+        subprocess.run(
+            [BASH, "-n", str(SETUP), str(LINUX), *(str(x) for x in DIRECT), *(str(x) for x in EVIDENCE_DIRECT)],
+            check=True,
+        )
 
     def test_help_entrypoint(self):
         out = subprocess.run([BASH, str(SETUP), "--help"], text=True, capture_output=True, check=True).stdout
@@ -104,6 +111,15 @@ class LinuxSetupTests(unittest.TestCase):
         for path in DIRECT:
             text = path.read_text(encoding="utf-8")
             self.assertIn(f'"{expected[path.name]}"', text)
+
+    def test_evidence_launchers_reuse_bootstrap_and_keep_bundle_dependency_lazy(self):
+        export_text = (REPO / "setup" / "EVIDENCE-EXPORT.sh").read_text(encoding="utf-8")
+        bundle_text = (REPO / "setup" / "BUILD-BUNDLE.sh").read_text(encoding="utf-8")
+        self.assertIn('source "$SETUP_DIR/linux.sh"', export_text)
+        self.assertIn("invoke_lab export", export_text)
+        self.assertIn('source "$SETUP_DIR/linux.sh"', bundle_text)
+        self.assertIn("import jsonschema", bundle_text)
+        self.assertIn("invoke_lab bundle --peer-export", bundle_text)
 
 
 if __name__ == "__main__":
