@@ -16,7 +16,7 @@ Clone/download the repository and use the launcher for your OS:
 
 Both launchers expose the same simple menu for profile capture, trusted-LAN RTT/throughput measurement, local llama.cpp benchmarking, and the current complete local test set. New network measurements also carry the local Lab Setup node ID and, when the peer uses the current benchmark server, its self-reported Lab Setup node ID. Model weights are never downloaded automatically.
 
-For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.
+For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. Once that bundle recommends `shared_experiment`, start the trusted-LAN RPC worker with `setup\SHARED-WORKER.cmd` / `bash setup/SHARED-WORKER.sh` and run the bound baseline→relay→shared→compare→proof flow with `setup\SHARED-PROOF.cmd` / `bash setup/SHARED-PROOF.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.
 
 The detailed two-computer walkthrough is in [setup/README.md](setup/README.md).
 
@@ -35,6 +35,7 @@ Implemented foundations now include:
 - authentication-gated node-session semantics and strict initial wire binding;
 - M1 reference node identity `computemesh-ed25519-v1` with enrollment/key-rotation/revocation reference state;
 - a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
+- a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers.
 
@@ -101,9 +102,9 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 ## Controlled llama.cpp M1 experiment
 
-`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence.
+`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence. `runtime/llama/shared_trial.py` now composes that narrow first-proof flow into one fail-closed coordinator command: it rechecks bundle freshness and exact GGUF identity, preflights current RPC visibility, runs baseline and the planner-selected split through a fresh measurement relay, requires exact correctness, and builds `shared_run_evidence.json`.
 
-The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. See [runtime/llama/README.md](runtime/llama/README.md).
+The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. The automated runner currently requires an accelerator-backed coordinator rather than inventing local-CPU split semantics. See [runtime/llama/README.md](runtime/llama/README.md).
 
 **ADR 0002 remains Proposed.** The harness, transfer/evidence-bundle path and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
 

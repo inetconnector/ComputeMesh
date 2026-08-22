@@ -1,6 +1,6 @@
 # llama.cpp Runtime Integration
 
-**Status:** M1 research spike harness and fail-closed shared-run evidence binding implemented; no real distributed-inference result yet.
+**Status:** M1 research spike harness, fail-closed shared-run evidence binding, and one-command physical shared-trial orchestration implemented; no real distributed-inference result yet.
 
 ## Purpose
 
@@ -33,6 +33,24 @@ python -m runtime.llama.rpc_spike <command> ...
 ```
 
 The caller supplies the actual current llama.cpp binaries. The harness does not download binaries or models and does not assume whether the upstream worker executable is named `rpc-server`, `ggml-rpc-server`, or something else.
+
+## Preferred physical proof runner
+
+For the first real two-machine proof, the preferred coordinator entry point is now:
+
+```text
+python -m runtime.llama.shared_trial --bundle <experiment_bundle.json> --llama-server <llama-server> --model <model.gguf> --worker-rpc <private-ip>:50052 --output-dir <new-dir>
+```
+
+The Windows/Linux setup wraps this as `SHARED-PROOF.cmd` / `SHARED-PROOF.sh`; the peer-side trusted-LAN worker wrappers are `SHARED-WORKER.cmd` / `SHARED-WORKER.sh`.
+
+Before loading the model, `shared_trial.py` revalidates the bundle, current planner freshness, exact GGUF basename/size/SHA-256, local device selection, and current `llama-server` RPC visibility. It optionally uses a sibling/provided `llama-cli` only as a diagnostic: if the CLI sees the RPC worker while `llama-server` does not, the runner stops with an explicit server/RPC compatibility diagnosis. It does **not** silently switch the measured runtime to CLI.
+
+After preflight it performs the local deterministic baseline, starts a fresh zero-delay measurement relay, runs exactly the planner-selected local+RPC split, persists `comparison.json`, requires exact correctness, and then invokes the existing `shared_run_evidence.py` validator/binder. Failure produces only a bounded `shared_trial_failure.json` phase/error record in addition to any already-created bounded runtime failure artifact.
+
+The automated M1 runner currently requires an accelerator-backed coordinator. A remote CPU-only worker can still appear as an upstream RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device. CPU-only coordinators therefore fail closed before execution.
+
+The numbered sections below remain the underlying manual engineering path.
 
 ## 1. Start the worker on a trusted private LAN
 
@@ -195,7 +213,7 @@ python -m unittest discover -s runtime/llama/tests -v
 python -m unittest discover -s runtime/network/tests -v
 ```
 
-The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection and output privacy.
+The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection, device-list parsing/selection, stale-bundle rechecks, exact model binding, RPC server-vs-CLI preflight diagnosis, CPU-coordinator fail-closed behavior, exact split propagation, and output privacy.
 
 The network relay has its own real-loopback forwarding/fault/timing/schema tests and is also included in the full cross-platform validation path.
 
@@ -208,7 +226,7 @@ This code does **not** yet prove M1. In particular:
 - controlled TCP-stream delay/jitter injection exists, but no packet-level loss/reordering result exists;
 - controlled relay disconnect injection exists, but no real llama.cpp disconnect experiment has been recorded yet;
 - the current planner can select the experimental split, but it is a conservative feasibility planner and not a calibrated production scheduler;
-- the proof builder validates already-created artifacts; it does not drive llama.cpp or the relay;
+- `shared_trial.py` can now drive the narrow first-proof baseline/relay/shared/compare/bind sequence, while `shared_run_evidence.py` remains the independent artifact validator/binder;
 - no artifact preparation/verification wire path drives the runtime yet;
 - upstream RPC provides no ComputeMesh authentication/security boundary.
 

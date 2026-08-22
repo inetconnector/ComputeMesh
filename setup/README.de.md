@@ -132,6 +132,54 @@ Sind aktuelle Evidenzen mehrdeutig, stale, aus der falschen Netzwerkrichtung, au
 
 Die ZIP-Hashes schützen Übertragungs-/Kopierintegrität und Reproduzierbarkeit. Sie authentifizieren **nicht**, wer die Evidenz erzeugt hat, und sind keine Hardware-Attestation.
 
+## Ersten Shared-Proof ausführen
+
+Sobald das aktuelle Bundle `shared_experiment` empfiehlt, muss der Runtime-Teil nicht mehr aus sechs manuellen Befehlen zusammengesetzt werden. Der Worker bleibt im vertrauenswürdigen privaten LAN und beide Rollen besitzen direkte Starter.
+
+Auf **Windows B** doppelklicken:
+
+```text
+setup\SHARED-WORKER.cmd
+```
+
+Auf **Linux B**:
+
+```bash
+bash setup/SHARED-WORKER.sh
+```
+
+Der Worker-Starter bindet llama.cpp-RPC an genau eine RFC1918-Adresse auf TCP 50052. Wo unterstützt, wird nur eine temporäre auf privates LAN/Subnetz begrenzte Firewallregel geöffnet und beim Ende des Workers wieder entfernt. Das Worker-Fenster/Terminal offen lassen.
+
+Danach auf **Windows A** doppelklicken:
+
+```text
+setup\SHARED-PROOF.cmd
+```
+
+Auf **Linux A**:
+
+```bash
+bash setup/SHARED-PROOF.sh
+```
+
+Falls gefragt, das aktuelle `experiment_bundle.json` auswählen und die private IPv4 von B eingeben. Der Coordinator arbeitet dann fail-closed in dieser Reihenfolge:
+
+1. Bundle und eingebettete Placement-Schemas erneut prüfen;
+2. Evidenz ablehnen, die nach der aktuellen Profil-Altersgrenze des Planers inzwischen stale geworden ist;
+3. exakt den GGUF-Basename, die Bytegröße und den SHA-256 aus dem Bundle verlangen;
+4. das aktuelle lokale llama.cpp-Gerät ermitteln und die RPC-Sichtbarkeit vor dem Modellladen prüfen;
+5. falls `llama-cli` den RPC-Worker sieht, `llama-server` aber nicht, diesen Server/RPC-Kompatibilitätsfall ausdrücklich melden statt den Messlauf zu starten;
+6. die deterministische lokale Baseline ausführen;
+7. ein frisches Zero-Delay-Loopback-Mess-Relay starten und exakt den vom Planer gewählten Zwei-Einträge-Split darüber ausführen;
+8. exakte Token-ID-Korrektheit verlangen, sofern vorhanden, sonst exakten Output-Digest;
+9. `comparison.json`, Relay-Metriken und das bereits definierte fail-closed `shared_run_evidence.json` schreiben.
+
+Ein fehlgeschlagener Versuch behält ein begrenztes, inhaltsfreies `shared_trial_failure.json` mit der Fehlerphase. Rohprompt und Roh-Modelloutput werden dort nicht hineinkopiert.
+
+**Aktuelle Grenze des automatischen Runners:** Die Coordinator-Seite muss Accelerator-backed sein. Der ausgewählte Worker darf von Upstream-RPC auch mit CPU-only-Backend exponiert werden; der Runner tut aber nicht so, als sei lokales `--device none` ein explizites Split-Gerät. Ein CPU-only-Coordinator stoppt daher vor der Ausführung, statt `none,RPC0`-Placement-Semantik zu erfinden.
+
+Diese Convenience-Schicht authentifiziert weder llama.cpp-RPC noch Relay-Ziel oder physischen Worker. Sie bleibt Trusted-Private-Lab-Tooling.
+
 ## Verhalten unter Windows
 
 - Deutsch/Englisch aus Windows erkennen;
@@ -145,7 +193,7 @@ Die ZIP-Hashes schützen Übertragungs-/Kopierintegrität und Reproduzierbarkeit
 - Evidenzexport/-import ausschließlich mit Standardbibliothek-ZIP-/Hash-Funktionen durchführen;
 - die kleine `jsonschema`-Abhängigkeit nur dann in die lokale `.venv` installieren, wenn der Bundle-Schritt sie benötigt und sie noch nicht vorhanden ist.
 
-Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.
+Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `SHARED-WORKER.cmd`, `SHARED-PROOF.cmd`, `TESTS.cmd`.
 
 ## Verhalten unter Linux
 
@@ -165,7 +213,7 @@ Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`,
 - auf Desktops `zenity` zur GGUF-Auswahl verwenden, wenn vorhanden, sonst den Pfad im Terminal mit Shell-Vervollständigung abfragen;
 - denselben isolierten Python-Bootstrap für Evidenzexport-/Bundle-Starter wiederverwenden.
 
-Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. Für die neu erzeugten Transferskripte funktioniert `bash setup/EVIDENCE-EXPORT.sh` bzw. `bash setup/BUILD-BUNDLE.sh` auch dann zuverlässig, wenn Download/Archiv das Ausführungsbit nicht erhalten hat.
+Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `SHARED-WORKER.sh`, `SHARED-PROOF.sh`, `TESTS.sh`. `bash setup/EVIDENCE-EXPORT.sh`, `bash setup/BUILD-BUNDLE.sh`, `bash setup/SHARED-WORKER.sh` und `bash setup/SHARED-PROOF.sh` funktionieren auch dann, wenn Download/Archiv das Ausführungsbit nicht erhalten hat.
 
 Die automatisch geladenen offiziellen Linux-Pakete sind Ubuntu-Binaries. Auf kompatiblen glibc-Distributionen funktionieren sie häufig, aber das Setup verlässt sich nicht darauf: Startet die Binary nicht, wird sie verworfen und du kannst ein distributionspassendes oder selbst gebautes `llama-bench` angeben. Auf musl-Systemen wie Alpine ist ein vorhandener kompatibler Build für llama.cpp der sicherere Weg.
 
@@ -215,7 +263,7 @@ Benchmark-Server und Upstream-llama.cpp-RPC-Worker niemals öffentlich ins Inter
 
 Die vollständige Setup-Testaktion führt Benchmark-, Orchestrator-, Protocol-, Identity-, Scheduler-, llama-Runtime-, Network-Runtime- und Setup-Suites aus. Die aktuellen plattformübergreifenden Testzahlen und der exakte letzte Validierungslauf stehen in `state.md`.
 
-Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab. Die Windows-Validierung lässt das neue Evidenz-PowerShell-Skript zusätzlich vom echten Windows-PowerShell-Parser parsen.
+Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab. Die Windows-Validierung lässt zusätzlich beide Shared-Proof-PowerShell-Starter vom echten Windows-PowerShell-Parser parsen.
 
 Die Evidenztransfer-Abdeckung umfasst Ausschluss beliebiger/GGUF-Dateien, pfadfreie Exportmanifeste, Profilrevisionsbindung, hash-verifizierte idempotente Roundtrips, Ablehnung veränderter Inhalte, ZIP-Symlink-/Traversal-Ablehnung, Erkennung manipulierter vorhandener Imports, abhängigkeitssparsamen `lab.py`-Start mit `python -S` und einen vollständigen synthetischen Worker-Export→Coordinator-Bundle-Roundtrip.
 

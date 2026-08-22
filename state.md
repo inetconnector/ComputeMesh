@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-22  
-**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, and fail-closed shared-run proof binding; real shared inference is not yet evidenced  
+**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, fail-closed shared-run proof binding, and one-command physical shared-trial orchestration; real shared inference is not yet evidenced  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -31,7 +31,8 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - bounded GGUF-v3 inspection/model-manifest generation landed through PR #7
 - fail-closed current experiment-evidence bundle landed through PR #8; `main` was `d461a2e7` before the current branch
 - bounded two-machine Lab evidence export/import + bundle launchers landed through PR #10; final cross-platform validation run `32553817653` passed
-- fail-closed M1 shared-run proof binding is implemented in PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
+- fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
+- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation is pending before merge
 
 ## What exists
 
@@ -261,6 +262,27 @@ Inputs are bounded, symlink-free, strict finite UTF-8 JSON. The output stores so
 
 **Boundary:** source hashes prove integrity/binding, not producer identity. The builder does not authenticate the upstream RPC worker, prove the relay target's physical identity, identify activation tensors, or authorize production scheduling.
 
+### One-command physical M1 shared-trial orchestration
+
+`runtime/llama/shared_trial.py` composes the already bounded M1 pieces into the preferred coordinator path for the first physical proof. It is an executor/orchestrator around existing contracts, not a new trust boundary.
+
+Before model loading it revalidates the current experiment bundle and embedded placement schema, recalculates whether the recorded profiles are still within `PlannerPolicy.max_profile_age_hours`, requires exact local GGUF basename/size/SHA-256, rejects a symlinked/non-file `llama-server`, discovers the current local device, and preflights the private RPC worker. A sibling/provided `llama-cli` is diagnostic only: if CLI sees RPC while `llama-server` does not, the runner reports the current server/RPC compatibility condition and stops rather than changing runtimes silently.
+
+The automated path requires an accelerator-backed coordinator. Upstream RPC may expose a CPU-only remote worker as an RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device; a CPU coordinator therefore fails closed before execution. The RPC-enabled device listing must also still contain the exact coordinator device selected from local discovery.
+
+After preflight, the runner:
+
+1. records the deterministic local baseline;
+2. starts a fresh zero-delay loopback measurement relay to the private worker;
+3. executes exactly the two-entry planner `tensor_split` using the selected local device followed by the selected RPC device;
+4. waits for successful relay EOF/metrics persistence;
+5. writes `comparison.json` and requires exact token/output correctness;
+6. invokes `shared_run_evidence.py` to produce the final source-hash-bound `shared_run_evidence.json`.
+
+Failures retain only bounded phase/type/message evidence in `shared_trial_failure.json` plus any already-bounded runtime failure file. Windows/Linux direct launchers are `SHARED-WORKER` and `SHARED-PROOF`; worker firewall rules are temporary/private-subnet-scoped where the setup has supported firewall integration.
+
+**Boundary:** this does not authenticate RPC, identify the physical peer cryptographically, attest hardware, or turn the experimental feasibility planner into a production scheduler. No real two-machine shared result has been recorded yet.
+
 ### M1 TCP measurement relay
 
 `runtime/network/tcp_relay.py` is a lab measurement instrument, not the production transport/security boundary.
@@ -384,15 +406,12 @@ Still proposed:
 6. On A, generate the ComputeMesh model manifest from the exact same complete GGUF with `tools/benchmark/gguf_manifest.py` so digest, size, architecture and `layer_count` come from the artifact rather than manual entry.
 7. On A, run `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`; retain the verified peer import and resulting `experiment_bundle.json`. Do not use legacy peer/layer assertions.
 8. Inspect the bundle's embedded hard constraints/recommendation. If it is not `shared_experiment`, fix the measured feasibility issue rather than forcing a split.
-9. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
-10. Run deterministic local `baseline` on the coordinator.
-11. Start a fresh local measurement relay and execute exactly the bundle/planner-selected explicit local+RPC layer split through it.
-12. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
-13. Retain relay directional byte totals plus setup/active timing for that exact successful run.
-14. Build `shared_run_evidence.json` from the exact current bundle, baseline, shared result and relay metrics; do not mix historical or differently ordered/device-mapped artifacts.
-15. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.
-16. Accept, reject or supersede ADR 0002 from measured evidence, then calibrate scheduler ranking from the correct shared result instead of invented coefficients.
-17. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
+9. On worker B, start `setup\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh` on the trusted private LAN and keep it running.
+10. On coordinator A, run `setup\SHARED-PROOF.cmd` or `bash setup/SHARED-PROOF.sh`, select the exact current bundle/GGUF, and provide B's private IP. The runner must pass model/freshness/device/RPC preflight and then execute baseline → zero-delay relay → exact planner split → compare → proof binding without manual split overrides.
+11. Require a real `shared_run_evidence.json` with exact correctness and inspect its relay byte/timing evidence. If the runner stops on the current llama-server/RPC compatibility preflight, change to a compatible RPC-capable llama.cpp build rather than bypassing the check.
+12. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.
+13. Accept, reject or supersede ADR 0002 from measured evidence, then calibrate scheduler ranking from the correct shared result instead of invented coefficients.
+14. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
 
 Before any public authenticated node service, separately complete protected node-key storage, provider-authenticated identity APIs, active-session revocation fan-out, transport security, authorization and resource limits.
 

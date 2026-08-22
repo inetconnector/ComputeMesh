@@ -132,6 +132,54 @@ If current evidence is ambiguous, stale, from the wrong network direction, from 
 
 The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation.
 
+## Run the first shared proof
+
+Once the current bundle recommends `shared_experiment`, the runtime part no longer needs to be assembled from six manual commands. Keep the worker on the trusted private LAN and use the direct launchers.
+
+On **Windows B**, double-click:
+
+```text
+setup\SHARED-WORKER.cmd
+```
+
+On **Linux B**:
+
+```bash
+bash setup/SHARED-WORKER.sh
+```
+
+The worker launcher binds llama.cpp RPC to one concrete RFC1918 address on TCP 50052. Where supported it opens only a temporary private-LAN/subnet-scoped firewall rule and removes that rule when the worker exits. Keep the worker window/terminal open.
+
+Then on **Windows A**, double-click:
+
+```text
+setup\SHARED-PROOF.cmd
+```
+
+On **Linux A**:
+
+```bash
+bash setup/SHARED-PROOF.sh
+```
+
+Choose the current `experiment_bundle.json` if prompted and enter B's private IPv4 address. The coordinator runner then fails closed through this sequence:
+
+1. validate the bundle and embedded placement schemas again;
+2. reject evidence that has become stale under the planner's current profile-age policy;
+3. require the exact local GGUF basename, byte size, and SHA-256 from the bundle;
+4. discover the current local llama.cpp device and preflight RPC visibility before loading the model;
+5. if `llama-cli` can see the RPC device but `llama-server` cannot, report that server/RPC compatibility condition explicitly instead of attempting the measured run;
+6. run the deterministic local baseline;
+7. start a fresh zero-delay loopback measurement relay and execute exactly the planner-selected two-entry split through it;
+8. require exact token-ID correctness when available, otherwise exact output-digest correctness;
+9. write `comparison.json`, relay metrics, and the already defined fail-closed `shared_run_evidence.json`.
+
+A failed attempt keeps a bounded, content-free `shared_trial_failure.json` with the failing phase. Raw prompts and raw model output are not copied into that failure record.
+
+**Current automated-runner boundary:** the coordinator side must be accelerator-backed. The selected worker may be exposed by upstream RPC even when its backend is CPU-only, but this runner does not pretend that local `--device none` is an explicit local split device. A CPU-only coordinator therefore stops before execution rather than inventing `none,RPC0` placement semantics.
+
+This convenience layer does not authenticate llama.cpp RPC, the relay target, or the physical worker. It remains trusted-private-lab tooling.
+
 ## Windows behavior
 
 - detects German/English from Windows;
@@ -145,7 +193,7 @@ The ZIP hashes protect transfer/copy integrity and reproducibility. They do **no
 - exports/imports evidence with Python-standard-library ZIP/hash handling;
 - installs the small `jsonschema` dependency into the local `.venv` only when the bundle step needs it and it is not already available.
 
-Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.
+Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `SHARED-WORKER.cmd`, `SHARED-PROOF.cmd`, `TESTS.cmd`.
 
 ## Linux behavior
 
@@ -165,7 +213,7 @@ Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`
 - uses `zenity` for GGUF selection when available on a desktop, otherwise asks for a path with shell completion;
 - reuses the same isolated Python bootstrap for evidence export/bundle launchers.
 
-Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. For the newly generated transfer scripts, `bash setup/EVIDENCE-EXPORT.sh` / `bash setup/BUILD-BUNDLE.sh` is portable even when an archive/download did not preserve executable bits.
+Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `SHARED-WORKER.sh`, `SHARED-PROOF.sh`, `TESTS.sh`. `bash setup/EVIDENCE-EXPORT.sh`, `bash setup/BUILD-BUNDLE.sh`, `bash setup/SHARED-WORKER.sh`, and `bash setup/SHARED-PROOF.sh` remain usable even when an archive/download did not preserve executable bits.
 
 The official automatic Linux downloads are Ubuntu binaries. They often work on compatible glibc distributions, but the setup does not assume this: if the downloaded executable cannot start, it is rejected and you can point the setup at a distro-native/self-built `llama-bench`. On musl-based systems such as Alpine, an existing compatible build is the safer llama.cpp path.
 
@@ -215,7 +263,7 @@ Never expose the benchmark server or upstream llama.cpp RPC worker to the public
 
 The complete setup test action runs benchmark, orchestrator, protocol, identity, scheduler, llama-runtime, network-runtime, and setup suites. Current cross-platform counts and the exact latest validation run are recorded in `state.md`.
 
-The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing. Windows validation additionally parses the evidence PowerShell script with the real Windows PowerShell parser.
+The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing. Windows validation additionally parses both shared-proof PowerShell launchers with the real Windows PowerShell parser.
 
 Evidence-transfer coverage includes exclusion of arbitrary/GGUF files, path-free export manifests, profile-revision binding, hash-verified idempotent round trips, changed-content rejection, ZIP symlink/traversal rejection, existing-import tamper detection, dependency-light `lab.py` startup with `python -S`, and a complete synthetic worker-export→coordinator-bundle round trip.
 
