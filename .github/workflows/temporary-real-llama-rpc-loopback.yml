@@ -3,6 +3,8 @@ name: Temporary real llama.cpp RPC loopback
 on:
   push:
     branches: [test/real-llama-rpc-loopback]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
