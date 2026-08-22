@@ -12,7 +12,10 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from runtime.llama.rpc_spike import RpcEndpoint
+
 MAX_JSON_BYTES = 4 * 1024 * 1024
+MAX_BASELINE_TO_SHARED = timedelta(hours=1)
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMAS = {
     "bundle": ROOT / "services" / "scheduler" / "experiment_bundle.schema.json",
@@ -27,6 +30,10 @@ class SharedRunEvidenceError(RuntimeError):
     """Raised when candidate shared-run evidence is incomplete or inconsistent."""
 
 
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number is forbidden: {value}")
+
+
 def _read_document(path: Path, label: str) -> tuple[dict[str, Any], bytes]:
     if path.is_symlink():
         raise SharedRunEvidenceError(f"{label} must not be a symlink")
@@ -37,9 +44,9 @@ def _read_document(path: Path, label: str) -> tuple[dict[str, Any], bytes]:
         raise SharedRunEvidenceError(f"{label} must be 1..{MAX_JSON_BYTES} bytes")
     raw = path.read_bytes()
     try:
-        value = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        raise SharedRunEvidenceError(f"{label} must contain valid UTF-8 JSON") from exc
+        value = json.loads(raw.decode("utf-8"), parse_constant=_reject_json_constant)
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise SharedRunEvidenceError(f"{label} must contain strict finite UTF-8 JSON") from exc
     if not isinstance(value, dict):
         raise SharedRunEvidenceError(f"{label} must contain a JSON object")
     return value, raw
@@ -88,6 +95,8 @@ def _same_numbers(actual: list[Any], expected: list[Any]) -> bool:
         and not isinstance(a, bool)
         and isinstance(b, (int, float))
         and not isinstance(b, bool)
+        and math.isfinite(float(a))
+        and math.isfinite(float(b))
         and math.isclose(float(a), float(b), rel_tol=1e-12, abs_tol=1e-12)
         for a, b in zip(actual, expected)
     )
@@ -127,6 +136,7 @@ def compare_results_dicts(baseline: dict[str, Any], shared: dict[str, Any]) -> d
         if (
             isinstance(b, (int, float)) and not isinstance(b, bool)
             and isinstance(s, (int, float)) and not isinstance(s, bool)
+            and math.isfinite(float(b)) and math.isfinite(float(s))
             and b > 0
         ):
             return float(s) / float(b)
@@ -143,6 +153,22 @@ def compare_results_dicts(baseline: dict[str, Any], shared: dict[str, Any]) -> d
             "request_ms": ratio("request_ms"),
         },
     }
+
+
+def _require_device_order(baseline: dict[str, Any], shared: dict[str, Any]) -> None:
+    bplace, splace = baseline["placement"], shared["placement"]
+    if len(bplace["devices"]) != 1 or not _same_numbers(bplace["tensor_split"], [1.0]):
+        raise SharedRunEvidenceError("baseline must use exactly one local device with tensor_split [1.0]")
+    if len(splace["devices"]) != 2:
+        raise SharedRunEvidenceError("shared run must use exactly two devices")
+    local_device = bplace["devices"][0]
+    shared_local, shared_rpc = splace["devices"]
+    if "RPC" in local_device.upper():
+        raise SharedRunEvidenceError("baseline device must be local, not RPC")
+    if shared_local != local_device or "RPC" in shared_local.upper():
+        raise SharedRunEvidenceError("first shared device must equal the coordinator baseline device")
+    if "RPC" not in shared_rpc.upper():
+        raise SharedRunEvidenceError("second shared device must be the RPC worker device")
 
 
 def _require_runtime_binding(
@@ -172,16 +198,19 @@ def _require_runtime_binding(
     bplace, splace = baseline["placement"], shared["placement"]
     if bplace["mode"] != "local_baseline" or bplace["split_mode"] != "none":
         raise SharedRunEvidenceError("baseline placement must be local_baseline with split_mode none")
-    if len(bplace["devices"]) != 1 or not _same_numbers(bplace["tensor_split"], [1.0]):
-        raise SharedRunEvidenceError("baseline must use exactly one local device with tensor_split [1.0]")
     if splace["mode"] != "shared_rpc" or splace["split_mode"] != "layer":
         raise SharedRunEvidenceError("shared placement must be shared_rpc with split_mode layer")
-    if len(splace["devices"]) != 2 or not _same_numbers(splace["tensor_split"], candidate["tensor_split"]):
+    _require_device_order(baseline, shared)
+    if not _same_numbers(splace["tensor_split"], candidate["tensor_split"]):
         raise SharedRunEvidenceError("shared run tensor_split does not match planner-selected split")
     if baseline["topology"]["rpc_endpoints"]:
         raise SharedRunEvidenceError("baseline must not contain RPC endpoints")
     if shared["topology"]["rpc_endpoints"] != [relay["listen"]]:
         raise SharedRunEvidenceError("shared run must use exactly the measurement relay listen endpoint")
+    try:
+        RpcEndpoint.parse(relay["target"])
+    except ValueError as exc:
+        raise SharedRunEvidenceError("relay target must be a literal loopback/RFC1918 RPC endpoint") from exc
 
     configured = relay["configured"]
     if configured["one_way_delay_ms"] != 0 or configured["jitter_ms"] != 0:
@@ -198,14 +227,18 @@ def _require_runtime_binding(
     ):
         raise SharedRunEvidenceError("relay total_forwarded_bytes does not equal directional byte sum")
 
+    bundle_captured = _parse_time(bundle["captured_at"], "bundle.captured_at")
+    baseline_captured = _parse_time(baseline["captured_at"], "baseline.captured_at")
     started = _parse_time(relay["started_at"], "relay.started_at")
     connected = _parse_time(relay["connected_at"], "relay.connected_at")
     ended = _parse_time(relay["ended_at"], "relay.ended_at")
     shared_captured = _parse_time(shared["captured_at"], "shared.captured_at")
-    if not started <= connected <= ended:
-        raise SharedRunEvidenceError("relay timestamps are not monotonic")
-    if shared_captured < started or shared_captured > ended + timedelta(minutes=5):
+    if not bundle_captured <= baseline_captured <= started <= connected <= ended:
+        raise SharedRunEvidenceError("proof timestamps must follow bundle -> baseline -> relay start/connect/end")
+    if shared_captured < connected or shared_captured > ended + timedelta(minutes=5):
         raise SharedRunEvidenceError("shared result timestamp is not plausibly associated with the relay run")
+    if shared_captured < baseline_captured or shared_captured - baseline_captured > MAX_BASELINE_TO_SHARED:
+        raise SharedRunEvidenceError("baseline and shared result must be ordered and captured within one hour")
 
     comparison = compare_results_dicts(baseline, shared)
     if not comparison["exact_output_match"]:
