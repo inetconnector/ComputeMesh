@@ -1,0 +1,167 @@
+name: Temporary shared-trial documentation sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'm1/shared-trial-runner' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/shared-trial-runner
+          fetch-depth: 0
+      - name: Synchronize shared-trial documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one anchor, found {count}: {old[:120]!r}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # setup/README.md
+          setup_insert = '''The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation.\n\n## Run the first shared proof\n\nOnce the current bundle recommends `shared_experiment`, the runtime part no longer needs to be assembled from six manual commands. Keep the worker on the trusted private LAN and use the direct launchers.\n\nOn **Windows B**, double-click:\n\n```text\nsetup\\SHARED-WORKER.cmd\n```\n\nOn **Linux B**:\n\n```bash\nbash setup/SHARED-WORKER.sh\n```\n\nThe worker launcher binds llama.cpp RPC to one concrete RFC1918 address on TCP 50052. Where supported it opens only a temporary private-LAN/subnet-scoped firewall rule and removes that rule when the worker exits. Keep the worker window/terminal open.\n\nThen on **Windows A**, double-click:\n\n```text\nsetup\\SHARED-PROOF.cmd\n```\n\nOn **Linux A**:\n\n```bash\nbash setup/SHARED-PROOF.sh\n```\n\nChoose the current `experiment_bundle.json` if prompted and enter B's private IPv4 address. The coordinator runner then fails closed through this sequence:\n\n1. validate the bundle and embedded placement schemas again;\n2. reject evidence that has become stale under the planner's current profile-age policy;\n3. require the exact local GGUF basename, byte size, and SHA-256 from the bundle;\n4. discover the current local llama.cpp device and preflight RPC visibility before loading the model;\n5. if `llama-cli` can see the RPC device but `llama-server` cannot, report that server/RPC compatibility condition explicitly instead of attempting the measured run;\n6. run the deterministic local baseline;\n7. start a fresh zero-delay loopback measurement relay and execute exactly the planner-selected two-entry split through it;\n8. require exact token-ID correctness when available, otherwise exact output-digest correctness;\n9. write `comparison.json`, relay metrics, and the already defined fail-closed `shared_run_evidence.json`.\n\nA failed attempt keeps a bounded, content-free `shared_trial_failure.json` with the failing phase. Raw prompts and raw model output are not copied into that failure record.\n\n**Current automated-runner boundary:** the coordinator side must be accelerator-backed. The selected worker may be exposed by upstream RPC even when its backend is CPU-only, but this runner does not pretend that local `--device none` is an explicit local split device. A CPU-only coordinator therefore stops before execution rather than inventing `none,RPC0` placement semantics.\n\nThis convenience layer does not authenticate llama.cpp RPC, the relay target, or the physical worker. It remains trusted-private-lab tooling.\n\n## Windows behavior'''
+          replace_once(
+              'setup/README.md',
+              'The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation.\n\n## Windows behavior',
+              setup_insert,
+          )
+          replace_once(
+              'setup/README.md',
+              'Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.',
+              'Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `SHARED-WORKER.cmd`, `SHARED-PROOF.cmd`, `TESTS.cmd`.',
+          )
+          replace_once(
+              'setup/README.md',
+              'Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. For the newly generated transfer scripts, `bash setup/EVIDENCE-EXPORT.sh` / `bash setup/BUILD-BUNDLE.sh` is portable even when an archive/download did not preserve executable bits.',
+              'Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `SHARED-WORKER.sh`, `SHARED-PROOF.sh`, `TESTS.sh`. `bash setup/EVIDENCE-EXPORT.sh`, `bash setup/BUILD-BUNDLE.sh`, `bash setup/SHARED-WORKER.sh`, and `bash setup/SHARED-PROOF.sh` remain usable even when an archive/download did not preserve executable bits.',
+          )
+          replace_once(
+              'setup/README.md',
+              'The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing. Windows validation additionally parses the evidence PowerShell script with the real Windows PowerShell parser.',
+              'The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing. Windows validation additionally parses both shared-proof PowerShell launchers with the real Windows PowerShell parser.',
+          )
+
+          # setup/README.de.md
+          setup_de_insert = '''Die ZIP-Hashes schützen Übertragungs-/Kopierintegrität und Reproduzierbarkeit. Sie authentifizieren **nicht**, wer die Evidenz erzeugt hat, und sind keine Hardware-Attestation.\n\n## Ersten Shared-Proof ausführen\n\nSobald das aktuelle Bundle `shared_experiment` empfiehlt, muss der Runtime-Teil nicht mehr aus sechs manuellen Befehlen zusammengesetzt werden. Der Worker bleibt im vertrauenswürdigen privaten LAN und beide Rollen besitzen direkte Starter.\n\nAuf **Windows B** doppelklicken:\n\n```text\nsetup\\SHARED-WORKER.cmd\n```\n\nAuf **Linux B**:\n\n```bash\nbash setup/SHARED-WORKER.sh\n```\n\nDer Worker-Starter bindet llama.cpp-RPC an genau eine RFC1918-Adresse auf TCP 50052. Wo unterstützt, wird nur eine temporäre auf privates LAN/Subnetz begrenzte Firewallregel geöffnet und beim Ende des Workers wieder entfernt. Das Worker-Fenster/Terminal offen lassen.\n\nDanach auf **Windows A** doppelklicken:\n\n```text\nsetup\\SHARED-PROOF.cmd\n```\n\nAuf **Linux A**:\n\n```bash\nbash setup/SHARED-PROOF.sh\n```\n\nFalls gefragt, das aktuelle `experiment_bundle.json` auswählen und die private IPv4 von B eingeben. Der Coordinator arbeitet dann fail-closed in dieser Reihenfolge:\n\n1. Bundle und eingebettete Placement-Schemas erneut prüfen;\n2. Evidenz ablehnen, die nach der aktuellen Profil-Altersgrenze des Planers inzwischen stale geworden ist;\n3. exakt den GGUF-Basename, die Bytegröße und den SHA-256 aus dem Bundle verlangen;\n4. das aktuelle lokale llama.cpp-Gerät ermitteln und die RPC-Sichtbarkeit vor dem Modellladen prüfen;\n5. falls `llama-cli` den RPC-Worker sieht, `llama-server` aber nicht, diesen Server/RPC-Kompatibilitätsfall ausdrücklich melden statt den Messlauf zu starten;\n6. die deterministische lokale Baseline ausführen;\n7. ein frisches Zero-Delay-Loopback-Mess-Relay starten und exakt den vom Planer gewählten Zwei-Einträge-Split darüber ausführen;\n8. exakte Token-ID-Korrektheit verlangen, sofern vorhanden, sonst exakten Output-Digest;\n9. `comparison.json`, Relay-Metriken und das bereits definierte fail-closed `shared_run_evidence.json` schreiben.\n\nEin fehlgeschlagener Versuch behält ein begrenztes, inhaltsfreies `shared_trial_failure.json` mit der Fehlerphase. Rohprompt und Roh-Modelloutput werden dort nicht hineinkopiert.\n\n**Aktuelle Grenze des automatischen Runners:** Die Coordinator-Seite muss Accelerator-backed sein. Der ausgewählte Worker darf von Upstream-RPC auch mit CPU-only-Backend exponiert werden; der Runner tut aber nicht so, als sei lokales `--device none` ein explizites Split-Gerät. Ein CPU-only-Coordinator stoppt daher vor der Ausführung, statt `none,RPC0`-Placement-Semantik zu erfinden.\n\nDiese Convenience-Schicht authentifiziert weder llama.cpp-RPC noch Relay-Ziel oder physischen Worker. Sie bleibt Trusted-Private-Lab-Tooling.\n\n## Verhalten unter Windows'''
+          replace_once(
+              'setup/README.de.md',
+              'Die ZIP-Hashes schützen Übertragungs-/Kopierintegrität und Reproduzierbarkeit. Sie authentifizieren **nicht**, wer die Evidenz erzeugt hat, und sind keine Hardware-Attestation.\n\n## Verhalten unter Windows',
+              setup_de_insert,
+          )
+          replace_once(
+              'setup/README.de.md',
+              'Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.',
+              'Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `SHARED-WORKER.cmd`, `SHARED-PROOF.cmd`, `TESTS.cmd`.',
+          )
+          replace_once(
+              'setup/README.de.md',
+              'Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. Für die neu erzeugten Transferskripte funktioniert `bash setup/EVIDENCE-EXPORT.sh` bzw. `bash setup/BUILD-BUNDLE.sh` auch dann zuverlässig, wenn Download/Archiv das Ausführungsbit nicht erhalten hat.',
+              'Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `SHARED-WORKER.sh`, `SHARED-PROOF.sh`, `TESTS.sh`. `bash setup/EVIDENCE-EXPORT.sh`, `bash setup/BUILD-BUNDLE.sh`, `bash setup/SHARED-WORKER.sh` und `bash setup/SHARED-PROOF.sh` funktionieren auch dann, wenn Download/Archiv das Ausführungsbit nicht erhalten hat.',
+          )
+          replace_once(
+              'setup/README.de.md',
+              'Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab. Die Windows-Validierung lässt das neue Evidenz-PowerShell-Skript zusätzlich vom echten Windows-PowerShell-Parser parsen.',
+              'Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab. Die Windows-Validierung lässt zusätzlich beide Shared-Proof-PowerShell-Starter vom echten Windows-PowerShell-Parser parsen.',
+          )
+
+          # runtime/llama/README.md
+          replace_once(
+              'runtime/llama/README.md',
+              '**Status:** M1 research spike harness and fail-closed shared-run evidence binding implemented; no real distributed-inference result yet.',
+              '**Status:** M1 research spike harness, fail-closed shared-run evidence binding, and one-command physical shared-trial orchestration implemented; no real distributed-inference result yet.',
+          )
+          preferred = '''The caller supplies the actual current llama.cpp binaries. The harness does not download binaries or models and does not assume whether the upstream worker executable is named `rpc-server`, `ggml-rpc-server`, or something else.\n\n## Preferred physical proof runner\n\nFor the first real two-machine proof, the preferred coordinator entry point is now:\n\n```text\npython -m runtime.llama.shared_trial --bundle <experiment_bundle.json> --llama-server <llama-server> --model <model.gguf> --worker-rpc <private-ip>:50052 --output-dir <new-dir>\n```\n\nThe Windows/Linux setup wraps this as `SHARED-PROOF.cmd` / `SHARED-PROOF.sh`; the peer-side trusted-LAN worker wrappers are `SHARED-WORKER.cmd` / `SHARED-WORKER.sh`.\n\nBefore loading the model, `shared_trial.py` revalidates the bundle, current planner freshness, exact GGUF basename/size/SHA-256, local device selection, and current `llama-server` RPC visibility. It optionally uses a sibling/provided `llama-cli` only as a diagnostic: if the CLI sees the RPC worker while `llama-server` does not, the runner stops with an explicit server/RPC compatibility diagnosis. It does **not** silently switch the measured runtime to CLI.\n\nAfter preflight it performs the local deterministic baseline, starts a fresh zero-delay measurement relay, runs exactly the planner-selected local+RPC split, persists `comparison.json`, requires exact correctness, and then invokes the existing `shared_run_evidence.py` validator/binder. Failure produces only a bounded `shared_trial_failure.json` phase/error record in addition to any already-created bounded runtime failure artifact.\n\nThe automated M1 runner currently requires an accelerator-backed coordinator. A remote CPU-only worker can still appear as an upstream RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device. CPU-only coordinators therefore fail closed before execution.\n\nThe numbered sections below remain the underlying manual engineering path.\n\n## 1. Start the worker on a trusted private LAN'''
+          replace_once(
+              'runtime/llama/README.md',
+              'The caller supplies the actual current llama.cpp binaries. The harness does not download binaries or models and does not assume whether the upstream worker executable is named `rpc-server`, `ggml-rpc-server`, or something else.\n\n## 1. Start the worker on a trusted private LAN',
+              preferred,
+          )
+          replace_once(
+              'runtime/llama/README.md',
+              '- the proof builder validates already-created artifacts; it does not drive llama.cpp or the relay;',
+              '- `shared_trial.py` can now drive the narrow first-proof baseline/relay/shared/compare/bind sequence, while `shared_run_evidence.py` remains the independent artifact validator/binder;',
+          )
+          replace_once(
+              'runtime/llama/README.md',
+              'The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection and output privacy.',
+              'The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection, device-list parsing/selection, stale-bundle rechecks, exact model binding, RPC server-vs-CLI preflight diagnosis, CPU-coordinator fail-closed behavior, exact split propagation, and output privacy.',
+          )
+
+          # Root English README: public entry point and implementation list.
+          replace_once(
+              'README.md',
+              'For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.',
+              'For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. Once that bundle recommends `shared_experiment`, start the trusted-LAN RPC worker with `setup\\SHARED-WORKER.cmd` / `bash setup/SHARED-WORKER.sh` and run the bound baseline→relay→shared→compare→proof flow with `setup\\SHARED-PROOF.cmd` / `bash setup/SHARED-PROOF.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.',
+          )
+          replace_once(
+              'README.md',
+              '- a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;\n- a loopback-only TCP **measurement relay**',
+              '- a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;\n- a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;\n- a loopback-only TCP **measurement relay**',
+          )
+          replace_once(
+              'README.md',
+              '`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence.\n\nThe first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. See [runtime/llama/README.md](runtime/llama/README.md).',
+              '`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence. `runtime/llama/shared_trial.py` now composes that narrow first-proof flow into one fail-closed coordinator command: it rechecks bundle freshness and exact GGUF identity, preflights current RPC visibility, runs baseline and the planner-selected split through a fresh measurement relay, requires exact correctness, and builds `shared_run_evidence.json`.\n\nThe first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. The automated runner currently requires an accelerator-backed coordinator rather than inventing local-CPU split semantics. See [runtime/llama/README.md](runtime/llama/README.md).',
+          )
+
+          # Root German README: synchronized equivalent changes.
+          replace_once(
+              'README.de.md',
+              'Für die aktuelle M1-Evidenzübergabe zwischen zwei Rechnern kann der Worker unter Windows mit `setup\\EVIDENCE-EXPORT.cmd` oder unter Linux mit `bash setup/EVIDENCE-EXPORT.sh` eine begrenzte Evidenz-ZIP erzeugen. Der Coordinator kann diese ZIP prüfen/importieren und mit `setup\\BUILD-BUNDLE.cmd` bzw. `bash setup/BUILD-BUNDLE.sh` das aktuelle Experiment-Bundle bauen. Die ZIP enthält keine GGUF-Gewichte und keine llama.cpp-Binaries.',
+              'Für die aktuelle M1-Evidenzübergabe zwischen zwei Rechnern kann der Worker unter Windows mit `setup\\EVIDENCE-EXPORT.cmd` oder unter Linux mit `bash setup/EVIDENCE-EXPORT.sh` eine begrenzte Evidenz-ZIP erzeugen. Der Coordinator kann diese ZIP prüfen/importieren und mit `setup\\BUILD-BUNDLE.cmd` bzw. `bash setup/BUILD-BUNDLE.sh` das aktuelle Experiment-Bundle bauen. Sobald das Bundle `shared_experiment` empfiehlt, wird der Trusted-LAN-RPC-Worker mit `setup\\SHARED-WORKER.cmd` / `bash setup/SHARED-WORKER.sh` gestartet und der gebundene Baseline→Relay→Shared→Compare→Proof-Ablauf mit `setup\\SHARED-PROOF.cmd` / `bash setup/SHARED-PROOF.sh` ausgeführt. Die ZIP enthält keine GGUF-Gewichte und keine llama.cpp-Binaries.',
+          )
+          replace_once(
+              'README.de.md',
+              '- ein kontrollierter llama.cpp-RPC-**Research-Harness** für das erste gemeinsame M1-Runtime-Experiment;\n- ein loopback-only TCP-**Mess-Relay**',
+              '- ein kontrollierter llama.cpp-RPC-**Research-Harness** für das erste gemeinsame M1-Runtime-Experiment;\n- ein fail-closed One-Command-**Physical-Shared-Trial-Runner**, der Bundle/Modell/Geräte erneut prüft, den Planer-Split über das Relay ausführt, Korrektheit prüft und das gebundene Proof-Artefakt erzeugt;\n- ein loopback-only TCP-**Mess-Relay**',
+          )
+          replace_once(
+              'README.de.md',
+              '`runtime/llama/rpc_spike.py` kann aktuelle llama.cpp-Geräte ermitteln, eine deterministische lokale Baseline aufzeichnen, einen expliziten Local+RPC-`layer`-Split ausführen und exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest. Modell-/Runtime-/Topologie-/Timing-Evidenz wird ohne Rohprompt-/Rohoutput-Persistenz gespeichert.\n\nDer erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Details: [runtime/llama/README.md](runtime/llama/README.md).',
+              '`runtime/llama/rpc_spike.py` kann aktuelle llama.cpp-Geräte ermitteln, eine deterministische lokale Baseline aufzeichnen, einen expliziten Local+RPC-`layer`-Split ausführen und exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest. Modell-/Runtime-/Topologie-/Timing-Evidenz wird ohne Rohprompt-/Rohoutput-Persistenz gespeichert. `runtime/llama/shared_trial.py` fasst diesen engen First-Proof-Pfad jetzt in einem fail-closed Coordinator-Befehl zusammen: Bundle-Frische und exakte GGUF-Identität werden erneut geprüft, aktuelle RPC-Sichtbarkeit wird vorab getestet, Baseline und Planer-Split laufen über ein frisches Mess-Relay, exakte Korrektheit wird verlangt und anschließend `shared_run_evidence.json` gebaut.\n\nDer erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Der automatische Runner verlangt derzeit einen Accelerator-backed Coordinator, statt lokale CPU-Split-Semantik zu erfinden. Details: [runtime/llama/README.md](runtime/llama/README.md).',
+          )
+
+          # Canonical state: implementation boundary and simplified physical next steps.
+          replace_once(
+              'state.md',
+              '**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, and fail-closed shared-run proof binding; real shared inference is not yet evidenced  ',
+              '**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, fail-closed shared-run proof binding, and one-command physical shared-trial orchestration; real shared inference is not yet evidenced  ',
+          )
+          replace_once(
+              'state.md',
+              '- fail-closed M1 shared-run proof binding is implemented in PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization\n',
+              '- fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization\n- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation is pending before merge\n',
+          )
+          runner_section = '''**Boundary:** source hashes prove integrity/binding, not producer identity. The builder does not authenticate the upstream RPC worker, prove the relay target's physical identity, identify activation tensors, or authorize production scheduling.\n\n### One-command physical M1 shared-trial orchestration\n\n`runtime/llama/shared_trial.py` composes the already bounded M1 pieces into the preferred coordinator path for the first physical proof. It is an executor/orchestrator around existing contracts, not a new trust boundary.\n\nBefore model loading it revalidates the current experiment bundle and embedded placement schema, recalculates whether the recorded profiles are still within `PlannerPolicy.max_profile_age_hours`, requires exact local GGUF basename/size/SHA-256, rejects a symlinked/non-file `llama-server`, discovers the current local device, and preflights the private RPC worker. A sibling/provided `llama-cli` is diagnostic only: if CLI sees RPC while `llama-server` does not, the runner reports the current server/RPC compatibility condition and stops rather than changing runtimes silently.\n\nThe automated path requires an accelerator-backed coordinator. Upstream RPC may expose a CPU-only remote worker as an RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device; a CPU coordinator therefore fails closed before execution. The RPC-enabled device listing must also still contain the exact coordinator device selected from local discovery.\n\nAfter preflight, the runner:\n\n1. records the deterministic local baseline;\n2. starts a fresh zero-delay loopback measurement relay to the private worker;\n3. executes exactly the two-entry planner `tensor_split` using the selected local device followed by the selected RPC device;\n4. waits for successful relay EOF/metrics persistence;\n5. writes `comparison.json` and requires exact token/output correctness;\n6. invokes `shared_run_evidence.py` to produce the final source-hash-bound `shared_run_evidence.json`.\n\nFailures retain only bounded phase/type/message evidence in `shared_trial_failure.json` plus any already-bounded runtime failure file. Windows/Linux direct launchers are `SHARED-WORKER` and `SHARED-PROOF`; worker firewall rules are temporary/private-subnet-scoped where the setup has supported firewall integration.\n\n**Boundary:** this does not authenticate RPC, identify the physical peer cryptographically, attest hardware, or turn the experimental feasibility planner into a production scheduler. No real two-machine shared result has been recorded yet.\n\n### M1 TCP measurement relay'''
+          replace_once(
+              'state.md',
+              '**Boundary:** source hashes prove integrity/binding, not producer identity. The builder does not authenticate the upstream RPC worker, prove the relay target\'s physical identity, identify activation tensors, or authorize production scheduling.\n\n### M1 TCP measurement relay',
+              runner_section,
+          )
+          replace_once(
+              'state.md',
+              '''9. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.\n10. Run deterministic local `baseline` on the coordinator.\n11. Start a fresh local measurement relay and execute exactly the bundle/planner-selected explicit local+RPC layer split through it.\n12. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.\n13. Retain relay directional byte totals plus setup/active timing for that exact successful run.\n14. Build `shared_run_evidence.json` from the exact current bundle, baseline, shared result and relay metrics; do not mix historical or differently ordered/device-mapped artifacts.\n15. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.\n16. Accept, reject or supersede ADR 0002 from measured evidence, then calibrate scheduler ranking from the correct shared result instead of invented coefficients.\n17. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.\n''',
+              '''9. On worker B, start `setup\\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh` on the trusted private LAN and keep it running.\n10. On coordinator A, run `setup\\SHARED-PROOF.cmd` or `bash setup/SHARED-PROOF.sh`, select the exact current bundle/GGUF, and provide B's private IP. The runner must pass model/freshness/device/RPC preflight and then execute baseline → zero-delay relay → exact planner split → compare → proof binding without manual split overrides.\n11. Require a real `shared_run_evidence.json` with exact correctness and inspect its relay byte/timing evidence. If the runner stops on the current llama-server/RPC compatibility preflight, change to a compatible RPC-capable llama.cpp build rather than bypassing the check.\n12. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.\n13. Accept, reject or supersede ADR 0002 from measured evidence, then calibrate scheduler ranking from the correct shared result instead of invented coefficients.\n14. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.\n''',
+          )
+          PY
+          rm -f .github/workflows/temporary-shared-trial-docs.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md README.de.md setup/README.md setup/README.de.md runtime/llama/README.md state.md .github/workflows
+          git diff --cached --check
+          git commit -m 'docs: document one-command physical shared trial'
+          git push origin HEAD:m1/shared-trial-runner
