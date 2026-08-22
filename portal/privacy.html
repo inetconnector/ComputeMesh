@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — ComputeMesh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">Privacy</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
+    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="privacy_title">Privacy Policy</h1>
+    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted);">
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">1. Zero Prompt Logging Guarantee</h3>
+      <p style="margin-bottom: 1.5rem;">ComputeMesh does <strong>not</strong> store, train on, or inspect user prompts or model completions. Inference activations are streamed in-memory across pipeline layers and discarded immediately upon generation.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">2. Telemetry & Metering</h3>
+      <p style="margin-bottom: 1.5rem;">We collect only anonymous technical telemetry required for scheduler placement and double-entry accounting: token counts, model identifiers, GPU hardware temperatures, and network round-trip latencies.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">3. Provider Key Security</h3>
+      <p style="margin-bottom: 1.5rem;">Provider nodes generate and hold asymmetric Ed25519 private keys locally on their hardware. Keys are never transmitted over the network or stored by ComputeMesh servers.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">4. GDPR & Data Subject Rights</h3>
+      <p>Users can request account data deletion or export of billing ledger history at any time by contacting support.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+  <script src="portal.js"></script>
+</body>
+</html>

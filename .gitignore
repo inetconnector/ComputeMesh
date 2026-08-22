@@ -26,12 +26,13 @@ compile_commands.json
 bin/
 coverage.out
 
-# Test / benchmark artifacts
+# Test / benchmark artifacts & model weights
 artifacts/
 benchmarks/raw/
 coverage/
 *.prof
 *.trace
+*.gguf
 
 # Visual Studio / VS Code
 .vs/

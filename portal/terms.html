@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — ComputeMesh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">Legal</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
+    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="terms_title">Terms of Service</h1>
+    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted);">
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">1. Acceptance of Terms</h3>
+      <p style="margin-bottom: 1.5rem;">By accessing or using the ComputeMesh decentralized compute platform, API gateway, or provider node software, you agree to be bound by these Terms of Service.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">2. API Usage & Compute Credits</h3>
+      <p style="margin-bottom: 1.5rem;">Consumers purchase compute credits denominated in USD, EUR, or ComputeMesh Credits (CM). Credits are billed per token metered by our verifiable double-entry ledger.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">3. Provider Obligations</h3>
+      <p style="margin-bottom: 1.5rem;">Hardware providers supply compute power using official ComputeMesh binaries. Providers must maintain accurate telemetry and stable network connections for active sessions.</p>
+      
+      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">4. Limitation of Liability</h3>
+      <p>ComputeMesh provides decentralized coordination software on an "as-is" and "as-available" basis without warranties of uninterrupted uptime.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+  <script src="portal.js"></script>
+</body>
+</html>

@@ -188,8 +188,8 @@ def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None
     model = placement["model"]
     if model_path.name != bundle["benchmark_model_name"]:
         raise SharedTrialError("local model basename does not match experiment bundle")
-    if model_path.stat().st_size != int(model["artifact_size_bytes"]):
-        raise SharedTrialError("local model byte size does not match experiment bundle")
+    if model_path.stat().st_size < int(model["artifact_size_bytes"]):
+        raise SharedTrialError("local model file size is smaller than artifact tensor footprint")
     digest = sha256_file(model_path)
     expected = model["artifact_digest"].removeprefix("sha256:")
     if digest != expected:

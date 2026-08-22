@@ -66,7 +66,7 @@ class LlamaBuildIdentity:
 
 
 _RUNTIME_BUILD_RE = re.compile(
-    r"(?im)^\s*version:\s*(\d+)\s+\(\s*`?([0-9a-fA-F]{7,40})`?\s*\)"
+    r"(?im)^\s*version:.*?\(build\s+(\d+),\s*commit\s+`?([0-9a-fA-F]{7,40})`?\)|^\s*version:\s*(\d+)\s+\(\s*`?([0-9a-fA-F]{7,40})`?\)"
 )
 
 
@@ -78,10 +78,15 @@ def parse_runtime_build_identity(text: str) -> LlamaBuildIdentity:
     match = _RUNTIME_BUILD_RE.search(text)
     if match is None:
         raise RpcSpikeError("llama.cpp --version output lacks a concrete build number/commit")
-    number = int(match.group(1))
+    if match.group(1) is not None:
+        number = int(match.group(1))
+        commit = match.group(2).lower()
+    else:
+        number = int(match.group(3))
+        commit = match.group(4).lower()
     if number < 1:
         raise RpcSpikeError("llama.cpp build number must be positive")
-    return LlamaBuildIdentity(build_number=number, commit=match.group(2).lower())
+    return LlamaBuildIdentity(build_number=number, commit=commit)
 
 
 def runtime_build_matches(

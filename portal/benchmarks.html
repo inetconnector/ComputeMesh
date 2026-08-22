@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Benchmarks — ComputeMesh Decentralized AI</title>
+  <meta name="description" content="Empirical throughput, latency, and tokens/sec benchmarks for distributed LLM inference on ComputeMesh.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge" style="border-color: var(--border-bright); color: var(--accent-cyan);">Benchmarks</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+        <li><a href="/benchmarks" class="gradient-text" data-i18n="nav_benchmarks">Benchmarks</a></li>
+        <li><a href="/status" data-i18n="nav_status">Network Status</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Register / API Key</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem;">
+    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2.5rem;">
+      <span class="section-tag" data-i18n="benchmarks_tag">Performance Metrics</span>
+      <h1 data-i18n="benchmarks_title">Decentralized Model Inference Benchmarks</h1>
+      <p data-i18n="benchmarks_sub">Empirical tokens/second throughput and time-to-first-token (TTFT) across multi-GPU mining rigs and distributed coordinator-worker pairs.</p>
+    </div>
+
+    <!-- Benchmark Table -->
+    <div class="calc-box" style="overflow-x: auto; margin-bottom: 3rem;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--accent-cyan);">
+            <th style="padding: 1rem 0.5rem;">Model</th>
+            <th style="padding: 1rem 0.5rem;">Parameters</th>
+            <th style="padding: 1rem 0.5rem;">Quantization</th>
+            <th style="padding: 1rem 0.5rem;">Hardware Cluster</th>
+            <th style="padding: 1rem 0.5rem;">Decode Speed</th>
+            <th style="padding: 1rem 0.5rem;">TTFT</th>
+          </tr>
+        </thead>
+        <tbody style="color: var(--text-muted);">
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Qwen 2.5</td>
+            <td style="padding: 1rem 0.5rem;">0.5 Billion</td>
+            <td style="padding: 1rem 0.5rem;"><span class="brand-badge">Q4_K_M</span></td>
+            <td style="padding: 1rem 0.5rem;">RTX 3080 + Remote EPYC Node</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-family: var(--font-mono);">13.5 tok/s</td>
+            <td style="padding: 1rem 0.5rem;">47 ms</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Qwen 2.5</td>
+            <td style="padding: 1rem 0.5rem;">7.0 Billion</td>
+            <td style="padding: 1rem 0.5rem;"><span class="brand-badge">Q4_K_M</span></td>
+            <td style="padding: 1rem 0.5rem;">5x 8GB Mining Rig (Vulkan)</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-family: var(--font-mono);">24.8 tok/s</td>
+            <td style="padding: 1rem 0.5rem;">62 ms</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Llama 3.1</td>
+            <td style="padding: 1rem 0.5rem;">8.0 Billion</td>
+            <td style="padding: 1rem 0.5rem;"><span class="brand-badge">Q4_K_M</span></td>
+            <td style="padding: 1rem 0.5rem;">Single RTX 4090 24GB</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-family: var(--font-mono);">88.4 tok/s</td>
+            <td style="padding: 1rem 0.5rem;">18 ms</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Qwen 2.5</td>
+            <td style="padding: 1rem 0.5rem;">32.0 Billion</td>
+            <td style="padding: 1rem 0.5rem;"><span class="brand-badge">Q4_K_M</span></td>
+            <td style="padding: 1rem 0.5rem;">8x RTX 3070 8GB (64GB Pool)</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-family: var(--font-mono);">18.2 tok/s</td>
+            <td style="padding: 1rem 0.5rem;">85 ms</td>
+          </tr>
+          <tr>
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Llama 3.1</td>
+            <td style="padding: 1rem 0.5rem;">70.0 Billion</td>
+            <td style="padding: 1rem 0.5rem;"><span class="brand-badge">Q4_K_M</span></td>
+            <td style="padding: 1rem 0.5rem;">Distributed Multi-Rig Cluster</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald); font-weight: 700; font-family: var(--font-mono);">11.6 tok/s</td>
+            <td style="padding: 1rem 0.5rem;">120 ms</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+
+  <script src="portal.js"></script>
+</body>
+</html>

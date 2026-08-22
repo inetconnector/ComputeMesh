@@ -5,6 +5,7 @@ from .tcp_relay import (
     RelayConfig,
     RelayError,
     RelayMetrics,
+    run_relay,
     run_relay_once,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "RelayConfig",
     "RelayError",
     "RelayMetrics",
+    "run_relay",
     "run_relay_once",
 ]

@@ -9,7 +9,47 @@ import unittest
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from runtime.network.tcp_relay import PrivateEndpoint, RelayConfig, run_relay_once
+from runtime.network.tcp_relay import PrivateEndpoint, RelayConfig, run_relay, run_relay_once
+
+
+def start_multi_echo_server(stop_event: threading.Event | None = None):
+    ready = queue.Queue()
+    errors = []
+
+    def serve():
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                listener.bind(("127.0.0.1", 0))
+                listener.listen(128)
+                listener.settimeout(0.1)
+                ready.put(listener.getsockname()[1])
+                while stop_event is None or not stop_event.is_set():
+                    try:
+                        conn, _ = listener.accept()
+                    except socket.timeout:
+                        continue
+                    except OSError:
+                        break
+
+                    def handle(c):
+                        with c:
+                            while True:
+                                try:
+                                    data = c.recv(65536)
+                                    if not data:
+                                        return
+                                    c.sendall(data)
+                                except OSError:
+                                    return
+
+                    threading.Thread(target=handle, args=(conn,), daemon=True).start()
+        except Exception as exc:
+            errors.append(exc)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    return ready.get(timeout=2), thread, errors
 
 
 def start_echo_server():
@@ -401,6 +441,124 @@ class TcpRelayTests(unittest.TestCase):
             "termination": {"reason": "connect_error", "error_type": "ConnectionRefusedError", "message": "errno=111"},
         }
         validator.validate(document)
+
+    def test_multi_connection_relay_sequential_and_concurrent(self):
+        target_port, target_thread, target_errors = start_multi_echo_server()
+        ready = queue.Queue()
+        holder = {}
+        errors = []
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics_path = Path(tmp) / "relay_multi.json"
+            config = RelayConfig(
+                target=PrivateEndpoint("127.0.0.1", target_port),
+                listen_port=0,
+                idle_timeout_seconds=0.3,
+                max_connections=32,
+            )
+
+            def run():
+                try:
+                    holder["metrics"] = run_relay(
+                        config,
+                        on_ready=lambda endpoint: ready.put(endpoint),
+                        metrics_path=metrics_path,
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+
+            relay_thread = threading.Thread(target=run, daemon=True)
+            relay_thread.start()
+            endpoint = ready.get(timeout=2)
+
+            total_sent = 0
+            for i in range(5):
+                payload = f"seq-msg-{i}-".encode("utf-8") * 100
+                total_sent += len(payload)
+                with socket.create_connection((endpoint.host, endpoint.port), timeout=2) as client:
+                    client.sendall(payload)
+                    client.shutdown(socket.SHUT_WR)
+                    received = b""
+                    while True:
+                        chunk = client.recv(65536)
+                        if not chunk:
+                            break
+                        received += chunk
+                    self.assertEqual(received, payload)
+
+            def concurrent_worker(idx):
+                payload = f"conc-msg-{idx}-".encode("utf-8") * 100
+                with socket.create_connection((endpoint.host, endpoint.port), timeout=2) as client:
+                    client.sendall(payload)
+                    client.shutdown(socket.SHUT_WR)
+                    received = b""
+                    while True:
+                        chunk = client.recv(65536)
+                        if not chunk:
+                            break
+                        received += chunk
+                    self.assertEqual(received, payload)
+
+            workers = [threading.Thread(target=concurrent_worker, args=(j,)) for j in range(3)]
+            total_sent += 3 * len(f"conc-msg-0-".encode("utf-8") * 100)
+            for w in workers:
+                w.start()
+            for w in workers:
+                w.join(timeout=3)
+
+            relay_thread.join(timeout=5)
+            self.assertFalse(relay_thread.is_alive())
+            self.assertFalse(errors)
+            metrics = holder["metrics"]
+            self.assertEqual(metrics.termination["reason"], "eof")
+            self.assertEqual(metrics.traffic["connection_count"], 8)
+            self.assertEqual(metrics.traffic["coordinator_to_worker_bytes"], total_sent)
+            self.assertEqual(metrics.traffic["worker_to_coordinator_bytes"], total_sent)
+            self.assertEqual(metrics.traffic["total_forwarded_bytes"], total_sent * 2)
+
+            schema = json.loads(
+                (Path(__file__).resolve().parents[1] / "relay_metrics.schema.json").read_text(encoding="utf-8")
+            )
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            validator.validate(metrics.to_dict())
+
+    def test_multi_connection_max_connections_limit(self):
+        target_port, target_thread, target_errors = start_multi_echo_server()
+        ready = queue.Queue()
+        holder = {}
+        errors = []
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics_path = Path(tmp) / "relay_limit.json"
+            config = RelayConfig(
+                target=PrivateEndpoint("127.0.0.1", target_port),
+                listen_port=0,
+                max_connections=2,
+            )
+
+            def run():
+                try:
+                    holder["metrics"] = run_relay(
+                        config,
+                        on_ready=lambda endpoint: ready.put(endpoint),
+                        metrics_path=metrics_path,
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+
+            relay_thread = threading.Thread(target=run, daemon=True)
+            relay_thread.start()
+            endpoint = ready.get(timeout=2)
+
+            for i in range(2):
+                with socket.create_connection((endpoint.host, endpoint.port), timeout=2) as client:
+                    client.sendall(b"ping")
+                    client.shutdown(socket.SHUT_WR)
+                    client.recv(1024)
+
+            relay_thread.join(timeout=3)
+            self.assertFalse(relay_thread.is_alive())
+            self.assertFalse(errors)
+            metrics = holder["metrics"]
+            self.assertEqual(metrics.traffic["connection_count"], 2)
 
 
 if __name__ == "__main__":

@@ -243,6 +243,11 @@ def run_tests(*, runner=subprocess.run) -> None:
         [sys.executable, "-m", "unittest", "discover", "-s", "services/scheduler/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "runtime/llama/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "runtime/network/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "tools/appliance/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "services/appliance_dashboard/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "services/portal/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "services/billing/tests", "-v"],
+        [sys.executable, "-m", "unittest", "discover", "-s", "services/gateway/tests", "-v"],
         [sys.executable, "-m", "unittest", "discover", "-s", "setup/tests", "-v"],
     ]
     for command in commands:

@@ -1,0 +1,32 @@
+{
+  "architecture": "qwen2",
+  "artifacts": [
+    {
+      "digest": "sha256:fa4d41b65761ed565cac6b5f62e35135d050408b033114a128ab308c02b2e83a",
+      "media_type": "application/x-gguf",
+      "size_bytes": 391859712
+    }
+  ],
+  "layer_count": 24,
+  "license": {
+    "id": "apache-2.0",
+    "redistribution_allowed": false,
+    "source": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/blob/main/LICENSE"
+  },
+  "model_id": "qwen/qwen2.5-0.5b-instruct",
+  "model_version": "v1",
+  "partitioning": {
+    "allowed": [
+      "contiguous_layers"
+    ]
+  },
+  "quantizations": [
+    "Q4_K_M"
+  ],
+  "runtime_compatibility": [
+    {
+      "runtime": "llama.cpp"
+    }
+  ],
+  "schema_version": 1
+}

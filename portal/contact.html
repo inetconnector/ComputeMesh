@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact & Support — ComputeMesh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">Support</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+        <li><a href="/status" data-i18n="nav_status">Network Status</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 750px;">
+    <div class="section-header" style="text-align: left; margin-bottom: 2rem;">
+      <span class="section-tag" data-i18n="contact_tag">Get in Touch</span>
+      <h1 data-i18n="contact_title">Support & Community Helpdesk</h1>
+      <p data-i18n="contact_sub">Have questions about running a provider mining rig, integrating our OpenAI API, or purchasing enterprise compute credits?</p>
+    </div>
+
+    <div class="calc-box">
+      <form onsubmit="handleContactSubmit(event)">
+        <div class="form-group">
+          <label data-i18n="contact_name_lbl">Your Name</label>
+          <input type="text" class="form-control" required placeholder="Alexander Müller">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal_email_lbl">Email Address</label>
+          <input type="email" class="form-control" required placeholder="alex@company.de">
+        </div>
+        <div class="form-group">
+          <label data-i18n="contact_topic_lbl">Topic</label>
+          <select class="form-control">
+            <option value="provider">Mining Rig & Hardware Provider Support</option>
+            <option value="developer">Developer API & Integration</option>
+            <option value="billing">Billing & Credit Top-up</option>
+            <option value="enterprise">Custom Enterprise Deployment</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="contact_msg_lbl">Message</label>
+          <textarea class="form-control" rows="5" required placeholder="Describe your question or hardware setup..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="contact_send_btn">Send Message</button>
+      </form>
+      <div id="contact-success-msg" style="display: none; margin-top: 1.5rem; color: var(--accent-emerald); font-weight: 600; text-align: center;" data-i18n="contact_success">
+        ✓ Your message has been sent successfully! Our engineering team will respond within 24 hours.
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+  <script src="portal.js"></script>
+</body>
+</html>

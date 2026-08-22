@@ -1,55 +1,35 @@
 # Billing and Ledger Service
 
-**Status:** planned component
+**Status:** implemented (M2 Foundation)
 
 ## Purpose
 
-Convert accepted metering evidence into auditable customer charges and provider balances.
+Convert accepted metering evidence into immutable, auditable customer debits and provider payable credits using double-entry bookkeeping with integer micro-unit precision.
 
 ## Responsibilities
 
-- pricing evaluation
-- metering acceptance
-- append-only double-entry ledger
-- refund/credit events
-- provider balance
-- settlement aggregation
-- reconciliation
+- Dynamic pricing catalog evaluation per model tier (0.5B, 7B, 14B, 32B, 70B).
+- Idempotent metering event acceptance with unique event hash deduplication.
+- Append-only double-entry journal with strict invariant $\sum \text{debits} = \sum \text{credits}$.
+- Multi-provider proportional reward allocation for distributed pipeline execution.
+- Minimum payout threshold enforcement ($25.00 / 25,000,000 micro-units) and settlement export.
+- Full ledger reconciliation audit verifying zero float drift and zero imbalance across all accounts.
 
-## Non-goals
+## Units and Precision
 
-- using floating point for money
-- trusting arbitrary provider invoices
-- editing posted ledger rows in place
+- **Base Unit:** Micro-units (`1 CM = 1,000,000 micro-units`, `1 USD = 1,000,000 micro-units`).
+- **Precision:** Integer arithmetic exclusively. Floating-point arithmetic is strictly forbidden for balances and ledger postings.
+- **Network Fee:** 15.00% (1500 Basis Points) routed to `revenue:network_fee`.
+- **Provider Pool:** 85.00% routed proportionally to `provider:{node_id}` payable accounts.
 
-## Canonical interfaces
+## Key Entry Points
 
-- orchestrator/metering
-- verification
-- payment provider
-- dashboard read model
+- `Ledger`: Main double-entry journal engine in `services/billing/ledger.py`.
+- `deposit_customer_credits(...)`: Top-up prepaid balance.
+- `record_job_execution(...)`: Debits customer and credits provider(s) + network pool.
+- `create_provider_payout(...)`: Automated withdrawal settlement for eligible balances.
+- `reconcile()`: Full audit verifying balance integrity across every account.
 
-## M1 scope
+## Test Suite
 
-- simulation only until execution evidence stabilizes
-- define units and invariants
-
-## Required tests / evidence
-
-- debit=credit
-- duplicate event
-- refund bounds
-- rounding
-- reconciliation
-
-## Security and reliability rules
-
-- Treat external inputs as untrusted.
-- Use bounded messages/resources.
-- Preserve idempotency for state changes.
-- Emit structured errors and metrics without raw prompt/output content.
-- Do not widen the V1 arbitrary-code boundary without an accepted ADR.
-
-## Implementation status
-
-No production implementation exists yet. Update this file when the component acquires real entry points, configuration, dependencies, and run/test commands.
+- `services/billing/tests/test_ledger.py` (8 automated test cases covering deposits, proportional splits, duplicate prevention, fail-closed balances, payouts, persistence, and audit reconciliation).

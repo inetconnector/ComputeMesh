@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — ComputeMesh Decentralized AI</title>
+  <meta name="description" content="Technical documentation for ComputeMesh API integration, decentralized layer sharding, and hardware provider node setup.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">Docs</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/#features" data-i18n="nav_features">Features</a></li>
+        <li><a href="/#pricing" data-i18n="nav_pricing">Pricing & Calculator</a></li>
+        <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+        <li><a href="/docs" class="gradient-text" data-i18n="nav_docs">API Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Register / API Key</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem;">
+    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2.5rem;">
+      <span class="section-tag" data-i18n="docs_tag">Technical Documentation</span>
+      <h1 data-i18n="docs_title">ComputeMesh Architecture & Integration Guide</h1>
+      <p data-i18n="docs_sub">Comprehensive developer references, OpenAI API compatibility specifications, and hardware node deployment manuals.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 280px 1fr; gap: 2.5rem; align-items: start;">
+      <!-- Sidebar Navigation -->
+      <aside style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; position: sticky; top: 90px;">
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 1rem;" data-i18n="docs_toc">Contents</h4>
+        <ul class="footer-links" style="gap: 0.75rem;">
+          <li><a href="#quickstart" style="color: var(--text-main); font-weight: 600;">1. Quickstart & API</a></li>
+          <li><a href="#architecture">2. Decentralized Mesh</a></li>
+          <li><a href="#layer-sharding">3. Pipeline Layer Sharding</a></li>
+          <li><a href="#providers">4. Provider Node Setup</a></li>
+          <li><a href="#mining-rigs">5. Mining Rig NodeOS</a></li>
+          <li><a href="#billing">6. Ledger & Billing Model</a></li>
+        </ul>
+      </aside>
+
+      <!-- Main Docs Content -->
+      <div style="display: flex; flex-direction: column; gap: 3rem;">
+        <!-- Quickstart -->
+        <section id="quickstart" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec1_title">1. OpenAI API Drop-in Quickstart</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem;" data-i18n="docs_sec1_desc">
+            ComputeMesh implements full drop-in compatibility with the standard OpenAI SDK and REST specification. You only need to set your <code>base_url</code> and pass your ComputeMesh API key.
+          </p>
+          <div class="code-window">
+            <div class="code-header">
+              <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+              <span>python_example.py</span>
+            </div>
+            <pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.computemesh.net/v1",
+    api_key="cm_live_your_api_key_here"
+)
+
+response = client.chat.completions.create(
+    model="qwen/qwen2.5-32b-instruct",
+    messages=[{"role": "user", "content": "How does ComputeMesh layer sharding work?"}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="")</code></pre>
+          </div>
+        </section>
+
+        <!-- Architecture -->
+        <section id="architecture" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec2_title">2. Decentralized Mesh Architecture</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec2_desc">
+            ComputeMesh connects consumer GPUs, professional cloud accelerators, and multi-GPU mining rigs through a low-latency, peer-to-peer execution topology. The scheduler evaluates node proximity, memory bandwidth, and thermal stability to dynamically allocate neural network layers.
+          </p>
+          <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.8;">
+            Client Request ➔ ComputeMesh Edge Gateway ➔ Placement Scheduler<br>
+            &nbsp;&nbsp;├── Node A (RTX 3080 16GB) : Layers 0–12 (Embeddings & Attention Blocks)<br>
+            &nbsp;&nbsp;└── Node B (5x 8GB Rig 40GB) : Layers 13–32 (Deep Blocks & LM-Head) ➔ Streamed Tokens
+          </div>
+        </section>
+
+        <!-- Layer Sharding & PCIe -->
+        <section id="layer-sharding" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec3_title">3. Pipeline Layer Sharding & PCIe 1x Physics</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec3_desc">
+            Unlike training workloads that require high-bandwidth all-reduce operations, autoregressive inference at batch size 1 only transmits the activation tensor of a single token (e.g. 8.2 KB for a 32B model). Across a 500 MB/s PCIe 1x mining riser, this transfer takes only <strong>0.016 milliseconds</strong>, introducing zero human-perceivable token latency.
+          </p>
+        </section>
+
+        <!-- Hardware Providers -->
+        <section id="providers" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec4_title">4. Hardware Provider Node Setup</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec4_desc">
+            Anyone with a modern GPU (NVIDIA, AMD, or Intel) can run a ComputeMesh provider agent. Nodes authenticate using asymmetric Ed25519 cryptography without exposing private keys.
+          </p>
+          <div class="dl-code-box">curl -fsSL https://get.computemesh.net/install.sh | sudo bash</div>
+        </section>
+
+        <!-- Mining Rigs -->
+        <section id="mining-rigs" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec5_title">5. Mining Rig NodeOS Appliance</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec5_desc">
+            NodeOS is a headless appliance image based on Debian 13 that boots directly from a USB stick. It features native dual-stack driver detection for both AMD (Polaris, Vega, RDNA) and NVIDIA (Pascal, Turing, Ampere) cards with an embedded real-time dashboard on port <code>8080</code>.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Interactive Registration Modal -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="modal_title">Get Started with ComputeMesh</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="modal_sub">Create an account to generate your API key or register your hardware node.</p>
+      <form onsubmit="handleRegistration(event)">
+        <div class="form-group">
+          <label data-i18n="modal_role_lbl">I want to:</label>
+          <select id="modal-role" class="form-control">
+            <option value="consumer" data-i18n="role_consumer">Consume AI Compute (Developer API)</option>
+            <option value="provider" data-i18n="role_provider">Provide GPU Compute (Earn Revenue)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal_email_lbl">Email Address</label>
+          <input type="email" class="form-control" required placeholder="developer@company.com">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal_wallet_lbl">Payout Wallet / Account (Optional)</label>
+          <input type="text" class="form-control" placeholder="0x71a9... or SEPA IBAN">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
+      </form>
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Your Generated Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);">
+          <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Copy Key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+
+  <script src="portal.js"></script>
+</body>
+</html>

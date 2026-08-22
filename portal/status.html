@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Status — ComputeMesh Decentralized AI</title>
+  <meta name="description" content="Live cluster health, uptime metrics, regional gateway performance, and active GPU telemetry for ComputeMesh.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Status</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/" data-i18n="nav_home">Home</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+        <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li>
+        <li><a href="/status" class="gradient-emerald" data-i18n="nav_status">Network Status</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Register / API Key</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 4rem 1.5rem;">
+    <!-- Global Status Banner -->
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-lg); padding: 2rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; flex-wrap: wrap; gap: 1rem;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 12px var(--accent-emerald);"></div>
+        <div>
+          <h2 style="font-size: 1.5rem; color: var(--text-main);" data-i18n="status_all_systems">All Systems Operational</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;" data-i18n="status_uptime_desc">Decentralized inference mesh running at 99.98% global availability.</p>
+        </div>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent-emerald);">
+        Verified 2026-08-22 16:00 UTC
+      </div>
+    </div>
+
+    <!-- Live Telemetry Grid -->
+    <div class="telemetry-ticker" style="margin-bottom: 3.5rem;">
+      <div class="ticker-item emerald">
+        <div class="ticker-val">1,248</div>
+        <div class="ticker-lbl" data-i18n="ticker_gpus">Active GPUs</div>
+      </div>
+      <div class="ticker-item">
+        <div class="ticker-val">18.4 TB</div>
+        <div class="ticker-lbl" data-i18n="ticker_vram">Total VRAM Pool</div>
+      </div>
+      <div class="ticker-item indigo">
+        <div class="ticker-val">28.5 ms</div>
+        <div class="ticker-lbl" data-i18n="status_avg_latency">Avg TTFT Latency</div>
+      </div>
+      <div class="ticker-item amber">
+        <div class="ticker-val">42.8 M</div>
+        <div class="ticker-lbl" data-i18n="ticker_tokens">Tokens Served Today</div>
+      </div>
+    </div>
+
+    <!-- Regional Nodes -->
+    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
+      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Regional Gateways & Sharding Clusters</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 4rem;">
+      <div class="feature-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="font-size: 1.2rem;">🇪🇺 EU-Central (Frankfurt / Nuremberg)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>512 GPUs</strong> (7.8 TB VRAM)</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>14.2 ms</strong> • 99.99% Uptime</p>
+      </div>
+
+      <div class="feature-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="font-size: 1.2rem;">🇺🇸 US-East (N. Virginia)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>420 GPUs</strong> (6.2 TB VRAM)</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>18.5 ms</strong> • 99.98% Uptime</p>
+      </div>
+
+      <div class="feature-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="font-size: 1.2rem;">🇺🇸 US-West (Oregon / California)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>196 GPUs</strong> (2.8 TB VRAM)</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>22.1 ms</strong> • 99.97% Uptime</p>
+      </div>
+
+      <div class="feature-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="font-size: 1.2rem;">🇸🇬 AP-East (Singapore / Tokyo)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>120 GPUs</strong> (1.6 TB VRAM)</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>31.0 ms</strong> • 99.95% Uptime</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom" style="border: none;">
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+    </div>
+  </footer>
+
+  <script src="portal.js"></script>
+</body>
+</html>

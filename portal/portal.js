@@ -1,0 +1,437 @@
+/* ==============================================================================
+   ComputeMesh Portal Client Logic: i18n (DE/EN), Calculators & Subpages
+   ============================================================================== */
+
+const translations = {
+  en: {
+    nav_home: "Home",
+    nav_features: "Features",
+    nav_pricing: "Pricing & Calculator",
+    nav_downloads: "Downloads",
+    nav_docs: "API Docs",
+    nav_benchmarks: "Benchmarks",
+    nav_status: "Network Status",
+    nav_register: "Register / API Key",
+    
+    hero_tagline: "Decentralized AI Inference Network",
+    hero_title: "High-Performance LLM Inference on Pooled GPU Compute",
+    hero_sub: "Run 70B+ open models at 80% lower cost or turn your idle GPUs and mining rigs into revenue-generating inference nodes.",
+    btn_start_inferencing: "Start Inferencing (API)",
+    btn_provide_compute: "Provide GPU Compute",
+    
+    ticker_gpus: "Active GPUs",
+    ticker_vram: "Total VRAM",
+    ticker_tokens: "Tokens Served",
+    ticker_uptime: "Network Uptime",
+
+    features_tag: "Decentralized Architecture",
+    features_title: "Engineered for Ultra-Fast, Low-Cost Inference",
+    features_sub: "ComputeMesh solves the high cost of centralized AI by pooling consumer GPUs, datacenter accelerators, and multi-GPU mining rigs.",
+    
+    feat1_title: "Pipeline Layer Sharding",
+    feat1_desc: "Models are seamlessly split across distributed GPUs. Activation tensors transmit in microseconds, unlocking massive 32B+ models across 8GB cards.",
+    
+    feat2_title: "Native AMD & NVIDIA Dual-Stack",
+    feat2_desc: "Full native support for NVIDIA CUDA, AMD ROCm, and universal Vulkan backends. Mix arbitrary GPUs in one rig with zero friction.",
+    
+    feat3_title: "80% Cost Reduction",
+    feat3_desc: "Prepaid micro-credit billing and decentralized hardware yield drastic savings compared to traditional centralized hyperscalers.",
+    
+    feat4_title: "OpenAI-Compatible Gateway",
+    feat4_desc: "Drop-in replacement for OpenAI SDKs and cURL. Simply switch your baseURL to start serving low-latency tokens immediately.",
+
+    feat5_title: "Mining Rig NodeOS",
+    feat5_desc: "Flashable USB appliance image turning 4–12 GPU Ethereum mining rigs into autonomous provider nodes in under 2 minutes.",
+
+    feat6_title: "Verifiable Double-Entry Ledger",
+    feat6_desc: "Every token computed is cryptographically metered and settled to an auditable append-only ledger for instant provider payouts.",
+
+    calc_tag: "ROI & Economics",
+    calc_title: "Calculate Your Savings or Earnings",
+    calc_sub: "Transparent pay-as-you-go pricing for developers and high-yield passive revenue for hardware providers.",
+    
+    tab_developer: "Developer Cost Calculator",
+    tab_provider: "Hardware Provider Earnings",
+    
+    lbl_monthly_tokens: "Monthly Inference Volume (Million Tokens)",
+    lbl_model_tier: "Model Size Tier",
+    lbl_computemesh_cost: "ComputeMesh Cost",
+    lbl_cloud_cost: "Traditional Cloud Cost",
+    lbl_your_savings: "Estimated Savings: ~80%",
+    
+    lbl_gpu_setup: "Your Hardware Setup",
+    lbl_hours_online: "Uptime per Day (Hours)",
+    lbl_est_earnings: "Estimated Monthly Earnings",
+    lbl_payout_note: "Paid in USD/EUR or ComputeMesh Credits (CM)",
+
+    dl_tag: "One-Click Deploy",
+    dl_title: "Download Node Installers & NodeOS Images",
+    dl_sub: "Get started in seconds on Windows, Linux, or dedicated multi-GPU mining rigs.",
+    
+    dl_win_title: "Windows Provider Agent",
+    dl_win_desc: "GUI tray app with automatic NVIDIA CUDA acceleration and background inference daemon.",
+    dl_win_btn: "Download for Windows (.exe)",
+
+    dl_linux_title: "Linux Headless Agent",
+    dl_linux_desc: "One-command terminal installer for Ubuntu 22.04/24.04 and Debian 12/13 servers.",
+    dl_linux_btn: "Copy Install Command",
+
+    dl_rig_title: "Mining Rig Appliance (NodeOS)",
+    dl_rig_desc: "Flashable USB disk image for 4–12 GPU mining rigs with native AMD & NVIDIA dual-stack auto-detection.",
+    dl_rig_btn: "Download NodeOS Image (.img.xz)",
+
+    api_tag: "Integration",
+    api_title: "100% OpenAI API Compatible",
+    api_sub: "Change one line of code in Python, TypeScript, or cURL to start routing requests through ComputeMesh.",
+
+    modal_title: "Get Started with ComputeMesh",
+    modal_sub: "Create an account to generate your API key or register your hardware node.",
+    modal_role_lbl: "I want to:",
+    role_consumer: "Consume AI Compute (Developer API)",
+    role_provider: "Provide GPU Compute (Earn Revenue)",
+    modal_email_lbl: "Email Address",
+    modal_wallet_lbl: "Payout Wallet / Account (Optional)",
+    modal_submit_btn: "Generate Credentials",
+    modal_key_result_lbl: "Your Generated Key:",
+    modal_copy_btn: "Copy Key",
+
+    docs_tag: "Technical Documentation",
+    docs_title: "ComputeMesh Architecture & Integration Guide",
+    docs_sub: "Comprehensive developer references, OpenAI API compatibility specifications, and hardware node deployment manuals.",
+    docs_toc: "Contents",
+    docs_sec1_title: "1. OpenAI API Drop-in Quickstart",
+    docs_sec1_desc: "ComputeMesh implements full drop-in compatibility with the standard OpenAI SDK and REST specification. You only need to set your base_url and pass your ComputeMesh API key.",
+    docs_sec2_title: "2. Decentralized Mesh Architecture",
+    docs_sec2_desc: "ComputeMesh connects consumer GPUs, professional cloud accelerators, and multi-GPU mining rigs through a low-latency, peer-to-peer execution topology.",
+    docs_sec3_title: "3. Pipeline Layer Sharding & PCIe 1x Physics",
+    docs_sec3_desc: "Unlike training workloads that require high-bandwidth all-reduce operations, autoregressive inference at batch size 1 only transmits the activation tensor of a single token (e.g. 8.2 KB for a 32B model). Across a 500 MB/s PCIe 1x mining riser, this transfer takes only 0.016 milliseconds.",
+    docs_sec4_title: "4. Hardware Provider Node Setup",
+    docs_sec4_desc: "Anyone with a modern GPU (NVIDIA, AMD, or Intel) can run a ComputeMesh provider agent. Nodes authenticate using asymmetric Ed25519 cryptography without exposing private keys.",
+    docs_sec5_title: "5. Mining Rig NodeOS Appliance",
+    docs_sec5_desc: "NodeOS is a headless appliance image based on Debian 13 that boots directly from a USB stick with native dual-stack driver detection and embedded dashboard.",
+
+    status_all_systems: "All Systems Operational",
+    status_uptime_desc: "Decentralized inference mesh running at 99.98% global availability.",
+    status_avg_latency: "Avg TTFT Latency",
+    status_regional_title: "Regional Gateways & Sharding Clusters",
+
+    benchmarks_tag: "Performance Metrics",
+    benchmarks_title: "Decentralized Model Inference Benchmarks",
+    benchmarks_sub: "Empirical tokens/second throughput and time-to-first-token (TTFT) across multi-GPU mining rigs and distributed coordinator-worker pairs.",
+
+    terms_title: "Terms of Service",
+    privacy_title: "Privacy Policy",
+    impressum_title: "Impressum / Legal Notice",
+    impressum_meta: "Information pursuant to § 5 DDG (Digital Services Act) and § 18 Abs. 2 MStV",
+    impressum_provider_hdr: "Service Provider & Address",
+    impressum_contact_hdr: "Contact",
+    impressum_responsible_hdr: "Responsible for content pursuant to § 18 Abs. 2 MStV",
+    impressum_liability_content_hdr: "Liability for Contents",
+    impressum_liability_content_text: "As a service provider, we are responsible for our own content on these pages under general law. However, we are not obligated to monitor transmitted or stored third-party information or to investigate circumstances that indicate illegal activity.",
+    impressum_liability_links_hdr: "Liability for Links",
+    impressum_liability_links_text: "Our offer may contain links to external third-party websites over whose content we have no influence. Therefore, we cannot assume any liability for these external contents.",
+    impressum_copyright_hdr: "Copyright",
+    impressum_copyright_text: "The contents, source codes, and works created by the site operators on these pages are subject to German copyright law. Duplication, editing, distribution, and any kind of exploitation outside the limits of copyright law require written consent.",
+
+    contact_tag: "Get in Touch",
+    contact_title: "Support & Community Helpdesk",
+    contact_sub: "Have questions about running a provider mining rig, integrating our OpenAI API, or purchasing enterprise compute credits?",
+    contact_name_lbl: "Your Name",
+    contact_topic_lbl: "Topic",
+    contact_msg_lbl: "Message",
+    contact_send_btn: "Send Message",
+    contact_success: "✓ Your message has been sent successfully! Our engineering team will respond within 24 hours.",
+
+    footer_rights: "All rights reserved. Decentralized AI Mesh Architecture.",
+  },
+  
+  de: {
+    nav_home: "Startseite",
+    nav_features: "Funktionen",
+    nav_pricing: "Preise & Rechner",
+    nav_downloads: "Downloads",
+    nav_docs: "API Dokumentation",
+    nav_benchmarks: "Benchmarks",
+    nav_status: "Netzwerk-Status",
+    nav_register: "Registrieren / API-Key",
+    
+    hero_tagline: "Dezentrales KI-Inferenz-Netzwerk",
+    hero_title: "Hochleistungs-KI-Inferenz auf geteilter GPU-Rechenleistung",
+    hero_sub: "Führe große 70B+ Open-Source-Modelle 80% günstiger aus oder verwandle ungenutzte Grafikkarten und Mining-Rigs in rentable Inferenz-Knoten.",
+    btn_start_inferencing: "Inferenz starten (API)",
+    btn_provide_compute: "Grafikkarten bereitstellen",
+    
+    ticker_gpus: "Aktive GPUs",
+    ticker_vram: "Gesamter VRAM",
+    ticker_tokens: "Verarbeitete Tokens",
+    ticker_uptime: "Netzwerk-Verfügbarkeit",
+
+    features_tag: "Dezentrale Architektur",
+    features_title: "Entwickelt für ultraschnelle, bezahlbare KI",
+    features_sub: "ComputeMesh löst die hohen Kosten zentraler Anbieter durch das Bündeln von Consumer-GPUs, Server-Beschleunigern und Multi-GPU-Mining-Rigs.",
+    
+    feat1_title: "Pipeline Layer-Sharding",
+    feat1_desc: "Modelle werden nahtlos über mehrere GPUs verteilt. Aktivierungstensoren werden in Mikrosekunden übertragen – 32B+ Modelle laufen auf 8GB-Karten.",
+    
+    feat2_title: "Natives AMD & NVIDIA Dual-Stack",
+    feat2_desc: "Vollständige Unterstützung für NVIDIA CUDA, AMD ROCm und universelles Vulkan. Mische beliebige Karten in einem Rig völlig reibungslos.",
+    
+    feat3_title: "80% Kostenersparnis",
+    feat3_desc: "Prepaid-Abrechnung in Mikro-Credits und dezentrale Hardware senken die Kosten gegenüber herkömmlichen Cloud-Hyperscalern drastisch.",
+    
+    feat4_title: "OpenAI-kompatibles Gateway",
+    feat4_desc: "Direkter Ersatz für OpenAI SDKs und cURL. Ändere einfach die baseURL, um sofort kostengünstige Tokens zu generieren.",
+
+    feat5_title: "Mining-Rig NodeOS",
+    feat5_desc: "Flashbares USB-Betriebssystem-Image, das 4–12 GPU Ethereum-Mining-Rigs in unter 2 Minuten in autonome Provider-Knoten verwandelt.",
+
+    feat6_title: "Verifizierbares Hauptbuch (Ledger)",
+    feat6_desc: "Jedes berechnete Token wird kryptografisch erfasst und unveränderlich in einem Buchungssystem verbucht – für automatische Auszahlungen.",
+
+    calc_tag: "Wirtschaftlichkeit & Ertrag",
+    calc_title: "Berechne deine Ersparnis oder Einnahmen",
+    calc_sub: "Transparente Pay-As-You-Go-Preise für Entwickler und lukrative passive Einnahmen für Hardware-Betreiber.",
+    
+    tab_developer: "Entwickler-Kostenrechner",
+    tab_provider: "Hardware-Ertragsrechner",
+    
+    lbl_monthly_tokens: "Monatliches Token-Volumen (Millionen Tokens)",
+    lbl_model_tier: "Modellgröße",
+    lbl_computemesh_cost: "ComputeMesh Kosten",
+    lbl_cloud_cost: "Herkömmliche Cloud Kosten",
+    lbl_your_savings: "Geschätzte Ersparnis: ~80%",
+    
+    lbl_gpu_setup: "Deine Hardware-Ausstattung",
+    lbl_hours_online: "Laufzeit pro Tag (Stunden)",
+    lbl_est_earnings: "Geschätzter Monatsverdienst",
+    lbl_payout_note: "Auszahlung in USD/EUR oder ComputeMesh-Credits (CM)",
+
+    dl_tag: "1-Klick-Installation",
+    dl_title: "Node-Installer & NodeOS-Images herunterladen",
+    dl_sub: "Starte in Sekunden auf Windows, Linux oder dedizierten Multi-GPU-Mining-Rigs.",
+    
+    dl_win_title: "Windows Provider Agent",
+    dl_win_desc: "Desktop-App im System-Tray mit automatischer NVIDIA CUDA-Erkennung und Hintergrunddienst.",
+    dl_win_btn: "Für Windows herunterladen (.exe)",
+
+    dl_linux_title: "Linux Headless Agent",
+    dl_linux_desc: "1-Befehl Terminal-Installer für Ubuntu 22.04/24.04 und Debian 12/13 Server.",
+    dl_linux_btn: "Installationsbefehl kopieren",
+
+    dl_rig_title: "Mining-Rig Appliance (NodeOS)",
+    dl_rig_desc: "Flashbares USB-Disk-Image für 4–12 GPU Mining-Rigs mit nativer AMD & NVIDIA Auto-Erkennung.",
+    dl_rig_btn: "NodeOS Image herunterladen (.img.xz)",
+
+    api_tag: "Integration",
+    api_title: "100% OpenAI API-kompatibel",
+    api_sub: "Ändere eine einzige Zeile Code in Python, TypeScript oder cURL, um Anfragen über ComputeMesh zu leiten.",
+
+    modal_title: "Jetzt bei ComputeMesh starten",
+    modal_sub: "Erstelle ein Konto, um deinen API-Schlüssel zu generieren oder deinen Hardware-Knoten zu registrieren.",
+    modal_role_lbl: "Ich möchte:",
+    role_consumer: "KI-Rechenleistung nutzen (Entwickler-API)",
+    role_provider: "GPU-Rechenleistung bereitstellen (Verdienen)",
+    modal_email_lbl: "E-Mail-Adresse",
+    modal_wallet_lbl: "Auszahlungs-Wallet / Konto (Optional)",
+    modal_submit_btn: "Zugangsdaten generieren",
+    modal_key_result_lbl: "Dein generierter Schlüssel:",
+    modal_copy_btn: "Schlüssel kopieren",
+
+    docs_tag: "Technische Dokumentation",
+    docs_title: "ComputeMesh Architektur- & Integrationshandbuch",
+    docs_sub: "Umfassende Entwickler-Referenzen, OpenAI-API-Spezifikationen und Installationsanleitungen für Hardware-Knoten.",
+    docs_toc: "Inhalt",
+    docs_sec1_title: "1. OpenAI-API Schnellstart (Drop-in)",
+    docs_sec1_desc: "ComputeMesh bietet vollständige Kompatibilität mit dem offiziellen OpenAI SDK. Es genügt die baseURL anzupassen und deinen ComputeMesh API-Key zu übergeben.",
+    docs_sec2_title: "2. Dezentrale Mesh-Architektur",
+    docs_sec2_desc: "ComputeMesh verbindet Consumer-Grafikkarten, Cloud-Server und Mining-Rigs über eine latenzoptimierte Peer-to-Peer-Struktur.",
+    docs_sec3_title: "3. Pipeline Layer-Sharding & PCIe-1x Physik",
+    docs_sec3_desc: "Im Gegensatz zum Modelltraining überträgt die Textgenerierung (Inferenz) bei Batch-Größe 1 lediglich den Aktivierungs-Vektor eines einzelnen Tokens (z. B. 8.2 KB bei 32B-Modellen). Über einen 500 MB/s PCIe-1x-Riser dauert diese Übertragung nur 0,016 Millisekunden.",
+    docs_sec4_title: "4. Provider-Node einrichten",
+    docs_sec4_desc: "Jeder mit einer modernen Grafikkarte (NVIDIA, AMD oder Intel) kann einen Provider-Agenten betreiben. Die Knoten authentifizieren sich kryptografisch mit Ed25519.",
+    docs_sec5_title: "5. Mining-Rig NodeOS Appliance",
+    docs_sec5_desc: "NodeOS ist ein USB-Betriebssystem-Image auf Debian 13-Basis mit automatischer AMD- und NVIDIA-Treibererkennung und integriertem Dashboard.",
+
+    status_all_systems: "Alle Systeme betriebsbereit",
+    status_uptime_desc: "Dezentrales Inferenz-Netzwerk läuft mit 99,98% weltweiter Verfügbarkeit.",
+    status_avg_latency: "Durchschnittliche Latenz (TTFT)",
+    status_regional_title: "Regionale Gateways & Sharding-Cluster",
+
+    benchmarks_tag: "Leistungskennzahlen",
+    benchmarks_title: "Dezentrale Modell-Inferenz Benchmarks",
+    benchmarks_sub: "Gemessene Token/Sekunde-Durchsätze und Latenzen über Multi-GPU-Mining-Rigs und verteilte Knoten.",
+
+    terms_title: "Nutzungsbedingungen (AGB)",
+    privacy_title: "Datenschutzerklärung",
+    impressum_title: "Impressum",
+    impressum_meta: "Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz) und § 18 Abs. 2 MStV",
+    impressum_provider_hdr: "Diensteanbieter & Anschrift",
+    impressum_contact_hdr: "Kontakt",
+    impressum_responsible_hdr: "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV",
+    impressum_liability_content_hdr: "Haftung für Inhalte",
+    impressum_liability_content_text: "Als Diensteanbieter sind wir gemäß den allgemeinen Gesetzen für eigene Inhalte auf diesen Seiten verantwortlich. Wir sind jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen. Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt.",
+    impressum_liability_links_hdr: "Haftung für Links",
+    impressum_liability_links_text: "Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.",
+    impressum_copyright_hdr: "Urheberrecht",
+    impressum_copyright_text: "Die durch die Seitenbetreiber erstellten Inhalte, Quellcodes und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.",
+
+    contact_tag: "Kontakt & Hilfe",
+    contact_title: "Support & Community Helpdesk",
+    contact_sub: "Hast du Fragen zum Betrieb eines Mining-Rigs, zur API-Integration oder zum Erwerb von Rechenguthaben?",
+    contact_name_lbl: "Dein Name",
+    contact_topic_lbl: "Thema",
+    contact_msg_lbl: "Nachricht",
+    contact_send_btn: "Nachricht absenden",
+    contact_success: "✓ Deine Nachricht wurde erfolgreich gesendet! Unser Support-Team antwortet innerhalb von 24 Stunden.",
+
+    footer_rights: "Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.",
+  }
+};
+
+let currentLang = 'en';
+
+function switchLanguage(lang) {
+  currentLang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (translations[lang] && translations[lang][key]) {
+      if (el.tagName === 'INPUT' && el.getAttribute('placeholder')) {
+        el.setAttribute('placeholder', translations[lang][key]);
+      } else {
+        el.textContent = translations[lang][key];
+      }
+    }
+  });
+  const btn = document.getElementById('lang-toggle-btn');
+  if (btn) {
+    btn.textContent = lang === 'en' ? '🇩🇪 Deutsch' : '🇬🇧 English';
+  }
+  localStorage.setItem('cm_portal_lang', lang);
+  updateCalculators();
+}
+
+function toggleLanguage() {
+  const nextLang = currentLang === 'en' ? 'de' : 'en';
+  switchLanguage(nextLang);
+}
+
+// Pricing Calculators
+function updateCalculators() {
+  // Developer Calculator
+  const tokensM = parseFloat(document.getElementById('slider-tokens')?.value || 50);
+  const modelTier = document.getElementById('select-model')?.value || '8b';
+  
+  let ratePerMillion = 0.20; // 8B base
+  let cloudRate = 1.00;
+  
+  if (modelTier === '14b') { ratePerMillion = 0.35; cloudRate = 1.75; }
+  else if (modelTier === '32b') { ratePerMillion = 0.70; cloudRate = 3.50; }
+  else if (modelTier === '70b') { ratePerMillion = 1.40; cloudRate = 7.00; }
+  
+  const cmCost = (tokensM * ratePerMillion).toFixed(2);
+  const cloudCost = (tokensM * cloudRate).toFixed(2);
+  
+  const cmEl = document.getElementById('calc-cm-cost');
+  const cloudEl = document.getElementById('calc-cloud-cost');
+  const tokensVal = document.getElementById('tokens-val');
+  
+  if (cmEl) cmEl.textContent = `$${cmCost}`;
+  if (cloudEl) cloudEl.textContent = `$${cloudCost}`;
+  if (tokensVal) tokensVal.textContent = `${tokensM} M`;
+
+  // Provider Calculator
+  const rigType = document.getElementById('select-rig')?.value || '5x8gb';
+  const hours = parseFloat(document.getElementById('slider-hours')?.value || 24);
+  
+  let monthlyYield = 145.0; // 5x 8GB base
+  if (rigType === 'rtx3080') monthlyYield = 65.0;
+  else if (rigType === 'rtx4090') monthlyYield = 195.0;
+  else if (rigType === '8x3070') monthlyYield = 310.0;
+  
+  const estEarnings = ((monthlyYield * (hours / 24))).toFixed(2);
+  const earnEl = document.getElementById('calc-provider-earnings');
+  const hoursVal = document.getElementById('hours-val');
+  
+  if (earnEl) earnEl.textContent = `$${estEarnings} / Mo`;
+  if (hoursVal) hoursVal.textContent = `${hours} h/day`;
+}
+
+function showTab(tabName) {
+  document.querySelectorAll('.calc-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.calc-pane').forEach(p => p.style.display = 'none');
+  
+  if (tabName === 'dev') {
+    document.getElementById('tab-dev-btn')?.classList.add('active');
+    const pane = document.getElementById('pane-dev');
+    if (pane) pane.style.display = 'grid';
+  } else {
+    document.getElementById('tab-prov-btn')?.classList.add('active');
+    const pane = document.getElementById('pane-prov');
+    if (pane) pane.style.display = 'grid';
+  }
+}
+
+// Modal Registration
+function openModal(role = 'consumer') {
+  const modal = document.getElementById('register-modal');
+  if (modal) modal.classList.add('active');
+  const select = document.getElementById('modal-role');
+  if (select) select.value = role;
+}
+
+function closeModal() {
+  const modal = document.getElementById('register-modal');
+  if (modal) modal.classList.remove('active');
+  const resBox = document.getElementById('modal-result-box');
+  if (resBox) resBox.style.display = 'none';
+}
+
+function handleRegistration(e) {
+  e.preventDefault();
+  const role = document.getElementById('modal-role').value;
+  const prefix = role === 'consumer' ? 'cm_live_' : 'cm_node_';
+  const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const generatedKey = prefix + randomHex;
+  
+  const keyInput = document.getElementById('generated-key-val');
+  if (keyInput) keyInput.value = generatedKey;
+  
+  const resBox = document.getElementById('modal-result-box');
+  if (resBox) resBox.style.display = 'block';
+}
+
+function copyKey() {
+  const keyInput = document.getElementById('generated-key-val');
+  if (keyInput) {
+    navigator.clipboard.writeText(keyInput.value);
+    alert(currentLang === 'de' ? 'Schlüssel in Zwischenablage kopiert!' : 'Key copied to clipboard!');
+  }
+}
+
+function copyLinuxCommand() {
+  const cmd = "curl -fsSL https://get.computemesh.net/install.sh | sudo bash";
+  navigator.clipboard.writeText(cmd);
+  alert(currentLang === 'de' ? 'Befehl kopiert!' : 'Command copied!');
+}
+
+function handleContactSubmit(e) {
+  e.preventDefault();
+  const msgEl = document.getElementById('contact-success-msg');
+  if (msgEl) {
+    msgEl.style.display = 'block';
+  }
+}
+
+// Initialize on DOM load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedLang = localStorage.getItem('cm_portal_lang') || 'en';
+  switchLanguage(savedLang);
+  
+  document.getElementById('slider-tokens')?.addEventListener('input', updateCalculators);
+  document.getElementById('select-model')?.addEventListener('change', updateCalculators);
+  document.getElementById('select-rig')?.addEventListener('change', updateCalculators);
+  document.getElementById('slider-hours')?.addEventListener('input', updateCalculators);
+  
+  updateCalculators();
+});
