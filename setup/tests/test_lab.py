@@ -137,7 +137,7 @@ class LabSetupTests(unittest.TestCase):
         runner = FakeRunner()
         with patch.object(lab, "REPO_ROOT", self.root):
             lab.run_tests(runner=runner)
-        self.assertEqual(len(runner.commands), 14)
+        self.assertEqual(len(runner.commands), 15)
         commands = [" ".join(cmd) for cmd, _, _ in runner.commands]
         for suite in (
             "tools/benchmark/tests",
@@ -153,6 +153,7 @@ class LabSetupTests(unittest.TestCase):
             "services/billing/tests",
             "services/gateway/tests",
             "deploy/appliance/tests",
+            "deploy/windows/tests",
             "setup/tests",
         ):
             self.assertTrue(any(suite in command for command in commands), suite)
