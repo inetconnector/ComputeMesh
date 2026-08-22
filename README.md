@@ -25,6 +25,7 @@ Implemented foundations now include:
 - cross-platform Windows/Linux Lab Setup;
 - inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
 - bounded GGUF-v3 inspection and conservative model-manifest generation with artifact-derived architecture, layer count, SHA-256 and size;
+- a fail-closed M1 experiment-bundle builder that selects one coherent current two-node evidence set and embeds the resulting placement decision with source-document digests;
 - Draft-2020-12 machine-readable state/control contracts;
 - deterministic Job/Reservation semantics and transactional SQLite reference persistence;
 - strict transport-neutral control envelopes and durable initial handlers;
@@ -34,7 +35,7 @@ Implemented foundations now include:
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers.
 
-## M1 two-node placement planner
+## M1 two-node placement and evidence bundle
 
 `services/scheduler/placement.py` is the first machine-readable placement component. It is an **experiment feasibility planner**, not a production scheduler.
 
@@ -63,7 +64,11 @@ predicted_shared_request_ms = null
 predicted_speedup_vs_local = null
 ```
 
-Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks, and embedded evidence must never conflict with a supplied fallback. See [services/scheduler/README.md](services/scheduler/README.md).
+Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks in the direct placement CLI, and embedded evidence must never conflict with a supplied fallback.
+
+For the current real M1 experiment, `services/scheduler/evidence_bundle.py` is deliberately stricter. Given two copied Lab evidence roots plus the model manifest, it selects the highest coherent profile revision, exact-size prefill/decode runs for one common model basename, and a correctly directed network record with embedded local/peer IDs. It does **not** allow caller-asserted peer or layer fallbacks. Ambiguous latest runs, multiple node identities, wrong-direction/legacy network evidence, corrupt evidence-looking JSON and model-size mismatches fail closed.
+
+The resulting `experiment_bundle.schema.json` artifact includes the complete validated placement decision plus safe source basenames and SHA-256 of each selected source JSON. Absolute local paths are excluded. The hashes make the selected copied evidence set reproducible, but they are not cryptographic attestation of who originally produced those files. See [services/scheduler/README.md](services/scheduler/README.md).
 
 ## GGUF → model manifest
 
@@ -85,7 +90,7 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. See [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 remains Proposed.** The harness and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
+**ADR 0002 remains Proposed.** The harness, evidence-bundle path and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
 
 ## Runtime network measurement relay
 
@@ -103,7 +108,7 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path, GGUF manifest helper and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
+The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path, GGUF manifest helper, experiment-bundle builder and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
 
 ## Identity and runtime security boundary
 
@@ -111,22 +116,24 @@ ADR 0005 is accepted **only for the narrow M1 reference implementation**. Missin
 
 The TCP benchmark's `unauthenticated_server_report_v1` Lab ID is not the ADR-0005 identity proof. The benchmark still has no application authentication/encryption and remains trusted-private-LAN-only.
 
-Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay nor the feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
+Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay, evidence bundle nor feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
 
 `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
 ## Not implemented yet
 
-There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
+There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no automatic authenticated evidence transfer/attestation between machines, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
 
 ## Immediate path
 
 ```text
-profiles + local benchmarks + bound trusted-LAN path evidence
+fresh profiles + local benchmarks + bound trusted-LAN path evidence
         ↓
 artifact-derived single-GGUF model manifest
         ↓
-machine-readable conservative placement candidate
+fail-closed current two-node evidence bundle
+        ↓
+machine-readable conservative placement candidate (embedded in bundle)
         ↓
 local deterministic llama-server baseline
         ↓
@@ -152,7 +159,7 @@ ComputeMesh/
 ├─ tools/benchmark/       # inventory, TCP, llama-bench and GGUF-manifest tools
 ├─ services/orchestrator/ # durable M0 state/control foundation
 ├─ services/identity/     # M1 reference enrollment/key registry
-├─ services/scheduler/    # deterministic M1 two-node feasibility planner
+├─ services/scheduler/    # M1 evidence bundling + two-node feasibility planning
 ├─ protocol/              # contracts, session wire binding, Ed25519 verifier
 ├─ runtime/llama/         # controlled llama.cpp M1 research spike
 ├─ runtime/network/       # bounded M1 TCP measurement relay
