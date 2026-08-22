@@ -1,6 +1,8 @@
 name: shared-run-evidence-validation
 
 on:
+  push:
+    branches: [m1/shared-run-evidence]
   pull_request:
     branches: [main]
 
