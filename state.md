@@ -33,7 +33,7 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - bounded two-machine Lab evidence export/import + bundle launchers landed through PR #10; final cross-platform validation run `32553817653` passed
 - fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
 - one-command physical shared-trial orchestration landed through PR #12; final cross-platform validation run `32558221241` passed
-- llama.cpp benchmark→runtime build binding is implemented on the current PR branch; final cross-platform validation is pending before merge
+- llama.cpp benchmark→runtime build binding is implemented in PR #13; final cross-platform validation run `32561589482` passed before final state bookkeeping/workflow removal
 
 ## What exists
 
@@ -356,6 +356,23 @@ PR #12 merge-candidate code, launchers, tests, and synchronized documentation we
 Windows additionally executed the real PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. Linux validation included Bash syntax for `SHARED-PROOF.sh` and `SHARED-WORKER.sh`, private-IP routing assertions, and temporary firewall cleanup invariants. Shared-trial tests cover current device-list parsing, exact model and freshness binding, server-vs-CLI RPC diagnosis, accelerator-coordinator fail-closed behavior, local-device continuity across RPC preflight, exact planner split propagation, correctness mismatch handling, and bounded failure evidence.
 
 This remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.
+
+## Cross-platform validation for llama.cpp runtime-build binding
+
+PR #13 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32561589482`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.
+
+- benchmark/model tooling: **32/32**;
+- orchestrator: **34/34**;
+- protocol: **66/66**;
+- identity/integration: **13/13**;
+- scheduler placement + evidence bundle + build binding: **38/38**;
+- llama runtime + proof + shared-trial + runtime-build binding: **46/46**;
+- network runtime relay: **10/10**;
+- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.
+
+Windows additionally executed the real Windows PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. The new coverage requires one concrete common llama.cpp build number/commit across the four selected two-node llama-bench records, parses current `llama-server --version`, rejects a different coordinator build in phase `runtime_build_binding`, independently revalidates the bundle-bound build in `shared_run_evidence.py`, and prevents `SHARED-WORKER` from silently falling through to an RPC binary outside a remembered benchmark build tree.
+
+This build identity is reproducibility/compatibility evidence, **not** binary attestation or producer authentication. Same source-build identity does not prove upstream RPC compatibility; the live server/CLI RPC preflight remains authoritative. This validation is software/synthetic/loopback evidence and does not substitute for the still-missing physical two-machine shared-inference proof. No runtime/test behavior changes follow run `32561589482`; only this bookkeeping update, PR metadata, temporary workflow removal, and fast-forward merge remain.
 
 ## Real target-machine evidence from 2026-08-21
 
