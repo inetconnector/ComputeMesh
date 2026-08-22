@@ -22,7 +22,7 @@ Both prepare/use repository-local `.venv`, install `requirements-dev.txt`, and r
 - durable orchestrator/state;
 - protocol/session/identity-verifier contracts;
 - identity registry/integration;
-- deterministic M1 two-node placement planner;
+- deterministic M1 two-node placement and experiment-evidence bundling;
 - llama.cpp M1 runtime-spike harness;
 - TCP network measurement relay;
 - setup/launcher regressions.
@@ -43,9 +43,9 @@ python -m unittest discover -s setup/tests -v
 
 The Linux setup adds Bash-specific regression coverage; those tests skip automatically when Bash is unavailable (for example on a normal Windows-only Python environment).
 
-The runtime-network suite performs real loopback TCP forwarding tests on the test host. It does not contact public or remote hosts. Scheduler tests use synthetic contract-valid evidence and do not claim real placement performance.
+The runtime-network suite performs real loopback TCP forwarding tests on the test host. It does not contact public or remote hosts. Scheduler/bundle tests use synthetic contract-valid evidence and do not claim real placement performance.
 
-## Evidence-binding and model-artifact coverage
+## Evidence-binding, model-artifact and bundle coverage
 
 The current M1 tests additionally enforce:
 
@@ -57,7 +57,7 @@ The current M1 tests additionally enforce:
 - Setup passes its own stable random Lab node ID into network server/client commands;
 - a placement decision prefers embedded network peer evidence over caller assertions;
 - embedded network local/peer IDs must match coordinator/worker profiles;
-- caller assertions may support legacy records but may not conflict with embedded evidence;
+- caller assertions may support the direct legacy planner path but may not conflict with embedded evidence;
 - optional `model_manifest.layer_count` is preferred over the legacy caller layer count;
 - manifest/caller layer-count conflicts are rejected;
 - bounded GGUF-v3 inspection extracts standardized architecture/block-count/model metadata without reading tensor contents into memory;
@@ -66,15 +66,26 @@ The current M1 tests additionally enforce:
 - `split.no`, `split.count`, and `split.tensors.count` must be complete and internally bounded;
 - a non-primary llama.cpp split shard is identified as lacking full model metadata;
 - schema-v1 manifest generation rejects `split.count > 1` so one shard is never represented as the complete model;
+- the current experiment-bundle path selects the highest coherent profile revision per node and ignores older-revision benchmarks;
+- bundle llama evidence must use the selected profile revision, exact manifest artifact size, a complete prefill/decode pair and one common model basename across both nodes;
+- multiple node IDs or multiple matching model basenames require explicit disambiguation;
+- equally recent distinct candidate runs are rejected instead of selected nondeterministically;
+- benchmarks timestamped before their selected profile are not accepted for the current bundle;
+- the bundle requires a correctly directed coordinator→worker network result with embedded local/peer IDs;
+- legacy/caller-asserted network binding cannot produce a current experiment bundle;
+- evidence-looking JSON that fails its schema aborts discovery rather than causing silent fallback to older evidence;
+- bundle provenance stores safe basenames and SHA-256 of exact source JSON documents, never absolute local paths;
+- bundle and placement identities are deterministic for the same source evidence/policy;
 - no shared latency/speedup prediction is fabricated from stronger bookkeeping fields.
 
-`unauthenticated_server_report_v1` remains a traceability label, not an authentication guarantee. GGUF manifest generation is local metadata inspection, not model execution or license inference.
+`unauthenticated_server_report_v1` remains a traceability label, not an authentication guarantee. GGUF manifest generation is local metadata inspection, not model execution or license inference. Bundle document hashes identify the copied inputs but are not producer attestation.
 
 The latest cross-platform suite counts and workflow evidence are recorded in `state.md`.
 
 ## Future system-test scope
 
 - fresh trusted-private-LAN A↔B evidence carrying current Lab-ID metadata;
+- real exported evidence trees fed through the experiment-bundle CLI;
 - two-node end-to-end inference;
 - scheduler calibration against correct measured shared-runtime evidence;
 - mixed Windows/Linux node scenarios;
