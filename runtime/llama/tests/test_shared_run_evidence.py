@@ -10,19 +10,19 @@ from runtime.llama.shared_run_evidence import (
 )
 
 
-NOW = "2026-08-22T05:30:00Z"
 MODEL_SHA = "a" * 64
 PROMPT_SHA = "b" * 64
 OUTPUT_SHA = "c" * 64
 TOKEN_SHA = "d" * 64
+SOURCE_SHA = "sha256:" + "e" * 64
 
 
-def node(node_id: str, device_id: str, name: str) -> dict:
+def node(node_id: str) -> dict:
     return {
         "node_id": node_id,
-        "device_id": device_id,
+        "device_id": "gpu0",
         "kind": "gpu",
-        "name": name,
+        "name": "CUDA0",
         "raw_memory_bytes": 16_000_000_000,
         "provider_memory_fraction": 1.0,
         "planner_memory_fraction": 0.85,
@@ -33,11 +33,24 @@ def node(node_id: str, device_id: str, name: str) -> dict:
     }
 
 
+def source_profile(node_id: str) -> dict:
+    return {
+        "file_name": "profile.json",
+        "document_sha256": SOURCE_SHA,
+        "node_id": node_id,
+        "profile_revision": 2,
+    }
+
+
+def source_bench(file_name: str, run_id: str) -> dict:
+    return {"file_name": file_name, "document_sha256": SOURCE_SHA, "run_id": run_id}
+
+
 def bundle() -> dict:
     placement = {
         "schema_version": 1,
         "decision_id": "placement-0123456789abcdef",
-        "captured_at": NOW,
+        "captured_at": "2026-08-22T05:30:00Z",
         "scope": "m1_two_node_llama_experiment",
         "model": {
             "model_id": "model-a",
@@ -48,10 +61,7 @@ def bundle() -> dict:
             "layer_count": 40,
             "layer_count_source": "model_manifest_v1",
         },
-        "nodes": {
-            "coordinator": node("node-a", "gpu0", "CUDA0"),
-            "worker": node("node-b", "gpu0", "CUDA0"),
-        },
+        "nodes": {"coordinator": node("node-a"), "worker": node("node-b")},
         "network_evidence": {
             "run_id": "net-1",
             "peer_node_id": "node-b",
@@ -107,17 +117,16 @@ def bundle() -> dict:
             "explanation": "run controlled experiment",
         },
     }
-    source_digest = "sha256:" + "e" * 64
     return {
         "schema_version": 1,
         "bundle_id": "experiment-bundle-0123456789abcdef",
-        "captured_at": NOW,
+        "captured_at": "2026-08-22T05:30:00Z",
         "scope": "m1_two_node_placement_evidence",
         "benchmark_model_name": "model.gguf",
         "sources": {
             "model_manifest": {
                 "file_name": "manifest.json",
-                "document_sha256": source_digest,
+                "document_sha256": SOURCE_SHA,
                 "model_id": "model-a",
                 "model_version": "1",
                 "artifact_digest": "sha256:" + MODEL_SHA,
@@ -125,44 +134,18 @@ def bundle() -> dict:
                 "layer_count": 40,
             },
             "coordinator": {
-                "profile": {
-                    "file_name": "profile.json",
-                    "document_sha256": source_digest,
-                    "node_id": "node-a",
-                    "profile_revision": 2,
-                },
-                "prefill": {
-                    "file_name": "cp.json",
-                    "document_sha256": source_digest,
-                    "run_id": "cp",
-                },
-                "decode": {
-                    "file_name": "cd.json",
-                    "document_sha256": source_digest,
-                    "run_id": "cd",
-                },
+                "profile": source_profile("node-a"),
+                "prefill": source_bench("cp.json", "cp"),
+                "decode": source_bench("cd.json", "cd"),
             },
             "worker": {
-                "profile": {
-                    "file_name": "profile.json",
-                    "document_sha256": source_digest,
-                    "node_id": "node-b",
-                    "profile_revision": 2,
-                },
-                "prefill": {
-                    "file_name": "wp.json",
-                    "document_sha256": source_digest,
-                    "run_id": "wp",
-                },
-                "decode": {
-                    "file_name": "wd.json",
-                    "document_sha256": source_digest,
-                    "run_id": "wd",
-                },
+                "profile": source_profile("node-b"),
+                "prefill": source_bench("wp.json", "wp"),
+                "decode": source_bench("wd.json", "wd"),
             },
             "network": {
                 "file_name": "net.json",
-                "document_sha256": source_digest,
+                "document_sha256": SOURCE_SHA,
                 "run_id": "net-1",
                 "local_node_id": "node-a",
                 "peer_node_id": "node-b",
@@ -178,7 +161,7 @@ def spike(mode: str) -> dict:
     return {
         "schema_version": 1,
         "run_id": "llama-rpc-1111111111111111" if shared else "llama-rpc-0000000000000000",
-        "captured_at": "2026-08-22T05:31:00Z" if shared else "2026-08-22T05:29:00Z",
+        "captured_at": "2026-08-22T05:31:00Z" if shared else "2026-08-22T05:30:10Z",
         "runtime": {"name": "llama.cpp", "version": "build 999"},
         "model": {"basename": "model.gguf", "size_bytes": 1234, "sha256": MODEL_SHA},
         "topology": {
@@ -243,10 +226,10 @@ def relay() -> dict:
 class SharedRunEvidenceTests(unittest.TestCase):
     def write_inputs(self, root: Path, *, b=None, base=None, shared=None, relay_doc=None):
         docs = {
-            "bundle.json": b or bundle(),
-            "baseline.json": base or spike("local_baseline"),
-            "shared.json": shared or spike("shared_rpc"),
-            "relay.json": relay_doc or relay(),
+            "bundle.json": b if b is not None else bundle(),
+            "baseline.json": base if base is not None else spike("local_baseline"),
+            "shared.json": shared if shared is not None else spike("shared_rpc"),
+            "relay.json": relay_doc if relay_doc is not None else relay(),
         }
         for name, value in docs.items():
             (root / name).write_text(json.dumps(value), encoding="utf-8")
@@ -255,11 +238,12 @@ class SharedRunEvidenceTests(unittest.TestCase):
     def build(self, root: Path, **kwargs):
         paths = self.write_inputs(root, **kwargs)
         return build_shared_run_evidence(
-            bundle_path=paths[0],
-            baseline_path=paths[1],
-            shared_path=paths[2],
-            relay_path=paths[3],
+            bundle_path=paths[0], baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3]
         )
+
+    def assert_rejected(self, **kwargs):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
+            self.build(Path(tmp), **kwargs)
 
     def test_builds_bound_shared_runtime_proof(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -273,107 +257,84 @@ class SharedRunEvidenceTests(unittest.TestCase):
         self.assertNotIn("raw", json.dumps(result).lower())
 
     def test_rejects_bundle_without_shared_recommendation(self):
-        value = bundle()
-        value["placement_decision"]["recommendation"]["mode"] = "local_only"
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), b=value)
+        value = bundle(); value["placement_decision"]["recommendation"]["mode"] = "local_only"
+        self.assert_rejected(b=value)
 
-    def test_rejects_model_mismatch(self):
-        value = spike("shared_rpc")
-        value["model"]["sha256"] = "f" * 64
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), shared=value)
+    def test_rejects_model_or_runtime_mismatch(self):
+        for mutation in ("model", "runtime"):
+            value = spike("shared_rpc")
+            if mutation == "model": value["model"]["sha256"] = "f" * 64
+            else: value["runtime"]["version"] = "different build"
+            with self.subTest(mutation=mutation): self.assert_rejected(shared=value)
 
-    def test_rejects_split_not_selected_by_planner(self):
-        value = spike("shared_rpc")
-        value["placement"]["tensor_split"] = [20.0, 20.0]
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), shared=value)
+    def test_rejects_split_or_device_order_not_selected_by_planner(self):
+        split = spike("shared_rpc"); split["placement"]["tensor_split"] = [20.0, 20.0]
+        self.assert_rejected(shared=split)
+        order = spike("shared_rpc"); order["placement"]["devices"] = list(reversed(order["placement"]["devices"]))
+        self.assert_rejected(shared=order)
+        local = spike("shared_rpc"); local["placement"]["devices"][0] = "CUDA1"
+        self.assert_rejected(shared=local)
 
-    def test_rejects_shared_run_that_bypasses_relay(self):
-        value = spike("shared_rpc")
-        value["topology"]["rpc_endpoints"] = ["192.168.1.20:50052"]
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), shared=value)
+    def test_rejects_shared_run_that_bypasses_relay_or_public_target(self):
+        value = spike("shared_rpc"); value["topology"]["rpc_endpoints"] = ["192.168.1.20:50052"]
+        self.assert_rejected(shared=value)
+        metrics = relay(); metrics["target"] = "8.8.8.8:50052"
+        self.assert_rejected(relay_doc=metrics)
 
     def test_rejects_perturbed_or_forced_disconnect_relay_for_first_proof(self):
-        for mutation in ("delay", "disconnect"):
-            value = relay()
-            if mutation == "delay":
-                value["configured"]["one_way_delay_ms"] = 5.0
-            else:
-                value["configured"]["disconnect_after_bytes"] = 10
-            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-                self.build(Path(tmp), relay_doc=value)
+        delay = relay(); delay["configured"]["one_way_delay_ms"] = 5.0
+        self.assert_rejected(relay_doc=delay)
+        disconnect = relay(); disconnect["configured"]["disconnect_after_bytes"] = 10
+        self.assert_rejected(relay_doc=disconnect)
 
     def test_rejects_non_bidirectional_or_inconsistent_relay_bytes(self):
-        for mutation in ("zero", "sum"):
-            value = relay()
-            if mutation == "zero":
-                value["traffic"]["worker_to_coordinator_bytes"] = 0
-                value["traffic"]["total_forwarded_bytes"] = 1000
-            else:
-                value["traffic"]["total_forwarded_bytes"] = 9999
-            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-                self.build(Path(tmp), relay_doc=value)
+        zero = relay(); zero["traffic"]["worker_to_coordinator_bytes"] = 0; zero["traffic"]["total_forwarded_bytes"] = 1000
+        self.assert_rejected(relay_doc=zero)
+        bad_sum = relay(); bad_sum["traffic"]["total_forwarded_bytes"] = 9999
+        self.assert_rejected(relay_doc=bad_sum)
 
     def test_rejects_incorrect_shared_output(self):
-        value = spike("shared_rpc")
-        value["correctness"]["token_ids_sha256"] = "e" * 64
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), shared=value)
+        value = spike("shared_rpc"); value["correctness"]["token_ids_sha256"] = "e" * 64
+        self.assert_rejected(shared=value)
 
     def test_allows_output_digest_fallback_when_token_ids_are_absent(self):
         base, shared = spike("local_baseline"), spike("shared_rpc")
-        base["correctness"]["token_ids_sha256"] = None
-        shared["correctness"]["token_ids_sha256"] = None
+        base["correctness"]["token_ids_sha256"] = None; shared["correctness"]["token_ids_sha256"] = None
         with tempfile.TemporaryDirectory() as tmp:
             result = self.build(Path(tmp), base=base, shared=shared)
         self.assertEqual(result["correctness"]["match_basis"], "output_sha256")
 
-    def test_rejects_runtime_version_mismatch(self):
-        value = spike("shared_rpc")
-        value["runtime"]["version"] = "different build"
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SharedRunEvidenceError):
-            self.build(Path(tmp), shared=value)
+    def test_rejects_stale_or_misordered_proof_timestamps(self):
+        before_bundle = spike("local_baseline"); before_bundle["captured_at"] = "2026-08-22T05:29:59Z"
+        self.assert_rejected(base=before_bundle)
+        late = spike("shared_rpc"); late["captured_at"] = "2026-08-22T07:00:00Z"
+        self.assert_rejected(shared=late)
+        bad_relay = relay(); bad_relay["connected_at"] = "2026-08-22T05:30:20Z"
+        self.assert_rejected(relay_doc=bad_relay)
+
+    def test_rejects_non_finite_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); paths = self.write_inputs(root)
+            paths[2].write_text(paths[2].read_text().replace("120.0", "NaN", 1), encoding="utf-8")
+            with self.assertRaises(SharedRunEvidenceError):
+                build_shared_run_evidence(
+                    bundle_path=paths[0], baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3]
+                )
 
     def test_write_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            paths = self.write_inputs(root)
-            output = root / "proof.json"
-            write_shared_run_evidence(
-                bundle_path=paths[0],
-                baseline_path=paths[1],
-                shared_path=paths[2],
-                relay_path=paths[3],
-                output_path=output,
-            )
-            with self.assertRaises(SharedRunEvidenceError):
-                write_shared_run_evidence(
-                    bundle_path=paths[0],
-                    baseline_path=paths[1],
-                    shared_path=paths[2],
-                    relay_path=paths[3],
-                    output_path=output,
-                )
+            root = Path(tmp); paths = self.write_inputs(root); output = root / "proof.json"
+            kwargs = dict(bundle_path=paths[0], baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3], output_path=output)
+            write_shared_run_evidence(**kwargs)
+            with self.assertRaises(SharedRunEvidenceError): write_shared_run_evidence(**kwargs)
 
     def test_symlink_input_is_rejected_when_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            paths = self.write_inputs(root)
-            link = root / "bundle-link.json"
-            try:
-                link.symlink_to(paths[0].name)
-            except (OSError, NotImplementedError):
-                self.skipTest("symlink creation unavailable")
+            root = Path(tmp); paths = self.write_inputs(root); link = root / "bundle-link.json"
+            try: link.symlink_to(paths[0].name)
+            except (OSError, NotImplementedError): self.skipTest("symlink creation unavailable")
             with self.assertRaises(SharedRunEvidenceError):
-                build_shared_run_evidence(
-                    bundle_path=link,
-                    baseline_path=paths[1],
-                    shared_path=paths[2],
-                    relay_path=paths[3],
-                )
+                build_shared_run_evidence(bundle_path=link, baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3])
 
 
 if __name__ == "__main__":
