@@ -795,6 +795,29 @@ Implemented in `tools/appliance/windows_tray_app.py`:
 2. **Real-Time Hardware Auto-Detection:** Automatically scans GPU matrix (NVIDIA CUDA / AMD Vulkan) displaying device model, VRAM allocation, and operating temperatures.
 3. **1-Click Compute Control:** Instant Online / Idle toggle with live token counting and continuous micro-credit passive earnings display.
 
+---
+
+## 23. Mutual TLS (mTLS) Peer-to-Peer Encrypted Transport (ADR 0003)
+
+### Architecture & Capabilities
+Implemented in `runtime/network/mesh_transport.py`:
+1. **Zero-Configuration Ephemeral Credentials:** Automatically provisions TLS 1.3 certificates bound to node identities (`generate_node_tls_credentials`).
+2. **Mutual Peer Authentication:** Coordinator and provider rigs authenticate bidirectionally using RSA/Ed25519-pinned certificates.
+3. **Transparent TCP Tunneling:** `MeshTunnelServer` and `MeshTunnelClient` encapsulate RPC streams over TLS, eliminating manual SSH key management.
+4. **Automated Unit Tests:** `runtime/network/tests/test_mesh_transport.py` (2/2 tests passing, total 14 network tests).
+
+---
+
+## 24. Debian Live NodeOS Image Builder Automation
+
+### Architecture & Distribution Pipeline
+Implemented in `deploy/appliance/debian_live_builder.py`:
+1. **Turnkey Live Image Configuration:** Configures Debian 13 (Trixie) live-build with kernel 6.x and non-free firmware packages (`firmware-amd-graphics`, `firmware-misc-nonfree`).
+2. **Dual-Stack GPU Driver Bundle:** Pre-packages Mesa RADV Vulkan and NVIDIA proprietary drivers.
+3. **FAT32 USB Boot Autostart:** Automatically reads `/boot/computemesh.env` on boot and starts `computemesh-appliance.service`.
+4. **Automated Unit Tests:** `deploy/appliance/tests/test_debian_live_builder.py` (2/2 tests passing, total 14 suites, 310+ tests passing 100% on Windows and Linux).
+
+
 
 
 
