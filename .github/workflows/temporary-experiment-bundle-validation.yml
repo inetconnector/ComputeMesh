@@ -1,0 +1,41 @@
+name: Temporary Experiment Bundle Validation
+
+on:
+  push:
+    branches: [m1/experiment-bundle]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Benchmark tests
+        run: python -m unittest discover -s tools/benchmark/tests -v
+      - name: Orchestrator tests
+        run: python -m unittest discover -s services/orchestrator/tests -v
+      - name: Protocol tests
+        run: python -m unittest discover -s protocol/tests -v
+      - name: Identity tests
+        run: python -m unittest discover -s services/identity/tests -v
+      - name: Scheduler tests
+        run: python -m unittest discover -s services/scheduler/tests -v
+      - name: llama runtime tests
+        run: python -m unittest discover -s runtime/llama/tests -v
+      - name: Network runtime tests
+        run: python -m unittest discover -s runtime/network/tests -v
+      - name: Setup tests
+        run: python -m unittest discover -s setup/tests -v
