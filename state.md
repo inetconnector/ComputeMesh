@@ -30,7 +30,7 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - network-peer/model-layer evidence binding landed through PR #6
 - bounded GGUF-v3 inspection/model-manifest generation landed through PR #7
 - fail-closed current experiment-evidence bundle landed through PR #8; `main` was `d461a2e7` before the current branch
-- bounded two-machine Lab evidence export/import + bundle launchers are implemented in PR #10; cross-platform code/test validation run `32553699055` passed before this state bookkeeping
+- bounded two-machine Lab evidence export/import + bundle launchers are implemented in PR #10; final cross-platform code/test/docs validation run `32553817653` passed before this final state bookkeeping
 
 ## What exists
 
@@ -249,7 +249,7 @@ The relay does not parse llama.cpp RPC framing. Byte totals include control/fram
 
 ## Cross-platform validation for the transfer block
 
-Code/test validation run **`32553699055`** passed on both supported development OS families. This run includes the transfer implementation, the repeated-export idempotency regression, dependency-light `python -S` Lab startup, Linux launcher syntax/routing and real Windows PowerShell parsing. Public README/setup/test documentation was synchronized immediately afterwards; a final full run on that documentation-complete branch state is performed before the temporary workflow is removed and `main` advances.
+Final code/test/documentation branch-state validation run **`32553817653`** passed on both supported development OS families. It includes the bounded transfer implementation, repeated-export idempotency regression, dependency-light `python -S` Lab startup, Linux launcher syntax/routing, real Windows PowerShell parsing, synchronized root/setup/test documentation, and the canonical state immediately before this final validation bookkeeping line. No runtime/test behavior changes follow the successful run; only removal of the temporary validation workflow and the fast-forward merge remain.
 
 **Windows Server 2025 / Python 3.11.9:**
 
