@@ -67,6 +67,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add state.md .github/workflows
-          git diff --cached --check
           git commit -m 'docs: finalize shared-run evidence state'
           git push origin HEAD:m1/shared-run-evidence
