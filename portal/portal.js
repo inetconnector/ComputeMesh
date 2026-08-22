@@ -78,7 +78,8 @@ const translations = {
 
     dl_rig_title: "Mining Rig Appliance (NodeOS)",
     dl_rig_desc: "Flashable USB disk image for 4–12 GPU mining rigs with native AMD & NVIDIA dual-stack auto-detection.",
-    dl_rig_btn: "Download NodeOS Image (.img.xz)",
+    dl_rig_iso_btn: "Download Bootable ISO (.iso)",
+    dl_rig_btn: "Download Flash Image (.img.xz)",
 
     api_tag: "Integration",
     api_title: "100% OpenAI API Compatible",
@@ -228,7 +229,8 @@ const translations = {
 
     dl_rig_title: "Mining-Rig Appliance (NodeOS)",
     dl_rig_desc: "Flashbares USB-Disk-Image für 4–12 GPU Mining-Rigs mit nativer AMD & NVIDIA Auto-Erkennung.",
-    dl_rig_btn: "NodeOS Image herunterladen (.img.xz)",
+    dl_rig_iso_btn: "Bootfähiges ISO herunterladen (.iso)",
+    dl_rig_btn: "Flash-Image herunterladen (.img.xz)",
 
     api_tag: "Integration",
     api_title: "100% OpenAI API-kompatibel",

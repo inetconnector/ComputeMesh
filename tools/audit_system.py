@@ -19,6 +19,7 @@ def main() -> int:
         "portal.js",
         "downloads/ComputeMesh-Setup-x64.exe",
         "downloads/computemesh-nodeos-x86_64.img.xz",
+        "downloads/computemesh-nodeos-x86_64.iso",
         "downloads/install.sh",
     ]
     print("=" * 70)
