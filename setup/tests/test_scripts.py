@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+
 class WindowsScriptTests(unittest.TestCase):
     def read(self, name):
         return (ROOT / 'setup' / name).read_text(encoding='utf-8')
@@ -49,6 +50,21 @@ class WindowsScriptTests(unittest.TestCase):
         self.assertIn("SetupEntrypoint = Join-Path $PSScriptRoot 'setup.ps1'", common)
         self.assertIn('$script:SetupEntrypoint', network)
         self.assertNotIn('$PSCommandPath', network)
+
+    def test_evidence_launchers_use_existing_isolated_bootstrap(self):
+        export_cmd = self.read('EVIDENCE-EXPORT.cmd')
+        bundle_cmd = self.read('BUILD-BUNDLE.cmd')
+        evidence = self.read('evidence.ps1')
+        self.assertIn('evidence.ps1', export_cmd)
+        self.assertIn('-Mode export', export_cmd)
+        self.assertIn('evidence.ps1', bundle_cmd)
+        self.assertIn('-Mode bundle', bundle_cmd)
+        self.assertIn(". (Join-Path $PSScriptRoot 'common.ps1')", evidence)
+        self.assertIn(". (Join-Path $PSScriptRoot 'llama.ps1')", evidence)
+        self.assertIn("Invoke-Lab @('export')", evidence)
+        self.assertIn("Invoke-Lab @('bundle','--peer-export',$peer,'--model-manifest',$manifest)", evidence)
+        self.assertIn("-c 'import jsonschema'", evidence)
+
 
 if __name__ == '__main__':
     unittest.main()
