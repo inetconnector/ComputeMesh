@@ -1,0 +1,46 @@
+name: Temporary Evidence Idempotency Code Fix
+
+on:
+  push:
+    branches: [m1/lab-evidence-transfer]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/lab-evidence-transfer
+      - name: Patch existing-import identity comparison
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('setup/evidence_transfer.py')
+          text = path.read_text(encoding='utf-8')
+          if 'identity_keys = ("schema_version", "export_id", "node_id", "profile_revision", "files")' in text:
+              raise SystemExit(0)
+          pattern = re.compile(
+              r'    if existing_manifest != manifest:\n'
+              r'        raise EvidenceTransferError\("existing import manifest conflicts with archive"\)\n'
+          )
+          replacement = (
+              '    identity_keys = ("schema_version", "export_id", "node_id", "profile_revision", "files")\n'
+              '    if any(existing_manifest[key] != manifest[key] for key in identity_keys):\n'
+              '        raise EvidenceTransferError("existing import manifest conflicts with archive")\n'
+          )
+          updated, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('expected existing-import comparison not found exactly once')
+          path.write_text(updated, encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add setup/evidence_transfer.py
+          git commit -m 'fix(setup): compare imported evidence identity without export timestamp'
+          git push origin HEAD:m1/lab-evidence-transfer
