@@ -4,19 +4,21 @@
   "comparison": null,
   "discover": null,
   "job_status": "failure",
-  "llama_asset": null,
-  "llama_tag": null,
+  "llama_tag": "b10580",
   "llama_version": null,
   "local_devices": null,
+  "local_devices_preflight": null,
   "model": {
     "basename": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
     "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747"
   },
+  "phase": "build\n",
   "relay": null,
   "relay_log": null,
   "rpc_devices": null,
   "rpc_server_log": null,
   "schema_version": 1,
   "shared": null,
-  "shared_failure": null
+  "shared_failure": null,
+  "vulkaninfo": "WARNING: [Loader Message] Code 0 : terminator_CreateInstance: Received return code -9 from call to vkCreateInstance in ICD libvulkan_dzn.so. Skipping this driver.\n'DISPLAY' environment variable not set... skipping surface info\n==========\nVULKANINFO\n==========\n\nVulkan Instance Version: 1.3.275\n\n\nInstance Extensions: count = 25\n-------------------------------\nVK_EXT_acquire_drm_display             : extension revision 1\nVK_EXT_acquire_xlib_display            : extension revision 1\nVK_EXT_debug_report                    : extension revision 10\nVK_EXT_debug_utils                     : extension revision 2\nVK_EXT_direct_mode_display             : extension revision 1\nVK_EXT_display_surface_counter         : extension revision 1\nVK_EXT_headless_surface                : extension revision 1\nVK_EXT_layer_settings                  : extension revision 2\nVK_EXT_surface_maintenance1            : extension revision 1\nVK_EXT_swapchain_colorspace            : extension revision 5\nVK_KHR_device_group_creation           : extension revision 1\nVK_KHR_display                         : extension revision 23\nVK_KHR_external_fence_capabilities     : extension revision 1\nVK_KHR_external_memory_capabilities    : extension revision 1\nVK_KHR_external_semaphore_capabilities : extension revision 1\nVK_KHR_get_display_properties2         : extension revision 1\nVK_KHR_get_physical_device_properties2 : extension revision 2\nVK_KHR_get_surface_capabilities2       : extension revision 1\nVK_KHR_portability_enumeration         : extension revision 1\nVK_KHR_surface                         : extension revision 25\nVK_KHR_surface_protected_capabilities  : extension revision 1\nVK_KHR_wayland_surface                 : extension revision 6\nVK_KHR_xcb_surface                     : extension revision 6\nVK_KHR_xlib_surface                    : extension revision 6\nVK_LUNARG_direct_driver_loading        : extension revision 1\n\nInstance Layers: count = 5\n--------------------------\nVK_LAYER_INTEL_nullhw       INTEL NULL HW                                                1.1.73   version 1\nVK_LAYER_MESA_anti_lag      Open-source implementation of the VK_AMD_anti_lag extension. 1.4.303  version 1\nVK_LAYER_MESA_device_select Linux device selection layer                                 1.4.303  version 1\nVK_LAYER_MESA_overlay       Mesa Overlay layer                                           1.4.303  version 1\nVK_LAYER_MESA_screenshot    Mesa Screenshot layer                                        1.4.303  version 1\n\nDevices:\n========\nGPU0:\n\tapiVersion         = 1.4.354\n\tdriverVersion      = 26.1.7\n\tvendorID           = 0x10005\n\tdeviceID           = 0x0000\n\tdeviceType         = PHYSICAL_DEVICE_TYPE_CPU\n\tdeviceName         = llvmpipe (LLVM 20.1.8, 256 bits)\n\tdriverID           = DRIVER_ID_MESA_LLVMPIPE\n\tdriverName         = llvmpipe\n\tdriverInfo         = Mesa 26.1.7 - kisak-mesa PPA (LLVM 20.1.8)\n\tconformanceVersion = 1.3.1.1\n\tdeviceUUID         = 6d657361-3236-2e31-2e37-202d206b6900\n\tdriverUUID         = 6c6c766d-7069-7065-5555-494400000000\n"
 }
