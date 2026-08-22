@@ -25,6 +25,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
 - begrenzte GGUF-v3-Inspektion und konservative Modellmanifest-Erzeugung mit aus dem Artefakt abgeleiteter Architektur, Layerzahl, SHA-256 und Dateigröße;
+- ein fail-closed M1-Experiment-Bundle-Builder, der einen konsistenten aktuellen Zwei-Node-Evidenzsatz auswählt und die daraus erzeugte Placement-Entscheidung mit Dokument-Digests bündelt;
 - maschinenlesbare Draft-2020-12-State-/Control-Verträge;
 - deterministische Job-/Reservation-Semantik und transaktionale SQLite-Referenzpersistenz;
 - strikte transportneutrale Control-Envelopes und dauerhafte erste Handler;
@@ -34,7 +35,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;
 - ein deterministischer M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden.
 
-## M1-Zwei-Node-Placement-Planer
+## M1-Zwei-Node-Placement und Evidenzbundle
 
 `services/scheduler/placement.py` ist die erste maschinenlesbare Placement-Komponente. Sie ist ein **Experiment-Machbarkeitsplaner**, kein produktiver Scheduler.
 
@@ -63,7 +64,11 @@ predicted_shared_request_ms = null
 predicted_speedup_vs_local = null
 ```
 
-Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen. Details: [services/scheduler/README.md](services/scheduler/README.md).
+Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben im direkten Placement-CLI über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen.
+
+Für das aktuelle reale M1-Experiment ist `services/scheduler/evidence_bundle.py` bewusst strenger. Aus zwei kopierten Lab-Evidenzwurzeln plus Modellmanifest wählt es die höchste konsistente Profilrevision, Prefill-/Decode-Läufe mit exakt passender Manifest-Artefaktgröße für einen gemeinsamen Modell-Basename und einen korrekt gerichteten Netzwerkdatensatz mit eingebetteter Local-/Peer-ID. **Caller-asserted Peer- oder Layer-Fallbacks sind dort nicht zulässig.** Mehrdeutige neueste Läufe, mehrere Node-Identitäten, falsch gerichtete/Legacy-Netzwerkevidenz, beschädigte evidenzähnliche JSON-Dateien und Modellgrößenkonflikte führen zum Abbruch.
+
+Das resultierende `experiment_bundle.schema.json`-Artefakt enthält die vollständige validierte Placement-Entscheidung sowie sichere Quelldateinamen und SHA-256 jedes ausgewählten Quell-JSONs. Absolute lokale Pfade werden nicht gespeichert. Die Hashes machen den ausgewählten kopierten Evidenzsatz reproduzierbar, sind aber keine kryptografische Attestation darüber, wer diese Dateien ursprünglich erzeugt hat. Details: [services/scheduler/README.md](services/scheduler/README.md).
 
 ## GGUF → Modellmanifest
 
@@ -85,7 +90,7 @@ Aktuelle llama.cpp-Split-Metadaten werden ebenfalls erkannt. Ein primärer Shard
 
 Der erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Details: [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 bleibt Proposed.** Harness und Planer bereiten den Nachweis vor; ein echter korrekter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht aufgezeichnet.
+**ADR 0002 bleibt Proposed.** Harness, Evidenzbundle-Pfad und Planer bereiten den Nachweis vor; ein echter korrekter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht aufgezeichnet.
 
 ## Runtime-Netzwerkmess-Relay
 
@@ -103,7 +108,7 @@ Bereits vorhandene physische Evidenz vom 21.08.2026:
 - Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
 - Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad, GGUF-Manifest-Helfer und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
+Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad, GGUF-Manifest-Helfer, Experiment-Bundle-Builder und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
 
 ## Identity- und Runtime-Sicherheitsgrenze
 
@@ -111,22 +116,24 @@ ADR 0005 ist **nur für die enge M1-Referenzimplementierung** akzeptiert. Vor ö
 
 Die Lab-ID `unauthenticated_server_report_v1` des TCP-Benchmarks ist **nicht** der Identity-Nachweis aus ADR 0005. Der Benchmark besitzt weiterhin keine Anwendungs-Authentifizierung/-Verschlüsselung und bleibt ausschließlich für ein vertrauenswürdiges privates LAN bestimmt.
 
-Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht; weder lokales Relay noch Machbarkeitsplaner ändern diese Grenze. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
+Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht; weder lokales Relay noch Evidenzbundle oder Machbarkeitsplaner ändern diese Grenze. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
 `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keine automatische authentifizierte Evidenzübertragung/-Attestation zwischen Rechnern, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
 
 ## Unmittelbarer Ablauf
 
 ```text
-Profile + lokale Benchmarks + gebundene vertrauenswürdige LAN-Pfadevidenz
+frische Profile + lokale Benchmarks + gebundene vertrauenswürdige LAN-Pfadevidenz
         ↓
 aus dem Artefakt abgeleitetes Single-GGUF-Modellmanifest
         ↓
-maschinenlesbarer konservativer Placement-Kandidat
+fail-closed aktuelles Zwei-Node-Evidenzbundle
+        ↓
+maschinenlesbarer konservativer Placement-Kandidat (im Bundle enthalten)
         ↓
 lokale deterministische llama-server-Baseline
         ↓
@@ -152,7 +159,7 @@ ComputeMesh/
 ├─ tools/benchmark/       # Inventory, TCP, llama-bench- und GGUF-Manifest-Werkzeuge
 ├─ services/orchestrator/ # dauerhafte M0-State-/Control-Grundlage
 ├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
-├─ services/scheduler/    # deterministischer M1-Zwei-Node-Machbarkeitsplaner
+├─ services/scheduler/    # M1-Evidenzbündelung + Zwei-Node-Machbarkeitsplanung
 ├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier
 ├─ runtime/llama/         # kontrollierter llama.cpp-M1-Research-Spike
 ├─ runtime/network/       # begrenztes M1-TCP-Mess-Relay
