@@ -4,10 +4,10 @@
   "comparison": null,
   "discover": null,
   "job_status": "failure",
-  "llama_asset": "llama-b10580-bin-ubuntu-vulkan-x64.tar.gz",
-  "llama_tag": "b10580",
-  "llama_version": "",
-  "local_devices": "Available devices:\n  (none)\n",
+  "llama_asset": null,
+  "llama_tag": null,
+  "llama_version": null,
+  "local_devices": null,
   "model": {
     "basename": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
     "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747"
