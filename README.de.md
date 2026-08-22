@@ -24,6 +24,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 
 - plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
+- begrenzte GGUF-v3-Inspektion und konservative Modellmanifest-Erzeugung mit aus dem Artefakt abgeleiteter Architektur, Layerzahl, SHA-256 und Dateigröße;
 - maschinenlesbare Draft-2020-12-State-/Control-Verträge;
 - deterministische Job-/Reservation-Semantik und transaktionale SQLite-Referenzpersistenz;
 - strikte transportneutrale Control-Envelopes und dauerhafte erste Handler;
@@ -64,6 +65,20 @@ predicted_speedup_vs_local = null
 
 Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen. Details: [services/scheduler/README.md](services/scheduler/README.md).
 
+## GGUF → Modellmanifest
+
+`tools/benchmark/gguf_manifest.py` entfernt einen weiteren manuellen M1-Zuordnungsschritt. Für eine lokale little-endian GGUF-v3-Datei kann das Werkzeug begrenzte standardisierte Metadaten lesen und daraus ableiten:
+
+- `general.architecture`;
+- `<architecture>.block_count` als Manifest-`layer_count`;
+- bekannte standardisierte `general.file_type`-Quantisierungsbezeichnungen;
+- Modellname/-version/-lizenz-Metadaten, sofern vorhanden;
+- exakte lokale Dateigröße und per Streaming berechneten SHA-256-Digest.
+
+Das Werkzeug führt keinen Modellcode aus und lädt keine Tensorinhalte in den Arbeitsspeicher. Fehlende oder nicht sicher zuordenbare Lizenz-/Versions-/Quantisierungsangaben müssen explizit übergeben werden; erlaubte Partitionierungsarten werden grundsätzlich explizit angegeben und nicht geraten.
+
+Aktuelle llama.cpp-Split-Metadaten werden ebenfalls erkannt. Ein primärer Shard mit `split.count > 1` kann identifiziert werden, aber die Schema-v1-Manifest-Erzeugung wird bewusst verweigert: Digest/Größe eines einzelnen Shards repräsentieren nicht das vollständige Modell und Schema v1 modelliert Shard-Zugehörigkeit/-Reihenfolge noch nicht ausreichend explizit. Vor der Erzeugung des aktuellen ComputeMesh-Manifests muss der vollständige Shard-Satz zu einem GGUF zusammengeführt werden. Details: [tools/benchmark/README.md](tools/benchmark/README.md).
+
 ## Kontrolliertes llama.cpp-M1-Experiment
 
 `runtime/llama/rpc_spike.py` kann aktuelle llama.cpp-Geräte ermitteln, eine deterministische lokale Baseline aufzeichnen, einen expliziten Local+RPC-`layer`-Split ausführen und exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest. Modell-/Runtime-/Topologie-/Timing-Evidenz wird ohne Rohprompt-/Rohoutput-Persistenz gespeichert.
@@ -88,7 +103,7 @@ Bereits vorhandene physische Evidenz vom 21.08.2026:
 - Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
 - Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
+Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad, GGUF-Manifest-Helfer und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
 
 ## Identity- und Runtime-Sicherheitsgrenze
 
@@ -102,12 +117,14 @@ Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Iden
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
+Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
 
 ## Unmittelbarer Ablauf
 
 ```text
 Profile + lokale Benchmarks + gebundene vertrauenswürdige LAN-Pfadevidenz
+        ↓
+aus dem Artefakt abgeleitetes Single-GGUF-Modellmanifest
         ↓
 maschinenlesbarer konservativer Placement-Kandidat
         ↓
@@ -132,7 +149,7 @@ bei Relevanz Paket-Level-Loss-/Reordering-Experiment
 ComputeMesh/
 ├─ SETUP.cmd / setup.sh   # einfache Windows-/Linux-Lab-Einstiege
 ├─ setup/                 # plattformübergreifende Lab-Orchestrierung
-├─ tools/benchmark/       # Inventory, TCP, llama-bench-Adapter
+├─ tools/benchmark/       # Inventory, TCP, llama-bench- und GGUF-Manifest-Werkzeuge
 ├─ services/orchestrator/ # dauerhafte M0-State-/Control-Grundlage
 ├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
 ├─ services/scheduler/    # deterministischer M1-Zwei-Node-Machbarkeitsplaner
