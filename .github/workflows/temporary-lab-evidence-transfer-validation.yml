@@ -18,6 +18,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Parse Windows evidence PowerShell
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [scriptblock]::Create((Get-Content -Raw setup/evidence.ps1)) | Out-Null
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
