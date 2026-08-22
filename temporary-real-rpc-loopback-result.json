@@ -1,24 +1,108 @@
 {
-  "baseline": null,
+  "baseline": {
+    "captured_at": "2026-08-22T10:25:04.102412Z",
+    "correctness": {
+      "output_sha256": "5597ff751295045ffd3745d858aff0150bb0ee86df6854a4ac36d83176e876bf",
+      "prompt_sha256": "87d3ee622231cdd12f8b7acc96741fc646588e25bc98f1f60efc782b54b40c9a",
+      "token_ids_sha256": "973c135780f8f2b2c154e57cc1ff4b906dea636a9c9e745958fadde71d9043ac"
+    },
+    "model": {
+      "basename": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+      "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747",
+      "size_bytes": 105454144
+    },
+    "placement": {
+      "devices": [
+        "Vulkan0"
+      ],
+      "fit": false,
+      "mode": "local_baseline",
+      "split_mode": "none",
+      "tensor_split": [
+        1.0
+      ]
+    },
+    "run_id": "llama-rpc-d0c95fa99a902227",
+    "runtime": {
+      "name": "llama.cpp",
+      "version": "version: 0.2.0-dev (build 1, commit 54ee5ee)\nbuilt with GNU 13.3.0 for Linux x86_64"
+    },
+    "schema_version": 1,
+    "timings": {
+      "cache_n": 0,
+      "model_ready_ms": 18331.510481999998,
+      "predicted_ms": 3553.042,
+      "predicted_n": 18,
+      "predicted_per_second": 4.7846324360927905,
+      "predicted_per_token_ms": 209.0024705882353,
+      "prompt_ms": 8886.915,
+      "prompt_n": 14,
+      "prompt_per_second": 1.5753498261207628,
+      "prompt_per_token_ms": 634.7796428571429,
+      "request_ms": 12441.638347000036
+    },
+    "topology": {
+      "coordinator_http": "127.0.0.1:18080",
+      "rpc_endpoints": []
+    }
+  },
   "baseline_failure": null,
+  "build_log": "[0/2] Re-checking globbed directories...\n[1/628] Creating directories for 'vulkan-shaders-gen'\n[2/628] No download step for 'vulkan-shaders-gen'\n[3/628] No update step for 'vulkan-shaders-gen'\n[4/628] No patch step for 'vulkan-shaders-gen'\n[5/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml.cpp.o\n[6/628] Performing configure step for 'vulkan-shaders-gen'\n-- The C compiler identification is GNU 13.3.0\n-- The CXX compiler identification is GNU 13.3.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE\n-- Enabling coopmat glslc support\n-- Configuring done (0.5s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/cm-real/llama-src/build/ggml/src/ggml-vulkan/vulkan-shaders-gen-prefix/src/vulkan-shaders-gen-build\n[7/628] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o\n[8/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o\n[9/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o\n[10/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o\n[11/628] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o\n[12/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o\n[13/628] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o\n[14/628] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/gguf.cpp.o\n[15/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o\n[16/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o\n[17/628] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/quants.c.o\n[18/628] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o\n[19/628] Linking CXX shared library bin/libggml-base.so.0.21.0\n[20/628] Creating library symlink bin/libggml-base.so.0 bin/libggml-base.so\n[21/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o\n[22/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o\n[23/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o\n[24/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o\n[25/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o\n[26/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o\n[27/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o\n[28/628] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o\n[29/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/llamafile/sgemm.cpp.o\n[30/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/repack.cpp.o\n[31/628] Building CXX object ggml/src/ggml-rpc/CMakeFiles/ggml-rpc.dir/transport.cpp.o\n[32/628] Performing build step for 'vulkan-shaders-gen'\n[1/2] Building CXX object CMakeFiles/vulkan-shaders-gen.dir/vulkan-shaders-gen.cpp.o\n[2/2] Linking CXX executable vulkan-shaders-gen\n[33/628] Performing install step for 'vulkan-shaders-gen'\n-- Installing: /tmp/cm-real/llama-src/build/Release/./vulkan-shaders-gen\n[34/628] Completed 'vulkan-shaders-gen'\n[35/628] Generate vulkan shaders header\n[36/628] Generate vulkan shaders for acc.comp\n[37/628] Building CXX object vendor/hash/CMakeFiles/vendor-hash.dir/hash.cpp.o\n[38/628] Generate vulkan shaders for add1.comp\n[39/628] Generate vulkan shaders for add_id.comp\n[40/628] Generate vulkan shaders for arange.comp\n[41/628] Generate vulkan shaders for add.comp\n[42/628] Generate vulkan shaders for argmax.comp\n[43/628] Generate vulkan shaders for argsort.comp\n[44/628] Generate vulkan shaders for argsort_large.comp\n[45/628] Generate vulkan shaders for col2im_1d.comp\n[46/628] Generate vulkan shaders for concat.comp\n[47/628] Generate vulkan shaders for conv2d_dw.comp\n[48/628] Generate vulkan shaders for contig_copy.comp\n[49/628] Generate vulkan shaders for conv3d_mm.comp\n[50/628] Generate vulkan shaders for conv2d_mm.comp\n[51/628] Generate vulkan shaders for conv_transpose_1d.comp\n[52/628] Building CXX object ggml/src/ggml-rpc/CMakeFiles/ggml-rpc.dir/ggml-rpc.cpp.o\n[53/628] Generate vulkan shaders for copy.comp\n[54/628] Generate vulkan shaders for copy_from_quant.comp\n[55/628] Generate vulkan shaders for copy_transpose.comp\n[56/628] Generate vulkan shaders for count_equal.comp\n[57/628] Generate vulkan shaders for copy_transpose_02.comp\n[58/628] Generate vulkan shaders for count_experts.comp\n[59/628] Generate vulkan shaders for cumsum_multipass1.comp\n[60/628] Generate vulkan shaders for cumsum.comp\n[61/628] Generate vulkan shaders for cumsum_multipass2.comp\n[62/628] Generate vulkan shaders for dequant_f32.comp\n[63/628] Generate vulkan shaders for dequant_iq1_m.comp\n[64/628] Generate vulkan shaders for dequant_iq1_s.comp\n[65/628] Generate vulkan shaders for dequant_iq2_s.comp\n[66/628] Generate vulkan shaders for dequant_iq2_xs.comp\n[67/628] Generate vulkan shaders for dequant_iq2_xxs.comp\n[68/628] Generate vulkan shaders for dequant_iq3_s.comp\n[69/628] Generate vulkan shaders for dequant_iq3_xxs.comp\n[70/628] Generate vulkan shaders for dequant_iq4_nl.comp\n[71/628] Generate vulkan shaders for dequant_iq4_xs.comp\n[72/628] Generate vulkan shaders for dequant_mxfp4.comp\n[73/628] Generate vulkan shaders for dequant_nvfp4.comp\n[74/628] Generate vulkan shaders for dequant_q1_0.comp\n[75/628] Generate vulkan shaders for dequant_q2_0.comp\n[76/628] Generate vulkan shaders for dequant_q2_k.comp\n[77/628] Generate vulkan shaders for dequant_q3_k.comp\n[78/628] Generate vulkan shaders for dequant_q4_0.comp\n[79/628] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ops.cpp.o\n[80/628] Generate vulkan shaders for dequant_q4_1.comp\n[81/628] Generate vulkan shaders for dequant_q4_k.comp\n[82/628] Generate vulkan shaders for dequant_q5_0.comp\n[83/628] Generate vulkan shaders for dequant_q5_1.comp\n[84/628] Generate vulkan shaders for copy_to_quant.comp\n[85/628] Generate vulkan shaders for dequant_q5_k.comp\n[86/628] Generate vulkan shaders for dequant_tq2_0.comp\n[87/628] Generate vulkan shaders for dequant_q6_k.comp\n[88/628] Generate vulkan shaders for dequant_q8_0.comp\n[89/628] Generate vulkan shaders for diag.comp\n[90/628] Generate vulkan shaders for diag_mask_inf.comp\n[91/628] Generate vulkan shaders for fill.comp\n[92/628] Generate vulkan shaders for flash_attn_cm2.comp\nCMake Warning:\n  Expected depfile does not exist.\n\n    /tmp/cm-real/llama-src/build/ggml/src/ggml-vulkan/flash_attn_cm2.comp.cpp.d\n\n\n[93/628] Generate vulkan shaders for flash_attn_cm1.comp\n[94/628] Generate vulkan shaders for div.comp\n[95/628] Generate vulkan shaders for flash_attn_mask_opt.comp\n[96/628] Generate vulkan shaders for flash_attn_split_k_reduce.comp\n[97/628] Generate vulkan shaders for fwht.comp\n[98/628] Generate vulkan shaders for gated_delta_net.comp\n[99/628] Generate vulkan shaders for geglu_erf.comp\n[100/628] Generate vulkan shaders for flash_attn.comp\n[101/628] Generate vulkan shaders for geglu.comp\n[102/628] Generate vulkan shaders for geglu_quick.comp\n[103/628] Generate vulkan shaders for get_rows_back.comp\n[104/628] Generate vulkan shaders for group_norm.comp\n[105/628] Generate vulkan shaders for get_rows.comp\n[106/628] Generate vulkan shaders for gla.comp\n[107/628] Generate vulkan shaders for im2col.comp\n[108/628] Generate vulkan shaders for im2col_3d.comp\n[109/628] Generate vulkan shaders for l2_norm.comp\n[110/628] Generate vulkan shaders for mul_mat_split_k_reduce.comp\n[111/628] Generate vulkan shaders for log.comp\n[112/628] Generate vulkan shaders for mul.comp\n[113/628] Generate vulkan shaders for mul_mat_vec_iq1_m.comp\n[114/628] Generate vulkan shaders for mul_mat_vec_iq1_s.comp\n[115/628] Generate vulkan shaders for get_rows_quant.comp\n[116/628] Generate vulkan shaders for mul_mat_vec_iq2_s.comp\n[117/628] Generate vulkan shaders for mul_mat_vec_iq2_xs.comp\n[118/628] Generate vulkan shaders for mul_mat_vec_iq2_xxs.comp\n[119/628] Generate vulkan shaders for mul_mat_vec_nc.comp\n[120/628] Generate vulkan shaders for mul_mat_vec_iq3_xxs.comp\n[121/628] Generate vulkan shaders for mul_mat_vec_iq3_s.comp\n[122/628] Generate vulkan shaders for mul_mat_vec_p021.comp\n[123/628] Generate vulkan shaders for mul_mat_vec_q2_k.comp\n[124/628] Generate vulkan shaders for mul_mat_vec_q4_k.comp\n[125/628] Generate vulkan shaders for mul_mat_vec_q3_k.comp\n[126/628] Generate vulkan shaders for mul_mat_vec_q5_k.comp\n[127/628] Generate vulkan shaders for mul_mat_vecq.comp\nCMake Warning:\n  Expected depfile does not exist.\n\n    /tmp/cm-real/llama-src/build/ggml/src/ggml-vulkan/mul_mat_vecq.comp.cpp.d\n\n\n[128/628] Generate vulkan shaders for mul_mat_vec_tq2_0.comp\n[129/628] Generate vulkan shaders for mul_mm_cm2.comp\nCMake Warning:\n  Expected depfile does not exist.\n\n    /tmp/cm-real/llama-src/build/ggml/src/ggml-vulkan/mul_mm_cm2.comp.cpp.d\n\n\n[130/628] Generate vulkan shaders for mul_mat_vec_q6_k.comp\n[131/628] Generate vulkan shaders for mul_mmq.comp\nCMake Warning:\n  Expected depfile does not exist.\n\n    /tmp/cm-real/llama-src/build/ggml/src/ggml-vulkan/mul_mmq.comp.cpp.d\n\n\n[132/628] Generate vulkan shaders for multi_add.comp\n[133/628] Generate vulkan shaders for norm.comp\n[134/628] Generate vulkan shaders for opt_step_adamw.comp\n[135/628] Generate vulkan shaders for opt_step_sgd.comp\n[136/628] Generate vulkan shaders for out_prod.comp\n[137/628] Generate vulkan shaders for pool1d.comp\n[138/628] Generate vulkan shaders for pad.comp\n[139/628] Generate vulkan shaders for pool2d.comp\n[140/628] Generate vulkan shaders for quantize_q8_1.comp\n[141/628] Generate vulkan shaders for reglu.comp\n[142/628] Generate vulkan shaders for repeat.comp\n[143/628] Generate vulkan shaders for repeat_back.comp\n[144/628] Generate vulkan shaders for rms_norm_back.comp\n[145/628] Generate vulkan shaders for rms_norm.comp\n[146/628] Generate vulkan shaders for rms_norm_partials.comp\n[147/628] Generate vulkan shaders for roll.comp\n[148/628] Generate vulkan shaders for rope_multi.comp\n[149/628] Generate vulkan shaders for rope_neox.comp\n[150/628] Generate vulkan shaders for rope_norm.comp\n[151/628] Generate vulkan shaders for rope_vision.comp\n[152/628] Generate vulkan shaders for scale.comp\n[153/628] Generate vulkan shaders for silu_back.comp\n[154/628] Generate vulkan shaders for snake.comp\n[155/628] Generate vulkan shaders for soft_max_back.comp\n[156/628] Generate vulkan shaders for soft_max.comp\n[157/628] Generate vulkan shaders for soft_max_large1.comp\n[158/628] Generate vulkan shaders for soft_max_large2.comp\n[159/628] Generate vulkan shaders for soft_max_large3.comp\n[160/628] Generate vulkan shaders for solve_tri.comp\n[161/628] Generate vulkan shaders for ssm_conv.comp\n[162/628] Generate vulkan shaders for ssm_scan.comp\n[163/628] Generate vulkan shaders for sum_rows.comp\n[164/628] Generate vulkan shaders for swiglu.comp\n[165/628] Generate vulkan shaders for sub.comp\n[166/628] Generate vulkan shaders for swiglu_oai.comp\n[167/628] Generate vulkan shaders for timestep_embedding.comp\n[168/628] Generate vulkan shaders for topk_argsort.comp\n[169/628] Generate vulkan shaders for mul_mat_vec.comp\n[170/628] Generate vulkan shaders for topk_moe.comp\n[171/628] Generate vulkan shaders for topk_nary_search.comp\n[172/628] Generate vulkan shaders for tri.comp\n[173/628] Generate vulkan shaders for upscale.comp\n[174/628] Generate vulkan shaders for wkv7.comp\n[175/628] Generate vulkan shaders for wkv6.comp\n[176/628] Linking CXX shared library bin/libggml-rpc.so.0.21.0\n[177/628] Creating library symlink bin/lib",
   "comparison": null,
-  "discover": null,
+  "discover": "<frozen runpy>:128: RuntimeWarning: 'runtime.llama.rpc_spike' found in sys.modules after import of package 'runtime.llama', but prior to execution of 'runtime.llama.rpc_spike'; this may result in unpredictable behaviour\nAvailable devices:\n  Vulkan0: llvmpipe (LLVM 20.1.8, 256 bits) (15989 MiB, 14901 MiB free)\n  RPC0: 127.0.0.1:50052 (15989 MiB, 14901 MiB free)\n",
   "job_status": "failure",
   "llama_tag": "b10580",
-  "llama_version": null,
-  "local_devices": null,
-  "local_devices_preflight": null,
+  "llama_version": "",
+  "local_devices": "Available devices:\n  Vulkan0: llvmpipe (LLVM 20.1.8, 256 bits) (15989 MiB, 14945 MiB free)\n",
+  "local_devices_preflight": "Available devices:\n  Vulkan0: llvmpipe (LLVM 20.1.8, 256 bits) (15989 MiB, 14912 MiB free)\n",
   "model": {
     "basename": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
     "sha256": "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747"
   },
-  "phase": "build\n",
-  "relay": null,
-  "relay_log": null,
-  "rpc_devices": null,
-  "rpc_server_log": null,
+  "phase": "shared\n",
+  "relay": {
+    "active_elapsed_ms": 51.30045800001426,
+    "configured": {
+      "chunk_bytes": 65536,
+      "connect_timeout_seconds": 10.0,
+      "disconnect_after_bytes": null,
+      "disconnect_after_seconds": null,
+      "jitter_ms": 0.0,
+      "max_buffer_bytes": 8388608,
+      "one_way_delay_ms": 0.0,
+      "seed": 1
+    },
+    "connected_at": "2026-08-22T10:25:04.470643Z",
+    "ended_at": "2026-08-22T10:25:04.521947Z",
+    "listen": "127.0.0.1:50053",
+    "schema_version": 1,
+    "setup_elapsed_ms": 298.2647880000968,
+    "started_at": "2026-08-22T10:25:04.172379Z",
+    "target": "127.0.0.1:50052",
+    "termination": {
+      "error_type": null,
+      "message": null,
+      "reason": "eof"
+    },
+    "total_elapsed_ms": 349.5652460001111,
+    "traffic": {
+      "coordinator_to_worker_bytes": 42,
+      "total_forwarded_bytes": 90,
+      "worker_to_coordinator_bytes": 48
+    }
+  },
+  "relay_log": "<frozen runpy>:128: RuntimeWarning: 'runtime.network.tcp_relay' found in sys.modules after import of package 'runtime.network', but prior to execution of 'runtime.network.tcp_relay'; this may result in unpredictable behaviour\nREADY 127.0.0.1:50053 -> 127.0.0.1:50052\n{\"active_elapsed_ms\": 51.30045800001426, \"configured\": {\"chunk_bytes\": 65536, \"connect_timeout_seconds\": 10.0, \"disconnect_after_bytes\": null, \"disconnect_after_seconds\": null, \"jitter_ms\": 0.0, \"max_buffer_bytes\": 8388608, \"one_way_delay_ms\": 0.0, \"seed\": 1}, \"connected_at\": \"2026-08-22T10:25:04.470643Z\", \"ended_at\": \"2026-08-22T10:25:04.521947Z\", \"listen\": \"127.0.0.1:50053\", \"schema_version\": 1, \"setup_elapsed_ms\": 298.2647880000968, \"started_at\": \"2026-08-22T10:25:04.172379Z\", \"target\": \"127.0.0.1:50052\", \"termination\": {\"error_type\": null, \"message\": null, \"reason\": \"eof\"}, \"total_elapsed_ms\": 349.5652460001111, \"traffic\": {\"coordinator_to_worker_bytes\": 42, \"total_forwarded_bytes\": 90, \"worker_to_coordinator_bytes\": 48}}\n",
+  "rpc_devices": "Available devices:\n  Vulkan0: llvmpipe (LLVM 20.1.8, 256 bits) (15989 MiB, 14901 MiB free)\n  RPC0: 127.0.0.1:50052 (15989 MiB, 14901 MiB free)\n",
+  "rpc_server_log": "ggml_vulkan: Found 1 Vulkan devices:\nggml_vulkan: 0 = llvmpipe (LLVM 20.1.8, 256 bits) (llvmpipe) | uma: 0 | fp16: 0 | bf16: 0 | fp4: 0 | warp size: 8 | shared memory: 32768 | int dot: 0 | matrix cores: none\nggml_vulkan: Warning: Device type is CPU. This is probably not the device you want.\nStarting RPC server v5.1.0\n  endpoint       : 127.0.0.1:50052\n  local cache    : n/a\nDevices:\n  Vulkan0: llvmpipe (LLVM 20.1.8, 256 bits) (15989 MiB, 14949 MiB free)\n  transport      : TCP\nAccepted client connection\nClient connection closed\nAccepted client connection\nClient connection closed\nAccepted client connection\nClient connection closed\nAccepted client connection\nClient connection closed\nAccepted client connection\nClient connection closed\n",
   "schema_version": 1,
   "shared": null,
-  "shared_failure": null,
+  "shared_failure": {
+    "captured_at": "2026-08-22T10:25:05.481401Z",
+    "error_type": "ConnectionResetError",
+    "message": "[Errno 104] Connection reset by peer",
+    "phase": "server_start",
+    "run_id": "llama-rpc-6dd71e2642b20c42",
+    "schema_version": 1
+  },
   "vulkaninfo": "WARNING: [Loader Message] Code 0 : terminator_CreateInstance: Received return code -9 from call to vkCreateInstance in ICD libvulkan_dzn.so. Skipping this driver.\n'DISPLAY' environment variable not set... skipping surface info\n==========\nVULKANINFO\n==========\n\nVulkan Instance Version: 1.3.275\n\n\nInstance Extensions: count = 25\n-------------------------------\nVK_EXT_acquire_drm_display             : extension revision 1\nVK_EXT_acquire_xlib_display            : extension revision 1\nVK_EXT_debug_report                    : extension revision 10\nVK_EXT_debug_utils                     : extension revision 2\nVK_EXT_direct_mode_display             : extension revision 1\nVK_EXT_display_surface_counter         : extension revision 1\nVK_EXT_headless_surface                : extension revision 1\nVK_EXT_layer_settings                  : extension revision 2\nVK_EXT_surface_maintenance1            : extension revision 1\nVK_EXT_swapchain_colorspace            : extension revision 5\nVK_KHR_device_group_creation           : extension revision 1\nVK_KHR_display                         : extension revision 23\nVK_KHR_external_fence_capabilities     : extension revision 1\nVK_KHR_external_memory_capabilities    : extension revision 1\nVK_KHR_external_semaphore_capabilities : extension revision 1\nVK_KHR_get_display_properties2         : extension revision 1\nVK_KHR_get_physical_device_properties2 : extension revision 2\nVK_KHR_get_surface_capabilities2       : extension revision 1\nVK_KHR_portability_enumeration         : extension revision 1\nVK_KHR_surface                         : extension revision 25\nVK_KHR_surface_protected_capabilities  : extension revision 1\nVK_KHR_wayland_surface                 : extension revision 6\nVK_KHR_xcb_surface                     : extension revision 6\nVK_KHR_xlib_surface                    : extension revision 6\nVK_LUNARG_direct_driver_loading        : extension revision 1\n\nInstance Layers: count = 5\n--------------------------\nVK_LAYER_INTEL_nullhw       INTEL NULL HW                                                1.1.73   version 1\nVK_LAYER_MESA_anti_lag      Open-source implementation of the VK_AMD_anti_lag extension. 1.4.303  version 1\nVK_LAYER_MESA_device_select Linux device selection layer                                 1.4.303  version 1\nVK_LAYER_MESA_overlay       Mesa Overlay layer                                           1.4.303  version 1\nVK_LAYER_MESA_screenshot    Mesa Screenshot layer                                        1.4.303  version 1\n\nDevices:\n========\nGPU0:\n\tapiVersion         = 1.4.354\n\tdriverVersion      = 26.1.7\n\tvendorID           = 0x10005\n\tdeviceID           = 0x0000\n\tdeviceType         = PHYSICAL_DEVICE_TYPE_CPU\n\tdeviceName         = llvmpipe (LLVM 20.1.8, 256 bits)\n\tdriverID           = DRIVER_ID_MESA_LLVMPIPE\n\tdriverName         = llvmpipe\n\tdriverInfo         = Mesa 26.1.7 - kisak-mesa PPA (LLVM 20.1.8)\n\tconformanceVersion = 1.3.1.1\n\tdeviceUUID         = 6d657361-3236-2e31-2e37-202d206b6900\n\tdriverUUID         = 6c6c766d-7069-7065-5555-494400000000\n"
 }
