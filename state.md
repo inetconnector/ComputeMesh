@@ -1,16 +1,27 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-22  
-**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, fail-closed shared-run proof binding, one-command physical shared-trial orchestration, and llama.cpp benchmark→runtime build binding; real shared inference is not yet evidenced  
+**Last updated:** 2026-08-22 13:01 CEST  
+**Phase:** M0 foundation + M1 engineering path through identity, evidence binding, GGUF manifests, two-node feasibility planning, evidence transfer/bundling, controlled llama.cpp RPC runtime, shared-run proof binding, one-command physical trial orchestration, and benchmark→runtime build binding. A real single-host Vulkan+RPC loopback attempt now reaches local baseline, RPC discovery and the ComputeMesh relay, but the relayed shared run fails during `server_start`. **No successful physical two-machine shared inference has yet been evidenced.**  
 **Production services/runtime:** none  
 **Public release:** none
 
-This is the canonical engineering handoff. It records what is implemented, what has actually been measured, the current trust/evidence boundaries, and the next experimental steps.
+This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
-## Repository baseline
+---
+
+## 1. Repository truth
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
+- canonical merged **code baseline before this documentation-only handoff update**: `f822e7170882036834ee4a066ada95bd2117d2b9`
+- this `state.md` update is documentation-only; no production/runtime behavior is intentionally changed by it
+- ADR 0002 remains **Proposed** because a correct shared local+RPC runtime proof is still missing
+- upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
+- `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
+- no arbitrary provider code is executed in V1
+
+### Historical implementation milestones
+
 - documentation v0.2: `cf85a47`
 - contracts/benchmark bootstrap: `7df5b4e`
 - transactional persistence/schema admission: `bfea175`
@@ -22,145 +33,79 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
 - Linux Lab Setup: `3c99457`
 - real Windows/Linux target smoke/fix pass: `86ea6a7`
-- node-session wire/readiness binding landed through `2f1f33b`
-- M1 reference node identity landed through `d45406f`
-- controlled llama.cpp RPC M1 spike harness landed through `3db6ef9`
-- bounded TCP measurement relay landed through `206248a`
-- deterministic M1 two-node feasibility planner landed through `6177218`
-- network-peer/model-layer evidence binding landed through PR #6
-- bounded GGUF-v3 inspection/model-manifest generation landed through PR #7
-- fail-closed current experiment-evidence bundle landed through PR #8; `main` was `d461a2e7` before the current branch
-- bounded two-machine Lab evidence export/import + bundle launchers landed through PR #10; final cross-platform validation run `32553817653` passed
-- fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
-- one-command physical shared-trial orchestration landed through PR #12; final cross-platform validation run `32558221241` passed
-- llama.cpp benchmark→runtime build binding is implemented in PR #13; final cross-platform validation run `32561589482` passed before final state bookkeeping/workflow removal
+- node-session wire/readiness binding: `2f1f33b`
+- M1 reference node identity: `d45406f`
+- controlled llama.cpp RPC M1 spike harness: `3db6ef9`
+- bounded TCP measurement relay: `206248a`
+- deterministic M1 two-node feasibility planner: `6177218`
+- network-peer/model-layer evidence binding: PR #6
+- GGUF-v3 inspection/model-manifest generator: PR #7
+- fail-closed current experiment-evidence bundle: PR #8
+- bounded two-machine Lab evidence export/import + bundle launchers: PR #10
+- fail-closed shared-run proof binding: PR #11
+- one-command physical shared-trial orchestration: PR #12
+- llama.cpp benchmark→runtime build binding: PR #13
 
-## What exists
+### Current branch / PR topology at this handoff
 
-### Cross-platform Lab Setup and measurements
+The last verified repository branch search showed:
 
-Windows and Linux Lab Setup provide:
+- `main` — canonical merged branch
+- `m1/runtime-build-binding` — **no unique commits**, byte-identical to `main` when compared (`ahead 0`, `behind 0`); stale merged ref
+- `m1/shared-run-evidence` — **no unique commits**, `ahead 0`, `behind 40`; stale merged ref
+- `m1/shared-trial-runner` — **no unique commits**, `ahead 0`, `behind 11`; stale merged ref
+- `test/real-llama-rpc-loopback` — active temporary integration/debug branch, Draft PR #14; last recorded head `645e1e51b726b900f4cf35712aedf2319f062d35`; its net diff against the code baseline is intentionally limited to `.github/workflows/temporary-real-llama-rpc-loopback.yml` and `temporary-real-rpc-loopback-result.json`
+- `docs/state-current-handoff` — temporary documentation-only branch used to publish this handoff; after fast-forward it should contain no durable code change beyond `state.md` and is safe to delete if still visible
 
-- stable random non-hostname Lab node IDs;
-- machine-readable node inventory with monotonically versioned profile revisions;
-- TCP RTT/throughput benchmark;
-- llama.cpp `llama-bench` prefill/decode adapter;
-- bounded GGUF-v3 metadata/model-manifest helper;
-- bounded worker-evidence ZIP export and verified coordinator import;
-- direct Windows/Linux launchers for evidence export and current experiment-bundle construction;
-- ignored local evidence under `artifacts/lab/`;
-- one test action that runs benchmark/model, orchestrator, protocol, identity, scheduler/bundle, llama-runtime, network-runtime, and setup suites.
+**PR #14 must not be merged as-is.** It is an execution/debug vehicle. Any durable fix discovered there must be implemented/reviewed on a normal feature branch, fully validated, documented here, and merged without its temporary workflow/result files.
 
-This remains engineering/lab tooling, not a public provider-node installer.
+---
 
-### Network benchmark evidence binding
+## 2. Permanent repository process rules
 
-The TCP benchmark remains a trusted-private-LAN engineering protocol with **no application authentication or encryption**.
+### Canonical state handoff rule
 
-Current servers can receive their Lab Setup ID via `--node-id`; current clients can query that bounded self-report before measuring. New benchmark records can therefore contain:
+`state.md` must be updated **during the same work block** whenever any of these materially changes:
 
-- `conditions.local_node_id` — client Lab Setup ID;
-- `conditions.peer_node_id` — server self-reported Lab Setup ID;
-- `conditions.peer_identity_binding = unauthenticated_server_report_v1`.
+- merged implementation or architecture;
+- test counts, CI results or validation status;
+- physical, synthetic, loopback or benchmark evidence;
+- trust/security/evidence boundaries;
+- active branch/PR topology relevant to continuation;
+- known failures, root causes or leading hypotheses;
+- blockers;
+- ordered next programming or experimental actions.
 
-Properties:
+The standard is operational, not cosmetic. A new AI model must be able to continue from this file alone. Therefore every future update must:
 
-- IDs are bounded to 1..128 printable characters and at most 512 UTF-8 bytes in the benchmark implementation;
-- `peer_node_id` and `peer_identity_binding` are schema-paired;
-- `--expected-peer-node-id` can fail closed on a different/missing current peer report;
-- legacy servers remain measurable when an expected peer is not required;
-- malformed identity queries with declared payload bytes close the connection so unread bytes are never reinterpreted as a following frame; depending on TCP/OS timing the client may see the attempted error header or immediate EOF/reset;
-- Lab Setup automatically passes its random Lab ID into server/client roles.
+1. distinguish merged truth from temporary/debug artifacts;
+2. distinguish real physical evidence from synthetic/CI/loopback evidence;
+3. distinguish verified facts from hypotheses;
+4. preserve exact failure phase/type/message when material;
+5. record branch/PR/SHA/run IDs when they materially affect continuation;
+6. state explicitly what must **not** be merged, trusted or claimed;
+7. keep blockers and next actions ordered around the actual current bottleneck;
+8. update `state.md` before declaring a milestone/work block complete.
 
-**Boundary:** `unauthenticated_server_report_v1` is traceability only. It is not ADR-0005 Ed25519/session identity and must not be treated as a production trust proof.
+### Bilingual README rule
 
-### Artifact-derived GGUF model manifests
+`README.md` and `README.de.md` are synchronized public project entry points. Update both together for every public-facing change.
 
-`model_manifest.schema.json` accepts optional `layer_count`; the placement planner prefers it and records `layer_count_source = model_manifest_v1`. Legacy explicit caller layer count remains supported only by the direct placement compatibility path.
+### Merge / repository hygiene
 
-`tools/benchmark/gguf_manifest.py` can build the current single-artifact manifest from a local little-endian GGUF v3 file.
+- merge feature work to `main` only when feature is ahead > 0 and behind = 0;
+- verify feature/main are identical after fast-forward;
+- temporary GitHub Actions workflows must be absent from the final merge diff;
+- clean fully merged branches when tooling permits;
+- never fabricate private-LAN, distributed-inference, correctness, performance or security evidence.
 
-Artifact-derived facts:
+---
 
-- `general.architecture` → manifest `architecture`;
-- `<architecture>.block_count` → manifest `layer_count`;
-- known standardized `general.file_type` → quantization label when safely mapped;
-- `general.name`, `general.version`, `general.license`, `general.license.link` when present;
-- exact local `size_bytes`;
-- streaming SHA-256 digest.
-
-The reader is bounded, reads metadata rather than tensor contents, does not execute model code, and never guesses missing model/version/license/quantization semantics or partitioning permission.
-
-Current llama.cpp split metadata is recognized as the complete trio `split.no`, `split.count`, and `split.tensors.count`. Later non-primary shards can lack ordinary model metadata and are identified explicitly.
-
-**Schema-v1 split boundary:** `split.count > 1` is inspectable but manifest generation is refused. One shard's digest/size is not the whole model and schema v1 does not yet encode shard membership/order strongly enough. Merge the full shard set to one GGUF first. `split.count == 1` remains buildable.
-
-### Bounded M1 Lab evidence transfer
-
-`setup/evidence_transfer.py` is the local transfer layer for the physical two-computer experiment. Export/import deliberately use only the Python standard library; scheduler/JSON-schema dependencies are loaded only when building the placement bundle.
-
-Worker export invariants:
-
-1. scan only bounded `*.json` below the configured node's `artifacts/lab/<node-id>/` tree;
-2. export only recognized node-profile and benchmark JSON; unknown JSON is ignored, while profile/benchmark-shaped JSON with a wrong top-level contract fails closed;
-3. require all captured profiles to refer to the configured node ID and require the configured profile revision to equal the newest captured revision;
-4. exclude GGUF weights, llama.cpp binaries/runtime downloads, `artifacts/lab/config.json`, remembered local paths, and arbitrary files;
-5. reject evidence-file symlinks;
-6. bound evidence-file count, individual JSON size, total uncompressed bytes, ZIP size, and export-manifest size;
-7. record each file in `computemesh-lab-export.json` by cross-platform-safe relative path, exact byte size, and SHA-256;
-8. use fixed ZIP entry metadata rather than source mtimes/permissions so source filesystem metadata is not leaked;
-9. derive deterministic `export_id = lab-export-<16hex>` from node ID, profile revision, and exact file path/size/hash records; `created_at` is observational metadata and is not part of evidence identity.
-
-Coordinator import invariants:
-
-1. reject archive symlinks, malformed/oversized ZIPs, encrypted entries, directory entries, ZIP symlinks, traversal/unsafe paths, duplicate names, unexpected members, and declared-size conflicts;
-2. require the archive member set to match the manifest exactly;
-3. stream every extracted file through exact byte-count and SHA-256 validation;
-4. extract into a temporary directory and publish only by atomic rename after successful verification;
-5. on re-import, revalidate the existing manifest/tree/hashes instead of trusting prior local files;
-6. allow a repeated export of unchanged evidence to reuse the same import identity even if the later ZIP has a different observational `created_at`;
-7. reject a tampered existing import.
-
-Direct user-facing launchers:
-
-- Windows worker export: `setup\EVIDENCE-EXPORT.cmd`;
-- Windows coordinator bundle: `setup\BUILD-BUNDLE.cmd`;
-- Linux worker export: `bash setup/EVIDENCE-EXPORT.sh`;
-- Linux coordinator bundle: `bash setup/BUILD-BUNDLE.sh`.
-
-The bundle launchers import/verify the peer ZIP and pass its evidence root plus the local coordinator tree and exact model manifest into the strict current experiment-bundle builder. Windows uses file pickers. Linux prompts for the paths. If `jsonschema` is not already in the repository-local `.venv`, only the bundle step installs that small dependency.
-
-The transfer hashes are copy/integrity evidence, **not producer authentication, signatures, node identity proof, or hardware attestation**.
-
-### Fail-closed M1 experiment evidence bundle
-
-`services/scheduler/evidence_bundle.py` is the current engineering preparation layer in front of the placement planner. It consumes:
-
-- one explicit coordinator evidence root;
-- one explicit worker evidence root;
-- one model manifest;
-- optional evidence **selectors** only (`artifact_digest`, role node IDs, benchmark model basename, network run ID).
-
-The current bundle path intentionally has **no caller peer-ID fallback and no caller layer-count fallback**.
-
-Discovery/selection invariants:
-
-1. anything that looks like a node profile or benchmark must validate against its repository schema or discovery aborts;
-2. require one node identity per role unless explicitly disambiguated;
-3. choose the highest profile revision and reject conflicting documents at that revision;
-4. require `model_manifest.layer_count` and an exact selected manifest artifact;
-5. llama prefill/decode evidence must match selected profile revision, exact artifact size, and must not predate that profile;
-6. coordinator and worker must share one complete model basename (or caller selects one of multiple complete matches explicitly);
-7. newest matching runs are selected only when uniquely newest; equally recent distinct candidates fail rather than being chosen nondeterministically;
-8. network evidence must be coordinator→worker, match coordinator profile revision, carry embedded `local_node_id = coordinator` and `peer_node_id = worker`, and not predate the coordinator profile;
-9. `build_placement_decision` is invoked without legacy peer/layer arguments;
-10. a `caller_asserted_v1` network binding cannot produce a current bundle.
-
-Output contract: `services/scheduler/experiment_bundle.schema.json`.
-
-The output contains deterministic `bundle_id`, model/node/network provenance, safe source basenames, SHA-256 of every selected source JSON, run/node/profile/model identity, and the fully validated placement decision. Absolute local paths are not emitted and provenance source records reject unknown properties.
+## 3. Implemented foundation
 
 ### Durable control/orchestration foundation
+
+Implemented:
 
 - Draft 2020-12 schemas for core state/control records;
 - deterministic Job/Reservation state machines;
@@ -185,40 +130,176 @@ CONNECTED
  -> CLOSED
 ```
 
-Current strict session wire subset:
+Strict session wire subset:
 
-- `NodeHello`;
-- `NodeAuthenticate`;
-- `CapabilityNegotiation`;
-- `NodeProfileUpdate`;
-- `BenchmarkReport`;
-- `DrainRequest`.
+- `NodeHello`
+- `NodeAuthenticate`
+- `CapabilityNegotiation`
+- `NodeProfileUpdate`
+- `BenchmarkReport`
+- `DrainRequest`
 
 Session semantics include mandatory injected authentication, protocol-version negotiation, authenticated actor binding, optimistic revisions, exact replay/request-ID conflict handling, capability intersection, profile/revision binding, benchmark readiness policy, and external termination for revocation/incident signals.
 
 ADR 0005 is accepted only for the **narrow M1 reference implementation**. Authentication method: `computemesh-ed25519-v1`.
 
-The Ed25519 proof binds session ID, per-session challenge, stable node ID, key ID, negotiated protocol version, proof issue/expiry time, and canonical accepted `NodeHello` semantics.
+`services/identity/` provides a SQLite reference registry with:
 
-`services/identity/` provides a SQLite reference registry with stable random node IDs, one-time hashed enrollment tokens, public Ed25519 keys only, same-token/same-key idempotency, conflict rejection, key rotation, monotonic key/node revocation, and restart persistence. Existing authenticated sessions still require external revocation fan-out.
+- stable random node IDs independent of key;
+- one-time hashed enrollment tokens;
+- public Ed25519 keys only, no control-plane private keys;
+- challenge proof binding session/challenge/node/key/protocol/proof timing and accepted `NodeHello` semantics;
+- same-token/same-key idempotency;
+- conflict rejection;
+- key rotation preserving node ID;
+- monotonic key/node revocation;
+- restart persistence.
 
-### Deterministic M1 two-node placement planner
+Existing authenticated sessions still require external revocation fan-out.
+
+---
+
+## 4. Cross-platform Lab Setup and measurement path
+
+Windows and Linux Lab Setup currently provide:
+
+- stable random non-hostname Lab node IDs;
+- machine-readable node inventory with monotonically versioned profile revisions;
+- TCP RTT/throughput benchmark;
+- llama.cpp `llama-bench` prefill/decode adapter;
+- bounded GGUF-v3 metadata/model-manifest helper;
+- bounded worker-evidence ZIP export and verified coordinator import;
+- direct Windows/Linux launchers for evidence export and experiment-bundle construction;
+- shared worker/proof launchers;
+- ignored local evidence under `artifacts/lab/`.
+
+This remains engineering/lab tooling, **not** a public provider-node installer.
+
+### Network benchmark evidence binding
+
+The TCP benchmark is a trusted-private-LAN engineering protocol with **no application authentication or encryption**.
+
+Current benchmark records can contain:
+
+- `conditions.local_node_id`
+- `conditions.peer_node_id`
+- `conditions.peer_identity_binding = unauthenticated_server_report_v1`
+
+Current clients can require an expected peer ID and fail closed on mismatch/missing current report. Malformed identity queries are closed so unread bytes are not reinterpreted as later frames.
+
+**Boundary:** `unauthenticated_server_report_v1` is traceability only. It is not Ed25519/session authentication and not production trust proof.
+
+---
+
+## 5. Artifact-derived GGUF model manifests
+
+`tools/benchmark/gguf_manifest.py` builds the current model manifest from a local **complete, single-file, little-endian GGUF v3** artifact without loading tensor data.
+
+Artifact-derived facts include:
+
+- `general.architecture` → `architecture`
+- `<architecture>.block_count` → `layer_count`
+- known `general.file_type` → quantization label where safely mapped
+- `general.name`, `general.version`, `general.license`, `general.license.link` when present
+- exact `size_bytes`
+- streaming SHA-256 digest
+
+Missing semantic facts such as license, unknown quantization and allowed partitioning are **not guessed**.
+
+Split metadata recognized:
+
+- `split.no`
+- `split.count`
+- `split.tensors.count`
+
+**Schema-v1 boundary:** if `split.count > 1`, manifest generation is refused. One shard's digest/size is not the whole model and schema v1 does not encode shard membership/order strongly enough. Merge the complete shard set to one GGUF first. `split.count == 1` remains buildable.
+
+---
+
+## 6. Bounded two-machine Lab evidence transfer
+
+`setup/evidence_transfer.py` is the local transfer layer for the physical experiment. Export/import use only the Python standard library; scheduler/JSON-schema dependencies are loaded only for bundle construction.
+
+Worker export invariants include:
+
+- scan only bounded recognized JSON under the configured `artifacts/lab/<node-id>/` tree;
+- capture profile/benchmark evidence only;
+- require captured profiles to refer to the configured node and newest configured revision;
+- exclude GGUF weights, llama.cpp binaries/runtime downloads, local config, remembered paths and arbitrary files;
+- reject evidence symlinks;
+- bound file count, individual size, total size and ZIP size;
+- record relative safe path, exact byte size and SHA-256;
+- deterministic `export_id` from node/revision/path/size/hash records;
+- `created_at` is observational metadata, not evidence identity.
+
+Coordinator import invariants include:
+
+- reject malformed/oversized/encrypted ZIPs, symlinks, traversal, duplicate or unexpected members and size conflicts;
+- exact member-set validation;
+- streamed byte-count/SHA-256 verification;
+- temporary extraction + atomic publish only after full verification;
+- revalidate existing imports rather than trusting them;
+- allow same evidence identity with a different observational `created_at`;
+- reject tampered existing imports.
+
+Launchers:
+
+- Windows worker export: `setup\EVIDENCE-EXPORT.cmd`
+- Windows coordinator bundle: `setup\BUILD-BUNDLE.cmd`
+- Linux worker export: `bash setup/EVIDENCE-EXPORT.sh`
+- Linux coordinator bundle: `bash setup/BUILD-BUNDLE.sh`
+
+Transfer hashes prove copy/integrity binding only. They are **not signatures, producer authentication, node identity proof or hardware attestation**.
+
+---
+
+## 7. Fail-closed M1 experiment evidence bundle and planner
+
+`services/scheduler/evidence_bundle.py` consumes:
+
+- explicit coordinator evidence root;
+- explicit worker evidence root;
+- one model manifest;
+- optional **selection** disambiguators only.
+
+The current bundle path intentionally has **no caller peer-ID fallback and no caller layer-count fallback**.
+
+Key selection/binding invariants:
+
+- profile/benchmark-shaped documents must validate or discovery aborts;
+- one node identity per role unless explicitly disambiguated;
+- highest profile revision, with conflicting documents rejected;
+- manifest must contain `layer_count` and exact artifact identity;
+- llama prefill/decode evidence must match selected profile revision and exact artifact size;
+- coordinator and worker must share one complete model basename;
+- equally recent distinct candidates fail instead of nondeterministic selection;
+- network evidence must be coordinator→worker, match coordinator profile revision, embed coordinator `local_node_id` and worker `peer_node_id`, and not predate the profile;
+- `caller_asserted_v1` network binding cannot produce a current bundle;
+- output provenance stores safe basenames + SHA-256 and rejects unknown source properties; no absolute local paths are emitted.
+
+Output schema: `services/scheduler/experiment_bundle.schema.json`.
+
+### Deterministic two-node feasibility planner
 
 `services/scheduler/placement.py` is an experiment **feasibility planner**, not a production scheduler/performance oracle.
 
-It validates current coordinator/worker profiles, model manifest/artifact, four llama-bench records and coordinator→worker TCP evidence. Manifest `layer_count` and embedded network IDs are preferred; caller peer/layer values exist only in the direct legacy compatibility CLI and are excluded by the current bundle path.
+It validates current profiles, exact model artifact, four llama-bench records, layer count, partitioning permission, network evidence, staleness/draining conditions and conservative selected-device memory budgets.
 
-Other hard bindings include exact profile revisions, one exact model basename/size across all four llama benchmarks, `contiguous_layers` manifest permission, stale/future/draining constraints, provider memory fraction, and conservative selected-device memory budgets.
-
-Shared-memory approximation:
+Shared-memory approximation currently uses:
 
 - default 10% model-size fixed coordinator overhead;
-- remaining bytes spread uniformly over resolved layer count;
-- at least one layer must fit each node;
-- ranges are contiguous/non-overlapping and cover `[0, layer_count)`;
-- layer counts become relative `tensor_split` experiment weights.
+- remaining bytes spread uniformly over resolved layers;
+- at least one layer on each node;
+- contiguous/non-overlapping ranges covering `[0, layer_count)`;
+- layer counts converted to relative `tensor_split` experiment weights.
 
-Recommendation modes are `shared_experiment`, `local_only`, and `no_plan`. Every decision sets `production_scheduling = false`.
+Recommendation modes:
+
+- `shared_experiment`
+- `local_only`
+- `no_plan`
+
+Every decision sets `production_scheduling = false`.
 
 Until a correct measured shared runtime exists:
 
@@ -228,228 +309,439 @@ predicted_shared_request_ms = null
 predicted_speedup_vs_local = null
 ```
 
-No formula turns independent node/network benchmarks into fabricated shared speedup.
+No formula converts independent node/network benchmarks into fabricated shared speedup.
 
-### Controlled llama.cpp M1 runtime experiment
+---
 
-`runtime/llama/rpc_spike.py` remains the first executable shared-runtime research harness. It does not make upstream llama.cpp RPC the ComputeMesh node protocol.
+## 8. Controlled llama.cpp runtime, relay and proof path
 
-Guardrails include literal loopback/RFC1918 RPC endpoints only, coordinator HTTP on `127.0.0.1`, `--offline`, explicit discovered devices, explicit `layer` split/tensor ratios, `--fit off`, disabled prompt/RPC cache surfaces for the first experiment, deterministic request settings, and no advanced tensor overrides in the baseline experiment.
+### `runtime/llama/rpc_spike.py`
 
-Commands: `worker`, `discover`, `baseline`, `run`, `compare`.
+This is the first executable shared-runtime research harness. Upstream llama.cpp RPC is an implementation detail, **not** the ComputeMesh node protocol.
 
-Evidence records include model SHA-256/size, bounded llama.cpp version, topology/placement, model-ready/request timing, prefill/decode metrics and content digests without raw prompt/output persistence.
+Guardrails include:
 
-**Boundary:** no actual successful shared local+RPC two-machine inference artifact has yet been recorded. ADR 0002 remains Proposed.
+- literal loopback/RFC1918 RPC endpoints only;
+- coordinator HTTP on `127.0.0.1`;
+- `--offline`;
+- explicit discovered devices;
+- explicit layer split/tensor ratios;
+- `--fit off`;
+- caches disabled for the first experiment;
+- deterministic request settings;
+- model/prompt/output/token digests without raw prompt/output persistence.
 
-### Fail-closed M1 shared-run proof binding
+Commands:
 
-`runtime/llama/shared_run_evidence.py` binds one already-created current experiment bundle, local baseline, relayed shared RPC result, and relay metrics into a single content-addressed engineering proof. It does not execute the experiment.
+- `worker`
+- `discover`
+- `baseline`
+- `run`
+- `compare`
 
-The builder validates all four source contracts plus the embedded placement decision, then fails closed unless the evidence is one coherent first shared-runtime proof:
+### `runtime/network/tcp_relay.py`
 
-- exact bundle model basename, size and SHA-256 on baseline and shared runs;
-- identical bounded llama.cpp runtime version and prompt digest;
-- one local baseline device, then the same coordinator device followed by one RPC device in the shared run;
-- exact planner-selected two-entry `tensor_split` in coordinator/worker order;
-- shared RPC topology routed through exactly the recorded loopback measurement-relay endpoint;
-- relay target restricted to literal loopback/RFC1918 IPv4;
-- first proof unperturbed by configured relay delay/jitter or forced disconnect;
-- successful relay connection ending by EOF with positive traffic in both directions and consistent byte totals;
-- bounded chronology from bundle to baseline to relay/shared result;
-- exact token-ID digest match when both runs expose token IDs, otherwise exact output digest match.
+The M1 TCP relay is a **measurement instrument**, not a production transport/security boundary.
 
-Inputs are bounded, symlink-free, strict finite UTF-8 JSON. The output stores source basenames/SHA-256, run/bundle/decision IDs, model/runtime identity, planner split/ranges, correctness digests, performance ratios, relay timing and opaque directional bytes. It stores no raw prompt/output and refuses overwrite. `production_scheduling` is always `false`.
+Current properties:
 
-**Boundary:** source hashes prove integrity/binding, not producer identity. The builder does not authenticate the upstream RPC worker, prove the relay target's physical identity, identify activation tensors, or authorize production scheduling.
+- listener only on loopback;
+- target only literal loopback/RFC1918 IPv4;
+- bounded queues/backpressure;
+- opaque directional byte counts;
+- setup/active/total timing;
+- deterministic userspace stream delay/jitter;
+- controlled disconnect support;
+- no payload persistence or RPC-frame parsing.
 
-### One-command physical M1 shared-trial orchestration
+Important current implementation fact: `run_relay_once(...)` explicitly relays **one TCP connection** and the listener accepts one coordinator connection before the relay finishes. This fact is central to the current real-loopback failure hypothesis described below.
 
-`runtime/llama/shared_trial.py` composes the already bounded M1 pieces into the preferred coordinator path for the first physical proof. It is an executor/orchestrator around existing contracts, not a new trust boundary.
+Relay byte totals include framing/control/data and are **not activation-tensor byte counts**.
 
-Before model loading it revalidates the current experiment bundle and embedded placement schema, recalculates whether the recorded profiles are still within `PlannerPolicy.max_profile_age_hours`, requires exact local GGUF basename/size/SHA-256, requires a current `runtime_build` derived from one identical concrete llama.cpp build number/commit across all four selected two-node llama-bench records, rejects a symlinked/non-file `llama-server`, verifies `llama-server --version` against that build binding, discovers the current local device, and preflights the private RPC worker. A sibling/provided `llama-cli` is diagnostic only: if CLI sees RPC while `llama-server` does not, the runner reports the current server/RPC compatibility condition and stops rather than changing runtimes silently.
+### `runtime/llama/shared_run_evidence.py`
 
-The automated path requires an accelerator-backed coordinator. Upstream RPC may expose a CPU-only remote worker as an RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device; a CPU coordinator therefore fails closed before execution. The RPC-enabled device listing must also still contain the exact coordinator device selected from local discovery.
+Binds an already-created current experiment bundle, baseline, relayed shared RPC result and relay metrics into one content-addressed engineering proof.
 
-After preflight, the runner:
+It fails closed unless the evidence coherently binds:
 
-1. records the deterministic local baseline;
-2. starts a fresh zero-delay loopback measurement relay to the private worker;
-3. executes exactly the two-entry planner `tensor_split` using the selected local device followed by the selected RPC device;
-4. waits for successful relay EOF/metrics persistence;
-5. writes `comparison.json` and requires exact token/output correctness;
-6. invokes `shared_run_evidence.py` to produce the final source-hash-bound `shared_run_evidence.json`.
+- exact model basename/size/SHA-256;
+- identical runtime version and prompt digest;
+- local baseline device, then same local device + one RPC device;
+- exact planner `tensor_split` order;
+- shared topology through the recorded relay endpoint;
+- private target restriction;
+- unperturbed first proof;
+- successful relay connection with positive bidirectional traffic;
+- bounded chronology;
+- exact token-ID digest match where available, else output digest match.
 
-Failures retain only bounded phase/type/message evidence in `shared_trial_failure.json` plus any already-bounded runtime failure file. Windows/Linux direct launchers are `SHARED-WORKER` and `SHARED-PROOF`; worker firewall rules are temporary/private-subnet-scoped where the setup has supported firewall integration. If Lab Setup remembers a benchmark executable, the worker launcher refuses silent fallback to an RPC binary outside that remembered llama.cpp build tree. This build binding is reproducibility/compatibility evidence, not binary attestation, and the live RPC preflight remains authoritative.
+It stores source hashes/IDs, correctness digests, timing and opaque directional bytes, not raw prompt/output. `production_scheduling=false`.
 
-**Boundary:** this does not authenticate RPC, identify the physical peer cryptographically, attest hardware, or turn the experimental feasibility planner into a production scheduler. No real two-machine shared result has been recorded yet.
+### `runtime/llama/shared_trial.py`
 
-### M1 TCP measurement relay
+Preferred coordinator executor for the first physical proof. It composes existing bounded contracts rather than adding a new trust boundary.
 
-`runtime/network/tcp_relay.py` is a lab measurement instrument, not the production transport/security boundary.
+Before execution it revalidates:
 
-It listens only on `127.0.0.1`, targets only literal loopback/RFC1918 IPv4, rejects DNS/public/IPv6/wildcard/link-local endpoints, uses bounded queues/backpressure, counts directional opaque TCP bytes, separates setup/active/total timing, supports deterministic userspace stream delay/jitter and deliberate disconnects, and persists content-free failure evidence.
+- experiment bundle + embedded placement;
+- profile freshness;
+- exact local GGUF basename/size/SHA-256;
+- one common `runtime_build` derived from the four selected two-node llama-bench records;
+- current `llama-server --version` against the bound build;
+- explicit local accelerator device;
+- private RPC worker preflight.
 
-The relay does not parse llama.cpp RPC framing. Byte totals include control/framing/data and are **not activation-tensor byte counts**. Stream delay/jitter are not packet emulation; packet loss/reordering remains a separate controlled OS/network experiment.
+A CPU coordinator fails closed because local CPU `--device none` is not treated as an explicit tensor-split device.
 
-## Cross-platform validation for the transfer block
+Successful intended sequence:
 
-Final code/test/documentation branch-state validation run **`32553817653`** passed on both supported development OS families. It includes the bounded transfer implementation, repeated-export idempotency regression, dependency-light `python -S` Lab startup, Linux launcher syntax/routing, real Windows PowerShell parsing, synchronized root/setup/test documentation, and the canonical state immediately before this final validation bookkeeping line. No runtime/test behavior changes follow the successful run; only removal of the temporary validation workflow and the fast-forward merge remain.
+1. deterministic local baseline;
+2. fresh zero-delay loopback relay to private worker;
+3. exact planner two-entry split using local device then RPC device;
+4. successful relay metrics persistence;
+5. correctness comparison;
+6. `shared_run_evidence.json` proof binding.
 
-**Windows Server 2025 / Python 3.11.9:**
+Launchers:
 
-- Windows evidence PowerShell parse: **passed**;
-- benchmark/model tooling: **32/32**;
-- orchestrator: **34/34**;
-- protocol: **66/66**;
-- identity/integration: **13/13**;
-- scheduler placement + evidence bundle: **36/36**;
-- llama runtime spike: **12/12**;
-- network runtime relay: **10/10**;
-- setup/launcher/evidence transfer: **33/33**.
+- Windows: `SHARED-WORKER`, `SHARED-PROOF`
+- Linux: `SHARED-WORKER.sh`, `SHARED-PROOF.sh`
 
-**Ubuntu 24.04 / Python 3.11.16:**
+If Lab Setup remembers a benchmark executable, worker launch must not silently fall through to an RPC binary outside that remembered llama.cpp build tree.
 
-- benchmark/model tooling: **32/32**;
-- orchestrator: **34/34**;
-- protocol: **66/66**;
-- identity/integration: **13/13**;
-- scheduler placement + evidence bundle: **36/36**;
-- llama runtime spike: **12/12**;
-- network runtime relay: **10/10**;
-- setup/launcher/evidence transfer: **33/33**.
+**Boundary:** build identity is reproducibility/compatibility evidence, not binary attestation. The live RPC preflight remains authoritative.
 
-Transfer-specific software coverage includes exclusion of arbitrary/GGUF files, path-free export manifests, newest-profile binding, exact member-set validation, changed-content/hash rejection, ZIP traversal/symlink rejection, idempotent and tamper-detecting re-import, repeated export with different `created_at`, dependency-light script startup, Windows/Unix launcher syntax/routing, and a complete synthetic worker-export → coordinator-import → current experiment-bundle round trip.
+---
 
-This is software/loopback/synthetic-evidence validation. It is **not** real two-machine shared-runtime or placement-performance evidence.
+## 9. Cross-platform validation already completed
 
-## Cross-platform validation for the shared-run evidence block
+### Evidence-transfer block — run `32553817653`
 
-PR #11 code/test state was validated by GitHub Actions run **`32554426093`** on both Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11. The matrix passed all eight suites on both platforms:
+Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16 passed:
 
-- benchmark/model tooling: **32/32**;
-- orchestrator: **34/34**;
-- protocol: **66/66**;
-- identity/integration: **13/13**;
-- scheduler placement + evidence bundle: **36/36**;
-- llama runtime + shared-run proof binding: **25/25**;
-- network runtime relay: **10/10**;
-- setup/launcher/evidence transfer: **33/33**.
+- benchmark/model: **32/32**
+- orchestrator: **34/34**
+- protocol: **66/66**
+- identity: **13/13**
+- scheduler/bundle: **36/36**
+- llama runtime: **12/12**
+- network relay: **10/10**
+- setup/launcher/transfer: **33/33**
 
-The 13 new shared-run proof tests cover the valid bound proof, recommendation/model/runtime mismatches, planner split and device-order binding, relay bypass/public-target rejection, unperturbed-first-proof constraints, bidirectional byte consistency, exact correctness, output-digest fallback, chronology, non-finite JSON, overwrite refusal and symlink rejection.
+Windows additionally passed real PowerShell parsing for the evidence launcher path.
 
-This validation is still synthetic/software evidence. It does not substitute for the physical two-machine run. Documentation-only state/README updates and temporary-workflow removal follow the successful code/test run.
+### Shared-run proof block — run `32554426093`
 
-## Cross-platform validation for the physical shared-trial runner
+Both OS families passed:
 
-PR #12 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32558221241`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.
+- benchmark/model: **32/32**
+- orchestrator: **34/34**
+- protocol: **66/66**
+- identity: **13/13**
+- scheduler/bundle: **36/36**
+- llama runtime + shared-run proof: **25/25**
+- network relay: **10/10**
+- setup/launcher/transfer: **33/33**
 
-- benchmark/model tooling: **32/32**;
-- orchestrator: **34/34**;
-- protocol: **66/66**;
-- identity/integration: **13/13**;
-- scheduler placement + evidence bundle: **36/36**;
-- llama runtime + proof binding + shared-trial orchestration: **42/42**;
-- network runtime relay: **10/10**;
-- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.
+Proof tests cover valid binding, model/runtime mismatch, device/split ordering, relay bypass/public target rejection, first-proof perturbation rejection, byte consistency, exact correctness, fallback correctness digest, chronology, non-finite JSON, overwrite refusal and symlink rejection.
 
-Windows additionally executed the real PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. Linux validation included Bash syntax for `SHARED-PROOF.sh` and `SHARED-WORKER.sh`, private-IP routing assertions, and temporary firewall cleanup invariants. Shared-trial tests cover current device-list parsing, exact model and freshness binding, server-vs-CLI RPC diagnosis, accelerator-coordinator fail-closed behavior, local-device continuity across RPC preflight, exact planner split propagation, correctness mismatch handling, and bounded failure evidence.
+### Physical shared-trial runner block — run `32558221241`
 
-This remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.
+Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16 both passed:
 
-## Cross-platform validation for llama.cpp runtime-build binding
+- benchmark/model: **32/32**
+- orchestrator: **34/34**
+- protocol: **66/66**
+- identity: **13/13**
+- scheduler/bundle: **36/36**
+- llama runtime + proof + shared-trial: **42/42**
+- network relay: **10/10**
+- setup/launcher/transfer: **38/38** on Windows; Ubuntu ran the same 38 with the Windows-only PowerShell parser check skipped
 
-PR #13 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32561589482`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.
+Windows parsed `shared-proof.ps1` and `shared-worker.ps1`; Linux validation included Bash syntax/routing/firewall cleanup invariants.
 
-- benchmark/model tooling: **32/32**;
-- orchestrator: **34/34**;
-- protocol: **66/66**;
-- identity/integration: **13/13**;
-- scheduler placement + evidence bundle + build binding: **38/38**;
-- llama runtime + proof + shared-trial + runtime-build binding: **46/46**;
-- network runtime relay: **10/10**;
-- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.
+### llama.cpp benchmark→runtime build binding — run `32561589482`
 
-Windows additionally executed the real Windows PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. The new coverage requires one concrete common llama.cpp build number/commit across the four selected two-node llama-bench records, parses current `llama-server --version`, rejects a different coordinator build in phase `runtime_build_binding`, independently revalidates the bundle-bound build in `shared_run_evidence.py`, and prevents `SHARED-WORKER` from silently falling through to an RPC binary outside a remembered benchmark build tree.
+Both OS families passed:
 
-This build identity is reproducibility/compatibility evidence, **not** binary attestation or producer authentication. Same source-build identity does not prove upstream RPC compatibility; the live server/CLI RPC preflight remains authoritative. This validation is software/synthetic/loopback evidence and does not substitute for the still-missing physical two-machine shared-inference proof. No runtime/test behavior changes follow run `32561589482`; only this bookkeeping update, PR metadata, temporary workflow removal, and fast-forward merge remain.
+- benchmark/model: **32/32**
+- orchestrator: **34/34**
+- protocol: **66/66**
+- identity: **13/13**
+- scheduler/bundle/build binding: **38/38**
+- llama runtime/proof/shared-trial/runtime-build binding: **46/46**
+- network relay: **10/10**
+- setup/launcher/transfer: **38/38** on Windows; Ubuntu ran the same 38 with Windows-only parser check skipped
 
-## Real target-machine evidence from 2026-08-21
+This coverage requires one concrete common llama.cpp build number/commit across the four selected two-node llama-bench records, parses `llama-server --version`, rejects a different coordinator build, independently revalidates bundle-bound build identity in the proof builder, and prevents the shared-worker launcher from silently selecting an RPC binary outside the remembered benchmark build tree.
 
-- Windows target: `lab-d6332cbe`, Windows 10, Python 3.11.9, Intel i7-11800H-class CPU, 31.7 GiB RAM, NVIDIA GeForce RTX 3080 Laptop GPU, 16 GiB VRAM, driver 595.79.
-- Linux target: Debian 13/trixie, Linux 6.12.94, Python 3.13.5, 4 logical cores, 7.8 GiB RAM, no GPU detected.
-- Windows/Linux direct setup/profile and earlier test flows passed on the physical targets.
-- Windows → internet Linux engineering TCP benchmark with temporary source-limited firewall rule: RTT p50 11.884 ms, p95 13.369 ms, upload p50 42.276 Mbit/s, download p50 226.597 Mbit/s; rule removed afterwards.
-- Windows CUDA llama.cpp with `qwen2.5-coder-7b-instruct-q4_k_m.gguf`: prefill 2866.127 tok/s for 512 prompt tokens; decode 76.210 tok/s for 128 generated tokens.
-- Linux CPU llama.cpp smoke with `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`: prefill 12.382 tok/s for 128 prompt tokens; decode 0.201 tok/s for 32 generated tokens.
+All of these validation runs are software/synthetic/loopback contract validation. They do **not** substitute for physical two-machine shared inference.
 
-The public-internet TCP measurement predates current embedded peer binding, is not trusted-private-LAN A↔B proof, and is not distributed inference. The historical llama benchmarks used different GGUFs/sizes, so they do **not** form a valid current two-node bundle and cannot be used as the first shared-runtime evidence set.
+---
 
-## What does not exist / current blockers
+## 10. Real physical target-machine evidence from 2026-08-21
 
-- fresh trusted-private-LAN A→B network evidence using current embedded local/peer Lab IDs for the actual two test nodes;
-- matching current-profile llama prefill/decode on both nodes for the **same exact complete GGUF**;
-- a real worker evidence ZIP copied to/imported by the physical coordinator;
-- the first real experiment bundle built from those fresh physical-node records;
-- an actual correct two-device local+RPC shared-inference artifact;
-- real llama.cpp-through-relay byte/timing evidence on the target machines;
-- a real `shared_run_evidence.json` bound from the exact successful physical bundle/baseline/shared/relay artifacts;
-- authenticated identity on the TCP benchmark or upstream llama.cpp RPC socket;
-- producer-signed/attested evidence provenance or authenticated evidence transfer;
+### Windows target
+
+- Lab node ID: `lab-d6332cbe`
+- Windows 10
+- Python 3.11.9
+- Intel i7-11800H-class CPU
+- 31.7 GiB RAM
+- NVIDIA GeForce RTX 3080 Laptop GPU
+- 16 GiB VRAM
+- driver 595.79
+
+### Linux target
+
+- Debian 13 / trixie
+- Linux 6.12.94
+- Python 3.13.5
+- 4 logical cores
+- 7.8 GiB RAM
+- no GPU detected
+
+### Measured evidence
+
+Windows/Linux direct setup/profile and earlier smoke flows passed.
+
+Windows → internet Linux engineering TCP measurement:
+
+- RTT p50: **11.884 ms**
+- RTT p95: **13.369 ms**
+- upload p50: **42.276 Mbit/s**
+- download p50: **226.597 Mbit/s**
+
+That measurement used a temporary source-limited firewall rule which was removed afterwards. It predates current embedded peer-ID binding, traversed the public internet, and is **not** current trusted-private-LAN A↔B proof.
+
+Windows CUDA benchmark with `qwen2.5-coder-7b-instruct-q4_k_m.gguf`:
+
+- prefill: **2866.127 tok/s** for 512 prompt tokens
+- decode: **76.210 tok/s** for 128 generated tokens
+
+Linux CPU smoke with `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`:
+
+- prefill: **12.382 tok/s** for 128 prompt tokens
+- decode: **0.201 tok/s** for 32 generated tokens
+
+These historical llama benchmarks used **different GGUFs/sizes**, so they cannot form a valid current two-node evidence bundle and cannot be used as shared-runtime evidence.
+
+---
+
+## 11. Real single-host llama.cpp RPC loopback evidence from 2026-08-22
+
+Purpose: exercise the actual llama.cpp/ComputeMesh software path with real binaries and a real GGUF before touching the two physical target machines. This is **real execution evidence**, but it is single-host CI/llvmpipe evidence, not physical two-machine evidence.
+
+Execution/debug artifacts live only on temporary Draft PR #14.
+
+### Exact ingredients
+
+- temporary branch: `test/real-llama-rpc-loopback`
+- Draft PR: #14
+- last recorded result head: `645e1e51b726b900f4cf35712aedf2319f062d35`
+- upstream source tag built: llama.cpp `b10580`
+- correct RPC CMake target: `ggml-rpc-server`
+- runtime self-report captured by baseline: `version: 0.2.0-dev (build 1, commit 54ee5ee)`, GNU 13.3.0, Linux x86_64
+- Ubuntu 24.04 GitHub runner with Mesa llvmpipe
+- environment aligned with upstream headless Vulkan testing:
+  - `GGML_VK_VISIBLE_DEVICES=0`
+  - `GGML_VK_DISABLE_F16=1`
+  - `GGML_VK_DISABLE_COOPMAT=1`
+- Vulkan enumeration: `Vulkan0 = llvmpipe (LLVM 20.1.8, 256 bits)`
+- RPC server: `Starting RPC server v5.1.0`, endpoint `127.0.0.1:50052`, device `Vulkan0`
+- model: `SmolLM2-135M-Instruct-Q4_K_M.gguf`
+- model size: **105454144 bytes**
+- model SHA-256: **`ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747`**
+
+### What succeeded
+
+1. llama.cpp Vulkan + RPC source build completed with `llama-server` and `ggml-rpc-server`.
+2. Local discovery exposed `Vulkan0`.
+3. Direct RPC discovery against `127.0.0.1:50052` exposed both:
+   - `Vulkan0`
+   - `RPC0: 127.0.0.1:50052`
+4. A real local baseline inference completed successfully on `Vulkan0`.
+
+Baseline run:
+
+- `run_id = llama-rpc-d0c95fa99a902227`
+- `model_ready_ms = 18331.510482`
+- `request_ms = 12441.638347`
+- prompt: 14 tokens / 8886.915 ms / ~1.57535 tok/s
+- predicted: 18 tokens / 3553.042 ms / ~4.78463 tok/s
+- prompt/output/token correctness digests persisted; no raw prompt/output persisted
+
+5. A zero-delay ComputeMesh measurement relay started:
+
+- listen: `127.0.0.1:50053`
+- target: `127.0.0.1:50052`
+- termination: clean `eof`
+- coordinator→worker: **42 bytes**
+- worker→coordinator: **48 bytes**
+- total forwarded: **90 bytes**
+- `active_elapsed_ms = 51.300458`
+- `total_elapsed_ms = 349.565246`
+
+### What failed
+
+The **relayed shared run did not reach model-ready/inference**.
+
+`runtime.llama.rpc_spike run` failed with:
+
+```text
+phase: server_start
+error_type: ConnectionResetError
+message: [Errno 104] Connection reset by peer
+run_id: llama-rpc-6dd71e2642b20c42
+```
+
+No successful shared result, no `comparison.json`, and no valid `shared_run_evidence.json` were produced.
+
+The 90 relay bytes are only opaque RPC/control traffic from the failed startup path. They are **not activation-tensor bytes and not evidence of distributed model execution**.
+
+### Leading blocker hypothesis — not yet proven
+
+`runtime/network/tcp_relay.py` currently implements `run_relay_once(...)`, whose contract is explicitly **“Relay one TCP connection”**. It performs one `listener.accept()` and then exits after that connection completes.
+
+During the real failed experiment, `ggml-rpc-server` logged multiple accepted/closed client connections, while the measurement relay completed after the first short 90-byte exchange.
+
+The strongest current hypothesis is therefore:
+
+> llama.cpp RPC startup uses multiple sequential TCP connections, but the current one-shot relay disappears after the first connection; a later connection then resets, producing the observed `ConnectionResetError` during `server_start`.
+
+This is a **hypothesis**, not a verified root cause. Do not redesign the relay until the direct-without-relay A/B test below is run.
+
+---
+
+## 12. Current blockers / things that do not exist
+
+### Immediate software blocker
+
+- the real single-host shared local+RPC path currently resets in `server_start` when routed through the current one-connection measurement relay;
+- the decisive direct-without-relay A/B experiment has not yet been recorded;
+- therefore it is not yet known whether the failure is caused by relay connection lifecycle or by upstream llama.cpp b10580 shared server/device/split behavior.
+
+### Physical-evidence blockers
+
+Still missing:
+
+- fresh trusted-private-LAN A→B network evidence using current embedded local/peer Lab IDs for the actual two target machines;
+- matching current-profile llama prefill/decode on both target machines for the **same exact complete GGUF** and same concrete llama.cpp build identity;
+- real worker evidence ZIP copied/imported on the physical coordinator;
+- first real experiment bundle from fresh physical records;
+- correct two-device local+RPC shared inference on the physical nodes;
+- real target-machine llama.cpp-through-relay byte/timing evidence;
+- physical `shared_run_evidence.json` bound from exact successful bundle/baseline/shared/relay artifacts.
+
+### Security / production blockers
+
+Still absent:
+
+- authentication on TCP benchmark and upstream llama.cpp RPC socket;
+- producer-signed/attested evidence provenance;
+- authenticated evidence transfer;
 - activation-tensor-specific transfer accounting;
-- real-runtime delay/jitter/disconnect sensitivity evidence;
 - packet-level loss/reordering evidence;
 - calibrated shared-runtime latency/speedup prediction or production scheduler ranking;
-- schema-v1 multi-shard GGUF artifact identity/order contract and complete-set manifest builder;
-- production provider-node application/service/installer;
+- schema-v1 multi-shard GGUF set identity/order contract;
+- production provider-node app/service/installer;
 - Gateway/API;
 - production orchestrator network service/database adapter;
 - authenticated/authorized provider-facing identity APIs;
-- OS-protected private-key storage in the node agent;
+- OS-protected private-key storage;
 - active-session revocation fan-out;
 - authenticated/encrypted ComputeMesh control/data transport;
-- general authorization, rate/resource limits and abuse controls;
+- general authorization/rate/resource/abuse controls;
 - hardware attestation or Sybil-proof physical-node identity;
-- minimum artifact/runtime/result/failure/heartbeat wire operations for the selected M1 path;
+- minimum production artifact/runtime/result/failure/heartbeat wire operations;
 - production registry/verification/billing/telemetry/SDK/UI;
 - signed production release/update system.
 
-The ComputeMesh identity/session layer does **not** authenticate the TCP benchmark or upstream llama.cpp RPC socket. Lab-ID self-report, transfer ZIP, relay, GGUF helper, evidence bundle and planner do not change that. Upstream RPC/benchmark remain trusted-private-lab-only. `confidential_compute` remains invalid without a concrete TEE/attestation design.
+The ComputeMesh identity/session layer does **not** authenticate the benchmark or upstream RPC socket. Lab-ID self-report, ZIP transfer, relay, GGUF helper, bundle and planner do not change that.
 
-## ADR status
+---
+
+## 13. ADR status
 
 Accepted:
 
-- ADR 0001 — repository bootstrap;
-- ADR 0005 — node identity/key lifecycle **for the narrow M1 reference implementation only**.
+- ADR 0001 — repository bootstrap
+- ADR 0005 — node identity/key lifecycle **for the narrow M1 reference implementation only**
 
-Still proposed:
+Still Proposed:
 
-- ADR 0002 — M1 runtime baseline; controlled llama.cpp RPC harness, relay, transfer/bundle path and conservative planner exist, but no real correct shared proof yet;
-- ADR 0003 — control/data transport;
-- ADR 0004 — model/artifact identity; single-GGUF artifact facts are derived locally, but multi-shard identity/order and production distribution remain unresolved;
-- ADR 0006 — telemetry envelope;
-- ADR 0007 — ledger units.
+- ADR 0002 — M1 runtime baseline; harness/relay/transfer/bundle/planner/proof/trial machinery exists, but correct real shared proof does not
+- ADR 0003 — control/data transport
+- ADR 0004 — model/artifact identity; single complete GGUF facts are locally derived, but multi-shard identity/order and production distribution remain unresolved
+- ADR 0006 — telemetry envelope
+- ADR 0007 — ledger units
 
-## Next actions in order
+---
 
-1. Put the **same complete GGUF** on both physical target machines. If it is a llama.cpp shard set, merge all shards first.
-2. Capture a fresh current node profile on both machines.
-3. Run fresh llama-bench prefill/decode on both machines for that exact same GGUF and exact size, using llama.cpp builds with the same concrete build number/commit on both nodes; the current bundle rejects cross-build benchmark evidence.
-4. On the trusted private LAN, capture fresh A→B and B→A network measurements with current embedded Lab IDs; choose A as coordinator after reviewing directionality.
-5. On worker B, run `setup\EVIDENCE-EXPORT.cmd` or `bash setup/EVIDENCE-EXPORT.sh`; copy the resulting ZIP to A through a trusted local transfer method.
-6. On A, generate the ComputeMesh model manifest from the exact same complete GGUF with `tools/benchmark/gguf_manifest.py` so digest, size, architecture and `layer_count` come from the artifact rather than manual entry.
-7. On A, run `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`; retain the verified peer import and resulting `experiment_bundle.json`. Do not use legacy peer/layer assertions.
-8. Inspect the bundle's embedded hard constraints/recommendation. If it is not `shared_experiment`, fix the measured feasibility issue rather than forcing a split.
-9. On worker B, start `setup\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh` on the trusted private LAN and keep it running. When the benchmark path is remembered, use the RPC binary from that same local llama.cpp build tree; do not substitute another downloaded/PATH build.
-10. On coordinator A, run `setup\SHARED-PROOF.cmd` or `bash setup/SHARED-PROOF.sh`, select the exact current bundle/GGUF, and provide B's private IP. The runner must pass model/freshness/device/RPC preflight and then execute baseline → zero-delay relay → exact planner split → compare → proof binding without manual split overrides.
-11. Require a real `shared_run_evidence.json` with exact correctness and inspect its relay byte/timing evidence. If the runner stops on the current llama-server/RPC compatibility preflight, change to a compatible RPC-capable llama.cpp build rather than bypassing the check.
-12. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.
-13. Accept, reject or supersede ADR 0002 from measured evidence, then calibrate scheduler ranking from the correct shared result instead of invented coefficients.
-14. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
+## 14. Exact next actions in order
+
+### A. Immediate software diagnosis — do this first
+
+1. Continue from Draft PR #14 evidence, but **do not merge PR #14** or its temporary workflow/result files.
+2. Reproduce with the same real GGUF and source-built llama.cpp b10580 binaries.
+3. Execute the exact shared local+RPC configuration **directly against `127.0.0.1:50052` with no `runtime/network/tcp_relay.py`**. Preserve bounded result/failure evidence. This is the decisive A/B test.
+4. If direct local+RPC also fails:
+   - debug the exact llama.cpp b10580 server/device/`tensor_split` startup semantics using discovered `Vulkan0` + `RPC0`;
+   - do **not** blame or redesign the relay yet;
+   - rerun until direct local+RPC either succeeds correctly or the upstream limitation is characterized.
+5. If direct local+RPC succeeds:
+   - instrument/confirm how many sequential/concurrent TCP connections llama.cpp RPC opens during startup and inference;
+   - validate that the current one-shot relay lifecycle is the actual cause of the reset.
+6. If multiple RPC connections are required, implement a **bounded multi-connection relay/session measurement design** on a normal feature branch, with:
+   - explicit maximum connections;
+   - bounded concurrency/queues/resources;
+   - deterministic lifecycle/shutdown;
+   - per-connection and aggregate opaque directional bytes/timing;
+   - private-target restrictions preserved;
+   - no payload persistence;
+   - deliberate schema/proof updates rather than silent semantic changes.
+7. Add regression/integration tests reproducing the observed real RPC connection lifecycle. Preserve appropriate single-connection fail-closed behavior where relevant.
+8. Run the full Windows/Ubuntu matrix.
+9. Repeat the real single-host experiment and require:
+   - baseline success;
+   - relayed shared local+RPC success;
+   - exact correctness comparison;
+   - coherent relay metrics;
+   - valid bounded proof evidence.
+10. Move only durable code/tests/docs to a normal feature branch; update `state.md` with exact results; remove all temporary workflow/result files; merge workflow-free; close PR #14; clean stale refs when tooling permits.
+
+### B. Then perform the physical two-machine proof
+
+11. Put the **same complete GGUF** on both physical target machines. Merge shard sets first if necessary.
+12. Capture fresh current node profiles on both machines.
+13. Run fresh llama-bench prefill/decode on both machines for the exact same GGUF/size using the same concrete llama.cpp build number/commit.
+14. On the trusted private LAN, capture fresh A→B and B→A network measurements with current embedded Lab IDs; choose coordinator after reviewing directionality.
+15. On worker B run `setup\EVIDENCE-EXPORT.cmd` or `bash setup/EVIDENCE-EXPORT.sh`; transfer the ZIP to A through a trusted local method.
+16. On A generate the model manifest from the exact complete GGUF with `tools/benchmark/gguf_manifest.py`.
+17. On A run `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`; retain verified peer import + `experiment_bundle.json`; do not use legacy peer/layer assertions.
+18. If bundle recommendation is not `shared_experiment`, fix the measured feasibility issue rather than forcing a split.
+19. On worker B start `setup\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh`; use the RPC binary from the same remembered llama.cpp build tree.
+20. On coordinator A run `setup\SHARED-PROOF.cmd` or `bash setup/SHARED-PROOF.sh`, select the exact bundle/GGUF and B's private IP. Require model/freshness/build/device/RPC preflight and exact planner split.
+21. Require a real `shared_run_evidence.json` with exact correctness and inspect relay byte/timing evidence. Do not promote ADR 0002 or scheduler performance claims from preflight/failed evidence.
+22. After the unperturbed proof, run controlled delay/jitter/disconnect experiments separately; use controlled OS/network emulation if packet loss/reordering becomes material.
+23. Accept, reject or supersede ADR 0002 from measured evidence.
+24. Only then calibrate scheduler ranking from correct shared runtime instead of invented coefficients.
+25. Bind only the minimum artifact/runtime/result/failure wire operations required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
 
 Before any public authenticated node service, separately complete protected node-key storage, provider-authenticated identity APIs, active-session revocation fan-out, transport security, authorization and resource limits.
 
-## Bilingual README rule
+---
 
-`README.md` and `README.de.md` are synchronized project entry points and must be updated together for every public-facing change.
+## 15. Claims that remain explicitly forbidden
+
+Until new evidence changes this file, do **not** claim:
+
+- successful physical two-machine distributed inference;
+- successful relayed shared inference from the 2026-08-22 loopback test;
+- that 90 relay bytes are activation tensors;
+- that current peer Lab-ID self-report authenticates a node;
+- that ZIP hashes/signatures exist beyond integrity hashing;
+- production-grade RPC security;
+- production scheduling or calibrated shared speedup;
+- confidential compute;
+- production provider-node readiness.
