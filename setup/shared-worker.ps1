@@ -44,8 +44,8 @@ try {
 
     if (-not (Test-IsAdmin)) {
         Write-Host 'Administrator rights are needed only for the temporary private-LAN firewall rule.' -ForegroundColor Yellow
-        $args = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Language $Language"
-        Start-Process powershell.exe -Verb RunAs -ArgumentList $args
+        $uacArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Language $Language"
+        Start-Process powershell.exe -Verb RunAs -ArgumentList $uacArgs
         exit 0
     }
 
