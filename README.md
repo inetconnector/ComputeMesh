@@ -24,6 +24,7 @@ Implemented foundations now include:
 
 - cross-platform Windows/Linux Lab Setup;
 - inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
+- bounded GGUF-v3 inspection and conservative model-manifest generation with artifact-derived architecture, layer count, SHA-256 and size;
 - Draft-2020-12 machine-readable state/control contracts;
 - deterministic Job/Reservation semantics and transactional SQLite reference persistence;
 - strict transport-neutral control envelopes and durable initial handlers;
@@ -64,6 +65,20 @@ predicted_speedup_vs_local = null
 
 Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks, and embedded evidence must never conflict with a supplied fallback. See [services/scheduler/README.md](services/scheduler/README.md).
 
+## GGUF → model manifest
+
+`tools/benchmark/gguf_manifest.py` removes another manual M1 bookkeeping step. For a local little-endian GGUF v3 file it can read bounded standardized metadata and derive:
+
+- `general.architecture`;
+- `<architecture>.block_count` as manifest `layer_count`;
+- known standardized `general.file_type` quantization labels;
+- model name/version/license metadata when present;
+- exact local file size and streaming SHA-256 digest.
+
+The helper never executes model code and never loads tensor contents into memory. License/version/quantization facts that are missing or not safely mapped must be supplied explicitly, and allowed partitioning modes are always explicit rather than inferred.
+
+Current llama.cpp split metadata is also recognized. A primary shard with `split.count > 1` can be identified, but schema-v1 manifest generation is deliberately refused because one shard's digest/size does not represent the complete model and schema v1 does not yet encode shard membership/order strongly enough. Merge the complete shard set to one GGUF before generating the current ComputeMesh manifest. See [tools/benchmark/README.md](tools/benchmark/README.md).
+
 ## Controlled llama.cpp M1 experiment
 
 `runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence.
@@ -88,7 +103,7 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
+The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path, GGUF manifest helper and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
 
 ## Identity and runtime security boundary
 
@@ -102,12 +117,14 @@ Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identit
 
 ## Not implemented yet
 
-There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
+There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
 
 ## Immediate path
 
 ```text
 profiles + local benchmarks + bound trusted-LAN path evidence
+        ↓
+artifact-derived single-GGUF model manifest
         ↓
 machine-readable conservative placement candidate
         ↓
@@ -132,7 +149,7 @@ packet-level loss/reordering experiment where material
 ComputeMesh/
 ├─ SETUP.cmd / setup.sh   # simple Windows/Linux lab entry points
 ├─ setup/                 # cross-platform lab orchestration
-├─ tools/benchmark/       # inventory, TCP, llama-bench adapters
+├─ tools/benchmark/       # inventory, TCP, llama-bench and GGUF-manifest tools
 ├─ services/orchestrator/ # durable M0 state/control foundation
 ├─ services/identity/     # M1 reference enrollment/key registry
 ├─ services/scheduler/    # deterministic M1 two-node feasibility planner
