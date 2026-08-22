@@ -97,6 +97,8 @@ class WindowsScriptTests(unittest.TestCase):
         self.assertIn('finally {', worker)
         self.assertIn('Remove-NetFirewallRule', worker)
         self.assertIn('$uacArgs', worker)
+        self.assertIn('cross-build fallback is disabled for the shared proof', worker)
+        self.assertIn('return $null', worker)
         self.assertNotIn('$args =', worker)
         self.assertNotIn('--bind 0.0.0.0', worker)
 

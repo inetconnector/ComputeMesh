@@ -48,9 +48,10 @@ Given two copied/exported Lab evidence trees and one model manifest, the bundle 
 9. requires a coordinator→worker TCP record with matching current coordinator revision plus embedded `local_node_id` and `peer_node_id` in the correct direction;
 10. invokes `build_placement_decision` with no legacy peer/layer arguments;
 11. rejects any resulting `caller_asserted_v1` network binding;
-12. emits one schema-valid bundle containing the placement decision and source provenance.
+12. requires all four selected llama-bench records to carry the same concrete `llama_build_commit` and positive `llama_build_number`;
+13. emits one schema-valid bundle containing the placement decision, the derived `runtime_build` binding, and source provenance.
 
-Provenance records contain only safe source basenames plus SHA-256 of the exact JSON documents, run IDs/node revisions and model artifact identity. Absolute local paths are never included. `bundle_id` is deterministic for the same source documents and placement decision.
+Provenance records contain only safe source basenames plus SHA-256 of the exact JSON documents, run IDs/node revisions and model artifact identity. The bundle also exposes the common selected llama.cpp build number/commit as `runtime_build`, derived from those already hash-bound benchmark documents. Absolute local paths are never included. `bundle_id` is deterministic for the same source documents and placement decision.
 
 This is still **engineering evidence packaging**, not cryptographic attestation: hashing the copied JSON files makes the selected input set reproducible, but it does not prove who originally produced those files.
 
@@ -176,7 +177,7 @@ python -m unittest discover -s services/scheduler/tests -v
 
 Placement coverage includes schema validation, deterministic decision IDs, contiguous complete ranges, draining/stale behavior, memory fallback/no-plan behavior, profile-revision binding, model-size binding, embedded and legacy network-peer binding, local-node binding, embedded/caller conflict rejection, manifest/legacy layer-count resolution, manifest partition permission, CPU-memory fallback and the explicit no-speedup-prediction boundary.
 
-Bundle coverage additionally includes highest-profile selection, multi-node-root rejection/disambiguation, wrong/legacy network direction rejection, pre-profile benchmark rejection, exact artifact-size filtering, common-model selection, ambiguous latest-run rejection, corrupt evidence fail-closed behavior, deterministic provenance identity, schema validation, absolute-path non-disclosure, and rejection of caller-asserted peer binding from the current bundle path.
+Bundle coverage additionally includes highest-profile selection, multi-node-root rejection/disambiguation, wrong/legacy network direction rejection, pre-profile benchmark rejection, exact artifact-size filtering, common-model selection, ambiguous latest-run rejection, corrupt evidence fail-closed behavior, deterministic provenance identity, schema validation, absolute-path non-disclosure, caller-asserted peer rejection, and exact two-node llama.cpp build-identity binding.
 
 ## Non-goals / remaining work
 

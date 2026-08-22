@@ -195,7 +195,11 @@ def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None
     if digest != expected:
         raise SharedTrialError("local model SHA-256 does not match experiment bundle")
 
-    runtime_build = bundle["runtime_build"]
+    runtime_build = bundle.get("runtime_build")
+    if not isinstance(runtime_build, dict):
+        raise SharedTrialError(
+            "experiment bundle lacks current llama.cpp runtime_build binding; rebuild it from fresh two-node llama-bench evidence"
+        )
     return TrialPlan(
         bundle_id=bundle["bundle_id"],
         placement_decision_id=placement["decision_id"],

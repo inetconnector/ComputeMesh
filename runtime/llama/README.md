@@ -44,7 +44,7 @@ python -m runtime.llama.shared_trial --bundle <experiment_bundle.json> --llama-s
 
 The Windows/Linux setup wraps this as `SHARED-PROOF.cmd` / `SHARED-PROOF.sh`; the peer-side trusted-LAN worker wrappers are `SHARED-WORKER.cmd` / `SHARED-WORKER.sh`.
 
-Before loading the model, `shared_trial.py` revalidates the bundle, current planner freshness, exact GGUF basename/size/SHA-256, local device selection, and current `llama-server` RPC visibility. It optionally uses a sibling/provided `llama-cli` only as a diagnostic: if the CLI sees the RPC worker while `llama-server` does not, the runner stops with an explicit server/RPC compatibility diagnosis. It does **not** silently switch the measured runtime to CLI.
+Before loading the model, `shared_trial.py` revalidates the bundle, current planner freshness, exact GGUF basename/size/SHA-256, the llama.cpp build number/commit already bound from both nodes' selected llama-bench records, local device selection, and current `llama-server` RPC visibility. The current `llama-server --version` build must match that bundle binding before device discovery or model loading. It optionally uses a sibling/provided `llama-cli` only as a diagnostic: if the CLI sees the RPC worker while `llama-server` does not, the runner stops with an explicit server/RPC compatibility diagnosis. It does **not** silently switch the measured runtime to CLI.
 
 After preflight it performs the local deterministic baseline, starts a fresh zero-delay measurement relay, runs exactly the planner-selected local+RPC split, persists `comparison.json`, requires exact correctness, and then invokes the existing `shared_run_evidence.py` validator/binder. Failure produces only a bounded `shared_trial_failure.json` phase/error record in addition to any already-created bounded runtime failure artifact.
 
@@ -155,7 +155,7 @@ python -m runtime.llama.shared_run_evidence \
 
 - the bundle must recommend `shared_experiment` and contain one feasible two-node contiguous-layer candidate;
 - baseline and shared run must use the bundle's exact model basename, byte size and SHA-256;
-- both runs must use the same bounded llama.cpp version string and prompt digest;
+- both runs must use the same bounded llama.cpp version string and prompt digest, and that runtime version must parse to the same build number/commit bound by the bundle's selected two-node llama-bench evidence;
 - the baseline must use one local coordinator device;
 - the first shared device must be that same coordinator device and the second must be the RPC device;
 - the shared `tensor_split` must exactly match the planner-selected coordinator/worker order;
@@ -213,7 +213,7 @@ python -m unittest discover -s runtime/llama/tests -v
 python -m unittest discover -s runtime/network/tests -v
 ```
 
-The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection, device-list parsing/selection, stale-bundle rechecks, exact model binding, RPC server-vs-CLI preflight diagnosis, CPU-coordinator fail-closed behavior, exact split propagation, and output privacy.
+The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection, device-list parsing/selection, stale-bundle rechecks, exact model binding, llama.cpp build-number/commit parsing and benchmark→server→proof binding, RPC server-vs-CLI preflight diagnosis, CPU-coordinator fail-closed behavior, exact split propagation, and output privacy.
 
 The network relay has its own real-loopback forwarding/fault/timing/schema tests and is also included in the full cross-platform validation path.
 

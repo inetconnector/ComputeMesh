@@ -148,7 +148,7 @@ Auf **Linux B**:
 bash setup/SHARED-WORKER.sh
 ```
 
-Der Worker-Starter bindet llama.cpp-RPC an genau eine RFC1918-Adresse auf TCP 50052. Wo unterstützt, wird nur eine temporäre auf privates LAN/Subnetz begrenzte Firewallregel geöffnet und beim Ende des Workers wieder entfernt. Das Worker-Fenster/Terminal offen lassen.
+Der Worker-Starter bindet llama.cpp-RPC an genau eine RFC1918-Adresse auf TCP 50052. Ist im Lab Setup ein `llama-bench` gespeichert, verwendet der Worker-Starter `rpc-server` nur aus demselben lokalen llama.cpp-Build-Baum; er fällt nicht still auf einen anderen Download oder `$PATH` zurück. Fehlt dort die passende RPC-Binary, muss ein vollständiger passender Build verwendet und der Benchmark neu ausgeführt werden. Wo unterstützt, wird nur eine temporäre auf privates LAN/Subnetz begrenzte Firewallregel geöffnet und beim Ende des Workers wieder entfernt. Das Worker-Fenster/Terminal offen lassen.
 
 Danach auf **Windows A** doppelklicken:
 
@@ -167,12 +167,13 @@ Falls gefragt, das aktuelle `experiment_bundle.json` auswählen und die private 
 1. Bundle und eingebettete Placement-Schemas erneut prüfen;
 2. Evidenz ablehnen, die nach der aktuellen Profil-Altersgrenze des Planers inzwischen stale geworden ist;
 3. exakt den GGUF-Basename, die Bytegröße und den SHA-256 aus dem Bundle verlangen;
-4. das aktuelle lokale llama.cpp-Gerät ermitteln und die RPC-Sichtbarkeit vor dem Modellladen prüfen;
-5. falls `llama-cli` den RPC-Worker sieht, `llama-server` aber nicht, diesen Server/RPC-Kompatibilitätsfall ausdrücklich melden statt den Messlauf zu starten;
-6. die deterministische lokale Baseline ausführen;
-7. ein frisches Zero-Delay-Loopback-Mess-Relay starten und exakt den vom Planer gewählten Zwei-Einträge-Split darüber ausführen;
-8. exakte Token-ID-Korrektheit verlangen, sofern vorhanden, sonst exakten Output-Digest;
-9. `comparison.json`, Relay-Metriken und das bereits definierte fail-closed `shared_run_evidence.json` schreiben.
+4. verlangen, dass `llama-server --version` zu der gemeinsamen llama.cpp-Buildnummer/dem Commit passt, die alle vier ausgewählten Zwei-Node-llama-bench-Datensätze im Bundle tragen;
+5. das aktuelle lokale llama.cpp-Gerät ermitteln und die RPC-Sichtbarkeit vor dem Modellladen prüfen;
+6. falls `llama-cli` den RPC-Worker sieht, `llama-server` aber nicht, diesen Server/RPC-Kompatibilitätsfall ausdrücklich melden statt den Messlauf zu starten;
+7. die deterministische lokale Baseline ausführen;
+8. ein frisches Zero-Delay-Loopback-Mess-Relay starten und exakt den vom Planer gewählten Zwei-Einträge-Split darüber ausführen;
+9. exakte Token-ID-Korrektheit verlangen, sofern vorhanden, sonst exakten Output-Digest;
+10. `comparison.json`, Relay-Metriken und das bereits definierte fail-closed `shared_run_evidence.json` schreiben.
 
 Ein fehlgeschlagener Versuch behält ein begrenztes, inhaltsfreies `shared_trial_failure.json` mit der Fehlerphase. Rohprompt und Roh-Modelloutput werden dort nicht hineinkopiert.
 

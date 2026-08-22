@@ -12,7 +12,7 @@ Initialize-Setup -RequestedLanguage $Language -RequestedMode 'shared-worker'
 
 function Find-RpcServer([string]$Preferred='') {
     $names = @('rpc-server.exe','ggml-rpc-server.exe')
-    if ($Preferred -and (Test-Path $Preferred)) {
+    if ($Preferred -and (Test-Path $Preferred -PathType Leaf)) {
         $dir = Split-Path -Parent $Preferred
         foreach ($name in $names) {
             $direct = Join-Path $dir $name
@@ -22,6 +22,7 @@ function Find-RpcServer([string]$Preferred='') {
             $found = Get-ChildItem -Path $dir -Filter $name -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($found) { return $found.FullName }
         }
+        return $null
     }
     $runtime = Join-Path $RepoRoot 'artifacts\lab\runtime\llama.cpp'
     if (Test-Path $runtime) {
@@ -59,6 +60,9 @@ try {
 
     $bench = Find-Llama
     $rpc = Find-RpcServer $bench
+    if ($bench -and (Test-Path $bench -PathType Leaf) -and -not $rpc) {
+        throw 'No rpc-server was found in the same llama.cpp build tree as the remembered llama-bench. Install/use a complete matching build and rerun llama-bench; cross-build fallback is disabled for the shared proof.'
+    }
     if (-not $rpc) { $rpc = Select-LocalFile 'RPC server (*.exe)|rpc-server.exe;ggml-rpc-server.exe|Executables (*.exe)|*.exe' 'Choose rpc-server.exe / ggml-rpc-server.exe' }
     if (-not $rpc -or -not (Test-Path $rpc -PathType Leaf)) { throw 'RPC server executable not selected.' }
 

@@ -197,7 +197,11 @@ def _require_runtime_binding(
 
     if baseline["runtime"] != shared["runtime"]:
         raise SharedRunEvidenceError("baseline and shared run must use the same llama.cpp runtime version")
-    expected_build = bundle["runtime_build"]
+    expected_build = bundle.get("runtime_build")
+    if not isinstance(expected_build, dict):
+        raise SharedRunEvidenceError(
+            "experiment bundle lacks current llama.cpp runtime_build binding; rebuild current evidence"
+        )
     try:
         actual_build = parse_runtime_build_identity(baseline["runtime"]["version"])
     except RpcSpikeError as exc:

@@ -10,7 +10,6 @@
     "captured_at",
     "scope",
     "benchmark_model_name",
-    "runtime_build",
     "sources",
     "placement_decision"
   ],

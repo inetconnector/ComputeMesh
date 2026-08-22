@@ -148,7 +148,7 @@ On **Linux B**:
 bash setup/SHARED-WORKER.sh
 ```
 
-The worker launcher binds llama.cpp RPC to one concrete RFC1918 address on TCP 50052. Where supported it opens only a temporary private-LAN/subnet-scoped firewall rule and removes that rule when the worker exits. Keep the worker window/terminal open.
+The worker launcher binds llama.cpp RPC to one concrete RFC1918 address on TCP 50052. If Lab Setup remembers a `llama-bench`, the worker launcher will use `rpc-server` only from that same local llama.cpp build tree; it will not silently fall through to another downloaded build or `$PATH`. If the matching RPC binary is missing, install/use a complete matching build and rerun the benchmark. Where supported it opens only a temporary private-LAN/subnet-scoped firewall rule and removes that rule when the worker exits. Keep the worker window/terminal open.
 
 Then on **Windows A**, double-click:
 
@@ -167,12 +167,13 @@ Choose the current `experiment_bundle.json` if prompted and enter B's private IP
 1. validate the bundle and embedded placement schemas again;
 2. reject evidence that has become stale under the planner's current profile-age policy;
 3. require the exact local GGUF basename, byte size, and SHA-256 from the bundle;
-4. discover the current local llama.cpp device and preflight RPC visibility before loading the model;
-5. if `llama-cli` can see the RPC device but `llama-server` cannot, report that server/RPC compatibility condition explicitly instead of attempting the measured run;
-6. run the deterministic local baseline;
-7. start a fresh zero-delay loopback measurement relay and execute exactly the planner-selected two-entry split through it;
-8. require exact token-ID correctness when available, otherwise exact output-digest correctness;
-9. write `comparison.json`, relay metrics, and the already defined fail-closed `shared_run_evidence.json`.
+4. require `llama-server --version` to match the common llama.cpp build number/commit recorded by all four selected two-node llama-bench records in the bundle;
+5. discover the current local llama.cpp device and preflight RPC visibility before loading the model;
+6. if `llama-cli` can see the RPC device but `llama-server` cannot, report that server/RPC compatibility condition explicitly instead of attempting the measured run;
+7. run the deterministic local baseline;
+8. start a fresh zero-delay loopback measurement relay and execute exactly the planner-selected two-entry split through it;
+9. require exact token-ID correctness when available, otherwise exact output-digest correctness;
+10. write `comparison.json`, relay metrics, and the already defined fail-closed `shared_run_evidence.json`.
 
 A failed attempt keeps a bounded, content-free `shared_trial_failure.json` with the failing phase. Raw prompts and raw model output are not copied into that failure record.
 

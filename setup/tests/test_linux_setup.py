@@ -154,6 +154,8 @@ class LinuxSetupTests(unittest.TestCase):
         self.assertIn('ufw allow from "$network" to "$ip" port "$port"', text)
         self.assertIn('ufw --force delete allow from "$network" to "$ip" port "$port"', text)
         self.assertIn('trap cleanup_rpc_firewall EXIT INT TERM', text)
+        self.assertIn('saved_bench=', text)
+        self.assertIn('cross-build fallback is disabled for the shared proof', text)
         self.assertIn('-m runtime.llama.rpc_spike worker', text)
         self.assertIn('--bind "$ip"', text)
         self.assertIn('--port "$port"', text)

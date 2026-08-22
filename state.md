@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-22  
-**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, fail-closed shared-run proof binding, and one-command physical shared-trial orchestration; real shared inference is not yet evidenced  
+**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, artifact-derived GGUF manifests, bounded two-machine Lab evidence transfer, fail-closed two-node evidence bundling, deterministic two-node feasibility planning, fail-closed shared-run proof binding, one-command physical shared-trial orchestration, and llama.cpp benchmark→runtime build binding; real shared inference is not yet evidenced  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -32,7 +32,8 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - fail-closed current experiment-evidence bundle landed through PR #8; `main` was `d461a2e7` before the current branch
 - bounded two-machine Lab evidence export/import + bundle launchers landed through PR #10; final cross-platform validation run `32553817653` passed
 - fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
-- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation run `32558221241` passed before final state bookkeeping/workflow removal
+- one-command physical shared-trial orchestration landed through PR #12; final cross-platform validation run `32558221241` passed
+- llama.cpp benchmark→runtime build binding is implemented on the current PR branch; final cross-platform validation is pending before merge
 
 ## What exists
 
@@ -266,7 +267,7 @@ Inputs are bounded, symlink-free, strict finite UTF-8 JSON. The output stores so
 
 `runtime/llama/shared_trial.py` composes the already bounded M1 pieces into the preferred coordinator path for the first physical proof. It is an executor/orchestrator around existing contracts, not a new trust boundary.
 
-Before model loading it revalidates the current experiment bundle and embedded placement schema, recalculates whether the recorded profiles are still within `PlannerPolicy.max_profile_age_hours`, requires exact local GGUF basename/size/SHA-256, rejects a symlinked/non-file `llama-server`, discovers the current local device, and preflights the private RPC worker. A sibling/provided `llama-cli` is diagnostic only: if CLI sees RPC while `llama-server` does not, the runner reports the current server/RPC compatibility condition and stops rather than changing runtimes silently.
+Before model loading it revalidates the current experiment bundle and embedded placement schema, recalculates whether the recorded profiles are still within `PlannerPolicy.max_profile_age_hours`, requires exact local GGUF basename/size/SHA-256, requires a current `runtime_build` derived from one identical concrete llama.cpp build number/commit across all four selected two-node llama-bench records, rejects a symlinked/non-file `llama-server`, verifies `llama-server --version` against that build binding, discovers the current local device, and preflights the private RPC worker. A sibling/provided `llama-cli` is diagnostic only: if CLI sees RPC while `llama-server` does not, the runner reports the current server/RPC compatibility condition and stops rather than changing runtimes silently.
 
 The automated path requires an accelerator-backed coordinator. Upstream RPC may expose a CPU-only remote worker as an RPC device, but local CPU `--device none` is not treated as an explicit tensor-split device; a CPU coordinator therefore fails closed before execution. The RPC-enabled device listing must also still contain the exact coordinator device selected from local discovery.
 
@@ -279,7 +280,7 @@ After preflight, the runner:
 5. writes `comparison.json` and requires exact token/output correctness;
 6. invokes `shared_run_evidence.py` to produce the final source-hash-bound `shared_run_evidence.json`.
 
-Failures retain only bounded phase/type/message evidence in `shared_trial_failure.json` plus any already-bounded runtime failure file. Windows/Linux direct launchers are `SHARED-WORKER` and `SHARED-PROOF`; worker firewall rules are temporary/private-subnet-scoped where the setup has supported firewall integration.
+Failures retain only bounded phase/type/message evidence in `shared_trial_failure.json` plus any already-bounded runtime failure file. Windows/Linux direct launchers are `SHARED-WORKER` and `SHARED-PROOF`; worker firewall rules are temporary/private-subnet-scoped where the setup has supported firewall integration. If Lab Setup remembers a benchmark executable, the worker launcher refuses silent fallback to an RPC binary outside that remembered llama.cpp build tree. This build binding is reproducibility/compatibility evidence, not binary attestation, and the live RPC preflight remains authoritative.
 
 **Boundary:** this does not authenticate RPC, identify the physical peer cryptographically, attest hardware, or turn the experimental feasibility planner into a production scheduler. No real two-machine shared result has been recorded yet.
 
@@ -417,13 +418,13 @@ Still proposed:
 
 1. Put the **same complete GGUF** on both physical target machines. If it is a llama.cpp shard set, merge all shards first.
 2. Capture a fresh current node profile on both machines.
-3. Run fresh llama-bench prefill/decode on both machines for that exact same GGUF and exact size.
+3. Run fresh llama-bench prefill/decode on both machines for that exact same GGUF and exact size, using llama.cpp builds with the same concrete build number/commit on both nodes; the current bundle rejects cross-build benchmark evidence.
 4. On the trusted private LAN, capture fresh A→B and B→A network measurements with current embedded Lab IDs; choose A as coordinator after reviewing directionality.
 5. On worker B, run `setup\EVIDENCE-EXPORT.cmd` or `bash setup/EVIDENCE-EXPORT.sh`; copy the resulting ZIP to A through a trusted local transfer method.
 6. On A, generate the ComputeMesh model manifest from the exact same complete GGUF with `tools/benchmark/gguf_manifest.py` so digest, size, architecture and `layer_count` come from the artifact rather than manual entry.
 7. On A, run `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`; retain the verified peer import and resulting `experiment_bundle.json`. Do not use legacy peer/layer assertions.
 8. Inspect the bundle's embedded hard constraints/recommendation. If it is not `shared_experiment`, fix the measured feasibility issue rather than forcing a split.
-9. On worker B, start `setup\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh` on the trusted private LAN and keep it running.
+9. On worker B, start `setup\SHARED-WORKER.cmd` or `bash setup/SHARED-WORKER.sh` on the trusted private LAN and keep it running. When the benchmark path is remembered, use the RPC binary from that same local llama.cpp build tree; do not substitute another downloaded/PATH build.
 10. On coordinator A, run `setup\SHARED-PROOF.cmd` or `bash setup/SHARED-PROOF.sh`, select the exact current bundle/GGUF, and provide B's private IP. The runner must pass model/freshness/device/RPC preflight and then execute baseline → zero-delay relay → exact planner split → compare → proof binding without manual split overrides.
 11. Require a real `shared_run_evidence.json` with exact correctness and inspect its relay byte/timing evidence. If the runner stops on the current llama-server/RPC compatibility preflight, change to a compatible RPC-capable llama.cpp build rather than bypassing the check.
 12. Repeat controlled delay/jitter/disconnect experiments separately from the unperturbed first proof; use controlled OS/network emulation if packet loss/reordering becomes material.

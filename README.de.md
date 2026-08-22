@@ -70,7 +70,7 @@ predicted_speedup_vs_local = null
 
 Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben im direkten Placement-CLI über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen.
 
-Für das aktuelle reale M1-Experiment ist `services/scheduler/evidence_bundle.py` bewusst strenger. Aus zwei Lab-Evidenzwurzeln plus Modellmanifest wählt es die höchste konsistente Profilrevision, Prefill-/Decode-Läufe mit exakt passender Manifest-Artefaktgröße für einen gemeinsamen Modell-Basename und einen korrekt gerichteten Netzwerkdatensatz mit eingebetteter Local-/Peer-ID. **Caller-asserted Peer- oder Layer-Fallbacks sind dort nicht zulässig.** Mehrdeutige neueste Läufe, mehrere Node-Identitäten, falsch gerichtete/Legacy-Netzwerkevidenz, beschädigte evidenzähnliche JSON-Dateien und Modellgrößenkonflikte führen zum Abbruch.
+Für das aktuelle reale M1-Experiment ist `services/scheduler/evidence_bundle.py` bewusst strenger. Aus zwei Lab-Evidenzwurzeln plus Modellmanifest wählt es die höchste konsistente Profilrevision, Prefill-/Decode-Läufe mit exakt passender Manifest-Artefaktgröße für einen gemeinsamen Modell-Basename, verlangt für alle vier ausgewählten llama-bench-Datensätze beider Nodes dieselbe konkrete llama.cpp-Buildnummer/denselben Commit und wählt einen korrekt gerichteten Netzwerkdatensatz mit eingebetteter Local-/Peer-ID. **Caller-asserted Peer- oder Layer-Fallbacks sind dort nicht zulässig.** Mehrdeutige neueste Läufe, mehrere Node-Identitäten, falsch gerichtete/Legacy-Netzwerkevidenz, beschädigte evidenzähnliche JSON-Dateien und Modellgrößenkonflikte führen zum Abbruch.
 
 Das resultierende `experiment_bundle.schema.json`-Artefakt enthält die vollständige validierte Placement-Entscheidung sowie sichere Quelldateinamen und SHA-256 jedes ausgewählten Quell-JSONs. Absolute lokale Pfade werden nicht gespeichert. Die Hashes machen den ausgewählten kopierten Evidenzsatz reproduzierbar, sind aber keine kryptografische Attestation darüber, wer diese Dateien ursprünglich erzeugt hat. Details: [services/scheduler/README.md](services/scheduler/README.md).
 
@@ -102,7 +102,7 @@ Aktuelle llama.cpp-Split-Metadaten werden ebenfalls erkannt. Ein primärer Shard
 
 ## Kontrolliertes llama.cpp-M1-Experiment
 
-`runtime/llama/rpc_spike.py` kann aktuelle llama.cpp-Geräte ermitteln, eine deterministische lokale Baseline aufzeichnen, einen expliziten Local+RPC-`layer`-Split ausführen und exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest. Modell-/Runtime-/Topologie-/Timing-Evidenz wird ohne Rohprompt-/Rohoutput-Persistenz gespeichert. `runtime/llama/shared_trial.py` fasst diesen engen First-Proof-Pfad jetzt in einem fail-closed Coordinator-Befehl zusammen: Bundle-Frische und exakte GGUF-Identität werden erneut geprüft, aktuelle RPC-Sichtbarkeit wird vorab getestet, Baseline und Planer-Split laufen über ein frisches Mess-Relay, exakte Korrektheit wird verlangt und anschließend `shared_run_evidence.json` gebaut.
+`runtime/llama/rpc_spike.py` kann aktuelle llama.cpp-Geräte ermitteln, eine deterministische lokale Baseline aufzeichnen, einen expliziten Local+RPC-`layer`-Split ausführen und exakt dasselbe Modell/denselben Prompt per Token-ID-Digest vergleichen, sofern vorhanden, sonst per Output-Digest. Modell-/Runtime-/Topologie-/Timing-Evidenz wird ohne Rohprompt-/Rohoutput-Persistenz gespeichert. `runtime/llama/shared_trial.py` fasst diesen engen First-Proof-Pfad jetzt in einem fail-closed Coordinator-Befehl zusammen: Bundle-Frische und exakte GGUF-Identität werden erneut geprüft, die aktuelle `llama-server`-Buildnummer/der Commit muss zu der aus beiden Nodes ausgewählten llama-bench-Evidenz gebundenen Build-Identität passen, aktuelle RPC-Sichtbarkeit wird vorab getestet, Baseline und Planer-Split laufen über ein frisches Mess-Relay, exakte Korrektheit wird verlangt und anschließend `shared_run_evidence.json` gebaut.
 
 Der erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Der automatische Runner verlangt derzeit einen Accelerator-backed Coordinator, statt lokale CPU-Split-Semantik zu erfinden. Details: [runtime/llama/README.md](runtime/llama/README.md).
 
@@ -143,7 +143,7 @@ Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen ab
 ## Unmittelbarer Ablauf
 
 ```text
-dieselbe vollständige GGUF + frische Profile/llama-bench auf beiden Nodes
+dieselbe vollständige GGUF + frische Profile/llama-bench aus einem passenden llama.cpp-Build auf beiden Nodes
         ↓
 gebundene vertrauenswürdige LAN-Pfadevidenz Coordinator→Worker
         ↓

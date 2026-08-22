@@ -70,7 +70,7 @@ predicted_speedup_vs_local = null
 
 Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks in the direct placement CLI, and embedded evidence must never conflict with a supplied fallback.
 
-For the current real M1 experiment, `services/scheduler/evidence_bundle.py` is deliberately stricter. Given two Lab evidence roots plus the model manifest, it selects the highest coherent profile revision, exact-size prefill/decode runs for one common model basename, and a correctly directed network record with embedded local/peer IDs. It does **not** allow caller-asserted peer or layer fallbacks. Ambiguous latest runs, multiple node identities, wrong-direction/legacy network evidence, corrupt evidence-looking JSON and model-size mismatches fail closed.
+For the current real M1 experiment, `services/scheduler/evidence_bundle.py` is deliberately stricter. Given two Lab evidence roots plus the model manifest, it selects the highest coherent profile revision, exact-size prefill/decode runs for one common model basename, requires all four selected llama-bench records across both nodes to carry one identical concrete llama.cpp build number/commit, and selects a correctly directed network record with embedded local/peer IDs. It does **not** allow caller-asserted peer or layer fallbacks. Ambiguous latest runs, multiple node identities, wrong-direction/legacy network evidence, corrupt evidence-looking JSON and model-size mismatches fail closed.
 
 The resulting `experiment_bundle.schema.json` artifact includes the complete validated placement decision plus safe source basenames and SHA-256 of each selected source JSON. Absolute local paths are excluded. The hashes make the selected copied evidence set reproducible, but they are not cryptographic attestation of who originally produced those files. See [services/scheduler/README.md](services/scheduler/README.md).
 
@@ -102,7 +102,7 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 ## Controlled llama.cpp M1 experiment
 
-`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence. `runtime/llama/shared_trial.py` now composes that narrow first-proof flow into one fail-closed coordinator command: it rechecks bundle freshness and exact GGUF identity, preflights current RPC visibility, runs baseline and the planner-selected split through a fresh measurement relay, requires exact correctness, and builds `shared_run_evidence.json`.
+`runtime/llama/rpc_spike.py` can discover current llama.cpp devices, record a deterministic local baseline, run an explicit local+RPC `layer` split, and compare the exact same model/prompt by token-ID digest when available (otherwise output digest). It records model/runtime/topology/timing evidence without raw prompt/output persistence. `runtime/llama/shared_trial.py` now composes that narrow first-proof flow into one fail-closed coordinator command: it rechecks bundle freshness and exact GGUF identity, requires the current `llama-server` build number/commit to match the build bound from both nodes' selected llama-bench evidence, preflights current RPC visibility, runs baseline and the planner-selected split through a fresh measurement relay, requires exact correctness, and builds `shared_run_evidence.json`.
 
 The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. The automated runner currently requires an accelerator-backed coordinator rather than inventing local-CPU split semantics. See [runtime/llama/README.md](runtime/llama/README.md).
 
@@ -143,7 +143,7 @@ There is still no production provider-node installer/service, no completed distr
 ## Immediate path
 
 ```text
-same complete GGUF + fresh profiles/llama-bench on both nodes
+same complete GGUF + fresh profiles/llama-bench from one matching llama.cpp build on both nodes
         ↓
 bound trusted-LAN coordinator→worker path evidence
         ↓

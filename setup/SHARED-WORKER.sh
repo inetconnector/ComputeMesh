@@ -7,16 +7,17 @@ heading
 printf '%s\n' 'ComputeMesh M1 shared worker'
 printf '%s\n' 'Trusted private LAN only. Never expose llama.cpp RPC to the public internet.'
 py="$(ensure_python)"
+status="$(invoke_lab status | tail -n1)"
+saved_bench="$(json_field "$status" llama_bench)"
 
 find_rpc_server() {
-  local status saved runtime found
-  status="$(invoke_lab status | tail -n1)"
-  saved="$(json_field "$status" llama_bench)"
-  if [[ -n "$saved" && -e "$saved" ]]; then
+  local runtime found
+  if [[ -n "$saved_bench" && -f "$saved_bench" ]]; then
     for name in rpc-server ggml-rpc-server; do
-      found="$(find "$(dirname "$saved")" -type f -name "$name" -print -quit 2>/dev/null || true)"
+      found="$(find "$(dirname "$saved_bench")" -type f -name "$name" -print -quit 2>/dev/null || true)"
       [[ -n "$found" ]] && { printf '%s\n' "$found"; return 0; }
     done
+    return 0
   fi
   runtime="$REPO_ROOT/artifacts/lab/runtime/llama.cpp"
   if [[ -d "$runtime" ]]; then
@@ -29,6 +30,10 @@ find_rpc_server() {
 }
 
 rpc="$(find_rpc_server)"
+if [[ -n "$saved_bench" && -f "$saved_bench" && -z "$rpc" ]]; then
+  echo 'No rpc-server was found in the same llama.cpp build tree as the remembered llama-bench. Install/use a complete matching build and rerun llama-bench; cross-build fallback is disabled for the shared proof.' >&2
+  exit 1
+fi
 if [[ -z "$rpc" ]]; then
   read -r -e -p 'rpc-server / ggml-rpc-server path: ' rpc
   rpc="${rpc%\"}"; rpc="${rpc#\"}"
