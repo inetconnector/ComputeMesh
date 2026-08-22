@@ -774,6 +774,28 @@ Implemented in `services/scheduler/multi_gpu_planner.py`:
 3. **Contiguous Sharding Invariant:** Enforces $\text{layer\_end}_{i} == \text{layer\_start}_{i+1}$ and exact total layer coverage ($0 \le l < L$).
 4. **Automated Unit Tests:** `services/scheduler/tests/test_multi_gpu_planner.py` (5/5 tests passing 100% on Windows and Linux).
 
+---
+
+## 21. Stripe Checkout & Automated Webhook Ingestion
+
+### Architecture & Capabilities
+Implemented in `services/billing/stripe_integration.py`:
+1. **Automated Prepaid Deposit Sessions:** Generates Stripe Checkout sessions for customer top-ups ($5.00 min to $10,000.00 max).
+2. **Idempotent Webhook Processing:** Listens for `checkout.session.completed` / `payment_intent.succeeded` events, automatically depositing micro-credits to the customer ledger account via `deposit_customer_credits(...)`.
+3. **Replay Attack & Duplicate Protection:** Deduplicates session IDs to guarantee zero double-crediting.
+4. **Automated Unit Tests:** `services/billing/tests/test_stripe_integration.py` (5/5 tests passing, total 13 billing tests).
+
+---
+
+## 22. Windows Desktop Provider Tray Application
+
+### Architecture & Features
+Implemented in `tools/appliance/windows_tray_app.py`:
+1. **Lightweight Native Desktop UI:** Zero heavy framework dependencies (pure Python Tkinter + ttk dark theme).
+2. **Real-Time Hardware Auto-Detection:** Automatically scans GPU matrix (NVIDIA CUDA / AMD Vulkan) displaying device model, VRAM allocation, and operating temperatures.
+3. **1-Click Compute Control:** Instant Online / Idle toggle with live token counting and continuous micro-credit passive earnings display.
+
+
 
 
 
