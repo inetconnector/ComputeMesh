@@ -16,6 +16,8 @@ Repository klonen/herunterladen und den Starter für das Betriebssystem verwende
 
 Beide Starter bieten dasselbe einfache Menü für Rechnerprofil, vertrauenswürdige LAN-RTT-/Durchsatzmessung, lokales llama.cpp-Benchmarking und die aktuell vollständige lokale Testsuite. Neue Netzwerkmessungen tragen zusätzlich die lokale Lab-Setup-Node-ID und – wenn die Gegenseite den aktuellen Benchmark-Server verwendet – dessen selbst gemeldete Lab-Setup-Node-ID. Modellgewichte werden niemals automatisch heruntergeladen.
 
+Für die aktuelle M1-Evidenzübergabe zwischen zwei Rechnern kann der Worker unter Windows mit `setup\EVIDENCE-EXPORT.cmd` oder unter Linux mit `bash setup/EVIDENCE-EXPORT.sh` eine begrenzte Evidenz-ZIP erzeugen. Der Coordinator kann diese ZIP prüfen/importieren und mit `setup\BUILD-BUNDLE.cmd` bzw. `bash setup/BUILD-BUNDLE.sh` das aktuelle Experiment-Bundle bauen. Die ZIP enthält keine GGUF-Gewichte und keine llama.cpp-Binaries.
+
 Die genaue Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
 
 ## Aktuell implementiert
@@ -25,6 +27,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - plattformübergreifendes Windows-/Linux-Lab-Setup;
 - Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
 - begrenzte GGUF-v3-Inspektion und konservative Modellmanifest-Erzeugung mit aus dem Artefakt abgeleiteter Architektur, Layerzahl, SHA-256 und Dateigröße;
+- ein begrenzter Standardbibliothek-Lab-Evidenzexport/-import mit Datei-/Anzahllimits, SHA-256-Prüfung, Traversal-/Symlink-Ablehnung und atomarem Peer-Import;
 - ein fail-closed M1-Experiment-Bundle-Builder, der einen konsistenten aktuellen Zwei-Node-Evidenzsatz auswählt und die daraus erzeugte Placement-Entscheidung mit Dokument-Digests bündelt;
 - maschinenlesbare Draft-2020-12-State-/Control-Verträge;
 - deterministische Job-/Reservation-Semantik und transaktionale SQLite-Referenzpersistenz;
@@ -66,9 +69,21 @@ predicted_speedup_vs_local = null
 
 Aktuelle Netzwerk-Benchmark-Datensätze können `local_node_id`, `peer_node_id` und `peer_identity_binding` direkt enthalten; die heutige Server-Selbstmeldung wird als `unauthenticated_server_report_v1` gekennzeichnet. Damit entfällt ein manueller Zuordnungsschritt im Experiment, **die Gegenseite wird dadurch aber nicht authentifiziert**. Ältere Netzwerkdatensätze und Modellmanifeste bleiben im direkten Placement-CLI über explizite `caller_asserted_v1`-Fallbacks für Peer-ID bzw. Layerzahl nutzbar. Eingebettete Evidenz und ein gleichzeitig angegebener Fallback dürfen sich niemals widersprechen.
 
-Für das aktuelle reale M1-Experiment ist `services/scheduler/evidence_bundle.py` bewusst strenger. Aus zwei kopierten Lab-Evidenzwurzeln plus Modellmanifest wählt es die höchste konsistente Profilrevision, Prefill-/Decode-Läufe mit exakt passender Manifest-Artefaktgröße für einen gemeinsamen Modell-Basename und einen korrekt gerichteten Netzwerkdatensatz mit eingebetteter Local-/Peer-ID. **Caller-asserted Peer- oder Layer-Fallbacks sind dort nicht zulässig.** Mehrdeutige neueste Läufe, mehrere Node-Identitäten, falsch gerichtete/Legacy-Netzwerkevidenz, beschädigte evidenzähnliche JSON-Dateien und Modellgrößenkonflikte führen zum Abbruch.
+Für das aktuelle reale M1-Experiment ist `services/scheduler/evidence_bundle.py` bewusst strenger. Aus zwei Lab-Evidenzwurzeln plus Modellmanifest wählt es die höchste konsistente Profilrevision, Prefill-/Decode-Läufe mit exakt passender Manifest-Artefaktgröße für einen gemeinsamen Modell-Basename und einen korrekt gerichteten Netzwerkdatensatz mit eingebetteter Local-/Peer-ID. **Caller-asserted Peer- oder Layer-Fallbacks sind dort nicht zulässig.** Mehrdeutige neueste Läufe, mehrere Node-Identitäten, falsch gerichtete/Legacy-Netzwerkevidenz, beschädigte evidenzähnliche JSON-Dateien und Modellgrößenkonflikte führen zum Abbruch.
 
 Das resultierende `experiment_bundle.schema.json`-Artefakt enthält die vollständige validierte Placement-Entscheidung sowie sichere Quelldateinamen und SHA-256 jedes ausgewählten Quell-JSONs. Absolute lokale Pfade werden nicht gespeichert. Die Hashes machen den ausgewählten kopierten Evidenzsatz reproduzierbar, sind aber keine kryptografische Attestation darüber, wer diese Dateien ursprünglich erzeugt hat. Details: [services/scheduler/README.md](services/scheduler/README.md).
+
+## Zwei-Rechner-Lab-Evidenztransfer
+
+`setup/evidence_transfer.py` entfernt den manuellen Verzeichniskopierschritt rund um den Bundle-Builder und bleibt dabei bewusst ein lokales Trusted-Lab-Werkzeug.
+
+Auf dem Worker scannt der Exportpfad nur den Lab-JSON-Baum des Nodes und schreibt eine ZIP mit erkannten Profil-/Benchmark-Evidenzen. Modellgewichte, llama.cpp-Runtime-Downloads, `config.json`, gemerkte lokale Pfade und beliebige Dateien werden ausgeschlossen. Jede enthaltene Datei wird in `computemesh-lab-export.json` über sicheren relativen Pfad, exakte Größe und SHA-256 gebunden.
+
+Auf dem Coordinator arbeitet der Import fail-closed: Archiv-/Member-Anzahl sowie komprimierte/unkomprimierte Bytemengen sind begrenzt; die Member-Menge muss exakt zum Manifest passen; verschlüsselte/Symlink-/Traversal-Einträge werden abgelehnt; jede Datei wird beim Streamen gegen deklarierte Größe und SHA-256 geprüft; und die Extraktion wird erst nach atomarem Rename aus einem temporären Verzeichnis sichtbar. Ein erneuter Import prüft den vorhandenen Baum neu statt ihm zu vertrauen. Ein neuer Export derselben unveränderten Evidenz behält auch bei einem anderen Exportzeitpunkt dieselbe Evidenzidentität, weil der Exportzeitpunkt nur Beobachtungsmetadatum ist.
+
+`setup/lab.py bundle --peer-export ... --model-manifest ...` übergibt danach den verifizierten importierten Worker-Baum zusammen mit dem lokalen Coordinator-Baum an den strengeren aktuellen Bundle-Selektor. Für Windows und Linux existieren direkte Starter. Export/Import verwenden ausschließlich die Python-Standardbibliothek; die kleine JSON-Schema-Abhängigkeit wird nur für die Bundle-Erzeugung benötigt.
+
+**Grenze:** Die Hashes erkennen Beschädigungen/Änderungen in der kopierten Evidenz. Sie authentifizieren den Erzeuger nicht, signieren keinen Node und attestieren keine Hardware. Der Transferpfad bleibt eine Convenience-Funktion im kontrollierten Trusted Lab, kein produktiver Evidenztransport.
 
 ## GGUF → Modellmanifest
 
@@ -90,7 +105,7 @@ Aktuelle llama.cpp-Split-Metadaten werden ebenfalls erkannt. Ein primärer Shard
 
 Der erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Details: [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 bleibt Proposed.** Harness, Evidenzbundle-Pfad und Planer bereiten den Nachweis vor; ein echter korrekter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht aufgezeichnet.
+**ADR 0002 bleibt Proposed.** Harness, Transfer-/Evidenzbundle-Pfad und Planer bereiten den Nachweis vor; ein echter korrekter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht aufgezeichnet.
 
 ## Runtime-Netzwerkmess-Relay
 
@@ -108,7 +123,7 @@ Bereits vorhandene physische Evidenz vom 21.08.2026:
 - Windows-CUDA-llama.cpp 7B-Q4: Prefill `2866,127 tok/s`, Decode `76,210 tok/s`;
 - Linux-CPU-llama.cpp 0.5B-Q4-Smoke: Prefill `12,382 tok/s`, Decode `0,201 tok/s`.
 
-Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenzbindungs-Pfad, GGUF-Manifest-Helfer, Experiment-Bundle-Builder und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
+Die beiden historischen llama.cpp-Läufe verwendeten unterschiedliche GGUFs und können deshalb nicht zum aktuellen Evidenzbundle kombiniert werden. Das Internet-Netzwerkergebnis ist kein vertrauenswürdiger Private-LAN-A/B-Nachweis und keine verteilte gemeinsame Inferenz. Relay, Evidenztransfer/-bindungs-Pfad, GGUF-Manifest-Helfer, Experiment-Bundle-Builder und Placement-Planer besitzen derzeit plattformübergreifende Software-Evidenz, aber keine echte Zwei-Rechner-Shared-Runtime-Evidenz.
 
 ## Identity- und Runtime-Sicherheitsgrenze
 
@@ -116,7 +131,7 @@ ADR 0005 ist **nur für die enge M1-Referenzimplementierung** akzeptiert. Vor ö
 
 Die Lab-ID `unauthenticated_server_report_v1` des TCP-Benchmarks ist **nicht** der Identity-Nachweis aus ADR 0005. Der Benchmark besitzt weiterhin keine Anwendungs-Authentifizierung/-Verschlüsselung und bleibt ausschließlich für ein vertrauenswürdiges privates LAN bestimmt.
 
-Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht; weder lokales Relay noch Evidenzbundle oder Machbarkeitsplaner ändern diese Grenze. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
+Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Identity-/Session-Authentifizierung authentifiziert den Upstream-RPC-Socket nicht; weder lokales Relay noch Evidenztransfer/-bundle oder Machbarkeitsplaner ändern diese Grenze. Niemals den RPC-Worker öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
 `confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
 
@@ -127,13 +142,17 @@ Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen ab
 ## Unmittelbarer Ablauf
 
 ```text
-frische Profile + lokale Benchmarks + gebundene vertrauenswürdige LAN-Pfadevidenz
+dieselbe vollständige GGUF + frische Profile/llama-bench auf beiden Nodes
+        ↓
+gebundene vertrauenswürdige LAN-Pfadevidenz Coordinator→Worker
         ↓
 aus dem Artefakt abgeleitetes Single-GGUF-Modellmanifest
         ↓
-fail-closed aktuelles Zwei-Node-Evidenzbundle
+Worker-Evidenz-ZIP → verifizierter Coordinator-Import
         ↓
-maschinenlesbarer konservativer Placement-Kandidat (im Bundle enthalten)
+fail-closed aktuelles Zwei-Node-Experiment-Bundle
+        ↓
+eingebetteter konservativer Placement-Kandidat
         ↓
 lokale deterministische llama-server-Baseline
         ↓
@@ -146,8 +165,6 @@ opake RPC-Bytezählung + Latenz/Jitter/Disconnect-Experimente
 erste reproduzierbare korrekte gemeinsame Zwei-Node-Inferenz
         ↓
 Placement-Prognose/-Ranking aus gemessener Shared-Evidenz kalibrieren
-        ↓
-bei Relevanz Paket-Level-Loss-/Reordering-Experiment
 ```
 
 ## Repository-Struktur
@@ -155,7 +172,7 @@ bei Relevanz Paket-Level-Loss-/Reordering-Experiment
 ```text
 ComputeMesh/
 ├─ SETUP.cmd / setup.sh   # einfache Windows-/Linux-Lab-Einstiege
-├─ setup/                 # plattformübergreifende Lab-Orchestrierung
+├─ setup/                 # Lab-Orchestrierung + begrenzter Evidenztransfer
 ├─ tools/benchmark/       # Inventory, TCP, llama-bench- und GGUF-Manifest-Werkzeuge
 ├─ services/orchestrator/ # dauerhafte M0-State-/Control-Grundlage
 ├─ services/identity/     # M1-Referenz für Enrollment/Key-Registry
