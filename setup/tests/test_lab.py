@@ -39,6 +39,27 @@ class LabSetupTests(unittest.TestCase):
         self.assertRegex(cfg.node_id, r"^lab-[0-9a-f]{8}$")
         self.assertEqual(cfg.profile_revision, 0)
 
+    def test_status_script_entrypoint_needs_no_site_packages(self):
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-S",
+                str(REPO / "setup" / "lab.py"),
+                "--config",
+                str(self.config_path),
+                "--output-root",
+                str(self.output_root),
+                "status",
+            ],
+            cwd=REPO,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        payload = json.loads(completed.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["kind"], "status")
+        self.assertRegex(payload["node_id"], r"^lab-[0-9a-f]{8}$")
+
     def test_inventory_revision_advances_only_after_success(self):
         cfg = lab.LabConfig(node_id="lab-12345678")
         runner = FakeRunner()
