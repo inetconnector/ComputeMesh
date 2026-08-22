@@ -817,6 +817,18 @@ Implemented in `deploy/appliance/debian_live_builder.py`:
 3. **FAT32 USB Boot Autostart:** Automatically reads `/boot/computemesh.env` on boot and starts `computemesh-appliance.service`.
 4. **Automated Unit Tests:** `deploy/appliance/tests/test_debian_live_builder.py` (2/2 tests passing, total 14 suites, 310+ tests passing 100% on Windows and Linux).
 
+---
+
+## 25. Autonomous Node Health & Dynamic Failover Engine
+
+### Architecture & Capabilities
+Implemented in `services/scheduler/health_monitor.py`:
+1. **Real-Time Heartbeat & Thermal Telemetry:** Monitors continuous node heartbeats, VRAM metrics, and GPU core temperatures (marks nodes `DEGRADED` if $T > 85^\circ\text{C}$).
+2. **Exponential Penalty & Flapping Dampening:** Accumulates penalty scores for unstable nodes and decays penalties across continuous healthy operation.
+3. **Automated Layer Evacuation & Re-Sharding:** `failover_rebalance(...)` automatically recalculates shard boundaries for active neural networks when worker nodes fail or disconnect, preserving client inference sessions without crashing.
+4. **Automated Unit Tests:** `services/scheduler/tests/test_health_monitor.py` (6/6 tests passing, total 48 scheduler tests).
+
+
 
 
 
