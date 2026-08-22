@@ -494,7 +494,8 @@ def _verify_import_tree(destination: Path, manifest: dict[str, Any]) -> None:
         existing_manifest = _validate_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as exc:
         raise EvidenceTransferError("existing import manifest is invalid") from exc
-    if existing_manifest != manifest:
+    identity_keys = ("schema_version", "export_id", "node_id", "profile_revision", "files")
+    if any(existing_manifest[key] != manifest[key] for key in identity_keys):
         raise EvidenceTransferError("existing import manifest conflicts with archive")
 
     expected_paths = {item["path"] for item in manifest["files"]}
