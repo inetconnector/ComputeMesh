@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-08-22  
-**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, deterministic two-node feasibility planning, and stronger experiment evidence binding; real shared inference is not yet evidenced  
+**Phase:** M0 foundation with M1 reference identity, controlled llama.cpp runtime/relay tooling, deterministic two-node feasibility planning, stronger experiment evidence binding, and artifact-derived GGUF model manifests; real shared inference is not yet evidenced  
 **Production services/runtime:** none  
 **Public release:** none
 
@@ -28,6 +28,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - bounded TCP measurement relay landed through `206248a`
 - deterministic M1 two-node feasibility planner landed through `6177218`
 - M1 network-peer/model-layer evidence binding introduced through PR #6; final cross-platform software validation passed before merge
+- bounded GGUF-v3 inspection/model-manifest generation introduced through PR #7; final cross-platform software validation run `32551617749` passed before merge
 
 ## What exists
 
@@ -38,6 +39,7 @@ This file records current engineering facts, evidence boundaries, and next actio
 - machine-readable node inventory and versioned local profile revisions;
 - TCP RTT/throughput benchmark;
 - llama.cpp `llama-bench` prefill/decode adapter;
+- bounded GGUF-v3 metadata/model-manifest helper;
 - ignored local evidence under `artifacts/lab/`;
 - user-facing `tests` action runs benchmark, orchestrator, protocol, identity, scheduler, llama-runtime, network-runtime, and setup suites.
 
@@ -59,14 +61,14 @@ Properties/limits:
 - `peer_node_id` and `peer_identity_binding` are schema-paired;
 - `--expected-peer-node-id` can make the client fail closed when the current server reports a different ID or no ID;
 - legacy benchmark servers remain usable if an expected peer is not required;
-- malformed identity queries with a nonzero declared payload are rejected and the connection is closed so unread bytes cannot be reinterpreted as a following benchmark frame;
+- malformed identity queries with a nonzero declared payload close the connection so unread bytes cannot be reinterpreted as a following benchmark frame; depending on TCP/OS timing the peer may observe the attempted error frame or an immediate close/reset;
 - Lab Setup automatically passes its own random Lab ID into both server and client benchmark roles.
 
 **Evidence boundary:** `unauthenticated_server_report_v1` is traceability/bookkeeping only. The server can self-report any Lab ID because this benchmark socket is unauthenticated. This is not the ADR-0005 Ed25519/session identity proof and must not be used as a production trust decision.
 
-### Model manifest evidence binding
+### Model manifest evidence binding and GGUF derivation
 
-`model_manifest.schema.json` now accepts optional:
+`model_manifest.schema.json` accepts optional:
 
 ```json
 "layer_count": 32
@@ -75,6 +77,31 @@ Properties/limits:
 The field remains optional so older manifests remain schema-compatible. The M1 planner prefers a manifest `layer_count` and records `layer_count_source = model_manifest_v1`. If a caller also supplies a layer count it must match exactly.
 
 For a legacy manifest without `layer_count`, an explicit caller layer count remains supported and is recorded as `caller_asserted_v1`. If neither source exists the planner rejects the input rather than guessing.
+
+`tools/benchmark/gguf_manifest.py` can now create the current single-artifact model manifest from a local little-endian GGUF v3 file while keeping semantic inference conservative.
+
+Artifact-derived facts:
+
+- `general.architecture` → manifest `architecture`;
+- `<architecture>.block_count` → manifest `layer_count`;
+- known standardized `general.file_type` values → quantization label when mapped;
+- `general.name`, `general.version`, `general.license`, `general.license.link` when present;
+- exact local file `size_bytes`;
+- streaming SHA-256 digest.
+
+The parser reads only bounded header/metadata values and streams the file hash; it does not execute model code or load tensor contents into memory. Metadata KV count, string/key sizes, array item counts/depth and metadata bytes are bounded.
+
+Missing model/version/license/quantization semantics must be supplied explicitly. Allowed partitioning modes are always explicit and are not inferred from architecture or license text.
+
+Current llama.cpp split metadata is recognized and internally validated as a set:
+
+- `split.no`;
+- `split.count`;
+- `split.tensors.count`.
+
+Current upstream `gguf-split` keeps ordinary model metadata in primary shard `split.no = 0`; later shards may contain only split bookkeeping plus tensors. The helper therefore identifies a non-primary shard without misreporting it as an ordinary malformed model.
+
+**Schema-v1 split boundary:** when `split.count > 1`, manifest generation is refused. One shard's digest/size does not represent the complete model, while current manifest schema v1 does not encode shard identity/order strongly enough for this helper to claim a complete multi-file artifact set. Merge the complete shard set to one GGUF before building the current manifest. `split.count == 1` remains buildable.
 
 ### Durable control/orchestration foundation
 
@@ -208,11 +235,11 @@ Result schema: `services/scheduler/placement_decision.schema.json`.
 
 ## Latest cross-platform validation
 
-Final evidence-binding validation run `32532730410` passed on both supported development OS families before merge. The temporary workflow is removed before `main` is advanced.
+Final GGUF-manifest/evidence validation run `32551617749` passed on both supported development OS families. The runtime/test code and public README state were exactly those under validation; only this canonical state bookkeeping and temporary-workflow removal follow before `main` is advanced.
 
 **Windows Server 2025 / Python 3.11.9:**
 
-- benchmark: **18/18**;
+- benchmark/model tooling: **32/32**;
 - orchestrator: **34/34**;
 - protocol: **66/66**;
 - identity/integration: **13/13**;
@@ -223,7 +250,7 @@ Final evidence-binding validation run `32532730410` passed on both supported dev
 
 **Ubuntu 24.04 / Python 3.11.16:**
 
-- benchmark: **18/18**;
+- benchmark/model tooling: **32/32**;
 - orchestrator: **34/34**;
 - protocol: **66/66**;
 - identity/integration: **13/13**;
@@ -232,7 +259,7 @@ Final evidence-binding validation run `32532730410` passed on both supported dev
 - network runtime relay: **10/10**;
 - setup: **21/21**.
 
-Evidence-binding coverage includes legacy/current benchmark interoperability, bounded server-reported Lab IDs, malformed identity-query framing rejection, expected-peer mismatch failure, paired benchmark identity fields, optional manifest layer count, embedded-vs-caller conflict rejection, coordinator/worker network-ID binding, deterministic placement identity and the explicit no-speedup-prediction boundary.
+Current coverage includes legacy/current benchmark interoperability, bounded server-reported Lab IDs, malformed identity-query framing closure, expected-peer mismatch failure, paired benchmark identity fields, optional manifest layer count, embedded-vs-caller conflict rejection, coordinator/worker network-ID binding, deterministic placement identity, explicit no-speedup-prediction, bounded GGUF-v3 metadata parsing, artifact-derived layer count/SHA-256/size, required semantic overrides, model-manifest schema validation, complete split-metadata validation, non-primary shard recognition, and refusal to misrepresent one shard as the complete schema-v1 model artifact.
 
 This is software/loopback/synthetic-evidence validation on both OS families. It is **not** real two-machine shared-runtime or placement-performance evidence.
 
@@ -258,6 +285,7 @@ The public-internet TCP measurement predates the new peer-ID binding path, is no
 - real-runtime delay/jitter/disconnect sensitivity evidence;
 - packet-level loss/reordering evidence;
 - calibrated shared-runtime latency/speedup prediction or production scheduler ranking;
+- schema-v1 multi-shard GGUF artifact identity/order contract and corresponding complete-set manifest builder;
 - production provider-node application/service/installer;
 - Gateway/API;
 - production orchestrator network service/database adapter;
@@ -271,7 +299,7 @@ The public-internet TCP measurement predates the new peer-ID binding path, is no
 - production registry/verification/billing/telemetry/SDK/UI;
 - signed production release/update system.
 
-The current ComputeMesh identity/session layer does **not** authenticate the TCP benchmark or upstream llama.cpp RPC socket. The benchmark Lab-ID self-report, relay and planner do not change this. Upstream RPC and the benchmark remain trusted-private-lab-only. `confidential_compute` remains invalid without a concrete TEE/attestation design.
+The current ComputeMesh identity/session layer does **not** authenticate the TCP benchmark or upstream llama.cpp RPC socket. The benchmark Lab-ID self-report, relay, GGUF helper and planner do not change this. Upstream RPC and the benchmark remain trusted-private-lab-only. `confidential_compute` remains invalid without a concrete TEE/attestation design.
 
 ## ADR status
 
@@ -284,23 +312,24 @@ Still proposed:
 
 - ADR 0002 — M1 runtime baseline; controlled llama.cpp RPC harness, relay and conservative placement planner exist, but no real correct shared proof yet;
 - ADR 0003 — control/data transport;
-- ADR 0004 — model/artifact identity;
+- ADR 0004 — model/artifact identity; the bounded single-GGUF manifest helper now supplies artifact facts, but multi-shard identity/order and production artifact distribution remain unresolved;
 - ADR 0006 — telemetry envelope;
 - ADR 0007 — ledger units.
 
 ## Next actions in order
 
 1. On two machines sharing a trusted private LAN, capture fresh node profiles and A→B/B→A network measurements with the current embedded local/peer Lab-ID metadata.
-2. Use the same GGUF and a model manifest carrying the correct `layer_count`; retain matching llama-bench evidence on both nodes.
-3. Generate the first real `services.scheduler.placement` decision without legacy caller peer/layer fallbacks and retain its hard constraints/candidate.
-4. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
-5. Run deterministic local `baseline` on the coordinator.
-6. Start a fresh local measurement relay and execute the planner-selected explicit local+RPC layer split through it.
-7. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
-8. Retain relay directional byte totals plus setup/active timing for that exact successful run.
-9. Repeat controlled runs with added stream delay/jitter and deliberate disconnects. If packet loss/reordering is material, test it separately through controlled OS/network emulation.
-10. Accept, reject, or supersede ADR 0002 from measured evidence, then calibrate scheduler prediction/ranking from the correct shared result rather than invented coefficients.
-11. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
+2. Use the exact same complete GGUF on both machines. If it is a llama.cpp split set, merge the full set first; then generate the ComputeMesh model manifest with `tools/benchmark/gguf_manifest.py` so SHA-256, size, architecture and `layer_count` come from that exact artifact rather than manual entry.
+3. Retain matching llama-bench evidence on both nodes for that same GGUF and exact size.
+4. Generate the first real `services.scheduler.placement` decision without legacy caller peer/layer fallbacks and retain its hard constraints/candidate.
+5. Use compatible current llama.cpp builds; run `runtime.llama.rpc_spike discover` and retain exact local/RPC device names.
+6. Run deterministic local `baseline` on the coordinator.
+7. Start a fresh local measurement relay and execute the planner-selected explicit local+RPC layer split through it.
+8. Run `compare`; require same model/prompt digests and exact token/output correctness before making a shared-inference claim.
+9. Retain relay directional byte totals plus setup/active timing for that exact successful run.
+10. Repeat controlled runs with added stream delay/jitter and deliberate disconnects. If packet loss/reordering is material, test it separately through controlled OS/network emulation.
+11. Accept, reject, or supersede ADR 0002 from measured evidence, then calibrate scheduler prediction/ranking from the correct shared result rather than invented coefficients.
+12. Bind only the minimum artifact/runtime/result/failure messages required by the winning path and continue toward reproducible correct two-node inference under ComputeMesh control.
 
 Before any public authenticated node service is introduced, separately complete node private-key storage, provider-authenticated identity APIs, active-session revocation fan-out, transport security, authorization and resource limits.
 
