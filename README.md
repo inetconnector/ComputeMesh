@@ -16,6 +16,8 @@ Clone/download the repository and use the launcher for your OS:
 
 Both launchers expose the same simple menu for profile capture, trusted-LAN RTT/throughput measurement, local llama.cpp benchmarking, and the current complete local test set. New network measurements also carry the local Lab Setup node ID and, when the peer uses the current benchmark server, its self-reported Lab Setup node ID. Model weights are never downloaded automatically.
 
+For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.
+
 The detailed two-computer walkthrough is in [setup/README.md](setup/README.md).
 
 ## Current implementation
@@ -25,6 +27,7 @@ Implemented foundations now include:
 - cross-platform Windows/Linux Lab Setup;
 - inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
 - bounded GGUF-v3 inspection and conservative model-manifest generation with artifact-derived architecture, layer count, SHA-256 and size;
+- a bounded standard-library Lab evidence export/import path with file-size/count limits, SHA-256 verification, traversal/symlink rejection and atomic peer import;
 - a fail-closed M1 experiment-bundle builder that selects one coherent current two-node evidence set and embeds the resulting placement decision with source-document digests;
 - Draft-2020-12 machine-readable state/control contracts;
 - deterministic Job/Reservation semantics and transactional SQLite reference persistence;
@@ -66,9 +69,21 @@ predicted_speedup_vs_local = null
 
 Current network benchmark records can embed `local_node_id`, `peer_node_id` and `peer_identity_binding`; the current server report is labelled `unauthenticated_server_report_v1`. This removes a manual experiment-bookkeeping step but **does not authenticate the peer**. Older network records and model manifests remain usable through explicit `caller_asserted_v1` peer/layer fallbacks in the direct placement CLI, and embedded evidence must never conflict with a supplied fallback.
 
-For the current real M1 experiment, `services/scheduler/evidence_bundle.py` is deliberately stricter. Given two copied Lab evidence roots plus the model manifest, it selects the highest coherent profile revision, exact-size prefill/decode runs for one common model basename, and a correctly directed network record with embedded local/peer IDs. It does **not** allow caller-asserted peer or layer fallbacks. Ambiguous latest runs, multiple node identities, wrong-direction/legacy network evidence, corrupt evidence-looking JSON and model-size mismatches fail closed.
+For the current real M1 experiment, `services/scheduler/evidence_bundle.py` is deliberately stricter. Given two Lab evidence roots plus the model manifest, it selects the highest coherent profile revision, exact-size prefill/decode runs for one common model basename, and a correctly directed network record with embedded local/peer IDs. It does **not** allow caller-asserted peer or layer fallbacks. Ambiguous latest runs, multiple node identities, wrong-direction/legacy network evidence, corrupt evidence-looking JSON and model-size mismatches fail closed.
 
 The resulting `experiment_bundle.schema.json` artifact includes the complete validated placement decision plus safe source basenames and SHA-256 of each selected source JSON. Absolute local paths are excluded. The hashes make the selected copied evidence set reproducible, but they are not cryptographic attestation of who originally produced those files. See [services/scheduler/README.md](services/scheduler/README.md).
+
+## Two-machine Lab evidence transfer
+
+`setup/evidence_transfer.py` removes the manual directory-copy step around the bundle builder while deliberately remaining a local trusted-lab utility.
+
+On the worker, the export path scans only the node's Lab JSON tree and writes a ZIP containing recognized profile/benchmark evidence. It excludes model weights, llama.cpp runtime downloads, `config.json`, remembered local paths, and arbitrary files. Each included file is recorded by safe relative path, exact size and SHA-256 in `computemesh-lab-export.json`.
+
+On the coordinator, import is fail-closed: the archive/member count and compressed/uncompressed byte totals are bounded; the member set must match the manifest exactly; encrypted/symlink/traversal entries are rejected; every file is streamed through the declared size and SHA-256 check; and extraction becomes visible only after an atomic temp-directory rename. Re-import verifies the existing tree rather than trusting it. Re-exporting the same evidence at a different time retains the same evidence identity, because the export timestamp is observational metadata rather than part of the content identity.
+
+`setup/lab.py bundle --peer-export ... --model-manifest ...` then hands the verified imported worker tree plus the coordinator's local tree to the stricter current bundle selector. Windows and Linux have direct launchers for the same path. Export/import use only the Python standard library; the small JSON-schema dependency is needed only for bundle construction.
+
+**Boundary:** these hashes detect corruption/change in the copied evidence. They do not authenticate the producer, sign a node, or attest hardware. The transfer path remains a controlled trusted-lab convenience, not production evidence transport.
 
 ## GGUF → model manifest
 
@@ -90,7 +105,7 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. See [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 remains Proposed.** The harness, evidence-bundle path and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
+**ADR 0002 remains Proposed.** The harness, transfer/evidence-bundle path and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
 
 ## Runtime network measurement relay
 
@@ -108,7 +123,7 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-binding path, GGUF manifest helper, experiment-bundle builder and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
+The two historical llama.cpp runs used different GGUFs, so they cannot be combined into the current evidence bundle. The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-transfer/binding path, GGUF manifest helper, experiment-bundle builder and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
 
 ## Identity and runtime security boundary
 
@@ -116,7 +131,7 @@ ADR 0005 is accepted **only for the narrow M1 reference implementation**. Missin
 
 The TCP benchmark's `unauthenticated_server_report_v1` Lab ID is not the ADR-0005 identity proof. The benchmark still has no application authentication/encryption and remains trusted-private-LAN-only.
 
-Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay, evidence bundle nor feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
+Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay, evidence transfer/bundle nor feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
 
 `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
@@ -127,13 +142,17 @@ There is still no production provider-node installer/service, no completed distr
 ## Immediate path
 
 ```text
-fresh profiles + local benchmarks + bound trusted-LAN path evidence
+same complete GGUF + fresh profiles/llama-bench on both nodes
+        ↓
+bound trusted-LAN coordinator→worker path evidence
         ↓
 artifact-derived single-GGUF model manifest
         ↓
-fail-closed current two-node evidence bundle
+worker evidence ZIP → verified coordinator import
         ↓
-machine-readable conservative placement candidate (embedded in bundle)
+fail-closed current two-node experiment bundle
+        ↓
+embedded conservative placement candidate
         ↓
 local deterministic llama-server baseline
         ↓
@@ -146,8 +165,6 @@ opaque RPC byte accounting + delay/jitter/disconnect experiments
 first reproducible correct shared two-node inference
         ↓
 calibrate placement prediction/ranking from measured shared evidence
-        ↓
-packet-level loss/reordering experiment where material
 ```
 
 ## Repository map
@@ -155,7 +172,7 @@ packet-level loss/reordering experiment where material
 ```text
 ComputeMesh/
 ├─ SETUP.cmd / setup.sh   # simple Windows/Linux lab entry points
-├─ setup/                 # cross-platform lab orchestration
+├─ setup/                 # lab orchestration + bounded evidence transfer
 ├─ tools/benchmark/       # inventory, TCP, llama-bench and GGUF-manifest tools
 ├─ services/orchestrator/ # durable M0 state/control foundation
 ├─ services/identity/     # M1 reference enrollment/key registry
