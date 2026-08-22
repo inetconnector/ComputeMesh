@@ -65,6 +65,41 @@ class WindowsScriptTests(unittest.TestCase):
         self.assertIn("Invoke-Lab @('bundle','--peer-export',$peer,'--model-manifest',$manifest)", evidence)
         self.assertIn("-c 'import jsonschema'", evidence)
 
+    def test_shared_proof_launcher_is_private_and_routes_to_bound_runner(self):
+        cmd = self.read('SHARED-PROOF.cmd')
+        proof = self.read('shared-proof.ps1')
+        self.assertIn('shared-proof.ps1', cmd)
+        self.assertIn(". (Join-Path $PSScriptRoot 'common.ps1')", proof)
+        self.assertIn(". (Join-Path $PSScriptRoot 'network.ps1')", proof)
+        self.assertIn('Test-PrivateIPv4 $workerIp', proof)
+        self.assertIn("'-m','runtime.llama.shared_trial'", proof)
+        self.assertIn("'--bundle',$bundle", proof)
+        self.assertIn("'--llama-server',$server", proof)
+        self.assertIn("'--model',$model", proof)
+        self.assertIn("'--worker-rpc',$worker", proof)
+        self.assertIn("'--output-dir',$output", proof)
+        self.assertIn('$trialArgs', proof)
+        self.assertNotIn('$args =', proof)
+        self.assertNotIn('0.0.0.0', proof)
+
+    def test_shared_worker_launcher_keeps_rpc_private_and_firewall_temporary(self):
+        cmd = self.read('SHARED-WORKER.cmd')
+        worker = self.read('shared-worker.ps1')
+        self.assertIn('shared-worker.ps1', cmd)
+        self.assertIn('Get-PrivateLanInfo', worker)
+        self.assertIn('-LocalAddress $info.IP', worker)
+        self.assertIn('-RemoteAddress LocalSubnet', worker)
+        self.assertIn('-Profile Private', worker)
+        self.assertIn('-Program $rpc', worker)
+        self.assertIn("-m runtime.llama.rpc_spike worker", worker)
+        self.assertIn('--bind $info.IP', worker)
+        self.assertIn('--port $port', worker)
+        self.assertIn('finally {', worker)
+        self.assertIn('Remove-NetFirewallRule', worker)
+        self.assertIn('$uacArgs', worker)
+        self.assertNotIn('$args =', worker)
+        self.assertNotIn('--bind 0.0.0.0', worker)
+
 
 if __name__ == '__main__':
     unittest.main()
