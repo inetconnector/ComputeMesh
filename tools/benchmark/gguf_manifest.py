@@ -5,6 +5,11 @@ The parser intentionally reads only the GGUF v3 header/metadata area needed for
 identity and placement bookkeeping. It never loads tensor data into memory.
 Model/license/partitioning facts that cannot be established from standardized
 GGUF metadata must be supplied explicitly instead of guessed.
+
+GGUF split metadata is recognized explicitly. ComputeMesh schema v1 does not
+yet encode shard identity/order strongly enough to represent a multi-file GGUF
+as one model artifact set, so this tool refuses to build a manifest from one
+shard of a multi-shard model rather than silently hashing only part of it.
 """
 from __future__ import annotations
 
@@ -86,6 +91,11 @@ GENERAL_KEYS = {
     "general.license.link",
     "general.file_type",
 }
+SPLIT_KEYS = {
+    "split.no",
+    "split.count",
+    "split.tensors.count",
+}
 
 
 class GGUFError(ValueError):
@@ -104,6 +114,9 @@ class GGUFInfo:
     license_id: str | None
     license_source: str | None
     file_type: int | None
+    split_no: int | None
+    split_count: int | None
+    split_tensors_count: int | None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -118,6 +131,9 @@ class GGUFInfo:
             "license_source": self.license_source,
             "file_type": self.file_type,
             "quantization": FILE_TYPE_NAMES.get(self.file_type),
+            "split_no": self.split_no,
+            "split_count": self.split_count,
+            "split_tensors_count": self.split_tensors_count,
         }
 
 
@@ -217,6 +233,42 @@ class _Reader:
         self.skip(entry[1])
 
 
+def _validate_split_metadata(
+    captured: dict[str, Any],
+    *,
+    tensor_count: int,
+) -> tuple[int | None, int | None, int | None]:
+    present = [key in captured for key in SPLIT_KEYS]
+    if any(present) and not all(present):
+        raise GGUFError(
+            "GGUF split metadata is incomplete; split.no, split.count, and split.tensors.count must appear together"
+        )
+    if not any(present):
+        return None, None, None
+
+    values: dict[str, int] = {}
+    for key in SPLIT_KEYS:
+        value = captured[key]
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise GGUFError(f"{key} must be an integer")
+        values[key] = int(value)
+
+    split_no = values["split.no"]
+    split_count = values["split.count"]
+    split_tensors_count = values["split.tensors.count"]
+    if not 1 <= split_count <= 65_535:
+        raise GGUFError("split.count must be between 1 and 65535")
+    if not 0 <= split_no < split_count:
+        raise GGUFError("split.no must be zero-based and smaller than split.count")
+    if split_tensors_count < 1:
+        raise GGUFError("split.tensors.count must be positive")
+    if tensor_count > split_tensors_count:
+        raise GGUFError("shard tensor_count cannot exceed split.tensors.count")
+    if split_count == 1 and tensor_count != split_tensors_count:
+        raise GGUFError("single-split GGUF tensor_count must equal split.tensors.count")
+    return split_no, split_count, split_tensors_count
+
+
 def inspect_gguf(path: Path) -> GGUFInfo:
     path = Path(path)
     try:
@@ -247,7 +299,7 @@ def inspect_gguf(path: Path) -> GGUFInfo:
             for _ in range(metadata_count):
                 key = reader.string(key=True)
                 value_type = reader.u32()
-                interesting = key in GENERAL_KEYS or key.endswith(".block_count")
+                interesting = key in GENERAL_KEYS or key in SPLIT_KEYS or key.endswith(".block_count")
                 if interesting:
                     value = reader.scalar(value_type)
                     if key.endswith(".block_count"):
@@ -262,12 +314,27 @@ def inspect_gguf(path: Path) -> GGUFInfo:
     except OSError as exc:
         raise GGUFError(f"cannot read GGUF file: {exc}") from exc
 
+    split_no, split_count, split_tensors_count = _validate_split_metadata(
+        captured,
+        tensor_count=tensor_count,
+    )
+
     architecture = captured.get("general.architecture")
     if not isinstance(architecture, str) or not re.fullmatch(r"[a-z0-9]+", architecture):
+        if split_no is not None and split_no > 0:
+            raise GGUFError(
+                f"GGUF split shard {split_no + 1}/{split_count} does not carry full model metadata; "
+                "inspect/build from the primary shard with split.no=0"
+            )
         raise GGUFError("GGUF is missing a valid general.architecture")
     block_key = f"{architecture}.block_count"
     block_count = block_counts.get(block_key)
     if block_count is None:
+        if split_no is not None and split_no > 0:
+            raise GGUFError(
+                f"GGUF split shard {split_no + 1}/{split_count} does not carry required {block_key}; "
+                "inspect/build from the primary shard with split.no=0"
+            )
         raise GGUFError(f"GGUF is missing required {block_key}")
     if not 2 <= block_count <= 100_000:
         raise GGUFError(f"{block_key} must be between 2 and 100000 for the M1 manifest")
@@ -295,6 +362,9 @@ def inspect_gguf(path: Path) -> GGUFInfo:
         license_id=optional_string("general.license"),
         license_source=optional_string("general.license.link"),
         file_type=int(file_type) if file_type is not None else None,
+        split_no=split_no,
+        split_count=split_count,
+        split_tensors_count=split_tensors_count,
     )
 
 
@@ -325,6 +395,13 @@ def build_manifest(
     runtime_min_version: str | None = None,
     redistribution_allowed: bool | None = None,
 ) -> dict[str, Any]:
+    if info.split_count is not None and info.split_count > 1:
+        raise GGUFError(
+            f"GGUF is split into {info.split_count} shards; refusing to build a schema-v1 manifest from only "
+            "one shard because its digest/size would not represent the complete model. Merge the shard set to "
+            "one GGUF before building a ComputeMesh manifest."
+        )
+
     resolved_model_id = (model_id or info.name or "").strip()
     resolved_model_version = (model_version or info.model_version or "").strip()
     resolved_license_id = (license_id or info.license_id or "").strip()
