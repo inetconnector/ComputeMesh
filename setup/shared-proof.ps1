@@ -82,10 +82,10 @@ try {
     $nodeRoot = Join-Path (Join-Path $RepoRoot 'artifacts\lab') $status.node_id
     $output = Join-Path $nodeRoot ($stamp + '-shared-proof')
 
-    $args = @('-m','runtime.llama.shared_trial','--bundle',$bundle,'--llama-server',$server,'--model',$model,'--worker-rpc',$worker,'--output-dir',$output)
-    if ($cli -and (Test-Path $cli -PathType Leaf)) { $args += @('--llama-cli',$cli) }
+    $trialArgs = @('-m','runtime.llama.shared_trial','--bundle',$bundle,'--llama-server',$server,'--model',$model,'--worker-rpc',$worker,'--output-dir',$output)
+    if ($cli -and (Test-Path $cli -PathType Leaf)) { $trialArgs += @('--llama-cli',$cli) }
     Push-Location $RepoRoot
-    try { & $python @args }
+    try { & $python @trialArgs }
     finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) {
         Write-Host ('Trial artifacts/failure record: ' + $output) -ForegroundColor Yellow
