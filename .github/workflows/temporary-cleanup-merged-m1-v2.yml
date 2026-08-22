@@ -1,0 +1,62 @@
+name: Temporary Verified M1 Cleanup
+
+on:
+  push:
+    branches: [maintenance/cleanup-merged-m1-v2]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old runs and merged maintenance refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SELF_BRANCH: maintenance/cleanup-merged-m1-v2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          merged_branches=(
+            "m1/evidence-binding"
+            "m1/gguf-manifest"
+            "m1/experiment-bundle"
+          )
+          obsolete_maintenance="maintenance/cleanup-m1-merged"
+
+          for branch in "${merged_branches[@]}"; do
+            while IFS= read -r run_id; do
+              [[ -n "$run_id" ]] || continue
+              gh run delete "$run_id" --repo "$REPO"
+            done < <(
+              gh run list --repo "$REPO" --branch "$branch" --limit 100 \
+                --json databaseId,status \
+                --jq '.[] | select(.status == "completed") | .databaseId'
+            )
+          done
+
+          delete_ref() {
+            local branch="$1"
+            local encoded
+            encoded="$(python - "$branch" <<'PY'
+          import sys
+          from urllib.parse import quote
+          print(quote(sys.argv[1], safe=""))
+          PY
+          )"
+            gh api --method DELETE "repos/${REPO}/git/refs/heads/${encoded}"
+          }
+
+          for branch in "${merged_branches[@]}"; do
+            delete_ref "$branch"
+          done
+          delete_ref "$obsolete_maintenance"
+
+          # Self-delete only after every prior cleanup command succeeded.
+          delete_ref "$SELF_BRANCH"
