@@ -32,7 +32,7 @@ This is the canonical engineering handoff. It records what is implemented, what 
 - fail-closed current experiment-evidence bundle landed through PR #8; `main` was `d461a2e7` before the current branch
 - bounded two-machine Lab evidence export/import + bundle launchers landed through PR #10; final cross-platform validation run `32553817653` passed
 - fail-closed M1 shared-run proof binding landed through PR #11; cross-platform validation run `32554426093` passed on the code/test state before documentation-only finalization
-- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation is pending before merge
+- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation run `32558221241` passed before final state bookkeeping/workflow removal
 
 ## What exists
 
@@ -338,6 +338,23 @@ PR #11 code/test state was validated by GitHub Actions run **`32554426093`** on 
 The 13 new shared-run proof tests cover the valid bound proof, recommendation/model/runtime mismatches, planner split and device-order binding, relay bypass/public-target rejection, unperturbed-first-proof constraints, bidirectional byte consistency, exact correctness, output-digest fallback, chronology, non-finite JSON, overwrite refusal and symlink rejection.
 
 This validation is still synthetic/software evidence. It does not substitute for the physical two-machine run. Documentation-only state/README updates and temporary-workflow removal follow the successful code/test run.
+
+## Cross-platform validation for the physical shared-trial runner
+
+PR #12 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32558221241`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.
+
+- benchmark/model tooling: **32/32**;
+- orchestrator: **34/34**;
+- protocol: **66/66**;
+- identity/integration: **13/13**;
+- scheduler placement + evidence bundle: **36/36**;
+- llama runtime + proof binding + shared-trial orchestration: **42/42**;
+- network runtime relay: **10/10**;
+- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.
+
+Windows additionally executed the real PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. Linux validation included Bash syntax for `SHARED-PROOF.sh` and `SHARED-WORKER.sh`, private-IP routing assertions, and temporary firewall cleanup invariants. Shared-trial tests cover current device-list parsing, exact model and freshness binding, server-vs-CLI RPC diagnosis, accelerator-coordinator fail-closed behavior, local-device continuity across RPC preflight, exact planner split propagation, correctness mismatch handling, and bounded failure evidence.
+
+This remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.
 
 ## Real target-machine evidence from 2026-08-21
 
