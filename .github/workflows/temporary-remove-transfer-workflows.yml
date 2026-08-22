@@ -1,0 +1,27 @@
+name: Temporary Remove Transfer Workflows
+
+on:
+  push:
+    branches: [m1/lab-evidence-transfer]
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/lab-evidence-transfer
+      - name: Remove temporary workflow files and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -f \
+            .github/workflows/temporary-lab-evidence-transfer-validation.yml \
+            .github/workflows/temporary-remove-transfer-workflows.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(ci): remove temporary transfer workflows'
+          git push origin HEAD:m1/lab-evidence-transfer
