@@ -1,0 +1,42 @@
+name: Temporary run shared-trial doc sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'm1/shared-trial-runner' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/shared-trial-runner
+          fetch-depth: 0
+      - name: Reuse the already-validated documentation patch and commit docs only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/temporary-shared-trial-docs.yml').read_text(encoding='utf-8')
+          start_marker = "          python - <<'PY'\n"
+          end_marker = "          PY\n"
+          if workflow.count(start_marker) != 1 or workflow.count(end_marker) != 1:
+              raise SystemExit('unable to locate documentation patch payload')
+          payload = workflow.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          Path('/tmp/shared_trial_docs_patch.py').write_text(textwrap.dedent(payload), encoding='utf-8')
+          PY
+          python /tmp/shared_trial_docs_patch.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md README.de.md setup/README.md setup/README.de.md runtime/llama/README.md state.md
+          git diff --cached --quiet && { echo 'No documentation changes produced'; exit 1; }
+          git commit -m 'docs: document one-command physical shared trial'
+          git push origin HEAD:m1/shared-trial-runner
