@@ -153,6 +153,16 @@ class SharedTrialTests(unittest.TestCase):
             with self.assertRaisesRegex(SharedTrialError, "older than"):
                 load_trial_plan(bundle_path, model, now=stale)
 
+    def test_load_trial_plan_rejects_cpu_coordinator_for_automated_split(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); model = root / "model.gguf"; model.write_bytes(b"abc")
+            value = valid_bundle_for_model(model)
+            value["placement_decision"]["nodes"]["coordinator"]["kind"] = "cpu"
+            value["placement_decision"]["nodes"]["coordinator"]["name"] = "Intel CPU"
+            bundle_path = root / "bundle.json"; bundle_path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(SharedTrialError, "accelerator-backed coordinator"):
+                load_trial_plan(bundle_path, model, now=NOW)
+
     def test_load_trial_plan_rejects_wrong_model_or_forced_nonshared_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); model = root / "model.gguf"; model.write_bytes(b"abc")
@@ -213,6 +223,27 @@ class SharedTrialTests(unittest.TestCase):
             self.assertEqual(captured_plans[1].tensor_split, (30.0, 10.0))
             self.assertEqual(captured_plans[1].rpc_endpoints[0].text(), "127.0.0.1:50053")
 
+    def test_runner_rejects_rpc_preflight_that_drops_selected_local_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); output = root / "trial"
+            server = root / "llama-server"; server.write_bytes(b"x")
+            model = root / "model.gguf"; model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="build 1"), \
+                 patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
+                 patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA1", "different local"), DeviceInfo("RPC0", "remote"))):
+                with self.assertRaisesRegex(SharedTrialError, "no longer exposes"):
+                    run_shared_trial(
+                        bundle_path=bundle_path,
+                        llama_server=server,
+                        model_path=model,
+                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
+                        output_dir=output,
+                    )
+            failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))
+            self.assertEqual(failure["phase"], "rpc_preflight")
+
     def test_runner_retains_bounded_failure_record_on_correctness_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); output = root / "trial"
@@ -228,7 +259,7 @@ class SharedTrialTests(unittest.TestCase):
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
                  patch("runtime.llama.shared_trial.runtime_version", return_value="build 1"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
-                 patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("RPC0", "remote"),)), \
+                 patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA0", "local"), DeviceInfo("RPC0", "remote"))), \
                  patch("runtime.llama.shared_trial.run_spike", side_effect=fake_spike), \
                  patch("runtime.llama.shared_trial.start_measurement_relay", return_value=relay), \
                  patch("runtime.llama.shared_trial.wait_relay_success"), \

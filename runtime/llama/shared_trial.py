@@ -170,6 +170,11 @@ def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None
     placement = bundle["placement_decision"]
     coordinator = placement["nodes"]["coordinator"]
     worker = placement["nodes"]["worker"]
+    if coordinator["kind"] == "cpu":
+        raise SharedTrialError(
+            "one-command shared trial currently requires an accelerator-backed coordinator; "
+            "local CPU + RPC tensor-split is not represented safely by this M1 runner"
+        )
     ranges = candidate["layer_ranges"]
     if len(ranges) != 2 or ranges[0]["node_id"] != coordinator["node_id"] or ranges[1]["node_id"] != worker["node_id"]:
         raise SharedTrialError("planner layer ranges are not ordered coordinator then worker")
@@ -504,6 +509,8 @@ def run_shared_trial(
     try:
         plan = load_trial_plan(bundle_path, model_path)
         phase = "runtime_version"
+        if llama_server.is_symlink() or not llama_server.is_file():
+            raise SharedTrialError("llama-server must be an existing non-symlink file")
         version = runtime_version(llama_server)
         if not version:
             raise SharedTrialError("llama-server version is empty")
@@ -514,6 +521,10 @@ def run_shared_trial(
 
         phase = "rpc_preflight"
         remote_listing = preflight_server_rpc(llama_server, worker_rpc, llama_cli=llama_cli)
+        if not any(device.name == selected_local for device in _local_devices(remote_listing)):
+            raise SharedTrialError(
+                "llama-server RPC preflight no longer exposes the selected coordinator device"
+            )
         selected_rpc = choose_rpc_device(remote_listing, rpc_device)
 
         phase = "baseline"
