@@ -199,6 +199,37 @@ class EvidenceTransferTests(unittest.TestCase):
         self.assertTrue((first.evidence_root / "inventory" / "node_profile.json").is_file())
         self.assertFalse((first.evidence_root / "model.gguf").exists())
 
+    def test_repeated_export_with_new_created_at_reuses_same_import_identity(self):
+        node_root = self.root / "lab-worker01"
+        write_node(node_root, "lab-worker01", gpu_memory=6_000_000_000)
+        first_archive = self.root / "first.zip"
+        second_archive = self.root / "second.zip"
+        first = transfer.export_node_evidence(
+            node_root=node_root,
+            node_id="lab-worker01",
+            profile_revision=3,
+            export_root=self.exports,
+            destination=first_archive,
+            now=datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc),
+        )
+        second = transfer.export_node_evidence(
+            node_root=node_root,
+            node_id="lab-worker01",
+            profile_revision=3,
+            export_root=self.exports,
+            destination=second_archive,
+            now=datetime(2026, 8, 22, 4, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(first.export_id, second.export_id)
+        imported_first = transfer.import_node_export(
+            archive_path=first.archive, import_root=self.imports
+        )
+        imported_second = transfer.import_node_export(
+            archive_path=second.archive, import_root=self.imports
+        )
+        self.assertEqual(imported_first.evidence_root, imported_second.evidence_root)
+        self.assertEqual(imported_first.export_id, imported_second.export_id)
+
     def test_import_rejects_modified_evidence_bytes(self):
         _, exported = self._export()
         tampered = self.root / "tampered.zip"
