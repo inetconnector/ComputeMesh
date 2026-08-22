@@ -1,0 +1,48 @@
+name: Temporary finalize shared-trial state
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.event.pull_request.head.ref == 'm1/shared-trial-runner' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/shared-trial-runner
+          fetch-depth: 0
+      - name: Record final cross-platform validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('state.md')
+          text = path.read_text(encoding='utf-8')
+
+          old = '- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation is pending before merge\n'
+          new = '- one-command physical shared-trial orchestration is implemented in PR #12; final cross-platform validation run `32558221241` passed before final state bookkeeping/workflow removal\n'
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one pending PR #12 state line')
+          text = text.replace(old, new, 1)
+
+          anchor = 'This validation is still synthetic/software evidence. It does not substitute for the physical two-machine run. Documentation-only state/README updates and temporary-workflow removal follow the successful code/test run.\n\n## Real target-machine evidence from 2026-08-21\n'
+          section = '''This validation is still synthetic/software evidence. It does not substitute for the physical two-machine run. Documentation-only state/README updates and temporary-workflow removal follow the successful code/test run.\n\n## Cross-platform validation for the physical shared-trial runner\n\nPR #12 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32558221241`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.\n\n- benchmark/model tooling: **32/32**;\n- orchestrator: **34/34**;\n- protocol: **66/66**;\n- identity/integration: **13/13**;\n- scheduler placement + evidence bundle: **36/36**;\n- llama runtime + proof binding + shared-trial orchestration: **42/42**;\n- network runtime relay: **10/10**;\n- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.\n\nWindows additionally executed the real PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. Linux validation included Bash syntax for `SHARED-PROOF.sh` and `SHARED-WORKER.sh`, private-IP routing assertions, and temporary firewall cleanup invariants. Shared-trial tests cover current device-list parsing, exact model and freshness binding, server-vs-CLI RPC diagnosis, accelerator-coordinator fail-closed behavior, local-device continuity across RPC preflight, exact planner split propagation, correctness mismatch handling, and bounded failure evidence.\n\nThis remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.\n\n## Real target-machine evidence from 2026-08-21\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit('expected exactly one shared-run validation anchor')
+          text = text.replace(anchor, section, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state.md
+          git diff --cached --quiet && { echo 'No state changes produced'; exit 1; }
+          git commit -m 'docs(state): record final shared-trial validation'
+          git push origin HEAD:m1/shared-trial-runner
