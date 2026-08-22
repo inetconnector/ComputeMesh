@@ -21,6 +21,10 @@ EVIDENCE_DIRECT = [
     REPO / "setup" / "EVIDENCE-EXPORT.sh",
     REPO / "setup" / "BUILD-BUNDLE.sh",
 ]
+SHARED_DIRECT = [
+    REPO / "setup" / "SHARED-WORKER.sh",
+    REPO / "setup" / "SHARED-PROOF.sh",
+]
 BASH = shutil.which("bash")
 
 
@@ -38,7 +42,15 @@ class LinuxSetupTests(unittest.TestCase):
 
     def test_shell_syntax(self):
         subprocess.run(
-            [BASH, "-n", str(SETUP), str(LINUX), *(str(x) for x in DIRECT), *(str(x) for x in EVIDENCE_DIRECT)],
+            [
+                BASH,
+                "-n",
+                str(SETUP),
+                str(LINUX),
+                *(str(x) for x in DIRECT),
+                *(str(x) for x in EVIDENCE_DIRECT),
+                *(str(x) for x in SHARED_DIRECT),
+            ],
             check=True,
         )
 
@@ -120,6 +132,32 @@ class LinuxSetupTests(unittest.TestCase):
         self.assertIn('source "$SETUP_DIR/linux.sh"', bundle_text)
         self.assertIn("import jsonschema", bundle_text)
         self.assertIn("invoke_lab bundle --peer-export", bundle_text)
+
+    def test_shared_proof_launcher_routes_only_private_worker_to_bound_runner(self):
+        text = (REPO / "setup" / "SHARED-PROOF.sh").read_text(encoding="utf-8")
+        self.assertIn('source "$SETUP_DIR/linux.sh"', text)
+        self.assertIn("is_private_ipv4 \"$worker_ip\"", text)
+        self.assertIn('-m runtime.llama.shared_trial', text)
+        self.assertIn('--bundle "$bundle"', text)
+        self.assertIn('--llama-server "$server"', text)
+        self.assertIn('--model "$model"', text)
+        self.assertIn('--worker-rpc "$worker"', text)
+        self.assertIn('--output-dir "$output"', text)
+        self.assertNotIn('0.0.0.0', text)
+
+    def test_shared_worker_launcher_scopes_firewall_and_cleans_it_up(self):
+        text = (REPO / "setup" / "SHARED-WORKER.sh").read_text(encoding="utf-8")
+        self.assertIn('source "$SETUP_DIR/linux.sh"', text)
+        self.assertIn('private_lan_info', text)
+        self.assertIn('source address=$network', text)
+        self.assertIn('destination address=$ip', text)
+        self.assertIn('ufw allow from "$network" to "$ip" port "$port"', text)
+        self.assertIn('ufw --force delete allow from "$network" to "$ip" port "$port"', text)
+        self.assertIn('trap cleanup_rpc_firewall EXIT INT TERM', text)
+        self.assertIn('-m runtime.llama.rpc_spike worker', text)
+        self.assertIn('--bind "$ip"', text)
+        self.assertIn('--port "$port"', text)
+        self.assertNotIn('--bind 0.0.0.0', text)
 
 
 if __name__ == "__main__":
