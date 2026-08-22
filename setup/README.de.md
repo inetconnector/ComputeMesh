@@ -24,17 +24,18 @@ Falls beim Herunterladen/Entpacken das Ausführungsbit verloren gegangen ist:
 bash setup.sh
 ```
 
-Beide Wege öffnen dasselbe Menü für Rechnerprofil, Netzwerk-Server/-Client, llama.cpp-Benchmark und Tests.
+Beide Wege öffnen dasselbe Menü für Rechnerprofil, Netzwerk-Server/-Client, llama.cpp-Benchmark und Tests. Für die aktuellen M1-Evidenztransfer-Schritte gibt es zusätzlich direkte Starter, die weiter unten beschrieben sind.
 
 ## Empfohlener Ablauf mit zwei Rechnern
 
-Die beiden Rechner dürfen Windows, Linux oder gemischt sein.
+Die beiden Rechner dürfen Windows, Linux oder gemischt sein. Für den aktuellen M1-Placement-Nachweis müssen beide Rechner **dieselbe vollständige GGUF-Datei** benchmarken. Nur dieselbe Modellfamilie reicht nicht: Der Bundle-Pfad prüft Modell-Basename und exakte Artefaktgröße; das Modellmanifest enthält zusätzlich den exakten GGUF-SHA-256 und die Layerzahl.
 
 Zuerst auf **beiden** Rechnern:
 
 1. Den jeweiligen Setup-Starter starten.
 2. **1 — Diesen Rechner vorbereiten** wählen.
 3. CPU-/GPU-/RAM-Kurzergebnis prüfen.
+4. Den llama.cpp-Benchmark mit derselben vollständigen GGUF-Datei auf beiden Rechnern ausführen.
 
 Jedes Setup besitzt eine zufällige Lab-Node-ID wie `lab-1a2b3c4d`. Sie wird nicht aus dem Hostnamen abgeleitet.
 
@@ -64,6 +65,73 @@ Der erzeugte Netzwerkdatensatz enthält die lokale Lab-Node-ID von A und bei ein
 
 Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemessen statt Symmetrie nur anzunehmen und die umgekehrte Local-/Peer-Zuordnung aufgezeichnet.
 
+## Worker-Evidenz übertragen und aktuelles Bundle bauen
+
+Für den aktuellen Placement-Bundle-Pfad müssen nicht mehr acht einzelne JSON-Dateien von Hand ausgewählt werden.
+
+Lege fest, welcher Rechner der **Coordinator (A)** und welcher der **Worker (B)** ist. Das Bundle verwendet den Netzwerkdatensatz Coordinator→Worker; A muss also bereits einen frischen A→B-Lauf mit den aktuellen eingebetteten Lab-IDs besitzen.
+
+### 1. Auf dem Worker exportieren
+
+Auf **Windows B** doppelklicken:
+
+```text
+setup\EVIDENCE-EXPORT.cmd
+```
+
+Auf **Linux B**:
+
+```bash
+bash setup/EVIDENCE-EXPORT.sh
+```
+
+Das Ergebnis ist eine ZIP-Datei unter `artifacts/lab/exports/`. Diese ZIP-Datei auf einem beliebigen vertrauenswürdigen lokalen Weg auf Rechner A kopieren.
+
+Die ZIP-Datei enthält bewusst nur erkannte Lab-Profil-/Benchmark-JSON-Evidenz. Sie enthält **nicht**:
+
+- das GGUF-Modell;
+- llama.cpp-Binaries;
+- `artifacts/lab/config.json` oder gemerkte lokale Pfade;
+- beliebige andere Dateien aus dem Node-Verzeichnis.
+
+Jede exportierte Evidenzdatei wird in `computemesh-lab-export.json` über einen relativen plattformübergreifend sicheren Pfad, die exakte Bytegröße und SHA-256 gebunden. Quell-mtimes und absolute Quell-Dateisystempfade werden nicht ins Exportmanifest übernommen.
+
+### 2. Modellmanifest aus exakt dieser GGUF erzeugen
+
+Auf dem Coordinator das ComputeMesh-Modellmanifest aus genau derselben vollständigen GGUF-Datei erzeugen, die beide llama-bench-Läufe verwendet haben. Dafür `tools/benchmark/gguf_manifest.py` verwenden. Das Manifest muss die aus dem Artefakt abgeleitete `layer_count`, exakte Größe und SHA-256 enthalten. Liegt das Modell noch als llama.cpp-Mehrdatei-Split vor, zuerst den vollständigen Shard-Satz zusammenführen; Schema-v1-Bundle-Erzeugung behandelt einen einzelnen Shard nicht als Gesamtmodell.
+
+### 3. Auf dem Coordinator bündeln
+
+Auf **Windows A** doppelklicken:
+
+```text
+setup\BUILD-BUNDLE.cmd
+```
+
+Im Dateidialog die kopierte Worker-ZIP und das Modellmanifest-JSON auswählen.
+
+Auf **Linux A**:
+
+```bash
+bash setup/BUILD-BUNDLE.sh
+```
+
+Die kopierte Worker-ZIP und das Modellmanifest-JSON eingeben/auswählen.
+
+Der Coordinator führt dann automatisch aus:
+
+1. ZIP-Manifest und exakte Member-Menge prüfen;
+2. ZIP-Pfadtraversal, Symlink-/verschlüsselte Einträge, Datei-/Byte-Limitüberschreitungen, Größenkonflikte und SHA-256-Konflikte ablehnen;
+3. erst nach erfolgreicher Prüfung nach `artifacts/lab/imports/<peer-node>/<export-id>/` extrahieren, zunächst in ein temporäres Verzeichnis und dann per atomarem Rename;
+4. bei erneutem Import einen bereits vorhandenen Export vollständig erneut prüfen statt bestehende Dateien still zu vertrauen;
+5. diese Peer-Evidenz mit der aktuellen lokalen Coordinator-Evidenz und dem Modellmanifest kombinieren;
+6. den fail-closed aktuellen Evidenzselektor und Placement-Planer ausführen;
+7. `experiment_bundle.json` in ein neues `*-bundle`-Run-Verzeichnis des Coordinators schreiben.
+
+Sind aktuelle Evidenzen mehrdeutig, stale, aus der falschen Netzwerkrichtung, aus nicht passenden Profilrevisionen/Modellgrößen oder würden sie die alten caller-asserted Peer-/Layer-Fallbacks benötigen, bricht die Bundle-Erzeugung ab statt zu raten.
+
+Die ZIP-Hashes schützen Übertragungs-/Kopierintegrität und Reproduzierbarkeit. Sie authentifizieren **nicht**, wer die Evidenz erzeugt hat, und sind keine Hardware-Attestation.
+
 ## Verhalten unter Windows
 
 - Deutsch/Englisch aus Windows erkennen;
@@ -73,9 +141,11 @@ Danach die Rollen einmal tauschen. Damit wird die Richtungsabhängigkeit gemesse
 - die aktuelle zufällige Lab-Node-ID in den Netzwerk-Server-/Client-Evidenzpfad geben;
 - TCP 43191 nur vorübergehend für Windows `Private` + `LocalSubnet` öffnen und die Regel nach dem einmaligen Test entfernen;
 - Windows-Dateidialoge für `llama-bench.exe` und GGUF anbieten;
-- den vom Setup ausgewählten offiziellen Windows-llama.cpp-Build herunterladen können.
+- den vom Setup ausgewählten offiziellen Windows-llama.cpp-Build herunterladen können;
+- Evidenzexport/-import ausschließlich mit Standardbibliothek-ZIP-/Hash-Funktionen durchführen;
+- die kleine `jsonschema`-Abhängigkeit nur dann in die lokale `.venv` installieren, wenn der Bundle-Schritt sie benötigt und sie noch nicht vorhanden ist.
 
-Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `TESTS.cmd`.
+Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.
 
 ## Verhalten unter Linux
 
@@ -92,9 +162,10 @@ Direkte Windows-Starter: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`,
 - offizielle Ubuntu-x64-/arm64-CPU-/Vulkan-Assets und x64-ROCm-Assets dynamisch auswählen;
 - einen von GitHub gelieferten `sha256:`-Digest prüfen, sofern vorhanden;
 - die heruntergeladene Binary mit lokalem `LD_LIBRARY_PATH`-Wrapper starten und nur akzeptieren, wenn `llama-bench --help` erfolgreich startet;
-- auf Desktops `zenity` zur GGUF-Auswahl verwenden, wenn vorhanden, sonst den Pfad im Terminal mit Shell-Vervollständigung abfragen.
+- auf Desktops `zenity` zur GGUF-Auswahl verwenden, wenn vorhanden, sonst den Pfad im Terminal mit Shell-Vervollständigung abfragen;
+- denselben isolierten Python-Bootstrap für Evidenzexport-/Bundle-Starter wiederverwenden.
 
-Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.
+Direkte Linux-Starter: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. Für die neu erzeugten Transferskripte funktioniert `bash setup/EVIDENCE-EXPORT.sh` bzw. `bash setup/BUILD-BUNDLE.sh` auch dann zuverlässig, wenn Download/Archiv das Ausführungsbit nicht erhalten hat.
 
 Die automatisch geladenen offiziellen Linux-Pakete sind Ubuntu-Binaries. Auf kompatiblen glibc-Distributionen funktionieren sie häufig, aber das Setup verlässt sich nicht darauf: Startet die Binary nicht, wird sie verworfen und du kannst ein distributionspassendes oder selbst gebautes `llama-bench` angeben. Auf musl-Systemen wie Alpine ist ein vorhandener kompatibler Build für llama.cpp der sicherere Weg.
 
@@ -105,25 +176,27 @@ Auf jedem relevanten Rechner:
 1. Setup starten.
 2. **4 — llama.cpp Prefill/Decode** wählen.
 3. Automatischen offiziellen Download oder vorhandenes `llama-bench` auswählen.
-4. Lokale `.gguf`-Modelldatei auswählen/angeben.
+4. Auf beiden Experimentrechnern dieselbe **vollständige lokale `.gguf`-Modelldatei** auswählen/angeben.
 5. Prefill Tokens/s, Decode Tokens/s und ms/Token ablesen.
 
-Modellgewichte werden **niemals automatisch heruntergeladen**.
+Modellgewichte werden **niemals automatisch heruntergeladen** und vom Evidenzexport nicht kopiert.
 
 ## Lokale Dateien
 
 Alles vom Setup Erzeugte bleibt lokal und wird bereits von Git ignoriert:
 
 ```text
-.venv/                           # isolierte Python-Umgebung
-artifacts/lab/config.json        # lokale Node-ID/Revision + gemerkte Pfade
-artifacts/lab/<node>/<run>/      # Benchmark-Ergebnisse
-artifacts/lab/runtime/llama.cpp/ # optionale Upstream-llama.cpp-Downloads
+.venv/                                         # isolierte Python-Umgebung
+artifacts/lab/config.json                      # lokale Node-ID/Revision + gemerkte Pfade
+artifacts/lab/<node>/<run>/                    # Benchmark-Ergebnisse und Bundle-Runs
+artifacts/lab/runtime/llama.cpp/               # optionale Upstream-llama.cpp-Downloads
+artifacts/lab/exports/<lab-export-...>.zip     # begrenzte übertragbare Evidenz-ZIP
+artifacts/lab/imports/<peer>/<export-id>/      # verifizierter Peer-Evidenzimport
 ```
 
 Die Lab-Node-ID ist zufällig (`lab-xxxxxxxx`) und verwendet nicht den Hostnamen.
 
-## Netzwerksicherheit
+## Netzwerk- und Evidenztransfer-Sicherheit
 
 Das zugrunde liegende Benchmark-Protokoll besitzt keine Authentifizierung oder Verschlüsselung. Beide assistierten Server:
 
@@ -134,17 +207,21 @@ Das zugrunde liegende Benchmark-Protokoll besitzt keine Authentifizierung oder V
 
 Der optionale Austausch der Lab-Node-ID ändert diese Sicherheitsgrenze **nicht**. Eine Gegenseite kann irgendeine Lab-ID selbst melden, weil die Benchmark-Verbindung nicht authentifiziert ist. Für echte authentifizierte Node-Identity besitzt ComputeMesh einen separaten engen M1-Ed25519-/Session-Referenzpfad; dieser authentifiziert den Benchmark-Socket nicht.
 
-Den Benchmark-Server niemals öffentlich ins Internet stellen.
+Die Evidenz-ZIP ist ein lokaler Transfercontainer und kein Trust Envelope. Dateihashes erkennen veränderte/beschädigte Kopien, signieren aber nicht den Erzeuger, authentifizieren keinen Node und attestieren keine Hardware. Auch der Import gehört deshalb ausschließlich in den kontrollierten Trusted-Lab-Ablauf.
+
+Benchmark-Server und Upstream-llama.cpp-RPC-Worker niemals öffentlich ins Internet stellen.
 
 ## Teststand
 
 Die vollständige Setup-Testaktion führt Benchmark-, Orchestrator-, Protocol-, Identity-, Scheduler-, llama-Runtime-, Network-Runtime- und Setup-Suites aus. Die aktuellen plattformübergreifenden Testzahlen und der exakte letzte Validierungslauf stehen in `state.md`.
 
-Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab.
+Die Linux-Schicht deckt zusätzlich Bash-Syntax, den Root-Einstieg `setup.sh`, private/öffentliche IPv4-Filterung, aktuelle llama.cpp-CPU-/Vulkan-/ROCm-/ARM64-Assetnamenauswahl, Private-Bind-/temporäre-Firewall-Invarianten und das Routing der direkten Linux-Starter ab. Die Windows-Validierung lässt das neue Evidenz-PowerShell-Skript zusätzlich vom echten Windows-PowerShell-Parser parsen.
 
-Die neuen Evidenzbindungs-Tests prüfen außerdem, dass das Setup seine eigene Lab-Node-ID an beide Netzwerkrollen weitergibt, aktuelle Benchmark-Peers eine begrenzte ID selbst melden können und Peer-Konflikte nicht stillschweigend akzeptiert werden.
+Die Evidenztransfer-Abdeckung umfasst Ausschluss beliebiger/GGUF-Dateien, pfadfreie Exportmanifeste, Profilrevisionsbindung, hash-verifizierte idempotente Roundtrips, Ablehnung veränderter Inhalte, ZIP-Symlink-/Traversal-Ablehnung, Erkennung manipulierter vorhandener Imports, abhängigkeitssparsamen `lab.py`-Start mit `python -S` und einen vollständigen synthetischen Worker-Export→Coordinator-Bundle-Roundtrip.
 
-Bis ein frischer Zwei-Rechner-Lauf in einem vertrauenswürdigen privaten LAN gespeichert ist, bleibt dies Software-/Loopback-Evidenz.
+Die Evidenzbindungs-Tests prüfen außerdem, dass das Setup seine eigene Lab-Node-ID an beide Netzwerkrollen weitergibt, aktuelle Benchmark-Peers eine begrenzte ID selbst melden können und Peer-Konflikte nicht stillschweigend akzeptiert werden.
+
+Bis ein frischer Zwei-Rechner-Lauf in einem vertrauenswürdigen privaten LAN mit einer identischen vollständigen GGUF-Datei gespeichert ist, bleibt dies Software-/Loopback-/synthetische Evidenz.
 
 Zusätzliche echte Zielsystem-Evidenz existiert seit dem 21.08.2026:
 
@@ -153,8 +230,18 @@ Zusätzliche echte Zielsystem-Evidenz existiert seit dem 21.08.2026:
 - Windows -> Linux-Internet-TCP-Benchmark mit temporärer, quell-IP-begrenzter Firewallregel.
 - Echte llama.cpp-Läufe auf Windows CUDA mit einem 7B-Q4-GGUF und auf Linux CPU mit einem 0.5B-Q4-GGUF.
 
-Der Internet-Benchmark stammt noch vor dem gebundenen Peer-ID-Pfad und ist weder ein Trusted-Private-LAN-Nachweis noch ein Shared-Inference-Ergebnis.
+Diese beiden historischen llama.cpp-Läufe verwendeten unterschiedliche GGUFs und können deshalb nicht zum neuen aktuellen Evidenzbundle zusammengesetzt werden. Auch der Internet-Benchmark stammt noch vor dem gebundenen Peer-ID-Pfad und ist weder ein Trusted-Private-LAN-Nachweis noch ein Shared-Inference-Ergebnis.
 
 ## Engineering-/manuelle Befehle
+
+Fortgeschrittene Nutzer können den neuen Transferpfad direkt aufrufen:
+
+```bash
+python setup/lab.py export
+python setup/lab.py import --archive /pfad/zum/peer.zip
+python setup/lab.py bundle --peer-export /pfad/zum/peer.zip --model-manifest /pfad/zum/model_manifest.json
+```
+
+Der direkte Bundle-Befehl unterstützt bei mehreren ansonsten gültigen aktuellen Kandidaten zusätzlich explizite Evidenzselektoren (`--artifact-digest`, `--benchmark-model-name`, `--network-run-id`). Diese Selektoren wählen Evidenz aus; sie aktivieren die alten caller-asserted Peer-/Layer-Fallbacks **nicht** wieder.
 
 Fortgeschrittene Nutzer können weiterhin die Werkzeuge unter `tools/benchmark/` direkt aufrufen. Diese CLIs bleiben die kanonische Engineering-Schicht; die Setup-Starter sind die einfachere Benutzeroberfläche darüber.
