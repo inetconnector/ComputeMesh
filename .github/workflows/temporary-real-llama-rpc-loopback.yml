@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   real-rpc-loopback:
@@ -166,6 +166,67 @@ jobs:
           print('relay bytes w2c:', relay['bytes']['worker_to_coordinator'])
           print('relay termination:', json.dumps(relay['termination'], sort_keys=True))
           PY
+
+      - name: Persist bounded result on temporary branch
+        if: always() && github.event_name == 'push'
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          out = Path('/tmp/cm-real/out')
+          def load_json(rel):
+              path = out / rel
+              if not path.is_file():
+                  return None
+              try:
+                  return json.loads(path.read_text(encoding='utf-8'))
+              except Exception as exc:
+                  return {'read_error': type(exc).__name__}
+          def load_text(rel, limit=8192):
+              path = out / rel
+              if not path.is_file():
+                  return None
+              return path.read_text(encoding='utf-8', errors='replace')[:limit]
+
+          doc = {
+              'schema_version': 1,
+              'job_status': os.environ.get('JOB_STATUS', 'unknown'),
+              'llama_tag': os.environ.get('LLAMA_TAG'),
+              'llama_asset': os.environ.get('LLAMA_ASSET'),
+              'model': {
+                  'basename': 'SmolLM2-135M-Instruct-Q4_K_M.gguf',
+                  'sha256': 'ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747',
+              },
+              'llama_version': load_text('llama-version.txt', 4096),
+              'local_devices': load_text('local-devices.txt', 8192),
+              'rpc_devices': load_text('rpc-devices.txt', 8192),
+              'discover': load_text('discover.txt', 8192),
+              'baseline': load_json('baseline/runtime_spike_result.json'),
+              'baseline_failure': load_json('baseline/runtime_spike_failure.json'),
+              'shared': load_json('shared/runtime_spike_result.json'),
+              'shared_failure': load_json('shared/runtime_spike_failure.json'),
+              'relay': load_json('relay.json'),
+              'comparison': load_json('comparison.json'),
+              'relay_log': load_text('relay.log', 8192),
+              'rpc_server_log': load_text('rpc-server.log', 8192),
+          }
+          Path('temporary-real-rpc-loopback-result.json').write_text(
+              json.dumps(doc, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add temporary-real-rpc-loopback-result.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'test: persist real llama.cpp RPC loopback result'
+          git push origin HEAD:test/real-llama-rpc-loopback
 
       - name: Upload bounded test evidence
         if: always()
