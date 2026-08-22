@@ -1,0 +1,207 @@
+name: Temporary runtime build binding patch
+
+on:
+  push:
+    branches: [m1/runtime-build-binding]
+    paths:
+      - .github/workflows/temporary-runtime-build-binding.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/runtime-build-binding
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Apply runtime build binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one anchor, found {count}: {old[:120]!r}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # services/scheduler/evidence_bundle.py
+          replace_once('services/scheduler/evidence_bundle.py', 'import json\nfrom pathlib import Path', 'import json\nfrom pathlib import Path\nimport re')
+          anchor = '''def _select_network(\n'''
+          helper = '''def _selected_llama_build_identity(selected: SelectedEvidence) -> tuple[str, int]:\n    records = (\n        ("coordinator prefill", selected.coordinator.prefill),\n        ("coordinator decode", selected.coordinator.decode),\n        ("worker prefill", selected.worker.prefill),\n        ("worker decode", selected.worker.decode),\n    )\n    identities: dict[str, tuple[str, int]] = {}\n    for label, document in records:\n        metrics = document.value.get("metrics", {})\n        commit = metrics.get("llama_build_commit")\n        number = metrics.get("llama_build_number")\n        if not isinstance(commit, str) or re.fullmatch(r"[0-9a-fA-F]{7,40}", commit) is None:\n            raise EvidenceBundleError(\n                f"{label} must carry a concrete hexadecimal llama_build_commit from llama-bench"\n            )\n        if isinstance(number, bool) or not isinstance(number, int) or number < 1:\n            raise EvidenceBundleError(\n                f"{label} must carry a positive integer llama_build_number from llama-bench"\n            )\n        identities[label] = (commit.lower(), number)\n    unique = set(identities.values())\n    if len(unique) != 1:\n        detail = ", ".join(\n            f"{label}={commit}/{number}" for label, (commit, number) in identities.items()\n        )\n        raise EvidenceBundleError(\n            "selected llama-bench evidence must use one identical llama.cpp build on both nodes: " + detail\n        )\n    commit, number = next(iter(unique))\n    return commit, number\n\n\n'''
+          replace_once('services/scheduler/evidence_bundle.py', anchor, helper + anchor)
+          replace_once(
+              'services/scheduler/evidence_bundle.py',
+              '    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)\n    decision = build_placement_decision(',
+              '    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)\n    llama_build_commit, llama_build_number = _selected_llama_build_identity(selected)\n    decision = build_placement_decision(',
+          )
+          replace_once(
+              'services/scheduler/evidence_bundle.py',
+              '        "benchmark_model_name": selected.benchmark_model_name,\n        "sources": sources,',
+              '        "benchmark_model_name": selected.benchmark_model_name,\n        "runtime_build": {\n            "runtime": "llama.cpp",\n            "llama_build_commit": llama_build_commit,\n            "llama_build_number": llama_build_number,\n            "binding": "selected_llama_bench_v1",\n        },\n        "sources": sources,',
+          )
+
+          # services/scheduler/experiment_bundle.schema.json
+          replace_once(
+              'services/scheduler/experiment_bundle.schema.json',
+              '    "benchmark_model_name",\n    "sources",',
+              '    "benchmark_model_name",\n    "runtime_build",\n    "sources",',
+          )
+          replace_once(
+              'services/scheduler/experiment_bundle.schema.json',
+              '    "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},\n    "sources": {',
+              '    "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},\n    "runtime_build": {\n      "type": "object",\n      "additionalProperties": false,\n      "required": ["runtime", "llama_build_commit", "llama_build_number", "binding"],\n      "properties": {\n        "runtime": {"const": "llama.cpp"},\n        "llama_build_commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},\n        "llama_build_number": {"type": "integer", "minimum": 1},\n        "binding": {"const": "selected_llama_bench_v1"}\n      }\n    },\n    "sources": {',
+          )
+
+          # runtime/llama/rpc_spike.py
+          replace_once('runtime/llama/rpc_spike.py', 'import json\nfrom pathlib import Path', 'import json\nfrom pathlib import Path\nimport re')
+          spike_anchor = '''@dataclass(frozen=True)\nclass SpikePlan:\n'''
+          spike_helper = '''@dataclass(frozen=True)\nclass LlamaBuildIdentity:\n    build_number: int\n    commit: str\n\n\n_RUNTIME_BUILD_RE = re.compile(\n    r"(?im)^\\s*version:\\s*(\\d+)\\s+\\(\\s*`?([0-9a-fA-F]{7,40})`?\\s*\\)"\n)\n\n\ndef parse_runtime_build_identity(text: str) -> LlamaBuildIdentity:\n    if not isinstance(text, str) or not text.strip():\n        raise RpcSpikeError("llama.cpp --version output is empty")\n    if len(text.encode("utf-8", errors="replace")) > 4096:\n        raise RpcSpikeError("llama.cpp --version output exceeded 4096 bytes")\n    match = _RUNTIME_BUILD_RE.search(text)\n    if match is None:\n        raise RpcSpikeError("llama.cpp --version output lacks a concrete build number/commit")\n    number = int(match.group(1))\n    if number < 1:\n        raise RpcSpikeError("llama.cpp build number must be positive")\n    return LlamaBuildIdentity(build_number=number, commit=match.group(2).lower())\n\n\ndef runtime_build_matches(\n    actual: LlamaBuildIdentity, *, expected_number: int, expected_commit: str\n) -> bool:\n    if actual.build_number != expected_number:\n        return False\n    expected = expected_commit.lower()\n    if re.fullmatch(r"[0-9a-f]{7,40}", expected) is None:\n        return False\n    return actual.commit == expected or actual.commit.startswith(expected) or expected.startswith(actual.commit)\n\n\n'''
+          replace_once('runtime/llama/rpc_spike.py', spike_anchor, spike_helper + spike_anchor)
+
+          # runtime/llama/shared_trial.py
+          replace_once(
+              'runtime/llama/shared_trial.py',
+              '    compare_results,\n    run_spike,\n    runtime_version,\n    sha256_file,',
+              '    compare_results,\n    parse_runtime_build_identity,\n    run_spike,\n    runtime_build_matches,\n    runtime_version,\n    sha256_file,',
+          )
+          replace_once(
+              'runtime/llama/shared_trial.py',
+              '    coordinator_kind: str\n    coordinator_name: str\n    model_basename: str',
+              '    coordinator_kind: str\n    coordinator_name: str\n    llama_build_commit: str\n    llama_build_number: int\n    model_basename: str',
+          )
+          replace_once(
+              'runtime/llama/shared_trial.py',
+              '    return TrialPlan(\n        bundle_id=bundle["bundle_id"],',
+              '    runtime_build = bundle["runtime_build"]\n    return TrialPlan(\n        bundle_id=bundle["bundle_id"],',
+          )
+          replace_once(
+              'runtime/llama/shared_trial.py',
+              '        coordinator_kind=coordinator["kind"],\n        coordinator_name=coordinator["name"],\n        model_basename=model_path.name,',
+              '        coordinator_kind=coordinator["kind"],\n        coordinator_name=coordinator["name"],\n        llama_build_commit=runtime_build["llama_build_commit"],\n        llama_build_number=int(runtime_build["llama_build_number"]),\n        model_basename=model_path.name,',
+          )
+          replace_once(
+              'runtime/llama/shared_trial.py',
+              '        version = runtime_version(llama_server)\n        if not version:\n            raise SharedTrialError("llama-server version is empty")\n\n        phase = "local_device_discovery"',
+              '        version = runtime_version(llama_server)\n        if not version:\n            raise SharedTrialError("llama-server version is empty")\n        phase = "runtime_build_binding"\n        current_build = parse_runtime_build_identity(version)\n        if not runtime_build_matches(\n            current_build,\n            expected_number=plan.llama_build_number,\n            expected_commit=plan.llama_build_commit,\n        ):\n            raise SharedTrialError(\n                "current llama-server build does not match the build bound by the selected two-node llama-bench evidence "\n                f"(expected {plan.llama_build_number}/{plan.llama_build_commit}, "\n                f"got {current_build.build_number}/{current_build.commit})"\n            )\n\n        phase = "local_device_discovery"',
+          )
+
+          # runtime/llama/shared_run_evidence.py
+          replace_once(
+              'runtime/llama/shared_run_evidence.py',
+              'from runtime.llama.rpc_spike import RpcEndpoint',
+              'from runtime.llama.rpc_spike import (\n    RpcEndpoint,\n    RpcSpikeError,\n    parse_runtime_build_identity,\n    runtime_build_matches,\n)',
+          )
+          replace_once(
+              'runtime/llama/shared_run_evidence.py',
+              '    if baseline["runtime"] != shared["runtime"]:\n        raise SharedRunEvidenceError("baseline and shared run must use the same llama.cpp runtime version")\n    if baseline["correctness"]["prompt_sha256"] != shared["correctness"]["prompt_sha256"]:',
+              '    if baseline["runtime"] != shared["runtime"]:\n        raise SharedRunEvidenceError("baseline and shared run must use the same llama.cpp runtime version")\n    expected_build = bundle["runtime_build"]\n    try:\n        actual_build = parse_runtime_build_identity(baseline["runtime"]["version"])\n    except RpcSpikeError as exc:\n        raise SharedRunEvidenceError("runtime version cannot be bound to the experiment-bundle llama.cpp build") from exc\n    if not runtime_build_matches(\n        actual_build,\n        expected_number=int(expected_build["llama_build_number"]),\n        expected_commit=expected_build["llama_build_commit"],\n    ):\n        raise SharedRunEvidenceError(\n            "baseline/shared runtime build does not match the experiment-bundle llama-bench build"\n        )\n    if baseline["correctness"]["prompt_sha256"] != shared["correctness"]["prompt_sha256"]:',
+          )
+
+          # services/scheduler/tests/test_evidence_bundle.py
+          replace_once(
+              'services/scheduler/tests/test_evidence_bundle.py',
+              'def bench(name, run_id, revision=3, *, captured="2026-08-22T03:10:00Z", model_name="model.gguf", size=MODEL_SIZE, tps=100.0, local=None, peer=None):',
+              'def bench(name, run_id, revision=3, *, captured="2026-08-22T03:10:00Z", model_name="model.gguf", size=MODEL_SIZE, tps=100.0, local=None, peer=None, build_commit="abcdef0", build_number=999):',
+          )
+          replace_once(
+              'services/scheduler/tests/test_evidence_bundle.py',
+              '            "prompt_tokens": 512,\n        }',
+              '            "prompt_tokens": 512,\n            "llama_build_commit": build_commit,\n            "llama_build_number": build_number,\n        }',
+          )
+          replace_once(
+              'services/scheduler/tests/test_evidence_bundle.py',
+              '            "generated_tokens": 128,\n        }',
+              '            "generated_tokens": 128,\n            "llama_build_commit": build_commit,\n            "llama_build_number": build_number,\n        }',
+          )
+          replace_once(
+              'services/scheduler/tests/test_evidence_bundle.py',
+              '        self.assertEqual(bundle["benchmark_model_name"], "model.gguf")\n',
+              '        self.assertEqual(bundle["benchmark_model_name"], "model.gguf")\n        self.assertEqual(\n            bundle["runtime_build"],\n            {\n                "runtime": "llama.cpp",\n                "llama_build_commit": "abcdef0",\n                "llama_build_number": 999,\n                "binding": "selected_llama_bench_v1",\n            },\n        )\n',
+          )
+          test_anchor = '''    def test_bundle_id_is_deterministic_for_same_sources(self):\n'''
+          test_new = '''    def test_selected_llama_build_must_match_on_both_nodes(self):\n        write_json(\n            self.worker / "llama" / "benchmark-wd.json",\n            bench("llama_cpp_decode", "wd", tps=35.0, build_commit="deadbee"),\n        )\n        with self.assertRaisesRegex(EvidenceBundleError, "one identical llama.cpp build"):\n            build_experiment_bundle(self.select(), now=NOW)\n\n    def test_selected_llama_build_requires_concrete_commit_and_number(self):\n        bad = bench("llama_cpp_prefill", "wp", tps=120.0)\n        bad["metrics"].pop("llama_build_commit")\n        write_json(self.worker / "llama" / "benchmark-wp.json", bad)\n        with self.assertRaisesRegex(EvidenceBundleError, "concrete hexadecimal llama_build_commit"):\n            build_experiment_bundle(self.select(), now=NOW)\n\n'''
+          replace_once('services/scheduler/tests/test_evidence_bundle.py', test_anchor, test_new + test_anchor)
+
+          # setup/tests/test_evidence_transfer.py
+          replace_once(
+              'setup/tests/test_evidence_transfer.py',
+              '            "prompt_tokens": 512,\n        }',
+              '            "prompt_tokens": 512,\n            "llama_build_commit": "abcdef0",\n            "llama_build_number": 999,\n        }',
+          )
+          replace_once(
+              'setup/tests/test_evidence_transfer.py',
+              '            "inter_token_ms_avg": 1000.0 / tps,\n        }',
+              '            "inter_token_ms_avg": 1000.0 / tps,\n            "llama_build_commit": "abcdef0",\n            "llama_build_number": 999,\n        }',
+          )
+          replace_once(
+              'setup/tests/test_evidence_transfer.py',
+              '        self.assertEqual(bundle["placement_decision"]["model"]["layer_count_source"], "model_manifest_v1")\n',
+              '        self.assertEqual(bundle["placement_decision"]["model"]["layer_count_source"], "model_manifest_v1")\n        self.assertEqual(bundle["runtime_build"]["llama_build_commit"], "abcdef0")\n        self.assertEqual(bundle["runtime_build"]["llama_build_number"], 999)\n',
+          )
+
+          # runtime/llama/tests/test_shared_run_evidence.py
+          replace_once(
+              'runtime/llama/tests/test_shared_run_evidence.py',
+              '        "benchmark_model_name": "model.gguf",\n        "sources": {',
+              '        "benchmark_model_name": "model.gguf",\n        "runtime_build": {\n            "runtime": "llama.cpp",\n            "llama_build_commit": "abcdef0",\n            "llama_build_number": 999,\n            "binding": "selected_llama_bench_v1",\n        },\n        "sources": {',
+          )
+          replace_once(
+              'runtime/llama/tests/test_shared_run_evidence.py',
+              '        "runtime": {"name": "llama.cpp", "version": "build 999"},',
+              '        "runtime": {"name": "llama.cpp", "version": "version: 999 (`abcdef0`)\\nbuilt with test"},',
+          )
+
+          # runtime/llama/tests/test_shared_trial.py
+          replace_once(
+              'runtime/llama/tests/test_shared_trial.py',
+              '        coordinator_kind=kind,\n        coordinator_name=name,\n        model_basename="model.gguf",',
+              '        coordinator_kind=kind,\n        coordinator_name=name,\n        llama_build_commit="abcdef0",\n        llama_build_number=999,\n        model_basename="model.gguf",',
+          )
+          text_path = Path('runtime/llama/tests/test_shared_trial.py')
+          text = text_path.read_text(encoding='utf-8')
+          old = 'patch("runtime.llama.shared_trial.runtime_version", return_value="build 1")'
+          count = text.count(old)
+          if count < 1:
+              raise SystemExit('test_shared_trial.py: expected runtime_version mock anchors')
+          text = text.replace(old, 'patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\\nbuilt with test")')
+          text_path.write_text(text, encoding='utf-8')
+          replace_once(
+              'runtime/llama/tests/test_shared_trial.py',
+              '            self.assertEqual(loaded.tensor_split, (30.0, 10.0))\n',
+              '            self.assertEqual(loaded.tensor_split, (30.0, 10.0))\n            self.assertEqual(loaded.llama_build_commit, "abcdef0")\n            self.assertEqual(loaded.llama_build_number, 999)\n',
+          )
+          runner_anchor = '''    def test_runner_rejects_rpc_preflight_that_drops_selected_local_device(self):\n'''
+          runner_test = '''    def test_runner_rejects_current_server_from_different_bound_build(self):\n        with tempfile.TemporaryDirectory() as tmp:\n            root = Path(tmp); output = root / "trial"\n            server = root / "llama-server"; server.write_bytes(b"x")\n            model = root / "model.gguf"; model.write_bytes(b"abc")\n            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")\n            with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \\\n                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 1000 (`deadbee`)\\nbuilt with test"):\n                with self.assertRaisesRegex(SharedTrialError, "does not match the build bound"):\n                    run_shared_trial(\n                        bundle_path=bundle_path,\n                        llama_server=server,\n                        model_path=model,\n                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),\n                        output_dir=output,\n                    )\n            failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))\n            self.assertEqual(failure["phase"], "runtime_build_binding")\n\n'''
+          replace_once('runtime/llama/tests/test_shared_trial.py', runner_anchor, runner_test + runner_anchor)
+
+          # New parser-focused regression file.
+          Path('runtime/llama/tests/test_runtime_build_identity.py').write_text('''import unittest\n\nfrom runtime.llama.rpc_spike import (\n    RpcSpikeError,\n    parse_runtime_build_identity,\n    runtime_build_matches,\n)\n\n\nclass RuntimeBuildIdentityTests(unittest.TestCase):\n    def test_parses_current_llama_version_shape(self):\n        identity = parse_runtime_build_identity("version: 10218 (`de69995`)\\nbuilt with GNU 13.3.0 for Linux x86_64")\n        self.assertEqual(identity.build_number, 10218)\n        self.assertEqual(identity.commit, "de69995")\n\n    def test_accepts_short_full_commit_prefix_equivalence(self):\n        identity = parse_runtime_build_identity("version: 10218 (de69995abcdef1234567890)\\nbuilt with test")\n        self.assertTrue(runtime_build_matches(identity, expected_number=10218, expected_commit="de69995"))\n        self.assertFalse(runtime_build_matches(identity, expected_number=10217, expected_commit="de69995"))\n        self.assertFalse(runtime_build_matches(identity, expected_number=10218, expected_commit="deadbee"))\n\n    def test_rejects_unknown_or_unstructured_version(self):\n        with self.assertRaises(RpcSpikeError):\n            parse_runtime_build_identity("version: 0 (unknown)")\n        with self.assertRaises(RpcSpikeError):\n            parse_runtime_build_identity("build 10218 de69995")\n\n\nif __name__ == "__main__":\n    unittest.main()\n''', encoding='utf-8')
+          PY
+      - name: Scheduler tests
+        run: python -m unittest discover -s services/scheduler/tests -v
+      - name: llama runtime tests
+        run: python -m unittest discover -s runtime/llama/tests -v
+      - name: Setup tests
+        run: python -m unittest discover -s setup/tests -v
+      - name: Commit tested patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add services/scheduler/evidence_bundle.py services/scheduler/experiment_bundle.schema.json services/scheduler/tests/test_evidence_bundle.py runtime/llama/rpc_spike.py runtime/llama/shared_trial.py runtime/llama/shared_run_evidence.py runtime/llama/tests/test_shared_run_evidence.py runtime/llama/tests/test_shared_trial.py runtime/llama/tests/test_runtime_build_identity.py setup/tests/test_evidence_transfer.py
+          git diff --cached --quiet && { echo 'No patch changes produced'; exit 1; }
+          git commit -m 'feat(runtime): bind shared trial to llama build identity'
+          git push origin HEAD:m1/runtime-build-binding
