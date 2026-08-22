@@ -1,6 +1,6 @@
 # M0 benchmark harness
 
-The benchmark directory contains the underlying engineering tools used by the Windows/Linux Lab Setup.
+The benchmark directory contains the underlying engineering tools used by the Windows/Linux Lab Setup plus bounded model-artifact helpers used by the M1 placement experiment.
 
 ## Normal users: use setup
 
@@ -20,7 +20,8 @@ The Python commands below remain available for engineering, automation, and debu
 
 - `benchmark.py` — reproducible node inventory capture;
 - `network_benchmark.py` — application-level TCP path measurement for controlled lab/LAN experiments;
-- `llama_bench_adapter.py` — run/import llama.cpp `llama-bench` JSON/JSONL and convert prompt-processing/decode measurements into ComputeMesh benchmark records.
+- `llama_bench_adapter.py` — run/import llama.cpp `llama-bench` JSON/JSONL and convert prompt-processing/decode measurements into ComputeMesh benchmark records;
+- `gguf_manifest.py` — bounded GGUF-v3 metadata inspection and conservative ComputeMesh model-manifest generation.
 
 ## Inventory capture
 
@@ -85,11 +86,47 @@ The adapter emits:
 
 The converted metrics keep the model file name but not its full local filesystem path. `llama-bench` timing excludes sampling, so the prefill value is a benchmark proxy rather than full application TTFT.
 
+## GGUF model-manifest helper
+
+Inspect the bounded metadata ComputeMesh will use:
+
+```bash
+python tools/benchmark/gguf_manifest.py inspect \
+  --gguf /path/to/model.gguf
+```
+
+Build a schema-v1 model manifest:
+
+```bash
+python tools/benchmark/gguf_manifest.py build \
+  --gguf /path/to/model.gguf \
+  --partitioning contiguous_layers \
+  --redistribution-disallowed
+```
+
+The helper derives only facts it can establish from the local artifact:
+
+- `general.architecture` → manifest `architecture`;
+- `<architecture>.block_count` → manifest `layer_count`;
+- standardized `general.file_type` → a known quantization label when mapped;
+- `general.name`, `general.version`, `general.license`, and `general.license.link` when present;
+- exact local file size and streaming SHA-256 digest.
+
+Missing semantic fields must be supplied explicitly with `--model-id`, `--model-version`, `--license-id`, `--license-source`, or `--quantization`. Partitioning permission is always explicit; the tool never infers that a model license or architecture permits a particular distributed placement mode.
+
+The reader is intentionally bounded and supports little-endian GGUF v3 only. It reads the header/metadata area and streams the artifact hash; it never loads tensor contents into memory or executes model code.
+
+### Split GGUF guardrail
+
+Current llama.cpp `gguf-split` writes ordinary model metadata only to primary shard `split.no = 0`, while every shard carries `split.no`, `split.count`, and `split.tensors.count`. The helper recognizes and validates those fields.
+
+A GGUF with `split.count > 1` can be inspected from its primary shard, but **manifest generation is refused**. ComputeMesh model-manifest schema v1 does not yet encode shard identity/order strongly enough for the tool to claim that one shard digest/size represents the complete model. Merge the complete shard set to one GGUF before generating the current manifest. A file carrying `split.count = 1` remains buildable.
+
 ## Tests
 
 Windows: `setup\TESTS.cmd`  
 Linux: `./setup/TESTS.sh`
 
-Benchmark coverage includes inventory, legacy and identity-capable TCP loopback paths, peer mismatch handling, bounded node IDs, result-schema validation, and llama-bench JSON/JSONL conversion. Exact current test counts are recorded in `state.md` after cross-platform validation.
+Benchmark coverage includes inventory, GGUF metadata/manifest generation and split-shard rejection, legacy and identity-capable TCP loopback paths, peer mismatch handling, bounded node IDs, result-schema validation, and llama-bench JSON/JSONL conversion. Exact current test counts are recorded in `state.md` after cross-platform validation.
 
 Linux launcher/integration tests live under `setup/tests/`. Real cross-node shared-runtime performance evidence is still pending.
