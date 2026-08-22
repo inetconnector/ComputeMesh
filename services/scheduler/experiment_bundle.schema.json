@@ -15,10 +15,7 @@
   ],
   "properties": {
     "schema_version": {"const": 1},
-    "bundle_id": {
-      "type": "string",
-      "pattern": "^experiment-bundle-[a-f0-9]{16}$"
-    },
+    "bundle_id": {"type": "string", "pattern": "^experiment-bundle-[a-f0-9]{16}$"},
     "captured_at": {"type": "string", "format": "date-time"},
     "scope": {"const": "m1_two_node_placement_evidence"},
     "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},
@@ -27,87 +24,92 @@
       "additionalProperties": false,
       "required": ["model_manifest", "coordinator", "worker", "network"],
       "properties": {
-        "model_manifest": {
-          "allOf": [
-            {"$ref": "#/$defs/document"},
-            {
-              "type": "object",
-              "required": ["model_id", "model_version", "artifact_digest", "artifact_size_bytes", "layer_count"],
-              "properties": {
-                "model_id": {"type": "string", "minLength": 1},
-                "model_version": {"type": "string", "minLength": 1},
-                "artifact_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
-                "artifact_size_bytes": {"type": "integer", "minimum": 1},
-                "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000}
-              }
-            }
-          ]
-        },
+        "model_manifest": {"$ref": "#/$defs/model_manifest_source"},
         "coordinator": {"$ref": "#/$defs/node_evidence"},
         "worker": {"$ref": "#/$defs/node_evidence"},
-        "network": {
-          "allOf": [
-            {"$ref": "#/$defs/document"},
-            {
-              "type": "object",
-              "required": ["run_id", "local_node_id", "peer_node_id", "peer_identity_binding"],
-              "properties": {
-                "run_id": {"type": "string", "minLength": 1},
-                "local_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
-                "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
-                "peer_identity_binding": {"type": "string", "minLength": 1, "maxLength": 128}
-              }
-            }
-          ]
-        }
+        "network": {"$ref": "#/$defs/network_source"}
       }
     },
     "placement_decision": {
       "type": "object",
-      "required": ["schema_version", "decision_id", "scope", "model", "nodes", "network_evidence", "hard_constraints", "candidates", "performance_evidence", "recommendation"]
+      "$comment": "The bundle builder separately validates this object against placement_decision.schema.json.",
+      "required": [
+        "schema_version",
+        "decision_id",
+        "scope",
+        "model",
+        "nodes",
+        "network_evidence",
+        "hard_constraints",
+        "candidates",
+        "performance_evidence",
+        "recommendation"
+      ]
     }
   },
   "$defs": {
-    "document": {
+    "profile_source": {
       "type": "object",
-      "required": ["file_name", "document_sha256"],
+      "additionalProperties": false,
+      "required": ["file_name", "document_sha256", "node_id", "profile_revision"],
       "properties": {
-        "file_name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 255,
-          "pattern": "^[^/\\\\]+$"
-        },
-        "document_sha256": {
-          "type": "string",
-          "pattern": "^sha256:[a-f0-9]{64}$"
-        }
+        "file_name": {"$ref": "#/$defs/file_name"},
+        "document_sha256": {"$ref": "#/$defs/document_sha256"},
+        "node_id": {"type": "string", "minLength": 1},
+        "profile_revision": {"type": "integer", "minimum": 0}
       }
     },
     "benchmark_source": {
-      "allOf": [
-        {"$ref": "#/$defs/document"},
-        {
-          "type": "object",
-          "required": ["run_id"],
-          "properties": {
-            "run_id": {"type": "string", "minLength": 1}
-          }
-        }
-      ]
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "document_sha256", "run_id"],
+      "properties": {
+        "file_name": {"$ref": "#/$defs/file_name"},
+        "document_sha256": {"$ref": "#/$defs/document_sha256"},
+        "run_id": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
     },
-    "profile_source": {
-      "allOf": [
-        {"$ref": "#/$defs/document"},
-        {
-          "type": "object",
-          "required": ["node_id", "profile_revision"],
-          "properties": {
-            "node_id": {"type": "string", "minLength": 1},
-            "profile_revision": {"type": "integer", "minimum": 0}
-          }
-        }
-      ]
+    "model_manifest_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_name",
+        "document_sha256",
+        "model_id",
+        "model_version",
+        "artifact_digest",
+        "artifact_size_bytes",
+        "layer_count"
+      ],
+      "properties": {
+        "file_name": {"$ref": "#/$defs/file_name"},
+        "document_sha256": {"$ref": "#/$defs/document_sha256"},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_version": {"type": "string", "minLength": 1},
+        "artifact_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "artifact_size_bytes": {"type": "integer", "minimum": 1},
+        "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000}
+      }
+    },
+    "network_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_name",
+        "document_sha256",
+        "run_id",
+        "local_node_id",
+        "peer_node_id",
+        "peer_identity_binding"
+      ],
+      "properties": {
+        "file_name": {"$ref": "#/$defs/file_name"},
+        "document_sha256": {"$ref": "#/$defs/document_sha256"},
+        "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "local_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "peer_identity_binding": {"const": "unauthenticated_server_report_v1"}
+      }
     },
     "node_evidence": {
       "type": "object",
@@ -118,6 +120,13 @@
         "prefill": {"$ref": "#/$defs/benchmark_source"},
         "decode": {"$ref": "#/$defs/benchmark_source"}
       }
-    }
+    },
+    "file_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "document_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
   }
 }
