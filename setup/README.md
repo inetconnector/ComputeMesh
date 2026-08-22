@@ -24,17 +24,18 @@ If the executable bit was lost during download/extraction:
 bash setup.sh
 ```
 
-Both paths open the same menu with profile capture, network server/client, llama.cpp benchmark, and tests.
+Both paths open the same menu with profile capture, network server/client, llama.cpp benchmark, and tests. The current M1 evidence-transfer steps also have dedicated launchers described below.
 
 ## Recommended two-computer workflow
 
-The two machines may be Windows, Linux, or mixed.
+The two machines may be Windows, Linux, or mixed. For the current M1 placement proof, both machines must benchmark the **same complete GGUF file**. Matching only the model family is not enough: the bundle path checks the model basename and exact artifact size, while the model manifest carries the exact GGUF SHA-256 and layer count.
 
 First on **both** computers:
 
 1. Start the OS-specific setup launcher.
 2. Choose **1 — Prepare this computer**.
 3. Check the displayed CPU/GPU/RAM summary.
+4. Run the llama.cpp benchmark with the same complete GGUF on both machines.
 
 Each setup has a random Lab node ID such as `lab-1a2b3c4d`. It is not derived from the hostname.
 
@@ -64,6 +65,73 @@ The generated network result carries A's local Lab node ID and, with a current s
 
 Swap the roles and repeat once. This records directionality instead of assuming symmetry and produces the opposite local/peer association.
 
+## Transfer the worker evidence and build the current bundle
+
+The current placement-bundle path no longer requires manually selecting eight JSON files.
+
+Choose which machine will be the **coordinator (A)** and which will be the **worker (B)**. The bundle uses the coordinator→worker network record, so A must already have a fresh A→B result with the current embedded Lab IDs.
+
+### 1. Export on the worker
+
+On **Windows B**, double-click:
+
+```text
+setup\EVIDENCE-EXPORT.cmd
+```
+
+On **Linux B**:
+
+```bash
+bash setup/EVIDENCE-EXPORT.sh
+```
+
+The result is a ZIP under `artifacts/lab/exports/`. Copy that ZIP to computer A by any trusted local method you prefer.
+
+The ZIP deliberately contains only recognized Lab profile/benchmark JSON evidence. It does **not** contain:
+
+- the GGUF model;
+- llama.cpp binaries;
+- `artifacts/lab/config.json` or remembered local paths;
+- arbitrary files from the node directory.
+
+Every exported evidence file is bound in `computemesh-lab-export.json` by a relative cross-platform-safe path, exact byte size, and SHA-256. Source mtimes and source filesystem paths are not copied into the archive manifest.
+
+### 2. Generate the model manifest from the exact GGUF
+
+On the coordinator, generate the ComputeMesh model manifest from the same complete GGUF used by both llama-bench runs with `tools/benchmark/gguf_manifest.py`. The manifest must contain the artifact-derived `layer_count`, exact size, and SHA-256. If the model is still a llama.cpp multi-file split set, merge the complete set first; schema-v1 bundle construction does not treat one shard as the whole model.
+
+### 3. Build on the coordinator
+
+On **Windows A**, double-click:
+
+```text
+setup\BUILD-BUNDLE.cmd
+```
+
+Select the copied worker ZIP and the model-manifest JSON in the file dialogs.
+
+On **Linux A**:
+
+```bash
+bash setup/BUILD-BUNDLE.sh
+```
+
+Enter/select the copied worker ZIP and model-manifest JSON when prompted.
+
+The coordinator then:
+
+1. validates the ZIP manifest and exact member set;
+2. rejects ZIP path traversal, symlink/encrypted entries, excess file/byte limits, size mismatches, and SHA-256 mismatches;
+3. extracts only after validation into `artifacts/lab/imports/<peer-node>/<export-id>/` using a temporary directory followed by an atomic rename;
+4. verifies an already imported export again on a repeat import instead of silently trusting the existing files;
+5. combines that peer evidence with the coordinator's own current Lab evidence and the model manifest;
+6. runs the fail-closed current evidence selector and placement planner;
+7. writes `experiment_bundle.json` below a new coordinator `*-bundle` run directory.
+
+If current evidence is ambiguous, stale, from the wrong network direction, from mismatching profile revisions/model sizes, or requires the old caller-asserted peer/layer fallbacks, bundle construction fails instead of guessing.
+
+The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation.
+
 ## Windows behavior
 
 - detects German/English from Windows;
@@ -73,9 +141,11 @@ Swap the roles and repeat once. This records directionality instead of assuming 
 - passes the current random Lab node ID into the benchmark server/client evidence path;
 - temporarily opens TCP 43191 only for Windows `Private` + `LocalSubnet` and removes the rule after the one-shot test;
 - offers Windows file pickers for `llama-bench.exe` and GGUF;
-- can download the official Windows llama.cpp build selected by the setup.
+- can download the official Windows llama.cpp build selected by the setup;
+- exports/imports evidence with Python-standard-library ZIP/hash handling;
+- installs the small `jsonschema` dependency into the local `.venv` only when the bundle step needs it and it is not already available.
 
-Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `TESTS.cmd`.
+Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`, `LLAMA-BENCH.cmd`, `EVIDENCE-EXPORT.cmd`, `BUILD-BUNDLE.cmd`, `TESTS.cmd`.
 
 ## Linux behavior
 
@@ -92,9 +162,10 @@ Direct Windows launchers: `NODE.cmd`, `NETWORK-SERVER.cmd`, `NETWORK-CLIENT.cmd`
 - supports official Ubuntu x64/arm64 CPU/Vulkan assets and x64 ROCm assets selected dynamically from release metadata;
 - verifies a GitHub `sha256:` asset digest when available;
 - wraps the downloaded executable with local `LD_LIBRARY_PATH` handling and accepts it only if `llama-bench --help` starts successfully;
-- uses `zenity` for GGUF selection when available on a desktop, otherwise asks for a path with shell completion.
+- uses `zenity` for GGUF selection when available on a desktop, otherwise asks for a path with shell completion;
+- reuses the same isolated Python bootstrap for evidence export/bundle launchers.
 
-Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `TESTS.sh`.
+Direct Linux launchers: `NODE.sh`, `NETWORK-SERVER.sh`, `NETWORK-CLIENT.sh`, `LLAMA-BENCH.sh`, `EVIDENCE-EXPORT.sh`, `BUILD-BUNDLE.sh`, `TESTS.sh`. For the newly generated transfer scripts, `bash setup/EVIDENCE-EXPORT.sh` / `bash setup/BUILD-BUNDLE.sh` is portable even when an archive/download did not preserve executable bits.
 
 The official automatic Linux downloads are Ubuntu binaries. They often work on compatible glibc distributions, but the setup does not assume this: if the downloaded executable cannot start, it is rejected and you can point the setup at a distro-native/self-built `llama-bench`. On musl-based systems such as Alpine, an existing compatible build is the safer llama.cpp path.
 
@@ -105,25 +176,27 @@ On each relevant computer:
 1. Start setup.
 2. Choose **4 — llama.cpp prefill/decode**.
 3. Select automatic official download or an existing `llama-bench`.
-4. Select/provide a local `.gguf` model.
+4. Select/provide the **same complete local `.gguf` model** on both experiment machines.
 5. Read prefill tokens/s, decode tokens/s, and ms/token.
 
-Model weights are **never downloaded automatically**.
+Model weights are **never downloaded automatically** and are not copied by the evidence-export helper.
 
 ## Local files
 
 Everything generated by setup stays local and is already ignored by Git:
 
 ```text
-.venv/                           # isolated Python environment
-artifacts/lab/config.json        # local node id/revision + remembered paths
-artifacts/lab/<node>/<run>/      # benchmark outputs
-artifacts/lab/runtime/llama.cpp/ # optional upstream llama.cpp downloads
+.venv/                                         # isolated Python environment
+artifacts/lab/config.json                      # local node id/revision + remembered paths
+artifacts/lab/<node>/<run>/                    # benchmark outputs and bundle runs
+artifacts/lab/runtime/llama.cpp/               # optional upstream llama.cpp downloads
+artifacts/lab/exports/<lab-export-...>.zip     # bounded transferable evidence ZIP
+artifacts/lab/imports/<peer>/<export-id>/      # verified peer evidence import
 ```
 
 The lab node ID is random (`lab-xxxxxxxx`) and does not use the hostname.
 
-## Network safety
+## Network and evidence-transfer safety
 
 The underlying benchmark protocol has no authentication or encryption. Both assisted server implementations:
 
@@ -134,17 +207,21 @@ The underlying benchmark protocol has no authentication or encryption. Both assi
 
 The optional Lab node-ID exchange does **not** change this security boundary. A peer can self-report any Lab ID because the benchmark connection is unauthenticated. For real authenticated node identity, ComputeMesh has a separate narrow M1 Ed25519/session reference path; that is not used to authenticate this benchmark socket.
 
-Never expose the benchmark server to the public internet.
+The evidence ZIP is a local transfer container, not a trust envelope. File hashes detect changed/corrupt copies but do not sign the producer, authenticate a node, or attest hardware. Import therefore belongs only in the same controlled trusted-lab workflow.
+
+Never expose the benchmark server or upstream llama.cpp RPC worker to the public internet.
 
 ## Test status
 
 The complete setup test action runs benchmark, orchestrator, protocol, identity, scheduler, llama-runtime, network-runtime, and setup suites. Current cross-platform counts and the exact latest validation run are recorded in `state.md`.
 
-The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing.
+The Linux layer additionally covers Bash syntax, the root `setup.sh` entry point, private/public IPv4 filtering, current llama.cpp CPU/Vulkan/ROCm/ARM64 asset-name selection, private-bind/temporary-firewall invariants, and direct Linux launcher routing. Windows validation additionally parses the evidence PowerShell script with the real Windows PowerShell parser.
+
+Evidence-transfer coverage includes exclusion of arbitrary/GGUF files, path-free export manifests, profile-revision binding, hash-verified idempotent round trips, changed-content rejection, ZIP symlink/traversal rejection, existing-import tamper detection, dependency-light `lab.py` startup with `python -S`, and a complete synthetic worker-export→coordinator-bundle round trip.
 
 The evidence-binding tests additionally verify that the setup passes its own Lab node ID into both network roles, that current benchmark peers can self-report a bounded ID, and that peer mismatches fail instead of being silently accepted.
 
-This remains software/loopback evidence until a fresh trusted-private-LAN two-computer run is retained.
+This remains software/loopback/synthetic evidence until a fresh trusted-private-LAN two-computer run using one identical complete GGUF is retained.
 
 Additional real target smoke evidence exists from 2026-08-21:
 
@@ -153,8 +230,18 @@ Additional real target smoke evidence exists from 2026-08-21:
 - Windows -> Linux internet TCP benchmark using a temporary source-limited firewall rule.
 - Real llama.cpp runs on Windows CUDA with a 7B Q4 GGUF and on Linux CPU with a 0.5B Q4 GGUF.
 
-The internet benchmark predates the bound peer-ID path and is not a trusted-private-LAN proof or shared-inference result.
+Those two historical llama.cpp runs used different GGUFs, so they cannot be combined into the new current evidence bundle. The internet benchmark also predates the bound peer-ID path and is not a trusted-private-LAN proof or shared-inference result.
 
 ## Engineering/manual commands
+
+Advanced users can call the new transfer path directly:
+
+```bash
+python setup/lab.py export
+python setup/lab.py import --archive /path/to/peer.zip
+python setup/lab.py bundle --peer-export /path/to/peer.zip --model-manifest /path/to/model_manifest.json
+```
+
+The direct bundle command also supports explicit evidence disambiguators (`--artifact-digest`, `--benchmark-model-name`, `--network-run-id`) when more than one otherwise valid current candidate exists. These selectors choose evidence; they do not re-enable the legacy caller-asserted peer/layer fallbacks.
 
 Advanced users can still call the underlying tools under `tools/benchmark/` directly. Those CLIs remain the canonical engineering layer; the setup launchers are simpler user-facing orchestrators around them.
