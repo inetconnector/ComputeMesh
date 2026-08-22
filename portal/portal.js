@@ -141,6 +141,12 @@ const translations = {
     contact_msg_lbl: "Message",
     contact_send_btn: "Send Message",
     contact_success: "✓ Your message has been sent successfully! Our engineering team will respond within 24 hours.",
+    nav_topup: "💳 Top Up Credits",
+    topup_modal_title: "💳 Top Up Compute Credits",
+    topup_modal_sub: "Purchase prepaid micro-credits via instant Stripe Checkout (Credit Card, SEPA, Apple Pay).",
+    topup_key_lbl: "Your API Key:",
+    topup_amount_lbl: "Select Deposit Tier:",
+    topup_submit_btn: "Proceed to Stripe Checkout →",
     playground_title: "⚡ Live In-Browser API Playground",
     playground_send: "▶ Run Inference",
 
@@ -284,7 +290,12 @@ const translations = {
     contact_topic_lbl: "Thema",
     contact_msg_lbl: "Nachricht",
     contact_send_btn: "Nachricht absenden",
-    contact_success: "✓ Deine Nachricht wurde erfolgreich gesendet! Unser Support-Team antwortet innerhalb von 24 Stunden.",
+    nav_topup: "💳 Guthaben aufladen",
+    topup_modal_title: "💳 Rechenguthaben aufladen",
+    topup_modal_sub: "Prepaid-Mikro-Credits sofort via Stripe Checkout aufladen (Kreditkarte, SEPA, Apple Pay).",
+    topup_key_lbl: "Dein API-Schlüssel:",
+    topup_amount_lbl: "Guthaben-Paket wählen:",
+    topup_submit_btn: "Weiter zu Stripe Checkout →",
     playground_title: "⚡ Live In-Browser API Playground",
     playground_send: "▶ Inferenz starten",
 
@@ -417,6 +428,79 @@ function copyLinuxCommand() {
   const cmd = "curl -fsSL https://get.computemesh.net/install.sh | sudo bash";
   navigator.clipboard.writeText(cmd);
   alert(currentLang === 'de' ? 'Befehl kopiert!' : 'Command copied!');
+}
+
+function openDepositModal() {
+  const modal = document.getElementById('deposit-modal');
+  if (modal) modal.classList.add('active');
+  const msgBox = document.getElementById('deposit-msg-box');
+  if (msgBox) msgBox.style.display = 'none';
+}
+
+function closeDepositModal() {
+  const modal = document.getElementById('deposit-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handleDepositSubmit(e) {
+  e.preventDefault();
+  const keyInput = document.getElementById('deposit-key-input');
+  const amountSelect = document.getElementById('deposit-amount-select');
+  const msgBox = document.getElementById('deposit-msg-box');
+  const btn = document.getElementById('deposit-submit-btn');
+
+  if (!keyInput || !amountSelect || !msgBox) return;
+
+  const apiKey = keyInput.value.trim();
+  const amountUsd = parseFloat(amountSelect.value);
+
+  if (!apiKey) {
+    alert(currentLang === 'de' ? 'Bitte gib deinen API-Schlüssel ein.' : 'Please enter your API key.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = currentLang === 'de' ? 'Erstelle Checkout-Session...' : 'Creating checkout session...';
+  msgBox.style.display = 'block';
+  msgBox.style.background = 'rgba(0, 242, 254, 0.1)';
+  msgBox.style.color = 'var(--primary)';
+  msgBox.textContent = currentLang === 'de' ? 'Verbinde mit Stripe...' : 'Connecting to Stripe...';
+
+  try {
+    const res = await fetch('/v1/billing/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({ amount_usd: amountUsd })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      msgBox.style.background = 'rgba(239, 68, 68, 0.15)';
+      msgBox.style.color = 'var(--accent-red)';
+      msgBox.textContent = `Error: ${err}`;
+      btn.disabled = false;
+      btn.textContent = currentLang === 'de' ? 'Weiter zu Stripe Checkout →' : 'Proceed to Stripe Checkout →';
+      return;
+    }
+
+    const data = await res.json();
+    msgBox.style.background = 'rgba(16, 185, 129, 0.15)';
+    msgBox.style.color = 'var(--accent-emerald)';
+    msgBox.innerHTML = `✓ Checkout Session created! <a href="${data.checkout_url}" target="_blank" style="color: #00f2fe; text-decoration: underline; font-weight: bold;">Click here to complete payment on Stripe →</a>`;
+
+    // Automatically open Stripe checkout in a new window/tab
+    window.open(data.checkout_url, '_blank');
+  } catch (err) {
+    msgBox.style.background = 'rgba(239, 68, 68, 0.15)';
+    msgBox.style.color = 'var(--accent-red)';
+    msgBox.textContent = `Network Error: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = currentLang === 'de' ? 'Weiter zu Stripe Checkout →' : 'Proceed to Stripe Checkout →';
+  }
 }
 
 function handleContactSubmit(e) {

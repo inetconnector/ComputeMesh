@@ -29,6 +29,10 @@ from services.billing.ledger import (
     Ledger,
     MICRO_UNIT_SCALE,
 )
+from services.billing.stripe_integration import (
+    StripeIntegrationError,
+    StripePaymentService,
+)
 
 DEFAULT_PORT = 8000
 MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB payload limit
@@ -53,6 +57,7 @@ AVAILABLE_MODELS: list[ModelEntry] = [
 
 class GatewayHandler(BaseHTTPRequestHandler):
     ledger: Ledger = Ledger()
+    stripe_svc: StripePaymentService = StripePaymentService(ledger=ledger)
     # Mock account store: api_key -> account_id
     api_keys: dict[str, str] = {
         "cm_live_default_test_key": "cust_test_default",
@@ -126,6 +131,35 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "deposited_usd": amount_usd,
                 "new_balance_usd": round(self.ledger.get_balance(account_id) / MICRO_UNIT_SCALE, 4),
             })
+            return
+
+        if clean_path == "/v1/billing/checkout":
+            account_id = self._authenticate()
+            if not account_id:
+                return
+            amount_usd = float(body.get("amount_usd", 25.0))
+            try:
+                session = self.stripe_svc.create_checkout_session(
+                    customer_account_id=account_id,
+                    amount_usd=amount_usd,
+                )
+                self._send_json({
+                    "session_id": session.session_id,
+                    "checkout_url": session.checkout_url,
+                    "amount_usd": session.amount_usd,
+                    "customer_account_id": session.customer_account_id,
+                })
+            except StripeIntegrationError as exc:
+                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path == "/v1/billing/webhook":
+            # Stripe Webhook handler
+            try:
+                result = self.stripe_svc.process_webhook_event(payload=body)
+                self._send_json(result)
+            except StripeIntegrationError as exc:
+                self._send_error_response(str(exc), "webhook_error", HTTPStatus.BAD_REQUEST)
             return
 
         if clean_path == "/v1/chat/completions":

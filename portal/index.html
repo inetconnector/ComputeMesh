@@ -33,6 +33,7 @@
 
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Top Up Credits</button>
         <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Register / API Key</button>
       </div>
     </div>
@@ -327,6 +328,37 @@ response = client.chat.completions.create(
           <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Copy Key</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Interactive Stripe Deposit & Top-Up Modal -->
+  <div id="deposit-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeDepositModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Top Up Compute Credits</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Purchase prepaid micro-credits via instant Stripe Checkout (Credit Card, SEPA, Apple Pay).</p>
+
+      <form onsubmit="handleDepositSubmit(event)">
+        <div class="form-group">
+          <label data-i18n="topup_key_lbl">Your API Key:</label>
+          <input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);">
+        </div>
+
+        <div class="form-group">
+          <label data-i18n="topup_amount_lbl">Select Deposit Tier:</label>
+          <select id="deposit-amount-select" class="form-control" style="cursor: pointer;">
+            <option value="10">$10.00 USD (Starter • ~10M 7B Tokens)</option>
+            <option value="25" selected>$25.00 USD (Developer • ~25M 7B Tokens)</option>
+            <option value="50">$50.00 USD (Pro • ~50M 7B Tokens)</option>
+            <option value="100">$100.00 USD (Growth • ~100M 7B Tokens)</option>
+            <option value="500">$500.00 USD (Scale Enterprise)</option>
+          </select>
+        </div>
+
+        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="topup_submit_btn">Proceed to Stripe Checkout →</button>
+      </form>
+
+      <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
     </div>
   </div>
 

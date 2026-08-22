@@ -108,6 +108,47 @@ class TestGatewayServer(unittest.TestCase):
             init_bal = data["balance_usd"]
             self.assertGreater(init_bal, 0.0)
 
+    def test_billing_checkout_and_webhook(self) -> None:
+        key = "cm_live_test_key_stripe"
+        # 1. Create Checkout Session
+        checkout_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/billing/checkout",
+            data=json.dumps({"amount_usd": 50.00}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {key}",
+            },
+        )
+        with urllib.request.urlopen(checkout_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(data["session_id"].startswith("cs_test_"))
+            self.assertIn("checkout.stripe.com", data["checkout_url"])
+            session_id = data["session_id"]
+            cust_account_id = data["customer_account_id"]
+
+        # 2. Ingest Webhook Event
+        webhook_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/billing/webhook",
+            data=json.dumps({
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "id": session_id,
+                        "amount_total": 5000,
+                        "client_reference_id": cust_account_id,
+                    }
+                },
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(webhook_req) as resp:
+            self.assertEqual(resp.status, 200)
+            wh_data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(wh_data["status"], "credited")
+            self.assertEqual(wh_data["amount_usd"], 50.00)
+
 
 if __name__ == "__main__":
     unittest.main()
+
