@@ -1,6 +1,6 @@
 # llama.cpp Runtime Integration
 
-**Status:** M1 research spike harness implemented; no distributed-inference result yet.
+**Status:** M1 research spike harness and fail-closed shared-run evidence binding implemented; no real distributed-inference result yet.
 
 ## Purpose
 
@@ -91,7 +91,7 @@ The default probe is deterministic/greedy, disables prompt caching, and requests
 
 ## 4. Run the explicit local + RPC split
 
-Example device names only — always use the names from `discover`:
+Example device names only — always use the names from `discover` and the exact split selected by the current experiment bundle/planner:
 
 ```bash
 python -m runtime.llama.rpc_spike run \
@@ -103,7 +103,7 @@ python -m runtime.llama.rpc_spike run \
   --output-dir artifacts/m1/shared-rpc
 ```
 
-For byte/timing/fault instrumentation, instead start a fresh relay and use `127.0.0.1:50053` in both the `--rpc` value and the exact RPC device name returned by discovery for that relayed topology.
+For the first measured proof, start a fresh zero-delay measurement relay and use its loopback endpoint in both the `--rpc` value and the exact RPC device name returned by discovery for that relayed topology.
 
 The coordinator HTTP process remains local-only at `127.0.0.1`; only the upstream RPC connection traverses the trusted private network.
 
@@ -119,6 +119,40 @@ python -m runtime.llama.rpc_spike compare \
 Comparison requires the exact same model SHA-256 and prompt SHA-256. When both responses expose token IDs, correctness is compared by token-ID digest; otherwise it falls back to output-text digest. A mismatch returns a non-zero exit status.
 
 The comparison also reports shared/baseline ratios for prefill tokens/s, decode tokens/s, and end-to-end request time. A successful match is evidence for that exact binary/model/topology only — not a general llama.cpp or ComputeMesh correctness claim.
+
+## 6. Bind the first shared-run proof
+
+After a current `experiment_bundle.json`, local baseline, relayed shared run and relay metrics exist, build one fail-closed proof artifact:
+
+```bash
+python -m runtime.llama.shared_run_evidence \
+  --bundle artifacts/m1/experiment_bundle.json \
+  --baseline artifacts/m1/local-baseline/runtime_spike_result.json \
+  --shared artifacts/m1/shared-rpc/runtime_spike_result.json \
+  --relay artifacts/m1/relay/shared-run.json \
+  --output artifacts/m1/shared_run_evidence.json
+```
+
+`shared_run_evidence.py` validates all source documents against their repository schemas and then requires the evidence to describe one coherent first proof:
+
+- the bundle must recommend `shared_experiment` and contain one feasible two-node contiguous-layer candidate;
+- baseline and shared run must use the bundle's exact model basename, byte size and SHA-256;
+- both runs must use the same bounded llama.cpp version string and prompt digest;
+- the baseline must use one local coordinator device;
+- the first shared device must be that same coordinator device and the second must be the RPC device;
+- the shared `tensor_split` must exactly match the planner-selected coordinator/worker order;
+- the shared run must use exactly the relay's loopback listen endpoint, while the relay target must itself be loopback/RFC1918;
+- the first proof must have zero configured relay delay/jitter, no forced disconnect, an actual connection ending by EOF, and positive byte flow in both directions;
+- timestamps must form a bounded `bundle -> baseline -> relay/shared` chain rather than combining unrelated historical runs;
+- token-ID digests must match when both are available, otherwise output-text digests must match exactly.
+
+The output binds every input file by basename and SHA-256 and records model/runtime identity, planner split, correctness digests, request/token timing ratios, relay timing and opaque directional byte totals. It deliberately contains no raw prompt or raw output, refuses symlinked/oversized/non-finite input JSON, and will not overwrite an existing proof path.
+
+The proof ID is content-derived from the source document hashes and comparison result; its observational `captured_at` is not the evidence identity.
+
+This helper **does not execute the experiment**, authenticate the worker, prove the relay target's physical identity, identify activation tensors, or authorize production scheduling. `production_scheduling` is always `false`.
+
+The result schema is `shared_run_evidence.schema.json`.
 
 ## Network instrumentation
 
@@ -152,7 +186,7 @@ It does **not** persist raw prompts or raw outputs.
 
 If a measured run fails after the output directory is created, the harness writes a bounded `runtime_spike_failure.json` with the phase, exception type and diagnostic text. It does not copy prompt/output content into that failure record.
 
-The result schema is `spike_result.schema.json`.
+The runtime result schema is `spike_result.schema.json`; the bound proof schema is `shared_run_evidence.schema.json`.
 
 ## Tests
 
@@ -161,19 +195,20 @@ python -m unittest discover -s runtime/llama/tests -v
 python -m unittest discover -s runtime/network/tests -v
 ```
 
-The llama harness has 12 unit/schema/negative tests covering private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison and result schema constraints.
+The llama runtime suite covers private endpoint restrictions, worker/coordinator command safety, explicit shared placement, local baseline, no-cache deterministic request settings, bounded response parsing, model hashing, failure-record privacy, baseline/shared comparison, result schemas, planner split/device-order binding, proof chronology, relay-path binding, relay byte consistency, unperturbed-first-proof constraints, non-finite input rejection and output privacy.
 
-The network relay has its own real-loopback forwarding/fault/timing/schema tests and is also included in the user-facing **all tests** path.
+The network relay has its own real-loopback forwarding/fault/timing/schema tests and is also included in the full cross-platform validation path.
 
 ## Important limitations
 
 This code does **not** yet prove M1. In particular:
 
 - no real private-LAN shared run has been recorded yet;
-- opaque RPC byte accounting now exists, but activation tensors are not identified separately;
+- opaque RPC byte accounting exists, but activation tensors are not identified separately;
 - controlled TCP-stream delay/jitter injection exists, but no packet-level loss/reordering result exists;
 - controlled relay disconnect injection exists, but no real llama.cpp disconnect experiment has been recorded yet;
-- no ComputeMesh scheduler chooses the split yet;
+- the current planner can select the experimental split, but it is a conservative feasibility planner and not a calibrated production scheduler;
+- the proof builder validates already-created artifacts; it does not drive llama.cpp or the relay;
 - no artifact preparation/verification wire path drives the runtime yet;
 - upstream RPC provides no ComputeMesh authentication/security boundary.
 
