@@ -1,0 +1,48 @@
+name: Temporary finalize runtime build state
+
+on:
+  push:
+    branches: [m1/runtime-build-binding]
+    paths:
+      - .github/workflows/temporary-finalize-runtime-build-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: m1/runtime-build-binding
+          fetch-depth: 0
+      - name: Record final runtime-build validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('state.md')
+          text = path.read_text(encoding='utf-8')
+
+          old = '- llama.cpp benchmark→runtime build binding is implemented on the current PR branch; final cross-platform validation is pending before merge\n'
+          new = '- llama.cpp benchmark→runtime build binding is implemented in PR #13; final cross-platform validation run `32561589482` passed before final state bookkeeping/workflow removal\n'
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one pending PR #13 state line')
+          text = text.replace(old, new, 1)
+
+          anchor = '''This remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.\n\n## Real target-machine evidence from 2026-08-21\n'''
+          section = '''This remains software/synthetic/loopback validation. No real two-machine shared inference has yet been recorded. No runtime/test behavior changes follow this successful matrix; only this bookkeeping line, PR metadata, temporary validation-workflow removal, and fast-forward merge remain.\n\n## Cross-platform validation for llama.cpp runtime-build binding\n\nPR #13 merge-candidate code, launchers, tests, and synchronized documentation were validated by GitHub Actions run **`32561589482`** on Windows Server 2025 / Python 3.11.9 and Ubuntu 24.04 / Python 3.11.16. Both jobs completed successfully.\n\n- benchmark/model tooling: **32/32**;\n- orchestrator: **34/34**;\n- protocol: **66/66**;\n- identity/integration: **13/13**;\n- scheduler placement + evidence bundle + build binding: **38/38**;\n- llama runtime + proof + shared-trial + runtime-build binding: **46/46**;\n- network runtime relay: **10/10**;\n- setup/launcher/evidence transfer: **38/38** on Windows; **38 run with the Windows-only PowerShell parser check skipped on Ubuntu**.\n\nWindows additionally executed the real Windows PowerShell parser against `shared-proof.ps1` and `shared-worker.ps1`; both parsed successfully. The new coverage requires one concrete common llama.cpp build number/commit across the four selected two-node llama-bench records, parses current `llama-server --version`, rejects a different coordinator build in phase `runtime_build_binding`, independently revalidates the bundle-bound build in `shared_run_evidence.py`, and prevents `SHARED-WORKER` from silently falling through to an RPC binary outside a remembered benchmark build tree.\n\nThis build identity is reproducibility/compatibility evidence, **not** binary attestation or producer authentication. Same source-build identity does not prove upstream RPC compatibility; the live server/CLI RPC preflight remains authoritative. This validation is software/synthetic/loopback evidence and does not substitute for the still-missing physical two-machine shared-inference proof. No runtime/test behavior changes follow run `32561589482`; only this bookkeeping update, PR metadata, temporary workflow removal, and fast-forward merge remain.\n\n## Real target-machine evidence from 2026-08-21\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit('expected exactly one PR #12 validation anchor')
+          text = text.replace(anchor, section, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state.md
+          git diff --cached --quiet && { echo 'No state changes produced'; exit 1; }
+          git commit -m 'docs(state): record runtime build binding validation'
+          git push origin HEAD:m1/runtime-build-binding
