@@ -73,6 +73,8 @@ def benchmark(
             "model_size_bytes": MODEL_SIZE,
             "prefill_tokens_per_second_avg": tps,
             "prompt_tokens": 512,
+            "llama_build_commit": "abcdef0",
+            "llama_build_number": 999,
         }
     elif name == "llama_cpp_decode":
         metrics = {
@@ -81,6 +83,8 @@ def benchmark(
             "decode_tokens_per_second_avg": tps,
             "generated_tokens": 128,
             "inter_token_ms_avg": 1000.0 / tps,
+            "llama_build_commit": "abcdef0",
+            "llama_build_number": 999,
         }
     else:
         metrics = {
@@ -317,6 +321,8 @@ class EvidenceTransferTests(unittest.TestCase):
         self.assertEqual(bundle["sources"]["worker"]["profile"]["node_id"], worker_id)
         self.assertEqual(bundle["sources"]["network"]["peer_node_id"], worker_id)
         self.assertEqual(bundle["placement_decision"]["model"]["layer_count_source"], "model_manifest_v1")
+        self.assertEqual(bundle["runtime_build"]["llama_build_commit"], "abcdef0")
+        self.assertEqual(bundle["runtime_build"]["llama_build_number"], 999)
         self.assertNotIn(str(self.root.resolve()), json.dumps(bundle))
 
 

@@ -123,6 +123,12 @@ def bundle() -> dict:
         "captured_at": "2026-08-22T05:30:00Z",
         "scope": "m1_two_node_placement_evidence",
         "benchmark_model_name": "model.gguf",
+        "runtime_build": {
+            "runtime": "llama.cpp",
+            "llama_build_commit": "abcdef0",
+            "llama_build_number": 999,
+            "binding": "selected_llama_bench_v1",
+        },
         "sources": {
             "model_manifest": {
                 "file_name": "manifest.json",
@@ -162,7 +168,7 @@ def spike(mode: str) -> dict:
         "schema_version": 1,
         "run_id": "llama-rpc-1111111111111111" if shared else "llama-rpc-0000000000000000",
         "captured_at": "2026-08-22T05:31:00Z" if shared else "2026-08-22T05:30:10Z",
-        "runtime": {"name": "llama.cpp", "version": "build 999"},
+        "runtime": {"name": "llama.cpp", "version": "version: 999 (`abcdef0`)\nbuilt with test"},
         "model": {"basename": "model.gguf", "size_bytes": 1234, "sha256": MODEL_SHA},
         "topology": {
             "rpc_endpoints": ["127.0.0.1:50053"] if shared else [],

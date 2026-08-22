@@ -72,13 +72,15 @@ def manifest(*, layer_count=32, size=MODEL_SIZE):
     return value
 
 
-def bench(name, run_id, revision=3, *, captured="2026-08-22T03:10:00Z", model_name="model.gguf", size=MODEL_SIZE, tps=100.0, local=None, peer=None):
+def bench(name, run_id, revision=3, *, captured="2026-08-22T03:10:00Z", model_name="model.gguf", size=MODEL_SIZE, tps=100.0, local=None, peer=None, build_commit="abcdef0", build_number=999):
     if name == "llama_cpp_prefill":
         metrics = {
             "model_name": model_name,
             "model_size_bytes": size,
             "prefill_tokens_per_second_avg": tps,
             "prompt_tokens": 512,
+            "llama_build_commit": build_commit,
+            "llama_build_number": build_number,
         }
     elif name == "llama_cpp_decode":
         metrics = {
@@ -86,6 +88,8 @@ def bench(name, run_id, revision=3, *, captured="2026-08-22T03:10:00Z", model_na
             "model_size_bytes": size,
             "decode_tokens_per_second_avg": tps,
             "generated_tokens": 128,
+            "llama_build_commit": build_commit,
+            "llama_build_number": build_number,
         }
     elif name == "tcp_network_path":
         metrics = {
@@ -157,6 +161,15 @@ class EvidenceBundleTests(unittest.TestCase):
         )
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(bundle)
         self.assertEqual(bundle["benchmark_model_name"], "model.gguf")
+        self.assertEqual(
+            bundle["runtime_build"],
+            {
+                "runtime": "llama.cpp",
+                "llama_build_commit": "abcdef0",
+                "llama_build_number": 999,
+                "binding": "selected_llama_bench_v1",
+            },
+        )
         self.assertEqual(bundle["placement_decision"]["model"]["layer_count_source"], "model_manifest_v1")
         self.assertEqual(
             bundle["placement_decision"]["network_evidence"]["peer_binding"],
@@ -169,6 +182,21 @@ class EvidenceBundleTests(unittest.TestCase):
             bundle["sources"]["coordinator"]["profile"]["document_sha256"],
             r"^sha256:[a-f0-9]{64}$",
         )
+
+    def test_selected_llama_build_must_match_on_both_nodes(self):
+        write_json(
+            self.worker / "llama" / "benchmark-wd.json",
+            bench("llama_cpp_decode", "wd", tps=35.0, build_commit="deadbee"),
+        )
+        with self.assertRaisesRegex(EvidenceBundleError, "one identical llama.cpp build"):
+            build_experiment_bundle(self.select(), now=NOW)
+
+    def test_selected_llama_build_requires_concrete_commit_and_number(self):
+        bad = bench("llama_cpp_prefill", "wp", tps=120.0)
+        bad["metrics"].pop("llama_build_commit")
+        write_json(self.worker / "llama" / "benchmark-wp.json", bad)
+        with self.assertRaisesRegex(EvidenceBundleError, "concrete hexadecimal llama_build_commit"):
+            build_experiment_bundle(self.select(), now=NOW)
 
     def test_bundle_id_is_deterministic_for_same_sources(self):
         first = build_experiment_bundle(self.select(), now=NOW)

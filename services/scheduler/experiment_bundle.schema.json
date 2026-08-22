@@ -10,6 +10,7 @@
     "captured_at",
     "scope",
     "benchmark_model_name",
+    "runtime_build",
     "sources",
     "placement_decision"
   ],
@@ -19,6 +20,17 @@
     "captured_at": {"type": "string", "format": "date-time"},
     "scope": {"const": "m1_two_node_placement_evidence"},
     "benchmark_model_name": {"type": "string", "minLength": 1, "maxLength": 512},
+    "runtime_build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "llama_build_commit", "llama_build_number", "binding"],
+      "properties": {
+        "runtime": {"const": "llama.cpp"},
+        "llama_build_commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        "llama_build_number": {"type": "integer", "minimum": 1},
+        "binding": {"const": "selected_llama_bench_v1"}
+      }
+    },
     "sources": {
       "type": "object",
       "additionalProperties": false,

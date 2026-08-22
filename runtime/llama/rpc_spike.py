@@ -13,6 +13,7 @@ import hashlib
 import ipaddress
 import json
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import time
@@ -56,6 +57,42 @@ class RpcEndpoint:
 
     def text(self) -> str:
         return f"{self.host}:{self.port}"
+
+
+@dataclass(frozen=True)
+class LlamaBuildIdentity:
+    build_number: int
+    commit: str
+
+
+_RUNTIME_BUILD_RE = re.compile(
+    r"(?im)^\s*version:\s*(\d+)\s+\(\s*`?([0-9a-fA-F]{7,40})`?\s*\)"
+)
+
+
+def parse_runtime_build_identity(text: str) -> LlamaBuildIdentity:
+    if not isinstance(text, str) or not text.strip():
+        raise RpcSpikeError("llama.cpp --version output is empty")
+    if len(text.encode("utf-8", errors="replace")) > 4096:
+        raise RpcSpikeError("llama.cpp --version output exceeded 4096 bytes")
+    match = _RUNTIME_BUILD_RE.search(text)
+    if match is None:
+        raise RpcSpikeError("llama.cpp --version output lacks a concrete build number/commit")
+    number = int(match.group(1))
+    if number < 1:
+        raise RpcSpikeError("llama.cpp build number must be positive")
+    return LlamaBuildIdentity(build_number=number, commit=match.group(2).lower())
+
+
+def runtime_build_matches(
+    actual: LlamaBuildIdentity, *, expected_number: int, expected_commit: str
+) -> bool:
+    if actual.build_number != expected_number:
+        return False
+    expected = expected_commit.lower()
+    if re.fullmatch(r"[0-9a-f]{7,40}", expected) is None:
+        return False
+    return actual.commit == expected or actual.commit.startswith(expected) or expected.startswith(actual.commit)
 
 
 @dataclass(frozen=True)

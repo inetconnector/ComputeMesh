@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Any, Iterable
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -302,6 +303,39 @@ def _select_llama_pair(
     return prefill, decode
 
 
+def _selected_llama_build_identity(selected: SelectedEvidence) -> tuple[str, int]:
+    records = (
+        ("coordinator prefill", selected.coordinator.prefill),
+        ("coordinator decode", selected.coordinator.decode),
+        ("worker prefill", selected.worker.prefill),
+        ("worker decode", selected.worker.decode),
+    )
+    identities: dict[str, tuple[str, int]] = {}
+    for label, document in records:
+        metrics = document.value.get("metrics", {})
+        commit = metrics.get("llama_build_commit")
+        number = metrics.get("llama_build_number")
+        if not isinstance(commit, str) or re.fullmatch(r"[0-9a-fA-F]{7,40}", commit) is None:
+            raise EvidenceBundleError(
+                f"{label} must carry a concrete hexadecimal llama_build_commit from llama-bench"
+            )
+        if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+            raise EvidenceBundleError(
+                f"{label} must carry a positive integer llama_build_number from llama-bench"
+            )
+        identities[label] = (commit.lower(), number)
+    unique = set(identities.values())
+    if len(unique) != 1:
+        detail = ", ".join(
+            f"{label}={commit}/{number}" for label, (commit, number) in identities.items()
+        )
+        raise EvidenceBundleError(
+            "selected llama-bench evidence must use one identical llama.cpp build on both nodes: " + detail
+        )
+    commit, number = next(iter(unique))
+    return commit, number
+
+
 def _select_network(
     benchmarks: list[EvidenceDocument],
     *,
@@ -457,6 +491,7 @@ def build_experiment_bundle(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    llama_build_commit, llama_build_number = _selected_llama_build_identity(selected)
     decision = build_placement_decision(
         coordinator_profile=selected.coordinator.profile.value,
         worker_profile=selected.worker.profile.value,
@@ -556,6 +591,12 @@ def build_experiment_bundle(
         "captured_at": current.isoformat().replace("+00:00", "Z"),
         "scope": "m1_two_node_placement_evidence",
         "benchmark_model_name": selected.benchmark_model_name,
+        "runtime_build": {
+            "runtime": "llama.cpp",
+            "llama_build_commit": llama_build_commit,
+            "llama_build_number": llama_build_number,
+            "binding": "selected_llama_bench_v1",
+        },
         "sources": sources,
         "placement_decision": decision,
     }

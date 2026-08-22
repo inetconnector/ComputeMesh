@@ -38,6 +38,8 @@ def plan(kind="gpu", name="NVIDIA GeForce RTX 3080 Laptop GPU") -> TrialPlan:
         worker_node_id="node-b",
         coordinator_kind=kind,
         coordinator_name=name,
+        llama_build_commit="abcdef0",
+        llama_build_number=999,
         model_basename="model.gguf",
         model_size_bytes=3,
         model_sha256=hashlib.sha256(b"abc").hexdigest(),
@@ -149,6 +151,8 @@ class SharedTrialTests(unittest.TestCase):
             loaded = load_trial_plan(bundle_path, model, now=NOW)
             self.assertEqual(loaded.model_sha256, hashlib.sha256(b"abc").hexdigest())
             self.assertEqual(loaded.tensor_split, (30.0, 10.0))
+            self.assertEqual(loaded.llama_build_commit, "abcdef0")
+            self.assertEqual(loaded.llama_build_number, 999)
             stale = datetime(2026, 8, 24, 6, 0, tzinfo=timezone.utc)
             with self.assertRaisesRegex(SharedTrialError, "older than"):
                 load_trial_plan(bundle_path, model, now=stale)
@@ -201,7 +205,7 @@ class SharedTrialTests(unittest.TestCase):
                 return kwargs["output_path"]
 
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=fake_plan), \
-                 patch("runtime.llama.shared_trial.runtime_version", return_value="build 1"), \
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", fake_plan.coordinator_name),)), \
                  patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA0", "local"), DeviceInfo("RPC0", "remote"))), \
                  patch("runtime.llama.shared_trial.run_spike", side_effect=fake_spike), \
@@ -223,6 +227,25 @@ class SharedTrialTests(unittest.TestCase):
             self.assertEqual(captured_plans[1].tensor_split, (30.0, 10.0))
             self.assertEqual(captured_plans[1].rpc_endpoints[0].text(), "127.0.0.1:50053")
 
+    def test_runner_rejects_current_server_from_different_bound_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); output = root / "trial"
+            server = root / "llama-server"; server.write_bytes(b"x")
+            model = root / "model.gguf"; model.write_bytes(b"abc")
+            bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
+            with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 1000 (`deadbee`)\nbuilt with test"):
+                with self.assertRaisesRegex(SharedTrialError, "does not match the build bound"):
+                    run_shared_trial(
+                        bundle_path=bundle_path,
+                        llama_server=server,
+                        model_path=model,
+                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
+                        output_dir=output,
+                    )
+            failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))
+            self.assertEqual(failure["phase"], "runtime_build_binding")
+
     def test_runner_rejects_rpc_preflight_that_drops_selected_local_device(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); output = root / "trial"
@@ -230,7 +253,7 @@ class SharedTrialTests(unittest.TestCase):
             model = root / "model.gguf"; model.write_bytes(b"abc")
             bundle_path = root / "bundle.json"; bundle_path.write_text("{}", encoding="utf-8")
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
-                 patch("runtime.llama.shared_trial.runtime_version", return_value="build 1"), \
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
                  patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA1", "different local"), DeviceInfo("RPC0", "remote"))):
                 with self.assertRaisesRegex(SharedTrialError, "no longer exposes"):
@@ -257,7 +280,7 @@ class SharedTrialTests(unittest.TestCase):
                 path = output_dir / "runtime_spike_result.json"; path.write_text("{}", encoding="utf-8"); return path
 
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
-                 patch("runtime.llama.shared_trial.runtime_version", return_value="build 1"), \
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
                  patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA0", "local"), DeviceInfo("RPC0", "remote"))), \
                  patch("runtime.llama.shared_trial.run_spike", side_effect=fake_spike), \

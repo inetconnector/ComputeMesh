@@ -31,7 +31,9 @@ from runtime.llama.rpc_spike import (
     RpcEndpoint,
     SpikePlan,
     compare_results,
+    parse_runtime_build_identity,
     run_spike,
+    runtime_build_matches,
     runtime_version,
     sha256_file,
 )
@@ -65,6 +67,8 @@ class TrialPlan:
     worker_node_id: str
     coordinator_kind: str
     coordinator_name: str
+    llama_build_commit: str
+    llama_build_number: int
     model_basename: str
     model_size_bytes: int
     model_sha256: str
@@ -191,6 +195,7 @@ def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None
     if digest != expected:
         raise SharedTrialError("local model SHA-256 does not match experiment bundle")
 
+    runtime_build = bundle["runtime_build"]
     return TrialPlan(
         bundle_id=bundle["bundle_id"],
         placement_decision_id=placement["decision_id"],
@@ -198,6 +203,8 @@ def load_trial_plan(bundle_path: Path, model_path: Path, *, now: datetime | None
         worker_node_id=worker["node_id"],
         coordinator_kind=coordinator["kind"],
         coordinator_name=coordinator["name"],
+        llama_build_commit=runtime_build["llama_build_commit"],
+        llama_build_number=int(runtime_build["llama_build_number"]),
         model_basename=model_path.name,
         model_size_bytes=model_path.stat().st_size,
         model_sha256=digest,
@@ -514,6 +521,18 @@ def run_shared_trial(
         version = runtime_version(llama_server)
         if not version:
             raise SharedTrialError("llama-server version is empty")
+        phase = "runtime_build_binding"
+        current_build = parse_runtime_build_identity(version)
+        if not runtime_build_matches(
+            current_build,
+            expected_number=plan.llama_build_number,
+            expected_commit=plan.llama_build_commit,
+        ):
+            raise SharedTrialError(
+                "current llama-server build does not match the build bound by the selected two-node llama-bench evidence "
+                f"(expected {plan.llama_build_number}/{plan.llama_build_commit}, "
+                f"got {current_build.build_number}/{current_build.commit})"
+            )
 
         phase = "local_device_discovery"
         local_listing = discover_devices(llama_server)

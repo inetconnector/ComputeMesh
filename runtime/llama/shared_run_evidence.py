@@ -12,7 +12,12 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from runtime.llama.rpc_spike import RpcEndpoint
+from runtime.llama.rpc_spike import (
+    RpcEndpoint,
+    RpcSpikeError,
+    parse_runtime_build_identity,
+    runtime_build_matches,
+)
 
 MAX_JSON_BYTES = 4 * 1024 * 1024
 MAX_BASELINE_TO_SHARED = timedelta(hours=1)
@@ -192,6 +197,19 @@ def _require_runtime_binding(
 
     if baseline["runtime"] != shared["runtime"]:
         raise SharedRunEvidenceError("baseline and shared run must use the same llama.cpp runtime version")
+    expected_build = bundle["runtime_build"]
+    try:
+        actual_build = parse_runtime_build_identity(baseline["runtime"]["version"])
+    except RpcSpikeError as exc:
+        raise SharedRunEvidenceError("runtime version cannot be bound to the experiment-bundle llama.cpp build") from exc
+    if not runtime_build_matches(
+        actual_build,
+        expected_number=int(expected_build["llama_build_number"]),
+        expected_commit=expected_build["llama_build_commit"],
+    ):
+        raise SharedRunEvidenceError(
+            "baseline/shared runtime build does not match the experiment-bundle llama-bench build"
+        )
     if baseline["correctness"]["prompt_sha256"] != shared["correctness"]["prompt_sha256"]:
         raise SharedRunEvidenceError("baseline and shared run prompt digests differ")
 
