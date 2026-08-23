@@ -27,8 +27,8 @@ class ComputeMeshProviderApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("ComputeMesh Provider Node — AI Compute Daemon")
-        self.root.geometry("640x520")
-        self.root.minsize(580, 480)
+        self.root.geometry("680x620")
+        self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
 
         self.is_running = False
@@ -130,9 +130,55 @@ class ComputeMeshProviderApp:
 
         self._populate_hardware()
 
-        # Controls & Wallet Row
+        # Payout Settings Card
+        payout_frame = ttk.Frame(self.root, style="Card.TFrame", padding=15)
+        payout_frame.pack(fill="x", padx=20, pady=(0, 10))
+
+        ttk.Label(payout_frame, text="Payout & Earnings Settlement", font=("Inter", 11, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 4))
+        ttk.Label(payout_frame, text="Enter your Ethereum/Polygon wallet address (0x...) or IBAN/Provider ID for monthly revenue settlements.", font=("Inter", 9), foreground="#9ca3af", background="#111827").pack(anchor="w", pady=(0, 8))
+
+        row_payout = ttk.Frame(payout_frame, style="Card.TFrame")
+        row_payout.pack(fill="x")
+
+        self.ent_wallet = tk.Entry(
+            row_payout,
+            font=("JetBrains Mono", 10),
+            bg="#0b0f19",
+            fg="#f3f4f6",
+            insertbackground="#00f2fe",
+            relief="flat",
+            bd=5,
+        )
+        self.ent_wallet.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        # Load saved payout wallet
+        saved_wallet = self._load_saved_wallet()
+        if saved_wallet:
+            self.ent_wallet.insert(0, saved_wallet)
+        else:
+            self.ent_wallet.insert(0, "0x0000000000000000000000000000000000000000")
+
+        btn_save_wallet = tk.Button(
+            row_payout,
+            text="💾 Save Wallet",
+            font=("Inter", 10, "bold"),
+            bg="#3b82f6",
+            fg="#ffffff",
+            activebackground="#2563eb",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=12,
+            pady=4,
+            command=self._save_payout_wallet,
+        )
+        btn_save_wallet.pack(side="right")
+
+        self.lbl_wallet_status = ttk.Label(payout_frame, text="", font=("Inter", 8), foreground="#10b981", background="#111827")
+        self.lbl_wallet_status.pack(anchor="w", pady=(4, 0))
+
+        # Controls Row
         ctrl_frame = ttk.Frame(self.root)
-        ctrl_frame.pack(fill="x", padx=20, pady=(10, 20))
+        ctrl_frame.pack(fill="x", padx=20, pady=(5, 15))
 
         self.btn_toggle = tk.Button(
             ctrl_frame,
@@ -164,6 +210,41 @@ class ComputeMeshProviderApp:
             command=self._open_web_dashboard,
         )
         btn_dash.pack(side="left", padx=10)
+
+    def _get_config_path(self) -> Path:
+        cfg_dir = Path.home() / ".computemesh"
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        return cfg_dir / "provider_config.json"
+
+    def _load_saved_wallet(self) -> str:
+        try:
+            cfg_file = self._get_config_path()
+            if cfg_file.exists():
+                data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                return data.get("payout_address", "")
+        except Exception:
+            pass
+        return ""
+
+    def _save_payout_wallet(self) -> None:
+        wallet = self.ent_wallet.get().strip()
+        if not wallet:
+            messagebox.showwarning("ComputeMesh", "Please enter a valid wallet address or provider ID.")
+            return
+        try:
+            cfg_file = self._get_config_path()
+            cfg_data = {}
+            if cfg_file.exists():
+                try:
+                    cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+            cfg_data["payout_address"] = wallet
+            cfg_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+            self.lbl_wallet_status.config(text=f"✓ Wallet address saved securely to local node configuration.", foreground="#10b981")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save wallet: {e}")
 
     def _populate_hardware(self) -> None:
         self.gpu_tree.delete(*self.gpu_tree.get_children())
