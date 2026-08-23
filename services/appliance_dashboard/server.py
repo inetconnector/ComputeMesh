@@ -528,6 +528,63 @@ HTML_PAGE = """<!DOCTYPE html>
       color: var(--text-dim);
       border-top: 1px solid var(--border-color);
     }
+    /* Smartphone & Tablet Mobile Optimization */
+    @media (max-width: 768px) {
+      body {
+        padding: 0.5rem;
+      }
+      header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        align-items: stretch;
+      }
+      .nav-tabs {
+        width: 100%;
+        display: flex;
+      }
+      .nav-tab {
+        flex: 1;
+        text-align: center;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+      }
+      .remote-access-card {
+        flex-direction: column;
+        padding: 1.25rem;
+        text-align: center;
+        gap: 1.25rem;
+      }
+      .remote-title {
+        justify-content: center;
+        flex-direction: column;
+        font-size: 1.1rem;
+      }
+      .ip-addresses-row {
+        justify-content: center;
+      }
+      .ip-chip {
+        font-size: 0.95rem;
+        width: 100%;
+        justify-content: center;
+      }
+      .btn-row {
+        flex-direction: column;
+        width: 100%;
+      }
+      .btn {
+        width: 100%;
+        justify-content: center;
+        padding: 1rem;
+        font-size: 1.05rem;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
