@@ -11,6 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import zipapp
 from typing import Any
@@ -58,15 +59,33 @@ def build_windows_standalone_bundle(
     }
     (staging_dir / "computemesh_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-    # Create zipapp executable bundle
-    zipapp.create_archive(
-        source=staging_dir,
-        target=output_exe_path,
-        main=None,  # Uses __main__.py in staging root
-        compressed=True,
-    )
+    # Build standalone executable with PyInstaller
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--onefile",
+        "--noconsole",
+        "--name", output_exe_path.stem,
+        "--distpath", str(output_exe_path.parent),
+        "--workpath", str(output_exe_path.parent / "dist_build"),
+        "--specpath", str(output_exe_path.parent / "dist_spec"),
+        str(REPO_ROOT / "tools" / "appliance" / "windows_tray_app.py"),
+    ]
+    
+    try:
+        import PyInstaller
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        # Fallback to zipapp if PyInstaller is not available
+        zipapp.create_archive(
+            source=staging_dir,
+            target=output_exe_path,
+            main=None,
+            compressed=True,
+        )
 
-    shutil.rmtree(staging_dir)
+    shutil.rmtree(staging_dir, ignore_errors=True)
+    shutil.rmtree(output_exe_path.parent / "dist_build", ignore_errors=True)
+    shutil.rmtree(output_exe_path.parent / "dist_spec", ignore_errors=True)
 
     raw_bytes = output_exe_path.read_bytes()
     sha256 = hashlib.sha256(raw_bytes).hexdigest()
