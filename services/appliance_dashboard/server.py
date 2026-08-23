@@ -32,6 +32,8 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
+APPLIANCE_VERSION = "1.2.3"
+
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1332,17 +1334,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         sys.path.insert(0, str(candidate))
 
                 from services.updater.auto_updater import AutoUpdater
-                updater = AutoUpdater(current_version="1.2.0")
+                updater = AutoUpdater(current_version=APPLIANCE_VERSION)
                 u_info = updater.check_for_updates()
                 if u_info:
                     resp_dict = {
                         "update_available": u_info.is_newer,
                         "version": u_info.version,
+                        "current_version": APPLIANCE_VERSION,
                         "release_date": u_info.release_date,
                         "filename": u_info.filename,
                     }
                 else:
-                    resp_dict = {"update_available": False, "version": "1.2.0"}
+                    resp_dict = {"update_available": False, "version": APPLIANCE_VERSION, "current_version": APPLIANCE_VERSION}
                 resp = json.dumps(resp_dict).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
@@ -1442,7 +1445,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         sys.path.insert(0, str(candidate))
 
                 from services.updater.auto_updater import AutoUpdater
-                updater = AutoUpdater(current_version="1.2.0")
+                updater = AutoUpdater(current_version=APPLIANCE_VERSION)
                 u_info = updater.check_for_updates()
                 if u_info:
                     pkg = updater.download_and_verify(u_info)
