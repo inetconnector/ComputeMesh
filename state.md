@@ -861,12 +861,13 @@ Implemented in `services/gateway/web3_payment_listener.py` and `services/orchest
 ## 28. Cryptographic Release Signing & Multi-Platform Auto-Updater (Ed25519)
 
 ### Architecture & Capabilities
-Implemented in `tools/security/release_signer.py`, `tools/security/signing_keys.py`, and `services/updater/auto_updater.py`:
+Implemented in `tools/security/release_signer.py`, `tools/security/signing_keys.py`, `tools/security/ed25519_verify.py`, and `services/updater/auto_updater.py`:
 1. **Master Ed25519 Signing Pipeline:** The private signing key (`computemesh_release_signing_private.key`) is generated and secured exclusively on `\\diskstation\Dani\ComputeMesh`.
-2. **Cryptographic Manifest Verification:** All client nodes (Windows, Linux, NodeOS) verify the digital Ed25519 signature of `version.json` and validate the SHA-256 binary hash before downloading or executing any update. Tampered bytes trigger immediate execution rejection (`SignatureVerificationError`).
-3. **First-Launch Opt-In:** Windows App, Linux Desktop GUI, and `install.sh` explicitly prompt the user during installation to enable automated signed updates.
-4. **Linux Desktop Provider GUI:** Standalone native Linux GUI (`tools/appliance/linux_tray_app.py`) with multi-GPU detection, system tray, and `.desktop` autostart.
-5. **Automated Unit Tests:** `services/updater/tests/test_auto_updater.py` (100% passing).
+2. **Zero-Dependency RFC 8032 Verifier:** Standard Python library Ed25519 verification without requiring external C libraries or compiled wheels (`tools/security/ed25519_verify.py`).
+3. **Cryptographic Manifest Verification:** All client nodes (Windows, Linux, NodeOS) verify the digital Ed25519 signature of `version.json` and validate the SHA-256 binary hash before downloading or executing any update. Tampered bytes trigger immediate execution rejection (`SignatureVerificationError`).
+4. **First-Launch Opt-In:** Windows App, Linux Desktop GUI, and `install.sh` explicitly prompt the user during installation to enable automated signed updates.
+5. **Linux Desktop Provider GUI:** Standalone native Linux GUI (`tools/appliance/linux_tray_app.py`) with multi-GPU detection, system tray, and `.desktop` autostart.
+6. **Automated Unit Tests:** `services/updater/tests/test_auto_updater.py` (100% passing).
 
 ---
 
@@ -878,32 +879,28 @@ Implemented in `services/appliance_dashboard/server.py` and `tools/appliance/con
 2. **Scanable Smartphone QR-Code:** Renders an instant QR-code directly on the physical monitor so miners without a keyboard or mouse can point their phone camera at the screen to immediately open the dashboard and connect MetaMask.
 3. **One-Click OS Upgrade & OTA Update:** Dedicated dashboard action buttons for `Check & Apply Signed Update (Ed25519)` and `OS System Upgrade (Debian apt-get update & upgrade)`.
 4. **Live Artifacts:** Hybrid `.iso`, compressed `.img.xz`, Windows `.exe`, and Linux `.tar.gz` built, verified, and hosted on production server.
-Implemented in `services/billing/crypto_payments.py`:
-1. **Multi-Chain EVM Monitoring:** Supports USDT & USDC deposits on Ethereum, Arbitrum, Polygon, Base, and BSC.
-2. **Deterministic Customer Deposit Addressing:** Derives secure on-chain deposit addresses mapped directly to customer ledger IDs.
-3. **Idempotent Transaction Settlement:** Deduplicates transaction hashes and mints micro-credits to the double-entry ledger without floating-point arithmetic errors.
-4. **Automated Unit Tests:** `services/billing/tests/test_crypto_payments.py` (5/5 tests passing, total 18 billing tests).
 
 ---
 
-## 28. Dynamic Multi-Model Hot-Swapping & LRU VRAM Cache Manager
+## 30. Mobile-First Responsive Redesign & Web3 Mobile Deep-Linking
 
-### Architecture & Layer Caching
-Implemented in `services/scheduler/model_cache_manager.py`:
-1. **LRU Dynamic Memory Eviction:** Manages multi-model weight footprints across distributed provider VRAM pools (Qwen 0.5B to Llama 70B).
-2. **Layer & Model Pinning:** Locks core base models in VRAM while dynamically evicting idle models when large reasoning models are requested.
-3. **Active Inference Lock:** Prevents model eviction while inferences are actively streaming.
-4. **Automated Unit Tests:** `services/scheduler/tests/test_model_cache_manager.py` (5/5 tests passing, total 53 scheduler tests).
+### Architecture & Capabilities
+Implemented in `services/appliance_dashboard/server.py`:
+1. **Mobile Viewport & Touch Ergonomics:** `<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">`, zero horizontal blowout (`max-width: 100vw; overflow-x: hidden`), 48px touch targets, and full-width buttons.
+2. **Smart Remote Client Detection:** Automatically hides the QR-code box on smartphones and remote laptops (`isRemoteClient = true`), keeping screen space focused on GPU metrics and payout settings.
+3. **Instant Clipboard Paste:** Dedicated `[ 📋 Einfügen ]` button that reads `0x...` Ethereum/Polygon addresses directly from clipboard into the wallet form with automatic persistence.
+4. **MetaMask Mobile Deep-Link:** `[ 🦊 Connect MetaMask ]` on smartphones opens `https://metamask.app.link/dapp/...` to launch the MetaMask mobile app with injected Web3 browser.
+5. **Live Status Alerts:** Instant popup and toast confirmation (`✓ Alles ist auf dem neuesten Stand`) when the node is already running the latest signed version.
 
 ---
 
-## 29. Windows Standalone Executable & Installer Packaging
+## 31. Windows Standalone Executable & Installer Packaging
 
 ### Architecture & Distribution Pipeline
 Implemented in `deploy/windows/build_installer.py`:
-1. **Zero-Dependency Executable Packaging:** Bundles the Windows Desktop Provider Agent GUI into a standalone `ComputeMesh-Setup-x64.exe` package.
+1. **Zero-Dependency Executable Packaging:** Bundles the Windows Desktop Provider Agent GUI into a standalone `ComputeMesh-Setup-x64.exe` package (35 MB).
 2. **Cryptographic Integrity & SHA-256 Hashing:** Automatically verifies payload hashes and provisions `/downloads/ComputeMesh-Setup-x64.exe` on the public web server.
-3. **Automated Unit Tests:** `deploy/windows/tests/test_build_installer.py` (1/1 tests passing, total 15 test suites, 325+ unit tests passing 100% on Windows and Linux).
+3. **Automated Unit Tests:** `deploy/windows/tests/test_build_installer.py` (100% passing across all platforms).
 
 
 
