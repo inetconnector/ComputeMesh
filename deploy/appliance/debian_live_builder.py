@@ -60,6 +60,8 @@ class DebianLiveBuilder:
             "architecture": self.config.architecture,
             "image_type": "hdd",
             "binary_format": "img.xz",
+            "hybrid_iso": True,
+            "bootloaders": ["isolinux-bios", "grub-efi-x86_64"],
             "archive_areas": "main contrib non-free non-free-firmware",
             "boot_append": "boot=live components quiet splash persistence computemesh.autostart=1",
             "packages": REQUIRED_PACKAGES,
