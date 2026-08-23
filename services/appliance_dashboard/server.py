@@ -587,20 +587,24 @@ HTML_PAGE = """<!DOCTYPE html>
       setTimeout(() => { b.style.display = 'none'; }, 4000);
     }
 
+    let configFormInitialized = false;
+
     async function connectMetaMask() {
       if (typeof window.ethereum !== 'undefined') {
         try {
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           if (accounts && accounts.length > 0) {
-            document.getElementById('cfg-wallet').value = accounts[0];
-            showToast('✓ MetaMask Connected: ' + accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4));
+            const addr = accounts[0];
+            document.getElementById('cfg-wallet').value = addr;
+            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Speichere...');
+            await saveConfiguration();
           }
         } catch (err) {
-          showToast('MetaMask connection rejected: ' + err.message, false);
+          showToast('MetaMask-Verbindung abgelehnt: ' + err.message, false);
         }
       } else {
         window.open('https://metamask.io/download/', '_blank');
-        showToast('MetaMask extension not detected. Opening download page...', false);
+        showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
       }
     }
 
@@ -669,9 +673,10 @@ HTML_PAGE = """<!DOCTYPE html>
           container.appendChild(card);
         });
 
-        // Initialize Config Form if not already focused
-        if (!document.activeElement || !document.activeElement.classList.contains('form-input')) {
-          document.getElementById('cfg-wallet').value = data.config.payout_address || '';
+        // Initialize Config Form only once so typing or MetaMask is not wiped out
+        if (!configFormInitialized) {
+          const curAddr = data.config.payout_address || '';
+          document.getElementById('cfg-wallet').value = (curAddr === '0x0000000000000000000000000000000000000000') ? '' : curAddr;
           document.getElementById('cfg-node-name').value = data.config.rig_name || '';
           document.getElementById('cfg-coordinator').value = data.config.coordinator_url || '';
           document.getElementById('cfg-vram-reserve').value = data.config.vram_reserve_mb || 512;
@@ -698,6 +703,7 @@ HTML_PAGE = """<!DOCTYPE html>
             `;
             toggleList.appendChild(row);
           });
+          configFormInitialized = true;
         }
       } catch (err) {
         console.error('Telemetry refresh error:', err);
@@ -769,6 +775,10 @@ HTML_PAGE = """<!DOCTYPE html>
       } catch (e) {
         showToast('Reboot command sent.', true);
       }
+    }
+
+    if (window.location.hash === '#config') {
+      switchTab('config');
     }
 
     updateDashboard();

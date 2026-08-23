@@ -358,8 +358,6 @@ class ComputeMeshProviderApp:
         saved_wallet = self._load_saved_wallet()
         if saved_wallet:
             self.ent_wallet.insert(0, saved_wallet)
-        else:
-            self.ent_wallet.insert(0, "0x0000000000000000000000000000000000000000")
 
         btn_save_wallet = tk.Button(
             row_payout,
@@ -453,7 +451,10 @@ class ComputeMeshProviderApp:
             cfg_file = self._get_config_path()
             if cfg_file.exists():
                 data = json.loads(cfg_file.read_text(encoding="utf-8"))
-                return data.get("payout_address", "")
+                addr = data.get("payout_address", "").strip()
+                if addr == "0x0000000000000000000000000000000000000000":
+                    return ""
+                return addr
         except Exception:
             pass
         return ""
@@ -487,9 +488,9 @@ class ComputeMeshProviderApp:
 
     def _connect_metamask(self) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/")
+        webbrowser.open("http://localhost:8080/#config")
         self.lbl_wallet_status.config(
-            text="🦊 Web Dashboard unter http://localhost:8080 geöffnet. Klicke dort auf 'Connect MetaMask'.",
+            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Connect MetaMask' wird die Adresse automatisch synchronisiert!",
             foreground="#00f2fe"
         )
 
@@ -515,11 +516,28 @@ class ComputeMeshProviderApp:
 
     def _open_web_dashboard(self, *args) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080")
+        webbrowser.open("http://localhost:8080/#config")
 
     def _telemetry_loop(self) -> None:
+        last_synced_wallet = ""
         while True:
-            time.sleep(2.0)
+            time.sleep(1.5)
+            # Sync wallet from saved config (e.g. when user connects MetaMask in browser)
+            current_saved_wallet = self._load_saved_wallet()
+            if current_saved_wallet and current_saved_wallet != last_synced_wallet:
+                last_synced_wallet = current_saved_wallet
+                try:
+                    current_input = self.ent_wallet.get().strip()
+                    if current_input != current_saved_wallet:
+                        self.ent_wallet.delete(0, tk.END)
+                        self.ent_wallet.insert(0, current_saved_wallet)
+                        self.lbl_wallet_status.config(
+                            text=f"✓ Wallet synchronisiert: {current_saved_wallet[:6]}...{current_saved_wallet[-4:]}",
+                            foreground="#10b981"
+                        )
+                except Exception:
+                    pass
+
             if self.is_running:
                 # Simulate token processing and ledger earnings
                 self.total_tokens_served += 45

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -76,6 +77,13 @@ def load_appliance_config(
         except Exception:
             pass
 
+    user_cfg = Path.home() / ".computemesh" / "provider_config.json"
+    if user_cfg.exists():
+        try:
+            system_data.update(json.loads(user_cfg.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+
     rig_name = (
         env_vars.get("NODE_NAME")
         or env_vars.get("RIG_NAME")
@@ -94,8 +102,10 @@ def load_appliance_config(
         or env_vars.get("PAYOUT_ADDRESS")
         or system_data.get("payout_address")
         or os.environ.get("WALLET_PAYOUT_ADDRESS")
-        or "0x0000000000000000000000000000000000000000"
+        or ""
     )
+    if payout_address == "0x0000000000000000000000000000000000000000":
+        payout_address = ""
     coordinator_url = (
         env_vars.get("COORDINATOR_URL")
         or system_data.get("coordinator_url")
@@ -150,8 +160,32 @@ def load_appliance_config(
 
 def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONFIG) -> None:
     """Persist updated appliance configuration to disk and USB env partition."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(config.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(config.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+    try:
+        user_cfg = Path.home() / ".computemesh" / "provider_config.json"
+        user_cfg.parent.mkdir(parents=True, exist_ok=True)
+        user_data = {}
+        if user_cfg.exists():
+            try:
+                user_data = json.loads(user_cfg.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        user_data["payout_address"] = config.payout_address
+        user_data["rig_name"] = config.rig_name
+        user_data["coordinator_url"] = config.coordinator_url
+        user_data["power_mode"] = config.power_mode
+        user_data["vram_reserve_mb"] = config.vram_reserve_mb
+        user_data["max_temp_c"] = config.max_temp_c
+        user_data["disabled_gpus"] = config.disabled_gpus
+        user_data["updated_at"] = datetime.now(timezone.utc).isoformat() if "datetime" in globals() else ""
+        user_cfg.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
 
     # Also update boot computemesh.env if writable
     for env_target in [DEFAULT_BOOT_CONFIG, DEFAULT_LIVE_BOOT_CONFIG]:
