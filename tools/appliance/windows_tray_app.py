@@ -130,6 +130,10 @@ class ComputeMeshProviderApp:
         self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
         self.telemetry_thread.start()
 
+        # Background auto-updater daemon thread (Ed25519)
+        self.updater_thread = threading.Thread(target=self._auto_updater_loop, daemon=True)
+        self.updater_thread.start()
+
         # Initialize System Tray Icon
         self.tray_icon = None
         if HAS_PYSTRAY:
@@ -269,6 +273,21 @@ class ComputeMeshProviderApp:
         except Exception:
             pass
 
+    def _auto_updater_loop(self) -> None:
+        """Continuous background thread checking periodically for signed updates."""
+        time.sleep(15)  # Initial grace period after launch
+        while True:
+            try:
+                if self.autoupdate_var.get():
+                    update_info = self.updater.check_for_updates()
+                    if update_info and update_info.is_newer:
+                        print(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
+                        downloaded = self.updater.download_and_verify(update_info)
+                        self.updater.apply_windows_update(downloaded)
+            except Exception as e:
+                print(f"[AutoUpdater] Background check error: {e}")
+            time.sleep(600)  # Check every 10 minutes
+
     def _manual_update_check(self, *args) -> None:
         try:
             update_info = self.updater.check_for_updates()
@@ -286,7 +305,7 @@ class ComputeMeshProviderApp:
             else:
                 messagebox.showinfo(
                     "ComputeMesh Auto-Updater",
-                    f"Du verwendest bereits die aktuellste, sicher signierte Version ({self.version}).",
+                    f"✓ Du verwendest bereits die aktuellste, sicher signierte Version (v{self.version}).",
                     parent=self.root,
                 )
         except Exception as e:
@@ -510,7 +529,22 @@ class ComputeMeshProviderApp:
             pady=8,
             command=self._open_web_dashboard,
         )
-        btn_dash.pack(side="left", padx=10)
+        btn_dash.pack(side="left", padx=(10, 5))
+
+        btn_update = tk.Button(
+            ctrl_frame,
+            text="🛡️ Check Update",
+            font=("Inter", 10),
+            bg="#1f2937",
+            fg="#10b981",
+            activebackground="#374151",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=10,
+            pady=8,
+            command=self._manual_update_check,
+        )
+        btn_update.pack(side="left")
 
         # Options Checkboxes
         self.chk_autostart = tk.Checkbutton(

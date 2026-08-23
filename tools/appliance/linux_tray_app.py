@@ -106,6 +106,10 @@ class LinuxComputeMeshProviderApp:
         self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
         self.telemetry_thread.start()
 
+        # Background auto-updater daemon thread (Ed25519)
+        self.updater_thread = threading.Thread(target=self._auto_updater_loop, daemon=True)
+        self.updater_thread.start()
+
         # System Tray
         self.tray_icon = None
         if HAS_PYSTRAY:
@@ -324,7 +328,8 @@ class LinuxComputeMeshProviderApp:
         self.btn_toggle = tk.Button(ctrl_frame, text="⏹ Stop / Pause Daemon", font=("Inter", 11, "bold"), bg="#ef4444", fg="#ffffff", relief="flat", padx=16, pady=8, command=self._toggle_compute)
         self.btn_toggle.pack(side="left")
 
-        tk.Button(ctrl_frame, text="🌐 Web Dashboard", font=("Inter", 10), bg="#1f2937", fg="#9ca3af", relief="flat", padx=12, pady=8, command=self._open_web_dashboard).pack(side="left", padx=10)
+        tk.Button(ctrl_frame, text="🌐 Web Dashboard", font=("Inter", 10), bg="#1f2937", fg="#9ca3af", relief="flat", padx=12, pady=8, command=self._open_web_dashboard).pack(side="left", padx=(10, 5))
+        tk.Button(ctrl_frame, text="🛡️ Check Update", font=("Inter", 10), bg="#1f2937", fg="#10b981", relief="flat", padx=10, pady=8, command=self._manual_update_check).pack(side="left")
 
         # Options Checkboxes
         tk.Checkbutton(ctrl_frame, text="Autostart", variable=self.autostart_var, command=self._on_autostart_toggle, bg="#0b0f19", fg="#f3f4f6", selectcolor="#111827", font=("Inter", 9)).pack(side="right")
@@ -427,6 +432,21 @@ class LinuxComputeMeshProviderApp:
         except Exception:
             pass
 
+    def _auto_updater_loop(self) -> None:
+        """Continuous background thread checking periodically for signed updates."""
+        time.sleep(15)  # Initial grace period after launch
+        while True:
+            try:
+                if self.autoupdate_var.get():
+                    update_info = self.updater.check_for_updates()
+                    if update_info and update_info.is_newer:
+                        print(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
+                        pkg = self.updater.download_and_verify(update_info)
+                        self.updater.apply_linux_update(pkg)
+            except Exception as e:
+                print(f"[AutoUpdater] Background check error: {e}")
+            time.sleep(600)  # Check every 10 minutes
+
     def _manual_update_check(self, *args) -> None:
         update_info = self.updater.check_for_updates()
         if update_info and update_info.is_newer:
@@ -440,7 +460,7 @@ class LinuxComputeMeshProviderApp:
                 pkg = self.updater.download_and_verify(update_info)
                 self.updater.apply_linux_update(pkg)
         else:
-            messagebox.showinfo("ComputeMesh Updater", f"Du verwendest bereits die aktuellste Version ({self.version}).", parent=self.root)
+            messagebox.showinfo("ComputeMesh Updater", f"✓ Du verwendest bereits die aktuellste Version (v{self.version}).", parent=self.root)
 
     def _telemetry_loop(self) -> None:
         last_synced_wallet = ""
