@@ -880,23 +880,27 @@ HTML_PAGE = """<!DOCTYPE html>
     function switchTab(tabId, btnEl) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+      
       const targetTab = document.getElementById('tab-' + tabId);
       if (targetTab) targetTab.classList.add('active');
 
-      const tabIdx = (tabId === 'overview') ? 0 : 1;
       const allBtns = document.querySelectorAll('.nav-tab');
       if (btnEl && btnEl.classList) {
         btnEl.classList.add('active');
-      } else if (allBtns[tabIdx]) {
-        allBtns[tabIdx].classList.add('active');
+      } else if (allBtns.length >= 2) {
+        if (tabId === 'overview' && allBtns[0]) allBtns[0].classList.add('active');
+        if (tabId === 'config' && allBtns[1]) allBtns[1].classList.add('active');
       }
       try {
-        history.replaceState(null, null, '#' + tabId);
+        if (window.location.hash !== '#' + tabId) {
+          history.replaceState(null, null, '#' + tabId);
+        }
       } catch (e) {}
     }
 
     function showToast(msg, isSuccess = true) {
       const b = document.getElementById('toast-banner');
+      if (!b) return;
       b.textContent = msg;
       b.className = 'toast-msg ' + (isSuccess ? 'toast-success' : 'toast-danger');
       b.style.display = 'block';
@@ -907,8 +911,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
     function clearWalletInput() {
       const el = document.getElementById('cfg-wallet');
-      el.value = '';
-      el.focus();
+      if (el) {
+        el.value = '';
+        el.focus();
+      }
       showToast('Wallet-Feld geleert. Neue Adresse eingeben oder per MetaMask wählen.');
     }
 
@@ -917,11 +923,13 @@ HTML_PAGE = """<!DOCTYPE html>
         if (navigator.clipboard && navigator.clipboard.readText) {
           const text = await navigator.clipboard.readText();
           if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
-            document.getElementById('cfg-wallet').value = text.trim();
+            const el = document.getElementById('cfg-wallet');
+            if (el) el.value = text.trim();
             showToast('✓ Wallet-Adresse eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Klicke auf "💾 Save", um zu speichern.');
             return;
           } else if (text && text.trim()) {
-            document.getElementById('cfg-wallet').value = text.trim();
+            const el = document.getElementById('cfg-wallet');
+            if (el) el.value = text.trim();
             showToast('Eingefügt: ' + text.trim() + ' — Klicke auf "💾 Save", um zu speichern.');
             return;
           }
@@ -932,7 +940,8 @@ HTML_PAGE = """<!DOCTYPE html>
       
       const manual = prompt('Bitte deine Ethereum / Polygon Wallet-Adresse (0x...) hier einfügen:');
       if (manual && manual.trim()) {
-        document.getElementById('cfg-wallet').value = manual.trim();
+        const el = document.getElementById('cfg-wallet');
+        if (el) el.value = manual.trim();
         showToast('✓ Wallet-Adresse eingefügt — Klicke auf "💾 Save", um zu speichern.');
       }
     }
@@ -976,7 +985,8 @@ HTML_PAGE = """<!DOCTYPE html>
           const accounts = await provider.request({ method: 'eth_requestAccounts' });
           if (accounts && accounts.length > 0) {
             const addr = accounts[0];
-            document.getElementById('cfg-wallet').value = addr;
+            const el = document.getElementById('cfg-wallet');
+            if (el) el.value = addr;
             showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Gespeichert!');
             await saveConfiguration();
             return;
@@ -994,7 +1004,8 @@ HTML_PAGE = """<!DOCTYPE html>
           if (navigator.clipboard && navigator.clipboard.readText) {
             const text = await navigator.clipboard.readText();
             if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
-              document.getElementById('cfg-wallet').value = text.trim();
+              const el = document.getElementById('cfg-wallet');
+              if (el) el.value = text.trim();
               showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
               await saveConfiguration();
               return;
@@ -1004,7 +1015,8 @@ HTML_PAGE = """<!DOCTYPE html>
 
         const manual = prompt('🦊 MetaMask-Adresse (0x...) hier einfügen:\n\n(Tipp: In der MetaMask-App kurz auf deine 0x-Adresse tippen, um sie zu kopieren)');
         if (manual && manual.trim()) {
-          document.getElementById('cfg-wallet').value = manual.trim();
+          const el = document.getElementById('cfg-wallet');
+          if (el) el.value = manual.trim();
           showToast('✓ Wallet-Adresse eingefügt — Speichere...');
           await saveConfiguration();
         }
@@ -1040,18 +1052,25 @@ HTML_PAGE = """<!DOCTYPE html>
 
     async function updateDashboard() {
       try {
-        const res = await fetch('/api/status');
+        const res = await fetch('/api/status', { cache: 'no-store' });
+        if (!res.ok) return;
         const data = await res.json();
         nodeState = data;
 
-        const healthyGpus = data.inventory.gpus.filter(g => g.healthy);
-        const totalVramGb = (data.inventory.total_vram_bytes / (1024*1024*1024)).toFixed(1);
+        const gpus = (data.inventory && data.inventory.gpus) ? data.inventory.gpus : [];
+        const healthyGpus = gpus.filter(g => g.healthy);
+        const totalVramGb = (data.inventory && data.inventory.total_vram_bytes) ? (data.inventory.total_vram_bytes / (1024*1024*1024)).toFixed(1) : '0.0';
 
-        document.getElementById('total-gpus').textContent = healthyGpus.length + ' GPUs';
-        document.getElementById('total-vram').textContent = totalVramGb + ' GB Dedicated VRAM';
-        document.getElementById('tokens-served').textContent = data.telemetry.tokens_processed.toLocaleString();
-        document.getElementById('earnings').textContent = '$' + (data.telemetry.earnings_cm * 0.85).toFixed(4);
-        document.getElementById('footer-node-id').textContent = 'Node: ' + data.node_id + ' • Payout: ' + (data.config.payout_address || 'Not Set');
+        const elGpus = document.getElementById('total-gpus');
+        if (elGpus) elGpus.textContent = healthyGpus.length + ' GPUs';
+        const elVram = document.getElementById('total-vram');
+        if (elVram) elVram.textContent = totalVramGb + ' GB Dedicated VRAM';
+        const elTokens = document.getElementById('tokens-served');
+        if (elTokens) elTokens.textContent = (data.telemetry && data.telemetry.tokens_processed != null) ? data.telemetry.tokens_processed.toLocaleString() : '0';
+        const elEarnings = document.getElementById('earnings');
+        if (elEarnings) elEarnings.textContent = '$' + ((data.telemetry && data.telemetry.earnings_cm != null) ? (data.telemetry.earnings_cm * 0.85).toFixed(4) : '0.0000');
+        const elFooter = document.getElementById('footer-node-id');
+        if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
 
         // Populate Remote IP Address Chips & QR Code
         const isRemoteClient = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -1083,86 +1102,99 @@ HTML_PAGE = """<!DOCTYPE html>
 
         // Populate GPU Overview Cards
         const container = document.getElementById('gpu-container');
-        container.innerHTML = '';
+        if (container && gpus.length > 0) {
+          container.innerHTML = '';
+          gpus.forEach((gpu, idx) => {
+            const isDisabled = data.config && data.config.disabled_gpus && data.config.disabled_gpus.includes(gpu.index);
+            const vramGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
+            const therm = (data.telemetry && data.telemetry.gpu_thermals && data.telemetry.gpu_thermals[idx]) || {};
+            const temp = therm.temp || 56;
+            const fan = therm.fan || 62;
+            const power = therm.power_watts || 110;
 
-        data.inventory.gpus.forEach((gpu, idx) => {
-          const isDisabled = data.config.disabled_gpus && data.config.disabled_gpus.includes(gpu.index);
-          const vramGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
-          const temp = data.telemetry.gpu_thermals[idx]?.temp || 56;
-          const fan = data.telemetry.gpu_thermals[idx]?.fan || 62;
-          const power = data.telemetry.gpu_thermals[idx]?.power_watts || 110;
-
-          const card = document.createElement('div');
-          card.className = 'gpu-card' + (isDisabled ? ' disabled' : '');
-          card.innerHTML = `
-            <div class="gpu-header">
-              <div>
-                <div class="gpu-name">GPU ${gpu.index}: ${gpu.model_name}</div>
-                <div class="gpu-pci">${gpu.pci_slot} • ${isDisabled ? 'DISABLED' : gpu.driver_backend.toUpperCase()}</div>
+            const card = document.createElement('div');
+            card.className = 'gpu-card' + (isDisabled ? ' disabled' : '');
+            card.innerHTML = `
+              <div class="gpu-header">
+                <div>
+                  <div class="gpu-name">GPU ${gpu.index}: ${gpu.model_name}</div>
+                  <div class="gpu-pci">${gpu.pci_slot || 'PCIe'} • ${isDisabled ? 'DISABLED' : (gpu.driver_backend || 'CUDA').toUpperCase()}</div>
+                </div>
+                <span class="gpu-badge" style="${isDisabled ? 'background: rgba(244,63,94,0.15); color: var(--accent-rose); border-color: rgba(244,63,94,0.3);' : ''}">
+                  ${isDisabled ? 'OFFLINE' : 'ACTIVE'}
+                </span>
               </div>
-              <span class="gpu-badge" style="${isDisabled ? 'background: rgba(244,63,94,0.15); color: var(--accent-rose); border-color: rgba(244,63,94,0.3);' : ''}">
-                ${isDisabled ? 'OFFLINE' : 'ACTIVE'}
-              </span>
-            </div>
-            <div class="bar-wrap">
-              <div class="bar-labels">
-                <span>VRAM Allocation</span>
-                <span>${vramGb} GB Dedicated</span>
+              <div class="bar-wrap">
+                <div class="bar-labels">
+                  <span>VRAM Allocation</span>
+                  <span>${vramGb} GB Dedicated</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${isDisabled ? '0%' : '85%'}; ${isDisabled ? 'background: #374151;' : ''}"></div>
+                </div>
               </div>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width: ${isDisabled ? '0%' : '85%'}; ${isDisabled ? 'background: #374151;' : ''}"></div>
+              <div class="gpu-metrics">
+                <div>
+                  <div class="metric-val" style="color: ${temp > 75 ? 'var(--accent-amber)' : 'var(--accent-emerald)'}">${temp}°C</div>
+                  <div class="metric-lbl">Temp</div>
+                </div>
+                <div>
+                  <div class="metric-val">${fan}%</div>
+                  <div class="metric-lbl">Fan</div>
+                </div>
+                <div>
+                  <div class="metric-val">${power}W</div>
+                  <div class="metric-lbl">Power</div>
+                </div>
               </div>
-            </div>
-            <div class="gpu-metrics">
-              <div>
-                <div class="metric-val" style="color: ${temp > 75 ? 'var(--accent-amber)' : 'var(--accent-emerald)'}">${temp}°C</div>
-                <div class="metric-lbl">Temp</div>
-              </div>
-              <div>
-                <div class="metric-val">${fan}%</div>
-                <div class="metric-lbl">Fan</div>
-              </div>
-              <div>
-                <div class="metric-val">${power}W</div>
-                <div class="metric-lbl">Power</div>
-              </div>
-            </div>
-          `;
-          container.appendChild(card);
-        });
+            `;
+            container.appendChild(card);
+          });
+        }
 
         // Initialize Config Form only once so typing or MetaMask is not wiped out
-        if (!configFormInitialized) {
+        if (!configFormInitialized && data.config) {
           const curAddr = data.config.payout_address || '';
-          document.getElementById('cfg-wallet').value = (curAddr === '0x0000000000000000000000000000000000000000') ? '' : curAddr;
-          document.getElementById('cfg-node-name').value = data.config.rig_name || '';
-          document.getElementById('cfg-coordinator').value = data.config.coordinator_url || '';
-          document.getElementById('cfg-vram-reserve').value = data.config.vram_reserve_mb || 512;
-          document.getElementById('cfg-max-temp').value = data.config.max_temp_c || 80;
-          document.getElementById('cfg-power-mode').value = data.config.power_mode || 'balanced';
-          document.getElementById('cfg-kiosk').value = String(data.config.enable_kiosk ?? true);
-          document.getElementById('cfg-auto-update').value = String(data.config.auto_update ?? true);
-          document.getElementById('cfg-auto-system-upgrade').value = String(data.config.auto_system_upgrade ?? true);
+          const walletInput = document.getElementById('cfg-wallet');
+          if (walletInput) walletInput.value = (curAddr === '0x0000000000000000000000000000000000000000') ? '' : curAddr;
+          const nodeNameInput = document.getElementById('cfg-node-name');
+          if (nodeNameInput) nodeNameInput.value = data.config.rig_name || '';
+          const coordInput = document.getElementById('cfg-coordinator');
+          if (coordInput) coordInput.value = data.config.coordinator_url || '';
+          const vramInput = document.getElementById('cfg-vram-reserve');
+          if (vramInput) vramInput.value = data.config.vram_reserve_mb || 512;
+          const tempInput = document.getElementById('cfg-max-temp');
+          if (tempInput) tempInput.value = data.config.max_temp_c || 80;
+          const pwrInput = document.getElementById('cfg-power-mode');
+          if (pwrInput) pwrInput.value = data.config.power_mode || 'balanced';
+          const kioskInput = document.getElementById('cfg-kiosk');
+          if (kioskInput) kioskInput.value = String(data.config.enable_kiosk ?? true);
+          const autoUpInput = document.getElementById('cfg-auto-update');
+          if (autoUpInput) autoUpInput.value = String(data.config.auto_update ?? true);
+          const sysUpInput = document.getElementById('cfg-auto-system-upgrade');
+          if (sysUpInput) sysUpInput.value = String(data.config.auto_system_upgrade ?? true);
 
           // Populate GPU Toggles
           const toggleList = document.getElementById('cfg-gpu-toggles');
-          toggleList.innerHTML = '';
-          data.inventory.gpus.forEach(gpu => {
-            const isEnabled = !data.config.disabled_gpus || !data.config.disabled_gpus.includes(gpu.index);
-            const row = document.createElement('div');
-            row.className = 'gpu-toggle-item';
-            row.innerHTML = `
-              <div class="gpu-toggle-info">
-                <strong>GPU ${gpu.index}:</strong>
-                <span>${gpu.model_name} (${(gpu.vram_bytes/(1024**3)).toFixed(1)} GB)</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="gpu-toggle-${gpu.index}" ${isEnabled ? 'checked' : ''}>
-                <span class="slider"></span>
-              </label>
-            `;
-            toggleList.appendChild(row);
-          });
+          if (toggleList && gpus.length > 0) {
+            toggleList.innerHTML = '';
+            gpus.forEach(gpu => {
+              const isEnabled = !data.config.disabled_gpus || !data.config.disabled_gpus.includes(gpu.index);
+              const row = document.createElement('div');
+              row.className = 'gpu-toggle-item';
+              row.innerHTML = `
+                <div class="gpu-toggle-info">
+                  <strong>GPU ${gpu.index}:</strong>
+                  <span>${gpu.model_name} (${(gpu.vram_bytes/(1024**3)).toFixed(1)} GB)</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="gpu-toggle-${gpu.index}" ${isEnabled ? 'checked' : ''}>
+                  <span class="slider"></span>
+                </label>
+              `;
+              toggleList.appendChild(row);
+            });
+          }
           configFormInitialized = true;
         }
       } catch (err) {
@@ -1296,10 +1328,19 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    handleInitialRouting();
-    window.addEventListener('hashchange', handleInitialRouting);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        handleInitialRouting();
+        updateDashboard();
+      });
+    } else {
+      handleInitialRouting();
+      updateDashboard();
+    }
 
-    updateDashboard();
+    window.addEventListener('hashchange', handleInitialRouting);
+    window.addEventListener('popstate', handleInitialRouting);
+
     setInterval(updateDashboard, 3000);
   </script>
 </body>
@@ -1402,6 +1443,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(HTML_PAGE.encode("utf-8"))
             return
@@ -1434,6 +1478,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
