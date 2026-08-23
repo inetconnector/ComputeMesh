@@ -12,12 +12,13 @@ from datetime import datetime, timezone
 import enum
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
 MICRO_UNIT_SCALE = 1_000_000  # 1.000000 currency unit = 1,000,000 micro-units
-DEFAULT_NETWORK_FEE_BPS = 1500  # 15.00% network coordination fee (1500 Basis Points)
+DEFAULT_NETWORK_FEE_BPS = 2500  # 25.00% network operator fee (2500 Basis Points = 25%)
 MINIMUM_PAYOUT_MICRO_UNITS = 25_000_000  # $25.00 minimum threshold for automated withdrawal
 
 
@@ -116,8 +117,23 @@ class PayoutSummary:
 
 
 class Ledger:
-    def __init__(self, storage_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        storage_path: Path | None = None,
+        network_fee_bps: int | None = None,
+        operator_treasury_wallet: str | None = None,
+    ) -> None:
         self.storage_path = Path(storage_path) if storage_path else None
+        env_fee = os.environ.get("COMPUTEMESH_OPERATOR_FEE_BPS")
+        self.network_fee_bps = (
+            network_fee_bps
+            if network_fee_bps is not None
+            else (int(env_fee) if env_fee else DEFAULT_NETWORK_FEE_BPS)
+        )
+        self.operator_treasury_wallet = (
+            operator_treasury_wallet
+            or os.environ.get("COMPUTEMESH_OPERATOR_TREASURY_WALLET", "")
+        )
         self._transactions: list[Transaction] = []
         self._processed_events: set[str] = set()
         self._balances: dict[str, int] = {}  # account_id -> signed net balance
@@ -188,8 +204,8 @@ class Ledger:
                 f"customer {customer_account_id} balance ({customer_balance}) insufficient for charge ({total_charge_micro})"
             )
 
-        # Split: 15% network fee, 85% to providers
-        network_fee = (total_charge_micro * DEFAULT_NETWORK_FEE_BPS) // 10000
+        # Split: Operator Network Fee (e.g. 20% to 30%, default 25%), Remaining Provider Pool (e.g. 75%)
+        network_fee = (total_charge_micro * self.network_fee_bps) // 10000
         provider_pool = total_charge_micro - network_fee
 
         postings: list[Posting] = [
@@ -234,6 +250,52 @@ class Ledger:
         )
         self._record_transaction(tx)
         return tx
+
+    def create_operator_treasury_payout(
+        self,
+        wallet_address: str | None = None,
+    ) -> tuple[Transaction, PayoutSummary]:
+        """Transfers accumulated platform operator network fee revenue directly to the operator's treasury wallet."""
+        wallet = wallet_address or self.operator_treasury_wallet
+        if not wallet:
+            raise BillingError("No operator treasury wallet address specified for payout.")
+
+        balance = self.get_balance("revenue:network_fee")
+        if balance <= 0:
+            raise BillingError("Operator network fee treasury balance is zero.")
+
+        event_id = f"payout:operator_treasury:{secrets_token_hex(6)}"
+        tx_id = f"tx_op_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
+
+        tx = Transaction(
+            tx_id=tx_id,
+            event_id=event_id,
+            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            description=f"Operator network protocol fee revenue payout to treasury {wallet}",
+            postings=(
+                Posting(
+                    account_id="revenue:network_fee",
+                    account_type=AccountType.NETWORK_FEE_REVENUE.value,
+                    debit_micro_units=balance,
+                ),
+                Posting(
+                    account_id="expense:settlements",
+                    account_type=AccountType.PAYOUT_SETTLEMENT.value,
+                    credit_micro_units=balance,
+                ),
+            ),
+        )
+        self._record_transaction(tx)
+
+        summary = PayoutSummary(
+            payout_id=tx_id,
+            provider_node_id="operator_treasury",
+            amount_micro_units=balance,
+            amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
+            wallet_address=wallet,
+            created_at=tx.created_at,
+        )
+        return tx, summary
 
     def create_provider_payout(
         self,

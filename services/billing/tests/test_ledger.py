@@ -44,8 +44,8 @@ class TestBillingLedger(unittest.TestCase):
 
         # Execute 5,000 prompt + 5,000 completion tokens on 7B model ($0.20 per 1M -> 200 micro/tok)
         # Total charge = 10,000 * 200 = 2,000,000 micro-units ($2.00)
-        # Network fee (15%) = 300,000 micro-units
-        # Provider pool (85%) = 1,700,000 micro-units
+        # Network operator fee (25%) = 500,000 micro-units ($0.50)
+        # Provider pool (75%) = 1,500,000 micro-units ($1.50)
         tx = self.ledger.record_job_execution(
             job_id="job_alpha_1",
             customer_account_id="cust_001",
@@ -56,10 +56,10 @@ class TestBillingLedger(unittest.TestCase):
         )
         self.assertIsNotNone(tx.tx_id)
         self.assertEqual(self.ledger.get_balance("cust_001"), 18_000_000)  # $18.00 remaining
-        self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 300_000)  # $0.30
-        self.assertEqual(self.ledger.get_platform_revenue_micro_units(), 300_000)
-        self.assertEqual(self.ledger.get_platform_revenue_usd(), 0.30)
-        self.assertEqual(self.ledger.get_balance("provider:node_miner_5x8gb"), 1_700_000)  # $1.70
+        self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 500_000)  # $0.50 operator cut
+        self.assertEqual(self.ledger.get_platform_revenue_micro_units(), 500_000)
+        self.assertEqual(self.ledger.get_platform_revenue_usd(), 0.50)
+        self.assertEqual(self.ledger.get_balance("provider:node_miner_5x8gb"), 1_500_000)  # $1.50
 
     def test_multi_provider_proportional_split(self) -> None:
         self.ledger.deposit_customer_credits(
@@ -70,10 +70,10 @@ class TestBillingLedger(unittest.TestCase):
 
         # Two nodes: Coordinator (30%) + Worker Rig (70%)
         # Model 32B ($0.70 / 1M = 700 micro/tok), 10,000 tokens = 7,000,000 micro-units ($7.00)
-        # Network fee 15% = 1,050,000 micro-units
-        # Provider pool 85% = 5,950,000 micro-units
-        # Node A (30%) = 1,785,000 micro-units
-        # Node B (70%) = 4,165,000 micro-units
+        # Operator Network fee 25% = 1,750,000 micro-units ($1.75)
+        # Provider pool 75% = 5,250,000 micro-units ($5.25)
+        # Node A (30%) = 1,575,000 micro-units ($1.575)
+        # Node B (70%) = 3,675,000 micro-units ($3.675)
         self.ledger.record_job_execution(
             job_id="job_multi_1",
             customer_account_id="cust_002",
@@ -82,9 +82,33 @@ class TestBillingLedger(unittest.TestCase):
             prompt_tokens=5000,
             completion_tokens=5000,
         )
-        self.assertEqual(self.ledger.get_balance("provider:coord_rtx3080"), 1_785_000)
-        self.assertEqual(self.ledger.get_balance("provider:worker_rig_5x8gb"), 4_165_000)
-        self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 1_050_000)
+        self.assertEqual(self.ledger.get_balance("provider:coord_rtx3080"), 1_575_000)
+        self.assertEqual(self.ledger.get_balance("provider:worker_rig_5x8gb"), 3_675_000)
+        self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 1_750_000)
+
+    def test_operator_treasury_withdrawal(self) -> None:
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_op_test",
+            amount_micro_units=50_000_000,
+            payment_reference="stripe_op_dep",
+        )
+        # Run inference job generating $10.00 charge (10,000,000 micro-units) -> $2.50 operator cut
+        self.ledger.record_job_execution(
+            job_id="job_op_1",
+            customer_account_id="cust_op_test",
+            provider_shares=[("node_1", 1.0)],
+            model_id="llama/llama-3.1-70b-instruct",
+            prompt_tokens=5000,
+            completion_tokens=2142,
+        )
+        op_balance = self.ledger.get_platform_revenue_micro_units()
+        self.assertGreater(op_balance, 0)
+        
+        # Withdraw to Operator's Ethereum/Polygon Treasury Wallet
+        tx, summary = self.ledger.create_operator_treasury_payout("0xOperatorTreasuryWalletAddress123456789")
+        self.assertIsNotNone(tx.tx_id)
+        self.assertEqual(summary.wallet_address, "0xOperatorTreasuryWalletAddress123456789")
+        self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 0)
 
     def test_insufficient_balance_fails_closed(self) -> None:
         self.ledger.deposit_customer_credits(

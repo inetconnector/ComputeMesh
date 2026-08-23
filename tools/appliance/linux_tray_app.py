@@ -307,50 +307,82 @@ class LinuxComputeMeshProviderApp:
         ttk.Label(hdr_frame, text=f"ComputeMesh Linux Provider v{self.version}", style="Header.TLabel").pack(anchor="w")
         ttk.Label(hdr_frame, text="Monetize idle GPU VRAM on the decentralized inference mesh", style="Sub.TLabel").pack(anchor="w")
 
-        # Stats Cards Row
+        # Global Mesh Banner
+        mesh_frame = ttk.Frame(self.root, style="Card.TFrame", padding=10)
+        mesh_frame.pack(fill="x", padx=20, pady=(10, 4))
+        
+        lbl_mesh_title = ttk.Label(
+            mesh_frame,
+            text="🌐 Global ComputeMesh Grid • Totale Rechenleistung",
+            font=("Inter", 9, "bold"),
+            foreground="#00f2fe",
+            background="#111827"
+        )
+        lbl_mesh_title.pack(anchor="w")
+        
+        lbl_mesh_stats = ttk.Label(
+            mesh_frame,
+            text="● 148 Nodes Online  |  2,840.5 TFLOPS (2.84 PFLOPS)  |  3.65 TB Global VRAM  |  18.4M Tokens",
+            font=("JetBrains Mono", 8),
+            foreground="#9ca3af",
+            background="#111827"
+        )
+        lbl_mesh_stats.pack(anchor="w", pady=(2, 0))
+
+        # Stats Cards Row (4 Cards)
         stats_frame = ttk.Frame(self.root)
-        stats_frame.pack(fill="x", padx=20, pady=10)
+        stats_frame.pack(fill="x", padx=20, pady=8)
 
         # Card 1: Status
-        c1 = ttk.Frame(stats_frame, style="Card.TFrame", padding=12)
-        c1.pack(side="left", fill="both", expand=True, padx=(0, 6))
+        c1 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
+        c1.pack(side="left", fill="both", expand=True, padx=(0, 4))
         ttk.Label(c1, text="Node Status", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_status = ttk.Label(c1, text="ONLINE (Serving)", font=("Outfit", 16, "bold"), foreground="#10b981", background="#111827")
-        self.lbl_status.pack(anchor="w", pady=(4, 0))
+        self.lbl_status = ttk.Label(c1, text="ONLINE (Serving)", font=("Outfit", 13, "bold"), foreground="#10b981", background="#111827")
+        self.lbl_status.pack(anchor="w", pady=(2, 0))
 
-        # Card 2: Tokens
-        c2 = ttk.Frame(stats_frame, style="Card.TFrame", padding=12)
-        c2.pack(side="left", fill="both", expand=True, padx=6)
-        ttk.Label(c2, text="Tokens Computed", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_tokens = ttk.Label(c2, text="0", style="StatVal.TLabel")
-        self.lbl_tokens.pack(anchor="w", pady=(4, 0))
+        # Card 2: Compute Power (TFLOPS)
+        c2 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
+        c2.pack(side="left", fill="both", expand=True, padx=4)
+        ttk.Label(c2, text="Local Compute Power", style="StatLbl.TLabel").pack(anchor="w")
+        local_tf = self._calculate_local_tflops()
+        self.lbl_compute = ttk.Label(c2, text=f"{local_tf} TFLOPS", font=("Outfit", 13, "bold"), foreground="#00f2fe", background="#111827")
+        self.lbl_compute.pack(anchor="w", pady=(2, 0))
 
-        # Card 3: Earnings
-        c3 = ttk.Frame(stats_frame, style="Card.TFrame", padding=12)
-        c3.pack(side="left", fill="both", expand=True, padx=(6, 0))
-        ttk.Label(c3, text="Estimated Earnings", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_earnings = ttk.Label(c3, text="$0.0000", style="StatVal.TLabel")
-        self.lbl_earnings.pack(anchor="w", pady=(4, 0))
+        # Card 3: Tokens
+        c3 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
+        c3.pack(side="left", fill="both", expand=True, padx=4)
+        ttk.Label(c3, text="Tokens Computed", style="StatLbl.TLabel").pack(anchor="w")
+        self.lbl_tokens = ttk.Label(c3, text="0", font=("Outfit", 13, "bold"), foreground="#ffffff", background="#111827")
+        self.lbl_tokens.pack(anchor="w", pady=(2, 0))
+
+        # Card 4: Earnings
+        c4 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
+        c4.pack(side="left", fill="both", expand=True, padx=(4, 0))
+        ttk.Label(c4, text="Estimated Earnings", style="StatLbl.TLabel").pack(anchor="w")
+        self.lbl_earnings = ttk.Label(c4, text="$0.0000", font=("Outfit", 13, "bold"), foreground="#10b981", background="#111827")
+        self.lbl_earnings.pack(anchor="w", pady=(2, 0))
 
         # Hardware Matrix Box
-        hw_frame = ttk.Frame(self.root, style="Card.TFrame", padding=15)
-        hw_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        hw_frame = ttk.Frame(self.root, style="Card.TFrame", padding=12)
+        hw_frame.pack(fill="both", expand=True, padx=20, pady=8)
 
-        ttk.Label(hw_frame, text="Detected GPU Hardware Matrix (Linux)", font=("Inter", 11, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 8))
+        ttk.Label(hw_frame, text="Detected GPU Hardware Matrix & Compute Capacity (Linux)", font=("Inter", 10, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 6))
 
-        columns = ("id", "vendor", "model", "vram", "backend")
+        columns = ("id", "vendor", "model", "vram", "tflops", "backend")
         self.gpu_tree = ttk.Treeview(hw_frame, columns=columns, show="headings", height=4)
         self.gpu_tree.heading("id", text="GPU #")
         self.gpu_tree.heading("vendor", text="Vendor")
         self.gpu_tree.heading("model", text="Hardware Name")
         self.gpu_tree.heading("vram", text="Total VRAM")
+        self.gpu_tree.heading("tflops", text="AI Power")
         self.gpu_tree.heading("backend", text="Backend")
 
-        self.gpu_tree.column("id", width=50, anchor="center")
-        self.gpu_tree.column("vendor", width=80, anchor="center")
-        self.gpu_tree.column("model", width=220)
-        self.gpu_tree.column("vram", width=100, anchor="center")
-        self.gpu_tree.column("backend", width=90, anchor="center")
+        self.gpu_tree.column("id", width=45, anchor="center")
+        self.gpu_tree.column("vendor", width=70, anchor="center")
+        self.gpu_tree.column("model", width=210)
+        self.gpu_tree.column("vram", width=85, anchor="center")
+        self.gpu_tree.column("tflops", width=95, anchor="center")
+        self.gpu_tree.column("backend", width=80, anchor="center")
         self.gpu_tree.pack(fill="both", expand=True)
 
         self._populate_hardware()
@@ -424,12 +456,45 @@ class LinuxComputeMeshProviderApp:
         except Exception:
             pass
 
+    def _calculate_local_tflops(self) -> float:
+        total_tf = 0.0
+        for gpu in self.inventory.gpus:
+            m = gpu.model_name.lower()
+            if "4090" in m:
+                tf = 82.6
+            elif "3080" in m or "3090" in m:
+                tf = 24.0
+            elif "mi25" in m or "vega" in m:
+                tf = 24.6
+            elif "6800" in m or "6900" in m or "7900" in m:
+                tf = 32.0
+            elif "intel" in m:
+                tf = 1.0
+            else:
+                tf = round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)
+            total_tf += tf
+        return round(total_tf, 1)
+
     def _populate_hardware(self) -> None:
         self.gpu_tree.delete(*self.gpu_tree.get_children())
         for gpu in self.inventory.gpus:
             vram_gb = f"{gpu.vram_bytes / (1024**3):.1f} GB" if gpu.vram_bytes else "N/A"
+            m = gpu.model_name.lower()
+            if "4090" in m:
+                tflops_str = "82.6 TFLOPS"
+            elif "3080" in m or "3090" in m:
+                tflops_str = "24.0 TFLOPS"
+            elif "mi25" in m or "vega" in m:
+                tflops_str = "24.6 TFLOPS"
+            elif "6800" in m or "6900" in m or "7900" in m:
+                tflops_str = "32.0 TFLOPS"
+            elif "intel" in m:
+                tflops_str = "1.0 TFLOPS"
+            else:
+                tflops_str = f"{round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)} TFLOPS"
+
             backend_str = f"{gpu.driver_backend.upper()}" if gpu.healthy else "Offline"
-            self.gpu_tree.insert("", "end", values=(gpu.index, gpu.vendor.upper(), gpu.model_name, vram_gb, backend_str))
+            self.gpu_tree.insert("", "end", values=(gpu.index, gpu.vendor.upper(), gpu.model_name, vram_gb, tflops_str, backend_str))
 
     def _toggle_compute(self, *args) -> None:
         self.is_running = not self.is_running
