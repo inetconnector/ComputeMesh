@@ -937,73 +937,105 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    async function connectMetaMask(forceSwitch = true) {
+    function getEthereumProvider() {
+      if (typeof window === 'undefined') return null;
       if (typeof window.ethereum !== 'undefined') {
+        if (Array.isArray(window.ethereum.providers) && window.ethereum.providers.length > 0) {
+          const mm = window.ethereum.providers.find(p => p.isMetaMask);
+          return mm || window.ethereum.providers[0];
+        }
+        return window.ethereum;
+      }
+      return null;
+    }
+
+    async function waitForEthereumProvider(timeoutMs = 1500) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const provider = getEthereumProvider();
+        if (provider) return provider;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return getEthereumProvider();
+    }
+
+    async function connectMetaMask(forceSwitch = true) {
+      let provider = await waitForEthereumProvider(1200);
+      if (provider) {
         try {
           if (forceSwitch) {
             try {
-              await window.ethereum.request({
+              await provider.request({
                 method: 'wallet_requestPermissions',
                 params: [{ eth_accounts: {} }]
               });
             } catch (permErr) {
-              console.log('Permission request cancelled/skipped:', permErr);
+              console.log('Permission request skipped/cancelled:', permErr);
             }
           }
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const accounts = await provider.request({ method: 'eth_requestAccounts' });
           if (accounts && accounts.length > 0) {
             const addr = accounts[0];
             document.getElementById('cfg-wallet').value = addr;
-            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Wird gespeichert...');
+            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Gespeichert!');
             await saveConfiguration();
+            return;
           }
         } catch (err) {
-          showToast('MetaMask-Verbindung abgelehnt: ' + err.message, false);
+          showToast('MetaMask-Verbindung abgebrochen: ' + (err.message || err), false);
+          return;
+        }
+      }
+
+      // Mobile or fallback handling
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
+              document.getElementById('cfg-wallet').value = text.trim();
+              showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
+              await saveConfiguration();
+              return;
+            }
+          }
+        } catch (e) {}
+
+        const manual = prompt('🦊 MetaMask-Adresse (0x...) hier einfügen:\n\n(Tipp: In der MetaMask-App kurz auf deine 0x-Adresse tippen, um sie zu kopieren)');
+        if (manual && manual.trim()) {
+          document.getElementById('cfg-wallet').value = manual.trim();
+          showToast('✓ Wallet-Adresse eingefügt — Speichere...');
+          await saveConfiguration();
         }
       } else {
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobile) {
-          // On mobile LAN IPs (http://192.168.x.x), MetaMask deep link triggers SSL error because MetaMask forces HTTPS.
-          // Directly invoke clipboard paste or guidance prompt:
-          try {
-            if (navigator.clipboard && navigator.clipboard.readText) {
-              const text = await navigator.clipboard.readText();
-              if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
-                document.getElementById('cfg-wallet').value = text.trim();
-                showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
-                await saveConfiguration();
-                return;
-              }
-            }
-          } catch (e) {}
-
-          const manual = prompt('🦊 MetaMask-Adresse (0x...) hier einfügen:\n\n(Tipp: In der MetaMask-App kurz auf deine 0x-Adresse tippen, um sie zu kopieren)');
-          if (manual && manual.trim()) {
-            document.getElementById('cfg-wallet').value = manual.trim();
-            showToast('✓ Wallet-Adresse eingefügt — Speichere...');
-            await saveConfiguration();
-          }
-        } else {
-          window.open('https://metamask.io/download/', '_blank');
-          showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
-        }
+        window.open('https://metamask.io/download/', '_blank');
+        showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
       }
     }
 
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
-      try {
-        window.ethereum.on('accountsChanged', async (accounts) => {
-          if (accounts && accounts.length > 0) {
-            const newAddr = accounts[0];
-            const inputEl = document.getElementById('cfg-wallet');
-            if (inputEl && inputEl.value.toLowerCase() !== newAddr.toLowerCase()) {
-              inputEl.value = newAddr;
-              showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4) + ' — Speichere...');
-              await saveConfiguration();
+    function setupMetaMaskListeners() {
+      const provider = getEthereumProvider();
+      if (provider && provider.on) {
+        try {
+          provider.on('accountsChanged', async (accounts) => {
+            if (accounts && accounts.length > 0) {
+              const newAddr = accounts[0];
+              const inputEl = document.getElementById('cfg-wallet');
+              if (inputEl && inputEl.value.toLowerCase() !== newAddr.toLowerCase()) {
+                inputEl.value = newAddr;
+                showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4) + ' — Gespeichert!');
+                await saveConfiguration();
+              }
             }
-          }
-        });
-      } catch (e) {}
+          });
+        } catch (e) {}
+      }
+    }
+
+    setupMetaMaskListeners();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('ethereum#initialized', setupMetaMaskListeners, { once: true });
     }
 
     async function updateDashboard() {
@@ -1564,13 +1596,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
 
-def run_dashboard_server(
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+def create_dashboard_server(
     host: str = "0.0.0.0",
     port: int = 8080,
     config: ApplianceConfig | None = None,
     inventory: RigInventory | None = None,
     node_id: str = "cm-inference-node-01",
-) -> None:
+) -> tuple[ThreadingHTTPServer, int]:
     if config is None:
         config = load_appliance_config()
     if inventory is None:
@@ -1580,10 +1617,28 @@ def run_dashboard_server(
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = node_id
 
-    server = ThreadingHTTPServer((host, port), DashboardHandler)
+    for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
+        try:
+            server = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
+            return server, candidate_port
+        except OSError:
+            continue
+
+    server = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
+    return server, server.server_address[1]
+
+
+def run_dashboard_server(
+    host: str = "0.0.0.0",
+    port: int = 8080,
+    config: ApplianceConfig | None = None,
+    inventory: RigInventory | None = None,
+    node_id: str = "cm-inference-node-01",
+) -> int:
+    server, actual_port = create_dashboard_server(host, port, config, inventory, node_id)
     try:
         if sys.stdout is not None:
-            print(f"ComputeMesh Appliance Dashboard running at http://{host}:{port}")
+            print(f"ComputeMesh Appliance Dashboard running at http://{host}:{actual_port}")
     except Exception:
         pass
 
@@ -1596,6 +1651,7 @@ def run_dashboard_server(
             server.server_close()
         except Exception:
             pass
+    return actual_port
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -35,7 +35,7 @@ else:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageTk
 try:
     import pystray
     HAS_PYSTRAY = True
@@ -48,13 +48,46 @@ try:
 except ImportError:
     HAS_WINREG = False
 
-from services.appliance_dashboard.server import run_dashboard_server
+from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
 from services.updater.auto_updater import AutoUpdater, UpdateInfo
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware
 
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_APP_NAME = "ComputeMesh"
+
+
+def _create_computemesh_icon_image() -> Image.Image:
+    """Generates a branded high-res ComputeMesh cyan mesh icon image with PIL."""
+    size = (64, 64)
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # Background circle
+    draw.ellipse((4, 4, 60, 60), fill=(11, 15, 25, 255), outline=(0, 242, 254, 255), width=3)
+    # Center core
+    draw.ellipse((26, 26, 38, 38), fill=(0, 242, 254, 255))
+    # Nodes
+    nodes = [(32, 12), (50, 22), (50, 42), (32, 52), (14, 42), (14, 22)]
+    for nx, ny in nodes:
+        draw.line([(32, 32), (nx, ny)], fill=(59, 130, 246, 220), width=2)
+        draw.ellipse((nx - 4, ny - 4, nx + 4, ny + 4), fill=(0, 242, 254, 255))
+    return img
+
+
+def _cleanup_previous_instances() -> None:
+    """Terminates stale or orphaned ComputeMesh instances to ensure clean port binding."""
+    if sys.platform != "win32":
+        return
+    try:
+        current_pid = os.getpid()
+        cmd = [
+            "powershell", "-NoProfile", "-Command",
+            f"Get-Process -Name 'ComputeMesh*', 'ComputeMesh-Setup*' -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne {current_pid} }} | Stop-Process -Force -ErrorAction SilentlyContinue"
+        ]
+        import subprocess
+        subprocess.run(cmd, capture_output=True, timeout=5, creationflags=0x08000000)
+    except Exception:
+        pass
 
 
 def is_windows_autostart_enabled() -> bool:
@@ -99,10 +132,27 @@ class ComputeMeshProviderApp:
         self.root.title("ComputeMesh Provider Node — AI Compute Daemon")
         self.root.configure(bg="#0b0f19")
 
+        # Resolve icon paths and create high-res brand image
+        self.icon_path = self._find_icon()
+        if self.icon_path and self.icon_path.exists():
+            try:
+                self.icon_image = Image.open(self.icon_path)
+            except Exception:
+                self.icon_image = _create_computemesh_icon_image()
+        else:
+            self.icon_image = _create_computemesh_icon_image()
+
+        try:
+            self._tk_icon = ImageTk.PhotoImage(self.icon_image)
+            self.root.iconphoto(True, self._tk_icon)
+            if self.icon_path and self.icon_path.suffix.lower() == ".ico":
+                self.root.iconbitmap(default=str(self.icon_path))
+        except Exception:
+            pass
+
         # Center window on screen
         width = 680
         height = 620
-        self.root.update_idletasks()
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         pos_x = max(0, (screen_w - width) // 2)
@@ -111,15 +161,8 @@ class ComputeMeshProviderApp:
         self.root.minsize(620, 560)
 
         self.version = "1.2.7"
+        self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
-
-        # Resolve icon paths
-        self.icon_path = self._find_icon()
-        if self.icon_path:
-            try:
-                self.root.iconbitmap(default=str(self.icon_path))
-            except Exception:
-                pass
 
         # Auto-start providing compute immediately upon launch
         self.is_running = True
@@ -152,18 +195,18 @@ class ComputeMeshProviderApp:
         if HAS_PYSTRAY:
             self._setup_tray_icon()
 
-        # Handle --tray startup argument
-        if "--tray" in sys.argv:
-            self.root.withdraw()
-
         # First-launch prompt check
         self.root.after(600, self._check_first_launch_prompts)
 
     def _find_icon(self) -> Path | None:
         candidates = [
+            Path(getattr(sys, "_MEIPASS", ".")) / "tools" / "appliance" / "computemesh.ico",
             Path(getattr(sys, "_MEIPASS", ".")) / "computemesh.ico",
+            Path(getattr(sys, "_MEIPASS", ".")) / "portal" / "assets" / "computemesh.png",
             Path(__file__).resolve().parent / "computemesh.ico",
+            REPO_ROOT / "tools" / "appliance" / "computemesh.ico",
             REPO_ROOT / "portal" / "assets" / "computemesh.ico",
+            REPO_ROOT / "portal" / "assets" / "computemesh.png",
             Path.cwd() / "tools" / "appliance" / "computemesh.ico",
         ]
         for p in candidates:
@@ -173,15 +216,11 @@ class ComputeMeshProviderApp:
 
     def _setup_tray_icon(self) -> None:
         try:
-            if self.icon_path and self.icon_path.exists():
-                tray_image = Image.open(self.icon_path)
-            else:
-                # Fallback generated icon image
-                tray_image = Image.new("RGBA", (64, 64), color=(0, 240, 255, 255))
+            tray_image = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
 
             menu = pystray.Menu(
                 pystray.MenuItem("🖥️ Open ComputeMesh", self._show_from_tray, default=True),
-                pystray.MenuItem("🌐 Web Dashboard (:8080)", self._open_web_dashboard),
+                pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
                     lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute",
@@ -667,13 +706,21 @@ class ComputeMeshProviderApp:
     def _run_embedded_server(self) -> None:
         try:
             cfg = load_appliance_config()
-            run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=self.inventory, node_id="windows-provider-node")
+            server, actual_port = create_dashboard_server(
+                host="0.0.0.0",
+                port=8080,
+                config=cfg,
+                inventory=self.inventory,
+                node_id="windows-provider-node"
+            )
+            self.dashboard_port = actual_port
+            server.serve_forever()
         except Exception:
             pass
 
     def _connect_metamask(self) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/?action=metamask#config")
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/?action=metamask#config")
         self.lbl_wallet_status.config(
             text="🦊 MetaMask-Verbindung im Browser geöffnet — Bestätige die Auswahl in MetaMask!",
             foreground="#00f2fe"
@@ -701,7 +748,7 @@ class ComputeMeshProviderApp:
 
     def _open_web_dashboard(self, *args) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/#config")
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/#config")
 
     def _telemetry_loop(self) -> None:
         last_synced_wallet = ""
@@ -735,8 +782,12 @@ class ComputeMeshProviderApp:
 
 
 def main() -> int:
+    _cleanup_previous_instances()
     root = tk.Tk()
+    root.withdraw()
     app = ComputeMeshProviderApp(root)
+    if "--tray" not in sys.argv:
+        root.deiconify()
     root.mainloop()
     return 0
 

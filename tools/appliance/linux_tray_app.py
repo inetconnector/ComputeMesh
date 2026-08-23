@@ -35,19 +35,33 @@ else:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageTk
 try:
     import pystray
     HAS_PYSTRAY = True
 except ImportError:
     HAS_PYSTRAY = False
 
-from services.appliance_dashboard.server import run_dashboard_server
+from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware
 
 AUTOSTART_DESKTOP_FILE = Path.home() / ".config" / "autostart" / "computemesh.desktop"
+
+
+def _create_computemesh_icon_image() -> Image.Image:
+    """Generates a branded high-res ComputeMesh cyan mesh icon image with PIL."""
+    size = (64, 64)
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((4, 4, 60, 60), fill=(11, 15, 25, 255), outline=(0, 242, 254, 255), width=3)
+    draw.ellipse((26, 26, 38, 38), fill=(0, 242, 254, 255))
+    nodes = [(32, 12), (50, 22), (50, 42), (32, 52), (14, 42), (14, 22)]
+    for nx, ny in nodes:
+        draw.line([(32, 32), (nx, ny)], fill=(59, 130, 246, 220), width=2)
+        draw.ellipse((nx - 4, ny - 4, nx + 4, ny + 4), fill=(0, 242, 254, 255))
+    return img
 
 
 def is_linux_autostart_enabled() -> bool:
@@ -83,10 +97,25 @@ class LinuxComputeMeshProviderApp:
         self.root.title("ComputeMesh Provider Node (Linux) — AI Compute Daemon")
         self.root.configure(bg="#0b0f19")
 
+        # Resolve icon
+        self.icon_path = self._find_icon()
+        if self.icon_path and self.icon_path.exists():
+            try:
+                self.icon_image = Image.open(self.icon_path)
+            except Exception:
+                self.icon_image = _create_computemesh_icon_image()
+        else:
+            self.icon_image = _create_computemesh_icon_image()
+
+        try:
+            self._tk_icon = ImageTk.PhotoImage(self.icon_image)
+            self.root.iconphoto(True, self._tk_icon)
+        except Exception:
+            pass
+
         # Center window on screen
         width = 680
         height = 620
-        self.root.update_idletasks()
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         pos_x = max(0, (screen_w - width) // 2)
@@ -95,6 +124,7 @@ class LinuxComputeMeshProviderApp:
         self.root.minsize(620, 560)
 
         self.version = "1.2.7"
+        self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 
         # Auto-start providing compute immediately upon launch
@@ -128,11 +158,39 @@ class LinuxComputeMeshProviderApp:
         if HAS_PYSTRAY:
             self._setup_tray_icon()
 
-        if "--tray" in sys.argv:
-            self.root.withdraw()
-
         # First-launch prompt check
         self.root.after(600, self._check_first_launch_prompts)
+
+    def _find_icon(self) -> Path | None:
+        candidates = [
+            Path(getattr(sys, "_MEIPASS", ".")) / "tools" / "appliance" / "computemesh.ico",
+            Path(getattr(sys, "_MEIPASS", ".")) / "computemesh.png",
+            Path(__file__).resolve().parent / "computemesh.png",
+            REPO_ROOT / "portal" / "assets" / "computemesh.png",
+            Path.cwd() / "computemesh.png",
+        ]
+        for p in candidates:
+            if p.exists():
+                return p
+        return None
+
+    def _setup_tray_icon(self) -> None:
+        try:
+            tray_image = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
+            menu = pystray.Menu(
+                pystray.MenuItem("🖥️ Open ComputeMesh", self._show_from_tray, default=True),
+                pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute", self._toggle_compute),
+                pystray.MenuItem("🔄 Check for Updates", self._manual_update_check),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("❌ Exit ComputeMesh", self._quit_app),
+            )
+            self.tray_icon = pystray.Icon("ComputeMesh", tray_image, "ComputeMesh AI Node (Linux)", menu=menu)
+            tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
+            tray_thread.start()
+        except Exception:
+            pass
 
     def _get_config_path(self) -> Path:
         cfg_dir = Path.home() / ".computemesh"
@@ -413,7 +471,7 @@ class LinuxComputeMeshProviderApp:
 
     def _connect_metamask(self) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/?action=metamask#config")
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/?action=metamask#config")
         self.lbl_wallet_status.config(
             text="🦊 MetaMask-Verbindung im Browser geöffnet — Bestätige die Auswahl in MetaMask!",
             foreground="#00f2fe"
@@ -421,7 +479,7 @@ class LinuxComputeMeshProviderApp:
 
     def _open_web_dashboard(self, *args) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/#config")
+        webbrowser.open(f"http://localhost:{self.dashboard_port}/#config")
 
     def _save_payout_wallet(self) -> None:
         wallet = self.ent_wallet.get().strip()
@@ -441,7 +499,15 @@ class LinuxComputeMeshProviderApp:
     def _run_embedded_server(self) -> None:
         try:
             cfg = load_appliance_config()
-            run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=self.inventory, node_id="linux-provider-node")
+            server, actual_port = create_dashboard_server(
+                host="0.0.0.0",
+                port=8080,
+                config=cfg,
+                inventory=self.inventory,
+                node_id="linux-provider-node"
+            )
+            self.dashboard_port = actual_port
+            server.serve_forever()
         except Exception:
             pass
 
@@ -503,7 +569,10 @@ class LinuxComputeMeshProviderApp:
 
 def main() -> int:
     root = tk.Tk()
+    root.withdraw()
     app = LinuxComputeMeshProviderApp(root)
+    if "--tray" not in sys.argv:
+        root.deiconify()
     root.mainloop()
     return 0
 
