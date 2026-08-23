@@ -912,6 +912,17 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 2. **Automated Verification & Zero-Downtime Reload:** Automatically verifies SHA-256 payload integrity and Ed25519 signature before extracting packages and triggering service reloads (`computemesh-appliance.service` and `computemesh-gateway.service`).
 3. **Live Systemd Deployment:** Registered and active as an enabled systemd daemon (`computemesh-autoupdate.service`) on production server `89.58.11.237`.
 
+---
+
+## 33. Desktop GUI Hardening, URL Routing Fix & MetaMask 2-Way Sync
+
+### Architecture & Capabilities
+1. **Zero Console Window Flashes (`CREATE_NO_WINDOW`):** Set `creationflags=0x08000000` on all Windows hardware detection and telemetry subprocesses (`nvidia-smi`, `powershell`, `wmic`).
+2. **Centered Window Spawning:** Dynamically calculates screen geometry to spawn the application in the exact visual center of the user's display.
+3. **Query Parameter Routing Fix (`urllib.parse`):** Stripped query strings from handler path routing in `server.py` so URLs like `/?action=metamask#config` return HTTP 200 instead of 404.
+4. **Instant MetaMask 2-Way Synchronization:** Web dashboard triggers account selection popup on `action=metamask`, automatically saves selected wallet address, and desktop app reflects the address via live background telemetry loop.
+5. **Standalone Bundle Packaging:** Fully bundled `services`, `tools`, and `portal` into `ComputeMesh-Setup-x64.exe` with `sys._MEIPASS` pathing and verified startup.
+
 
 
 
