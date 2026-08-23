@@ -77,9 +77,18 @@ class LinuxComputeMeshProviderApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("ComputeMesh Provider Node (Linux) — AI Compute Daemon")
-        self.root.geometry("680x620")
-        self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
+
+        # Center window on screen
+        width = 680
+        height = 620
+        self.root.update_idletasks()
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        pos_x = max(0, (screen_w - width) // 2)
+        pos_y = max(0, (screen_h - height) // 2)
+        self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.root.minsize(620, 560)
 
         self.version = "1.2.7"
         self.updater = AutoUpdater(current_version=self.version)

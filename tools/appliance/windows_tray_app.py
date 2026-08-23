@@ -93,9 +93,18 @@ class ComputeMeshProviderApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("ComputeMesh Provider Node — AI Compute Daemon")
-        self.root.geometry("680x620")
-        self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
+
+        # Center window on screen
+        width = 680
+        height = 620
+        self.root.update_idletasks()
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        pos_x = max(0, (screen_w - width) // 2)
+        pos_y = max(0, (screen_h - height) // 2)
+        self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.root.minsize(620, 560)
 
         self.version = "1.2.7"
         self.updater = AutoUpdater(current_version=self.version)
@@ -607,9 +616,12 @@ class ComputeMeshProviderApp:
             if cfg_file.exists():
                 data = json.loads(cfg_file.read_text(encoding="utf-8"))
                 addr = data.get("payout_address", "").strip()
-                if addr == "0x0000000000000000000000000000000000000000":
-                    return ""
-                return addr
+                if addr and addr != "0x0000000000000000000000000000000000000000" and addr.lower() != "0x" + "0" * 40:
+                    return addr
+            from tools.appliance.appliance_config import load_appliance_config
+            app_cfg = load_appliance_config()
+            if app_cfg.payout_address and app_cfg.payout_address != "0x0000000000000000000000000000000000000000":
+                return app_cfg.payout_address
         except Exception:
             pass
         return ""

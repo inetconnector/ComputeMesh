@@ -953,7 +953,8 @@ HTML_PAGE = """<!DOCTYPE html>
           if (accounts && accounts.length > 0) {
             const addr = accounts[0];
             document.getElementById('cfg-wallet').value = addr;
-            showToast('✓ MetaMask Account gewählt: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Klicke unten auf "💾 Save" zum Speichern.');
+            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Wird gespeichert...');
+            await saveConfiguration();
           }
         } catch (err) {
           showToast('MetaMask-Verbindung abgelehnt: ' + err.message, false);
@@ -968,7 +969,8 @@ HTML_PAGE = """<!DOCTYPE html>
               const text = await navigator.clipboard.readText();
               if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
                 document.getElementById('cfg-wallet').value = text.trim();
-                showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Klicke auf "💾 Save".');
+                showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
+                await saveConfiguration();
                 return;
               }
             }
@@ -977,7 +979,8 @@ HTML_PAGE = """<!DOCTYPE html>
           const manual = prompt('🦊 MetaMask-Adresse (0x...) hier einfügen:\n\n(Tipp: In der MetaMask-App kurz auf deine 0x-Adresse tippen, um sie zu kopieren)');
           if (manual && manual.trim()) {
             document.getElementById('cfg-wallet').value = manual.trim();
-            showToast('✓ Wallet-Adresse eingefügt — Klicke auf "💾 Save", um zu speichern.');
+            showToast('✓ Wallet-Adresse eingefügt — Speichere...');
+            await saveConfiguration();
           }
         } else {
           window.open('https://metamask.io/download/', '_blank');
@@ -988,13 +991,14 @@ HTML_PAGE = """<!DOCTYPE html>
 
     if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
       try {
-        window.ethereum.on('accountsChanged', (accounts) => {
+        window.ethereum.on('accountsChanged', async (accounts) => {
           if (accounts && accounts.length > 0) {
             const newAddr = accounts[0];
             const inputEl = document.getElementById('cfg-wallet');
-            if (inputEl) {
+            if (inputEl && inputEl.value.toLowerCase() !== newAddr.toLowerCase()) {
               inputEl.value = newAddr;
-              showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4));
+              showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4) + ' — Speichere...');
+              await saveConfiguration();
             }
           }
         });

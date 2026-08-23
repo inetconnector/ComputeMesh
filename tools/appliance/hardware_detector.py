@@ -77,6 +77,12 @@ class RigInventory:
         }
 
 
+def _get_subprocess_flags() -> dict[str, Any]:
+    if sys.platform == "win32":
+        return {"creationflags": 0x08000000}
+    return {}
+
+
 # ==============================================================================
 # 1. Native NVIDIA Detection & Telemetry (nvidia-smi)
 # ==============================================================================
@@ -94,6 +100,7 @@ def detect_nvidia_gpus() -> list[GpuDevice]:
             text=True,
             check=True,
             timeout=10,
+            **_get_subprocess_flags(),
         )
         for line in res.stdout.strip().splitlines():
             parts = [p.strip() for p in line.split(",")]
@@ -138,6 +145,7 @@ def read_nvidia_thermals() -> list[GpuThermalMetrics]:
             text=True,
             check=True,
             timeout=5,
+            **_get_subprocess_flags(),
         )
         for line in res.stdout.strip().splitlines():
             parts = [p.strip() for p in line.split(",")]
@@ -326,7 +334,7 @@ def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice
             "powershell", "-NoProfile", "-Command",
             "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, PNPDeviceID | ConvertTo-Json -Compress"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=8)
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=8, **_get_subprocess_flags())
         raw = res.stdout.strip()
         if not raw:
             return []
@@ -415,6 +423,7 @@ def scan_rig_hardware() -> RigInventory:
                 text=True,
                 check=True,
                 timeout=10,
+                **_get_subprocess_flags(),
             )
             gpu_lines = [
                 l for l in res.stdout.splitlines()
