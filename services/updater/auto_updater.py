@@ -191,5 +191,13 @@ del "%~f0"
 
         if downloaded_pkg.suffix in (".gz", ".tgz") or downloaded_pkg.name.endswith(".tar.gz"):
             shutil.unpack_archive(str(downloaded_pkg), "/opt/computemesh")
-            subprocess.run(["systemctl", "restart", "computemesh-appliance.service"], check=False)
-        sys.exit(0)
+            nested = Path("/opt/computemesh/computemesh")
+            if nested.exists():
+                for item in nested.iterdir():
+                    dest = Path("/opt/computemesh") / item.name
+                    if item.is_dir():
+                        shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(str(item), str(dest))
+
+            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
