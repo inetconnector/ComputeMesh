@@ -30,19 +30,37 @@
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
-    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="terms_title">Terms of Service</h1>
-    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted);">
-      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">1. Acceptance of Terms</h3>
-      <p style="margin-bottom: 1.5rem;">By accessing or using the ComputeMesh decentralized compute platform, API gateway, or provider node software, you agree to be bound by these Terms of Service.</p>
+    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="terms_title">Terms of Service & Provider Settlement Rules</h1>
+    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.5rem;">
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec1_title">1. Acceptance of Terms</h3>
+        <p data-i18n="terms_sec1_text">By accessing or using the ComputeMesh decentralized compute platform, API gateway, or provider node software, you agree to be bound by these Terms of Service.</p>
+      </div>
       
-      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">2. API Usage & Compute Credits</h3>
-      <p style="margin-bottom: 1.5rem;">Consumers purchase compute credits denominated in USD, EUR, or ComputeMesh Credits (CM). Credits are billed per token metered by our verifiable double-entry ledger.</p>
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec2_title">2. API Usage & Compute Credits (Consumers)</h3>
+        <p data-i18n="terms_sec2_text">Developers and enterprise customers purchase prepaid compute credits in USD, EUR, or crypto (USDC/USDT). Consumption is billed strictly per processed token metered by our verifiable double-entry ledger.</p>
+      </div>
       
-      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">3. Provider Obligations</h3>
-      <p style="margin-bottom: 1.5rem;">Hardware providers supply compute power using official ComputeMesh binaries. Providers must maintain accurate telemetry and stable network connections for active sessions.</p>
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec3_title">3. Hardware Provider Obligations</h3>
+        <p data-i18n="terms_sec3_text">Hardware providers supply GPU compute capacity using official ComputeMesh binaries. Providers are responsible for maintaining stable connectivity and truthful node telemetry during active sessions.</p>
+      </div>
+
+      <div style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
+        <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;" data-i18n="terms_sec4_title">4. Provider Earnings, Real-Time Accounting & Minimum Payout Threshold ($25.00)</h3>
+        <p data-i18n="terms_sec4_text">For each successfully served inference token, micro-credits are recorded in real-time to the provider's double-entry ledger account. To prevent disproportionate blockchain gas fees and payment processing charges on micro-transactions, automated payouts (via EVM wallet or SEPA) require a minimum accumulated balance of $25.00 USD (or equivalent EUR / USDC / USDT). Once your balance meets or exceeds this threshold, earnings are dispatched in the next automated settlement batch to your registered wallet address or IBAN.</p>
+      </div>
+
+      <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
+        <h3 style="color: var(--accent-amber); margin-bottom: 0.5rem;" data-i18n="terms_sec5_title">5. Early Network Bootstrap & Ramp-Up Phase</h3>
+        <p data-i18n="terms_sec5_text">During the initial bootstrap and growth phase of ComputeMesh, incoming inference workload is dynamically distributed across active nodes according to model demand. All earned credits are permanent, non-expiring, and securely preserved on the ledger until the $25.00 threshold is reached. No fixed daily yield or minimum capacity utilization is guaranteed during early network bootstrapping.</p>
+      </div>
       
-      <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">4. Limitation of Liability</h3>
-      <p>ComputeMesh provides decentralized coordination software on an "as-is" and "as-available" basis without warranties of uninterrupted uptime.</p>
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec6_title">6. Limitation of Liability & Disclaimers</h3>
+        <p data-i18n="terms_sec6_text">ComputeMesh provides decentralized orchestration software on an 'as-is' and 'as-available' basis without warranties of uninterrupted uptime or constant node utilization.</p>
+      </div>
     </div>
   </main>
 

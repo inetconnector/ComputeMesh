@@ -227,8 +227,11 @@
           <div class="calc-result-card">
             <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Estimated Monthly Earnings</div>
             <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$145.00 / Mo</div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="lbl_payout_note">
-              Paid in USD/EUR or ComputeMesh Credits (CM)
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" data-i18n="lbl_payout_note">
+              Paid in USD/EUR or Crypto (USDT/USDC) upon reaching $25.00 minimum threshold
+            </div>
+            <div style="margin-top: 0.5rem; padding: 0.6rem 0.85rem; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-sm); font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); text-align: left;" data-i18n="lbl_provider_threshold_info">
+              💡 <strong>Settlement Rule:</strong> Earnings accumulate in real-time per computed token on our verifiable ledger. Automated batch payouts trigger once your balance reaches the $25.00 threshold, protecting against high transaction fees during network ramp-up.
             </div>
           </div>
         </div>
@@ -339,7 +342,7 @@ response = client.chat.completions.create(
         <div class="form-group">
           <label data-i18n="modal_wallet_lbl">Payout Wallet / Account (Optional)</label>
           <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum) or SEPA IBAN">
-          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers: Enter your Ethereum/EVM address (0x... from MetaMask, Rabby or exchange for USDC/USDT on Arbitrum, Polygon, Ethereum, Base) or your SEPA IBAN. You can also leave this empty and configure it later.</small>
+          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers: Enter your Ethereum/EVM address (0x... from MetaMask, Rabby or exchange for USDC/USDT on Arbitrum, Polygon, Ethereum, Base) or your SEPA IBAN. Payouts trigger automatically once you reach $25 earned. Can be left empty and configured later.</small>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
