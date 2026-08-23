@@ -170,8 +170,8 @@ for chunk in response:
         <div class="form-group">
           <label data-i18n="modal_role_lbl">I want to:</label>
           <select id="modal-role" class="form-control">
-            <option value="consumer" data-i18n="role_consumer">Consume AI Compute (Developer API)</option>
-            <option value="provider" data-i18n="role_provider">Provide GPU Compute (Earn Revenue)</option>
+            <option value="consumer" data-i18n="role_consumer">Use AI Models (Developer API)</option>
+            <option value="provider" data-i18n="role_provider">Provide GPUs (Earn Revenue)</option>
           </select>
         </div>
         <div class="form-group">
@@ -180,7 +180,8 @@ for chunk in response:
         </div>
         <div class="form-group">
           <label data-i18n="modal_wallet_lbl">Payout Wallet / Account (Optional)</label>
-          <input type="text" class="form-control" placeholder="0x71a9... or SEPA IBAN">
+          <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum) or SEPA IBAN">
+          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers: Enter your Ethereum/EVM address (0x... from MetaMask, Rabby or exchange for USDC/USDT on Arbitrum, Polygon, Ethereum, Base) or your SEPA IBAN. You can also leave this empty and configure it later.</small>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
       </form>
