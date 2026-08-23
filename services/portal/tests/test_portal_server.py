@@ -91,18 +91,25 @@ class TestPortalServer(unittest.TestCase):
             self.assertTrue(data["api_key"].startswith("cm_live_"))
             self.assertEqual(data["free_credit_granted_usd"], 10.0)
 
-    def test_billing_quote_api(self) -> None:
-        req_data = json.dumps({"tokens_million": 100, "model_tier": "8b"}).encode("utf-8")
+    def test_register_provider_api_encrypted_storage(self) -> None:
+        wallet = "0x71a99C8D2F8b3A15b81a84511d7e26d0De42B12F"
+        req_data = json.dumps({
+            "email": "provider@mining-farm.io",
+            "role": "provider",
+            "wallet": wallet,
+        }).encode("utf-8")
         req = urllib.request.Request(
-            "http://127.0.0.1:13000/api/v1/billing/quote",
+            "http://127.0.0.1:13000/api/v1/register",
             data=req_data,
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req) as resp:
-            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.status, 201)
             data = json.loads(resp.read().decode("utf-8"))
-            self.assertEqual(data["total_cost_usd"], 20.0)
-            self.assertEqual(data["savings_percent"], 80.0)
+            self.assertEqual(data["status"], "success")
+            self.assertTrue(data["api_key"].startswith("cm_node_"))
+            self.assertEqual(data["encryption"], "AES-256-GCM")
+            self.assertEqual(data["payout_target_masked"], "0x71a9...B12F")
 
 
 if __name__ == "__main__":

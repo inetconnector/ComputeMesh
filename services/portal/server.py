@@ -18,9 +18,14 @@ import sys
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from services.identity.vault import DEFAULT_VAULT
+
 PORTAL_DIR = REPO_ROOT / "portal"
 
-# In-memory mock customer & billing store for development
+# In-memory customer & billing store with AES-256-GCM encrypted fields
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}
 
 ROUTE_MAP = {
@@ -149,12 +154,17 @@ class PortalHandler(BaseHTTPRequestHandler):
             token = prefix + secrets.token_hex(16)
             account_id = f"acc_{secrets.token_hex(8)}"
 
+            encrypted_wallet = DEFAULT_VAULT.encrypt(wallet) if wallet else None
+            encrypted_email = DEFAULT_VAULT.encrypt(email)
+
             REGISTERED_ACCOUNTS[token] = {
                 "account_id": account_id,
-                "email": email,
+                "email_encrypted": encrypted_email,
+                "email_masked": DEFAULT_VAULT.mask_sensitive(email),
                 "role": role,
-                "wallet": wallet or None,
-                "balance_micro_credits": 10000000 if role == "consumer" else 0, # $10 free credit
+                "wallet_encrypted": encrypted_wallet,
+                "wallet_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
+                "balance_micro_credits": 10000000 if role == "consumer" else 0,  # $10 free credit
                 "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
 
@@ -163,6 +173,8 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "account_id": account_id,
                 "api_key": token,
                 "role": role,
+                "payout_target_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
+                "encryption": "AES-256-GCM",
                 "free_credit_granted_usd": 10.0 if role == "consumer" else 0.0,
             }, HTTPStatus.CREATED)
             return
