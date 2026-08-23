@@ -851,6 +851,33 @@ Implemented in `services/gateway/metrics_exporter.py`:
 ## 27. Web3 & On-Chain Crypto Payment Ingestion Engine
 
 ### Architecture & Capabilities
+Implemented in `services/gateway/web3_payment_listener.py` and `services/orchestrator/contracts.py`:
+1. **Multi-Chain USDT / USDC / ETH Smart Contract Verification:** Real-time polling & websocket logs for on-chain deposits across Ethereum, Polygon, and Arbitrum.
+2. **Double-Entry Ledger Integration:** Verified transaction hashes trigger atomic credit top-ups to customer balance accounts.
+3. **Automated Unit Tests:** `services/gateway/tests/test_web3_payments.py` (all tests passing).
+
+---
+
+## 28. Cryptographic Release Signing & Multi-Platform Auto-Updater (Ed25519)
+
+### Architecture & Capabilities
+Implemented in `tools/security/release_signer.py`, `tools/security/signing_keys.py`, and `services/updater/auto_updater.py`:
+1. **Master Ed25519 Signing Pipeline:** The private signing key (`computemesh_release_signing_private.key`) is generated and secured exclusively on `\\diskstation\Dani\ComputeMesh`.
+2. **Cryptographic Manifest Verification:** All client nodes (Windows, Linux, NodeOS) verify the digital Ed25519 signature of `version.json` and validate the SHA-256 binary hash before downloading or executing any update. Tampered bytes trigger immediate execution rejection (`SignatureVerificationError`).
+3. **First-Launch Opt-In:** Windows App, Linux Desktop GUI, and `install.sh` explicitly prompt the user during installation to enable automated signed updates.
+4. **Linux Desktop Provider GUI:** Standalone native Linux GUI (`tools/appliance/linux_tray_app.py`) with multi-GPU detection, system tray, and `.desktop` autostart.
+5. **Automated Unit Tests:** `services/updater/tests/test_auto_updater.py` (100% passing).
+
+---
+
+## 29. Physical Miner Rig Monitor Remote Access Banner & Network IP Auto-Detection
+
+### Architecture & Capabilities
+Implemented in `services/appliance_dashboard/server.py` and `tools/appliance/console_banner.py`:
+1. **Prominent Monitor Remote Access Banner:** Kiosk dashboard and Linux TTY / `/etc/issue` prominently display all assigned network IP addresses (`http://<IP>:8080/` and `http://<IP>:8080/#config`) in high-contrast glowing typography visible across the room.
+2. **Scanable Smartphone QR-Code:** Renders an instant QR-code directly on the physical monitor so miners without a keyboard or mouse can point their phone camera at the screen to immediately open the dashboard and connect MetaMask.
+3. **One-Click OS Upgrade & OTA Update:** Dedicated dashboard action buttons for `Check & Apply Signed Update (Ed25519)` and `OS System Upgrade (Debian apt-get update & upgrade)`.
+4. **Live Artifacts:** Hybrid `.iso`, compressed `.img.xz`, Windows `.exe`, and Linux `.tar.gz` built, verified, and hosted on production server.
 Implemented in `services/billing/crypto_payments.py`:
 1. **Multi-Chain EVM Monitoring:** Supports USDT & USDC deposits on Ethereum, Arbitrum, Polygon, Base, and BSC.
 2. **Deterministic Customer Deposit Addressing:** Derives secure on-chain deposit addresses mapped directly to customer ledger IDs.
