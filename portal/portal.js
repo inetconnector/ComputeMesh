@@ -489,7 +489,7 @@ function copyKey() {
 }
 
 function copyLinuxCommand() {
-  const cmd = "curl -fsSL https://get.computemesh.net/install.sh | sudo bash";
+  const cmd = "curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash";
   navigator.clipboard.writeText(cmd);
   alert(currentLang === 'de' ? 'Befehl kopiert!' : 'Command copied!');
 }
