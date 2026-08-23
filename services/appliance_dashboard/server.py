@@ -767,14 +767,21 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="section-title">💎 Payout & Earnings Settlement</div>
         <div class="form-grid">
           <div class="form-group" style="grid-column: 1 / -1;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
               <label class="form-label" style="margin: 0;">Ethereum / Polygon Wallet Address (USDT / ETH Settlement)</label>
-              <button type="button" class="btn btn-secondary" onclick="connectMetaMask()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(245, 133, 41, 0.15); border-color: rgba(245, 133, 41, 0.4); color: #f6851b;">
-                🦊 Connect MetaMask
-              </button>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" onclick="pasteWalletAddress()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">
+                  📋 Einfügen
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="connectMetaMask()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(245, 133, 41, 0.15); border-color: rgba(245, 133, 41, 0.4); color: #f6851b;">
+                  🦊 Connect MetaMask
+                </button>
+              </div>
             </div>
-            <input type="text" id="cfg-wallet" class="form-input" placeholder="0x..." spellcheck="false">
-            <span class="form-desc">Connect your MetaMask browser extension or paste your Polygon/Ethereum address (0x...). Monthly revenue settlements are funded directly from cleared customer payments.</span>
+            <div style="display: flex; gap: 0.5rem; width: 100%;">
+              <input type="text" id="cfg-wallet" class="form-input" placeholder="0x..." spellcheck="false" style="flex: 1;">
+            </div>
+            <span class="form-desc">Klicke auf <strong>🦊 Connect MetaMask</strong> (öffnet am Smartphone direkt die MetaMask-App) oder kopiere deine 0x-Adresse in MetaMask und tippe auf <strong>📋 Einfügen</strong>.</span>
           </div>
 
           <div class="form-group">
@@ -858,23 +865,18 @@ HTML_PAGE = """<!DOCTYPE html>
   </main>
 
   <footer>
-    <div id="footer-node-id">ComputeMesh NodeOS Appliance (v1.1.4) • Public Alpha Genesis Mesh</div>
+    <div id="footer-node-id">ComputeMesh NodeOS Appliance</div>
   </footer>
 
   <script>
     let nodeState = null;
 
     function switchTab(tabId) {
-      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      if (tabId === 'overview') {
-        document.querySelector('.nav-tabs button:nth-child(1)').classList.add('active');
-        document.getElementById('tab-overview').classList.add('active');
-      } else {
-        document.querySelector('.nav-tabs button:nth-child(2)').classList.add('active');
-        document.getElementById('tab-config').classList.add('active');
-      }
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      event.target.classList.add('active');
+      window.location.hash = '#' + tabId;
     }
 
     function showToast(msg, isSuccess = true) {
@@ -886,6 +888,34 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     let configFormInitialized = false;
+
+    async function pasteWalletAddress() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
+            document.getElementById('cfg-wallet').value = text.trim();
+            showToast('✓ Wallet-Adresse eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
+            await saveConfiguration();
+            return;
+          } else if (text && text.trim()) {
+            document.getElementById('cfg-wallet').value = text.trim();
+            showToast('Eingefügt: ' + text.trim());
+            await saveConfiguration();
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('Clipboard access:', err);
+      }
+      
+      const manual = prompt('Bitte deine Ethereum / Polygon Wallet-Adresse (0x...) hier einfügen:');
+      if (manual && manual.trim()) {
+        document.getElementById('cfg-wallet').value = manual.trim();
+        showToast('✓ Wallet-Adresse eingefügt — Speichere...');
+        await saveConfiguration();
+      }
+    }
 
     async function connectMetaMask() {
       if (typeof window.ethereum !== 'undefined') {
@@ -901,8 +931,18 @@ HTML_PAGE = """<!DOCTYPE html>
           showToast('MetaMask-Verbindung abgelehnt: ' + err.message, false);
         }
       } else {
-        window.open('https://metamask.io/download/', '_blank');
-        showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+          // Open in MetaMask in-app browser via universal deep link
+          const hostAndPath = window.location.host + window.location.pathname;
+          const deepLink = `https://metamask.app.link/dapp/${hostAndPath}#config`;
+          if (confirm('Auf dem Smartphone öffnet dieser Link das Dashboard direkt in der MetaMask-App (Web3-Browser).\n\nMöchtest du jetzt zur MetaMask-App wechseln?')) {
+            window.location.href = deepLink;
+          }
+        } else {
+          window.open('https://metamask.io/download/', '_blank');
+          showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
+        }
       }
     }
 
