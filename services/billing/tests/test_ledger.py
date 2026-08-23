@@ -57,6 +57,8 @@ class TestBillingLedger(unittest.TestCase):
         self.assertIsNotNone(tx.tx_id)
         self.assertEqual(self.ledger.get_balance("cust_001"), 18_000_000)  # $18.00 remaining
         self.assertEqual(self.ledger.get_balance("revenue:network_fee"), 300_000)  # $0.30
+        self.assertEqual(self.ledger.get_platform_revenue_micro_units(), 300_000)
+        self.assertEqual(self.ledger.get_platform_revenue_usd(), 0.30)
         self.assertEqual(self.ledger.get_balance("provider:node_miner_5x8gb"), 1_700_000)  # $1.70
 
     def test_multi_provider_proportional_split(self) -> None:

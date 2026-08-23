@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terms of Service — ComputeMesh</title>
-  <meta name="description" content="Terms of Service for the ComputeMesh decentralized compute platform, API gateway, and provider node software.">
+  <title>Terms of Service & Platform Monetization Rules — ComputeMesh</title>
+  <meta name="description" content="Terms of Service, Platform Fee, Provider Settlement Rules, and Billing Policy for the ComputeMesh decentralized AI inference network operated by inetconnector.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/terms">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +22,7 @@
       <ul class="nav-links">
         <li><a href="/" data-i18n="nav_home">Home</a></li>
         <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+        <li><a href="/status" data-i18n="nav_status">Network Status</a></li>
       </ul>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
@@ -29,49 +30,56 @@
     </div>
   </header>
 
-  <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
-    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="terms_title">Terms of Service & Provider Settlement Rules</h1>
-    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.5rem;">
+  <main class="container" style="padding: 4rem 1.5rem; max-width: 900px;">
+    <h1 style="font-size: 2.4rem; margin-bottom: 0.75rem;" data-i18n="terms_title">Terms of Service, Platform Fee & Provider Settlement Rules</h1>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="terms_subtitle">Operated by inetconnector • Effective Date: August 2026 • Version 1.2</p>
+
+    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.75rem;">
       <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec1_title">1. Acceptance of Terms</h3>
-        <p data-i18n="terms_sec1_text">By accessing or using the ComputeMesh decentralized compute platform, API gateway, or provider node software, you agree to be bound by these Terms of Service.</p>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec1_title">1. Scope of Agreement & Platform Operator Role (inetconnector)</h3>
+        <p data-i18n="terms_sec1_text">By accessing, registering on, or utilizing the ComputeMesh platform, API gateways, desktop provider clients, or NodeOS appliance images, you enter into a binding agreement with inetconnector (the "Platform Operator"). inetconnector provides the decentralized orchestration architecture, low-latency API proxy gateways, authentication layers, cryptographically metered accounting ledgers, and automated payment settlement pipelines connecting compute consumers with independent GPU hardware providers.</p>
       </div>
       
       <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec2_title">2. API Usage & Compute Credits (Consumers)</h3>
-        <p data-i18n="terms_sec2_text">Developers and enterprise customers purchase prepaid compute credits in USD, EUR, or crypto (USDC/USDT). Consumption is billed strictly per processed token metered by our verifiable double-entry ledger.</p>
-      </div>
-      
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec3_title">3. Hardware Provider Obligations</h3>
-        <p data-i18n="terms_sec3_text">Hardware providers supply GPU compute capacity using official ComputeMesh binaries. Providers are responsible for maintaining stable connectivity and truthful node telemetry during active sessions.</p>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec2_title">2. API Consumers, Prepaid Credit Packages & Fair-Use Metering</h3>
+        <p data-i18n="terms_sec2_text">Developers, businesses, and enterprise clients purchase prepaid compute credits in USD, EUR, or crypto (USDT/USDC). API consumption is strictly metered per 1,000 prompt and completion tokens at published model price tiers. Tokens are streamed directly via OpenAI-compatible endpoints with zero persistent prompt storage on edge nodes. Usage requires an active prepaid credit balance or an approved enterprise SLA subscription.</p>
       </div>
 
-      <div style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;" data-i18n="terms_sec4_title">4. Provider Earnings, Real-Time Accounting, Fully-Backed Settlement & 2-Tier Payout System ($25.00 Threshold)</h3>
-        <p data-i18n="terms_sec4_text">For each successfully served inference token, a revenue share (85% of metered token price) is credited in micro-units to the provider's ledger account in real-time. Payout entitlements operate strictly under the fully-backed revenue principle: cash withdrawals are disbursed exclusively from cleared, non-reversible consumer payments actually received and settled on the platform's merchant account (Stripe or on-chain crypto treasury). No pre-financing liability or unbacked withdrawal claims exist. Payouts trigger at a minimum balance of $25.00 USD (or EUR / USDC / USDT equivalent) via either (A) instant crypto transfer (USDC/USDT) to a registered 0x... EVM wallet, or (B) SEPA bank transfer via Stripe Connect Express.</p>
+      <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;" data-i18n="terms_sec4_title">3. Platform Fee, Monetization & Automated Revenue Splitting</h3>
+        <p data-i18n="terms_sec4_text">To finance the global high-availability gateway infrastructure, low-latency tensor coordination routing, DDoS mitigation, continuous software engineering, and multi-vendor driver maintenance, inetconnector retains a platform service commission of 15% to 20% (1,500 to 2,000 basis points) on all consumer-billed inference volume. The remaining 80% to 85% of metered token revenue is credited directly in real-time to the fulfilling GPU provider nodes through the atomic double-entry ledger.</p>
       </div>
 
-      <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-amber); margin-bottom: 0.5rem;" data-i18n="terms_sec5_title">5. Network Bootstrap Phase, Alpha Testing & Promotional Test Credits</h3>
-        <p data-i18n="terms_sec5_text">During the initial bootstrap and growth phase of ComputeMesh, compute workload is dynamically routed according to organic model demand. Free promotional credits, trial balances, and testnet tokens granted to consumers for testing purposes constitute non-monetary test allocations and explicitly do not generate cash withdrawal liabilities against the platform operator. Earnings derived from paid customer usage never expire and remain permanently ledger-recorded until the $25.00 threshold is reached.</p>
+      <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="color: var(--accent-emerald); margin-bottom: 0.5rem;" data-i18n="terms_sec5_title">4. Fully-Backed Revenue Principle & Non-Custodial Provider Settlements ($25.00 Threshold)</h3>
+        <p data-i18n="terms_sec5_text">Provider revenue entitlements operate strictly under the fully-backed revenue principle: cash withdrawals and on-chain token payouts are funded exclusively from cleared, non-reversible customer payments actually received and settled on the platform's merchant accounts (Stripe or verified crypto treasury). The Platform Operator maintains zero pre-financing liabilities for uncollected customer debts. Provider payouts trigger automatically once accumulated earnings reach or exceed the minimum threshold of $25.00 USD (or EUR / USDT / USDC equivalent), disbursed via (A) EVM smart contract transfer (Polygon, Arbitrum, Base, Ethereum) to a registered 0x... wallet, or (B) SEPA bank transfer via Stripe Connect Express.</p>
       </div>
-      
-      <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-emerald); margin-bottom: 0.5rem;" data-i18n="terms_sec6_title">6. Payment Service Providers, Stripe Express & Escrow Management</h3>
-        <p data-i18n="terms_sec6_text">All fiat transactions and SEPA provider bank payouts are processed through our licensed partner Stripe, Inc. (and Stripe Payments Europe, Ltd.) via Stripe Connect Express with automatic bank payee verification. On-chain crypto payouts (USDT/USDC) are executed directly via decentralized EVM smart contract networks (Arbitrum, Polygon, Base, Ethereum). The platform operator inetconnector maintains the orchestration software, edge gateways, and immutable double-entry ledger that meter token consumption and issue payout orders.</p>
+
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec3_title">5. Hardware Provider Responsibilities, SLAs & Anti-Cheating</h3>
+        <p data-i18n="terms_sec3_text">Hardware providers supply GPU compute capacity using authentic ComputeMesh software. Providers are strictly prohibited from spoofing telemetry, tampering with model weights, returning fraudulent non-deterministic activation layers, or altering VRAM reporting. Violations lead to immediate node blacklisting and permanent forfeiture of unpaid balances. ComputeMesh nodes execute jobs in an isolated sandbox with no access to consumer prompt identities.</p>
+      </div>
+
+      <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h3 style="color: var(--accent-amber); margin-bottom: 0.5rem;" data-i18n="terms_sec6_title">6. B2B Taxation, Reverse-Charge & Accounting Vouchers</h3>
+        <p data-i18n="terms_sec6_text">Hardware providers and enterprise customers act as independent economic operators. For EU-based business entities, standard Reverse-Charge rules (Art. 196 EU VAT Directive) apply. Hardware providers receive automated digital settlement vouchers (Gutschriften) for all completed payout cycles and are solely responsible for declaring their respective income, trade taxes, and local sales tax obligations.</p>
       </div>
       
       <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec7_title">7. Limitation of Liability & Disclaimers</h3>
-        <p data-i18n="terms_sec7_text">ComputeMesh provides decentralized orchestration software on an 'as-is' and 'as-available' basis without warranties of uninterrupted uptime or constant node utilization.</p>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec7_title">7. Enterprise Subscriptions, Dedicated Node Pools & Priority SLAs</h3>
+        <p data-i18n="terms_sec7_text">Enterprise clients may contract dedicated GPU clusters, private geographic mesh zones (e.g. EU-only data residency), and guaranteed sub-second time-to-first-token (TTFT) SLAs under customized monthly subscription agreements ($99 to $4,999/month). Enterprise subscription fees are billed in advance and are non-refundable.</p>
+      </div>
+
+      <div>
+        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec8_title">8. Limitation of Liability & Best-Effort Delivery</h3>
+        <p data-i18n="terms_sec8_text">ComputeMesh and inetconnector provide decentralized coordination software on an 'as-is' and 'as-available' basis. While our multi-node layer redundancy and automatic health failover provide high resilience, the Platform Operator does not warrant uninterrupted availability during upstream ISP outages or third-party electrical interruptions.</p>
       </div>
     </div>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-bottom" style="border: none;">
-      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
+      <div>&copy; 2026 ComputeMesh • Operated by inetconnector. <span data-i18n="footer_rights">All rights reserved.</span></div>
       <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
     </div>
   </footer>

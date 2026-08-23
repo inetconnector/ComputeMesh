@@ -236,6 +236,68 @@
           </div>
         </div>
       </div>
+
+      <!-- B2B & Developer Plans Matrix -->
+      <div style="margin-top: 3.5rem;">
+        <div class="section-header" style="margin-bottom: 2rem;">
+          <span class="section-tag" data-i18n="plans_tag">Transparent B2B & Developer Tiers</span>
+          <h3 style="font-size: 2rem; margin-top: 0.5rem;" data-i18n="plans_title">Pay-As-You-Go Tokens or Enterprise Subscriptions</h3>
+          <p style="color: var(--text-muted); font-size: 1rem;" data-i18n="plans_sub">No surprise monthly bills. 100% verifiably metered by our double-entry ledger with instant prepaid top-up.</p>
+        </div>
+
+        <div class="download-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+          <!-- Tier 1: Developer Pay-As-You-Go -->
+          <div class="download-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan1_badge">Developer Self-Service</div>
+              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan1_title">Pay-As-You-Go</h4>
+              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-bottom: 1rem;">$0 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ mo + usage</span></div>
+              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
+                <li>✓ Full access to Llama 3.1 70B & Qwen 2.5</li>
+                <li>✓ Instant OpenAI SDK drop-in</li>
+                <li>✓ Prepaid deposit tiers: $10, $50, $250, $1,000</li>
+                <li>✓ Stripe, Credit Card & Crypto (USDT)</li>
+                <li>✓ 80% cheaper than AWS / OpenAI</li>
+              </ul>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%;" onclick="openDepositModal()" data-i18n="plan1_btn">💳 Top Up Credits</button>
+          </div>
+
+          <!-- Tier 2: Pro Mesh (Highlighted) -->
+          <div class="download-card highlight" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan2_badge">High-Throughput Apps</div>
+              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan2_title">Pro Mesh SLA</h4>
+              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-emerald); margin-bottom: 1rem;">$99 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ month</span></div>
+              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
+                <li>✓ <strong>Prioritized Low-Latency Queue</strong></li>
+                <li>✓ 99.9% Inferenz Uptime Guarantee</li>
+                <li>✓ Sub-50ms Time-To-First-Token (TTFT)</li>
+                <li>✓ Includes $50 monthly compute credits</li>
+                <li>✓ 5 Team API Keys & Usage Analytics</li>
+              </ul>
+            </div>
+            <a href="/contact" class="btn btn-emerald" style="width: 100%;" data-i18n="plan2_btn">🚀 Start Pro Mesh</a>
+          </div>
+
+          <!-- Tier 3: Enterprise Dedicated -->
+          <div class="download-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-amber); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan3_badge">Custom Clusters</div>
+              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan3_title">Enterprise Dedicated</h4>
+              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-bottom: 1rem;">$999 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ month</span></div>
+              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
+                <li>✓ <strong>100% Dedicated GPU Multi-Cluster</strong></li>
+                <li>✓ Guaranteed EU Data Residency (DSGVO)</li>
+                <li>✓ Custom Fine-Tuned LoRA Weight Caching</li>
+                <li>✓ 99.99% Enterprise SLA & 24/7 Hotline</li>
+                <li>✓ Dedicated B2B Invoice & SEPA Mandate</li>
+              </ul>
+            </div>
+            <a href="/contact" class="btn btn-secondary" style="width: 100%;" data-i18n="plan3_btn">🏢 Contact Sales</a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 

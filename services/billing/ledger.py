@@ -284,6 +284,14 @@ class Ledger:
     def get_balance(self, account_id: str) -> int:
         return self._balances.get(account_id, 0)
 
+    def get_platform_revenue_micro_units(self) -> int:
+        """Return the accumulated net platform revenue (15% to 20% platform margin) in micro-units."""
+        return self.get_balance("revenue:network_fee")
+
+    def get_platform_revenue_usd(self) -> float:
+        """Return the accumulated net platform revenue in USD."""
+        return round(self.get_platform_revenue_micro_units() / MICRO_UNIT_SCALE, 4)
+
     def reconcile(self) -> dict[str, Any]:
         """Perform comprehensive mathematical audit of the entire journal."""
         sum_debits = 0
