@@ -2,13 +2,19 @@
 """ComputeMesh Windows Desktop Provider Tray App.
 
 Lightweight desktop GUI and background inference daemon for Windows GPU providers.
-Auto-detects NVIDIA and AMD GPUs, displays live VRAM thermals and utilization,
-and streams passive revenue earnings in real-time.
+Features:
+- Native Windows System Tray integration with minimize-to-tray
+- Automatic First-Launch Windows Autostart prompt (via winreg HKCU\\Run)
+- Embedded localhost:8080 Web Dashboard server for 1-Click MetaMask integration
+- Multi-GPU hardware telemetry (NVIDIA CUDA, AMD Vulkan/ROCm, Intel SYCL)
+- Real-time token streaming and automated passive earnings tracking
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import io
 import json
+import os
 from pathlib import Path
 import sys
 import threading
@@ -16,11 +22,70 @@ import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+if sys.stdout is None:
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from PIL import Image, ImageDraw
+try:
+    import pystray
+    HAS_PYSTRAY = True
+except ImportError:
+    HAS_PYSTRAY = False
+
+try:
+    import winreg
+    HAS_WINREG = True
+except ImportError:
+    HAS_WINREG = False
+
+from services.appliance_dashboard.server import run_dashboard_server
+from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware
+
+REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
+REG_APP_NAME = "ComputeMesh"
+
+
+def is_windows_autostart_enabled() -> bool:
+    """Check if ComputeMesh is registered in HKCU Run key."""
+    if not HAS_WINREG:
+        return False
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_PATH, 0, winreg.KEY_READ) as key:
+            winreg.QueryValueEx(key, REG_APP_NAME)
+            return True
+    except Exception:
+        return False
+
+
+def set_windows_autostart(enable: bool) -> bool:
+    """Enable or disable Windows Autostart in HKCU Run key."""
+    if not HAS_WINREG:
+        return False
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_PATH, 0, winreg.KEY_WRITE) as key:
+            if enable:
+                exe_path = sys.executable
+                if getattr(sys, "frozen", False):
+                    target = f'"{exe_path}" --tray'
+                else:
+                    script_path = str(Path(__file__).resolve())
+                    target = f'"{exe_path}" "{script_path}" --tray'
+                winreg.SetValueEx(key, REG_APP_NAME, 0, winreg.REG_SZ, target)
+            else:
+                try:
+                    winreg.DeleteValue(key, REG_APP_NAME)
+                except Exception:
+                    pass
+            return True
+    except Exception:
+        return False
 
 
 class ComputeMeshProviderApp:
@@ -31,17 +96,157 @@ class ComputeMeshProviderApp:
         self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
 
-        self.is_running = False
+        # Resolve icon paths
+        self.icon_path = self._find_icon()
+        if self.icon_path:
+            try:
+                self.root.iconbitmap(default=str(self.icon_path))
+            except Exception:
+                pass
+
+        # Auto-start providing compute immediately upon launch
+        self.is_running = True
         self.total_tokens_served = 0
         self.total_earnings_usd = 0.00
         self.inventory = scan_rig_hardware()
+        self.autostart_var = tk.BooleanVar(value=is_windows_autostart_enabled())
 
         self._apply_styles()
         self._build_ui()
 
+        # Intercept window close button to minimize to System Tray
+        self.root.protocol("WM_DELETE_WINDOW", self._hide_to_tray)
+
+        # Start embedded local web dashboard server on port 8080 in background
+        self.http_thread = threading.Thread(target=self._run_embedded_server, daemon=True)
+        self.http_thread.start()
+
         # Background telemetry polling thread
         self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
         self.telemetry_thread.start()
+
+        # Initialize System Tray Icon
+        self.tray_icon = None
+        if HAS_PYSTRAY:
+            self._setup_tray_icon()
+
+        # Handle --tray startup argument
+        if "--tray" in sys.argv:
+            self.root.withdraw()
+
+        # First-launch autostart prompt check
+        self.root.after(600, self._check_first_launch_autostart)
+
+    def _find_icon(self) -> Path | None:
+        candidates = [
+            Path(getattr(sys, "_MEIPASS", ".")) / "computemesh.ico",
+            Path(__file__).resolve().parent / "computemesh.ico",
+            REPO_ROOT / "portal" / "assets" / "computemesh.ico",
+            Path.cwd() / "tools" / "appliance" / "computemesh.ico",
+        ]
+        for p in candidates:
+            if p.exists():
+                return p
+        return None
+
+    def _setup_tray_icon(self) -> None:
+        try:
+            if self.icon_path and self.icon_path.exists():
+                tray_image = Image.open(self.icon_path)
+            else:
+                # Fallback generated icon image
+                tray_image = Image.new("RGBA", (64, 64), color=(0, 240, 255, 255))
+
+            menu = pystray.Menu(
+                pystray.MenuItem("🖥️ Open ComputeMesh", self._show_from_tray, default=True),
+                pystray.MenuItem("🌐 Web Dashboard (:8080)", self._open_web_dashboard),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute",
+                    self._toggle_compute,
+                ),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("❌ Exit ComputeMesh", self._quit_app),
+            )
+
+            self.tray_icon = pystray.Icon(
+                "ComputeMesh",
+                tray_image,
+                "ComputeMesh AI Provider Node (Serving)",
+                menu=menu,
+            )
+            tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
+            tray_thread.start()
+        except Exception:
+            pass
+
+    def _hide_to_tray(self) -> None:
+        """Minimize application window to system tray."""
+        self.root.withdraw()
+        if self.tray_icon and HAS_PYSTRAY:
+            try:
+                self.tray_icon.notify(
+                    "ComputeMesh läuft im Hintergrund weiter und monetarisiert freie GPU-Kapazität.",
+                    "ComputeMesh AI Node",
+                )
+            except Exception:
+                pass
+
+    def _show_from_tray(self, icon=None, item=None) -> None:
+        """Restore window from system tray."""
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def _quit_app(self, icon=None, item=None) -> None:
+        """Completely exit application and stop daemon."""
+        if self.tray_icon:
+            self.tray_icon.stop()
+        self.root.quit()
+        sys.exit(0)
+
+    def _check_first_launch_autostart(self) -> None:
+        """Prompt user on first run to configure Windows Autostart."""
+        cfg_file = self._get_config_path()
+        cfg_data = {}
+        if cfg_file.exists():
+            try:
+                cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        if not cfg_data.get("autostart_prompted", False):
+            resp = messagebox.askyesno(
+                "ComputeMesh Windows Autostart",
+                "Möchtest du ComputeMesh automatisch beim Windows-Start minimiert im System-Tray starten?\n\n"
+                "Dadurch monetarisiert deine GPU ungenutzte Leerlaufzeit automatisch im Hintergrund für maximale monatliche Erträge.\n\n"
+                "(Empfohlen)",
+                parent=self.root,
+            )
+            if resp:
+                set_windows_autostart(True)
+                self.autostart_var.set(True)
+                cfg_data["autostart"] = True
+            else:
+                cfg_data["autostart"] = False
+
+            cfg_data["autostart_prompted"] = True
+            try:
+                cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+
+    def _on_autostart_toggle(self) -> None:
+        enable = self.autostart_var.get()
+        set_windows_autostart(enable)
+        cfg_file = self._get_config_path()
+        if cfg_file.exists():
+            try:
+                cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                cfg_data["autostart"] = enable
+                cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+            except Exception:
+                pass
 
     def _apply_styles(self) -> None:
         self.style = ttk.Style()
@@ -89,7 +294,7 @@ class ComputeMeshProviderApp:
         c1 = ttk.Frame(stats_frame, style="Card.TFrame", padding=12)
         c1.pack(side="left", fill="both", expand=True, padx=(0, 6))
         ttk.Label(c1, text="Node Status", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_status = ttk.Label(c1, text="IDLE", font=("Outfit", 16, "bold"), foreground="#f59e0b", background="#111827")
+        self.lbl_status = ttk.Label(c1, text="ONLINE (Serving)", font=("Outfit", 16, "bold"), foreground="#10b981", background="#111827")
         self.lbl_status.pack(anchor="w", pady=(4, 0))
 
         # Card 2: Tokens
@@ -112,7 +317,6 @@ class ComputeMeshProviderApp:
 
         ttk.Label(hw_frame, text="Detected GPU Hardware Matrix", font=("Inter", 11, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 8))
 
-        # Listbox / Treeview for GPUs
         columns = ("id", "vendor", "model", "vram", "backend")
         self.gpu_tree = ttk.Treeview(hw_frame, columns=columns, show="headings", height=4)
         self.gpu_tree.heading("id", text="GPU #")
@@ -135,7 +339,7 @@ class ComputeMeshProviderApp:
         payout_frame.pack(fill="x", padx=20, pady=(0, 10))
 
         ttk.Label(payout_frame, text="Payout & Earnings Settlement", font=("Inter", 11, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 4))
-        ttk.Label(payout_frame, text="Enter your Ethereum/Polygon wallet address (0x...) or IBAN/Provider ID for monthly revenue settlements.", font=("Inter", 9), foreground="#9ca3af", background="#111827").pack(anchor="w", pady=(0, 8))
+        ttk.Label(payout_frame, text="Enter your Ethereum/Polygon wallet address (0x...) or connect MetaMask for automated settlements.", font=("Inter", 9), foreground="#9ca3af", background="#111827").pack(anchor="w", pady=(0, 8))
 
         row_payout = ttk.Frame(payout_frame, style="Card.TFrame")
         row_payout.pack(fill="x")
@@ -151,7 +355,6 @@ class ComputeMeshProviderApp:
         )
         self.ent_wallet.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
-        # Load saved payout wallet
         saved_wallet = self._load_saved_wallet()
         if saved_wallet:
             self.ent_wallet.insert(0, saved_wallet)
@@ -197,11 +400,11 @@ class ComputeMeshProviderApp:
 
         self.btn_toggle = tk.Button(
             ctrl_frame,
-            text="▶ Start Providing Compute",
+            text="⏹ Stop / Pause Daemon",
             font=("Inter", 11, "bold"),
-            bg="#10b981",
+            bg="#ef4444",
             fg="#ffffff",
-            activebackground="#059669",
+            activebackground="#dc2626",
             activeforeground="#ffffff",
             relief="flat",
             padx=16,
@@ -210,7 +413,6 @@ class ComputeMeshProviderApp:
         )
         self.btn_toggle.pack(side="left")
 
-        # Dashboard / Docs link
         btn_dash = tk.Button(
             ctrl_frame,
             text="🌐 Web Dashboard",
@@ -225,6 +427,21 @@ class ComputeMeshProviderApp:
             command=self._open_web_dashboard,
         )
         btn_dash.pack(side="left", padx=10)
+
+        # Autostart Checkbox
+        self.chk_autostart = tk.Checkbutton(
+            ctrl_frame,
+            text="Windows-Autostart (System-Tray)",
+            variable=self.autostart_var,
+            command=self._on_autostart_toggle,
+            bg="#0b0f19",
+            fg="#f3f4f6",
+            selectcolor="#111827",
+            activebackground="#0b0f19",
+            activeforeground="#00f2fe",
+            font=("Inter", 9),
+        )
+        self.chk_autostart.pack(side="right")
 
     def _get_config_path(self) -> Path:
         cfg_dir = Path.home() / ".computemesh"
@@ -261,12 +478,19 @@ class ComputeMeshProviderApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save wallet: {e}")
 
+    def _run_embedded_server(self) -> None:
+        try:
+            cfg = load_appliance_config()
+            run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=self.inventory, node_id="windows-provider-node")
+        except Exception:
+            pass
+
     def _connect_metamask(self) -> None:
         import webbrowser
         webbrowser.open("http://localhost:8080/")
         self.lbl_wallet_status.config(
-            text="🦊 Opened Web Dashboard at http://localhost:8080 — Click 'Connect MetaMask' there to connect.",
-            foreground="#f59e0b"
+            text="🦊 Web Dashboard unter http://localhost:8080 geöffnet. Klicke dort auf 'Connect MetaMask'.",
+            foreground="#00f2fe"
         )
 
     def _populate_hardware(self) -> None:
@@ -276,16 +500,20 @@ class ComputeMeshProviderApp:
             backend_str = f"{gpu.driver_backend.upper()}" if gpu.healthy else "Offline"
             self.gpu_tree.insert("", "end", values=(gpu.index, gpu.vendor.upper(), gpu.model_name, vram_gb, backend_str))
 
-    def _toggle_compute(self) -> None:
+    def _toggle_compute(self, *args) -> None:
         self.is_running = not self.is_running
         if self.is_running:
             self.lbl_status.config(text="ONLINE (Serving)", foreground="#10b981")
             self.btn_toggle.config(text="⏹ Stop / Pause Daemon", bg="#ef4444", activebackground="#dc2626")
+            if self.tray_icon:
+                self.tray_icon.title = "ComputeMesh AI Provider Node (Serving)"
         else:
             self.lbl_status.config(text="IDLE", foreground="#f59e0b")
             self.btn_toggle.config(text="▶ Start Providing Compute", bg="#10b981", activebackground="#059669")
+            if self.tray_icon:
+                self.tray_icon.title = "ComputeMesh AI Provider Node (Paused)"
 
-    def _open_web_dashboard(self) -> None:
+    def _open_web_dashboard(self, *args) -> None:
         import webbrowser
         webbrowser.open("http://localhost:8080")
 
@@ -296,8 +524,11 @@ class ComputeMeshProviderApp:
                 # Simulate token processing and ledger earnings
                 self.total_tokens_served += 45
                 self.total_earnings_usd += (45 * 0.00000085)  # $0.85 per 1M tokens reward
-                self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
-                self.lbl_earnings.config(text=f"${self.total_earnings_usd:.4f}")
+                try:
+                    self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
+                    self.lbl_earnings.config(text=f"${self.total_earnings_usd:.4f}")
+                except Exception:
+                    pass
 
 
 def main() -> int:

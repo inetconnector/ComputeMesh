@@ -896,13 +896,21 @@ def run_dashboard_server(
     DashboardHandler.node_id = node_id
 
     server = ThreadingHTTPServer((host, port), DashboardHandler)
-    print(f"ComputeMesh Appliance Dashboard running at http://{host}:{port}")
+    try:
+        if sys.stdout is not None:
+            print(f"ComputeMesh Appliance Dashboard running at http://{host}:{port}")
+    except Exception:
+        pass
+
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down dashboard...")
+    except Exception:
+        pass
     finally:
-        server.server_close()
+        try:
+            server.server_close()
+        except Exception:
+            pass
 
 
 def main(argv: list[str] | None = None) -> int:
