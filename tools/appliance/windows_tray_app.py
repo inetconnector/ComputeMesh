@@ -80,9 +80,10 @@ def _cleanup_previous_instances() -> None:
         return
     try:
         current_pid = os.getpid()
+        parent_pid = os.getppid() if hasattr(os, "getppid") else 0
         cmd = [
             "powershell", "-NoProfile", "-Command",
-            f"Get-Process -Name 'ComputeMesh*', 'ComputeMesh-Setup*' -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne {current_pid} }} | Stop-Process -Force -ErrorAction SilentlyContinue"
+            f"Get-Process -Name 'ComputeMesh*', 'ComputeMesh-Setup*' -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne {current_pid} -and $_.Id -ne {parent_pid} }} | Stop-Process -Force -ErrorAction SilentlyContinue"
         ]
         import subprocess
         subprocess.run(cmd, capture_output=True, timeout=5, creationflags=0x08000000)
@@ -277,7 +278,7 @@ class ComputeMeshProviderApp:
         return True
 
     def _check_first_launch_prompts(self) -> None:
-        """Prompt user on first run to configure Windows Autostart & Cryptographic Auto-Updates."""
+        """Initialize default Autostart & Auto-Update settings without disruptive modal popups."""
         cfg_file = self._get_config_path()
         cfg_data = {}
         if cfg_file.exists():
@@ -287,29 +288,14 @@ class ComputeMeshProviderApp:
                 pass
 
         if not cfg_data.get("first_launch_prompted", False):
-            # Prompt 1: Autostart
-            resp_autostart = messagebox.askyesno(
-                "ComputeMesh Windows Autostart",
-                "Möchtest du ComputeMesh automatisch beim Windows-Start minimiert im System-Tray starten?\n\n"
-                "Dadurch monetarisiert deine GPU ungenutzte Leerlaufzeit automatisch im Hintergrund für maximale monatliche Erträge.\n\n"
-                "(Empfohlen)",
-                parent=self.root,
-            )
-            set_windows_autostart(resp_autostart)
-            self.autostart_var.set(resp_autostart)
-            cfg_data["autostart"] = resp_autostart
-
-            # Prompt 2: Auto-Update
-            resp_autoupdate = messagebox.askyesno(
-                "Automatische signierte Updates",
-                "Möchtest du automatische, kryptografisch mit Ed25519 verifizierte Sicherheits- und Leistungsupdates aktivieren?\n\n"
-                "(Empfohlen für höchste Stabilität und Sicherheit)",
-                parent=self.root,
-            )
-            self.autoupdate_var.set(resp_autoupdate)
-            cfg_data["auto_update"] = resp_autoupdate
-
             cfg_data["first_launch_prompted"] = True
+            if "autostart" not in cfg_data:
+                cfg_data["autostart"] = True
+                set_windows_autostart(True)
+                self.autostart_var.set(True)
+            if "auto_update" not in cfg_data:
+                cfg_data["auto_update"] = True
+                self.autoupdate_var.set(True)
             try:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             except Exception:

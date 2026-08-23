@@ -227,29 +227,14 @@ class LinuxComputeMeshProviderApp:
                 pass
 
         if not cfg_data.get("first_launch_prompted", False):
-            # Ask Autostart
-            resp_auto = messagebox.askyesno(
-                "ComputeMesh Autostart (Linux)",
-                "Möchtest du ComputeMesh automatisch beim Systemstart im Hintergrund starten?\n\n"
-                "Dadurch monetarisiert deine GPU ungenutzte Leerlaufzeit automatisch für maximale Erträge.\n\n"
-                "(Empfohlen)",
-                parent=self.root,
-            )
-            set_linux_autostart(resp_auto)
-            self.autostart_var.set(resp_auto)
-            cfg_data["autostart"] = resp_auto
-
-            # Ask Auto-Update
-            resp_update = messagebox.askyesno(
-                "Automatische signierte Updates",
-                "Möchtest du automatische, kryptografisch mit Ed25519 verifizierte Sicherheits- und Leistungsupdates aktivieren?\n\n"
-                "(Empfohlen für höchste Sicherheit und Stabilität)",
-                parent=self.root,
-            )
-            self.autoupdate_var.set(resp_update)
-            cfg_data["auto_update"] = resp_update
-
             cfg_data["first_launch_prompted"] = True
+            if "autostart" not in cfg_data:
+                cfg_data["autostart"] = True
+                set_linux_autostart(True)
+                self.autostart_var.set(True)
+            if "auto_update" not in cfg_data:
+                cfg_data["auto_update"] = True
+                self.autoupdate_var.set(True)
             try:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             except Exception:
