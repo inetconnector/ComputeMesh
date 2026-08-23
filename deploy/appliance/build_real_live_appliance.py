@@ -87,7 +87,8 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         chroot_exec("apt-get update")
         chroot_exec(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
-            "linux-image-amd64 live-boot live-config systemd-timesyncd systemd-resolved openssh-server firmware-amd-graphics firmware-misc-nonfree"
+            "linux-image-amd64 live-boot live-config systemd-timesyncd systemd-resolved openssh-server firmware-amd-graphics firmware-misc-nonfree "
+            "xserver-xorg-core xserver-xorg-video-all x11-xserver-utils xinit openbox unclutter chromium"
         )
 
         # Set root password to computemesh
@@ -130,6 +131,39 @@ if __name__ == '__main__':
         )
         chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node")
 
+        # Install Kiosk Fullscreen Launcher
+        kiosk_script = bin_dir / "start-kiosk.sh"
+        kiosk_script.write_text(
+            """#!/bin/bash
+# Wait for appliance web server to respond
+for i in {1..30}; do
+    if curl -s http://127.0.0.1:8080/ >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
+
+xset -dpms s off s noblank 2>/dev/null || true
+unclutter -idle 1 -root &
+openbox &
+
+exec /usr/bin/chromium \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --check-for-update-interval=31536000 \
+  --no-first-run \
+  --disable-features=Translate \
+  --autoplay-policy=no-user-gesture-required \
+  --no-sandbox \
+  --disable-gpu-sandbox \
+  http://127.0.0.1:8080/
+""",
+            encoding="utf-8",
+        )
+        chroot_exec("chmod +x /opt/computemesh/bin/start-kiosk.sh")
+
         # Install systemd service for appliance daemon & dashboard
         appliance_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-appliance.service"
         appliance_unit.write_text(
@@ -153,7 +187,31 @@ WantedBy=multi-user.target
             encoding="utf-8",
         )
 
-        # Install tty1 Live Display Service (Physical Monitor Console)
+        # Install Graphical Fullscreen Kiosk Service
+        kiosk_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-kiosk.service"
+        kiosk_unit.write_text(
+            """[Unit]
+Description=ComputeMesh Graphical Fullscreen Kiosk Dashboard
+After=computemesh-appliance.service
+Wants=computemesh-appliance.service
+
+[Service]
+Type=simple
+User=root
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/xinit /opt/computemesh/bin/start-kiosk.sh -- :0 vt7 -nocursor
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+""",
+            encoding="utf-8",
+        )
+
+        # Install tty1 Live Display Service (Fallback Console Display)
         tty1_banner = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-console.service"
         tty1_banner.write_text(
             """[Unit]
@@ -163,7 +221,7 @@ Wants=computemesh-appliance.service
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'while true; do clear; echo "======================================================================"; echo "      ComputeMesh NodeOS Live Appliance (v1.1.0)"; echo "======================================================================"; echo "  Node Status:   ONLINE & ACTIVE"; echo "  Dashboard URL: http://$(hostname -I | awk \"{print \\$1}\"):8080/"; echo "  SSH Access:    root@$(hostname -I | awk \"{print \\$1}\") (pw: computemesh)"; echo "======================================================================"; echo ""; /usr/bin/python3 -c "import sys; sys.path.insert(0, \\"/opt/computemesh\\"); from tools.appliance.hardware_detector import scan_rig_hardware; r = scan_rig_hardware(); print(f\\"  Detected GPUs: {len(r.gpus)}\\"); [print(f\\"    [{g.index}] {g.model_name} ({g.driver_backend.upper()}) - {g.vram_mb} MB VRAM - {g.temperature_c}°C\\") for g in r.gpus]"; echo ""; echo "======================================================================"; sleep 5; done'
+ExecStart=/bin/bash -c 'while true; do clear; echo "======================================================================"; echo "      ComputeMesh NodeOS Live Appliance (v1.1.2) [Fullscreen Kiosk Enabled]"; echo "======================================================================"; echo "  Node Status:   ONLINE & ACTIVE"; echo "  Dashboard URL: http://$(hostname -I | awk \"{print \\$1}\"):8080/"; echo "  SSH Access:    root@$(hostname -I | awk \"{print \\$1}\") (pw: computemesh)"; echo "======================================================================"; echo ""; /usr/bin/python3 -c "import sys; sys.path.insert(0, \\"/opt/computemesh\\"); from tools.appliance.hardware_detector import scan_rig_hardware; r = scan_rig_hardware(); print(f\\"  Detected GPUs: {len(r.gpus)}\\"); [print(f\\"    [{g.index}] {g.model_name} ({g.driver_backend.upper()}) - {g.vram_mb} MB VRAM - {g.temperature_c}°C\\") for g in r.gpus]"; echo ""; echo "======================================================================"; sleep 5; done'
 StandardInput=tty
 StandardOutput=tty
 TTYPath=/dev/tty1
@@ -178,6 +236,7 @@ WantedBy=multi-user.target
 
         # Enable services
         chroot_exec("systemctl enable computemesh-appliance.service")
+        chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")
         chroot_exec("systemctl enable systemd-networkd")
         chroot_exec("systemctl enable systemd-resolved")
