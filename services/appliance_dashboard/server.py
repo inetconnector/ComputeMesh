@@ -23,6 +23,7 @@ from pathlib import Path
 import subprocess
 import sys
 from typing import Any
+import urllib.parse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -1354,15 +1355,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def do_OPTIONS(self) -> None:
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_GET(self) -> None:
-        if self.path in ("/", "/index.html"):
+        parsed_url = urllib.parse.urlparse(self.path)
+        req_path = parsed_url.path
+
+        if req_path in ("", "/", "/index.html"):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(HTML_PAGE.encode("utf-8"))
             return
 
-        if self.path == "/api/status":
+        if req_path == "/api/status":
             thermals = []
             for g in self.inventory.gpus:
                 thermals.append({
@@ -1389,12 +1401,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             body = json.dumps(payload).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
             return
 
-        if self.path == "/api/action/check_update":
+        if req_path == "/api/action/check_update":
             try:
                 import sys
                 from pathlib import Path
@@ -1418,6 +1431,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 resp = json.dumps(resp_dict).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
@@ -1425,6 +1439,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
@@ -1433,10 +1448,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
+        parsed_url = urllib.parse.urlparse(self.path)
+        req_path = parsed_url.path
         content_len = int(self.headers.get("Content-Length", 0))
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
-        if self.path == "/api/config":
+        if req_path == "/api/config":
             try:
                 data = json.loads(post_body.decode("utf-8"))
                 new_dict = self.config.to_dict()
@@ -1451,6 +1468,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 resp = json.dumps({"status": "ok", "message": "Configuration saved successfully"}).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
@@ -1458,32 +1476,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.BAD_REQUEST)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
 
-        if self.path == "/api/action/restart_daemon":
+        if req_path == "/api/action/restart_daemon":
             subprocess.Popen(["systemctl", "restart", "computemesh-appliance.service"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
             return
 
-        if self.path == "/api/action/reboot":
+        if req_path == "/api/action/reboot":
             subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
             return
 
-        if self.path == "/api/action/os_upgrade":
+        if req_path == "/api/action/os_upgrade":
             try:
                 subprocess.Popen(
                     ["bash", "-c", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq"],
@@ -1493,6 +1514,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 resp = json.dumps({"status": "ok", "message": "OS package upgrade running in background"}).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
@@ -1500,12 +1522,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
 
-        if self.path == "/api/action/apply_update":
+        if req_path == "/api/action/apply_update":
             try:
                 import sys
                 from pathlib import Path
@@ -1524,6 +1547,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     resp = json.dumps({"status": "ok", "message": "Already up to date"}).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
@@ -1531,6 +1555,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.BAD_REQUEST)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
