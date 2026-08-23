@@ -3,10 +3,10 @@
 
 a = Analysis(
     ['tools/appliance/windows_tray_app.py'],
-    pathex=[],
+    pathex=['.'],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[('services', 'services'), ('tools', 'tools'), ('portal', 'portal')],
+    hiddenimports=['services', 'services.appliance_dashboard', 'services.appliance_dashboard.server', 'services.updater', 'services.updater.auto_updater', 'tools', 'tools.appliance', 'tools.appliance.hardware_detector', 'tools.appliance.appliance_config', 'tools.security', 'tools.security.ed25519_verify', 'tools.security.signing_keys'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
