@@ -40,79 +40,70 @@
 
   <main class="container" style="padding: 4rem 1.5rem;">
     <!-- Global Status Banner -->
-    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--border-emerald); border-radius: var(--radius-lg); padding: 2rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; flex-wrap: wrap; gap: 1rem;">
+    <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); padding: 2rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; flex-wrap: wrap; gap: 1rem;">
       <div style="display: flex; align-items: center; gap: 1rem;">
-        <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 12px var(--accent-emerald);"></div>
+        <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan);"></div>
         <div>
-          <h2 style="font-size: 1.5rem; color: var(--text-main);" data-i18n="status_all_systems">All Systems Operational</h2>
-          <p style="color: var(--text-muted); font-size: 0.9rem;" data-i18n="status_uptime_desc">Decentralized inference mesh running at 99.98% global availability.</p>
+          <h2 style="font-size: 1.5rem; color: var(--text-main);" data-i18n="status_all_systems">Genesis Network & Public Alpha Active</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;" data-i18n="status_uptime_desc">ComputeMesh Genesis Bootstrap Phase is live. Developer testnet API and provider node onboarding open.</p>
         </div>
       </div>
-      <div style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent-emerald);">
-        Verified 2026-08-22 16:00 UTC
+      <div style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent-cyan);">
+        Verified 2026-08-23 UTC
       </div>
     </div>
 
     <!-- Live Telemetry Grid -->
     <div class="telemetry-ticker" style="margin-bottom: 3.5rem;">
-      <div class="ticker-item emerald">
-        <div class="ticker-val">1,248</div>
-        <div class="ticker-lbl" data-i18n="ticker_gpus">Active GPUs</div>
-      </div>
       <div class="ticker-item">
-        <div class="ticker-val">18.4 TB</div>
-        <div class="ticker-lbl" data-i18n="ticker_vram">Total VRAM Pool</div>
+        <div class="ticker-val">Public Alpha</div>
+        <div class="ticker-lbl" data-i18n="ticker_gpus">Genesis Mesh Phase</div>
+      </div>
+      <div class="ticker-item emerald">
+        <div class="ticker-val">100% Match</div>
+        <div class="ticker-lbl" data-i18n="ticker_vram">Two-Node Proof (ADR-0002)</div>
       </div>
       <div class="ticker-item indigo">
-        <div class="ticker-val">28.5 ms</div>
-        <div class="ticker-lbl" data-i18n="status_avg_latency">Avg TTFT Latency</div>
+        <div class="ticker-val">~14.2 ms</div>
+        <div class="ticker-lbl" data-i18n="status_avg_latency">EU-Central Gateway Latency</div>
       </div>
       <div class="ticker-item amber">
-        <div class="ticker-val">42.8 M</div>
-        <div class="ticker-lbl" data-i18n="ticker_tokens">Tokens Served Today</div>
+        <div class="ticker-val">Open Access</div>
+        <div class="ticker-lbl" data-i18n="ticker_uptime">Provider Genesis Onboarding</div>
       </div>
     </div>
 
     <!-- Regional Nodes -->
     <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Regional Gateways & Sharding Clusters</h3>
+      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Operational Gateways & Verified Clusters</h3>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 4rem;">
       <div class="feature-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🇪🇺 EU-Central (Frankfurt / Nuremberg)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+          <h4 style="font-size: 1.2rem;">🇪🇺 EU-Central (Frankfurt / inetconnector)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Operational (Alpha)</span>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>512 GPUs</strong> (7.8 TB VRAM)</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>14.2 ms</strong> • 99.99% Uptime</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Role: <strong>Primary API Gateway & Double-Entry Ledger</strong></p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>~14.2 ms</strong> • Protocol: <strong>TLS 1.3 / HTTP/2</strong></p>
       </div>
 
       <div class="feature-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🇺🇸 US-East (N. Virginia)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+          <h4 style="font-size: 1.2rem;">🔬 Genesis Validation Lab (ADR-0002 Proof)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Verified</span>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>420 GPUs</strong> (6.2 TB VRAM)</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>18.5 ms</strong> • 99.98% Uptime</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>NVIDIA RTX 3080 + AMD EPYC Server</strong></p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Verification: <strong>100% Exact Token Match Verified</strong></p>
       </div>
 
       <div class="feature-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🇺🇸 US-West (Oregon / California)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
+          <h4 style="font-size: 1.2rem;">🌍 Community Genesis Nodes</h4>
+          <span class="brand-badge" style="border-color: var(--border-bright); color: var(--accent-cyan);">Accepting Nodes</span>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>196 GPUs</strong> (2.8 TB VRAM)</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>22.1 ms</strong> • 99.97% Uptime</p>
-      </div>
-
-      <div class="feature-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🇸🇬 AP-East (Singapore / Tokyo)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Active Nodes: <strong>120 GPUs</strong> (1.6 TB VRAM)</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>31.0 ms</strong> • 99.95% Uptime</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Supported: <strong>Windows Agent, Linux & Mining Rig NodeOS</strong></p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Payout Rule: <strong>$25.00 Payout Threshold (Crypto / SEPA)</strong></p>
       </div>
     </div>
   </main>
