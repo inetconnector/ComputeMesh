@@ -548,11 +548,28 @@ HTML_PAGE = """<!DOCTYPE html>
               <option value="false">Lightweight Console Display (tty1 TUI)</option>
             </select>
           </div>
+
+          <div class="form-group">
+            <label class="form-label">Automatic Signed Software Updates (Ed25519)</label>
+            <select id="cfg-auto-update" class="form-select">
+              <option value="true" selected>Enabled (Automated Cryptographic Updates — Recommended)</option>
+              <option value="false">Disabled (Manual Updates Only)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Automatic Operating System Security Upgrades</label>
+            <select id="cfg-auto-system-upgrade" class="form-select">
+              <option value="true" selected>Enabled (Automated Debian Kernel & Security Package Upgrades)</option>
+              <option value="false">Disabled (Manual OS Upgrades Only)</option>
+            </select>
+          </div>
         </div>
 
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
-          <button class="btn btn-secondary" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check & Apply Signed Update (Ed25519)</button>
+          <button class="btn btn-secondary" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check & Apply Signed Update</button>
+          <button class="btn btn-secondary" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
           <button class="btn btn-secondary" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
@@ -684,6 +701,8 @@ HTML_PAGE = """<!DOCTYPE html>
           document.getElementById('cfg-max-temp').value = data.config.max_temp_c || 80;
           document.getElementById('cfg-power-mode').value = data.config.power_mode || 'balanced';
           document.getElementById('cfg-kiosk').value = String(data.config.enable_kiosk ?? true);
+          document.getElementById('cfg-auto-update').value = String(data.config.auto_update ?? true);
+          document.getElementById('cfg-auto-system-upgrade').value = String(data.config.auto_system_upgrade ?? true);
 
           // Populate GPU Toggles
           const toggleList = document.getElementById('cfg-gpu-toggles');
@@ -720,6 +739,8 @@ HTML_PAGE = """<!DOCTYPE html>
       const maxTemp = parseInt(document.getElementById('cfg-max-temp').value, 10) || 80;
       const powerMode = document.getElementById('cfg-power-mode').value;
       const enableKiosk = document.getElementById('cfg-kiosk').value === 'true';
+      const autoUpdate = document.getElementById('cfg-auto-update').value === 'true';
+      const autoSystemUpgrade = document.getElementById('cfg-auto-system-upgrade').value === 'true';
 
       const disabledGpus = [];
       nodeState.inventory.gpus.forEach(gpu => {
@@ -737,6 +758,8 @@ HTML_PAGE = """<!DOCTYPE html>
         max_temp_c: maxTemp,
         power_mode: powerMode,
         enable_kiosk: enableKiosk,
+        auto_update: autoUpdate,
+        auto_system_upgrade: autoSystemUpgrade,
         disabled_gpus: disabledGpus,
       };
 
@@ -755,6 +778,22 @@ HTML_PAGE = """<!DOCTYPE html>
         }
       } catch (e) {
         showToast('Failed to save config: ' + e, false);
+      }
+    }
+
+    async function runOSUpgrade() {
+      if (!confirm('Möchtest du das Betriebssystem (Debian Kernel, Treiber & Sicherheitspakete) jetzt im Hintergrund aktualisieren?')) return;
+      showToast('OS-Upgrade wird im Hintergrund ausgeführt (apt-get update & upgrade)...');
+      try {
+        const res = await fetch('/api/action/os_upgrade', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('✓ OS-Upgrade erfolgreich gestartet: ' + data.message);
+        } else {
+          showToast('OS-Upgrade Fehler: ' + data.message, false);
+        }
+      } catch (e) {
+        showToast('OS-Upgrade Befehl gesendet.', true);
       }
     }
 
@@ -936,8 +975,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
+            return
+
+        if self.path == "/api/action/os_upgrade":
+            try:
+                subprocess.Popen(
+                    ["bash", "-c", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                resp = json.dumps({"status": "ok", "message": "OS package upgrade running in background"}).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+            except Exception as e:
+                err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
+                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(err_resp)
             return
 
         if self.path == "/api/action/apply_update":

@@ -42,6 +42,8 @@ class ApplianceConfig:
     power_mode: str = "balanced"  # "eco", "balanced", "max"
     max_temp_c: int = 80
     enable_kiosk: bool = True
+    auto_update: bool = True
+    auto_system_upgrade: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -136,6 +138,8 @@ def load_appliance_config(
     power_mode = env_vars.get("POWER_MODE") or system_data.get("power_mode") or "balanced"
     max_temp = int(env_vars.get("MAX_TEMP_C") or system_data.get("max_temp_c") or 80)
     enable_kiosk = env_vars.get("ENABLE_KIOSK", "true").lower() in ("true", "1", "yes")
+    auto_update = env_vars.get("AUTO_UPDATE", "true").lower() in ("true", "1", "yes") if "AUTO_UPDATE" in env_vars else system_data.get("auto_update", True)
+    auto_sys_upgrade = env_vars.get("AUTO_SYSTEM_UPGRADE", "true").lower() in ("true", "1", "yes") if "AUTO_SYSTEM_UPGRADE" in env_vars else system_data.get("auto_system_upgrade", True)
 
     return ApplianceConfig(
         rig_name=rig_name,
@@ -155,6 +159,8 @@ def load_appliance_config(
         power_mode=power_mode,
         max_temp_c=max_temp,
         enable_kiosk=enable_kiosk,
+        auto_update=auto_update,
+        auto_system_upgrade=auto_sys_upgrade,
     )
 
 
