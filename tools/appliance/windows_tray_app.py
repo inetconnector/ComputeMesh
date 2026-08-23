@@ -93,19 +93,19 @@ class ComputeMeshProviderApp:
         ttk.Label(hw_frame, text="Detected GPU Hardware Matrix", font=("Inter", 11, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 8))
 
         # Listbox / Treeview for GPUs
-        columns = ("id", "vendor", "model", "vram", "temp")
+        columns = ("id", "vendor", "model", "vram", "backend")
         self.gpu_tree = ttk.Treeview(hw_frame, columns=columns, show="headings", height=4)
         self.gpu_tree.heading("id", text="GPU #")
         self.gpu_tree.heading("vendor", text="Vendor")
         self.gpu_tree.heading("model", text="Hardware Name")
         self.gpu_tree.heading("vram", text="Total VRAM")
-        self.gpu_tree.heading("temp", text="Temperature")
+        self.gpu_tree.heading("backend", text="Backend")
 
         self.gpu_tree.column("id", width=50, anchor="center")
         self.gpu_tree.column("vendor", width=80, anchor="center")
         self.gpu_tree.column("model", width=220)
         self.gpu_tree.column("vram", width=100, anchor="center")
-        self.gpu_tree.column("temp", width=90, anchor="center")
+        self.gpu_tree.column("backend", width=90, anchor="center")
         self.gpu_tree.pack(fill="both", expand=True)
 
         self._populate_hardware()
@@ -148,9 +148,9 @@ class ComputeMeshProviderApp:
     def _populate_hardware(self) -> None:
         self.gpu_tree.delete(*self.gpu_tree.get_children())
         for gpu in self.inventory.gpus:
-            vram_gb = f"{gpu.vram_bytes / (1024**3):.1f} GB"
-            temp_str = f"{gpu.temperature_c} °C" if gpu.temperature_c else "42 °C"
-            self.gpu_tree.insert("", "end", values=(gpu.device_id, gpu.vendor.upper(), gpu.name, vram_gb, temp_str))
+            vram_gb = f"{gpu.vram_bytes / (1024**3):.1f} GB" if gpu.vram_bytes else "N/A"
+            backend_str = f"{gpu.driver_backend.upper()}" if gpu.healthy else "Offline"
+            self.gpu_tree.insert("", "end", values=(gpu.index, gpu.vendor.upper(), gpu.model_name, vram_gb, backend_str))
 
     def _toggle_compute(self) -> None:
         self.is_running = not self.is_running
