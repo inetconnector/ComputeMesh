@@ -200,4 +200,54 @@ del "%~f0"
                     else:
                         shutil.copy2(str(item), str(dest))
 
-            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Restart all active computemesh services
+            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-gateway.service || true"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def main() -> int:
+    import argparse
+    from datetime import datetime, timezone
+
+    parser = argparse.ArgumentParser(description="ComputeMesh Automated Cryptographic Updater")
+    parser.add_argument("--check-and-apply", action="store_true", help="Check and apply update if available")
+    parser.add_argument("--daemon", action="store_true", help="Run continuously in background checking periodically")
+    parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (default 300s)")
+    parser.add_argument("--version", default="1.2.7", help="Current running version")
+    args = parser.parse_args()
+
+    updater = AutoUpdater(current_version=args.version)
+
+    if args.daemon:
+        print(f"Starting ComputeMesh Auto-Updater Daemon (polling every {args.interval}s)...")
+        while True:
+            try:
+                info = updater.check_for_updates()
+                if info and info.is_newer:
+                    print(f"[{datetime.now(timezone.utc).isoformat()}] New signed release v{info.version} detected! Downloading...")
+                    pkg = updater.download_and_verify(info)
+                    print(f"[{datetime.now(timezone.utc).isoformat()}] Cryptographic verification PASSED. Applying update...")
+                    updater.apply_linux_update(pkg)
+                    updater.current_version = info.version
+                else:
+                    print(f"[{datetime.now(timezone.utc).isoformat()}] System is up to date (running v{updater.current_version}).")
+            except Exception as e:
+                print(f"[{datetime.now(timezone.utc).isoformat()}] Update check error: {e}")
+            time.sleep(args.interval)
+
+    elif args.check_and_apply:
+        info = updater.check_for_updates()
+        if info and info.is_newer:
+            print(f"New signed release v{info.version} available. Downloading and applying...")
+            pkg = updater.download_and_verify(info)
+            updater.apply_linux_update(pkg)
+            print("Update applied successfully.")
+            return 0
+        else:
+            print(f"Already on latest version (v{args.version}).")
+            return 0
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
