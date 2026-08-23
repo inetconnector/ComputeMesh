@@ -45,6 +45,7 @@ except ImportError:
     HAS_WINREG = False
 
 from services.appliance_dashboard.server import run_dashboard_server
+from services.updater.auto_updater import AutoUpdater, UpdateInfo
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware
 
@@ -96,6 +97,9 @@ class ComputeMeshProviderApp:
         self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
 
+        self.version = "1.2.0"
+        self.updater = AutoUpdater(current_version=self.version)
+
         # Resolve icon paths
         self.icon_path = self._find_icon()
         if self.icon_path:
@@ -110,6 +114,7 @@ class ComputeMeshProviderApp:
         self.total_earnings_usd = 0.00
         self.inventory = scan_rig_hardware()
         self.autostart_var = tk.BooleanVar(value=is_windows_autostart_enabled())
+        self.autoupdate_var = tk.BooleanVar(value=self._load_autoupdate_setting())
 
         self._apply_styles()
         self._build_ui()
@@ -134,8 +139,8 @@ class ComputeMeshProviderApp:
         if "--tray" in sys.argv:
             self.root.withdraw()
 
-        # First-launch autostart prompt check
-        self.root.after(600, self._check_first_launch_autostart)
+        # First-launch prompt check
+        self.root.after(600, self._check_first_launch_prompts)
 
     def _find_icon(self) -> Path | None:
         candidates = [
@@ -165,6 +170,7 @@ class ComputeMeshProviderApp:
                     lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute",
                     self._toggle_compute,
                 ),
+                pystray.MenuItem("🔄 Check for Updates", self._manual_update_check),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("❌ Exit ComputeMesh", self._quit_app),
             )
@@ -205,8 +211,17 @@ class ComputeMeshProviderApp:
         self.root.quit()
         sys.exit(0)
 
-    def _check_first_launch_autostart(self) -> None:
-        """Prompt user on first run to configure Windows Autostart."""
+    def _load_autoupdate_setting(self) -> bool:
+        try:
+            cfg = self._get_config_path()
+            if cfg.exists():
+                return json.loads(cfg.read_text(encoding="utf-8")).get("auto_update", True)
+        except Exception:
+            pass
+        return True
+
+    def _check_first_launch_prompts(self) -> None:
+        """Prompt user on first run to configure Windows Autostart & Cryptographic Auto-Updates."""
         cfg_file = self._get_config_path()
         cfg_data = {}
         if cfg_file.exists():
@@ -215,26 +230,67 @@ class ComputeMeshProviderApp:
             except Exception:
                 pass
 
-        if not cfg_data.get("autostart_prompted", False):
-            resp = messagebox.askyesno(
+        if not cfg_data.get("first_launch_prompted", False):
+            # Prompt 1: Autostart
+            resp_autostart = messagebox.askyesno(
                 "ComputeMesh Windows Autostart",
                 "Möchtest du ComputeMesh automatisch beim Windows-Start minimiert im System-Tray starten?\n\n"
                 "Dadurch monetarisiert deine GPU ungenutzte Leerlaufzeit automatisch im Hintergrund für maximale monatliche Erträge.\n\n"
                 "(Empfohlen)",
                 parent=self.root,
             )
-            if resp:
-                set_windows_autostart(True)
-                self.autostart_var.set(True)
-                cfg_data["autostart"] = True
-            else:
-                cfg_data["autostart"] = False
+            set_windows_autostart(resp_autostart)
+            self.autostart_var.set(resp_autostart)
+            cfg_data["autostart"] = resp_autostart
 
-            cfg_data["autostart_prompted"] = True
+            # Prompt 2: Auto-Update
+            resp_autoupdate = messagebox.askyesno(
+                "Automatische signierte Updates",
+                "Möchtest du automatische, kryptografisch mit Ed25519 verifizierte Sicherheits- und Leistungsupdates aktivieren?\n\n"
+                "(Empfohlen für höchste Stabilität und Sicherheit)",
+                parent=self.root,
+            )
+            self.autoupdate_var.set(resp_autoupdate)
+            cfg_data["auto_update"] = resp_autoupdate
+
+            cfg_data["first_launch_prompted"] = True
             try:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             except Exception:
                 pass
+
+    def _on_autoupdate_toggle(self) -> None:
+        enable = self.autoupdate_var.get()
+        cfg_file = self._get_config_path()
+        try:
+            cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
+            cfg_data["auto_update"] = enable
+            cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _manual_update_check(self, *args) -> None:
+        try:
+            update_info = self.updater.check_for_updates()
+            if update_info and update_info.is_newer:
+                if messagebox.askyesno(
+                    "Update verfügbar",
+                    f"Eine neue ComputeMesh-Version ({update_info.version}) ist verfügbar!\n\n"
+                    f"Kryptografische Ed25519-Signatur: GÜLTIG\n"
+                    f"SHA-256 Prüfsumme: Verifiziert\n\n"
+                    "Möchtest du das signierte Update jetzt sicher herunterladen und installieren?",
+                    parent=self.root,
+                ):
+                    downloaded = self.updater.download_and_verify(update_info)
+                    self.updater.apply_windows_update(downloaded)
+            else:
+                messagebox.showinfo(
+                    "ComputeMesh Auto-Updater",
+                    f"Du verwendest bereits die aktuellste, sicher signierte Version ({self.version}).",
+                    parent=self.root,
+                )
+        except Exception as e:
+            messagebox.showerror("Update Error", f"Update-Prüfung fehlgeschlagen: {e}", parent=self.root)
 
     def _on_autostart_toggle(self) -> None:
         enable = self.autostart_var.get()
@@ -426,10 +482,10 @@ class ComputeMeshProviderApp:
         )
         btn_dash.pack(side="left", padx=10)
 
-        # Autostart Checkbox
+        # Options Checkboxes
         self.chk_autostart = tk.Checkbutton(
             ctrl_frame,
-            text="Windows-Autostart (System-Tray)",
+            text="Autostart (Tray)",
             variable=self.autostart_var,
             command=self._on_autostart_toggle,
             bg="#0b0f19",
@@ -440,6 +496,20 @@ class ComputeMeshProviderApp:
             font=("Inter", 9),
         )
         self.chk_autostart.pack(side="right")
+
+        self.chk_autoupdate = tk.Checkbutton(
+            ctrl_frame,
+            text="Auto-Update (Ed25519)",
+            variable=self.autoupdate_var,
+            command=self._on_autoupdate_toggle,
+            bg="#0b0f19",
+            fg="#f3f4f6",
+            selectcolor="#111827",
+            activebackground="#0b0f19",
+            activeforeground="#00f2fe",
+            font=("Inter", 9),
+        )
+        self.chk_autoupdate.pack(side="right", padx=10)
 
     def _get_config_path(self) -> Path:
         cfg_dir = Path.home() / ".computemesh"

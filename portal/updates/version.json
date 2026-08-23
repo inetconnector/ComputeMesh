@@ -1,0 +1,27 @@
+{
+  "version": "1.2.0",
+  "release_date": "2026-08-23T19:40:39.850439+00:00",
+  "min_compatible_version": "1.0.0",
+  "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
+  "platforms": {
+    "windows-x64": {
+      "filename": "ComputeMesh-Setup-x64.exe",
+      "url": "https://computemesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
+      "sha256": "ce021880ba279e87a0a64cd0a8b6210543256873cb1e776d596e43e5019a1f83",
+      "size_bytes": 35337231
+    },
+    "linux-x64": {
+      "filename": "computemesh-linux-x86_64.tar.gz",
+      "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
+      "sha256": "71b322c36437455d1e078f57167ff2a66b7a81c8e613e5017aff921f5e59523d",
+      "size_bytes": 99338
+    },
+    "installer-script": {
+      "filename": "install.sh",
+      "url": "https://computemesh.inetconnector.com/downloads/install.sh",
+      "sha256": "da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf",
+      "size_bytes": 6649
+    }
+  },
+  "signature": "8830535a03dc6cf7f913243b2db861f372cad66ea7ab430b4d3dd2b611dfb91c3b1b41ee535cecb0cd6adc0fbda515b952dc258cccd9be81f8b7bf463bc8d804"
+}
