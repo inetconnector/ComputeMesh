@@ -1183,7 +1183,8 @@ HTML_PAGE = """<!DOCTYPE html>
             }
           }
         } else {
-          showToast(`Dieses NodeOS läuft bereits auf der neuesten signierten Version (v${data.version}).`);
+          showToast(`✓ Alles ist aktuell! Dein Miner-Rig läuft bereits auf der neuesten Version (v${data.version}).`, true);
+          alert(`✓ Alles ist auf dem neuesten Stand!\n\nDein Miner-Rig läuft bereits auf der aktuellsten kryptografisch signierten Version (v${data.version}). Es ist kein Update erforderlich.`);
         }
       } catch (e) {
         showToast('Update-Prüfung fehlgeschlagen: ' + e, false);
