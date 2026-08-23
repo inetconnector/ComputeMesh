@@ -8,6 +8,7 @@ This runbook records the supported publication path for making the ComputeMesh p
 
 ## Implemented crawl signals
 
+- `portal/google55d49cbebf6659d4.html` keeps the Google Search Console URL-prefix property verified through the HTML-file method. Do not remove it from production deployments.
 - `portal/robots.txt` allows crawling and advertises the sitemap URL.
 - `portal/sitemap.xml` lists the public canonical portal pages with real `lastmod` dates.
 - Public HTML pages include canonical URLs and `index,follow` robots metadata.
@@ -29,6 +30,7 @@ curl.exe -s https://computemesh.inetconnector.com/sitemap.xml
 Expected:
 
 - `/`, `/robots.txt`, and `/sitemap.xml` return `200 OK`.
+- `/google55d49cbebf6659d4.html` returns `200 OK` and contains the Google verification token.
 - `robots.txt` contains `Sitemap: https://computemesh.inetconnector.com/sitemap.xml`.
 - `sitemap.xml` is valid XML and lists only canonical public HTTPS URLs.
 
@@ -40,6 +42,12 @@ Google's supported paths for this portal are:
 2. Verify the domain or URL-prefix property in Google Search Console.
 3. Submit `https://computemesh.inetconnector.com/sitemap.xml` in the Search Console Sitemaps report.
 4. Use URL Inspection in Search Console for critical URLs and request indexing when needed.
+
+Current status as of 2026-08-23:
+
+- URL-prefix property `https://computemesh.inetconnector.com/` is verified in Google Search Console account `mail@inetconnector.com` by HTML file.
+- Sitemap `/sitemap.xml` is submitted.
+- Search Console reports sitemap status `Erfolgreich` with 8 detected pages and 0 videos.
 
 Important boundaries:
 
