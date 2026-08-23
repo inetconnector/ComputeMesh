@@ -32,7 +32,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.4"
+APPLIANCE_VERSION = "1.2.5"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -948,7 +948,7 @@ HTML_PAGE = """<!DOCTYPE html>
           // Open in MetaMask in-app browser via universal deep link
           const hostAndPath = window.location.host + window.location.pathname;
           const deepLink = `https://metamask.app.link/dapp/${hostAndPath}#config`;
-          if (confirm('Auf dem Smartphone öffnet dieser Link das Dashboard direkt in der MetaMask-App (Web3-Browser).\n\nMöchtest du jetzt zur MetaMask-App wechseln?')) {
+          if (confirm(`Auf dem Smartphone öffnet dieser Link das Dashboard direkt in der MetaMask-App (Web3-Browser).\n\nMöchtest du jetzt zur MetaMask-App wechseln?`)) {
             window.location.href = deepLink;
           }
         } else {
