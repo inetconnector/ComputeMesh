@@ -19,8 +19,7 @@ import tempfile
 from typing import Any, Callable
 import urllib.request
 
-from cryptography.hazmat.primitives.asymmetric import ed25519
-
+from tools.security.ed25519_verify import verify_ed25519_signature
 from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX
 
 DEFAULT_UPDATE_URL = "https://computemesh.inetconnector.com/updates/version.json"
@@ -64,7 +63,7 @@ class AutoUpdater:
         elif system == "linux":
             # Check if running inside NodeOS
             if Path("/etc/computemesh/nodeos_release").exists() or Path("/boot/computemesh.env").exists():
-                return "nodeos-x64"
+                return "linux-x64"
             return "linux-x64"
         return "windows-x64"
 
@@ -105,9 +104,10 @@ class AutoUpdater:
 
             # Verify Ed25519 signature
             pub_bytes = bytes.fromhex(self.public_key_hex)
-            pub_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
+            sig_bytes = bytes.fromhex(signature_hex)
             canonical_bytes = json.dumps(manifest_data, sort_keys=True).encode("utf-8")
-            pub_key.verify(bytes.fromhex(signature_hex), canonical_bytes)
+            if not verify_ed25519_signature(pub_bytes, canonical_bytes, sig_bytes):
+                raise SignatureVerificationError("Ed25519 signature verification failed! Untrusted release manifest.")
 
             latest_version = manifest_data.get("version", "0.0.0")
             is_newer = self._parse_version(latest_version) > self._parse_version(self.current_version)
