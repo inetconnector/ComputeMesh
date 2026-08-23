@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""ComputeMesh Provider Appliance Web Dashboard.
+"""ComputeMesh Provider Appliance Web Dashboard & Node Management Center.
 
-Provides an embedded, lightweight, zero-external-dependency web server & UI
-listening on port 8080. Displays live GPU telemetry, temperatures, VRAM usage,
-inference tokens processed, and earnings for mining rigs.
+Provides an embedded, zero-external-dependency web server and interactive UI
+listening on port 8080.
+Features:
+- Real-time GPU telemetry (VRAM, Temperatures, Fan Speeds, Power, PCIe width)
+- Live inference token counters and estimated earnings
+- Complete Payout Configuration (Ethereum/Polygon/USDT Wallet, Provider Account)
+- GPU-by-GPU Compute Enablement Toggles & VRAM Reservation
+- Thermal Cutoff Limits and Power Management Profiles
+- System Actions (Reboot Node, Restart Inference Daemon)
 """
 from __future__ import annotations
 
@@ -14,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
 
@@ -30,27 +37,33 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ComputeMesh NodeOS - Rig Dashboard</title>
+  <title>ComputeMesh NodeOS — AI Inference Appliance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-base: #0a0e17;
-      --bg-surface: #121826;
-      --bg-card: rgba(26, 34, 52, 0.7);
+      --bg-surface: #111827;
+      --bg-card: rgba(19, 27, 46, 0.75);
+      --bg-card-hover: rgba(28, 39, 65, 0.85);
       --border-color: rgba(255, 255, 255, 0.08);
+      --border-bright: rgba(0, 240, 255, 0.3);
       --accent-cyan: #00f0ff;
       --accent-blue: #3b82f6;
       --accent-emerald: #10b981;
       --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
       --text-main: #f3f4f6;
       --text-dim: #9ca3af;
+      --font-main: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-heading: 'Outfit', sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: var(--bg-base);
       color: var(--text-main);
-      font-family: 'Inter', sans-serif;
+      font-family: var(--font-main);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -62,23 +75,50 @@ HTML_PAGE = """<!DOCTYPE html>
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     .logo {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      font-weight: 800;
       letter-spacing: -0.02em;
     }
     .logo-badge {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       color: #000;
       font-size: 0.75rem;
-      padding: 0.2rem 0.5rem;
+      padding: 0.25rem 0.55rem;
       border-radius: 4px;
-      font-weight: 700;
+      font-weight: 800;
       text-transform: uppercase;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.3rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .nav-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 0.5rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-tab.active {
+      background: var(--accent-blue);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
     }
     .status-pill {
       display: flex;
@@ -109,6 +149,9 @@ HTML_PAGE = """<!DOCTYPE html>
       flex-direction: column;
       gap: 2rem;
     }
+    .tab-content { display: none; flex-direction: column; gap: 2rem; }
+    .tab-content.active { display: flex; }
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -131,7 +174,7 @@ HTML_PAGE = """<!DOCTYPE html>
     .stat-value {
       font-size: 1.8rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-mono);
       color: var(--text-main);
     }
     .stat-sub {
@@ -140,8 +183,9 @@ HTML_PAGE = """<!DOCTYPE html>
       margin-top: 0.25rem;
     }
     .section-title {
-      font-size: 1.2rem;
-      font-weight: 600;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: var(--font-heading);
       margin-bottom: 1rem;
       display: flex;
       align-items: center;
@@ -156,10 +200,15 @@ HTML_PAGE = """<!DOCTYPE html>
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 1.25rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      transition: border-color 0.2s;
+    }
+    .gpu-card.disabled {
+      opacity: 0.5;
+      border-style: dashed;
     }
     .gpu-header {
       display: flex;
@@ -171,7 +220,7 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 1.05rem;
     }
     .gpu-pci {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-mono);
       font-size: 0.75rem;
       color: var(--text-dim);
     }
@@ -198,41 +247,183 @@ HTML_PAGE = """<!DOCTYPE html>
     .progress-bar {
       height: 8px;
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
+      border-radius: 9999px;
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
-      border-radius: 4px;
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+      border-radius: 9999px;
     }
     .gpu-metrics {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.5rem;
-      background: rgba(0, 0, 0, 0.2);
+      background: rgba(0, 0, 0, 0.25);
       padding: 0.75rem;
       border-radius: 8px;
       text-align: center;
     }
     .metric-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.95rem;
-      font-weight: 600;
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
     }
     .metric-lbl {
       font-size: 0.7rem;
       color: var(--text-dim);
+      text-transform: uppercase;
     }
-    footer {
-      background: var(--bg-surface);
-      border-top: 1px solid var(--border-color);
-      padding: 1rem 2rem;
-      font-size: 0.85rem;
+
+    /* Configuration Form Styles */
+    .config-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .form-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .form-desc {
+      font-size: 0.8rem;
       color: var(--text-dim);
+    }
+    .form-input, .form-select {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .gpu-toggle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .gpu-toggle-item {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .gpu-toggle-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #374151; transition: .3s; border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background-color: white; transition: .3s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent-emerald); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    .btn-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 1rem;
+    }
+    .btn {
+      padding: 0.85rem 1.75rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: #000;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.3);
+    }
+    .toast-msg {
+      display: none;
+      padding: 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .toast-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--accent-emerald);
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border-color);
     }
   </style>
 </head>
@@ -240,86 +431,216 @@ HTML_PAGE = """<!DOCTYPE html>
   <header>
     <div class="logo">
       <span>ComputeMesh</span>
-      <span class="logo-badge">NodeOS v1.0</span>
+      <span class="logo-badge">NodeOS</span>
     </div>
+    
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('overview')">📊 Live Overview</button>
+      <button class="nav-tab" onclick="switchTab('config')">⚙️ Node & Payout Settings</button>
+    </div>
+
     <div class="status-pill">
       <div class="status-dot"></div>
-      <span id="node-state">Online & Serving</span>
+      <span id="header-status">ONLINE & SERVING</span>
     </div>
   </header>
 
   <main>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Rig Identity</div>
-        <div class="stat-value" id="rig-name">cm-miner-01</div>
-        <div class="stat-sub" id="provider-id">Provider: 0x...</div>
+    <div id="toast-banner" class="toast-msg toast-success"></div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active GPU Accelerators</div>
+          <div class="stat-value" id="total-gpus">--</div>
+          <div class="stat-sub" id="total-vram">-- GB Total VRAM</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Tokens Processed</div>
+          <div class="stat-value" id="tokens-served">--</div>
+          <div class="stat-sub">Live Inferenz-Shards</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Calculated Earnings</div>
+          <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">--</div>
+          <div class="stat-sub">Monthly Settlement Backed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Node Uptime</div>
+          <div class="stat-value" id="uptime">100%</div>
+          <div class="stat-sub" id="local-ip">IP: Local Network</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Total Cluster VRAM</div>
-        <div class="stat-value" id="total-vram">40.0 GB</div>
-        <div class="stat-sub" id="gpu-count">5 GPUs Active</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Tokens Processed</div>
-        <div class="stat-value" id="tokens-served">128,450</div>
-        <div class="stat-sub">Across 42 Requests</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Earnings Accrued</div>
-        <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">42.80 CM</div>
-        <div class="stat-sub">Settled on Ledger</div>
+
+      <div>
+        <div class="section-title">⚡ Attached Hardware Matrix & Telemetry</div>
+        <div class="gpu-grid" id="gpu-container">
+          <!-- Populated dynamically -->
+        </div>
       </div>
     </div>
 
-    <div>
-      <div class="section-title">
-        <span>Attached Mining GPUs</span>
+    <!-- TAB 2: CONFIGURATION & PAYOUT -->
+    <div id="tab-config" class="tab-content">
+      <div class="config-card">
+        <div class="section-title">💎 Payout & Earnings Settlement</div>
+        <div class="form-grid">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
+              <label class="form-label" style="margin: 0;">Ethereum / Polygon Wallet Address (USDT / ETH Settlement)</label>
+              <button type="button" class="btn btn-secondary" onclick="connectMetaMask()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(245, 133, 41, 0.15); border-color: rgba(245, 133, 41, 0.4); color: #f6851b;">
+                🦊 Connect MetaMask
+              </button>
+            </div>
+            <input type="text" id="cfg-wallet" class="form-input" placeholder="0x..." spellcheck="false">
+            <span class="form-desc">Connect your MetaMask browser extension or paste your Polygon/Ethereum address (0x...). Monthly revenue settlements are funded directly from cleared customer payments.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Node Name / Rig Identifier</label>
+            <input type="text" id="cfg-node-name" class="form-input" placeholder="cm-node-01">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ComputeMesh Coordinator Gateway</label>
+            <input type="text" id="cfg-coordinator" class="form-input" placeholder="https://computemesh.inetconnector.com">
+          </div>
+        </div>
       </div>
-      <div class="gpu-grid" id="gpu-container">
-        <!-- Dynamically Populated -->
+
+      <div class="config-card">
+        <div class="section-title">🎮 GPU Compute Allocation & Power Profile</div>
+        <div class="form-group">
+          <label class="form-label">Active GPU Accelerators for AI Workloads</label>
+          <span class="form-desc">Toggle off individual GPUs to reserve them for display output or thermal management.</span>
+          <div class="gpu-toggle-list" id="cfg-gpu-toggles">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">VRAM Reserve Buffer (MB)</label>
+            <input type="number" id="cfg-vram-reserve" class="form-input" value="512" min="128" max="4096">
+            <span class="form-desc">Reserved system VRAM per GPU to prevent CUDA/Vulkan out-of-memory errors.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Thermal Cutoff Temperature (°C)</label>
+            <input type="number" id="cfg-max-temp" class="form-input" value="80" min="60" max="95">
+            <span class="form-desc">Automatically throttle inference jobs if any GPU exceeds this threshold.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Power & Efficiency Mode</label>
+            <select id="cfg-power-mode" class="form-select">
+              <option value="eco">Eco Mode (70% TDP — Maximum Efficiency)</option>
+              <option value="balanced" selected>Balanced Mode (85% TDP — Recommended)</option>
+              <option value="max">Maximum Performance (100% TDP)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Physical Monitor Display Mode</label>
+            <select id="cfg-kiosk" class="form-select">
+              <option value="true" selected>Fullscreen Web Kiosk (Chromium 1080p/4K)</option>
+              <option value="false">Lightweight Console Display (tty1 TUI)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
+          <button class="btn btn-secondary" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
+          <button class="btn btn-danger" onclick="rebootNode()">⚡ Reboot Node</button>
+        </div>
       </div>
     </div>
   </main>
 
   <footer>
-    <div id="footer-node-id">Node: cm-node-lab-miner</div>
-    <div>ComputeMesh Distributed Inference Engine</div>
+    <div id="footer-node-id">ComputeMesh NodeOS Appliance (v1.1.4) • Public Alpha Genesis Mesh</div>
   </footer>
 
   <script>
+    let nodeState = null;
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      if (tabId === 'overview') {
+        document.querySelector('.nav-tabs button:nth-child(1)').classList.add('active');
+        document.getElementById('tab-overview').classList.add('active');
+      } else {
+        document.querySelector('.nav-tabs button:nth-child(2)').classList.add('active');
+        document.getElementById('tab-config').classList.add('active');
+      }
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const b = document.getElementById('toast-banner');
+      b.textContent = msg;
+      b.className = 'toast-msg ' + (isSuccess ? 'toast-success' : 'toast-danger');
+      b.style.display = 'block';
+      setTimeout(() => { b.style.display = 'none'; }, 4000);
+    }
+
+    async function connectMetaMask() {
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          if (accounts && accounts.length > 0) {
+            document.getElementById('cfg-wallet').value = accounts[0];
+            showToast('✓ MetaMask Connected: ' + accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4));
+          }
+        } catch (err) {
+          showToast('MetaMask connection rejected: ' + err.message, false);
+        }
+      } else {
+        window.open('https://metamask.io/download/', '_blank');
+        showToast('MetaMask extension not detected. Opening download page...', false);
+      }
+    }
+
     async function updateDashboard() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
-        
-        document.getElementById('rig-name').textContent = data.config.rig_name;
-        document.getElementById('provider-id').textContent = 'Provider: ' + data.config.provider_account_id;
-        document.getElementById('total-vram').textContent = (data.inventory.total_vram_bytes / (1024*1024*1024)).toFixed(1) + ' GB';
-        document.getElementById('gpu-count').textContent = data.inventory.total_gpus + ' GPUs Active';
-        document.getElementById('tokens-served').textContent = data.telemetry.tokens_processed.toLocaleString();
-        document.getElementById('earnings').textContent = data.telemetry.earnings_cm.toFixed(2) + ' CM';
-        document.getElementById('footer-node-id').textContent = 'Node ID: ' + data.node_id;
+        nodeState = data;
 
+        const healthyGpus = data.inventory.gpus.filter(g => g.healthy);
+        const totalVramGb = (data.inventory.total_vram_bytes / (1024*1024*1024)).toFixed(1);
+
+        document.getElementById('total-gpus').textContent = healthyGpus.length + ' GPUs';
+        document.getElementById('total-vram').textContent = totalVramGb + ' GB Dedicated VRAM';
+        document.getElementById('tokens-served').textContent = data.telemetry.tokens_processed.toLocaleString();
+        document.getElementById('earnings').textContent = '$' + (data.telemetry.earnings_cm * 0.85).toFixed(4);
+        document.getElementById('footer-node-id').textContent = 'Node: ' + data.node_id + ' • Payout: ' + (data.config.payout_address || 'Not Set');
+
+        // Populate GPU Overview Cards
         const container = document.getElementById('gpu-container');
         container.innerHTML = '';
 
         data.inventory.gpus.forEach((gpu, idx) => {
+          const isDisabled = data.config.disabled_gpus && data.config.disabled_gpus.includes(gpu.index);
           const vramGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
-          const temp = data.telemetry.gpu_thermals[idx]?.temp || 58;
-          const fan = data.telemetry.gpu_thermals[idx]?.fan || 65;
-          const power = data.telemetry.gpu_thermals[idx]?.power_watts || 115;
-          const pcie = gpu.pcie_width ? `PCIe Gen${gpu.pcie_gen || 2} x${gpu.pcie_width}` : 'PCIe 1x Riser';
+          const temp = data.telemetry.gpu_thermals[idx]?.temp || 56;
+          const fan = data.telemetry.gpu_thermals[idx]?.fan || 62;
+          const power = data.telemetry.gpu_thermals[idx]?.power_watts || 110;
 
           const card = document.createElement('div');
-          card.className = 'gpu-card';
+          card.className = 'gpu-card' + (isDisabled ? ' disabled' : '');
           card.innerHTML = `
             <div class="gpu-header">
               <div>
                 <div class="gpu-name">GPU ${gpu.index}: ${gpu.model_name}</div>
-                <div class="gpu-pci">${gpu.pci_slot} • ${pcie}</div>
+                <div class="gpu-pci">${gpu.pci_slot} • ${isDisabled ? 'DISABLED' : gpu.driver_backend.toUpperCase()}</div>
               </div>
-              <span class="gpu-badge">${gpu.driver_backend.toUpperCase()}</span>
+              <span class="gpu-badge" style="${isDisabled ? 'background: rgba(244,63,94,0.15); color: var(--accent-rose); border-color: rgba(244,63,94,0.3);' : ''}">
+                ${isDisabled ? 'OFFLINE' : 'ACTIVE'}
+              </span>
             </div>
             <div class="bar-wrap">
               <div class="bar-labels">
@@ -327,7 +648,7 @@ HTML_PAGE = """<!DOCTYPE html>
                 <span>${vramGb} GB Dedicated</span>
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" style="width: 85%;"></div>
+                <div class="progress-fill" style="width: ${isDisabled ? '0%' : '85%'}; ${isDisabled ? 'background: #374151;' : ''}"></div>
               </div>
             </div>
             <div class="gpu-metrics">
@@ -337,7 +658,7 @@ HTML_PAGE = """<!DOCTYPE html>
               </div>
               <div>
                 <div class="metric-val">${fan}%</div>
-                <div class="metric-lbl">Fan Speed</div>
+                <div class="metric-lbl">Fan</div>
               </div>
               <div>
                 <div class="metric-val">${power}W</div>
@@ -347,10 +668,109 @@ HTML_PAGE = """<!DOCTYPE html>
           `;
           container.appendChild(card);
         });
+
+        // Initialize Config Form if not already focused
+        if (!document.activeElement || !document.activeElement.classList.contains('form-input')) {
+          document.getElementById('cfg-wallet').value = data.config.payout_address || '';
+          document.getElementById('cfg-node-name').value = data.config.rig_name || '';
+          document.getElementById('cfg-coordinator').value = data.config.coordinator_url || '';
+          document.getElementById('cfg-vram-reserve').value = data.config.vram_reserve_mb || 512;
+          document.getElementById('cfg-max-temp').value = data.config.max_temp_c || 80;
+          document.getElementById('cfg-power-mode').value = data.config.power_mode || 'balanced';
+          document.getElementById('cfg-kiosk').value = String(data.config.enable_kiosk ?? true);
+
+          // Populate GPU Toggles
+          const toggleList = document.getElementById('cfg-gpu-toggles');
+          toggleList.innerHTML = '';
+          data.inventory.gpus.forEach(gpu => {
+            const isEnabled = !data.config.disabled_gpus || !data.config.disabled_gpus.includes(gpu.index);
+            const row = document.createElement('div');
+            row.className = 'gpu-toggle-item';
+            row.innerHTML = `
+              <div class="gpu-toggle-info">
+                <strong>GPU ${gpu.index}:</strong>
+                <span>${gpu.model_name} (${(gpu.vram_bytes/(1024**3)).toFixed(1)} GB)</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="gpu-toggle-${gpu.index}" ${isEnabled ? 'checked' : ''}>
+                <span class="slider"></span>
+              </label>
+            `;
+            toggleList.appendChild(row);
+          });
+        }
       } catch (err) {
-        console.error('Failed to refresh dashboard telemetry:', err);
+        console.error('Telemetry refresh error:', err);
       }
     }
+
+    async function saveConfiguration() {
+      if (!nodeState) return;
+      const wallet = document.getElementById('cfg-wallet').value.trim();
+      const nodeName = document.getElementById('cfg-node-name').value.trim();
+      const coordinator = document.getElementById('cfg-coordinator').value.trim();
+      const vramReserve = parseInt(document.getElementById('cfg-vram-reserve').value, 10) || 512;
+      const maxTemp = parseInt(document.getElementById('cfg-max-temp').value, 10) || 80;
+      const powerMode = document.getElementById('cfg-power-mode').value;
+      const enableKiosk = document.getElementById('cfg-kiosk').value === 'true';
+
+      const disabledGpus = [];
+      nodeState.inventory.gpus.forEach(gpu => {
+        const chk = document.getElementById(`gpu-toggle-${gpu.index}`);
+        if (chk && !chk.checked) {
+          disabledGpus.push(gpu.index);
+        }
+      });
+
+      const payload = {
+        payout_address: wallet,
+        rig_name: nodeName,
+        coordinator_url: coordinator,
+        vram_reserve_mb: vramReserve,
+        max_temp_c: maxTemp,
+        power_mode: powerMode,
+        enable_kiosk: enableKiosk,
+        disabled_gpus: disabledGpus,
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const resp = await res.json();
+        if (res.ok) {
+          showToast('✓ Configuration and Payout Wallet saved successfully!');
+          updateDashboard();
+        } else {
+          showToast('Error: ' + resp.message, false);
+        }
+      } catch (e) {
+        showToast('Failed to save config: ' + e, false);
+      }
+    }
+
+    async function restartDaemon() {
+      if (!confirm('Restart the ComputeMesh AI Daemon?')) return;
+      try {
+        await fetch('/api/action/restart_daemon', { method: 'POST' });
+        showToast('Inference daemon restarting...');
+      } catch (e) {
+        showToast('Action failed: ' + e, false);
+      }
+    }
+
+    async function rebootNode() {
+      if (!confirm('Are you sure you want to reboot the entire Node appliance?')) return;
+      try {
+        await fetch('/api/action/reboot', { method: 'POST' });
+        showToast('Node is rebooting now...');
+      } catch (e) {
+        showToast('Reboot command sent.', true);
+      }
+    }
+
     updateDashboard();
     setInterval(updateDashboard, 3000);
   </script>
@@ -367,11 +787,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
     earnings_cm: float = 47.35
 
     def log_message(self, format: str, *args: Any) -> None:
-        # Keep logs clean
         pass
 
     def do_GET(self) -> None:
-        if self.path == "/" or self.path == "/index.html":
+        if self.path in ("/", "/index.html"):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
@@ -389,7 +808,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 })
 
             payload = {
-                "node_id": self.node_id,
+                "node_id": self.config.rig_name or self.node_id,
                 "config": self.config.to_dict(),
                 "inventory": self.inventory.to_dict(),
                 "telemetry": {
@@ -409,13 +828,63 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
+    def do_POST(self) -> None:
+        content_len = int(self.headers.get("Content-Length", 0))
+        post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+
+        if self.path == "/api/config":
+            try:
+                data = json.loads(post_body.decode("utf-8"))
+                new_dict = self.config.to_dict()
+                for k, v in data.items():
+                    if k in new_dict:
+                        new_dict[k] = v
+
+                updated_cfg = ApplianceConfig(**new_dict)
+                save_system_config(updated_cfg)
+                DashboardHandler.config = updated_cfg
+
+                resp = json.dumps({"status": "ok", "message": "Configuration saved successfully"}).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+            except Exception as e:
+                err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
+                self.send_response(HTTPStatus.BAD_REQUEST)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(err_resp)
+            return
+
+        if self.path == "/api/action/restart_daemon":
+            subprocess.Popen(["systemctl", "restart", "computemesh-appliance.service"], stderr=subprocess.DEVNULL)
+            resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(resp)
+            return
+
+        if self.path == "/api/action/reboot":
+            subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
+            resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(resp)
+            return
+
+        self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+
 
 def run_dashboard_server(
     host: str = "0.0.0.0",
     port: int = 8080,
     config: ApplianceConfig | None = None,
     inventory: RigInventory | None = None,
-    node_id: str = "cm-miner-rig-01",
+    node_id: str = "cm-inference-node-01",
 ) -> None:
     if config is None:
         config = load_appliance_config()

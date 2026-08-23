@@ -160,7 +160,7 @@ class ComputeMeshProviderApp:
 
         btn_save_wallet = tk.Button(
             row_payout,
-            text="💾 Save Wallet",
+            text="💾 Save",
             font=("Inter", 10, "bold"),
             bg="#3b82f6",
             fg="#ffffff",
@@ -171,7 +171,22 @@ class ComputeMeshProviderApp:
             pady=4,
             command=self._save_payout_wallet,
         )
-        btn_save_wallet.pack(side="right")
+        btn_save_wallet.pack(side="right", padx=(5, 0))
+
+        btn_metamask = tk.Button(
+            row_payout,
+            text="🦊 MetaMask",
+            font=("Inter", 10, "bold"),
+            bg="#f5851b",
+            fg="#ffffff",
+            activebackground="#e2761b",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=12,
+            pady=4,
+            command=self._connect_metamask,
+        )
+        btn_metamask.pack(side="right")
 
         self.lbl_wallet_status = ttk.Label(payout_frame, text="", font=("Inter", 8), foreground="#10b981", background="#111827")
         self.lbl_wallet_status.pack(anchor="w", pady=(4, 0))
@@ -245,6 +260,14 @@ class ComputeMeshProviderApp:
             self.lbl_wallet_status.config(text=f"✓ Wallet address saved securely to local node configuration.", foreground="#10b981")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save wallet: {e}")
+
+    def _connect_metamask(self) -> None:
+        import webbrowser
+        webbrowser.open("http://localhost:8080/")
+        self.lbl_wallet_status.config(
+            text="🦊 Opened Web Dashboard at http://localhost:8080 — Click 'Connect MetaMask' there to connect.",
+            foreground="#f59e0b"
+        )
 
     def _populate_hardware(self) -> None:
         self.gpu_tree.delete(*self.gpu_tree.get_children())

@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-23 20:25 CEST
+**Last updated:** 2026-08-23 20:50 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** none  
-**Public release:** `v1.1.4` public release with Native 64-bit Windows PE GUI Executable (`ComputeMesh-Setup-x64.exe` standalone desktop agent, hardware telemetry, and tray UI)
+**Public release:** `v1.1.5` public release with 🦊 1-Click MetaMask Web3 Wallet Integration, Full NodeOS Configuration Section (Per-GPU Compute Toggles, VRAM Reservation, Power Profiles, Thermal Cutoffs), and Native Windows PE GUI
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -14,7 +14,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
 - canonical merged **code baseline**: `48da999` (PR #15 + Milestone M1 & M2 Foundation)
-- current public portal indexing tag: `v1.1.4` at the Search Console verified sitemap state
+- current public portal indexing tag: `v1.1.5` at the Search Console verified sitemap state
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design

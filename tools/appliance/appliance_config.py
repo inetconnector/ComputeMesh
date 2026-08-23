@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""ComputeMesh Appliance Configuration Loader.
+"""ComputeMesh Appliance Configuration Loader & Manager.
 
 Parses node configuration from the FAT32 boot partition (/boot/computemesh.env),
 local system configuration (/etc/computemesh/config.json), or environment variables.
+Supports runtime updates for payout addresses, per-GPU compute enablement,
+thermal throttle limits, and power management profiles.
 """
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,7 @@ import sys
 from typing import Any
 
 DEFAULT_BOOT_CONFIG = Path("/boot/computemesh.env")
+DEFAULT_LIVE_BOOT_CONFIG = Path("/live/image/computemesh.env")
 DEFAULT_SYSTEM_CONFIG = Path("/etc/computemesh/config.json")
 
 
@@ -23,6 +26,7 @@ DEFAULT_SYSTEM_CONFIG = Path("/etc/computemesh/config.json")
 class ApplianceConfig:
     rig_name: str
     provider_account_id: str
+    payout_address: str
     coordinator_url: str
     network_mode: str  # "dhcp" or "static"
     static_ip: str | None
@@ -32,6 +36,11 @@ class ApplianceConfig:
     dashboard_port: int
     allow_ssh: bool
     ssh_authorized_keys: str | None
+    disabled_gpus: list[int] = field(default_factory=list)
+    vram_reserve_mb: int = 512
+    power_mode: str = "balanced"  # "eco", "balanced", "max"
+    max_temp_c: int = 80
+    enable_kiosk: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,6 +66,8 @@ def load_appliance_config(
 ) -> ApplianceConfig:
     """Load appliance configuration from boot partition, falling back to system config & defaults."""
     env_vars = _parse_env_file(boot_path)
+    if not env_vars and DEFAULT_LIVE_BOOT_CONFIG.exists():
+        env_vars = _parse_env_file(DEFAULT_LIVE_BOOT_CONFIG)
     
     system_data: dict[str, Any] = {}
     if system_path.exists():
@@ -65,18 +76,31 @@ def load_appliance_config(
         except Exception:
             pass
 
-    rig_name = env_vars.get("RIG_NAME") or system_data.get("rig_name") or os.environ.get("RIG_NAME") or "cm-miner-rig-01"
+    rig_name = (
+        env_vars.get("NODE_NAME")
+        or env_vars.get("RIG_NAME")
+        or system_data.get("rig_name")
+        or os.environ.get("RIG_NAME")
+        or "cm-inference-node-01"
+    )
     provider_account = (
         env_vars.get("PROVIDER_ACCOUNT_ID")
         or system_data.get("provider_account_id")
         or os.environ.get("PROVIDER_ACCOUNT_ID")
-        or "cm_provider_anonymous"
+        or "cm_provider_genesis"
+    )
+    payout_address = (
+        env_vars.get("WALLET_PAYOUT_ADDRESS")
+        or env_vars.get("PAYOUT_ADDRESS")
+        or system_data.get("payout_address")
+        or os.environ.get("WALLET_PAYOUT_ADDRESS")
+        or "0x0000000000000000000000000000000000000000"
     )
     coordinator_url = (
         env_vars.get("COORDINATOR_URL")
         or system_data.get("coordinator_url")
         or os.environ.get("COORDINATOR_URL")
-        or "https://coordinator.computemesh.net"
+        or "https://computemesh.inetconnector.com"
     )
     network_mode = env_vars.get("NETWORK_MODE") or system_data.get("network_mode") or "dhcp"
     static_ip = env_vars.get("STATIC_IP") or system_data.get("static_ip")
@@ -88,9 +112,25 @@ def load_appliance_config(
     allow_ssh = env_vars.get("ALLOW_SSH", "true").lower() in ("true", "1", "yes")
     ssh_keys = env_vars.get("SSH_AUTHORIZED_KEYS") or system_data.get("ssh_authorized_keys")
 
+    # Parse disabled GPUs
+    disabled_gpus: list[int] = []
+    if "DISABLED_GPUS" in env_vars:
+        try:
+            disabled_gpus = [int(x.strip()) for x in env_vars["DISABLED_GPUS"].split(",") if x.strip().isdigit()]
+        except Exception:
+            pass
+    elif "disabled_gpus" in system_data and isinstance(system_data["disabled_gpus"], list):
+        disabled_gpus = [int(x) for x in system_data["disabled_gpus"] if isinstance(x, (int, str)) and str(x).isdigit()]
+
+    vram_reserve = int(env_vars.get("VRAM_RESERVE_MB") or system_data.get("vram_reserve_mb") or 512)
+    power_mode = env_vars.get("POWER_MODE") or system_data.get("power_mode") or "balanced"
+    max_temp = int(env_vars.get("MAX_TEMP_C") or system_data.get("max_temp_c") or 80)
+    enable_kiosk = env_vars.get("ENABLE_KIOSK", "true").lower() in ("true", "1", "yes")
+
     return ApplianceConfig(
         rig_name=rig_name,
         provider_account_id=provider_account,
+        payout_address=payout_address,
         coordinator_url=coordinator_url,
         network_mode=network_mode,
         static_ip=static_ip,
@@ -100,9 +140,37 @@ def load_appliance_config(
         dashboard_port=dash_port,
         allow_ssh=allow_ssh,
         ssh_authorized_keys=ssh_keys,
+        disabled_gpus=disabled_gpus,
+        vram_reserve_mb=vram_reserve,
+        power_mode=power_mode,
+        max_temp_c=max_temp,
+        enable_kiosk=enable_kiosk,
     )
 
 
 def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONFIG) -> None:
+    """Persist updated appliance configuration to disk and USB env partition."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(config.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    # Also update boot computemesh.env if writable
+    for env_target in [DEFAULT_BOOT_CONFIG, DEFAULT_LIVE_BOOT_CONFIG]:
+        try:
+            if env_target.parent.exists() and os.access(env_target.parent, os.W_OK):
+                content = f"""# ComputeMesh AI Inference Node Configuration
+NODE_NAME={config.rig_name}
+WALLET_PAYOUT_ADDRESS={config.payout_address}
+PROVIDER_ACCOUNT_ID={config.provider_account_id}
+COORDINATOR_URL={config.coordinator_url}
+VRAM_RESERVE_MB={config.vram_reserve_mb}
+POWER_MODE={config.power_mode}
+MAX_TEMP_C={config.max_temp_c}
+DISABLED_GPUS={','.join(str(g) for g in config.disabled_gpus)}
+ENABLE_WEB_DASHBOARD={'true' if config.enable_web_dashboard else 'false'}
+DASHBOARD_PORT={config.dashboard_port}
+ENABLE_KIOSK={'true' if config.enable_kiosk else 'false'}
+ALLOW_SSH={'true' if config.allow_ssh else 'false'}
+"""
+                env_target.write_text(content, encoding="utf-8")
+        except Exception:
+            pass
