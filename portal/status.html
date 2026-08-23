@@ -55,27 +55,27 @@
 
     <!-- Live Telemetry Grid -->
     <div class="telemetry-ticker" style="margin-bottom: 3.5rem;">
-      <div class="ticker-item">
-        <div class="ticker-val">Public Alpha</div>
-        <div class="ticker-lbl" data-i18n="ticker_gpus">Genesis Mesh Phase</div>
-      </div>
       <div class="ticker-item emerald">
-        <div class="ticker-val">100% Match</div>
-        <div class="ticker-lbl" data-i18n="ticker_vram">Two-Node Proof (ADR-0002)</div>
+        <div class="ticker-val">18.58 GB</div>
+        <div class="ticker-lbl" data-i18n="ticker_vram">Total Usable VRAM Pool</div>
+      </div>
+      <div class="ticker-item">
+        <div class="ticker-val">2 Active</div>
+        <div class="ticker-lbl" data-i18n="ticker_gpus">Active GPUs (AMD & NVIDIA)</div>
       </div>
       <div class="ticker-item indigo">
         <div class="ticker-val">~14.2 ms</div>
         <div class="ticker-lbl" data-i18n="status_avg_latency">EU-Central Gateway Latency</div>
       </div>
       <div class="ticker-item amber">
-        <div class="ticker-val">Open Access</div>
-        <div class="ticker-lbl" data-i18n="ticker_uptime">Provider Genesis Onboarding</div>
+        <div class="ticker-val">Public Alpha</div>
+        <div class="ticker-lbl" data-i18n="ticker_uptime">Genesis Network Online</div>
       </div>
     </div>
 
     <!-- Regional Nodes -->
     <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Operational Gateways & Verified Clusters</h3>
+      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Operational Gateways & Active Mesh Nodes</h3>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 4rem;">
@@ -88,18 +88,27 @@
         <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>~14.2 ms</strong> • Protocol: <strong>TLS 1.3 / HTTP/2</strong></p>
       </div>
 
+      <div class="feature-card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="font-size: 1.2rem;">⚡ NodeOS Appliance (cm-miner-rig-01)</h4>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online & Ready</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>AMD Vega 10 Instinct MI25 (8.58 GB Dedicated VRAM)</strong></p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Backend: <strong>Vulkan / ROCm</strong> • Dashboard: <strong>Port 8080 (Active)</strong></p>
+      </div>
+
       <div class="feature-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h4 style="font-size: 1.2rem;">🔬 Genesis Validation Lab (ADR-0002 Proof)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Verified</span>
+          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Verified & Active</span>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>NVIDIA RTX 3080 + AMD EPYC Server</strong></p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>NVIDIA RTX 3080 10GB (CUDA) + AMD EPYC Server</strong></p>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Verification: <strong>100% Exact Token Match Verified</strong></p>
       </div>
 
       <div class="feature-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🌍 Community Genesis Nodes</h4>
+          <h4 style="font-size: 1.2rem;">🌍 Community Genesis Onboarding</h4>
           <span class="brand-badge" style="border-color: var(--border-bright); color: var(--accent-cyan);">Accepting Nodes</span>
         </div>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Supported: <strong>Windows Agent, Linux & Mining Rig NodeOS</strong></p>

@@ -19,10 +19,10 @@ const translations = {
     btn_start_inferencing: "Run AI Models (API)",
     btn_provide_compute: "Provide GPU & Earn",
     
-    ticker_gpus: "Genesis Mesh Phase",
-    ticker_vram: "Two-Node Proof (ADR-0002)",
-    ticker_tokens: "vs. Cloud Hyperscalers",
-    ticker_uptime: "Provider Genesis Onboarding",
+    ticker_vram: "Total Usable VRAM Pool",
+    ticker_gpus: "Active GPUs (AMD & NVIDIA)",
+    ticker_tokens: "Two-Node Proof (ADR-0002)",
+    ticker_uptime: "vs. Cloud Hyperscalers",
 
     features_tag: "Decentralized Architecture",
     features_title: "Engineered for Ultra-Fast, Low-Cost Inference",
@@ -201,10 +201,10 @@ const translations = {
     btn_start_inferencing: "KI-Modelle nutzen (API)",
     btn_provide_compute: "GPU vermieten & verdienen",
     
-    ticker_gpus: "Genesis-Mesh-Phase",
-    ticker_vram: "Zwei-Knoten-Proof (ADR-0002)",
-    ticker_tokens: "ggü. Cloud-Hyperscalern",
-    ticker_uptime: "Genesis-Provider-Onboarding",
+    ticker_vram: "Gesamter nutzbarer VRAM-Pool",
+    ticker_gpus: "Aktive GPUs (AMD & NVIDIA)",
+    ticker_tokens: "Zwei-Knoten-Proof (ADR-0002)",
+    ticker_uptime: "ggü. Cloud-Hyperscalern",
 
     features_tag: "Dezentrale Architektur",
     features_title: "Entwickelt für ultraschnelle, bezahlbare KI",
