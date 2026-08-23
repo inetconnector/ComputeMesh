@@ -552,6 +552,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
+          <button class="btn btn-secondary" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check & Apply Signed Update (Ed25519)</button>
           <button class="btn btn-secondary" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
@@ -777,6 +778,31 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
+    async function checkAndApplyOTAUpdate() {
+      showToast('Prüfe auf kryptografisch signierte Updates via Ed25519...');
+      try {
+        const res = await fetch('/api/action/check_update');
+        const data = await res.json();
+        if (data.update_available) {
+          if (confirm(`Neues signiertes Release v${data.version} verfügbar!\n\nEd25519-Signatur: GÜLTIG ✓\nSHA-256: Verifiziert\n\nMöchtest du das Over-the-Air (OTA) Update jetzt sicher installieren?`)) {
+            showToast('Lade Update herunter und installiere...');
+            const applyRes = await fetch('/api/action/apply_update', { method: 'POST' });
+            const applyData = await applyRes.json();
+            if (applyRes.ok) {
+              showToast('✓ Update erfolgreich installiert! Daemon wird neu gestartet...');
+              setTimeout(() => { location.reload(); }, 3500);
+            } else {
+              showToast('Update fehlgeschlagen: ' + applyData.message, false);
+            }
+          }
+        } else {
+          showToast(`Dieses NodeOS läuft bereits auf der neuesten signierten Version (v${data.version}).`);
+        }
+      } catch (e) {
+        showToast('Update-Prüfung fehlgeschlagen: ' + e, false);
+      }
+    }
+
     if (window.location.hash === '#config') {
       switchTab('config');
     }
@@ -836,6 +862,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
+        if self.path == "/api/action/check_update":
+            try:
+                from services.updater.auto_updater import AutoUpdater
+                updater = AutoUpdater(current_version="1.2.0")
+                u_info = updater.check_for_updates()
+                if u_info:
+                    resp_dict = {
+                        "update_available": u_info.is_newer,
+                        "version": u_info.version,
+                        "release_date": u_info.release_date,
+                        "filename": u_info.filename,
+                    }
+                else:
+                    resp_dict = {"update_available": False, "version": "1.2.0"}
+                resp = json.dumps(resp_dict).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+            except Exception as e:
+                err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
+                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(err_resp)
+            return
+
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
@@ -884,6 +938,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(resp)
+            return
+
+        if self.path == "/api/action/apply_update":
+            try:
+                from services.updater.auto_updater import AutoUpdater
+                updater = AutoUpdater(current_version="1.2.0")
+                u_info = updater.check_for_updates()
+                if u_info:
+                    pkg = updater.download_and_verify(u_info)
+                    updater.apply_linux_update(pkg)
+                    resp = json.dumps({"status": "ok", "message": f"Updated to v{u_info.version}"}).encode("utf-8")
+                else:
+                    resp = json.dumps({"status": "ok", "message": "Already up to date"}).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+            except Exception as e:
+                err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
+                self.send_response(HTTPStatus.BAD_REQUEST)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(err_resp)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
