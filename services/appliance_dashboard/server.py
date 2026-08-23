@@ -1246,9 +1246,21 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    if (window.location.hash === '#config') {
-      switchTab('config');
+    function handleInitialRouting() {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (hash === '#config' || hash === '#metamask' || search.includes('metamask') || search.includes('config')) {
+        switchTab('config');
+        if (hash === '#metamask' || search.includes('metamask')) {
+          setTimeout(() => {
+            connectMetaMask(true);
+          }, 400);
+        }
+      }
     }
+
+    handleInitialRouting();
+    window.addEventListener('hashchange', handleInitialRouting);
 
     updateDashboard();
     setInterval(updateDashboard, 3000);

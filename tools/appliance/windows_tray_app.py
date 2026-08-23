@@ -657,9 +657,9 @@ class ComputeMeshProviderApp:
 
     def _connect_metamask(self) -> None:
         import webbrowser
-        webbrowser.open("http://localhost:8080/#config")
+        webbrowser.open("http://localhost:8080/?action=metamask#config")
         self.lbl_wallet_status.config(
-            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Account wechseln' wird die Adresse automatisch synchronisiert!",
+            text="🦊 MetaMask-Verbindung im Browser geöffnet — Bestätige die Auswahl in MetaMask!",
             foreground="#00f2fe"
         )
 
