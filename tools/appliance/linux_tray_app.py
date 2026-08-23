@@ -568,12 +568,25 @@ class LinuxComputeMeshProviderApp:
 
 
 def main() -> int:
-    root = tk.Tk()
-    root.withdraw()
-    app = LinuxComputeMeshProviderApp(root)
-    if "--tray" not in sys.argv:
-        root.deiconify()
-    root.mainloop()
+    if "--daemon" in sys.argv or "--headless" in sys.argv or not os.environ.get("DISPLAY"):
+        print("[ComputeMesh] Running in Headless Server Daemon Mode...")
+        cfg = load_appliance_config()
+        inv = scan_rig_hardware()
+        run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=inv, node_id="linux-provider-node")
+        return 0
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        app = LinuxComputeMeshProviderApp(root)
+        if "--tray" not in sys.argv:
+            root.deiconify()
+        root.mainloop()
+    except Exception as e:
+        print(f"[ComputeMesh] GUI initialization skipped ({e}), falling back to headless server daemon...")
+        cfg = load_appliance_config()
+        inv = scan_rig_hardware()
+        run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=inv, node_id="linux-provider-node")
     return 0
 
 
