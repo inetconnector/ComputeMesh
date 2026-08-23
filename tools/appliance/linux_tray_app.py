@@ -81,7 +81,7 @@ class LinuxComputeMeshProviderApp:
         self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
 
-        self.version = "1.2.0"
+        self.version = "1.2.7"
         self.updater = AutoUpdater(current_version=self.version)
 
         # Auto-start providing compute immediately upon launch
@@ -309,8 +309,10 @@ class LinuxComputeMeshProviderApp:
         if saved_w:
             self.ent_wallet.insert(0, saved_w)
 
-        tk.Button(row_payout, text="💾 Save", font=("Inter", 10, "bold"), bg="#3b82f6", fg="#ffffff", relief="flat", padx=12, pady=4, command=self._save_payout_wallet).pack(side="right", padx=(5, 0))
-        tk.Button(row_payout, text="🦊 MetaMask", font=("Inter", 10, "bold"), bg="#f5851b", fg="#ffffff", relief="flat", padx=12, pady=4, command=self._connect_metamask).pack(side="right")
+        tk.Button(row_payout, text="💾 Save", font=("Inter", 9, "bold"), bg="#3b82f6", fg="#ffffff", relief="flat", padx=10, pady=4, command=self._save_payout_wallet).pack(side="right", padx=(4, 0))
+        tk.Button(row_payout, text="📋 Paste", font=("Inter", 9), bg="#1e293b", fg="#00f2fe", relief="flat", padx=8, pady=4, command=self._paste_wallet).pack(side="right", padx=(4, 0))
+        tk.Button(row_payout, text="🗑️", font=("Inter", 9), bg="#1e293b", fg="#f43f5e", relief="flat", padx=6, pady=4, command=self._clear_wallet).pack(side="right", padx=(4, 0))
+        tk.Button(row_payout, text="🦊 MetaMask", font=("Inter", 9, "bold"), bg="#f5851b", fg="#ffffff", relief="flat", padx=10, pady=4, command=self._connect_metamask).pack(side="right")
 
         self.lbl_wallet_status = ttk.Label(payout_frame, text="", font=("Inter", 8), foreground="#10b981", background="#111827")
         self.lbl_wallet_status.pack(anchor="w", pady=(4, 0))
@@ -377,11 +379,25 @@ class LinuxComputeMeshProviderApp:
             self.lbl_status.config(text="IDLE", foreground="#f59e0b")
             self.btn_toggle.config(text="▶ Start Providing Compute", bg="#10b981")
 
+    def _paste_wallet(self) -> None:
+        try:
+            clip = self.root.clipboard_get().strip()
+            if clip:
+                self.ent_wallet.delete(0, tk.END)
+                self.ent_wallet.insert(0, clip)
+                self.lbl_wallet_status.config(text=f"✓ Adresse aus Zwischenablage eingefügt: {clip[:6]}...{clip[-4:]} (Klicke 'Save')", foreground="#00f2fe")
+        except Exception:
+            messagebox.showinfo("Zwischenablage", "Zwischenablage ist leer oder enthält keinen Text.")
+
+    def _clear_wallet(self) -> None:
+        self.ent_wallet.delete(0, tk.END)
+        self.lbl_wallet_status.config(text="Feld geleert. Neue Adresse eingeben oder per MetaMask wählen.", foreground="#f59e0b")
+
     def _connect_metamask(self) -> None:
         import webbrowser
         webbrowser.open("http://localhost:8080/#config")
         self.lbl_wallet_status.config(
-            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Connect MetaMask' wird die Adresse automatisch synchronisiert!",
+            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Account wechseln' wird die Adresse automatisch synchronisiert!",
             foreground="#00f2fe"
         )
 

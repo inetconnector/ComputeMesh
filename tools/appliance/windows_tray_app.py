@@ -97,7 +97,7 @@ class ComputeMeshProviderApp:
         self.root.minsize(620, 560)
         self.root.configure(bg="#0b0f19")
 
-        self.version = "1.2.0"
+        self.version = "1.2.7"
         self.updater = AutoUpdater(current_version=self.version)
 
         # Resolve icon paths
@@ -418,28 +418,58 @@ class ComputeMeshProviderApp:
         btn_save_wallet = tk.Button(
             row_payout,
             text="💾 Save",
-            font=("Inter", 10, "bold"),
+            font=("Inter", 9, "bold"),
             bg="#3b82f6",
             fg="#ffffff",
             activebackground="#2563eb",
             activeforeground="#ffffff",
             relief="flat",
-            padx=12,
+            padx=10,
             pady=4,
             command=self._save_payout_wallet,
         )
-        btn_save_wallet.pack(side="right", padx=(5, 0))
+        btn_save_wallet.pack(side="right", padx=(4, 0))
+
+        btn_paste = tk.Button(
+            row_payout,
+            text="📋 Paste",
+            font=("Inter", 9),
+            bg="#1e293b",
+            fg="#00f2fe",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=8,
+            pady=4,
+            command=self._paste_wallet,
+        )
+        btn_paste.pack(side="right", padx=(4, 0))
+
+        btn_clear = tk.Button(
+            row_payout,
+            text="🗑️",
+            font=("Inter", 9),
+            bg="#1e293b",
+            fg="#f43f5e",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=6,
+            pady=4,
+            command=self._clear_wallet,
+        )
+        btn_clear.pack(side="right", padx=(4, 0))
 
         btn_metamask = tk.Button(
             row_payout,
             text="🦊 MetaMask",
-            font=("Inter", 10, "bold"),
+            font=("Inter", 9, "bold"),
             bg="#f5851b",
             fg="#ffffff",
             activebackground="#e2761b",
             activeforeground="#ffffff",
             relief="flat",
-            padx=12,
+            padx=10,
             pady=4,
             command=self._connect_metamask,
         )
@@ -550,6 +580,20 @@ class ComputeMeshProviderApp:
             pass
         return ""
 
+    def _paste_wallet(self) -> None:
+        try:
+            clip = self.root.clipboard_get().strip()
+            if clip:
+                self.ent_wallet.delete(0, tk.END)
+                self.ent_wallet.insert(0, clip)
+                self.lbl_wallet_status.config(text=f"✓ Adresse aus Zwischenablage eingefügt: {clip[:6]}...{clip[-4:]} (Klicke 'Save')", foreground="#00f2fe")
+        except Exception:
+            messagebox.showinfo("Zwischenablage", "Zwischenablage ist leer oder enthält keinen Text.")
+
+    def _clear_wallet(self) -> None:
+        self.ent_wallet.delete(0, tk.END)
+        self.lbl_wallet_status.config(text="Feld geleert. Neue Adresse eingeben oder per MetaMask wählen.", foreground="#f59e0b")
+
     def _save_payout_wallet(self) -> None:
         wallet = self.ent_wallet.get().strip()
         if not wallet:
@@ -581,7 +625,7 @@ class ComputeMeshProviderApp:
         import webbrowser
         webbrowser.open("http://localhost:8080/#config")
         self.lbl_wallet_status.config(
-            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Connect MetaMask' wird die Adresse automatisch synchronisiert!",
+            text="🦊 Web Dashboard geöffnet. Nach Klick auf 'Account wechseln' wird die Adresse automatisch synchronisiert!",
             foreground="#00f2fe"
         )
 
