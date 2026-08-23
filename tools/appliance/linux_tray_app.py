@@ -328,6 +328,27 @@ class LinuxComputeMeshProviderApp:
         tk.Checkbutton(ctrl_frame, text="Autostart", variable=self.autostart_var, command=self._on_autostart_toggle, bg="#0b0f19", fg="#f3f4f6", selectcolor="#111827", font=("Inter", 9)).pack(side="right")
         tk.Checkbutton(ctrl_frame, text="Auto-Update (Ed25519)", variable=self.autoupdate_var, command=self._on_autoupdate_toggle, bg="#0b0f19", fg="#f3f4f6", selectcolor="#111827", font=("Inter", 9)).pack(side="right", padx=10)
 
+        # Remote LAN Access Info Row
+        import socket
+        primary_ip = "127.0.0.1"
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            primary_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            pass
+
+        footer_frame = ttk.Frame(self.root)
+        footer_frame.pack(fill="x", padx=20, pady=(0, 10))
+        ttk.Label(
+            footer_frame,
+            text=f"📡 LAN Remote Access: http://{primary_ip}:8080/#config  (vom Handy/Laptop im Netzwerk aufrufen)",
+            font=("Inter", 8),
+            foreground="#6b7280",
+            background="#0b0f19",
+        ).pack(side="left")
+
     def _on_autostart_toggle(self) -> None:
         set_linux_autostart(self.autostart_var.get())
 

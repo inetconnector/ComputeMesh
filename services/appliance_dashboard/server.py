@@ -418,6 +418,109 @@ HTML_PAGE = """<!DOCTYPE html>
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: var(--accent-emerald);
     }
+    /* Remote Access & IP Display Banner for Physical Monitors */
+    .remote-access-card {
+      background: linear-gradient(135deg, rgba(14, 20, 36, 0.95), rgba(17, 24, 39, 0.95));
+      border: 2px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
+      border-radius: 14px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+    }
+    .remote-info-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .remote-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      letter-spacing: -0.01em;
+    }
+    .remote-badge {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--accent-emerald);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .remote-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .ip-addresses-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .ip-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(0, 240, 255, 0.5);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+      transition: all 0.2s;
+    }
+    .ip-chip:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      transform: translateY(-2px);
+    }
+    .iface-tag {
+      background: var(--accent-blue);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .remote-qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+    .remote-qr-box img {
+      width: 110px;
+      height: 110px;
+      border-radius: 6px;
+      background: #fff;
+      padding: 4px;
+    }
+    .qr-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
     footer {
       text-align: center;
       padding: 1.5rem;
@@ -447,6 +550,26 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <main>
     <div id="toast-banner" class="toast-msg toast-success"></div>
+
+    <!-- REMOTE DASHBOARD ACCESS & IP ADDRESS BANNER (FOR PHYSICAL MONITORS) -->
+    <div class="remote-access-card">
+      <div class="remote-info-left">
+        <div class="remote-title">
+          <span>📡 Web-Dashboard & Remote-Steuerung im Netzwerk</span>
+          <span class="remote-badge">Keine Tastatur am Rig nötig</span>
+        </div>
+        <div class="remote-subtitle">
+          Öffne die folgende IP-Adresse auf deinem PC, Laptop oder Smartphone im selben Netzwerk, um Wallet, MetaMask und GPU-Leistung einzustellen:
+        </div>
+        <div class="ip-addresses-row" id="remote-ip-chips">
+          <div class="ip-chip"><span class="iface-tag">LAN</span> <span id="primary-ip-display">Erkenne Netzwerk-IPs...</span></div>
+        </div>
+      </div>
+      <div class="remote-qr-box">
+        <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http%3A%2F%2F127.0.0.1%3A8080%2F" alt="Scan QR Code">
+        <span class="qr-label">📱 Mit Handy scannen</span>
+      </div>
+    </div>
 
     <!-- TAB 1: OVERVIEW -->
     <div id="tab-overview" class="tab-content active">
@@ -640,6 +763,26 @@ HTML_PAGE = """<!DOCTYPE html>
         document.getElementById('tokens-served').textContent = data.telemetry.tokens_processed.toLocaleString();
         document.getElementById('earnings').textContent = '$' + (data.telemetry.earnings_cm * 0.85).toFixed(4);
         document.getElementById('footer-node-id').textContent = 'Node: ' + data.node_id + ' • Payout: ' + (data.config.payout_address || 'Not Set');
+
+        // Populate Remote IP Address Chips & QR Code
+        const ipContainer = document.getElementById('remote-ip-chips');
+        if (ipContainer && data.network && data.network.interfaces && data.network.interfaces.length > 0) {
+          ipContainer.innerHTML = '';
+          const firstUrl = data.network.interfaces[0].url;
+          data.network.interfaces.forEach(iface => {
+            const chip = document.createElement('a');
+            chip.className = 'ip-chip';
+            chip.href = iface.url;
+            chip.target = '_blank';
+            chip.innerHTML = `<span class="iface-tag">${iface.interface}</span> ${iface.url}`;
+            ipContainer.appendChild(chip);
+          });
+          const qrImg = document.getElementById('remote-qr-code');
+          if (qrImg && !qrImg.dataset.loaded) {
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(firstUrl)}`;
+            qrImg.dataset.loaded = 'true';
+          }
+        }
 
         // Populate GPU Overview Cards
         const container = document.getElementById('gpu-container');
@@ -854,6 +997,76 @@ HTML_PAGE = """<!DOCTYPE html>
 """
 
 
+import platform
+import socket
+
+def get_network_interfaces() -> list[dict[str, str]]:
+    interfaces: list[dict[str, str]] = []
+    seen_ips = set()
+
+    # 1. Linux ip addr command
+    if platform.system().lower() == "linux":
+        try:
+            out = subprocess.check_output(["ip", "-o", "-4", "addr", "show"], text=True, timeout=2)
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 4:
+                    iface = parts[1]
+                    ip = parts[3].split("/")[0]
+                    if not ip.startswith("127.") and ip not in seen_ips:
+                        seen_ips.add(ip)
+                        interfaces.append({
+                            "interface": iface,
+                            "ip": ip,
+                            "url": f"http://{ip}:8080/",
+                            "config_url": f"http://{ip}:8080/#config",
+                        })
+        except Exception:
+            pass
+
+    # 2. Hostname resolution
+    try:
+        host_name = socket.gethostname()
+        for ip in socket.gethostbyname_ex(host_name)[2]:
+            if not ip.startswith("127.") and ip not in seen_ips:
+                seen_ips.add(ip)
+                interfaces.append({
+                    "interface": "lan",
+                    "ip": ip,
+                    "url": f"http://{ip}:8080/",
+                    "config_url": f"http://{ip}:8080/#config",
+                })
+    except Exception:
+        pass
+
+    # 3. Default socket route
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        primary_ip = s.getsockname()[0]
+        s.close()
+        if primary_ip and not primary_ip.startswith("127.") and primary_ip not in seen_ips:
+            seen_ips.add(primary_ip)
+            interfaces.insert(0, {
+                "interface": "primary",
+                "ip": primary_ip,
+                "url": f"http://{primary_ip}:8080/",
+                "config_url": f"http://{primary_ip}:8080/#config",
+            })
+    except Exception:
+        pass
+
+    if not interfaces:
+        interfaces.append({
+            "interface": "localhost",
+            "ip": "127.0.0.1",
+            "url": "http://localhost:8080/",
+            "config_url": "http://localhost:8080/#config",
+        })
+
+    return interfaces
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     config: ApplianceConfig
     inventory: RigInventory
@@ -886,6 +1099,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "node_id": self.config.rig_name or self.node_id,
                 "config": self.config.to_dict(),
                 "inventory": self.inventory.to_dict(),
+                "network": {
+                    "interfaces": get_network_interfaces(),
+                },
                 "telemetry": {
                     "tokens_processed": self.tokens_served,
                     "earnings_cm": self.earnings_cm,

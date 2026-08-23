@@ -511,6 +511,27 @@ class ComputeMeshProviderApp:
         )
         self.chk_autoupdate.pack(side="right", padx=10)
 
+        # Remote LAN Access Info Row
+        import socket
+        primary_ip = "127.0.0.1"
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            primary_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            pass
+
+        footer_frame = ttk.Frame(self.root)
+        footer_frame.pack(fill="x", padx=20, pady=(0, 10))
+        ttk.Label(
+            footer_frame,
+            text=f"📡 LAN Remote Access: http://{primary_ip}:8080/#config  (vom Handy/Laptop im Netzwerk aufrufen)",
+            font=("Inter", 8),
+            foreground="#6b7280",
+            background="#0b0f19",
+        ).pack(side="left")
+
     def _get_config_path(self) -> Path:
         cfg_dir = Path.home() / ".computemesh"
         cfg_dir.mkdir(parents=True, exist_ok=True)
