@@ -312,6 +312,80 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
     return thermals
 
 
+def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice]:
+    """Detect all Windows GPUs via Win32_VideoController that were not already detected by nvidia-smi."""
+    if sys.platform != "win32":
+        return []
+    
+    devices: list[GpuDevice] = []
+    existing_models = {d.model_name.lower() for d in existing_devices}
+    start_index = len(existing_devices)
+    
+    try:
+        cmd = [
+            "powershell", "-NoProfile", "-Command",
+            "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, PNPDeviceID | ConvertTo-Json -Compress"
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=8)
+        raw = res.stdout.strip()
+        if not raw:
+            return []
+        
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            items = [parsed]
+        elif isinstance(parsed, list):
+            items = parsed
+        else:
+            items = []
+            
+        for item in items:
+            name = item.get("Name") or "Generic Display Adapter"
+            # Skip if already captured by nvidia-smi
+            if any(name.lower() in m or m in name.lower() for m in existing_models):
+                continue
+                
+            pnp = item.get("PNPDeviceID") or ""
+            adapter_ram = item.get("AdapterRAM") or 0
+            # Default to at least 2GB for iGPUs if 32-bit unsigned overflow or 0
+            if adapter_ram <= 0 or adapter_ram > (128 * 1024 * 1024 * 1024):
+                adapter_ram = 2 * 1024 * 1024 * 1024
+                
+            name_lower = name.lower()
+            if "nvidia" in name_lower or "ven_10de" in pnp.lower():
+                vendor = "nvidia"
+                backend = "cuda"
+            elif "amd" in name_lower or "radeon" in name_lower or "ven_1002" in pnp.lower():
+                vendor = "amd"
+                backend = "vulkan"
+            elif "intel" in name_lower or "ven_8086" in pnp.lower():
+                vendor = "intel"
+                backend = "sycl"
+            else:
+                vendor = "unknown"
+                backend = "vulkan"
+                
+            devices.append(
+                GpuDevice(
+                    index=start_index,
+                    pci_slot=pnp.split("\\")[-1] if "\\" in pnp else f"pci:{start_index}",
+                    vendor=vendor,
+                    model_name=name,
+                    vram_bytes=int(adapter_ram),
+                    pcie_gen=3,
+                    pcie_width=16,
+                    driver_backend=backend,
+                    is_headless=False,
+                    healthy=True,
+                )
+            )
+            start_index += 1
+    except Exception:
+        pass
+        
+    return devices
+
+
 # ==============================================================================
 # 3. Universal Fallback & Aggregator
 # ==============================================================================
@@ -324,11 +398,15 @@ def scan_rig_hardware() -> RigInventory:
     nvidia_gpus = detect_nvidia_gpus()
     all_gpus.extend(nvidia_gpus)
     
-    # 2. Detect AMD GPUs
+    # 2. Detect AMD GPUs (Linux sysfs)
     amd_gpus = detect_amd_sysfs_gpus(start_index=len(all_gpus))
     all_gpus.extend(amd_gpus)
 
-    # 3. Fallback: lspci if none detected
+    # 3. Detect Windows Multi-GPU & Integrated GPUs (WMI / PowerShell)
+    windows_gpus = detect_windows_wmi_gpus(all_gpus)
+    all_gpus.extend(windows_gpus)
+
+    # 4. Fallback: lspci if none detected
     if not all_gpus and shutil.which("lspci"):
         try:
             res = subprocess.run(

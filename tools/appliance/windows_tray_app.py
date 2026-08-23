@@ -53,6 +53,26 @@ class ComputeMeshProviderApp:
         self.style.configure("StatVal.TLabel", font=("Outfit", 18, "bold"), foreground="#10b981", background="#111827")
         self.style.configure("StatLbl.TLabel", font=("Inter", 9), foreground="#9ca3af", background="#111827")
 
+        # Treeview Dark Styling
+        self.style.configure(
+            "Treeview",
+            background="#0e1424",
+            foreground="#f3f4f6",
+            fieldbackground="#0e1424",
+            font=("Inter", 10),
+            rowheight=30,
+            borderwidth=0,
+        )
+        self.style.configure(
+            "Treeview.Heading",
+            background="#1e293b",
+            foreground="#00f2fe",
+            font=("Inter", 10, "bold"),
+            relief="flat",
+        )
+        self.style.map("Treeview", background=[("selected", "#3b82f6")], foreground=[("selected", "#ffffff")])
+        self.style.map("Treeview.Heading", background=[("active", "#334155")])
+
     def _build_ui(self) -> None:
         # Header
         hdr_frame = ttk.Frame(self.root)
