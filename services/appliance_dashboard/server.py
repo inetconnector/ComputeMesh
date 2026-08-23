@@ -36,7 +36,7 @@ HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>ComputeMesh NodeOS — AI Inference Appliance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
@@ -59,14 +59,18 @@ HTML_PAGE = """<!DOCTYPE html>
       --font-mono: 'JetBrains Mono', monospace;
       --font-heading: 'Outfit', sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
       background-color: var(--bg-base);
       color: var(--text-main);
       font-family: var(--font-main);
       min-height: 100vh;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
       display: flex;
       flex-direction: column;
+      -webkit-text-size-adjust: 100%;
     }
     header {
       background: var(--bg-surface);
@@ -77,11 +81,18 @@ HTML_PAGE = """<!DOCTYPE html>
       align-items: center;
       flex-wrap: wrap;
       gap: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
     .logo {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.6rem;
       font-family: var(--font-heading);
       font-size: 1.35rem;
       font-weight: 800;
@@ -90,16 +101,16 @@ HTML_PAGE = """<!DOCTYPE html>
     .logo-badge {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       color: #000;
-      font-size: 0.75rem;
-      padding: 0.25rem 0.55rem;
+      font-size: 0.72rem;
+      padding: 0.2rem 0.5rem;
       border-radius: 4px;
       font-weight: 800;
       text-transform: uppercase;
     }
     .nav-tabs {
       display: flex;
-      gap: 0.5rem;
-      background: rgba(0, 0, 0, 0.3);
+      gap: 0.35rem;
+      background: rgba(0, 0, 0, 0.35);
       padding: 0.3rem;
       border-radius: 8px;
       border: 1px solid var(--border-color);
@@ -108,8 +119,8 @@ HTML_PAGE = """<!DOCTYPE html>
       background: transparent;
       border: none;
       color: var(--text-dim);
-      padding: 0.5rem 1.2rem;
-      font-size: 0.9rem;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.88rem;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
@@ -127,10 +138,11 @@ HTML_PAGE = """<!DOCTYPE html>
       background: rgba(16, 185, 129, 0.1);
       border: 1px solid rgba(16, 185, 129, 0.3);
       color: var(--accent-emerald);
-      padding: 0.35rem 0.85rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 9999px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
+      white-space: nowrap;
     }
     .status-dot {
       width: 8px;
@@ -141,69 +153,73 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     main {
       flex: 1;
-      max-width: 1300px;
+      max-width: 1280px;
       margin: 0 auto;
       width: 100%;
-      padding: 2rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.5rem;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
-    .tab-content { display: none; flex-direction: column; gap: 2rem; }
+    .tab-content { display: none; flex-direction: column; gap: 1.5rem; width: 100%; }
     .tab-content.active { display: flex; }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      width: 100%;
     }
     .stat-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 1.5rem;
+      padding: 1.25rem;
       backdrop-filter: blur(12px);
     }
     .stat-label {
       color: var(--text-dim);
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
     }
     .stat-value {
-      font-size: 1.8rem;
+      font-size: 1.6rem;
       font-weight: 700;
       font-family: var(--font-mono);
       color: var(--text-main);
     }
     .stat-sub {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--accent-cyan);
       margin-top: 0.25rem;
     }
     .section-title {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 700;
       font-family: var(--font-heading);
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
     .gpu-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      width: 100%;
     }
     .gpu-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 1.5rem;
+      padding: 1.25rem;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.85rem;
       transition: border-color 0.2s;
     }
     .gpu-card.disabled {
@@ -214,34 +230,37 @@ HTML_PAGE = """<!DOCTYPE html>
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 0.5rem;
     }
     .gpu-name {
       font-weight: 600;
-      font-size: 1.05rem;
+      font-size: 0.95rem;
+      word-break: break-word;
     }
     .gpu-pci {
       font-family: var(--font-mono);
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-dim);
     }
     .gpu-badge {
       background: rgba(59, 130, 246, 0.15);
       color: var(--accent-blue);
       border: 1px solid rgba(59, 130, 246, 0.3);
-      font-size: 0.75rem;
-      padding: 0.2rem 0.5rem;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.45rem;
       border-radius: 4px;
       font-weight: 600;
+      white-space: nowrap;
     }
     .bar-wrap {
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: 0.3rem;
     }
     .bar-labels {
       display: flex;
       justify-content: space-between;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-dim);
     }
     .progress-bar {
@@ -258,19 +277,19 @@ HTML_PAGE = """<!DOCTYPE html>
     .gpu-metrics {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
+      gap: 0.4rem;
       background: rgba(0, 0, 0, 0.25);
-      padding: 0.75rem;
+      padding: 0.6rem;
       border-radius: 8px;
       text-align: center;
     }
     .metric-val {
       font-family: var(--font-mono);
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 700;
     }
     .metric-lbl {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-dim);
       text-transform: uppercase;
     }
@@ -280,37 +299,43 @@ HTML_PAGE = """<!DOCTYPE html>
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 2rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 1.25rem;
+      width: 100%;
+      box-sizing: border-box;
     }
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
+      width: 100%;
     }
     .form-label {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
     .form-desc {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-dim);
     }
     .form-input, .form-select {
       background: rgba(0, 0, 0, 0.4);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      padding: 0.75rem 1rem;
+      padding: 0.65rem 0.85rem;
       border-radius: 8px;
       font-family: var(--font-mono);
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       outline: none;
+      width: 100%;
+      box-sizing: border-box;
       transition: border-color 0.2s;
     }
     .form-input:focus, .form-select:focus {
@@ -319,17 +344,20 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      width: 100%;
     }
     .gpu-toggle-list {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
       background: rgba(0, 0, 0, 0.2);
-      padding: 1rem;
+      padding: 0.85rem;
       border-radius: 8px;
       border: 1px solid var(--border-color);
+      width: 100%;
+      box-sizing: border-box;
     }
     .gpu-toggle-item {
       display: flex;
@@ -338,25 +366,29 @@ HTML_PAGE = """<!DOCTYPE html>
       padding: 0.5rem;
       border-radius: 6px;
       background: rgba(255, 255, 255, 0.03);
+      gap: 0.5rem;
     }
     .gpu-toggle-info {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      word-break: break-word;
     }
     .switch {
       position: relative;
       display: inline-block;
-      width: 44px;
-      height: 24px;
+      width: 42px;
+      height: 22px;
+      flex-shrink: 0;
     }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #374151; transition: .3s; border-radius: 24px;
+      background-color: #374151; transition: .3s; border-radius: 22px;
     }
     .slider:before {
-      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
       background-color: white; transition: .3s; border-radius: 50%;
     }
     input:checked + .slider { background-color: var(--accent-emerald); }
@@ -364,14 +396,15 @@ HTML_PAGE = """<!DOCTYPE html>
 
     .btn-row {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
       align-items: center;
-      margin-top: 1rem;
+      margin-top: 0.75rem;
+      width: 100%;
     }
     .btn {
-      padding: 0.85rem 1.75rem;
-      font-size: 0.95rem;
+      padding: 0.75rem 1.4rem;
+      font-size: 0.9rem;
       font-weight: 700;
       border-radius: 8px;
       cursor: pointer;
@@ -379,15 +412,18 @@ HTML_PAGE = """<!DOCTYPE html>
       transition: all 0.2s;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
+      text-align: center;
+      box-sizing: border-box;
     }
     .btn-primary {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       color: #000;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
     }
     .btn-primary:hover {
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
       transform: translateY(-1px);
     }
     .btn-secondary {
@@ -408,106 +444,128 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     .toast-msg {
       display: none;
-      padding: 1rem;
+      padding: 0.85rem 1.25rem;
       border-radius: 8px;
       font-weight: 600;
       margin-bottom: 1rem;
+      font-size: 0.88rem;
     }
     .toast-success {
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: var(--accent-emerald);
     }
-    /* Remote Access & IP Display Banner for Physical Monitors */
+
+    /* Remote Access & IP Display Banner */
     .remote-access-card {
-      background: linear-gradient(135deg, rgba(14, 20, 36, 0.95), rgba(17, 24, 39, 0.95));
-      border: 2px solid rgba(0, 240, 255, 0.4);
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
-      border-radius: 14px;
-      padding: 1.5rem 2rem;
-      margin-bottom: 2rem;
+      background: linear-gradient(135deg, rgba(14, 20, 36, 0.98), rgba(17, 24, 39, 0.98));
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.12);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 0.5rem;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 2rem;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .remote-info-left {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
+      width: 100%;
     }
-    .remote-title {
+    .remote-title-row {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      font-size: 1.25rem;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .remote-title {
+      font-size: 1.05rem;
       font-weight: 700;
       color: var(--accent-cyan);
       letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .remote-badge {
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: var(--accent-emerald);
-      font-size: 0.75rem;
-      padding: 0.2rem 0.6rem;
+      font-size: 0.68rem;
+      padding: 0.2rem 0.5rem;
       border-radius: 9999px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
     }
     .remote-subtitle {
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       color: var(--text-dim);
-      line-height: 1.5;
+      line-height: 1.4;
     }
     .ip-addresses-row {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      margin-top: 0.5rem;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
     }
     .ip-chip {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 0.6rem;
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(0, 240, 255, 0.5);
-      padding: 0.6rem 1.2rem;
+      gap: 0.5rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      padding: 0.6rem 0.85rem;
       border-radius: 8px;
       font-family: var(--font-mono);
-      font-size: 1.15rem;
-      font-weight: 700;
+      font-size: 0.85rem;
+      font-weight: 600;
       color: #fff;
       text-decoration: none;
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      width: 100%;
+      box-sizing: border-box;
       transition: all 0.2s;
     }
     .ip-chip:hover {
       border-color: var(--accent-cyan);
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
-      transform: translateY(-2px);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
     }
     .iface-tag {
       background: var(--accent-blue);
       color: #fff;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
       text-transform: uppercase;
       font-weight: 700;
+      flex-shrink: 0;
     }
     .remote-qr-box {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
+      justify-content: center;
+      gap: 0.4rem;
       background: rgba(0, 0, 0, 0.4);
       padding: 0.75rem;
       border-radius: 10px;
       border: 1px solid var(--border-color);
-      flex-shrink: 0;
+      width: 100%;
+      max-width: 140px;
+      margin: 0 auto;
+      box-sizing: border-box;
     }
     .remote-qr-box img {
       width: 110px;
@@ -515,6 +573,7 @@ HTML_PAGE = """<!DOCTYPE html>
       border-radius: 6px;
       background: #fff;
       padding: 4px;
+      box-sizing: border-box;
     }
     .qr-label {
       font-size: 0.75rem;
@@ -523,50 +582,91 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     footer {
       text-align: center;
-      padding: 1.5rem;
-      font-size: 0.85rem;
+      padding: 1.25rem;
+      font-size: 0.8rem;
       color: var(--text-dim);
       border-top: 1px solid var(--border-color);
     }
-    /* Smartphone & Tablet Mobile Optimization */
-    @media (max-width: 768px) {
-      body {
-        padding: 0.5rem;
-      }
+
+    /* Desktop / TV Monitors */
+    @media (min-width: 850px) {
       header {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
-        align-items: stretch;
+        padding: 1rem 2rem;
       }
-      .nav-tabs {
-        width: 100%;
-        display: flex;
-      }
-      .nav-tab {
-        flex: 1;
-        text-align: center;
-        padding: 0.75rem 0.5rem;
-        font-size: 0.85rem;
+      main {
+        padding: 2rem;
       }
       .remote-access-card {
-        flex-direction: column;
-        padding: 1.25rem;
-        text-align: center;
-        gap: 1.25rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
       }
       .remote-title {
-        justify-content: center;
-        flex-direction: column;
-        font-size: 1.1rem;
+        font-size: 1.25rem;
       }
       .ip-addresses-row {
-        justify-content: center;
+        flex-direction: row;
+        flex-wrap: wrap;
       }
       .ip-chip {
-        font-size: 0.95rem;
+        width: auto;
+        font-size: 1.05rem;
+        padding: 0.65rem 1.15rem;
+      }
+      .remote-qr-box {
+        margin: 0;
+      }
+    }
+
+    /* Smartphone & Touchscreen Mobile Screens (< 768px) */
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+      }
+      .header-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         width: 100%;
-        justify-content: center;
+      }
+      .nav-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+        padding: 0.25rem;
+      }
+      .nav-tab {
+        text-align: center;
+        padding: 0.65rem 0.35rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+      .stat-card {
+        padding: 0.85rem;
+      }
+      .stat-value {
+        font-size: 1.35rem;
+      }
+      .stat-label {
+        font-size: 0.75rem;
+      }
+      .gpu-grid {
+        grid-template-columns: 1fr;
+      }
+      .config-card {
+        padding: 1.25rem;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
       }
       .btn-row {
         flex-direction: column;
@@ -575,56 +675,56 @@ HTML_PAGE = """<!DOCTYPE html>
       .btn {
         width: 100%;
         justify-content: center;
-        padding: 1rem;
-        font-size: 1.05rem;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
+        padding: 0.95rem 1rem;
+        font-size: 0.95rem;
       }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">
-      <span>ComputeMesh</span>
-      <span class="logo-badge">NodeOS</span>
+    <div class="header-top-row">
+      <div class="logo">
+        <span>ComputeMesh</span>
+        <span class="logo-badge">NodeOS</span>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span id="header-status">ONLINE</span>
+      </div>
     </div>
     
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="switchTab('overview')">📊 Live Overview</button>
-      <button class="nav-tab" onclick="switchTab('config')">⚙️ Node & Payout Settings</button>
-    </div>
-
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      <span id="header-status">ONLINE & SERVING</span>
+      <button class="nav-tab" onclick="switchTab('config')">⚙️ Settings & Update</button>
     </div>
   </header>
 
   <main>
     <div id="toast-banner" class="toast-msg toast-success"></div>
 
-    <!-- REMOTE DASHBOARD ACCESS & IP ADDRESS BANNER (FOR PHYSICAL MONITORS) -->
-    <div class="remote-access-card">
+    <!-- REMOTE DASHBOARD ACCESS & IP ADDRESS BANNER -->
+    <div class="remote-access-card" id="remote-banner">
       <div class="remote-info-left">
-        <div class="remote-title">
-          <span>📡 Web-Dashboard & Remote-Steuerung im Netzwerk</span>
+        <div class="remote-title-row">
+          <div class="remote-title">
+            <span>📡 Remote-Dashboard</span>
+          </div>
           <span class="remote-badge">Keine Tastatur am Rig nötig</span>
         </div>
         <div class="remote-subtitle">
-          Öffne die folgende IP-Adresse auf deinem PC, Laptop oder Smartphone im selben Netzwerk, um Wallet, MetaMask und GPU-Leistung einzustellen:
+          Öffne diese IP-Adresse auf deinem PC, Laptop oder Smartphone im selben Netzwerk:
         </div>
         <div class="ip-addresses-row" id="remote-ip-chips">
-          <div class="ip-chip"><span class="iface-tag">LAN</span> <span id="primary-ip-display">Erkenne Netzwerk-IPs...</span></div>
+          <div class="ip-chip">
+            <span class="iface-tag">LAN</span>
+            <span id="primary-ip-display">Erkenne Netzwerk-IPs...</span>
+          </div>
         </div>
       </div>
-      <div class="remote-qr-box">
+      <div class="remote-qr-box" id="remote-qr-container">
         <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http%3A%2F%2F127.0.0.1%3A8080%2F" alt="Scan QR Code">
-        <span class="qr-label">📱 Mit Handy scannen</span>
+        <span class="qr-label">📱 Handy-Scan</span>
       </div>
     </div>
 
@@ -822,6 +922,14 @@ HTML_PAGE = """<!DOCTYPE html>
         document.getElementById('footer-node-id').textContent = 'Node: ' + data.node_id + ' • Payout: ' + (data.config.payout_address || 'Not Set');
 
         // Populate Remote IP Address Chips & QR Code
+        const isRemoteClient = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+        const qrContainer = document.getElementById('remote-qr-container');
+        if (isRemoteClient && qrContainer) {
+          qrContainer.style.display = 'none';
+          const sub = document.querySelector('.remote-subtitle');
+          if (sub) sub.textContent = 'Du bist per Remote-Zugriff mit diesem Rig verbunden:';
+        }
+
         const ipContainer = document.getElementById('remote-ip-chips');
         if (ipContainer && data.network && data.network.interfaces && data.network.interfaces.length > 0) {
           ipContainer.innerHTML = '';
@@ -831,7 +939,7 @@ HTML_PAGE = """<!DOCTYPE html>
             chip.className = 'ip-chip';
             chip.href = iface.url;
             chip.target = '_blank';
-            chip.innerHTML = `<span class="iface-tag">${iface.interface}</span> ${iface.url}`;
+            chip.innerHTML = `<span class="iface-tag">${iface.interface.toUpperCase()}</span> <span style="word-break: break-all;">${iface.url}</span>`;
             ipContainer.appendChild(chip);
           });
           const qrImg = document.getElementById('remote-qr-code');
@@ -1176,6 +1284,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/action/check_update":
             try:
+                import sys
+                from pathlib import Path
+                for candidate in [Path("/opt/computemesh"), Path("/root/ComputeMesh"), Path(__file__).resolve().parents[2]]:
+                    if candidate.exists() and str(candidate) not in sys.path:
+                        sys.path.insert(0, str(candidate))
+
                 from services.updater.auto_updater import AutoUpdater
                 updater = AutoUpdater(current_version="1.2.0")
                 u_info = updater.check_for_updates()
@@ -1198,6 +1312,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
@@ -1230,6 +1345,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.BAD_REQUEST)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
@@ -1239,6 +1355,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
             return
@@ -1270,12 +1387,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
 
         if self.path == "/api/action/apply_update":
             try:
+                import sys
+                from pathlib import Path
+                for candidate in [Path("/opt/computemesh"), Path("/root/ComputeMesh"), Path(__file__).resolve().parents[2]]:
+                    if candidate.exists() and str(candidate) not in sys.path:
+                        sys.path.insert(0, str(candidate))
+
                 from services.updater.auto_updater import AutoUpdater
                 updater = AutoUpdater(current_version="1.2.0")
                 u_info = updater.check_for_updates()
@@ -1294,6 +1418,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.BAD_REQUEST)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
                 self.wfile.write(err_resp)
             return
