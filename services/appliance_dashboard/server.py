@@ -32,7 +32,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.5"
+APPLIANCE_VERSION = "1.2.6"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -772,18 +772,21 @@ HTML_PAGE = """<!DOCTYPE html>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
               <label class="form-label" style="margin: 0;">Ethereum / Polygon Wallet Address (USDT / ETH Settlement)</label>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" onclick="clearWalletInput()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.4); color: var(--accent-rose);">
+                  🗑️ Löschen
+                </button>
                 <button type="button" class="btn btn-secondary" onclick="pasteWalletAddress()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">
                   📋 Einfügen
                 </button>
-                <button type="button" class="btn btn-secondary" onclick="connectMetaMask()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(245, 133, 41, 0.15); border-color: rgba(245, 133, 41, 0.4); color: #f6851b;">
-                  🦊 Connect MetaMask
+                <button type="button" class="btn btn-secondary" onclick="connectMetaMask(true)" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(245, 133, 41, 0.15); border-color: rgba(245, 133, 41, 0.4); color: #f6851b;">
+                  🦊 Account wechseln
                 </button>
               </div>
             </div>
             <div style="display: flex; gap: 0.5rem; width: 100%;">
-              <input type="text" id="cfg-wallet" class="form-input" placeholder="0x..." spellcheck="false" style="flex: 1;">
+              <input type="text" id="cfg-wallet" class="form-input" placeholder="0x... (Hier neue Adresse eintragen, einfügen oder per MetaMask wählen)" spellcheck="false" style="flex: 1;">
             </div>
-            <span class="form-desc">Klicke auf <strong>🦊 Connect MetaMask</strong> (öffnet am Smartphone direkt die MetaMask-App) oder kopiere deine 0x-Adresse in MetaMask und tippe auf <strong>📋 Einfügen</strong>.</span>
+            <span class="form-desc">Trage deine gewünschte Adresse (0x...) ein oder klicke auf <strong>🦊 Account wechseln</strong>. Klicke danach unten auf <strong>💾 Save & Apply Configuration</strong>.</span>
           </div>
 
           <div class="form-group">
@@ -901,19 +904,24 @@ HTML_PAGE = """<!DOCTYPE html>
 
     let configFormInitialized = false;
 
+    function clearWalletInput() {
+      const el = document.getElementById('cfg-wallet');
+      el.value = '';
+      el.focus();
+      showToast('Wallet-Feld geleert. Neue Adresse eingeben oder per MetaMask wählen.');
+    }
+
     async function pasteWalletAddress() {
       try {
         if (navigator.clipboard && navigator.clipboard.readText) {
           const text = await navigator.clipboard.readText();
           if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
             document.getElementById('cfg-wallet').value = text.trim();
-            showToast('✓ Wallet-Adresse eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Speichere...');
-            await saveConfiguration();
+            showToast('✓ Wallet-Adresse eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Klicke auf "💾 Save", um zu speichern.');
             return;
           } else if (text && text.trim()) {
             document.getElementById('cfg-wallet').value = text.trim();
-            showToast('Eingefügt: ' + text.trim());
-            await saveConfiguration();
+            showToast('Eingefügt: ' + text.trim() + ' — Klicke auf "💾 Save", um zu speichern.');
             return;
           }
         }
@@ -924,20 +932,28 @@ HTML_PAGE = """<!DOCTYPE html>
       const manual = prompt('Bitte deine Ethereum / Polygon Wallet-Adresse (0x...) hier einfügen:');
       if (manual && manual.trim()) {
         document.getElementById('cfg-wallet').value = manual.trim();
-        showToast('✓ Wallet-Adresse eingefügt — Speichere...');
-        await saveConfiguration();
+        showToast('✓ Wallet-Adresse eingefügt — Klicke auf "💾 Save", um zu speichern.');
       }
     }
 
-    async function connectMetaMask() {
+    async function connectMetaMask(forceSwitch = true) {
       if (typeof window.ethereum !== 'undefined') {
         try {
+          if (forceSwitch) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_requestPermissions',
+                params: [{ eth_accounts: {} }]
+              });
+            } catch (permErr) {
+              console.log('Permission request cancelled/skipped:', permErr);
+            }
+          }
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           if (accounts && accounts.length > 0) {
             const addr = accounts[0];
             document.getElementById('cfg-wallet').value = addr;
-            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Speichere...');
-            await saveConfiguration();
+            showToast('✓ MetaMask Account gewählt: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Klicke unten auf "💾 Save" zum Speichern.');
           }
         } catch (err) {
           showToast('MetaMask-Verbindung abgelehnt: ' + err.message, false);
@@ -956,6 +972,21 @@ HTML_PAGE = """<!DOCTYPE html>
           showToast('MetaMask-Erweiterung nicht gefunden. Download-Seite wird geöffnet...', false);
         }
       }
+    }
+
+    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
+      try {
+        window.ethereum.on('accountsChanged', (accounts) => {
+          if (accounts && accounts.length > 0) {
+            const newAddr = accounts[0];
+            const inputEl = document.getElementById('cfg-wallet');
+            if (inputEl) {
+              inputEl.value = newAddr;
+              showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4));
+            }
+          }
+        });
+      } catch (e) {}
     }
 
     async function updateDashboard() {
