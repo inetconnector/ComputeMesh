@@ -32,7 +32,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.3"
+APPLIANCE_VERSION = "1.2.4"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -697,8 +697,8 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
     
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="switchTab('overview')">📊 Live Overview</button>
-      <button class="nav-tab" onclick="switchTab('config')">⚙️ Settings & Update</button>
+      <button class="nav-tab active" onclick="switchTab('overview', this)">📊 Live Overview</button>
+      <button class="nav-tab" onclick="switchTab('config', this)">⚙️ Settings & Update</button>
     </div>
   </header>
 
@@ -736,7 +736,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="stat-card">
           <div class="stat-label">Active GPU Accelerators</div>
           <div class="stat-value" id="total-gpus">--</div>
-          <div class="stat-sub" id="total-vram">-- GB Total VRAM</div>
+          <div class="stat-sub" id="total-vram">-- GB Dedicated VRAM</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Tokens Processed</div>
@@ -873,12 +873,22 @@ HTML_PAGE = """<!DOCTYPE html>
   <script>
     let nodeState = null;
 
-    function switchTab(tabId) {
+    function switchTab(tabId, btnEl) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-      document.getElementById('tab-' + tabId).classList.add('active');
-      event.target.classList.add('active');
-      window.location.hash = '#' + tabId;
+      const targetTab = document.getElementById('tab-' + tabId);
+      if (targetTab) targetTab.classList.add('active');
+
+      const tabIdx = (tabId === 'overview') ? 0 : 1;
+      const allBtns = document.querySelectorAll('.nav-tab');
+      if (btnEl && btnEl.classList) {
+        btnEl.classList.add('active');
+      } else if (allBtns[tabIdx]) {
+        allBtns[tabIdx].classList.add('active');
+      }
+      try {
+        history.replaceState(null, null, '#' + tabId);
+      } catch (e) {}
     }
 
     function showToast(msg, isSuccess = true) {
