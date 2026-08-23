@@ -898,9 +898,20 @@ Implemented in `services/appliance_dashboard/server.py`:
 
 ### Architecture & Distribution Pipeline
 Implemented in `deploy/windows/build_installer.py`:
-1. **Zero-Dependency Executable Packaging:** Bundles the Windows Desktop Provider Agent GUI into a standalone `ComputeMesh-Setup-x64.exe` package (35 MB).
+1. **Zero-Dependency Executable Packaging:** Bundles the Windows Desktop Provider Agent GUI into a standalone `ComputeMesh-Setup-x64.exe` package (31.5 MB).
 2. **Cryptographic Integrity & SHA-256 Hashing:** Automatically verifies payload hashes and provisions `/downloads/ComputeMesh-Setup-x64.exe` on the public web server.
 3. **Automated Unit Tests:** `deploy/windows/tests/test_build_installer.py` (100% passing across all platforms).
+
+---
+
+## 32. Continuous Background Auto-Updater Daemon & Live Server Service
+
+### Architecture & Capabilities
+Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/computemesh-autoupdate.service`:
+1. **Periodic Background Polling Daemon:** Runs continuously on Linux servers (`--daemon --interval 300`) checking for new cryptographic Ed25519-signed releases against `https://computemesh.inetconnector.com/updates/version.json`.
+2. **Automated Verification & Zero-Downtime Reload:** Automatically verifies SHA-256 payload integrity and Ed25519 signature before extracting packages and triggering service reloads (`computemesh-appliance.service` and `computemesh-gateway.service`).
+3. **Live Systemd Deployment:** Registered and active as an enabled systemd daemon (`computemesh-autoupdate.service`) on production server `89.58.11.237`.
+
 
 
 
