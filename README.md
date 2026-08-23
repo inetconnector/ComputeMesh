@@ -37,7 +37,8 @@ Implemented foundations now include:
 - a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
 - a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
-- a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers.
+- a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
+- a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook.
 
 ## M1 two-node placement and evidence bundle
 
@@ -181,11 +182,12 @@ ComputeMesh/
 ├─ protocol/              # contracts, session wire binding, Ed25519 verifier
 ├─ runtime/llama/         # controlled llama.cpp M1 research spike
 ├─ runtime/network/       # bounded M1 TCP measurement relay
+├─ portal/                # public web portal, sitemap and robots policy
 ├─ docs/                  # specifications and ADRs
 └─ state.md               # canonical engineering handoff
 ```
 
-For engineering details, read `state.md` first, then `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md`, and the ADRs.
+For engineering details, read `state.md` first, then `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md`, [docs/SEARCH_INDEXING.md](docs/SEARCH_INDEXING.md), and the ADRs.
 
 ## Language synchronization rule
 

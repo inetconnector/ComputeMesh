@@ -1,6 +1,6 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-22 16:27 CEST  
+**Last updated:** 2026-08-23 14:49 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** none  
 **Public release:** none
@@ -722,19 +722,23 @@ The official public-facing website and customer onboarding hub is designed for d
 1. **Specification & Architecture:**
    - Formal specification documented in `docs/WEB_PORTAL_SPEC.md`.
 2. **Modern Bilingual Web UI (DE / EN):**
-   - `portal/index.html`: Fully responsive, semantic HTML5 structure with dark-mode neon aesthetics, live telemetry ticker, feature breakdown, interactive ROI/pricing calculator, one-click download matrix, OpenAI SDK integration code snippet, and credential generator modal.
+   - `portal/index.html`: Fully responsive, semantic HTML5 structure with dark-mode neon aesthetics, live telemetry ticker, feature breakdown, interactive ROI/pricing calculator, one-click download matrix, OpenAI SDK integration code snippet, credential generator modal, canonical metadata, social metadata and `Organization` JSON-LD.
    - `portal/portal.css`: Rich styling system with glassmorphic cards, CSS grid, Outfit/Inter typography, and subtle micro-animations.
    - `portal/portal.js`: Client-side localization engine with instant zero-reload German/English switching, dynamic developer savings & provider passive earnings calculator, and key generation handlers.
+   - `portal/robots.txt` and `portal/sitemap.xml`: live crawl entrypoints for `https://computemesh.inetconnector.com/`; sitemap includes canonical portal URLs and `lastmod=2026-08-23`.
 3. **Portal Web Server & REST API Gateway:**
-   - `services/portal/server.py`: Standalone HTTP server (port 3000) serving the static web application, `/api/v1/register` account creation endpoint, `/api/v1/mesh/stats` live telemetry endpoint, `/api/v1/billing/quote` automated cost estimation, and binary download delivery.
+   - `services/portal/server.py`: Standalone HTTP server (port 3000) serving the static web application, `/robots.txt`, `/sitemap.xml`, `/api/v1/register` account creation endpoint, `/api/v1/mesh/stats` live telemetry endpoint, `/api/v1/billing/quote` automated cost estimation, and binary download delivery.
 4. **Live Production Deployment (Plesk on 89.58.11.237):**
    - Subdomain `computemesh.inetconnector.com` created and provisioned under subscription `inetconnector.com`.
    - Let's Encrypt SSL/TLS certificate issued and active.
    - Nginx + Apache vhost configured with clean URL rewrites (`.htaccess`) for all subpages (`/docs`, `/status`, `/benchmarks`, `/terms`, `/privacy`, `/impressum`, `/contact`).
    - Dedicated `/downloads/` directory populated with installer packages (`ComputeMesh-Setup-x64.exe`, `computemesh-nodeos-x86_64.img.xz`, `install.sh`).
+   - On 2026-08-23, updated portal HTML plus `robots.txt` and `sitemap.xml` were copied to `/var/www/vhosts/inetconnector.com/site2/`, ownership reset to `inetconnector:psaserv`, and live HTTPS checks confirmed `200 OK` for `/robots.txt` and `/sitemap.xml`.
 5. **Automated Unit Tests:**
-   - `services/portal/tests/test_portal_server.py`: Comprehensive test suite verifying HTML/CSS/JS delivery, mesh statistics, consumer registration with free credit allocation, and billing quotes.
+   - `services/portal/tests/test_portal_server.py`: Comprehensive test suite verifying HTML/CSS/JS delivery, canonical metadata, robots/sitemap delivery, mesh statistics, consumer registration with free credit allocation, and billing quotes.
    - Integrated into `setup/lab.py` (total 12 suites, 290+ tests passing 100% on Windows and Linux).
+6. **Search indexing runbook:**
+   - `docs/SEARCH_INDEXING.md`: Documents live verification, Google Search Console sitemap submission, URL Inspection request flow, and the boundary that Google's Indexing API is officially limited to `JobPosting` and `BroadcastEvent` pages rather than normal product/documentation pages.
 
 ---
 
@@ -870,8 +874,6 @@ Implemented in `deploy/windows/build_installer.py`:
 1. **Zero-Dependency Executable Packaging:** Bundles the Windows Desktop Provider Agent GUI into a standalone `ComputeMesh-Setup-x64.exe` package.
 2. **Cryptographic Integrity & SHA-256 Hashing:** Automatically verifies payload hashes and provisions `/downloads/ComputeMesh-Setup-x64.exe` on the public web server.
 3. **Automated Unit Tests:** `deploy/windows/tests/test_build_installer.py` (1/1 tests passing, total 15 test suites, 325+ unit tests passing 100% on Windows and Linux).
-
-
 
 
 

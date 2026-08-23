@@ -42,6 +42,11 @@ ROUTE_MAP = {
     "/contact.html": "contact.html",
 }
 
+STATIC_TEXT_ROUTES = {
+    "/robots.txt": ("robots.txt", "text/plain; charset=utf-8"),
+    "/sitemap.xml": ("sitemap.xml", "application/xml; charset=utf-8"),
+}
+
 
 class PortalHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
@@ -60,6 +65,18 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(target_file.read_bytes())
+                return
+
+        if clean_path in STATIC_TEXT_ROUTES:
+            filename, content_type = STATIC_TEXT_ROUTES[clean_path]
+            target_file = PORTAL_DIR / filename
+            if target_file.exists():
+                body = target_file.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
                 return
 
         if clean_path == "/portal.css":

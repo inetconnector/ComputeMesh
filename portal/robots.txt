@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://computemesh.inetconnector.com/sitemap.xml

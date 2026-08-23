@@ -37,7 +37,8 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein kontrollierter llama.cpp-RPC-**Research-Harness** für das erste gemeinsame M1-Runtime-Experiment;
 - ein fail-closed One-Command-**Physical-Shared-Trial-Runner**, der Bundle/Modell/Geräte erneut prüft, den Planer-Split über das Relay ausführt, Korrektheit prüft und das gebundene Proof-Artefakt erzeugt;
 - ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;
-- ein deterministischer M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden.
+- ein deterministischer M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
+- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook.
 
 ## M1-Zwei-Node-Placement und Evidenzbundle
 
@@ -181,11 +182,12 @@ ComputeMesh/
 ├─ protocol/              # Verträge, Session-Wire-Bindung, Ed25519-Verifier
 ├─ runtime/llama/         # kontrollierter llama.cpp-M1-Research-Spike
 ├─ runtime/network/       # begrenztes M1-TCP-Mess-Relay
+├─ portal/                # öffentliches Webportal, Sitemap und Robots-Regeln
 ├─ docs/                  # Spezifikationen und ADRs
 └─ state.md               # kanonischer Engineering-Handoff
 ```
 
-Für Engineering-Details zuerst `state.md`, danach `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md` und die ADRs lesen.
+Für Engineering-Details zuerst `state.md`, danach `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md`, [docs/SEARCH_INDEXING.md](docs/SEARCH_INDEXING.md) und die ADRs lesen.
 
 ## Sprach-Synchronisationsregel
 

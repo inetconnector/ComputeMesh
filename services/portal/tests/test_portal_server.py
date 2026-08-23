@@ -39,6 +39,22 @@ class TestPortalServer(unittest.TestCase):
                     content = resp.read().decode("utf-8")
                     self.assertIn("ComputeMesh", content)
                     self.assertIn("<!DOCTYPE html>", content)
+                    self.assertIn('rel="canonical"', content)
+
+    def test_serve_google_crawl_entrypoints(self) -> None:
+        with urllib.request.urlopen("http://127.0.0.1:13000/robots.txt") as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get_content_type(), "text/plain")
+            robots = resp.read().decode("utf-8")
+            self.assertIn("User-agent: *", robots)
+            self.assertIn("Sitemap: https://computemesh.inetconnector.com/sitemap.xml", robots)
+
+        with urllib.request.urlopen("http://127.0.0.1:13000/sitemap.xml") as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get_content_type(), "application/xml")
+            sitemap = resp.read().decode("utf-8")
+            self.assertIn("<urlset", sitemap)
+            self.assertIn("<loc>https://computemesh.inetconnector.com/</loc>", sitemap)
 
     def test_serve_portal_css(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:13000/portal.css") as resp:
