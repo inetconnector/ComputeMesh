@@ -32,7 +32,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.6"
+APPLIANCE_VERSION = "1.2.7"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -961,11 +961,23 @@ HTML_PAGE = """<!DOCTYPE html>
       } else {
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         if (isMobile) {
-          // Open in MetaMask in-app browser via universal deep link
-          const hostAndPath = window.location.host + window.location.pathname;
-          const deepLink = `https://metamask.app.link/dapp/${hostAndPath}#config`;
-          if (confirm(`Auf dem Smartphone öffnet dieser Link das Dashboard direkt in der MetaMask-App (Web3-Browser).\n\nMöchtest du jetzt zur MetaMask-App wechseln?`)) {
-            window.location.href = deepLink;
+          // On mobile LAN IPs (http://192.168.x.x), MetaMask deep link triggers SSL error because MetaMask forces HTTPS.
+          // Directly invoke clipboard paste or guidance prompt:
+          try {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+              const text = await navigator.clipboard.readText();
+              if (text && text.trim().startsWith('0x') && text.trim().length === 42) {
+                document.getElementById('cfg-wallet').value = text.trim();
+                showToast('✓ Wallet-Adresse aus Zwischenablage eingefügt: ' + text.trim().slice(0, 6) + '...' + text.trim().slice(-4) + ' — Klicke auf "💾 Save".');
+                return;
+              }
+            }
+          } catch (e) {}
+
+          const manual = prompt('🦊 MetaMask-Adresse (0x...) hier einfügen:\n\n(Tipp: In der MetaMask-App kurz auf deine 0x-Adresse tippen, um sie zu kopieren)');
+          if (manual && manual.trim()) {
+            document.getElementById('cfg-wallet').value = manual.trim();
+            showToast('✓ Wallet-Adresse eingefügt — Klicke auf "💾 Save", um zu speichern.');
           }
         } else {
           window.open('https://metamask.io/download/', '_blank');
