@@ -15,6 +15,7 @@ class TestDashboardServer(unittest.TestCase):
         mock_config = ApplianceConfig(
             rig_name="test-rig",
             provider_account_id="cm_0xabc",
+            payout_address="0x1234567890123456789012345678901234567890",
             coordinator_url="https://coord.test",
             network_mode="dhcp",
             static_ip=None,
@@ -69,8 +70,9 @@ class TestDashboardServer(unittest.TestCase):
             with urllib.request.urlopen("http://127.0.0.1:18999/api/status") as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(data["node_id"], "cm-test-node")
+                self.assertEqual(data["node_id"], "test-rig")
                 self.assertEqual(data["config"]["rig_name"], "test-rig")
+                self.assertEqual(data["config"]["payout_address"], "0x1234567890123456789012345678901234567890")
                 self.assertEqual(data["inventory"]["total_gpus"], 1)
         finally:
             server.shutdown()
