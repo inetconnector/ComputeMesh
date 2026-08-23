@@ -19,6 +19,10 @@ import tempfile
 from typing import Any, Callable
 import urllib.request
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from tools.security.ed25519_verify import verify_ed25519_signature
 from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX
 
