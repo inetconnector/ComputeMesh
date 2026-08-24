@@ -1,6 +1,7 @@
 """Unit tests for ComputeMesh OpenAI-Compatible Streaming API Gateway."""
 from http.server import ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
@@ -176,6 +177,40 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(data["choices"][0]["finish_reason"], "stop")
             self.assertIn("usage", data)
             self.assertGreater(data["usage"]["total_tokens"], 0)
+
+    def test_chat_metering_uses_configured_provider_shares(self) -> None:
+        key = "cm_live_test_key_provider_shares"
+        before_a = GatewayHandler.ledger.get_balance("provider:node_gateway_share_a")
+        before_b = GatewayHandler.ledger.get_balance("provider:node_gateway_share_b")
+        old_shares = os.environ.get("COMPUTEMESH_PROVIDER_SHARES")
+        os.environ["COMPUTEMESH_PROVIDER_SHARES"] = "node_gateway_share_a:3,node_gateway_share_b:1"
+        try:
+            payload = {
+                "model": "qwen/qwen2.5-7b-instruct",
+                "messages": [{"role": "user", "content": "Attribute this metered job."}],
+                "stream": False,
+            }
+            req = urllib.request.Request(
+                "http://127.0.0.1:18000/v1/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {key}",
+                },
+            )
+            with urllib.request.urlopen(req) as resp:
+                self.assertEqual(resp.status, 200)
+        finally:
+            if old_shares is None:
+                os.environ.pop("COMPUTEMESH_PROVIDER_SHARES", None)
+            else:
+                os.environ["COMPUTEMESH_PROVIDER_SHARES"] = old_shares
+
+        delta_a = GatewayHandler.ledger.get_balance("provider:node_gateway_share_a") - before_a
+        delta_b = GatewayHandler.ledger.get_balance("provider:node_gateway_share_b") - before_b
+        self.assertGreater(delta_a, 0)
+        self.assertGreater(delta_b, 0)
+        self.assertGreater(delta_a, delta_b)
 
     def test_chat_completions_streaming_sse(self) -> None:
         payload = {

@@ -78,6 +78,39 @@ def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | 
     )
 
 
+def _provider_shares_from_env() -> list[tuple[str, float]]:
+    configured = os.environ.get("COMPUTEMESH_PROVIDER_SHARES", "").strip()
+    if not configured:
+        provider_id = os.environ.get("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID", "lab-mesh-default-rig").strip()
+        if not provider_id:
+            raise ValueError("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID must not be empty")
+        return [(provider_id, 1.0)]
+
+    shares: list[tuple[str, float]] = []
+    for part in configured.split(","):
+        item = part.strip()
+        if not item:
+            continue
+        sep = ":" if ":" in item else "="
+        if sep not in item:
+            raise ValueError("COMPUTEMESH_PROVIDER_SHARES entries must use provider_id:ratio")
+        provider_id, raw_ratio = item.split(sep, 1)
+        provider_id = provider_id.strip()
+        if not provider_id:
+            raise ValueError("COMPUTEMESH_PROVIDER_SHARES contains an empty provider_id")
+        try:
+            ratio = float(raw_ratio.strip())
+        except ValueError as exc:
+            raise ValueError(f"Invalid provider ratio for {provider_id}") from exc
+        if ratio <= 0:
+            raise ValueError(f"Provider ratio for {provider_id} must be positive")
+        shares.append((provider_id, ratio))
+    if not shares:
+        raise ValueError("COMPUTEMESH_PROVIDER_SHARES did not contain any provider entries")
+    total = sum(ratio for _, ratio in shares)
+    return [(provider_id, ratio / total) for provider_id, ratio in shares]
+
+
 @dataclass(frozen=True)
 class ModelEntry:
     id: str
@@ -494,10 +527,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         try:
             # Meter and debit via ledger
+            provider_shares = _provider_shares_from_env()
             self.ledger.record_job_execution(
                 job_id=chat_id,
                 customer_account_id=account_id,
-                provider_shares=[("lab-mesh-default-rig", 1.0)],
+                provider_shares=provider_shares,
                 model_id=model_id,
                 prompt_tokens=tokens_prompt,
                 completion_tokens=tokens_completion,
@@ -512,6 +546,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
+            return
+        except ValueError as e:
+            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         if not stream:
