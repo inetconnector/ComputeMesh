@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-24 08:00 CEST
+**Last updated:** 2026-08-24 09:37 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`, but gateway billing/payment paths are mock/in-memory and not safe for real customer funds.
-**Release/version truth:** signed update release `1.2.9` is prepared locally and deployed to the live webserver and reachable LAN miner. Windows/Linux artifacts were rebuilt, NodeOS ISO/IMG manifest entries were preserved, the webserver manifest signature verifies, and `http://192.168.1.27:8080/api/status` now reports `software.current_version = "1.2.9"`. `v1.2.8` is the previous pushed signed release tag; this work block must still finish with the `v1.2.9` commit/tag/push.
+**Release/version truth:** signed update release `1.2.9` is committed, tagged, pushed, deployed to the live webserver, and installed on the reachable LAN miner. Windows/Linux artifacts were rebuilt for the signed release, NodeOS ISO/IMG manifest entries were preserved, the webserver manifest signature verifies, and `http://192.168.1.27:8080/api/status` reports `software.current_version = "1.2.9"`. `v1.2.8` is the previous pushed signed release tag.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -49,14 +49,15 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - provider appliance, portal, billing, gateway, multi-GPU scheduler, transport, update, desktop and dashboard work: sections 16-33 below
 - network telemetry capacity display + configurable operator fee: `db292032`
 - signed 1.2.8 update flow and hosted artifacts: `45150e9`
-- Stripe-only customer payment wording + MetaMask provider-payout-address release: deployed as `v1.2.9`; commit/tag/push pending in this work block
+- Stripe-only customer payment wording + MetaMask provider-payout-address release: deployed as `v1.2.9` at commit `e2612d2` and tag `v1.2.9`
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-24 before the `v1.2.9` commit/tag:
+Verified on 2026-08-24 after the `v1.2.9` commit/tag/push:
 
-- working tree before this work block: clean (`git status --short --branch` returned `## main...origin/main`);
-- current pushed `HEAD` before this work block: `c003455c4a09cde670ecef129c9f53c795eabd5d`;
+- local working tree: clean (`git status --short --branch` returned `## main...origin/main`);
+- current pushed `HEAD`: `e2612d2f01802527f5eb40569c88df57cb5c09dc` (`feat(release): publish stripe-only payment wording`);
+- current release tag: `v1.2.9` points at release commit `e2612d2` and exists on `origin`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
@@ -958,21 +959,22 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 
 ### Live Server And Miner Access Check
 1. **Webserver SSH:** `ssh -o BatchMode=yes supersrv-trixie ...` succeeds as `root` on `v2202606372671474589.supersrv.de` (`89.58.11.237`, Debian 13, kernel `6.12.94+deb13-amd64`).
-2. **Webserver repo:** `/root/ComputeMesh` starts from `db292032787d8b4e2c6926456d9e98de4344082e`; this work block copied the current release/source changes into that tree, so it is dirty with the same modified release files as the local workspace.
-3. **Webserver services:** after deployment at 2026-08-24 07:58 CEST, `computemesh-autoupdate.service` and `computemesh-gateway.service` are active/running. `systemctl show computemesh-autoupdate.service -p ExecStart` reports `/root/ComputeMesh/.venv/bin/python services/updater/auto_updater.py --daemon --interval 300 --version 1.2.9`. Gateway admin route `GET /v1/admin/server_status` reports `status: online`, `version: 1.2.9`, branch `main`; its `git_commit` still reports the previous on-server repo commit `db29203` until the local `v1.2.9` commit is pushed/pulled.
+2. **Webserver repo:** `/root/ComputeMesh` is clean on `main...origin/main` at `e2612d2` after `git fetch --prune`, `git pull --ff-only origin main`, and webroot refresh on 2026-08-24 09:35 CEST.
+3. **Webserver services:** after redeployment at 2026-08-24 09:35 CEST, `computemesh-autoupdate.service` and `computemesh-gateway.service` are active/running. `systemctl show computemesh-autoupdate.service -p ExecStart` reports `/root/ComputeMesh/.venv/bin/python services/updater/auto_updater.py --daemon --interval 300 --version 1.2.9`. Gateway admin route `GET /v1/admin/server_status` reports `status: online`, `version: 1.2.9`, `git_commit: e2612d2`, branch `main`.
 4. **Hosted artifacts:** live `https://computemesh.inetconnector.com/updates/version.json` reports `version = 1.2.9` with platforms `installer-script`, `linux-x64`, `nodeos-img`, `nodeos-iso`, and `windows-x64`. Webroot hashes verified on the server: Windows `0b50f45500b3e711e53e609bc898fd73d741276e41893c4c1362fdcaa7859517` (35,250,289 bytes), Linux `35d52c496116e8f34cbc01389e0445876cfa2424c5d54eb15f3883e9aa757821` (1,343,207 bytes), installer script `da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf`; preserved NodeOS ISO `32fa381346305a8e60ded2b7b3f152fe3104650e72cc55d3a6e2fa8ba8058499`, NodeOS IMG `271c33516ebfd014507081e1e5baf145f159c7b49e1ea1ec02d0a20fff78c4e1`. `tools.security.release_signer.verify_manifest(Path("portal/updates/version.json"))` returned `True` on the server.
 5. **RPC worker process:** Webserver has `ggml-rpc-server` from `llama.cpp/b10549-cpu-x86_64` listening only on `127.0.0.1:50052`; this is not public.
 6. **Local miner discovery:** mDNS resolves `computemesh-nodeos.local` to `192.168.1.27` and `192.168.1.91`. Port scan found `192.168.1.27` with SSH/22 and dashboard/8080; `192.168.1.91` did not respond on SSH/8080 during this check.
 7. **Miner dashboard:** `http://192.168.1.27:8080/api/status` reports node `cm-inference-node-01`, interface `enp2s0`, two detected GPUs and 16 GiB total VRAM. The dashboard is reachable without SSH.
 8. **Miner SSH:** `ssh -o BatchMode=yes root@192.168.1.27 ...` fails with `Permission denied (publickey,password)` using the currently available keys. SSH access is therefore not available non-interactively from this workstation.
-9. **Miner update status:** before deployment, `http://192.168.1.27:8080/api/status` reported `software.current_version = "1.2.8"`. After the live manifest was updated, `/api/action/check_update` returned `update_available: true`, `version: 1.2.9`, `filename: computemesh-linux-x86_64.tar.gz`; `POST /api/action/apply_update` returned `{"status":"ok","message":"Updated to v1.2.9"}`; the subsequent `/api/status` poll reports `software.current_version = "1.2.9"`.
-10. **PC update status:** no local ComputeMesh/Provider Agent process was running during the previous check. The local Windows installer was rebuilt for `1.2.9` and signed in the manifest; `AutoUpdater(current_version="1.2.8").check_for_updates()` on the PC returned an update to `1.2.9` with `is_newer = True` and Windows hash `0b50f45500b3e711e53e609bc898fd73d741276e41893c4c1362fdcaa7859517`.
+9. **Miner update status:** before deployment, `http://192.168.1.27:8080/api/status` reported `software.current_version = "1.2.8"`. After the live manifest was updated, `/api/action/check_update` returned `update_available: true`, `version: 1.2.9`, `filename: computemesh-linux-x86_64.tar.gz`; `POST /api/action/apply_update` returned `{"status":"ok","message":"Updated to v1.2.9"}`; the later `/api/status` poll reports `software.current_version = "1.2.9"` and `/api/action/check_update` reports `update_available: false`.
+10. **PC update status:** no local ComputeMesh/Provider Agent process was running during the 2026-08-24 09:36 CEST process check. The local Windows installer is rebuilt for `1.2.9` and signed in the manifest; `AutoUpdater(current_version="1.2.9").check_for_updates()` on the PC returned the live `1.2.9` Windows package with `is_newer = False`, so the PC-side updater sees no newer release.
 
 ### Release UI Update From 2026-08-24
 1. **NodeOS web dashboard:** added live signed-release status text, `software.current_version` in `/api/status`, footer version display, and an update button that changes to `Update auf v<version> installieren` when the webserver manifest is newer.
 2. **Windows/Linux provider apps:** bumped UI/runtime version to `1.2.9`, changed provider payout messaging to state MetaMask is only an address picker, and changed demo earnings math from 85% to the current 75% provider pool after the 25% operator fee.
 3. **Portal and manifest:** updated public portal/AGB/privacy/status/i18n wording to state customer compute-credit payments run through Stripe and wallets are provider payout addresses only; rebuilt Windows and Linux artifacts; re-signed `portal/updates/version.json` as `1.2.9` with the existing official Ed25519 key while preserving the previously verified NodeOS ISO/IMG entries.
 4. **Verification:** `python -m py_compile services/appliance_dashboard/server.py services/updater/auto_updater.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/gateway/server.py tools/security/release_signer.py services/billing/ledger.py services/portal/server.py` passed; `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.gateway.tests.test_gateway_server services.billing.tests.test_ledger services.portal.tests.test_portal_server deploy.windows.tests.test_build_installer -v` ran 29 tests successfully; `python -c "from pathlib import Path; from tools.security.release_signer import verify_manifest; print(verify_manifest(Path('portal/updates/version.json')))"` returned `True`; `git diff --check` reported only line-ending warnings.
+5. **Build/distribution verification:** a fresh Windows verification build and Linux verification tarball were created under ignored `artifacts/release_verify*` directories on 2026-08-24. These build outputs are not byte-identical to the signed release artifacts because the current packaging embeds build-time metadata/timestamps; therefore the already signed and tagged `v1.2.9` artifacts remain the canonical distributable payloads until a future version bump.
 
 ## 35. Billing / MetaMask / Stripe Audit From 2026-08-24
 
