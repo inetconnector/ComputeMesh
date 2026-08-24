@@ -38,7 +38,8 @@ Implemented foundations now include:
 - a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
-- a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook.
+- a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
+- an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver.
 
 ## M1 two-node placement and evidence bundle
 

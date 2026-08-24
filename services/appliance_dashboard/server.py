@@ -33,7 +33,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.7"
+APPLIANCE_VERSION = "1.2.8"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -883,6 +883,7 @@ HTML_PAGE = """<!DOCTYPE html>
               <option value="true" selected>Enabled (Automated Cryptographic Updates — Recommended)</option>
               <option value="false">Disabled (Manual Updates Only)</option>
             </select>
+            <span class="form-desc" id="update-status">Checking signed release status...</span>
           </div>
 
           <div class="form-group">
@@ -896,7 +897,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
-          <button class="btn btn-secondary" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check & Apply Signed Update</button>
+          <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check Signed Update</button>
           <button class="btn btn-secondary" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
           <button class="btn btn-secondary" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger" onclick="rebootNode()">⚡ Reboot Node</button>
@@ -1106,7 +1107,7 @@ HTML_PAGE = """<!DOCTYPE html>
         const elEarnings = document.getElementById('earnings');
         if (elEarnings) elEarnings.textContent = '$' + ((data.telemetry && data.telemetry.earnings_cm != null) ? (data.telemetry.earnings_cm * 0.85).toFixed(4) : '0.0000');
         const elFooter = document.getElementById('footer-node-id');
-        if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
+        if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
 
         // Populate Global Mesh Network Stats
         if (data.global_mesh) {
@@ -1344,6 +1345,7 @@ HTML_PAGE = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/action/check_update');
         const data = await res.json();
+        updateReleaseStatus(data);
         if (data.update_available) {
           if (confirm(`Neues signiertes Release v${data.version} verfügbar!\n\nEd25519-Signatur: GÜLTIG ✓\nSHA-256: Verifiziert\n\nMöchtest du das Over-the-Air (OTA) Update jetzt sicher installieren?`)) {
             showToast('Lade Update herunter und installiere...');
@@ -1351,6 +1353,7 @@ HTML_PAGE = """<!DOCTYPE html>
             const applyData = await applyRes.json();
             if (applyRes.ok) {
               showToast('✓ Update erfolgreich installiert! Daemon wird neu gestartet...');
+              updateReleaseStatus({ update_available: false, version: data.version, current_version: data.version });
               setTimeout(() => { location.reload(); }, 3500);
             } else {
               showToast('Update fehlgeschlagen: ' + applyData.message, false);
@@ -1362,6 +1365,43 @@ HTML_PAGE = """<!DOCTYPE html>
         }
       } catch (e) {
         showToast('Update-Prüfung fehlgeschlagen: ' + e, false);
+      }
+    }
+
+    function updateReleaseStatus(data) {
+      const statusEl = document.getElementById('update-status');
+      const buttonEl = document.getElementById('ota-update-button');
+      if (!data || !statusEl || !buttonEl) return;
+      const currentVersion = data.current_version || (nodeState && nodeState.software && nodeState.software.current_version) || 'unknown';
+      const latestVersion = data.version || currentVersion;
+      if (data.update_available) {
+        statusEl.textContent = `Update verfügbar: installierte Version ${currentVersion}, Webserver-Version ${latestVersion}.`;
+        statusEl.style.color = 'var(--accent-amber)';
+        buttonEl.textContent = `⬆️ Update auf v${latestVersion} installieren`;
+        buttonEl.style.background = 'rgba(245, 158, 11, 0.18)';
+        buttonEl.style.borderColor = 'rgba(245, 158, 11, 0.55)';
+        buttonEl.style.color = 'var(--accent-amber)';
+      } else {
+        statusEl.textContent = `Aktuell: Version ${currentVersion}.`;
+        statusEl.style.color = 'var(--accent-emerald)';
+        buttonEl.textContent = '🛡️ Check Signed Update';
+        buttonEl.style.background = 'rgba(16, 185, 129, 0.15)';
+        buttonEl.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        buttonEl.style.color = 'var(--accent-emerald)';
+      }
+    }
+
+    async function refreshReleaseStatus() {
+      try {
+        const res = await fetch('/api/action/check_update', { cache: 'no-store' });
+        if (!res.ok) return;
+        updateReleaseStatus(await res.json());
+      } catch (e) {
+        const statusEl = document.getElementById('update-status');
+        if (statusEl) {
+          statusEl.textContent = 'Update-Status konnte nicht geprüft werden.';
+          statusEl.style.color = 'var(--accent-rose)';
+        }
       }
     }
 
@@ -1382,16 +1422,19 @@ HTML_PAGE = """<!DOCTYPE html>
       document.addEventListener('DOMContentLoaded', () => {
         handleInitialRouting();
         updateDashboard();
+        refreshReleaseStatus();
       });
     } else {
       handleInitialRouting();
       updateDashboard();
+      refreshReleaseStatus();
     }
 
     window.addEventListener('hashchange', handleInitialRouting);
     window.addEventListener('popstate', handleInitialRouting);
 
     setInterval(updateDashboard, 3000);
+    setInterval(refreshReleaseStatus, 300000);
   </script>
 </body>
 </html>
@@ -1548,6 +1591,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "local_compute_tflops": round(local_tflops, 1),
                     "gpu_thermals": thermals,
                     "uptime_seconds": 86400,
+                },
+                "software": {
+                    "current_version": APPLIANCE_VERSION,
+                    "update_url": "https://computemesh.inetconnector.com/updates/version.json",
                 },
             }
             body = json.dumps(payload).encode("utf-8")

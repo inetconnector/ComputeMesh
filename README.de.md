@@ -38,7 +38,8 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein fail-closed One-Command-**Physical-Shared-Trial-Runner**, der Bundle/Modell/Geräte erneut prüft, den Planer-Split über das Relay ausführt, Korrektheit prüft und das gebundene Proof-Artefakt erzeugt;
 - ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;
 - ein deterministischer M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
-- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook.
+- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
+- ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können.
 
 ## M1-Zwei-Node-Placement und Evidenzbundle
 

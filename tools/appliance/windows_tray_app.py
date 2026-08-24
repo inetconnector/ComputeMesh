@@ -161,7 +161,7 @@ class ComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.7"
+        self.version = "1.2.8"
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 
@@ -603,7 +603,7 @@ class ComputeMeshProviderApp:
 
         btn_update = tk.Button(
             ctrl_frame,
-            text="🛡️ Check Update",
+            text="⬆️ Update vom Webserver",
             font=("Inter", 10),
             bg="#1f2937",
             fg="#10b981",

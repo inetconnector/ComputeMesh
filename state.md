@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-23 20:50 CEST
-**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
-**Production services/runtime:** none  
-**Public release:** `v1.1.5` public release with 🦊 1-Click MetaMask Web3 Wallet Integration, Full NodeOS Configuration Section (Per-GPU Compute Toggles, VRAM Reservation, Power Profiles, Thermal Cutoffs), and Native Windows PE GUI
+**Last updated:** 2026-08-24 07:24 CEST
+**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
+**Production services/runtime:** no production inference/control runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`, but the gateway requires auth/admin credentials for useful API checks.
+**Release/version truth:** release handoff is prepared for Git tag `v1.2.8`; checked-in and live hosted signed update manifest are both version `1.2.8`; current desktop/dashboard/updater code paths, webserver services and reachable LAN miner report/use application version `1.2.8`. GitHub Releases last observed `v1.0.0` and should be reconciled separately if GitHub release-page metadata matters.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -13,8 +13,8 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- canonical merged **code baseline**: `48da999` (PR #15 + Milestone M1 & M2 Foundation)
-- current public portal indexing tag: `v1.1.5` at the Search Console verified sitemap state
+- canonical merged **code baseline**: `db292032787d8b4e2c6926456d9e98de4344082e` (`feat(telemetry): display total network compute capacity (TFLOPS/VRAM) in clients and implement configurable 25% operator fee`)
+- current public portal indexing tag: `v1.1.5` at the Search Console verified sitemap state; newer app-code version strings exist locally but are not represented by matching Git tags
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -46,19 +46,20 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - fail-closed shared-run proof binding: PR #11
 - one-command physical shared-trial orchestration: PR #12
 - llama.cpp benchmark→runtime build binding: PR #13
+- provider appliance, portal, billing, gateway, multi-GPU scheduler, transport, update, desktop and dashboard work: sections 16-33 below
+- network telemetry capacity display + configurable operator fee: `db292032`
 
 ### Current branch / PR topology at this handoff
 
-The last verified repository branch search showed:
+Verified on 2026-08-24 after `git fetch --prune`:
 
-- `main` — canonical merged branch
-- `m1/runtime-build-binding` — **no unique commits**, byte-identical to `main` when compared (`ahead 0`, `behind 0`); stale merged ref
-- `m1/shared-run-evidence` — **no unique commits**, `ahead 0`, `behind 40`; stale merged ref
-- `m1/shared-trial-runner` — **no unique commits**, `ahead 0`, `behind 11`; stale merged ref
-- `test/real-llama-rpc-loopback` — active temporary integration/debug branch, Draft PR #14; last recorded head `645e1e51b726b900f4cf35712aedf2319f062d35`; its net diff against the code baseline is intentionally limited to `.github/workflows/temporary-real-llama-rpc-loopback.yml` and `temporary-real-rpc-loopback-result.json`
-- `docs/state-current-handoff` — temporary documentation-only branch used to publish this handoff; after fast-forward it should contain no durable code change beyond `state.md` and is safe to delete if still visible
-
-**PR #14 must not be merged as-is.** It is an execution/debug vehicle. Any durable fix discovered there must be implemented/reviewed on a normal feature branch, fully validated, documented here, and merged without its temporary workflow/result files.
+- working tree before this documentation edit: clean (`git status --short --branch` returned `## main...origin/main`);
+- current `HEAD`: `db292032787d8b4e2c6926456d9e98de4344082e`;
+- local branches: `main` only;
+- remote heads: `origin/main` only (`git ls-remote --heads origin`);
+- open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
+- GitHub Actions/workflow files: `.github` is absent in `HEAD`; `gh workflow list --all` returned no workflows;
+- historical Draft PR #14 (`test/real-llama-rpc-loopback`) is closed and its branch is gone. If a temporary loopback workflow/result artifact reappears, keep it out of durable merges unless explicitly reworked as normal feature code.
 
 ---
 
@@ -533,7 +534,7 @@ These historical llama benchmarks used **different GGUFs/sizes**, so they cannot
 
 Purpose: exercise the actual llama.cpp/ComputeMesh software path with real binaries and a real GGUF before touching the two physical target machines. This is **real execution evidence**, but it is single-host CI/llvmpipe evidence, not physical two-machine evidence.
 
-Execution/debug artifacts live only on temporary Draft PR #14.
+Historically, execution/debug artifacts lived only on temporary Draft PR #14; that PR is now closed and the branch is gone.
 
 ### Exact ingredients
 
@@ -583,15 +584,22 @@ Execution/debug artifacts live only on temporary Draft PR #14.
 ### Immediate software blocker — RESOLVED
 - The single-host shared local+RPC path through the bounded measurement relay is **fully resolved, tested, and verified** with exact token correctness and 85-connection relay accounting.
 
-### Physical-evidence blockers (Next Phase)
+### Physical-evidence blocker — RESOLVED for narrow M1 proof
 
-To complete the physical two-machine M1 proof between Windows coordinator and remote Linux worker (`root@89.58.11.237`):
+The physical two-machine M1 proof between Windows coordinator and Debian 13 Linux worker is recorded as complete in this handoff:
 
-- Run fresh `llama-bench` on both machines using matching `b10549` and `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf`;
-- Capture network path measurements through secure tunnel or private network;
-- Export worker evidence ZIP via `EVIDENCE-EXPORT.sh` and import on coordinator via `BUILD-BUNDLE.cmd`;
-- Build `experiment_bundle.json`;
-- Execute `SHARED-PROOF.cmd` via secure SSH tunnel to worker `SHARED-WORKER.sh`.
+- matching `b10549` and `Qwen2.5-0.5B-Instruct-Q4_K_M.gguf` were used;
+- worker evidence export/import and `experiment_bundle.json` generation completed;
+- the shared run emitted `shared_run_evidence.json`;
+- correctness was verified by exact token-ID SHA-256 match.
+
+This remains a **controlled trusted-lab proof**, not production distributed inference.
+
+### Current repository / release blockers
+
+- GitHub Release metadata is still behind: GitHub Releases last observed `v1.0.0`, while the signed update channel and `v1.2.8` tag represent the current release handoff.
+- The current `main` branch has no GitHub Actions workflows, so there is no repository CI configured at `HEAD`.
+- No full test suite was rerun during the 2026-08-24 state-hygiene pass; any test counts below are historical unless a later section records a new command/result.
 
 ### Security / production blockers
 
@@ -604,18 +612,18 @@ Still absent:
 - packet-level loss/reordering evidence;
 - calibrated shared-runtime latency/speedup prediction or production scheduler ranking;
 - schema-v1 multi-shard GGUF set identity/order contract;
-- production provider-node app/service/installer;
-- Gateway/API;
+- production-hardened provider-node app/service/installer with authenticated enrollment and operations;
+- production-deployed Gateway/API with authentication, authorization, rate limits and abuse controls;
 - production orchestrator network service/database adapter;
 - authenticated/authorized provider-facing identity APIs;
 - OS-protected private-key storage;
 - active-session revocation fan-out;
-- authenticated/encrypted ComputeMesh control/data transport;
+- fully integrated authenticated/encrypted ComputeMesh control/data transport in the measured shared-trial flow;
 - general authorization/rate/resource/abuse controls;
 - hardware attestation or Sybil-proof physical-node identity;
 - minimum production artifact/runtime/result/failure/heartbeat wire operations;
-- production registry/verification/billing/telemetry/SDK/UI;
-- signed production release/update system.
+- production-operated registry/verification/billing/telemetry/SDK/UI;
+- reconciled signed production release/update system with matching version, tag, GitHub Release, manifest and hosted artifacts.
 
 The ComputeMesh identity/session layer does **not** authenticate the benchmark or upstream RPC socket. Lab-ID self-report, ZIP transfer, relay, GGUF helper, bundle and planner do not change that.
 
@@ -665,10 +673,13 @@ Still Proposed:
 6. Done: One-line online installer (`deploy/appliance/install.sh`) for HiveOS/Ubuntu/Debian rigs.
 7. Done: USB image builder (`deploy/appliance/build_image.py`).
 
-### D. Next: Milestone M2 Roadmap
-1. Multi-GPU Provider Node integration with ComputeMesh Scheduler.
-2. Direct Wireguard/mTLS encrypted transport (ADR 0003) replacing SSH tunneling.
-3. Provider Ledger & Settlement accounting (ADR 0007).
+### D. Next: Current M2 Hardening Roadmap
+1. Reconcile GitHub Release-page metadata for `v1.2.8` after review, or deliberately document why public GitHub Releases remain behind the signed update channel.
+2. Restore or intentionally document the absence of repository CI. Current `HEAD` has no `.github/workflows` and `gh workflow list --all` returns no workflows.
+3. Run and record a fresh full local test pass after `db292032` on the primary development machine; repeat on Linux if cross-platform status is claimed.
+4. Replace static/demo global mesh telemetry values with authenticated live registry data before presenting total TFLOPS/VRAM as production network truth.
+5. Integrate the mTLS transport into the physical shared-trial flow so it replaces ad hoc SSH tunneling in a measured experiment.
+6. Continue production hardening: authentication/authorization, provider registry, abuse controls, signed/attested evidence provenance, runtime service deployment, billing settlement operations, and calibrated scheduler ranking.
 
 ---
 
@@ -752,7 +763,7 @@ Implemented in `services/billing/ledger.py` as an append-only double-entry finan
 1. **Zero Floating-Point Drift:** Strictly integer micro-units (`1 CM = 1,000,000 micro-units`, `1 USD = 1,000,000 micro-units`).
 2. **Double-Entry Balance Invariant:** Every journal transaction requires balanced postings where $\sum \text{debits} == \sum \text{credits}$.
 3. **Idempotency & Deduplication:** Metering events (`job:{job_id}`, `deposit:{ref}`) are hashed and deduplicated to prevent double-charging or double-crediting.
-4. **Proportional Multi-Provider Split:** Automated revenue distribution for distributed multi-GPU pipeline shards (85% provider pool distributed by layer/token ratio, 15% network fee pool).
+4. **Proportional Multi-Provider Split:** Automated revenue distribution for distributed multi-GPU pipeline shards. Current default is a configurable 25% network/operator fee (`DEFAULT_NETWORK_FEE_BPS = 2500`) and a 75% provider pool, with `COMPUTEMESH_OPERATOR_FEE_BPS` allowing operator-margin changes.
 5. **Fail-Closed Balance Verification:** Rejects jobs if customer deposit balance cannot cover estimated token costs.
 6. **Automated Settlement & Payouts:** Enforces minimum payout threshold ($25.00 / 25,000,000 micro-units) and generates cryptographically signed withdrawal summaries.
 7. **Full Journal Audit Reconciliation:** `reconcile()` performs an exact global mathematical audit across all accounts.
@@ -923,10 +934,40 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 4. **Instant MetaMask 2-Way Synchronization:** Web dashboard triggers account selection popup on `action=metamask`, automatically saves selected wallet address, and desktop app reflects the address via live background telemetry loop.
 5. **Standalone Bundle Packaging:** Fully bundled `services`, `tools`, and `portal` into `ComputeMesh-Setup-x64.exe` with `sys._MEIPASS` pathing and verified startup.
 
+---
 
+## 34. Current Main Snapshot From 2026-08-24
 
+### Repository Hygiene
+1. **Clean branch topology:** After pruning, only `main` / `origin/main` exists. All historical M1 feature/debug branches mentioned in older handoffs are gone.
+2. **No active PR queue:** `gh pr list --state open` returned an empty list.
+3. **No GitHub Actions at HEAD:** `.github` is absent, `git ls-tree -r --name-only HEAD -- .github` returned no files, and `gh workflow list --all` returned no workflows. There are no obsolete Actions to delete from the current tree.
+4. **Working tree status before editing this file:** `## main...origin/main`, with no staged, unstaged, or untracked files.
 
+### Latest Merged Behavior
+1. **Network capacity telemetry:** The dashboard and Windows/Linux provider clients display local and global compute capacity using TFLOPS and VRAM summaries. Current global values in `services/appliance_dashboard/server.py` remain static/demo defaults (`2840.5 TFLOPS`, `3650.0 GB`) until connected to authenticated registry data.
+2. **Configurable operator fee:** `services/billing/ledger.py` now defaults to `DEFAULT_NETWORK_FEE_BPS = 2500` (25.00%) and accepts `COMPUTEMESH_OPERATOR_FEE_BPS` plus `COMPUTEMESH_OPERATOR_TREASURY_WALLET`. Operator revenue accumulates in `revenue:network_fee`; `create_operator_treasury_payout(...)` emits the treasury payout summary.
+3. **Operator monetization guide:** `docs/MONETIZATION_GUIDE.md` documents the 20%-30% operator-margin model, current 25% default, env/config keys, and settlement path.
 
+### Verification During This Handoff Update
+1. Ran repository status and topology checks only: `git status --short --branch`, `git rev-parse HEAD`, `git log -1`, `git fetch --prune`, `git branch --all --verbose --no-abbrev`, `git ls-remote --heads origin`, `gh pr list --state open`, `gh workflow list --all`, and `.github` tree checks.
+2. Did **not** run the Python/unit/integration test suites during this documentation-only cleanup.
+3. `README.md` / `README.de.md` were read for context but intentionally not changed; this update corrects maintainer handoff state rather than public project positioning.
 
+### Live Server And Miner Access Check
+1. **Webserver SSH:** `ssh -o BatchMode=yes supersrv-trixie ...` succeeds as `root` on `v2202606372671474589.supersrv.de` (`89.58.11.237`, Debian 13, kernel `6.12.94+deb13-amd64`).
+2. **Webserver repo:** `/root/ComputeMesh` starts from `db292032787d8b4e2c6926456d9e98de4344082e`; this work block copied the current release/source changes into that tree, so it is dirty with the same modified release files as the local workspace.
+3. **Webserver services:** `computemesh-autoupdate.service` and `computemesh-gateway.service` are active/running since restart at 2026-08-24 07:19 CEST. The updater command line now uses `--version 1.2.8`; the gateway listens on `127.0.0.1:8000`. Public/local gateway requests without credentials correctly return 401/403.
+4. **Hosted artifacts:** Live `/updates/version.json` is `1.2.8` and references Windows/Linux/NodeOS/installer artifacts present under `/var/www/vhosts/inetconnector.com/site2/downloads/`; SHA-256 values on disk match the live manifest. New package hashes: Windows `821c255ce49e0ffd6b31f3824df971607d660abdc7959a9e116dacb44f34f886`, Linux `b17562f72c0469662f792e002b9e210d41310a46ad9b1da33b6cd4272ad6903c`.
+5. **RPC worker process:** Webserver has `ggml-rpc-server` from `llama.cpp/b10549-cpu-x86_64` listening only on `127.0.0.1:50052`; this is not public.
+6. **Local miner discovery:** mDNS resolves `computemesh-nodeos.local` to `192.168.1.27` and `192.168.1.91`. Port scan found `192.168.1.27` with SSH/22 and dashboard/8080; `192.168.1.91` did not respond on SSH/8080 during this check.
+7. **Miner dashboard:** `http://192.168.1.27:8080/api/status` reports node `cm-inference-node-01`, interface `enp2s0`, two detected GPUs and 16 GiB total VRAM. The dashboard is reachable without SSH.
+8. **Miner SSH:** `ssh -o BatchMode=yes root@192.168.1.27 ...` fails with `Permission denied (publickey,password)` using the currently available keys. SSH access is therefore not available non-interactively from this workstation.
+9. **Miner update status:** `POST http://192.168.1.27:8080/api/action/apply_update` triggered the signed Linux update; the connection closed during restart, then polling confirmed `software.current_version = "1.2.8"` and `check_update` returns `update_available: false`.
+10. **PC update status:** no local ComputeMesh/Provider Agent process was running during the check. The hosted Windows installer was rebuilt and signed in the manifest; `AutoUpdater(current_version="1.2.7")` now detects `1.2.8` from the webserver with the new Windows hash.
 
-
+### Release UI Update From 2026-08-24
+1. **NodeOS web dashboard:** added live signed-release status text, `software.current_version` in `/api/status`, footer version display, and an update button that changes to `Update auf v<version> installieren` when the webserver manifest is newer.
+2. **Windows/Linux provider apps:** bumped UI/runtime version to `1.2.8` and renamed the manual update button to `Update vom Webserver` so the PC/provider surface clearly installs the newest signed package from the webserver.
+3. **Portal and manifest:** fixed the portal Windows download URL to `/downloads/ComputeMesh-Setup-x64.exe`, rebuilt Windows and Linux artifacts, and re-signed `portal/updates/version.json` with the existing official Ed25519 key while preserving the previously verified NodeOS ISO/IMG entries.
+4. **Verification:** `python -m py_compile services/appliance_dashboard/server.py services/updater/auto_updater.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/gateway/server.py tools/security/release_signer.py` passed; `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.gateway.tests.test_gateway_server deploy.windows.tests.test_build_installer -v` ran 12 tests successfully; `git diff --check` passed.

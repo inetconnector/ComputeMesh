@@ -123,7 +123,7 @@ class LinuxComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.7"
+        self.version = "1.2.8"
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 
@@ -417,7 +417,7 @@ class LinuxComputeMeshProviderApp:
         self.btn_toggle.pack(side="left")
 
         tk.Button(ctrl_frame, text="🌐 Web Dashboard", font=("Inter", 10), bg="#1f2937", fg="#9ca3af", relief="flat", padx=12, pady=8, command=self._open_web_dashboard).pack(side="left", padx=(10, 5))
-        tk.Button(ctrl_frame, text="🛡️ Check Update", font=("Inter", 10), bg="#1f2937", fg="#10b981", relief="flat", padx=10, pady=8, command=self._manual_update_check).pack(side="left")
+        tk.Button(ctrl_frame, text="⬆️ Update vom Webserver", font=("Inter", 10), bg="#1f2937", fg="#10b981", relief="flat", padx=10, pady=8, command=self._manual_update_check).pack(side="left")
 
         # Options Checkboxes
         tk.Checkbutton(ctrl_frame, text="Autostart", variable=self.autostart_var, command=self._on_autostart_toggle, bg="#0b0f19", fg="#f3f4f6", selectcolor="#111827", font=("Inter", 9)).pack(side="right")
