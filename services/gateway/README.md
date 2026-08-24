@@ -54,7 +54,7 @@ If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/
 
 Stripe Checkout tax totals are handled as payment/tax settlement data, not extra customer compute credit. The ledger credits the purchased compute-credit amount recorded in Checkout metadata and the durable session store.
 
-Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` and Accounts v2 `v2.core.account...` requirement events to keep provider Connect readiness in sync when the Stripe event destination is subscribed to those event types.
+Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` and Accounts v2 `v2.core.account...` requirement events to keep provider Connect readiness in sync when the Stripe event destination is subscribed to those event types. For legal entities such as a German UG, Connect onboarding also requires real company formation, registry, representative/KYC, and payout bank details before `payouts_enabled=true` is expected.
 
 Provider metering attribution is operator-controlled. Customer requests cannot pick their payout provider through headers or request JSON; until scheduler-integrated shares exist, configure `COMPUTEMESH_PROVIDER_SHARES` on the gateway host.
 

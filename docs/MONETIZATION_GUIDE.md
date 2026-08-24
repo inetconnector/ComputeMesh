@@ -32,6 +32,7 @@ Du kannst die prozentuale Marge und deine Auszahlungsadresse flexibel über Umge
 2. **Provider auszahlen:** Provider werden über `POST /v1/providers/stripe/onboarding` als Stripe-Connect-Accounts-v2-/Express-Recipient-Konten eingerichtet. `SettlementExecutor.run_provider_settlement(...)` erstellt eine idempotente Stripe-Transfer-Buchung an das Connected Account und bucht danach das interne Provider-Payable aus.
 3. **Betreiber-Anteil:** Die 25% bleiben wirtschaftlich beim Plattformbetreiber: im ComputeMesh-Ledger auf `revenue:network_fee` und im Stripe-Modell im Plattform-Balance-/Treasury-Kontext. Eine Auszahlung auf das Betreiber-Bankkonto erfolgt über die regulären Stripe-Payout-Einstellungen des Plattformkontos; `ledger.create_operator_treasury_payout(...)` bleibt die interne Abschlussbuchung.
 4. **Audit & Sicherheit:** Die Methode `ledger.reconcile()` prüft jederzeit cent-genau die mathematische Bilanzgleichheit ($\sum \text{Debits} == \sum \text{Credits}$).
+5. **UG/KYC-Blocker:** Wenn der Betreiber als deutsche UG auftreten soll, muss die UG zuerst gegründet und eingetragen sein. Stripe Connect darf erst mit echtem Firmennamen, Handelsregisternummer, Adresse, Vertreter-/KYC-Daten und Auszahlungskonto abgeschlossen werden.
 
 ---
 
@@ -54,3 +55,4 @@ All financial splits are executed with micro-unit precision ($1.00 = 1,000,000$ 
 #### 3. Treasury Payout
 * Providers onboard through Stripe Connect and are paid through idempotent Stripe Transfers before their internal `provider:{node_id}` payable is cleared.
 * The operator's 25% remains on the platform side as `revenue:network_fee`; the real operator bank payout is handled by the platform Stripe account's payout settings. Call `ledger.create_operator_treasury_payout()` only for an auditable internal closing entry.
+* Legal-entity onboarding cannot use placeholder data. If the operator/provider is a German UG, complete incorporation and registration before submitting Stripe Connect KYC and payout-bank details.
