@@ -237,6 +237,48 @@ class TestStripeIntegration(unittest.TestCase):
                 signature_header="t=123,v1=wrong",
             )
 
+    def test_webhook_accepts_second_configured_secret(self) -> None:
+        def second_secret_verifier(raw, _signature, secret):
+            if secret != "whsec_second":
+                raise ValueError("wrong secret")
+            return json.loads(raw.decode("utf-8"))
+
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_first,whsec_second",
+            stripe_api_key="sk_test_123",
+            session_store=self.store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=second_secret_verifier,
+            require_live_configuration=False,
+        )
+        webhook_payload = {
+            "id": "evt_test_multi_secret",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_multi_secret",
+                    "payment_status": "paid",
+                    "currency": "usd",
+                    "client_reference_id": "cust_multi_secret",
+                    "metadata": {
+                        "customer_account_id": "cust_multi_secret",
+                        "amount_micro_units": "5000000",
+                    },
+                    "amount_subtotal": 500,
+                    "amount_total": 500,
+                }
+            },
+        }
+
+        result = svc.process_webhook_payload(
+            raw_payload=json.dumps(webhook_payload).encode("utf-8"),
+            signature_header="t=123,v1=testsig",
+        )
+
+        self.assertEqual(result["status"], "credited")
+        self.assertEqual(self.ledger.get_balance("cust_multi_secret"), 5_000_000)
+
     def test_bounds_rejection(self) -> None:
         with self.assertRaises(StripeIntegrationError):
             self.stripe_svc.create_checkout_session(

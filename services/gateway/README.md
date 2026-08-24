@@ -42,6 +42,7 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - `STRIPE_API_KEY`
 - `COMPUTEMESH_STRIPE_SESSION_STORE`
 - `STRIPE_WEBHOOK_SECRET` for signed webhook crediting
+- optional `COMPUTEMESH_STRIPE_WEBHOOK_SECRETS` as a comma-separated list when multiple Stripe event destinations post to the same webhook URL
 - optional `COMPUTEMESH_GATEWAY_LEDGER_PATH` for durable gateway ledger storage
 - optional `COMPUTEMESH_ACCOUNT_STORE_PATH` for durable provider accounts, webhook event inbox state, and settlement records
 - optional `COMPUTEMESH_STRIPE_CONNECT_API=v2` for Stripe Accounts v2 provider onboarding
@@ -51,7 +52,7 @@ If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/
 
 Stripe Checkout tax totals are handled as payment/tax settlement data, not extra customer compute credit. The ledger credits the purchased compute-credit amount recorded in Checkout metadata and the durable session store.
 
-Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` events to keep provider Connect readiness in sync when the webhook endpoint is subscribed to that event type; Accounts v2 requirement events should be added to the Stripe event destination before production.
+Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` and Accounts v2 `v2.core.account...` requirement events to keep provider Connect readiness in sync when the Stripe event destination is subscribed to those event types.
 
 ## Test Suite
 

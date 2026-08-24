@@ -14,6 +14,9 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote, urlencode
+import urllib.error
+import urllib.request
 
 from services.billing.ledger import (
     DuplicateEventError,
@@ -197,6 +200,26 @@ def _connect_onboarding_status(*, payouts_enabled: bool, details_submitted: bool
     return "needs_onboarding"
 
 
+def _connect_v2_recipient_status(account: dict[str, Any]) -> tuple[str, bool, bool, bool]:
+    recipient = (account.get("configuration") or {}).get("recipient") or {}
+    capabilities = recipient.get("capabilities") or {}
+    stripe_balance = capabilities.get("stripe_balance") or {}
+    transfers = stripe_balance.get("stripe_transfers") or {}
+    transfer_status = str(transfers.get("status", "") or "")
+    status_details = transfers.get("status_details") or []
+    payouts_enabled = transfer_status == "active"
+    details_submitted = bool(transfer_status and transfer_status != "restricted")
+    if payouts_enabled:
+        onboarding_status = "ready"
+    elif any((d or {}).get("code") == "requirements_past_due" for d in status_details if isinstance(d, dict)):
+        onboarding_status = "requirements_past_due"
+    elif transfer_status in ("pending", "restricted_soon"):
+        onboarding_status = "pending_verification"
+    else:
+        onboarding_status = "needs_onboarding"
+    return onboarding_status, False, payouts_enabled, details_submitted
+
+
 def _amount_to_cents(amount_usd: float) -> int:
     amount = Decimal(str(amount_usd))
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -266,8 +289,12 @@ class StripePaymentService:
             raise StripeIntegrationError("COMPUTEMESH_STRIPE_SESSION_STORE is required for durable Stripe reconciliation")
 
     def _require_webhook_configuration(self) -> None:
-        if not self.webhook_secret:
+        if not self._webhook_secrets():
             raise StripeIntegrationError("STRIPE_WEBHOOK_SECRET is required for signed Stripe webhooks")
+
+    def _webhook_secrets(self) -> list[str]:
+        configured = os.environ.get("COMPUTEMESH_STRIPE_WEBHOOK_SECRETS", "").strip() or self.webhook_secret
+        return [secret.strip() for secret in configured.replace("\n", ",").split(",") if secret.strip()]
 
     def create_checkout_session(
         self,
@@ -381,15 +408,51 @@ class StripePaymentService:
         self._require_webhook_configuration()
 
         try:
-            if self.webhook_verifier:
-                payload = self.webhook_verifier(raw_payload, signature_header, self.webhook_secret)
-            else:
-                stripe = self.stripe_client or _load_stripe_module()
-                payload = stripe.Webhook.construct_event(raw_payload, signature_header, self.webhook_secret)
+            last_error: Exception | None = None
+            payload = None
+            for secret in self._webhook_secrets():
+                try:
+                    if self.webhook_verifier:
+                        payload = self.webhook_verifier(raw_payload, signature_header, secret)
+                    else:
+                        stripe = self.stripe_client or _load_stripe_module()
+                        payload = stripe.Webhook.construct_event(raw_payload, signature_header, secret)
+                    break
+                except Exception as exc:
+                    last_error = exc
+            if payload is None:
+                raise last_error or StripeIntegrationError("no Stripe webhook secret accepted the signature")
         except Exception as exc:
             raise StripeIntegrationError(f"Stripe webhook signature verification failed: {exc}") from exc
 
         return self.process_webhook_event(payload=_stripe_to_plain(payload), trusted=True)
+
+    def _retrieve_accounts_v2_account(self, account_id: str) -> dict[str, Any]:
+        if not self.stripe_api_key:
+            return {}
+        query = urlencode([
+            ("include[0]", "configuration.recipient"),
+            ("include[1]", "identity"),
+            ("include[2]", "requirements"),
+            ("include[3]", "defaults"),
+        ])
+        api_version = os.environ.get("COMPUTEMESH_STRIPE_V2_API_VERSION", "2026-07-29.preview").strip()
+        req = urllib.request.Request(
+            f"https://api.stripe.com/v2/core/accounts/{quote(account_id, safe='')}?{query}",
+            method="GET",
+            headers={
+                "Authorization": f"Bearer {self.stripe_api_key}",
+                "Stripe-Version": api_version,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as res:
+                return json.loads(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise StripeIntegrationError(f"Stripe Accounts v2 account retrieval failed: HTTP {exc.code} {detail}") from exc
+        except Exception as exc:
+            raise StripeIntegrationError(f"Stripe Accounts v2 account retrieval failed: {exc}") from exc
 
     def process_webhook_event(
         self,
@@ -426,6 +489,46 @@ class StripePaymentService:
 
         try:
             data_object = payload.get("data", {}).get("object", {})
+
+            if event_type.startswith("v2.core.account"):
+                account_id = str(data_object.get("id", "") or data_object.get("account", "") or "")
+                metadata = data_object.get("metadata", {})
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                provider_node_id = str(metadata.get("provider_node_id", "") or "")
+                if not account_id:
+                    raise StripeIntegrationError(f"Missing Stripe account ID in {event_type} payload")
+                if not data_object.get("configuration"):
+                    retrieved_account = self._retrieve_accounts_v2_account(account_id)
+                    if retrieved_account:
+                        data_object = retrieved_account
+                        metadata = data_object.get("metadata", {})
+                        if not isinstance(metadata, dict):
+                            metadata = {}
+                        provider_node_id = str(metadata.get("provider_node_id", "") or provider_node_id)
+                onboarding_status, charges_enabled, payouts_enabled, details_submitted = _connect_v2_recipient_status(data_object)
+                if self.webhook_event_store and hasattr(self.webhook_event_store, "update_stripe_account_status_by_account_id"):
+                    updated = self.webhook_event_store.update_stripe_account_status_by_account_id(
+                        stripe_connected_account_id=account_id,
+                        provider_node_id_hint=provider_node_id,
+                        onboarding_status=onboarding_status,
+                        charges_enabled=charges_enabled,
+                        payouts_enabled=payouts_enabled,
+                        details_submitted=details_submitted,
+                    )
+                    if updated:
+                        return finish({
+                            "status": "updated",
+                            "stripe_account_id": account_id,
+                            "provider_node_id": updated.provider_node_id,
+                            "onboarding_status": updated.stripe_onboarding_status,
+                            "payouts_enabled": updated.payouts_enabled,
+                        })
+                return finish({
+                    "status": "ignored",
+                    "reason": f"No provider registered for Stripe account {account_id}",
+                    "stripe_account_id": account_id,
+                })
 
             if event_type == "account.updated":
                 account_id = str(data_object.get("id", "") or "")

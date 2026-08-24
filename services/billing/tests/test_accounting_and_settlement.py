@@ -239,6 +239,86 @@ class TestAccountingAndSettlement(unittest.TestCase):
         self.assertEqual(provider.stripe_onboarding_status, "ready")
         self.assertTrue(provider.payouts_enabled)
 
+    def test_accounts_v2_requirements_webhook_refreshes_provider_status(self) -> None:
+        self.account_store.upsert_provider(provider_node_id="node_connect_v2_webhook")
+        self.account_store.attach_stripe_account(
+            provider_node_id="node_connect_v2_webhook",
+            stripe_connected_account_id="acct_connect_v2_webhook",
+        )
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_test_123",
+            session_store=None,
+            webhook_event_store=self.account_store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=lambda raw, sig, sec: __import__("json").loads(raw.decode("utf-8")),
+            require_live_configuration=False,
+        )
+
+        result = svc.process_webhook_payload(
+            raw_payload=(
+                b'{"id":"evt_account_v2_requirements_001","type":"v2.core.account[requirements].updated",'
+                b'"data":{"object":{"id":"acct_connect_v2_webhook","metadata":{'
+                b'"provider_node_id":"node_connect_v2_webhook"},"configuration":{"recipient":{'
+                b'"capabilities":{"stripe_balance":{"stripe_transfers":{"requested":true,'
+                b'"status":"active"}}}}}}}}'
+            ),
+            signature_header="t=123,v1=testsig",
+        )
+
+        provider = self.account_store.get_provider("node_connect_v2_webhook")
+        self.assertEqual(result["status"], "updated")
+        self.assertEqual(provider.stripe_onboarding_status, "ready")
+        self.assertTrue(provider.payouts_enabled)
+        self.assertTrue(provider.details_submitted)
+
+    def test_accounts_v2_thin_webhook_retrieves_account_before_status_refresh(self) -> None:
+        self.account_store.upsert_provider(provider_node_id="node_connect_v2_thin_webhook")
+        self.account_store.attach_stripe_account(
+            provider_node_id="node_connect_v2_thin_webhook",
+            stripe_connected_account_id="acct_connect_v2_thin_webhook",
+        )
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_test_123",
+            session_store=None,
+            webhook_event_store=self.account_store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=lambda raw, sig, sec: __import__("json").loads(raw.decode("utf-8")),
+            require_live_configuration=False,
+        )
+        svc._retrieve_accounts_v2_account = lambda account_id: {
+            "id": account_id,
+            "metadata": {"provider_node_id": "node_connect_v2_thin_webhook"},
+            "configuration": {
+                "recipient": {
+                    "capabilities": {
+                        "stripe_balance": {
+                            "stripe_transfers": {
+                                "requested": True,
+                                "status": "active",
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+        result = svc.process_webhook_payload(
+            raw_payload=(
+                b'{"id":"evt_account_v2_thin_001","type":"v2.core.account[requirements].updated",'
+                b'"data":{"object":{"id":"acct_connect_v2_thin_webhook"}}}'
+            ),
+            signature_header="t=123,v1=testsig",
+        )
+
+        provider = self.account_store.get_provider("node_connect_v2_thin_webhook")
+        self.assertEqual(result["status"], "updated")
+        self.assertEqual(provider.stripe_onboarding_status, "ready")
+        self.assertTrue(provider.payouts_enabled)
+
     def test_provider_settlement_transfers_and_drains_payable(self) -> None:
         provider = self.account_store.upsert_provider(provider_node_id="node_ready")
         self.account_store.attach_stripe_account(
