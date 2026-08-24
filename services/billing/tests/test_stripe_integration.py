@@ -42,6 +42,18 @@ def trusted_json_verifier(raw_payload: bytes, signature_header: str, endpoint_se
     return json.loads(raw_payload.decode("utf-8"))
 
 
+class FakeStripeResource:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def to_dict_recursive(self):
+        return self.payload
+
+
+def trusted_sdk_object_verifier(raw_payload: bytes, signature_header: str, endpoint_secret: str):
+    return FakeStripeResource(trusted_json_verifier(raw_payload, signature_header, endpoint_secret))
+
+
 class TestStripeIntegration(unittest.TestCase):
     def setUp(self) -> None:
         self.ledger = Ledger()
@@ -151,6 +163,60 @@ class TestStripeIntegration(unittest.TestCase):
         res2 = self.stripe_svc.process_webhook_payload(raw_payload=raw, signature_header="t=123,v1=testsig")
         self.assertEqual(res2["status"], "already_processed")
         self.assertEqual(self.ledger.get_balance("cust_stripe_03"), 10_000_000)
+
+    def test_webhook_accepts_stripe_sdk_event_object(self) -> None:
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_test_123",
+            session_store=self.store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=trusted_sdk_object_verifier,
+            require_live_configuration=True,
+        )
+        sess = svc.create_checkout_session(customer_account_id="cust_stripe_sdk_object", amount_usd=5.00)
+        webhook_payload = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": sess.session_id,
+                    "amount_total": 500,
+                    "currency": "usd",
+                    "payment_status": "paid",
+                    "client_reference_id": "cust_stripe_sdk_object",
+                }
+            },
+        }
+        res = svc.process_webhook_payload(
+            raw_payload=json.dumps(webhook_payload).encode("utf-8"),
+            signature_header="t=123,v1=testsig",
+        )
+        self.assertEqual(res["status"], "credited")
+        self.assertEqual(self.ledger.get_balance("cust_stripe_sdk_object"), 5_000_000)
+
+    def test_webhook_credits_purchased_amount_not_tax_gross_total(self) -> None:
+        sess = self.stripe_svc.create_checkout_session(customer_account_id="cust_stripe_tax", amount_usd=5.00)
+        webhook_payload = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": sess.session_id,
+                    "amount_subtotal": 500,
+                    "amount_total": 595,
+                    "currency": "usd",
+                    "payment_status": "paid",
+                    "client_reference_id": "cust_stripe_tax",
+                    "metadata": {"customer_account_id": "cust_stripe_tax", "amount_micro_units": "5000000"},
+                }
+            },
+        }
+        res = self.stripe_svc.process_webhook_payload(
+            raw_payload=json.dumps(webhook_payload).encode("utf-8"),
+            signature_header="t=123,v1=testsig",
+        )
+        self.assertEqual(res["status"], "credited")
+        self.assertEqual(res["amount_usd"], 5.00)
+        self.assertEqual(self.ledger.get_balance("cust_stripe_tax"), 5_000_000)
 
     def test_unhandled_event_ignored(self) -> None:
         payload = {"type": "customer.created"}

@@ -174,6 +174,19 @@ def _stripe_get(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
+def _stripe_to_plain(obj: Any) -> Any:
+    """Convert Stripe SDK resource objects into recursive plain Python data."""
+    if isinstance(obj, dict):
+        return {str(k): _stripe_to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_stripe_to_plain(v) for v in obj]
+    if hasattr(obj, "to_dict_recursive"):
+        return _stripe_to_plain(obj.to_dict_recursive())
+    if hasattr(obj, "to_dict"):
+        return _stripe_to_plain(obj.to_dict())
+    return obj
+
+
 def _amount_to_cents(amount_usd: float) -> int:
     amount = Decimal(str(amount_usd))
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -364,7 +377,7 @@ class StripePaymentService:
         except Exception as exc:
             raise StripeIntegrationError(f"Stripe webhook signature verification failed: {exc}") from exc
 
-        return self.process_webhook_event(payload=payload, trusted=True)
+        return self.process_webhook_event(payload=_stripe_to_plain(payload), trusted=True)
 
     def process_webhook_event(
         self,
@@ -399,12 +412,16 @@ class StripePaymentService:
         if currency != "usd":
             raise StripeIntegrationError(f"Unsupported Stripe Checkout currency for session {session_id}: {currency}")
 
-        amount_total_cents = int(data_object.get("amount_total", 0) or 0)
-        amount_micro = _cents_to_micro_units(amount_total_cents)
-        customer_account_id = data_object.get("client_reference_id") or data_object.get("metadata", {}).get("customer_account_id")
+        metadata = data_object.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+        amount_micro = int(metadata.get("amount_micro_units", 0) or 0)
+        customer_account_id = data_object.get("client_reference_id") or metadata.get("customer_account_id")
         stripe_customer_id = str(data_object.get("customer", "") or "")
         payment_intent_id = str(data_object.get("payment_intent", "") or "")
         livemode = bool(data_object.get("livemode", False))
+        amount_subtotal_cents = int(data_object.get("amount_subtotal", 0) or 0)
+        amount_total_cents = int(data_object.get("amount_total", 0) or 0)
 
         if not customer_account_id:
             cached = self.session_store.get(session_id) if self.session_store else None
@@ -423,6 +440,14 @@ class StripePaymentService:
                 customer_account_id = cached.customer_account_id
             if amount_micro == 0:
                 amount_micro = cached.amount_micro_units
+        elif amount_micro == 0:
+            amount_micro = _cents_to_micro_units(amount_subtotal_cents or amount_total_cents)
+
+        if amount_micro > 0:
+            if amount_subtotal_cents and _cents_to_micro_units(amount_subtotal_cents) != amount_micro:
+                raise StripeIntegrationError(f"Session {session_id} amount mismatch")
+            if amount_total_cents and _cents_to_micro_units(amount_total_cents) < amount_micro:
+                raise StripeIntegrationError(f"Session {session_id} total paid amount below credit amount")
 
         if not customer_account_id or amount_micro <= 0:
             raise StripeIntegrationError(f"Cannot resolve customer or deposit amount for session {session_id}")
