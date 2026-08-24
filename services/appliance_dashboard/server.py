@@ -6,7 +6,7 @@ listening on port 8080.
 Features:
 - Real-time GPU telemetry (VRAM, Temperatures, Fan Speeds, Power, PCIe width)
 - Live inference token counters and estimated earnings
-- Complete Payout Configuration (Ethereum/Polygon/USDT Wallet, Provider Account)
+- Complete provider payout-address configuration (MetaMask selects address only; customer payments run through Stripe)
 - GPU-by-GPU Compute Enablement Toggles & VRAM Reservation
 - Thermal Cutoff Limits and Power Management Profiles
 - System Actions (Reboot Node, Restart Inference Daemon)
@@ -33,7 +33,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.8"
+APPLIANCE_VERSION = "1.2.9"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -780,9 +780,9 @@ HTML_PAGE = """<!DOCTYPE html>
           <div class="stat-sub">Live Inferenz-Shards</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Berechnete Einnahmen</div>
-          <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">--</div>
-          <div class="stat-sub">Monthly Settlement Backed</div>
+            <div class="stat-label">Provider-Einnahmen</div>
+            <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">--</div>
+            <div class="stat-sub">75% Provider-Anteil nach Betreiberprovision</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Node Uptime & Status</div>
@@ -802,11 +802,11 @@ HTML_PAGE = """<!DOCTYPE html>
     <!-- TAB 2: CONFIGURATION & PAYOUT -->
     <div id="tab-config" class="tab-content">
       <div class="config-card">
-        <div class="section-title">💎 Payout & Earnings Settlement</div>
+        <div class="section-title">💎 Provider-Auszahlung & Earnings</div>
         <div class="form-grid">
           <div class="form-group" style="grid-column: 1 / -1;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
-              <label class="form-label" style="margin: 0;">Ethereum / Polygon Wallet Address (USDT / ETH Settlement)</label>
+              <label class="form-label" style="margin: 0;">Provider-Auszahlungsadresse (0x... Wallet)</label>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button type="button" class="btn btn-secondary" onclick="clearWalletInput()" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.4); color: var(--accent-rose);">
                   🗑️ Löschen
@@ -820,9 +820,9 @@ HTML_PAGE = """<!DOCTYPE html>
               </div>
             </div>
             <div style="display: flex; gap: 0.5rem; width: 100%;">
-              <input type="text" id="cfg-wallet" class="form-input" placeholder="0x... (Hier neue Adresse eintragen, einfügen oder per MetaMask wählen)" spellcheck="false" style="flex: 1;">
+              <input type="text" id="cfg-wallet" class="form-input" placeholder="0x... (Auszahlungsadresse manuell eintragen oder per MetaMask wählen)" spellcheck="false" style="flex: 1;">
             </div>
-            <span class="form-desc">Trage deine gewünschte Adresse (0x...) ein oder klicke auf <strong>🦊 Account wechseln</strong>. Klicke danach unten auf <strong>💾 Save & Apply Configuration</strong>.</span>
+            <span class="form-desc">MetaMask dient hier nur zur Auswahl der 0x-Auszahlungsadresse für Earnings aus bereitgestellter Rechenleistung. Rechenguthaben und alle echten Kundenzahlungen laufen über Stripe.</span>
           </div>
 
           <div class="form-group">
@@ -1023,7 +1023,7 @@ HTML_PAGE = """<!DOCTYPE html>
             const addr = accounts[0];
             const el = document.getElementById('cfg-wallet');
             if (el) el.value = addr;
-            showToast('✓ MetaMask verbunden: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Gespeichert!');
+            showToast('✓ MetaMask-Auszahlungsadresse gewählt: ' + addr.slice(0, 6) + '...' + addr.slice(-4) + ' — Kundenzahlungen laufen über Stripe.');
             await saveConfiguration();
             return;
           }
@@ -1072,7 +1072,7 @@ HTML_PAGE = """<!DOCTYPE html>
               const inputEl = document.getElementById('cfg-wallet');
               if (inputEl && inputEl.value.toLowerCase() !== newAddr.toLowerCase()) {
                 inputEl.value = newAddr;
-                showToast('🦊 MetaMask Account gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4) + ' — Gespeichert!');
+                showToast('🦊 MetaMask-Auszahlungsadresse gewechselt: ' + newAddr.slice(0, 6) + '...' + newAddr.slice(-4) + ' — Zahlungen laufen über Stripe.');
                 await saveConfiguration();
               }
             }
@@ -1105,7 +1105,7 @@ HTML_PAGE = """<!DOCTYPE html>
         const elTokens = document.getElementById('tokens-served');
         if (elTokens) elTokens.textContent = (data.telemetry && data.telemetry.tokens_processed != null) ? data.telemetry.tokens_processed.toLocaleString() : '0';
         const elEarnings = document.getElementById('earnings');
-        if (elEarnings) elEarnings.textContent = '$' + ((data.telemetry && data.telemetry.earnings_cm != null) ? (data.telemetry.earnings_cm * 0.85).toFixed(4) : '0.0000');
+        if (elEarnings) elEarnings.textContent = '$' + ((data.telemetry && data.telemetry.earnings_cm != null) ? (data.telemetry.earnings_cm * 0.75).toFixed(4) : '0.0000');
         const elFooter = document.getElementById('footer-node-id');
         if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
 
@@ -1294,7 +1294,7 @@ HTML_PAGE = """<!DOCTYPE html>
         });
         const resp = await res.json();
         if (res.ok) {
-          showToast('✓ Configuration and Payout Wallet saved successfully!');
+          showToast('✓ Provider-Auszahlungsadresse und Konfiguration gespeichert. Zahlungen laufen über Stripe.');
           updateDashboard();
         } else {
           showToast('Error: ' + resp.message, false);

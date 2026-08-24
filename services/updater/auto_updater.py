@@ -52,7 +52,7 @@ class ChecksumMismatchError(Exception):
 class AutoUpdater:
     def __init__(
         self,
-        current_version: str = "1.2.8",
+        current_version: str = "1.2.9",
         manifest_url: str = DEFAULT_UPDATE_URL,
         public_key_hex: str = OFFICIAL_RELEASE_PUBLIC_KEY_HEX,
     ) -> None:
@@ -217,7 +217,7 @@ def main() -> int:
     parser.add_argument("--check-and-apply", action="store_true", help="Check and apply update if available")
     parser.add_argument("--daemon", action="store_true", help="Run continuously in background checking periodically")
     parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (default 300s)")
-    parser.add_argument("--version", default="1.2.8", help="Current running version")
+    parser.add_argument("--version", default="1.2.9", help="Current running version")
     args = parser.parse_args()
 
     updater = AutoUpdater(current_version=args.version)

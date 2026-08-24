@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-24 07:35 CEST
+**Last updated:** 2026-08-24 08:00 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`, but gateway billing/payment paths are mock/in-memory and not safe for real customer funds.
-**Release/version truth:** Git tag `v1.2.8` is pushed at `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5`; checked-in and live hosted signed update manifest are both version `1.2.8`; current desktop/dashboard/updater code paths, webserver services and reachable LAN miner report/use application version `1.2.8`. GitHub Releases last observed `v1.0.0` and should be reconciled separately if GitHub release-page metadata matters.
+**Release/version truth:** signed update release `1.2.9` is prepared locally and deployed to the live webserver and reachable LAN miner. Windows/Linux artifacts were rebuilt, NodeOS ISO/IMG manifest entries were preserved, the webserver manifest signature verifies, and `http://192.168.1.27:8080/api/status` now reports `software.current_version = "1.2.9"`. `v1.2.8` is the previous pushed signed release tag; this work block must still finish with the `v1.2.9` commit/tag/push.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -13,8 +13,8 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- canonical merged **code baseline**: `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5` (`feat(release): publish signed 1.2.8 update flow`)
-- current signed app/update release tag: `v1.2.8`
+- canonical merged **code baseline before this work block**: `c003455c4a09cde670ecef129c9f53c795eabd5d` (`docs(state): record billing payment audit`)
+- current signed app/update release: `v1.2.9`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -49,13 +49,14 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - provider appliance, portal, billing, gateway, multi-GPU scheduler, transport, update, desktop and dashboard work: sections 16-33 below
 - network telemetry capacity display + configurable operator fee: `db292032`
 - signed 1.2.8 update flow and hosted artifacts: `45150e9`
+- Stripe-only customer payment wording + MetaMask provider-payout-address release: deployed as `v1.2.9`; commit/tag/push pending in this work block
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-24 after release push and billing audit:
+Verified on 2026-08-24 before the `v1.2.9` commit/tag:
 
-- working tree before this documentation edit: clean (`git status --short --branch` returned `## main...origin/main`);
-- current `HEAD`: `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5`;
+- working tree before this work block: clean (`git status --short --branch` returned `## main...origin/main`);
+- current pushed `HEAD` before this work block: `c003455c4a09cde670ecef129c9f53c795eabd5d`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
@@ -598,7 +599,7 @@ This remains a **controlled trusted-lab proof**, not production distributed infe
 
 ### Current repository / release blockers
 
-- GitHub Release metadata is still behind: GitHub Releases last observed `v1.0.0`, while the signed update channel and `v1.2.8` tag represent the current release handoff.
+- GitHub Release metadata is still behind: GitHub Releases last observed `v1.0.0`, while the signed update channel is deployed as `v1.2.9`.
 - The current `main` branch has no GitHub Actions workflows, so there is no repository CI configured at `HEAD`.
 - No full test suite was rerun during the 2026-08-24 state-hygiene pass; any test counts below are historical unless a later section records a new command/result.
 
@@ -675,7 +676,7 @@ Still Proposed:
 7. Done: USB image builder (`deploy/appliance/build_image.py`).
 
 ### D. Next: Current M2 Hardening Roadmap
-1. Reconcile GitHub Release-page metadata for `v1.2.8` after review, or deliberately document why public GitHub Releases remain behind the signed update channel.
+1. Reconcile GitHub Release-page metadata for `v1.2.9` after review, or deliberately document why public GitHub Releases remain behind the signed update channel.
 2. Restore or intentionally document the absence of repository CI. Current `HEAD` has no `.github/workflows` and `gh workflow list --all` returns no workflows.
 3. Run and record a fresh full local test pass after `db292032` on the primary development machine; repeat on Linux if cross-platform status is claimed.
 4. Replace static/demo global mesh telemetry values with authenticated live registry data before presenting total TFLOPS/VRAM as production network truth.
@@ -948,7 +949,7 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 ### Latest Merged Behavior
 1. **Network capacity telemetry:** The dashboard and Windows/Linux provider clients display local and global compute capacity using TFLOPS and VRAM summaries. Current global values in `services/appliance_dashboard/server.py` remain static/demo defaults (`2840.5 TFLOPS`, `3650.0 GB`) until connected to authenticated registry data.
 2. **Configurable operator fee:** `services/billing/ledger.py` now defaults to `DEFAULT_NETWORK_FEE_BPS = 2500` (25.00%) and accepts `COMPUTEMESH_OPERATOR_FEE_BPS` plus `COMPUTEMESH_OPERATOR_TREASURY_WALLET`. Operator revenue accumulates in `revenue:network_fee`; `create_operator_treasury_payout(...)` emits the treasury payout summary.
-3. **Operator monetization guide:** `docs/MONETIZATION_GUIDE.md` documents the 20%-30% operator-margin model, current 25% default, env/config keys, and settlement path.
+3. **Operator monetization guide:** `docs/MONETIZATION_GUIDE.md` documents the current 25% operator-margin default, env/config keys, Stripe-first payment policy, and ledger-only settlement path.
 
 ### Verification During This Handoff Update
 1. Ran repository status and topology checks only: `git status --short --branch`, `git rev-parse HEAD`, `git log -1`, `git fetch --prune`, `git branch --all --verbose --no-abbrev`, `git ls-remote --heads origin`, `gh pr list --state open`, `gh workflow list --all`, and `.github` tree checks.
@@ -958,20 +959,20 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 ### Live Server And Miner Access Check
 1. **Webserver SSH:** `ssh -o BatchMode=yes supersrv-trixie ...` succeeds as `root` on `v2202606372671474589.supersrv.de` (`89.58.11.237`, Debian 13, kernel `6.12.94+deb13-amd64`).
 2. **Webserver repo:** `/root/ComputeMesh` starts from `db292032787d8b4e2c6926456d9e98de4344082e`; this work block copied the current release/source changes into that tree, so it is dirty with the same modified release files as the local workspace.
-3. **Webserver services:** `computemesh-autoupdate.service` and `computemesh-gateway.service` are active/running since restart at 2026-08-24 07:19 CEST. The updater command line now uses `--version 1.2.8`; the gateway listens on `127.0.0.1:8000`. Public/local gateway requests without credentials correctly return 401/403.
-4. **Hosted artifacts:** Live `/updates/version.json` is `1.2.8` and references Windows/Linux/NodeOS/installer artifacts present under `/var/www/vhosts/inetconnector.com/site2/downloads/`; SHA-256 values on disk match the live manifest. New package hashes: Windows `821c255ce49e0ffd6b31f3824df971607d660abdc7959a9e116dacb44f34f886`, Linux `b17562f72c0469662f792e002b9e210d41310a46ad9b1da33b6cd4272ad6903c`.
+3. **Webserver services:** after deployment at 2026-08-24 07:58 CEST, `computemesh-autoupdate.service` and `computemesh-gateway.service` are active/running. `systemctl show computemesh-autoupdate.service -p ExecStart` reports `/root/ComputeMesh/.venv/bin/python services/updater/auto_updater.py --daemon --interval 300 --version 1.2.9`. Gateway admin route `GET /v1/admin/server_status` reports `status: online`, `version: 1.2.9`, branch `main`; its `git_commit` still reports the previous on-server repo commit `db29203` until the local `v1.2.9` commit is pushed/pulled.
+4. **Hosted artifacts:** live `https://computemesh.inetconnector.com/updates/version.json` reports `version = 1.2.9` with platforms `installer-script`, `linux-x64`, `nodeos-img`, `nodeos-iso`, and `windows-x64`. Webroot hashes verified on the server: Windows `0b50f45500b3e711e53e609bc898fd73d741276e41893c4c1362fdcaa7859517` (35,250,289 bytes), Linux `35d52c496116e8f34cbc01389e0445876cfa2424c5d54eb15f3883e9aa757821` (1,343,207 bytes), installer script `da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf`; preserved NodeOS ISO `32fa381346305a8e60ded2b7b3f152fe3104650e72cc55d3a6e2fa8ba8058499`, NodeOS IMG `271c33516ebfd014507081e1e5baf145f159c7b49e1ea1ec02d0a20fff78c4e1`. `tools.security.release_signer.verify_manifest(Path("portal/updates/version.json"))` returned `True` on the server.
 5. **RPC worker process:** Webserver has `ggml-rpc-server` from `llama.cpp/b10549-cpu-x86_64` listening only on `127.0.0.1:50052`; this is not public.
 6. **Local miner discovery:** mDNS resolves `computemesh-nodeos.local` to `192.168.1.27` and `192.168.1.91`. Port scan found `192.168.1.27` with SSH/22 and dashboard/8080; `192.168.1.91` did not respond on SSH/8080 during this check.
 7. **Miner dashboard:** `http://192.168.1.27:8080/api/status` reports node `cm-inference-node-01`, interface `enp2s0`, two detected GPUs and 16 GiB total VRAM. The dashboard is reachable without SSH.
 8. **Miner SSH:** `ssh -o BatchMode=yes root@192.168.1.27 ...` fails with `Permission denied (publickey,password)` using the currently available keys. SSH access is therefore not available non-interactively from this workstation.
-9. **Miner update status:** `POST http://192.168.1.27:8080/api/action/apply_update` triggered the signed Linux update; the connection closed during restart, then polling confirmed `software.current_version = "1.2.8"` and `check_update` returns `update_available: false`.
-10. **PC update status:** no local ComputeMesh/Provider Agent process was running during the check. The hosted Windows installer was rebuilt and signed in the manifest; `AutoUpdater(current_version="1.2.7")` now detects `1.2.8` from the webserver with the new Windows hash.
+9. **Miner update status:** before deployment, `http://192.168.1.27:8080/api/status` reported `software.current_version = "1.2.8"`. After the live manifest was updated, `/api/action/check_update` returned `update_available: true`, `version: 1.2.9`, `filename: computemesh-linux-x86_64.tar.gz`; `POST /api/action/apply_update` returned `{"status":"ok","message":"Updated to v1.2.9"}`; the subsequent `/api/status` poll reports `software.current_version = "1.2.9"`.
+10. **PC update status:** no local ComputeMesh/Provider Agent process was running during the previous check. The local Windows installer was rebuilt for `1.2.9` and signed in the manifest; `AutoUpdater(current_version="1.2.8").check_for_updates()` on the PC returned an update to `1.2.9` with `is_newer = True` and Windows hash `0b50f45500b3e711e53e609bc898fd73d741276e41893c4c1362fdcaa7859517`.
 
 ### Release UI Update From 2026-08-24
 1. **NodeOS web dashboard:** added live signed-release status text, `software.current_version` in `/api/status`, footer version display, and an update button that changes to `Update auf v<version> installieren` when the webserver manifest is newer.
-2. **Windows/Linux provider apps:** bumped UI/runtime version to `1.2.8` and renamed the manual update button to `Update vom Webserver` so the PC/provider surface clearly installs the newest signed package from the webserver.
-3. **Portal and manifest:** fixed the portal Windows download URL to `/downloads/ComputeMesh-Setup-x64.exe`, rebuilt Windows and Linux artifacts, and re-signed `portal/updates/version.json` with the existing official Ed25519 key while preserving the previously verified NodeOS ISO/IMG entries.
-4. **Verification:** `python -m py_compile services/appliance_dashboard/server.py services/updater/auto_updater.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/gateway/server.py tools/security/release_signer.py` passed; `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.gateway.tests.test_gateway_server deploy.windows.tests.test_build_installer -v` ran 12 tests successfully; `git diff --check` passed.
+2. **Windows/Linux provider apps:** bumped UI/runtime version to `1.2.9`, changed provider payout messaging to state MetaMask is only an address picker, and changed demo earnings math from 85% to the current 75% provider pool after the 25% operator fee.
+3. **Portal and manifest:** updated public portal/AGB/privacy/status/i18n wording to state customer compute-credit payments run through Stripe and wallets are provider payout addresses only; rebuilt Windows and Linux artifacts; re-signed `portal/updates/version.json` as `1.2.9` with the existing official Ed25519 key while preserving the previously verified NodeOS ISO/IMG entries.
+4. **Verification:** `python -m py_compile services/appliance_dashboard/server.py services/updater/auto_updater.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/gateway/server.py tools/security/release_signer.py services/billing/ledger.py services/portal/server.py` passed; `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.gateway.tests.test_gateway_server services.billing.tests.test_ledger services.portal.tests.test_portal_server deploy.windows.tests.test_build_installer -v` ran 29 tests successfully; `python -c "from pathlib import Path; from tools.security.release_signer import verify_manifest; print(verify_manifest(Path('portal/updates/version.json')))"` returned `True`; `git diff --check` reported only line-ending warnings.
 
 ## 35. Billing / MetaMask / Stripe Audit From 2026-08-24
 
@@ -980,7 +981,7 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 2. **Provider wallet persistence:** `tools/appliance/appliance_config.py` loads/saves `WALLET_PAYOUT_ADDRESS` / `PAYOUT_ADDRESS` plus `provider_account_id` to local system/user/boot config. There is no current registration handshake that binds this payout address to a gateway ledger provider account.
 3. **Stripe customer top-up path:** `/v1/billing/checkout` returns a mock Checkout Session from `services/billing/stripe_integration.py`; `/v1/billing/webhook` accepts JSON and credits the in-memory ledger. The code does not call Stripe's real Checkout Sessions API, does not validate `Stripe-Signature`, and does not use live `STRIPE_API_KEY` / `STRIPE_WEBHOOK_SECRET` environment values on the webserver.
 4. **Direct test top-up path:** `/v1/billing/topup` is authenticated but directly credits arbitrary posted amounts. It is suitable only for tests/local demos and must be disabled or admin-gated before production use.
-5. **Crypto customer top-up path:** `services/billing/crypto_payments.py` can credit the ledger from a supplied "confirmed" USDT/USDC transaction object. No public REST endpoint, chain listener, RPC verification, token contract validation, confirmation tracking, or real deposit wallet custody exists.
+5. **Crypto customer top-up path:** `services/billing/crypto_payments.py` remains a simulated adapter only and is not the intended production purchase path. Product/UI/legal wording now states that real customer payments for compute credits must go through Stripe; MetaMask/wallets are for provider payout addresses only.
 6. **Metering and 25% operator split:** On successful `/v1/chat/completions`, `GatewayHandler` calls `Ledger.record_job_execution(...)`. The ledger debits the customer, credits `revenue:network_fee` with `DEFAULT_NETWORK_FEE_BPS = 2500` (25%), and credits the remaining 75% to `provider:{provider_id}`. Current gateway provider mapping is hardcoded to `lab-mesh-default-rig`, so real miner/provider attribution is not wired.
 7. **Operator payout destination:** `create_operator_treasury_payout(...)` can move the accumulated `revenue:network_fee` balance to `expense:settlements` and return a summary for `operator_treasury`, but no real wallet/bank transfer is executed. Live webserver env check showed `COMPUTEMESH_OPERATOR_TREASURY_WALLET`, `COMPUTEMESH_OPERATOR_FEE_BPS`, `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `COMPUTEMESH_ADMIN_KEY` all missing from the gateway unit environment.
 8. **Persistence:** The live `GatewayHandler.ledger` is constructed without `storage_path`, so customer balances, provider payables, and operator revenue are process-memory only and are lost on gateway restart.
@@ -990,9 +991,9 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 2. Remove or strictly admin-gate `/v1/billing/topup`; never let a normal bearer token self-credit funds.
 3. Add durable account storage and a durable ledger journal path/database for the gateway; wire portal registration tokens to gateway accounts instead of keeping both stores separately in memory.
 4. Add provider enrollment that binds node identity, provider ledger account, payout address, and wallet ownership proof. For EVM addresses, require a signed challenge before accepting or changing payout targets.
-5. Implement a real crypto deposit pipeline if MetaMask/customer stablecoin purchases are required: per-customer deposit addresses or a payment processor, contract allowlist, RPC/log verification, confirmations, replay protection, chain/token/decimals validation, and reconciliation against treasury balances.
-6. Implement real payout execution: Stripe Connect/SEPA for fiat providers, EVM stablecoin transfer for wallet providers, and a separate operator treasury payout executor. The operator's 25% must have an explicitly configured destination account/wallet before payout jobs can run.
-7. Correct stale user-facing text: `services/billing/README.md` and `portal/terms.html` still describe 15%-20% / 80%-85%; dashboard earnings display still applies `0.85` while the ledger default provider pool is 75%.
+5. Keep crypto deposit ingestion disabled/non-public unless product policy changes. If stablecoin purchases are reintroduced later, they should be implemented through Stripe-supported crypto/stablecoin payment methods rather than ad-hoc MetaMask transfers.
+6. Implement real payout execution: Stripe Connect/SEPA for bank payouts, optional Stripe-supported wallet/stablecoin payout where available, and a separate operator treasury payout executor. The operator's 25% must have an explicitly configured destination account before payout jobs can run.
+7. User-facing text was corrected on 2026-08-24 to state: MetaMask is only for selecting provider payout addresses for earnings from contributed compute power; all real customer payments for compute credits run through Stripe. Files updated: `portal/index.html`, `portal/docs.html`, `portal/terms.html`, `portal/privacy.html`, `portal/status.html`, `portal/portal.js`, `services/appliance_dashboard/server.py`, `tools/appliance/windows_tray_app.py`, `tools/appliance/linux_tray_app.py`, `services/billing/README.md`, `README.md`, `README.de.md`, and `docs/MONETIZATION_GUIDE.md`.
 
 ### Verification During This Audit
 1. `python -m unittest services.billing.tests.test_ledger services.billing.tests.test_stripe_integration services.billing.tests.test_crypto_payments services.gateway.tests.test_gateway_server -v` ran 27 tests successfully on 2026-08-24. These tests validate mock billing behavior and ledger math; they do not validate real Stripe, MetaMask, wallet, bank, or on-chain payment execution.

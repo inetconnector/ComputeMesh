@@ -347,7 +347,7 @@ class Ledger:
         return self._balances.get(account_id, 0)
 
     def get_platform_revenue_micro_units(self) -> int:
-        """Return the accumulated net platform revenue (15% to 20% platform margin) in micro-units."""
+        """Return the accumulated net platform revenue (default 25% platform margin) in micro-units."""
         return self.get_balance("revenue:network_fee")
 
     def get_platform_revenue_usd(self) -> float:

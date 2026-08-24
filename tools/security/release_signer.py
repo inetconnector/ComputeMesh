@@ -127,6 +127,19 @@ def sign_manifest(
     )
 
     artifacts: dict[str, dict[str, Any]] = {}
+    previous_artifacts: dict[str, dict[str, Any]] = {}
+    if output_manifest.exists():
+        try:
+            previous_manifest = json.loads(output_manifest.read_text(encoding="utf-8"))
+            raw_platforms = previous_manifest.get("platforms", {})
+            if isinstance(raw_platforms, dict):
+                previous_artifacts = {
+                    str(platform_id): artifact
+                    for platform_id, artifact in raw_platforms.items()
+                    if isinstance(artifact, dict)
+                }
+        except json.JSONDecodeError:
+            previous_artifacts = {}
 
     targets = {
         "windows-x64": "ComputeMesh-Setup-x64.exe",
@@ -147,6 +160,8 @@ def sign_manifest(
                 "sha256": sha,
                 "size_bytes": size,
             }
+        elif platform_id in previous_artifacts:
+            artifacts[platform_id] = previous_artifacts[platform_id]
 
     manifest_data = {
         "version": version,
@@ -196,7 +211,7 @@ def verify_manifest(manifest_path: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="ComputeMesh Cryptographic Release Signer")
-    parser.add_argument("--version", default="1.2.8", help="Release version string")
+    parser.add_argument("--version", default="1.2.9", help="Release version string")
     parser.add_argument("--downloads-dir", default="portal/downloads", help="Directory containing release binaries")
     parser.add_argument("--output", default="portal/updates/version.json", help="Output path for signed manifest")
     args = parser.parse_args()

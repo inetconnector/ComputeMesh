@@ -142,6 +142,8 @@ Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identit
 
 There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no automatic authenticated evidence transfer/attestation between machines, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, no billing/verification/telemetry product stack, and no signed production release/update pipeline.
 
+Payment boundary: the intended real-money purchase path for compute credits is Stripe. MetaMask/EVM wallet handling in the current provider UI is only for selecting a provider payout destination address for earnings from contributed compute power; wallets are not used to buy compute credits or to charge customers.
+
 ## Immediate path
 
 ```text

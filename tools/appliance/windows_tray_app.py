@@ -161,7 +161,7 @@ class ComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.8"
+        self.version = "1.2.9"
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 
@@ -483,8 +483,8 @@ class ComputeMeshProviderApp:
         payout_frame = ttk.Frame(self.root, style="Card.TFrame", padding=12)
         payout_frame.pack(fill="x", padx=20, pady=(0, 10))
 
-        ttk.Label(payout_frame, text="Payout & Earnings Settlement", font=("Inter", 10, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 2))
-        ttk.Label(payout_frame, text="Enter your Ethereum/Polygon wallet address (0x...) or connect MetaMask for automated settlements.", font=("Inter", 8), foreground="#9ca3af", background="#111827").pack(anchor="w", pady=(0, 6))
+        ttk.Label(payout_frame, text="Provider Payout Address & Earnings", font=("Inter", 10, "bold"), foreground="#00f2fe", background="#111827").pack(anchor="w", pady=(0, 2))
+        ttk.Label(payout_frame, text="Enter the 0x payout address for compute earnings. MetaMask only selects the address; customer payments run through Stripe.", font=("Inter", 8), foreground="#9ca3af", background="#111827").pack(anchor="w", pady=(0, 6))
 
         row_payout = ttk.Frame(payout_frame, style="Card.TFrame")
         row_payout.pack(fill="x")
@@ -717,7 +717,7 @@ class ComputeMeshProviderApp:
             cfg_data["payout_address"] = wallet
             cfg_data["updated_at"] = datetime.now(timezone.utc).isoformat()
             cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
-            self.lbl_wallet_status.config(text=f"✓ Wallet address saved securely to local node configuration.", foreground="#10b981")
+            self.lbl_wallet_status.config(text="✓ Provider payout address saved. Customer payments run through Stripe.", foreground="#10b981")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save wallet: {e}")
 
@@ -740,7 +740,7 @@ class ComputeMeshProviderApp:
         import webbrowser
         webbrowser.open(f"http://localhost:{self.dashboard_port}/?action=metamask#config")
         self.lbl_wallet_status.config(
-            text="🦊 MetaMask-Verbindung im Browser geöffnet — Bestätige die Auswahl in MetaMask!",
+            text="🦊 MetaMask im Browser geöffnet — nur Auszahlungsadresse auswählen; Zahlungen laufen über Stripe.",
             foreground="#00f2fe"
         )
 
@@ -824,7 +824,7 @@ class ComputeMeshProviderApp:
             if self.is_running:
                 # Simulate token processing and ledger earnings
                 self.total_tokens_served += 45
-                self.total_earnings_usd += (45 * 0.00000085)  # $0.85 per 1M tokens reward
+                self.total_earnings_usd += (45 * 0.00000075)  # $0.75 per 1M tokens after 25% operator fee
                 try:
                     self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
                     self.lbl_earnings.config(text=f"${self.total_earnings_usd:.4f}")

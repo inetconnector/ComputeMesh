@@ -229,10 +229,10 @@
             <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Estimated Monthly Earnings</div>
             <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$145.00 / Mo</div>
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" data-i18n="lbl_payout_note">
-              Instant Crypto (USDC/USDT) or SEPA Bank Transfer via Stripe Express from $25
+              Stripe-backed payouts from $25; MetaMask only sets a provider payout address
             </div>
             <div style="margin-top: 0.5rem; padding: 0.6rem 0.85rem; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-sm); font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); text-align: left;" data-i18n="lbl_provider_threshold_info">
-              💡 <strong>2-Tier Payout System:</strong> Real-time on-ledger accounting per token. Once your balance reaches $25.00, receive automated crypto payouts directly to your 0x... wallet, or activate SEPA bank transfers via our certified Stripe Express portal (with automatic bank verification).
+              💡 <strong>Provider earnings:</strong> Real-time on-ledger accounting per token. Customer payments are handled through Stripe. Your 0x... wallet is only a payout destination for earnings from provided compute power.
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@
                 <li>✓ Full access to Llama 3.1 70B & Qwen 2.5</li>
                 <li>✓ Instant OpenAI SDK drop-in</li>
                 <li>✓ Prepaid deposit tiers: $10, $50, $250, $1,000</li>
-                <li>✓ Stripe, Credit Card & Crypto (USDT)</li>
+                <li>✓ Stripe Checkout: card, SEPA, Link, Apple Pay</li>
                 <li>✓ 80% cheaper than AWS / OpenAI</li>
               </ul>
             </div>
@@ -403,9 +403,9 @@ response = client.chat.completions.create(
         </div>
 
         <div class="form-group">
-          <label data-i18n="modal_wallet_lbl">Payout Wallet (Optional)</label>
+          <label data-i18n="modal_wallet_lbl">Provider Payout Wallet (Optional)</label>
           <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum / Polygon / Arbitrum)">
-          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers: Enter your EVM crypto wallet address (0x... from MetaMask, Rabby, or exchange for instant USDC/USDT payouts). If you prefer SEPA bank transfers in EUR, you can leave this empty and connect your verified bank account via Stripe Express once you reach the $25 payout threshold.</small>
+          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers only: enter the 0x address that should receive earnings from contributed compute power. MetaMask is only an address picker here. Buying compute credits and all customer payments are handled through Stripe.</small>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
@@ -426,7 +426,7 @@ response = client.chat.completions.create(
     <div class="modal-box">
       <button class="modal-close" onclick="closeDepositModal()">&times;</button>
       <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Top Up Compute Credits</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Purchase prepaid micro-credits via instant Stripe Checkout (Credit Card, SEPA, Apple Pay).</p>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Purchase prepaid micro-credits through Stripe Checkout. Wallets are not charged by ComputeMesh.</p>
 
       <form onsubmit="handleDepositSubmit(event)">
         <div class="form-group">
