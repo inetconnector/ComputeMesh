@@ -430,11 +430,13 @@ class SettlementExecutor:
         )
         self.account_store.upsert_settlement(pending)
 
+        settlement_currency = os.environ.get("COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY", "usd").strip().lower() or "usd"
         transfer_id = self.stripe_connect.transfer_to_connected_account(
             settlement_id=settlement_id,
             provider_node_id=provider_node_id,
             amount_micro_units=balance,
             stripe_connected_account_id=provider.stripe_connected_account_id,
+            currency=settlement_currency,
         )
         tx, _summary = self.ledger.create_provider_payout(
             provider_node_id=provider_node_id,

@@ -26,6 +26,7 @@ Du kannst die prozentuale Marge und deine Auszahlungsadresse flexibel über Umge
 | `MINIMUM_PAYOUT_MICRO_UNITS` | `25_000_000` ($25.00) | Mindestbetrag für automatisierte Settlement-Überweisungen. |
 | `COMPUTEMESH_ACCOUNT_STORE_PATH` | leer | SQLite-State für Provider-Konten, Stripe-Webhook-Inbox und Settlement-Records. Für professionelle Stripe-Connect-Auszahlungen erforderlich. |
 | `COMPUTEMESH_STRIPE_CONNECT_API` | `v2` auf aktuellen Stripe-Sandbox-Konten | Aktiviert Stripe Accounts v2 / Express Recipient Onboarding für Provider-Auszahlungen. |
+| `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` | `usd` | Stripe-Transferwährung für Provider-Settlements. Für das aktuelle deutsche Stripe-Sandboxkonto wird `eur` verwendet, weil die verfügbare Plattform-Testbalance in EUR liegt. |
 
 #### 3. Wie kommst du an dein Geld (Auszahlung)?
 1. **Automatische Ansammlung:** Bei jedem API-Aufruf (z. B. via OpenAI-kompatiblen Endpoint `/v1/chat/completions`) zahlen Entwickler/Kunden z. B. $0.20 pro 1M Tokens. Davon fließen **$0.05 (25%)** direkt in deinen Betreiber-Pool und **$0.15 (75%)** an die GPUs.
@@ -51,6 +52,7 @@ All financial splits are executed with micro-unit precision ($1.00 = 1,000,000$ 
 * `COMPUTEMESH_OPERATOR_TREASURY_WALLET`: Optional internal ledger target for operator settlement reports. Real customer payments must be processed through Stripe; wallets are not used to pull funds from customers.
 * `COMPUTEMESH_ACCOUNT_STORE_PATH`: SQLite operational state for provider accounts, Stripe webhook inbox events, and settlement records. Required for Stripe Connect provider payouts.
 * `COMPUTEMESH_STRIPE_CONNECT_API`: Set to `v2` for current Stripe Accounts v2 / Express recipient provider onboarding.
+* `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`: Stripe Transfer currency for provider settlements. The default is `usd`; the current German Stripe sandbox smoke uses `eur` because the available platform test balance is EUR.
 
 #### 3. Treasury Payout
 * Providers onboard through Stripe Connect and are paid through idempotent Stripe Transfers before their internal `provider:{node_id}` payable is cleared.

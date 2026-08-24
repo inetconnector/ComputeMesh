@@ -1,7 +1,9 @@
 """Tests for durable provider accounts, webhook inbox, and Stripe Connect settlements."""
 from pathlib import Path
+import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
@@ -356,6 +358,39 @@ class TestAccountingAndSettlement(unittest.TestCase):
         self.assertEqual(self.fake_stripe.Transfer.created[0]["idempotency_key"], f"computemesh:{settlement.settlement_id}")
         self.assertEqual(self.ledger.get_balance("provider:node_ready"), 0)
         self.assertEqual(self.ledger.reconcile()["status"], "balanced")
+
+    def test_provider_settlement_uses_configured_stripe_currency(self) -> None:
+        provider = self.account_store.upsert_provider(provider_node_id="node_ready_eur")
+        self.account_store.attach_stripe_account(
+            provider_node_id=provider.provider_node_id,
+            stripe_connected_account_id="acct_ready_eur",
+        )
+        self.account_store.update_stripe_account_status(
+            provider_node_id=provider.provider_node_id,
+            onboarding_status="ready",
+            charges_enabled=True,
+            payouts_enabled=True,
+            details_submitted=True,
+        )
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_settle_eur",
+            amount_micro_units=50_000_000,
+            payment_reference="dep_settle_eur",
+        )
+        self.ledger.record_job_execution(
+            job_id="job_settle_eur",
+            customer_account_id="cust_settle_eur",
+            provider_shares=[("node_ready_eur", 1.0)],
+            model_id="llama/llama-3.1-70b-instruct",
+            prompt_tokens=15000,
+            completion_tokens=15000,
+        )
+
+        with patch.dict(os.environ, {"COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY": "eur"}):
+            settlement = self.executor.run_provider_settlement(provider_node_id="node_ready_eur")
+
+        self.assertEqual(settlement.status, "completed")
+        self.assertEqual(self.fake_stripe.Transfer.created[0]["currency"], "eur")
 
 
 if __name__ == "__main__":

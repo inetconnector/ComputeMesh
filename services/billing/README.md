@@ -59,6 +59,8 @@ If multiple Stripe event destinations post to the same gateway URL, set `COMPUTE
 
 Stripe Connect provider settlement additionally requires `COMPUTEMESH_ACCOUNT_STORE_PATH` and a Stripe account with Connect enabled. Provider transfers are created with deterministic idempotency keys derived from the ComputeMesh settlement ID; the internal provider payable is cleared only after the Stripe transfer returns an ID.
 
+Set `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` when the platform's available Stripe balance is in a different test/live currency than the ledger's nominal display unit. The default remains `usd`; the current German Stripe sandbox settlement smoke uses `eur`.
+
 For current Stripe sandbox accounts, set `COMPUTEMESH_STRIPE_CONNECT_API=v2` so provider onboarding uses the Accounts v2 `/v2/core/accounts` and `/v2/core/account_links` API with `COMPUTEMESH_STRIPE_V2_API_VERSION` defaulting to `2026-07-29.preview`. The v1 SDK path remains only as a compatibility fallback for older Stripe accounts that still permit Accounts v1 creation.
 
 Stripe Connect onboarding cannot be completed with placeholder legal data. For a German UG, finish company formation and registration first, then provide the exact legal company name, commercial-register number, address, representative/KYC data, and payout bank details in Stripe before expecting `payouts_enabled=true`.

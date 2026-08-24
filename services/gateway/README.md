@@ -47,6 +47,7 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - optional `COMPUTEMESH_ACCOUNT_STORE_PATH` for durable provider accounts, webhook event inbox state, and settlement records
 - optional `COMPUTEMESH_STRIPE_CONNECT_API=v2` for Stripe Accounts v2 provider onboarding
 - optional `COMPUTEMESH_STRIPE_V2_API_VERSION` for the Stripe Accounts v2 preview API version, defaulting to `2026-07-29.preview`
+- optional `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, defaulting to `usd`, for Stripe Connect Transfers when the platform Stripe balance settles in another currency such as `eur`
 - optional `COMPUTEMESH_PROVIDER_SHARES` as `provider_id:ratio,provider_id:ratio` for operator-controlled metering attribution before the scheduler supplies runtime provider shares
 - optional `COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID`, defaulting to `lab-mesh-default-rig`, when no provider-share list is configured
 
