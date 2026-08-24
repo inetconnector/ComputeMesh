@@ -272,6 +272,13 @@ class StripePaymentService:
             "currency": currency,
             "product": "computemesh_prepaid_compute_credits",
         }
+        product_data = {
+            "name": "ComputeMesh prepaid compute credits",
+            "metadata": metadata,
+        }
+        product_tax_code = os.environ.get("COMPUTEMESH_STRIPE_PRODUCT_TAX_CODE", "").strip()
+        if product_tax_code:
+            product_data["tax_code"] = product_tax_code
 
         params = {
             "mode": "payment",
@@ -285,10 +292,7 @@ class StripePaymentService:
                     "price_data": {
                         "currency": currency,
                         "unit_amount": amount_cents,
-                        "product_data": {
-                            "name": "ComputeMesh prepaid compute credits",
-                            "metadata": metadata,
-                        },
+                        "product_data": product_data,
                     },
                     "quantity": 1,
                 }
