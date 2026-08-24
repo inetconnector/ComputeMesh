@@ -33,7 +33,7 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - `GET /v1/providers/status`: Provider-authenticated account and payable-balance status.
 - `GET /v1/admin/providers`: Admin-only provider account and payable-balance listing.
 - `GET /v1/admin/settlements`: Admin-only settlement record listing with optional `status` and `limit` query parameters.
-- `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect.
+- `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect. Settlement records include the Stripe Transfer currency.
 
 ## Stripe Runtime Configuration
 

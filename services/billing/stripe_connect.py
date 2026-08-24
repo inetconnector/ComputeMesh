@@ -414,6 +414,7 @@ class SettlementExecutor:
                 f"provider balance {balance} below minimum payout threshold {MINIMUM_PAYOUT_MICRO_UNITS}"
             )
 
+        settlement_currency = os.environ.get("COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY", "usd").strip().lower() or "usd"
         settlement_id = f"settle_provider_{provider_node_id}_{balance}"
         now = utc_now()
         pending = SettlementRecord(
@@ -422,6 +423,7 @@ class SettlementExecutor:
             account_id=provider_node_id,
             amount_micro_units=balance,
             amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
+            currency=settlement_currency,
             stripe_connected_account_id=provider.stripe_connected_account_id,
             destination=provider.payout_wallet_address or provider.stripe_connected_account_id,
             status="pending",
@@ -430,7 +432,6 @@ class SettlementExecutor:
         )
         self.account_store.upsert_settlement(pending)
 
-        settlement_currency = os.environ.get("COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY", "usd").strip().lower() or "usd"
         transfer_id = self.stripe_connect.transfer_to_connected_account(
             settlement_id=settlement_id,
             provider_node_id=provider_node_id,
@@ -449,6 +450,7 @@ class SettlementExecutor:
             account_id=provider_node_id,
             amount_micro_units=balance,
             amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
+            currency=settlement_currency,
             ledger_tx_id=tx.tx_id,
             stripe_transfer_id=transfer_id,
             stripe_connected_account_id=provider.stripe_connected_account_id,

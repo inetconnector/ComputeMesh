@@ -32,7 +32,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 - `StripePaymentService`: Creates Stripe Checkout Sessions through the official Stripe SDK and credits deposits only after signed Checkout webhook verification. Purchased compute credits come from Checkout metadata/session reconciliation; tax-inclusive Stripe totals are not treated as extra compute balance.
 - `StripeSessionStore`: JSON-backed reconciliation store for Stripe session/customer/payment-intent IDs.
 - `StripeConnectService`: Creates Stripe Express recipient connected accounts, onboarding links, and idempotent transfers to connected accounts.
-- `SettlementExecutor`: Coordinates Stripe Connect account status refresh, transfers, and internal provider-payable ledger clearing.
+- `SettlementExecutor`: Coordinates Stripe Connect account status refresh, currency-explicit transfers, and internal provider-payable ledger clearing.
 - `deposit_customer_credits(...)`: Top-up prepaid balance.
 - `record_job_execution(...)`: Debits customer and credits provider(s) + network pool.
 - `create_provider_payout(...)`: Internal withdrawal settlement entry for eligible balances after the Stripe Connect transfer path succeeds.

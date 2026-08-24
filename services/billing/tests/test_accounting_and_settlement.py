@@ -352,6 +352,7 @@ class TestAccountingAndSettlement(unittest.TestCase):
         self.assertGreaterEqual(payable, 25_000_000)
         settlement = self.executor.run_provider_settlement(provider_node_id="node_ready")
         self.assertEqual(settlement.status, "completed")
+        self.assertEqual(settlement.currency, "usd")
         self.assertEqual(settlement.amount_micro_units, payable)
         self.assertEqual(settlement.stripe_transfer_id, "tr_test_001")
         self.assertEqual(self.fake_stripe.Transfer.created[0]["destination"], "acct_ready_001")
@@ -390,6 +391,7 @@ class TestAccountingAndSettlement(unittest.TestCase):
             settlement = self.executor.run_provider_settlement(provider_node_id="node_ready_eur")
 
         self.assertEqual(settlement.status, "completed")
+        self.assertEqual(settlement.currency, "eur")
         self.assertEqual(self.fake_stripe.Transfer.created[0]["currency"], "eur")
 
 

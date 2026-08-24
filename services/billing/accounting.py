@@ -48,6 +48,7 @@ class SettlementRecord:
     account_id: str
     amount_micro_units: int
     amount_usd: float
+    currency: str = "usd"
     ledger_tx_id: str = ""
     stripe_transfer_id: str = ""
     stripe_connected_account_id: str = ""
@@ -138,6 +139,7 @@ class AccountingStore:
                     account_id TEXT NOT NULL,
                     amount_micro_units INTEGER NOT NULL,
                     amount_usd REAL NOT NULL,
+                    currency TEXT NOT NULL DEFAULT 'usd',
                     ledger_tx_id TEXT NOT NULL DEFAULT '',
                     stripe_transfer_id TEXT NOT NULL DEFAULT '',
                     stripe_connected_account_id TEXT NOT NULL DEFAULT '',
@@ -153,6 +155,12 @@ class AccountingStore:
                 "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
             )
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(settlement_records)").fetchall()
+            }
+            if "currency" not in columns:
+                conn.execute("ALTER TABLE settlement_records ADD COLUMN currency TEXT NOT NULL DEFAULT 'usd'")
 
     def upsert_provider(
         self,
@@ -383,11 +391,12 @@ class AccountingStore:
                 """
                 INSERT INTO settlement_records(
                     settlement_id, account_kind, account_id, amount_micro_units,
-                    amount_usd, ledger_tx_id, stripe_transfer_id,
+                    amount_usd, currency, ledger_tx_id, stripe_transfer_id,
                     stripe_connected_account_id, destination, status, error,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(settlement_id) DO UPDATE SET
+                    currency = excluded.currency,
                     ledger_tx_id = excluded.ledger_tx_id,
                     stripe_transfer_id = excluded.stripe_transfer_id,
                     stripe_connected_account_id = excluded.stripe_connected_account_id,
@@ -402,6 +411,7 @@ class AccountingStore:
                     record.account_id,
                     record.amount_micro_units,
                     record.amount_usd,
+                    record.currency.lower(),
                     record.ledger_tx_id,
                     record.stripe_transfer_id,
                     record.stripe_connected_account_id,
@@ -466,6 +476,7 @@ class AccountingStore:
             account_id=row["account_id"],
             amount_micro_units=int(row["amount_micro_units"]),
             amount_usd=float(row["amount_usd"]),
+            currency=row["currency"],
             ledger_tx_id=row["ledger_tx_id"],
             stripe_transfer_id=row["stripe_transfer_id"],
             stripe_connected_account_id=row["stripe_connected_account_id"],
