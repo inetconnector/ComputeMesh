@@ -53,6 +53,55 @@ class FakeStripeClient:
         self.Transfer = FakeTransferAPI()
 
 
+class FakeV2StripeConnectService(StripeConnectService):
+    def __init__(self) -> None:
+        super().__init__(stripe_api_key="sk_test_v2", stripe_client=FakeStripeClient())
+        self.connect_api_mode = "v2"
+        self.requests = []
+        self.transfer_status = "restricted"
+
+    def _stripe_v2_request(self, method, path, *, payload=None):
+        self.requests.append((method, path, payload))
+        if method == "POST" and path == "/v2/core/accounts":
+            return {
+                "id": "acct_v2_test_001",
+                "configuration": {
+                    "recipient": {
+                        "capabilities": {
+                            "stripe_balance": {
+                                "stripe_transfers": {
+                                    "requested": True,
+                                    "status": self.transfer_status,
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        if method == "POST" and path == "/v2/core/account_links":
+            return {
+                "url": f"https://connect.stripe.com/setup/e/{payload['account']}",
+                "expires_at": "2026-08-24T12:00:00Z",
+            }
+        if method == "GET" and path.startswith("/v2/core/accounts/acct_v2_test_001"):
+            return {
+                "id": "acct_v2_test_001",
+                "configuration": {
+                    "recipient": {
+                        "capabilities": {
+                            "stripe_balance": {
+                                "stripe_transfers": {
+                                    "requested": True,
+                                    "status": self.transfer_status,
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        raise AssertionError(f"unexpected Stripe v2 request: {method} {path}")
+
+
 class TestAccountingAndSettlement(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -91,6 +140,59 @@ class TestAccountingAndSettlement(unittest.TestCase):
             return_url="https://example.test/return",
         )
         self.assertIn(provider.stripe_connected_account_id, link.onboarding_url)
+
+    def test_accounts_v2_provider_registration_and_connect_onboarding_link(self) -> None:
+        stripe_connect = FakeV2StripeConnectService()
+        executor = SettlementExecutor(
+            ledger=self.ledger,
+            account_store=self.account_store,
+            stripe_connect=stripe_connect,
+        )
+
+        provider = executor.create_or_refresh_provider_connect_account(
+            provider_node_id="node_settle_v2",
+            display_name="Test Rig V2",
+            email="provider-v2@example.test",
+            country="DE",
+        )
+        self.assertEqual(provider.stripe_connected_account_id, "acct_v2_test_001")
+        self.assertEqual(provider.stripe_onboarding_status, "needs_onboarding")
+        account_payload = stripe_connect.requests[0][2]
+        self.assertEqual(stripe_connect.requests[0][0:2], ("POST", "/v2/core/accounts"))
+        self.assertEqual(account_payload["dashboard"], "express")
+        self.assertEqual(account_payload["identity"]["country"], "de")
+        self.assertEqual(
+            account_payload["configuration"]["recipient"]["capabilities"]["stripe_balance"]["stripe_transfers"]["requested"],
+            True,
+        )
+
+        link = executor.create_provider_onboarding_link(
+            provider_node_id="node_settle_v2",
+            refresh_url="https://example.test/refresh",
+            return_url="https://example.test/return",
+        )
+        self.assertIn("acct_v2_test_001", link.onboarding_url)
+        self.assertEqual(link.expires_at, "2026-08-24T12:00:00Z")
+
+    def test_accounts_v2_refresh_marks_provider_ready(self) -> None:
+        stripe_connect = FakeV2StripeConnectService()
+        provider = self.account_store.upsert_provider(provider_node_id="node_settle_v2_ready")
+        self.account_store.attach_stripe_account(
+            provider_node_id=provider.provider_node_id,
+            stripe_connected_account_id="acct_v2_test_001",
+        )
+        executor = SettlementExecutor(
+            ledger=self.ledger,
+            account_store=self.account_store,
+            stripe_connect=stripe_connect,
+        )
+
+        stripe_connect.transfer_status = "active"
+        refreshed = executor.refresh_provider_connect_status(provider_node_id=provider.provider_node_id)
+
+        self.assertEqual(refreshed.stripe_onboarding_status, "ready")
+        self.assertTrue(refreshed.payouts_enabled)
+        self.assertTrue(refreshed.details_submitted)
 
     def test_webhook_event_inbox_marks_processed_and_blocks_duplicates(self) -> None:
         payload = {"id": "evt_test_001", "type": "checkout.session.completed"}

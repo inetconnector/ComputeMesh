@@ -16,7 +16,7 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
 - **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY` and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
 - **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header, normalizing Stripe SDK event objects before ledger processing.
-- **Stripe Connect Provider Settlement:** Registers provider payout accounts, creates Stripe Express onboarding links, and lets admins run idempotent provider settlements that transfer funds before clearing provider payables in the ledger.
+- **Stripe Connect Provider Settlement:** Registers Stripe Accounts v2 Express recipient payout accounts, creates onboarding links, and lets admins run idempotent provider settlements that transfer funds before clearing provider payables in the ledger.
 
 ## Endpoints
 
@@ -44,12 +44,14 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - `STRIPE_WEBHOOK_SECRET` for signed webhook crediting
 - optional `COMPUTEMESH_GATEWAY_LEDGER_PATH` for durable gateway ledger storage
 - optional `COMPUTEMESH_ACCOUNT_STORE_PATH` for durable provider accounts, webhook event inbox state, and settlement records
+- optional `COMPUTEMESH_STRIPE_CONNECT_API=v2` for Stripe Accounts v2 provider onboarding
+- optional `COMPUTEMESH_STRIPE_V2_API_VERSION` for the Stripe Accounts v2 preview API version, defaulting to `2026-07-29.preview`
 
 If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs. Webhook crediting remains fail-closed until `STRIPE_WEBHOOK_SECRET` is configured.
 
 Stripe Checkout tax totals are handled as payment/tax settlement data, not extra customer compute credit. The ledger credits the purchased compute-credit amount recorded in Checkout metadata and the durable session store.
 
-Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path also accepts `account.updated` events to keep provider Connect readiness in sync when the webhook endpoint is subscribed to that event type.
+Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` events to keep provider Connect readiness in sync when the webhook endpoint is subscribed to that event type; Accounts v2 requirement events should be added to the Stripe event destination before production.
 
 ## Test Suite
 

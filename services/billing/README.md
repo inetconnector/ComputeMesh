@@ -14,7 +14,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 - Multi-provider proportional reward allocation for distributed pipeline execution.
 - Minimum payout threshold accounting ($25.00 / 25,000,000 micro-units) and settlement summary export.
 - Customer compute-credit purchases are processed through the Stripe-backed Checkout/Webhook integration when live Stripe environment values are configured; wallet addresses are provider payout destinations only.
-- Stripe Connect provider payout execution with durable provider accounts, onboarding state, settlement records, transfer idempotency, and ledger payable clearing.
+- Stripe Connect Accounts v2 provider payout onboarding with durable provider accounts, onboarding state, settlement records, transfer idempotency, and ledger payable clearing.
 - Stripe webhook event inbox persistence for event-level idempotency and retry visibility, including `account.updated` Connect status updates.
 - Full ledger reconciliation audit verifying zero float drift and zero imbalance across all accounts.
 
@@ -31,7 +31,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 - `AccountingStore`: SQLite operational store for provider accounts, Stripe webhook event inbox state, and settlement records.
 - `StripePaymentService`: Creates Stripe Checkout Sessions through the official Stripe SDK and credits deposits only after signed Checkout webhook verification. Purchased compute credits come from Checkout metadata/session reconciliation; tax-inclusive Stripe totals are not treated as extra compute balance.
 - `StripeSessionStore`: JSON-backed reconciliation store for Stripe session/customer/payment-intent IDs.
-- `StripeConnectService`: Creates Stripe Express connected accounts, onboarding links, and idempotent transfers to connected accounts.
+- `StripeConnectService`: Creates Stripe Express recipient connected accounts, onboarding links, and idempotent transfers to connected accounts.
 - `SettlementExecutor`: Coordinates Stripe Connect account status refresh, transfers, and internal provider-payable ledger clearing.
 - `deposit_customer_credits(...)`: Top-up prepaid balance.
 - `record_job_execution(...)`: Debits customer and credits provider(s) + network pool.
@@ -56,3 +56,5 @@ Live Checkout requires:
 Signed ledger crediting from `/v1/billing/webhook` additionally requires `STRIPE_WEBHOOK_SECRET`. The endpoint must receive the exact raw Stripe request body and the `Stripe-Signature` header. Parsed or reformatted JSON is rejected before ledger crediting.
 
 Stripe Connect provider settlement additionally requires `COMPUTEMESH_ACCOUNT_STORE_PATH` and a Stripe account with Connect enabled. Provider transfers are created with deterministic idempotency keys derived from the ComputeMesh settlement ID; the internal provider payable is cleared only after the Stripe transfer returns an ID.
+
+For current Stripe sandbox accounts, set `COMPUTEMESH_STRIPE_CONNECT_API=v2` so provider onboarding uses the Accounts v2 `/v2/core/accounts` and `/v2/core/account_links` API with `COMPUTEMESH_STRIPE_V2_API_VERSION` defaulting to `2026-07-29.preview`. The v1 SDK path remains only as a compatibility fallback for older Stripe accounts that still permit Accounts v1 creation.
