@@ -142,7 +142,7 @@ Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Iden
 
 Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keine automatische authentifizierte Evidenzübertragung/-Attestation zwischen Rechnern, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte, keinen fertigen Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
 
-Payment-Grenze: Der vorgesehene Real-Money-Pfad für den Kauf von Rechenguthaben ist Stripe. MetaMask/EVM-Wallets dienen in der aktuellen Provider-Oberfläche nur dazu, eine Auszahlungsadresse für Einnahmen aus bereitgestellter Rechenleistung festzulegen; Wallets werden nicht zum Kauf von Rechenguthaben oder zum Belasten von Kunden verwendet.
+Payment-Grenze: Der vorgesehene Real-Money-Pfad für den Kauf von Rechenguthaben ist Stripe. Der Gateway besitzt jetzt einen fail-closed Stripe-Checkout-/Webhook-Pfad, der bei Konfiguration von `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` und einem dauerhaften `COMPUTEMESH_STRIPE_SESSION_STORE` das offizielle Stripe-SDK nutzt; ohne diese Werte werden keine Fake-Live-Checkout-URLs ausgegeben. MetaMask/EVM-Wallets dienen in der aktuellen Provider-Oberfläche nur dazu, eine Auszahlungsadresse für Einnahmen aus bereitgestellter Rechenleistung festzulegen; Wallets werden nicht zum Kauf von Rechenguthaben oder zum Belasten von Kunden verwendet.
 
 ## Unmittelbarer Ablauf
 

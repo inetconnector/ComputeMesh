@@ -42,6 +42,15 @@ DEFAULT_PORT = 8000
 MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB payload limit
 
 
+def _build_ledger_from_env() -> Ledger:
+    storage_path = os.environ.get("COMPUTEMESH_GATEWAY_LEDGER_PATH", "").strip()
+    return Ledger(storage_path=Path(storage_path) if storage_path else None)
+
+
+def _build_stripe_service(ledger: Ledger) -> StripePaymentService:
+    return StripePaymentService.from_env(ledger=ledger)
+
+
 @dataclass(frozen=True)
 class ModelEntry:
     id: str
@@ -60,8 +69,8 @@ AVAILABLE_MODELS: list[ModelEntry] = [
 
 
 class GatewayHandler(BaseHTTPRequestHandler):
-    ledger: Ledger = Ledger()
-    stripe_svc: StripePaymentService = StripePaymentService(ledger=ledger)
+    ledger: Ledger = _build_ledger_from_env()
+    stripe_svc: StripePaymentService = _build_stripe_service(ledger)
     metrics: MetricsRegistry = MetricsRegistry()
     # Mock account store: api_key -> account_id
     api_keys: dict[str, str] = {
@@ -142,6 +151,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         raw_data = self.rfile.read(length) if length > 0 else b"{}"
+        if clean_path == "/v1/billing/webhook":
+            try:
+                result = self.stripe_svc.process_webhook_payload(
+                    raw_payload=raw_data,
+                    signature_header=self.headers.get("Stripe-Signature"),
+                )
+                self._send_json(result)
+            except StripeIntegrationError as exc:
+                self._send_error_response(str(exc), "webhook_error", HTTPStatus.BAD_REQUEST)
+            return
+
         try:
             body = json.loads(raw_data.decode("utf-8"))
         except Exception:
@@ -149,7 +169,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path == "/v1/billing/topup":
-            # Mock top-up endpoint for testing
+            if os.environ.get("COMPUTEMESH_ALLOW_TEST_TOPUP", "").strip() != "1" and not self._authenticate_admin():
+                return
             account_id = self._authenticate()
             if not account_id:
                 return
@@ -187,15 +208,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 })
             except StripeIntegrationError as exc:
                 self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-
-        if clean_path == "/v1/billing/webhook":
-            # Stripe Webhook handler
-            try:
-                result = self.stripe_svc.process_webhook_event(payload=body)
-                self._send_json(result)
-            except StripeIntegrationError as exc:
-                self._send_error_response(str(exc), "webhook_error", HTTPStatus.BAD_REQUEST)
             return
 
         if clean_path == "/v1/chat/completions":

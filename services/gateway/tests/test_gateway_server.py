@@ -1,18 +1,66 @@
 """Unit tests for ComputeMesh OpenAI-Compatible Streaming API Gateway."""
 from http.server import ThreadingHTTPServer
 import json
+from pathlib import Path
+import tempfile
 import threading
 import time
 import unittest
 import urllib.error
 import urllib.request
 
+from services.billing.ledger import Ledger
+from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
 from services.gateway.server import GatewayHandler
+
+
+class FakeCheckoutSessionAPI:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def create(self, **params):
+        self.calls.append(params)
+        return {
+            "id": "cs_test_gateway_001",
+            "url": "https://checkout.stripe.com/c/pay/cs_test_gateway_001",
+            "customer": "cus_gateway_001",
+            "payment_intent": "pi_gateway_001",
+            "livemode": False,
+        }
+
+
+class FakeStripeClient:
+    def __init__(self) -> None:
+        self.checkout_session_api = FakeCheckoutSessionAPI()
+        self.checkout = type("Checkout", (), {})()
+        self.checkout.Session = self.checkout_session_api
+
+
+def trusted_json_verifier(raw_payload: bytes, signature_header: str, endpoint_secret: str):
+    if signature_header != "t=123,v1=testsig":
+        raise ValueError("invalid test signature")
+    if endpoint_secret != "whsec_gateway_test":
+        raise ValueError("invalid endpoint secret")
+    return json.loads(raw_payload.decode("utf-8"))
 
 
 class TestGatewayServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        cls.tempdir = tempfile.TemporaryDirectory()
+        GatewayHandler.ledger = Ledger()
+        GatewayHandler.stripe_svc = StripePaymentService(
+            ledger=GatewayHandler.ledger,
+            webhook_secret="whsec_gateway_test",
+            stripe_api_key="sk_test_gateway",
+            session_store=StripeSessionStore(Path(cls.tempdir.name) / "stripe_sessions.json"),
+            stripe_client=FakeStripeClient(),
+            webhook_verifier=trusted_json_verifier,
+            require_live_configuration=True,
+        )
+        GatewayHandler.api_keys = {
+            "cm_live_default_test_key": "cust_test_default",
+        }
         cls.server = ThreadingHTTPServer(("127.0.0.1", 18000), GatewayHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -22,6 +70,7 @@ class TestGatewayServer(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.server.shutdown()
         cls.server.server_close()
+        cls.tempdir.cleanup()
 
     def test_healthz(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:18000/healthz") as resp:
@@ -136,17 +185,31 @@ class TestGatewayServer(unittest.TestCase):
                     "object": {
                         "id": session_id,
                         "amount_total": 5000,
+                        "currency": "usd",
+                        "payment_status": "paid",
                         "client_reference_id": cust_account_id,
+                        "customer": "cus_gateway_001",
+                        "payment_intent": "pi_gateway_001",
                     }
                 },
             }).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Stripe-Signature": "t=123,v1=testsig"},
         )
         with urllib.request.urlopen(webhook_req) as resp:
             self.assertEqual(resp.status, 200)
             wh_data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(wh_data["status"], "credited")
             self.assertEqual(wh_data["amount_usd"], 50.00)
+
+    def test_billing_webhook_rejects_missing_signature(self) -> None:
+        webhook_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/billing/webhook",
+            data=json.dumps({"type": "customer.created"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(webhook_req)
+        self.assertEqual(ctx.exception.code, 400)
 
     def test_prometheus_metrics_endpoint(self) -> None:
         metrics_req = urllib.request.Request("http://127.0.0.1:18000/metrics")
@@ -160,4 +223,3 @@ class TestGatewayServer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
