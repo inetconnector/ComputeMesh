@@ -258,11 +258,48 @@ class AccountingStore:
             )
         return self.get_provider(provider_node_id)  # type: ignore[return-value]
 
+    def update_stripe_account_status_by_account_id(
+        self,
+        *,
+        stripe_connected_account_id: str,
+        provider_node_id_hint: str = "",
+        onboarding_status: str,
+        charges_enabled: bool,
+        payouts_enabled: bool,
+        details_submitted: bool,
+    ) -> ProviderAccount | None:
+        provider = self.get_provider_by_stripe_account_id(stripe_connected_account_id)
+        if not provider and provider_node_id_hint:
+            existing = self.get_provider(provider_node_id_hint)
+            if existing:
+                provider = self.attach_stripe_account(
+                    provider_node_id=provider_node_id_hint,
+                    stripe_connected_account_id=stripe_connected_account_id,
+                    onboarding_status=onboarding_status,
+                )
+        if not provider:
+            return None
+        return self.update_stripe_account_status(
+            provider_node_id=provider.provider_node_id,
+            onboarding_status=onboarding_status,
+            charges_enabled=charges_enabled,
+            payouts_enabled=payouts_enabled,
+            details_submitted=details_submitted,
+        )
+
     def get_provider(self, provider_node_id: str) -> ProviderAccount | None:
         with self._connection() as conn:
             row = conn.execute(
                 "SELECT * FROM provider_accounts WHERE provider_node_id = ?",
                 (provider_node_id.strip(),),
+            ).fetchone()
+        return self._provider_from_row(row) if row else None
+
+    def get_provider_by_stripe_account_id(self, stripe_connected_account_id: str) -> ProviderAccount | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM provider_accounts WHERE stripe_connected_account_id = ?",
+                (stripe_connected_account_id.strip(),),
             ).fetchone()
         return self._provider_from_row(row) if row else None
 

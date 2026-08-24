@@ -338,3 +338,21 @@ class SettlementExecutor:
             onboarding_url=link.onboarding_url,
             expires_at=link.expires_at,
         )
+
+    def refresh_provider_connect_status(self, *, provider_node_id: str) -> ProviderAccount:
+        provider = self.account_store.get_provider(provider_node_id)
+        if not provider:
+            raise AccountingStoreError(f"unknown provider {provider_node_id}")
+        if not provider.stripe_connected_account_id:
+            raise AccountingStoreError(f"provider {provider_node_id} has no Stripe connected account")
+        status = self.stripe_connect.retrieve_connected_account(
+            provider_node_id=provider.provider_node_id,
+            stripe_connected_account_id=provider.stripe_connected_account_id,
+        )
+        return self.account_store.update_stripe_account_status(
+            provider_node_id=provider.provider_node_id,
+            onboarding_status=status.onboarding_status,
+            charges_enabled=status.charges_enabled,
+            payouts_enabled=status.payouts_enabled,
+            details_submitted=status.details_submitted,
+        )

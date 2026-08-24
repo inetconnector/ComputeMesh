@@ -309,6 +309,26 @@ class TestGatewayServer(unittest.TestCase):
             data = json.loads(resp.read().decode("utf-8"))
             self.assertTrue(data["stripe_connected_account_id"].startswith("acct_gateway_"))
             self.assertIn("connect.stripe.com", data["onboarding_url"])
+            stripe_account_id = data["stripe_connected_account_id"]
+
+        self.fake_stripe.Account.accounts[stripe_account_id].update({
+            "charges_enabled": True,
+            "payouts_enabled": True,
+            "details_submitted": True,
+        })
+        refresh_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/providers/stripe/refresh",
+            data=b"{}",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {provider_key}",
+            },
+        )
+        with urllib.request.urlopen(refresh_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["stripe_onboarding_status"], "ready")
+            self.assertTrue(data["payouts_enabled"])
 
         status_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/providers/status",
@@ -319,6 +339,16 @@ class TestGatewayServer(unittest.TestCase):
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["provider_node_id"], "node_gateway_provider")
             self.assertIn("balance_micro_units", data)
+
+        admin_providers_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/admin/providers",
+            headers={"Authorization": "Bearer cm_admin_gateway_test"},
+        )
+        with urllib.request.urlopen(admin_providers_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            provider_ids = {row["provider_node_id"] for row in data["data"]}
+            self.assertIn("node_gateway_provider", provider_ids)
 
     def test_admin_provider_settlement_endpoint(self) -> None:
         provider_id = "node_gateway_ready"
@@ -363,6 +393,16 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(data["amount_micro_units"], payable)
             self.assertTrue(data["stripe_transfer_id"].startswith("tr_gateway_"))
         self.assertEqual(GatewayHandler.ledger.get_balance(f"provider:{provider_id}"), 0)
+
+        settlements_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/admin/settlements?status=completed&limit=10",
+            headers={"Authorization": "Bearer cm_admin_gateway_test"},
+        )
+        with urllib.request.urlopen(settlements_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            settlement_ids = {row["settlement_id"] for row in data["data"]}
+            self.assertIn(f"settle_provider_{provider_id}_{payable}", settlement_ids)
 
 
 if __name__ == "__main__":

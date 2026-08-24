@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -112,7 +113,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self) -> None:
-        clean_path = self.path.split("?")[0].rstrip("/")
+        parsed_path = urlparse(self.path)
+        clean_path = parsed_path.path.rstrip("/")
+        query = parse_qs(parsed_path.query)
         if clean_path in ("/metrics", "/v1/metrics"):
             text = self.metrics.render_prometheus_text()
             self.send_response(HTTPStatus.OK)
@@ -172,6 +175,38 @@ class GatewayHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if clean_path == "/v1/admin/providers":
+            if not self._authenticate_admin():
+                return
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            providers = []
+            for provider in self.account_store.list_providers():
+                data = provider.to_dict()
+                balance_micro = self.ledger.get_balance(provider.ledger_account_id)
+                data["balance_micro_units"] = balance_micro
+                data["balance_usd"] = round(balance_micro / MICRO_UNIT_SCALE, 4)
+                providers.append(data)
+            self._send_json({"object": "list", "data": providers})
+            return
+
+        if clean_path == "/v1/admin/settlements":
+            if not self._authenticate_admin():
+                return
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            status = query.get("status", [""])[0]
+            try:
+                limit = int(query.get("limit", ["100"])[0])
+            except ValueError:
+                self._send_error_response("Invalid settlement list limit", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            settlements = [s.to_dict() for s in self.account_store.list_settlements(status=status, limit=limit)]
+            self._send_json({"object": "list", "data": settlements})
+            return
+
         if clean_path == "/v1/providers/status":
             provider_node_id = self._authenticate_provider()
             if not provider_node_id:
@@ -193,7 +228,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        clean_path = self.path.split("?")[0].rstrip("/")
+        clean_path = urlparse(self.path).path.rstrip("/")
 
         length = int(self.headers.get("Content-Length", 0))
         if length > MAX_REQUEST_BODY_BYTES:
@@ -304,6 +339,24 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 )
                 data = provider.to_dict()
                 data.update(link.to_dict())
+                self._send_json(data)
+            except (AccountingStoreError, StripeIntegrationError) as exc:
+                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path == "/v1/providers/stripe/refresh":
+            provider_node_id = self._authenticate_provider()
+            if not provider_node_id:
+                return
+            if not self.settlement_executor:
+                self._send_error_response("Settlement executor is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            try:
+                provider = self.settlement_executor.refresh_provider_connect_status(provider_node_id=provider_node_id)
+                data = provider.to_dict()
+                balance_micro = self.ledger.get_balance(provider.ledger_account_id)
+                data["balance_micro_units"] = balance_micro
+                data["balance_usd"] = round(balance_micro / MICRO_UNIT_SCALE, 4)
                 self._send_json(data)
             except (AccountingStoreError, StripeIntegrationError) as exc:
                 self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)

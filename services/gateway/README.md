@@ -29,7 +29,10 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - `POST /v1/billing/topup`: Test/admin balance top-up. Normal bearer tokens cannot self-credit unless `COMPUTEMESH_ALLOW_TEST_TOPUP=1` is deliberately set for local testing.
 - `POST /v1/providers/register`: Provider-authenticated registration/update for payout metadata.
 - `POST /v1/providers/stripe/onboarding`: Provider-authenticated Stripe Connect account creation/refresh plus onboarding link generation.
+- `POST /v1/providers/stripe/refresh`: Provider-authenticated Stripe Connect account status refresh after onboarding.
 - `GET /v1/providers/status`: Provider-authenticated account and payable-balance status.
+- `GET /v1/admin/providers`: Admin-only provider account and payable-balance listing.
+- `GET /v1/admin/settlements`: Admin-only settlement record listing with optional `status` and `limit` query parameters.
 - `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect.
 
 ## Stripe Runtime Configuration
@@ -46,8 +49,8 @@ If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/
 
 Stripe Checkout tax totals are handled as payment/tax settlement data, not extra customer compute credit. The ledger credits the purchased compute-credit amount recorded in Checkout metadata and the durable session store.
 
-Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold.
+Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path also accepts `account.updated` events to keep provider Connect readiness in sync when the webhook endpoint is subscribed to that event type.
 
 ## Test Suite
 
-- `services/gateway/tests/test_gateway_server.py` covers authentication, model listings, non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding, and admin provider settlement execution.
+- `services/gateway/tests/test_gateway_server.py` covers authentication, model listings, non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.

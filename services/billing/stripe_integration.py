@@ -189,6 +189,14 @@ def _stripe_to_plain(obj: Any) -> Any:
     return obj
 
 
+def _connect_onboarding_status(*, payouts_enabled: bool, details_submitted: bool) -> str:
+    if payouts_enabled and details_submitted:
+        return "ready"
+    if details_submitted:
+        return "pending_verification"
+    return "needs_onboarding"
+
+
 def _amount_to_cents(amount_usd: float) -> int:
     amount = Decimal(str(amount_usd))
     return int((amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -418,6 +426,40 @@ class StripePaymentService:
 
         try:
             data_object = payload.get("data", {}).get("object", {})
+
+            if event_type == "account.updated":
+                account_id = str(data_object.get("id", "") or "")
+                metadata = data_object.get("metadata", {})
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                provider_node_id = str(metadata.get("provider_node_id", "") or "")
+                if not account_id:
+                    raise StripeIntegrationError("Missing Stripe account ID in account.updated payload")
+                if self.webhook_event_store and hasattr(self.webhook_event_store, "update_stripe_account_status_by_account_id"):
+                    updated = self.webhook_event_store.update_stripe_account_status_by_account_id(
+                        stripe_connected_account_id=account_id,
+                        provider_node_id_hint=provider_node_id,
+                        onboarding_status=_connect_onboarding_status(
+                            payouts_enabled=bool(data_object.get("payouts_enabled", False)),
+                            details_submitted=bool(data_object.get("details_submitted", False)),
+                        ),
+                        charges_enabled=bool(data_object.get("charges_enabled", False)),
+                        payouts_enabled=bool(data_object.get("payouts_enabled", False)),
+                        details_submitted=bool(data_object.get("details_submitted", False)),
+                    )
+                    if updated:
+                        return finish({
+                            "status": "updated",
+                            "stripe_account_id": account_id,
+                            "provider_node_id": updated.provider_node_id,
+                            "onboarding_status": updated.stripe_onboarding_status,
+                            "payouts_enabled": updated.payouts_enabled,
+                        })
+                return finish({
+                    "status": "ignored",
+                    "reason": f"No provider registered for Stripe account {account_id}",
+                    "stripe_account_id": account_id,
+                })
 
             if event_type not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
                 return finish({"status": "ignored", "reason": f"Unhandled event type: {event_type}"})

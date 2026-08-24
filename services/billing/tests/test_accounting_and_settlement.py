@@ -6,6 +6,7 @@ import unittest
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+from services.billing.stripe_integration import StripePaymentService
 
 
 class FakeAccountAPI:
@@ -106,6 +107,35 @@ class TestAccountingAndSettlement(unittest.TestCase):
             payload=payload,
         )
         self.assertEqual(duplicate, "already_processed")
+
+    def test_account_updated_webhook_refreshes_provider_status(self) -> None:
+        self.account_store.upsert_provider(provider_node_id="node_connect_webhook")
+        self.account_store.attach_stripe_account(
+            provider_node_id="node_connect_webhook",
+            stripe_connected_account_id="acct_connect_webhook",
+        )
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_test_123",
+            session_store=None,
+            webhook_event_store=self.account_store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=lambda raw, sig, sec: __import__("json").loads(raw.decode("utf-8")),
+            require_live_configuration=False,
+        )
+        result = svc.process_webhook_payload(
+            raw_payload=(
+                b'{"id":"evt_account_updated_001","type":"account.updated","data":{"object":{'
+                b'"id":"acct_connect_webhook","charges_enabled":true,"payouts_enabled":true,'
+                b'"details_submitted":true,"metadata":{"provider_node_id":"node_connect_webhook"}}}}'
+            ),
+            signature_header="t=123,v1=testsig",
+        )
+        provider = self.account_store.get_provider("node_connect_webhook")
+        self.assertEqual(result["status"], "updated")
+        self.assertEqual(provider.stripe_onboarding_status, "ready")
+        self.assertTrue(provider.payouts_enabled)
 
     def test_provider_settlement_transfers_and_drains_payable(self) -> None:
         provider = self.account_store.upsert_provider(provider_node_id="node_ready")

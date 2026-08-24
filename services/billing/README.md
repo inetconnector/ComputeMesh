@@ -15,7 +15,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 - Minimum payout threshold accounting ($25.00 / 25,000,000 micro-units) and settlement summary export.
 - Customer compute-credit purchases are processed through the Stripe-backed Checkout/Webhook integration when live Stripe environment values are configured; wallet addresses are provider payout destinations only.
 - Stripe Connect provider payout execution with durable provider accounts, onboarding state, settlement records, transfer idempotency, and ledger payable clearing.
-- Stripe webhook event inbox persistence for event-level idempotency and retry visibility.
+- Stripe webhook event inbox persistence for event-level idempotency and retry visibility, including `account.updated` Connect status updates.
 - Full ledger reconciliation audit verifying zero float drift and zero imbalance across all accounts.
 
 ## Units and Precision
@@ -32,7 +32,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 - `StripePaymentService`: Creates Stripe Checkout Sessions through the official Stripe SDK and credits deposits only after signed Checkout webhook verification. Purchased compute credits come from Checkout metadata/session reconciliation; tax-inclusive Stripe totals are not treated as extra compute balance.
 - `StripeSessionStore`: JSON-backed reconciliation store for Stripe session/customer/payment-intent IDs.
 - `StripeConnectService`: Creates Stripe Express connected accounts, onboarding links, and idempotent transfers to connected accounts.
-- `SettlementExecutor`: Coordinates Stripe Connect transfers with internal provider-payable ledger clearing.
+- `SettlementExecutor`: Coordinates Stripe Connect account status refresh, transfers, and internal provider-payable ledger clearing.
 - `deposit_customer_credits(...)`: Top-up prepaid balance.
 - `record_job_execution(...)`: Debits customer and credits provider(s) + network pool.
 - `create_provider_payout(...)`: Internal withdrawal settlement entry for eligible balances after the Stripe Connect transfer path succeeds.
@@ -41,7 +41,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 ## Test Suite
 
 - `services/billing/tests/test_ledger.py` (8 automated test cases covering deposits, proportional splits, duplicate prevention, fail-closed balances, payouts, persistence, and audit reconciliation).
-- `services/billing/tests/test_accounting_and_settlement.py` covers durable provider registration, Stripe Connect onboarding links, webhook event inbox idempotency, provider settlement transfer creation, transfer idempotency keys, and ledger payable clearing.
+- `services/billing/tests/test_accounting_and_settlement.py` covers durable provider registration, Stripe Connect onboarding links, webhook event inbox idempotency, `account.updated` Connect status refresh, provider settlement transfer creation, transfer idempotency keys, and ledger payable clearing.
 - `services/billing/tests/test_stripe_integration.py` covers fail-closed configuration, Checkout Session parameters, raw signed webhook ingestion, SDK event object normalization, tax-inclusive totals, duplicate webhook idempotency, and signature rejection using an injected test Stripe client.
 
 ## Stripe Runtime Configuration
