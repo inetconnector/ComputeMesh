@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-24 07:24 CEST
+**Last updated:** 2026-08-24 07:35 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
-**Production services/runtime:** no production inference/control runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`, but the gateway requires auth/admin credentials for useful API checks.
-**Release/version truth:** release handoff is prepared for Git tag `v1.2.8`; checked-in and live hosted signed update manifest are both version `1.2.8`; current desktop/dashboard/updater code paths, webserver services and reachable LAN miner report/use application version `1.2.8`. GitHub Releases last observed `v1.0.0` and should be reconciled separately if GitHub release-page metadata matters.
+**Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`, but gateway billing/payment paths are mock/in-memory and not safe for real customer funds.
+**Release/version truth:** Git tag `v1.2.8` is pushed at `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5`; checked-in and live hosted signed update manifest are both version `1.2.8`; current desktop/dashboard/updater code paths, webserver services and reachable LAN miner report/use application version `1.2.8`. GitHub Releases last observed `v1.0.0` and should be reconciled separately if GitHub release-page metadata matters.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -13,8 +13,8 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- canonical merged **code baseline**: `db292032787d8b4e2c6926456d9e98de4344082e` (`feat(telemetry): display total network compute capacity (TFLOPS/VRAM) in clients and implement configurable 25% operator fee`)
-- current public portal indexing tag: `v1.1.5` at the Search Console verified sitemap state; newer app-code version strings exist locally but are not represented by matching Git tags
+- canonical merged **code baseline**: `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5` (`feat(release): publish signed 1.2.8 update flow`)
+- current signed app/update release tag: `v1.2.8`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -48,13 +48,14 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - llama.cpp benchmark→runtime build binding: PR #13
 - provider appliance, portal, billing, gateway, multi-GPU scheduler, transport, update, desktop and dashboard work: sections 16-33 below
 - network telemetry capacity display + configurable operator fee: `db292032`
+- signed 1.2.8 update flow and hosted artifacts: `45150e9`
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-24 after `git fetch --prune`:
+Verified on 2026-08-24 after release push and billing audit:
 
 - working tree before this documentation edit: clean (`git status --short --branch` returned `## main...origin/main`);
-- current `HEAD`: `db292032787d8b4e2c6926456d9e98de4344082e`;
+- current `HEAD`: `45150e9fe1f96f4d1668ef368a39b9ccc6c469f5`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
@@ -765,7 +766,7 @@ Implemented in `services/billing/ledger.py` as an append-only double-entry finan
 3. **Idempotency & Deduplication:** Metering events (`job:{job_id}`, `deposit:{ref}`) are hashed and deduplicated to prevent double-charging or double-crediting.
 4. **Proportional Multi-Provider Split:** Automated revenue distribution for distributed multi-GPU pipeline shards. Current default is a configurable 25% network/operator fee (`DEFAULT_NETWORK_FEE_BPS = 2500`) and a 75% provider pool, with `COMPUTEMESH_OPERATOR_FEE_BPS` allowing operator-margin changes.
 5. **Fail-Closed Balance Verification:** Rejects jobs if customer deposit balance cannot cover estimated token costs.
-6. **Automated Settlement & Payouts:** Enforces minimum payout threshold ($25.00 / 25,000,000 micro-units) and generates cryptographically signed withdrawal summaries.
+6. **Ledger-Only Settlement Summaries:** Enforces minimum payout threshold ($25.00 / 25,000,000 micro-units) and emits internal payout summaries. No current code executes bank transfers, Stripe Connect payouts, EVM token transfers, or cryptographically signed withdrawal artifacts.
 7. **Full Journal Audit Reconciliation:** `reconcile()` performs an exact global mathematical audit across all accounts.
 8. **Automated Unit Tests:** `services/billing/tests/test_ledger.py` (8/8 tests passing, integrated into `setup/lab.py`).
 
@@ -798,9 +799,9 @@ Implemented in `services/scheduler/multi_gpu_planner.py`:
 
 ### Architecture & Capabilities
 Implemented in `services/billing/stripe_integration.py`:
-1. **Automated Prepaid Deposit Sessions:** Generates Stripe Checkout sessions for customer top-ups ($5.00 min to $10,000.00 max).
-2. **Idempotent Webhook Processing:** Listens for `checkout.session.completed` / `payment_intent.succeeded` events, automatically depositing micro-credits to the customer ledger account via `deposit_customer_credits(...)`.
-3. **Replay Attack & Duplicate Protection:** Deduplicates session IDs to guarantee zero double-crediting.
+1. **Mock Prepaid Deposit Sessions:** Generates local `cs_test_...` session IDs and fake `https://checkout.stripe.com/c/pay/...` URLs for customer top-ups ($5.00 min to $10,000.00 max). It does not currently call the Stripe SDK/API.
+2. **Mock Webhook Processing:** Accepts `checkout.session.completed` / `payment_intent.succeeded` shaped JSON and deposits micro-credits to the customer ledger account via `deposit_customer_credits(...)`.
+3. **Duplicate Protection Only:** Deduplicates session IDs to prevent double-crediting, but does not verify the `Stripe-Signature` header and is therefore not a production webhook implementation.
 4. **Automated Unit Tests:** `services/billing/tests/test_stripe_integration.py` (5/5 tests passing, total 13 billing tests).
 
 ---
@@ -862,10 +863,10 @@ Implemented in `services/gateway/metrics_exporter.py`:
 ## 27. Web3 & On-Chain Crypto Payment Ingestion Engine
 
 ### Architecture & Capabilities
-Implemented in `services/gateway/web3_payment_listener.py` and `services/orchestrator/contracts.py`:
-1. **Multi-Chain USDT / USDC / ETH Smart Contract Verification:** Real-time polling & websocket logs for on-chain deposits across Ethereum, Polygon, and Arbitrum.
-2. **Double-Entry Ledger Integration:** Verified transaction hashes trigger atomic credit top-ups to customer balance accounts.
-3. **Automated Unit Tests:** `services/gateway/tests/test_web3_payments.py` (all tests passing).
+Implemented in `services/billing/crypto_payments.py` as a simulated ingestion adapter:
+1. **Mock Multi-Chain Stablecoin Ingestion:** Supports USDT/USDC labels on Ethereum, Polygon, Arbitrum, Base and BSC only after a caller supplies an already-confirmed transaction. It does not poll RPC endpoints, subscribe to logs, verify receipts, or generate controlled deposit wallets.
+2. **Double-Entry Ledger Integration:** Programmatically supplied transaction hashes can trigger atomic credit top-ups to customer balance accounts.
+3. **Automated Unit Tests:** `services/billing/tests/test_crypto_payments.py` covers deterministic address mapping, duplicate tx idempotency, minimum deposits and unsupported networks.
 
 ---
 
@@ -971,3 +972,28 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 2. **Windows/Linux provider apps:** bumped UI/runtime version to `1.2.8` and renamed the manual update button to `Update vom Webserver` so the PC/provider surface clearly installs the newest signed package from the webserver.
 3. **Portal and manifest:** fixed the portal Windows download URL to `/downloads/ComputeMesh-Setup-x64.exe`, rebuilt Windows and Linux artifacts, and re-signed `portal/updates/version.json` with the existing official Ed25519 key while preserving the previously verified NodeOS ISO/IMG entries.
 4. **Verification:** `python -m py_compile services/appliance_dashboard/server.py services/updater/auto_updater.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/gateway/server.py tools/security/release_signer.py` passed; `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.gateway.tests.test_gateway_server deploy.windows.tests.test_build_installer -v` ran 12 tests successfully; `git diff --check` passed.
+
+## 35. Billing / MetaMask / Stripe Audit From 2026-08-24
+
+### Verified Current Flow
+1. **MetaMask on NodeOS/dashboard:** `services/appliance_dashboard/server.py` only calls the injected EIP-1193 provider to request/select `eth_accounts`, writes the first `0x...` address into `cfg-wallet`, and persists it through `/api/config` as `payout_address`. This is a provider/miner payout-address preference, not a customer payment, wallet ownership proof, SIWE login, token transfer, or on-chain settlement.
+2. **Provider wallet persistence:** `tools/appliance/appliance_config.py` loads/saves `WALLET_PAYOUT_ADDRESS` / `PAYOUT_ADDRESS` plus `provider_account_id` to local system/user/boot config. There is no current registration handshake that binds this payout address to a gateway ledger provider account.
+3. **Stripe customer top-up path:** `/v1/billing/checkout` returns a mock Checkout Session from `services/billing/stripe_integration.py`; `/v1/billing/webhook` accepts JSON and credits the in-memory ledger. The code does not call Stripe's real Checkout Sessions API, does not validate `Stripe-Signature`, and does not use live `STRIPE_API_KEY` / `STRIPE_WEBHOOK_SECRET` environment values on the webserver.
+4. **Direct test top-up path:** `/v1/billing/topup` is authenticated but directly credits arbitrary posted amounts. It is suitable only for tests/local demos and must be disabled or admin-gated before production use.
+5. **Crypto customer top-up path:** `services/billing/crypto_payments.py` can credit the ledger from a supplied "confirmed" USDT/USDC transaction object. No public REST endpoint, chain listener, RPC verification, token contract validation, confirmation tracking, or real deposit wallet custody exists.
+6. **Metering and 25% operator split:** On successful `/v1/chat/completions`, `GatewayHandler` calls `Ledger.record_job_execution(...)`. The ledger debits the customer, credits `revenue:network_fee` with `DEFAULT_NETWORK_FEE_BPS = 2500` (25%), and credits the remaining 75% to `provider:{provider_id}`. Current gateway provider mapping is hardcoded to `lab-mesh-default-rig`, so real miner/provider attribution is not wired.
+7. **Operator payout destination:** `create_operator_treasury_payout(...)` can move the accumulated `revenue:network_fee` balance to `expense:settlements` and return a summary for `operator_treasury`, but no real wallet/bank transfer is executed. Live webserver env check showed `COMPUTEMESH_OPERATOR_TREASURY_WALLET`, `COMPUTEMESH_OPERATOR_FEE_BPS`, `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `COMPUTEMESH_ADMIN_KEY` all missing from the gateway unit environment.
+8. **Persistence:** The live `GatewayHandler.ledger` is constructed without `storage_path`, so customer balances, provider payables, and operator revenue are process-memory only and are lost on gateway restart.
+
+### Required Before Real Money Use
+1. Replace mock Stripe code with the official Stripe SDK/API, create real Checkout Sessions server-side, store Stripe customer/session/payment-intent IDs durably, and verify webhook signatures against the raw request body and endpoint secret before crediting the ledger.
+2. Remove or strictly admin-gate `/v1/billing/topup`; never let a normal bearer token self-credit funds.
+3. Add durable account storage and a durable ledger journal path/database for the gateway; wire portal registration tokens to gateway accounts instead of keeping both stores separately in memory.
+4. Add provider enrollment that binds node identity, provider ledger account, payout address, and wallet ownership proof. For EVM addresses, require a signed challenge before accepting or changing payout targets.
+5. Implement a real crypto deposit pipeline if MetaMask/customer stablecoin purchases are required: per-customer deposit addresses or a payment processor, contract allowlist, RPC/log verification, confirmations, replay protection, chain/token/decimals validation, and reconciliation against treasury balances.
+6. Implement real payout execution: Stripe Connect/SEPA for fiat providers, EVM stablecoin transfer for wallet providers, and a separate operator treasury payout executor. The operator's 25% must have an explicitly configured destination account/wallet before payout jobs can run.
+7. Correct stale user-facing text: `services/billing/README.md` and `portal/terms.html` still describe 15%-20% / 80%-85%; dashboard earnings display still applies `0.85` while the ledger default provider pool is 75%.
+
+### Verification During This Audit
+1. `python -m unittest services.billing.tests.test_ledger services.billing.tests.test_stripe_integration services.billing.tests.test_crypto_payments services.gateway.tests.test_gateway_server -v` ran 27 tests successfully on 2026-08-24. These tests validate mock billing behavior and ledger math; they do not validate real Stripe, MetaMask, wallet, bank, or on-chain payment execution.
+2. Official provider documentation checked during audit: Stripe requires webhook event source verification with the `Stripe-Signature` header and endpoint secret; MetaMask `eth_requestAccounts` only requests account access, while signing flows require separate signature RPC methods.
