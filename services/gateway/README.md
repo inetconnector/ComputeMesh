@@ -15,7 +15,8 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - **Automated Ledger Integration:** Instantly meters token usage and debits customer deposits while crediting provider payout balances in integer micro-units.
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
 - **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY` and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
-- **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header.
+- **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header, normalizing Stripe SDK event objects before ledger processing.
+- **Stripe Connect Provider Settlement:** Registers provider payout accounts, creates Stripe Express onboarding links, and lets admins run idempotent provider settlements that transfer funds before clearing provider payables in the ledger.
 
 ## Endpoints
 
@@ -26,6 +27,10 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - `POST /v1/billing/checkout`: Create a Stripe Checkout Session for prepaid compute credits.
 - `POST /v1/billing/webhook`: Stripe webhook endpoint. Requires raw body plus `Stripe-Signature`.
 - `POST /v1/billing/topup`: Test/admin balance top-up. Normal bearer tokens cannot self-credit unless `COMPUTEMESH_ALLOW_TEST_TOPUP=1` is deliberately set for local testing.
+- `POST /v1/providers/register`: Provider-authenticated registration/update for payout metadata.
+- `POST /v1/providers/stripe/onboarding`: Provider-authenticated Stripe Connect account creation/refresh plus onboarding link generation.
+- `GET /v1/providers/status`: Provider-authenticated account and payable-balance status.
+- `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect.
 
 ## Stripe Runtime Configuration
 
@@ -35,9 +40,14 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - `COMPUTEMESH_STRIPE_SESSION_STORE`
 - `STRIPE_WEBHOOK_SECRET` for signed webhook crediting
 - optional `COMPUTEMESH_GATEWAY_LEDGER_PATH` for durable gateway ledger storage
+- optional `COMPUTEMESH_ACCOUNT_STORE_PATH` for durable provider accounts, webhook event inbox state, and settlement records
 
 If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs. Webhook crediting remains fail-closed until `STRIPE_WEBHOOK_SECRET` is configured.
 
+Stripe Checkout tax totals are handled as payment/tax settlement data, not extra customer compute credit. The ledger credits the purchased compute-credit amount recorded in Checkout metadata and the durable session store.
+
+Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold.
+
 ## Test Suite
 
-- `services/gateway/tests/test_gateway_server.py` covers authentication, model listings, non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, and missing-signature rejection.
+- `services/gateway/tests/test_gateway_server.py` covers authentication, model listings, non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding, and admin provider settlement execution.

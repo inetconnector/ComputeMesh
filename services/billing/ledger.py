@@ -254,6 +254,7 @@ class Ledger:
     def create_operator_treasury_payout(
         self,
         wallet_address: str | None = None,
+        settlement_reference: str | None = None,
     ) -> tuple[Transaction, PayoutSummary]:
         """Transfers accumulated platform operator network fee revenue directly to the operator's treasury wallet."""
         wallet = wallet_address or self.operator_treasury_wallet
@@ -264,7 +265,9 @@ class Ledger:
         if balance <= 0:
             raise BillingError("Operator network fee treasury balance is zero.")
 
-        event_id = f"payout:operator_treasury:{secrets_token_hex(6)}"
+        event_id = f"payout:operator_treasury:{settlement_reference or secrets_token_hex(6)}"
+        if event_id in self._processed_events:
+            raise DuplicateEventError(f"operator settlement {settlement_reference} already paid out")
         tx_id = f"tx_op_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
 
         tx = Transaction(
@@ -302,6 +305,7 @@ class Ledger:
         *,
         provider_node_id: str,
         wallet_address: str,
+        settlement_reference: str | None = None,
     ) -> tuple[Transaction, PayoutSummary]:
         provider_account_id = f"provider:{provider_node_id}"
         balance = self.get_balance(provider_account_id)
@@ -310,7 +314,9 @@ class Ledger:
                 f"provider balance {balance} below minimum payout threshold {MINIMUM_PAYOUT_MICRO_UNITS}"
             )
 
-        event_id = f"payout:{provider_node_id}:{secrets_token_hex(6)}"
+        event_id = f"payout:{provider_node_id}:{settlement_reference or secrets_token_hex(6)}"
+        if event_id in self._processed_events:
+            raise DuplicateEventError(f"provider settlement {settlement_reference} already paid out")
         tx_id = f"tx_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
 
         tx = Transaction(

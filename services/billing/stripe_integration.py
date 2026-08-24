@@ -215,6 +215,7 @@ class StripePaymentService:
         webhook_secret: str | None = None,
         stripe_api_key: str | None = None,
         session_store: StripeSessionStore | None = None,
+        webhook_event_store: Any | None = None,
         stripe_client: Any | None = None,
         webhook_verifier: WebhookVerifier | None = None,
         require_live_configuration: bool = False,
@@ -223,6 +224,7 @@ class StripePaymentService:
         self.webhook_secret = webhook_secret or ""
         self.stripe_api_key = stripe_api_key or ""
         self.session_store = session_store
+        self.webhook_event_store = webhook_event_store
         self.stripe_client = stripe_client
         self.webhook_verifier = webhook_verifier
         self.require_live_configuration = require_live_configuration
@@ -396,91 +398,116 @@ class StripePaymentService:
         if not trusted:
             raise StripeIntegrationError("Stripe webhook events must be verified from the raw signed payload")
 
-        event_type = payload.get("type", "")
-        data_object = payload.get("data", {}).get("object", {})
+        event_type = str(payload.get("type", ""))
+        event_id = str(payload.get("id", "") or "")
+        if self.webhook_event_store:
+            event_state = self.webhook_event_store.begin_webhook_event(
+                event_id=event_id,
+                event_type=event_type,
+                payload=payload,
+            )
+            if event_state == "already_processed":
+                return {"status": "already_processed", "stripe_event_id": event_id}
 
-        if event_type not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
-            return {"status": "ignored", "reason": f"Unhandled event type: {event_type}"}
+        def finish(result: dict[str, Any]) -> dict[str, Any]:
+            if self.webhook_event_store:
+                self.webhook_event_store.mark_webhook_processed(event_id)
+            if event_id and "stripe_event_id" not in result:
+                result["stripe_event_id"] = event_id
+            return result
 
-        session_id = data_object.get("id")
-        if not session_id:
-            raise StripeIntegrationError("Missing session ID in webhook payload")
+        try:
+            data_object = payload.get("data", {}).get("object", {})
 
-        payment_status = str(data_object.get("payment_status", "paid") or "paid")
-        if event_type == "checkout.session.completed" and payment_status not in ("paid", "no_payment_required"):
-            return {"status": "ignored", "reason": f"Checkout Session {session_id} payment_status={payment_status}"}
+            if event_type not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+                return finish({"status": "ignored", "reason": f"Unhandled event type: {event_type}"})
 
-        currency = str(data_object.get("currency", "usd") or "usd").lower()
-        if currency != "usd":
-            raise StripeIntegrationError(f"Unsupported Stripe Checkout currency for session {session_id}: {currency}")
+            session_id = data_object.get("id")
+            if not session_id:
+                raise StripeIntegrationError("Missing session ID in webhook payload")
 
-        metadata = data_object.get("metadata", {})
-        if not isinstance(metadata, dict):
-            metadata = {}
-        amount_micro = int(metadata.get("amount_micro_units", 0) or 0)
-        customer_account_id = data_object.get("client_reference_id") or metadata.get("customer_account_id")
-        stripe_customer_id = str(data_object.get("customer", "") or "")
-        payment_intent_id = str(data_object.get("payment_intent", "") or "")
-        livemode = bool(data_object.get("livemode", False))
-        amount_subtotal_cents = int(data_object.get("amount_subtotal", 0) or 0)
-        amount_total_cents = int(data_object.get("amount_total", 0) or 0)
+            payment_status = str(data_object.get("payment_status", "paid") or "paid")
+            if event_type == "checkout.session.completed" and payment_status not in ("paid", "no_payment_required"):
+                return finish({
+                    "status": "ignored",
+                    "reason": f"Checkout Session {session_id} payment_status={payment_status}",
+                })
 
-        if not customer_account_id:
+            currency = str(data_object.get("currency", "usd") or "usd").lower()
+            if currency != "usd":
+                raise StripeIntegrationError(f"Unsupported Stripe Checkout currency for session {session_id}: {currency}")
+
+            metadata = data_object.get("metadata", {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            amount_micro = int(metadata.get("amount_micro_units", 0) or 0)
+            customer_account_id = data_object.get("client_reference_id") or metadata.get("customer_account_id")
+            stripe_customer_id = str(data_object.get("customer", "") or "")
+            payment_intent_id = str(data_object.get("payment_intent", "") or "")
+            livemode = bool(data_object.get("livemode", False))
+            amount_subtotal_cents = int(data_object.get("amount_subtotal", 0) or 0)
+            amount_total_cents = int(data_object.get("amount_total", 0) or 0)
+
+            if not customer_account_id:
+                cached = self.session_store.get(session_id) if self.session_store else None
+                if cached:
+                    customer_account_id = cached.customer_account_id
+                    if amount_micro == 0:
+                        amount_micro = cached.amount_micro_units
+
             cached = self.session_store.get(session_id) if self.session_store else None
             if cached:
-                customer_account_id = cached.customer_account_id
+                if cached.customer_account_id and customer_account_id and cached.customer_account_id != customer_account_id:
+                    raise StripeIntegrationError(f"Session {session_id} customer mismatch")
+                if cached.amount_micro_units and amount_micro and cached.amount_micro_units != amount_micro:
+                    raise StripeIntegrationError(f"Session {session_id} amount mismatch")
+                if not customer_account_id:
+                    customer_account_id = cached.customer_account_id
                 if amount_micro == 0:
                     amount_micro = cached.amount_micro_units
+            elif amount_micro == 0:
+                amount_micro = _cents_to_micro_units(amount_subtotal_cents or amount_total_cents)
 
-        cached = self.session_store.get(session_id) if self.session_store else None
-        if cached:
-            if cached.customer_account_id and customer_account_id and cached.customer_account_id != customer_account_id:
-                raise StripeIntegrationError(f"Session {session_id} customer mismatch")
-            if cached.amount_micro_units and amount_micro and cached.amount_micro_units != amount_micro:
-                raise StripeIntegrationError(f"Session {session_id} amount mismatch")
-            if not customer_account_id:
-                customer_account_id = cached.customer_account_id
-            if amount_micro == 0:
-                amount_micro = cached.amount_micro_units
-        elif amount_micro == 0:
-            amount_micro = _cents_to_micro_units(amount_subtotal_cents or amount_total_cents)
+            if amount_micro > 0:
+                if amount_subtotal_cents and _cents_to_micro_units(amount_subtotal_cents) != amount_micro:
+                    raise StripeIntegrationError(f"Session {session_id} amount mismatch")
+                if amount_total_cents and _cents_to_micro_units(amount_total_cents) < amount_micro:
+                    raise StripeIntegrationError(f"Session {session_id} total paid amount below credit amount")
 
-        if amount_micro > 0:
-            if amount_subtotal_cents and _cents_to_micro_units(amount_subtotal_cents) != amount_micro:
-                raise StripeIntegrationError(f"Session {session_id} amount mismatch")
-            if amount_total_cents and _cents_to_micro_units(amount_total_cents) < amount_micro:
-                raise StripeIntegrationError(f"Session {session_id} total paid amount below credit amount")
+            if not customer_account_id or amount_micro <= 0:
+                raise StripeIntegrationError(f"Cannot resolve customer or deposit amount for session {session_id}")
 
-        if not customer_account_id or amount_micro <= 0:
-            raise StripeIntegrationError(f"Cannot resolve customer or deposit amount for session {session_id}")
-
-        payment_reference = f"stripe_checkout:{session_id}"
-        try:
-            tx = self.ledger.deposit_customer_credits(
-                customer_account_id=customer_account_id,
-                amount_micro_units=amount_micro,
-                payment_reference=payment_reference,
-            )
-            if self.session_store:
-                self.session_store.mark_credited(
-                    session_id=session_id,
-                    transaction_id=tx.tx_id,
-                    stripe_customer_id=stripe_customer_id,
-                    payment_intent_id=payment_intent_id,
-                    livemode=livemode,
+            payment_reference = f"stripe_checkout:{session_id}"
+            try:
+                tx = self.ledger.deposit_customer_credits(
+                    customer_account_id=customer_account_id,
+                    amount_micro_units=amount_micro,
+                    payment_reference=payment_reference,
                 )
-            return {
-                "status": "credited",
-                "transaction_id": tx.tx_id,
-                "customer_account_id": customer_account_id,
-                "amount_usd": round(amount_micro / MICRO_UNIT_SCALE, 2),
-                "new_balance_usd": round(self.ledger.get_balance(customer_account_id) / MICRO_UNIT_SCALE, 2),
-                "stripe_session_id": session_id,
-                "payment_reference": payment_reference,
-            }
-        except DuplicateEventError:
-            return {
-                "status": "already_processed",
-                "session_id": session_id,
-                "customer_account_id": customer_account_id,
-            }
+                if self.session_store:
+                    self.session_store.mark_credited(
+                        session_id=session_id,
+                        transaction_id=tx.tx_id,
+                        stripe_customer_id=stripe_customer_id,
+                        payment_intent_id=payment_intent_id,
+                        livemode=livemode,
+                    )
+                return finish({
+                    "status": "credited",
+                    "transaction_id": tx.tx_id,
+                    "customer_account_id": customer_account_id,
+                    "amount_usd": round(amount_micro / MICRO_UNIT_SCALE, 2),
+                    "new_balance_usd": round(self.ledger.get_balance(customer_account_id) / MICRO_UNIT_SCALE, 2),
+                    "stripe_session_id": session_id,
+                    "payment_reference": payment_reference,
+                })
+            except DuplicateEventError:
+                return finish({
+                    "status": "already_processed",
+                    "session_id": session_id,
+                    "customer_account_id": customer_account_id,
+                })
+        except Exception as exc:
+            if self.webhook_event_store:
+                self.webhook_event_store.mark_webhook_failed(event_id, str(exc))
+            raise

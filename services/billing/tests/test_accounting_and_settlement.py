@@ -1,0 +1,150 @@
+"""Tests for durable provider accounts, webhook inbox, and Stripe Connect settlements."""
+from pathlib import Path
+import tempfile
+import unittest
+
+from services.billing.accounting import AccountingStore
+from services.billing.ledger import Ledger
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+
+
+class FakeAccountAPI:
+    def __init__(self) -> None:
+        self.created = []
+        self.accounts = {}
+
+    def create(self, **params):
+        self.created.append(params)
+        account = {
+            "id": f"acct_test_{len(self.created):03d}",
+            "charges_enabled": False,
+            "payouts_enabled": False,
+            "details_submitted": False,
+        }
+        self.accounts[account["id"]] = account
+        return account
+
+    def retrieve(self, account_id):
+        return self.accounts[account_id]
+
+
+class FakeAccountLinkAPI:
+    def create(self, **params):
+        return {
+            "url": f"https://connect.stripe.com/setup/e/{params['account']}",
+            "expires_at": 1893456000,
+        }
+
+
+class FakeTransferAPI:
+    def __init__(self) -> None:
+        self.created = []
+
+    def create(self, **params):
+        self.created.append(params)
+        return {"id": f"tr_test_{len(self.created):03d}"}
+
+
+class FakeStripeClient:
+    def __init__(self) -> None:
+        self.Account = FakeAccountAPI()
+        self.AccountLink = FakeAccountLinkAPI()
+        self.Transfer = FakeTransferAPI()
+
+
+class TestAccountingAndSettlement(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.account_store = AccountingStore(Path(self.tempdir.name) / "accounting.sqlite")
+        self.ledger = Ledger(storage_path=Path(self.tempdir.name) / "ledger.jsonl")
+        self.fake_stripe = FakeStripeClient()
+        self.stripe_connect = StripeConnectService(
+            stripe_api_key="sk_test_settlement",
+            stripe_client=self.fake_stripe,
+        )
+        self.executor = SettlementExecutor(
+            ledger=self.ledger,
+            account_store=self.account_store,
+            stripe_connect=self.stripe_connect,
+        )
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    def test_provider_registration_and_connect_onboarding_link(self) -> None:
+        provider = self.executor.create_or_refresh_provider_connect_account(
+            provider_node_id="node_settle_01",
+            display_name="Test Rig",
+            payout_wallet_address="0x0000000000000000000000000000000000000001",
+            email="provider@example.test",
+            country="DE",
+        )
+        self.assertEqual(provider.ledger_account_id, "provider:node_settle_01")
+        self.assertTrue(provider.stripe_connected_account_id.startswith("acct_test_"))
+        self.assertEqual(provider.stripe_onboarding_status, "needs_onboarding")
+        self.assertEqual(self.fake_stripe.Account.created[0]["capabilities"]["transfers"]["requested"], True)
+
+        link = self.executor.create_provider_onboarding_link(
+            provider_node_id="node_settle_01",
+            refresh_url="https://example.test/refresh",
+            return_url="https://example.test/return",
+        )
+        self.assertIn(provider.stripe_connected_account_id, link.onboarding_url)
+
+    def test_webhook_event_inbox_marks_processed_and_blocks_duplicates(self) -> None:
+        payload = {"id": "evt_test_001", "type": "checkout.session.completed"}
+        first = self.account_store.begin_webhook_event(
+            event_id="evt_test_001",
+            event_type="checkout.session.completed",
+            payload=payload,
+        )
+        self.assertEqual(first, "new")
+        self.account_store.mark_webhook_processed("evt_test_001")
+        duplicate = self.account_store.begin_webhook_event(
+            event_id="evt_test_001",
+            event_type="checkout.session.completed",
+            payload=payload,
+        )
+        self.assertEqual(duplicate, "already_processed")
+
+    def test_provider_settlement_transfers_and_drains_payable(self) -> None:
+        provider = self.account_store.upsert_provider(provider_node_id="node_ready")
+        self.account_store.attach_stripe_account(
+            provider_node_id=provider.provider_node_id,
+            stripe_connected_account_id="acct_ready_001",
+        )
+        self.account_store.update_stripe_account_status(
+            provider_node_id=provider.provider_node_id,
+            onboarding_status="ready",
+            charges_enabled=True,
+            payouts_enabled=True,
+            details_submitted=True,
+        )
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_settle",
+            amount_micro_units=50_000_000,
+            payment_reference="dep_settle",
+        )
+        self.ledger.record_job_execution(
+            job_id="job_settle",
+            customer_account_id="cust_settle",
+            provider_shares=[("node_ready", 1.0)],
+            model_id="llama/llama-3.1-70b-instruct",
+            prompt_tokens=15000,
+            completion_tokens=15000,
+        )
+
+        payable = self.ledger.get_balance("provider:node_ready")
+        self.assertGreaterEqual(payable, 25_000_000)
+        settlement = self.executor.run_provider_settlement(provider_node_id="node_ready")
+        self.assertEqual(settlement.status, "completed")
+        self.assertEqual(settlement.amount_micro_units, payable)
+        self.assertEqual(settlement.stripe_transfer_id, "tr_test_001")
+        self.assertEqual(self.fake_stripe.Transfer.created[0]["destination"], "acct_ready_001")
+        self.assertEqual(self.fake_stripe.Transfer.created[0]["idempotency_key"], f"computemesh:{settlement.settlement_id}")
+        self.assertEqual(self.ledger.get_balance("provider:node_ready"), 0)
+        self.assertEqual(self.ledger.reconcile()["status"], "balanced")
+
+
+if __name__ == "__main__":
+    unittest.main()

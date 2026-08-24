@@ -10,6 +10,8 @@ import urllib.error
 import urllib.request
 
 from services.billing.ledger import Ledger
+from services.billing.accounting import AccountingStore
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
 from services.gateway.server import GatewayHandler
 
@@ -34,6 +36,46 @@ class FakeStripeClient:
         self.checkout_session_api = FakeCheckoutSessionAPI()
         self.checkout = type("Checkout", (), {})()
         self.checkout.Session = self.checkout_session_api
+        self.Account = FakeAccountAPI()
+        self.AccountLink = FakeAccountLinkAPI()
+        self.Transfer = FakeTransferAPI()
+
+
+class FakeAccountAPI:
+    def __init__(self) -> None:
+        self.created = []
+        self.accounts = {}
+
+    def create(self, **params):
+        self.created.append(params)
+        account = {
+            "id": f"acct_gateway_{len(self.created):03d}",
+            "charges_enabled": False,
+            "payouts_enabled": False,
+            "details_submitted": False,
+        }
+        self.accounts[account["id"]] = account
+        return account
+
+    def retrieve(self, account_id):
+        return self.accounts[account_id]
+
+
+class FakeAccountLinkAPI:
+    def create(self, **params):
+        return {
+            "url": f"https://connect.stripe.com/setup/e/{params['account']}",
+            "expires_at": 1893456000,
+        }
+
+
+class FakeTransferAPI:
+    def __init__(self) -> None:
+        self.created = []
+
+    def create(self, **params):
+        self.created.append(params)
+        return {"id": f"tr_gateway_{len(self.created):03d}"}
 
 
 def trusted_json_verifier(raw_payload: bytes, signature_header: str, endpoint_secret: str):
@@ -48,15 +90,26 @@ class TestGatewayServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tempdir = tempfile.TemporaryDirectory()
+        cls.fake_stripe = FakeStripeClient()
         GatewayHandler.ledger = Ledger()
+        GatewayHandler.account_store = AccountingStore(Path(cls.tempdir.name) / "accounting.sqlite")
         GatewayHandler.stripe_svc = StripePaymentService(
             ledger=GatewayHandler.ledger,
             webhook_secret="whsec_gateway_test",
             stripe_api_key="sk_test_gateway",
             session_store=StripeSessionStore(Path(cls.tempdir.name) / "stripe_sessions.json"),
-            stripe_client=FakeStripeClient(),
+            webhook_event_store=GatewayHandler.account_store,
+            stripe_client=cls.fake_stripe,
             webhook_verifier=trusted_json_verifier,
             require_live_configuration=True,
+        )
+        GatewayHandler.settlement_executor = SettlementExecutor(
+            ledger=GatewayHandler.ledger,
+            account_store=GatewayHandler.account_store,
+            stripe_connect=StripeConnectService(
+                stripe_api_key="sk_test_gateway",
+                stripe_client=cls.fake_stripe,
+            ),
         )
         GatewayHandler.api_keys = {
             "cm_live_default_test_key": "cust_test_default",
@@ -219,6 +272,97 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("computemesh_active_gpus", text)
             self.assertIn("computemesh_total_vram_bytes", text)
             self.assertIn("computemesh_requests_total", text)
+
+    def test_provider_registration_status_and_stripe_onboarding(self) -> None:
+        provider_key = "cm_provider_node_gateway_provider"
+        register_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/providers/register",
+            data=json.dumps({
+                "display_name": "Gateway Provider",
+                "payout_wallet_address": "0x0000000000000000000000000000000000000002",
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {provider_key}",
+            },
+        )
+        with urllib.request.urlopen(register_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["provider_node_id"], "node_gateway_provider")
+            self.assertEqual(data["ledger_account_id"], "provider:node_gateway_provider")
+
+        onboarding_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/providers/stripe/onboarding",
+            data=json.dumps({
+                "email": "gateway-provider@example.test",
+                "refresh_url": "https://example.test/refresh",
+                "return_url": "https://example.test/return",
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {provider_key}",
+            },
+        )
+        with urllib.request.urlopen(onboarding_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertTrue(data["stripe_connected_account_id"].startswith("acct_gateway_"))
+            self.assertIn("connect.stripe.com", data["onboarding_url"])
+
+        status_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/providers/status",
+            headers={"Authorization": f"Bearer {provider_key}"},
+        )
+        with urllib.request.urlopen(status_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["provider_node_id"], "node_gateway_provider")
+            self.assertIn("balance_micro_units", data)
+
+    def test_admin_provider_settlement_endpoint(self) -> None:
+        provider_id = "node_gateway_ready"
+        GatewayHandler.account_store.upsert_provider(provider_node_id=provider_id)
+        GatewayHandler.account_store.attach_stripe_account(
+            provider_node_id=provider_id,
+            stripe_connected_account_id="acct_gateway_ready",
+        )
+        GatewayHandler.account_store.update_stripe_account_status(
+            provider_node_id=provider_id,
+            onboarding_status="ready",
+            charges_enabled=True,
+            payouts_enabled=True,
+            details_submitted=True,
+        )
+        GatewayHandler.ledger.deposit_customer_credits(
+            customer_account_id="cust_gateway_settle",
+            amount_micro_units=50_000_000,
+            payment_reference="gateway_settle_dep",
+        )
+        GatewayHandler.ledger.record_job_execution(
+            job_id="gateway_settle_job",
+            customer_account_id="cust_gateway_settle",
+            provider_shares=[(provider_id, 1.0)],
+            model_id="llama/llama-3.1-70b-instruct",
+            prompt_tokens=15000,
+            completion_tokens=15000,
+        )
+        payable = GatewayHandler.ledger.get_balance(f"provider:{provider_id}")
+        settlement_req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/admin/settlements/provider",
+            data=json.dumps({"provider_node_id": provider_id}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer cm_admin_gateway_test",
+            },
+        )
+        with urllib.request.urlopen(settlement_req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["status"], "completed")
+            self.assertEqual(data["amount_micro_units"], payable)
+            self.assertTrue(data["stripe_transfer_id"].startswith("tr_gateway_"))
+        self.assertEqual(GatewayHandler.ledger.get_balance(f"provider:{provider_id}"), 0)
 
 
 if __name__ == "__main__":

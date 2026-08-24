@@ -27,10 +27,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import (
+    BillingError,
     DEFAULT_PRICE_TIERS,
     InsufficientBalanceError,
     Ledger,
     MICRO_UNIT_SCALE,
+)
+from services.billing.accounting import (
+    AccountingStore,
+    AccountingStoreError,
+)
+from services.billing.stripe_connect import (
+    SettlementExecutor,
+    StripeConnectService,
 )
 from services.billing.stripe_integration import (
     StripeIntegrationError,
@@ -49,6 +58,23 @@ def _build_ledger_from_env() -> Ledger:
 
 def _build_stripe_service(ledger: Ledger) -> StripePaymentService:
     return StripePaymentService.from_env(ledger=ledger)
+
+
+def _build_account_store_from_env() -> AccountingStore | None:
+    storage_path = os.environ.get("COMPUTEMESH_ACCOUNT_STORE_PATH", "").strip()
+    if not storage_path:
+        return None
+    return AccountingStore(Path(storage_path))
+
+
+def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | None) -> SettlementExecutor | None:
+    if account_store is None:
+        return None
+    return SettlementExecutor(
+        ledger=ledger,
+        account_store=account_store,
+        stripe_connect=StripeConnectService(stripe_api_key=os.environ.get("STRIPE_API_KEY", "").strip()),
+    )
 
 
 @dataclass(frozen=True)
@@ -70,7 +96,11 @@ AVAILABLE_MODELS: list[ModelEntry] = [
 
 class GatewayHandler(BaseHTTPRequestHandler):
     ledger: Ledger = _build_ledger_from_env()
+    account_store: AccountingStore | None = _build_account_store_from_env()
     stripe_svc: StripePaymentService = _build_stripe_service(ledger)
+    if account_store is not None:
+        stripe_svc.webhook_event_store = account_store
+    settlement_executor: SettlementExecutor | None = _build_settlement_executor(ledger, account_store)
     metrics: MetricsRegistry = MetricsRegistry()
     # Mock account store: api_key -> account_id
     api_keys: dict[str, str] = {
@@ -137,7 +167,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "server_time": datetime.now(timezone.utc).isoformat(),
                 "active_models": len(AVAILABLE_MODELS),
                 "platform": platform.platform(),
+                "account_store_configured": self.account_store is not None,
+                "settlement_executor_configured": self.settlement_executor is not None,
             })
+            return
+
+        if clean_path == "/v1/providers/status":
+            provider_node_id = self._authenticate_provider()
+            if not provider_node_id:
+                return
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            provider = self.account_store.get_provider(provider_node_id)
+            if not provider:
+                self._send_error_response("Provider is not registered", "not_found", HTTPStatus.NOT_FOUND)
+                return
+            balance_micro = self.ledger.get_balance(provider.ledger_account_id)
+            data = provider.to_dict()
+            data["balance_micro_units"] = balance_micro
+            data["balance_usd"] = round(balance_micro / MICRO_UNIT_SCALE, 4)
+            self._send_json(data)
             return
 
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
@@ -210,6 +260,70 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
+        if clean_path == "/v1/providers/register":
+            provider_node_id = self._authenticate_provider()
+            if not provider_node_id:
+                return
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            requested_provider_id = str(body.get("provider_node_id", provider_node_id)).strip()
+            if requested_provider_id != provider_node_id:
+                self._send_error_response("Provider token does not match provider_node_id", "authentication_error", HTTPStatus.FORBIDDEN)
+                return
+            try:
+                provider = self.account_store.upsert_provider(
+                    provider_node_id=provider_node_id,
+                    display_name=str(body.get("display_name", "")),
+                    payout_wallet_address=str(body.get("payout_wallet_address", "")),
+                )
+                self._send_json(provider.to_dict())
+            except AccountingStoreError as exc:
+                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path == "/v1/providers/stripe/onboarding":
+            provider_node_id = self._authenticate_provider()
+            if not provider_node_id:
+                return
+            if not self.settlement_executor:
+                self._send_error_response("Settlement executor is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            try:
+                provider = self.settlement_executor.create_or_refresh_provider_connect_account(
+                    provider_node_id=provider_node_id,
+                    display_name=str(body.get("display_name", "")),
+                    payout_wallet_address=str(body.get("payout_wallet_address", "")),
+                    email=str(body.get("email", "")),
+                    country=str(body.get("country", "DE")),
+                )
+                link = self.settlement_executor.create_provider_onboarding_link(
+                    provider_node_id=provider_node_id,
+                    refresh_url=str(body.get("refresh_url", "https://computemesh.inetconnector.com/docs?provider_onboarding=refresh")),
+                    return_url=str(body.get("return_url", "https://computemesh.inetconnector.com/docs?provider_onboarding=complete")),
+                )
+                data = provider.to_dict()
+                data.update(link.to_dict())
+                self._send_json(data)
+            except (AccountingStoreError, StripeIntegrationError) as exc:
+                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path == "/v1/admin/settlements/provider":
+            if not self._authenticate_admin():
+                return
+            if not self.settlement_executor:
+                self._send_error_response("Settlement executor is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            try:
+                settlement = self.settlement_executor.run_provider_settlement(
+                    provider_node_id=str(body.get("provider_node_id", "")),
+                )
+                self._send_json(settlement.to_dict())
+            except (AccountingStoreError, BillingError, StripeIntegrationError) as exc:
+                self._send_error_response(str(exc), "settlement_error", HTTPStatus.BAD_REQUEST)
+            return
+
         if clean_path == "/v1/chat/completions":
             self._handle_chat_completions(body)
             return
@@ -228,6 +342,26 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         self._send_error_response("Unauthorized: Admin privileges required", "admin_authentication_error", HTTPStatus.FORBIDDEN)
         return False
+
+    def _authenticate_provider(self) -> str | None:
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            self._send_error_response("Missing or invalid Authorization header. Expected 'Bearer <provider_key>'", "authentication_error", HTTPStatus.UNAUTHORIZED)
+            return None
+
+        token = auth_header.removeprefix("Bearer ").strip()
+        if token.startswith("cm_provider_"):
+            provider_node_id = token.removeprefix("cm_provider_").strip()
+            if provider_node_id:
+                return provider_node_id
+
+        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
+        admin_provider_id = self.headers.get("X-Provider-Node-Id", "").strip()
+        if admin_provider_id and (token == env_admin or token.startswith("cm_admin_") or token == "computemesh_admin_secret"):
+            return admin_provider_id
+
+        self._send_error_response("Incorrect provider key provided.", "authentication_error", HTTPStatus.UNAUTHORIZED)
+        return None
 
     def _authenticate(self) -> str | None:
         auth_header = self.headers.get("Authorization", "")
