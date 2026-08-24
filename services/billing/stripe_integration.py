@@ -182,6 +182,8 @@ def _stripe_to_plain(obj: Any) -> Any:
         return [_stripe_to_plain(v) for v in obj]
     if hasattr(obj, "to_dict_recursive"):
         return _stripe_to_plain(obj.to_dict_recursive())
+    if hasattr(obj, "_to_dict_recursive"):
+        return _stripe_to_plain(obj._to_dict_recursive())
     if hasattr(obj, "to_dict"):
         return _stripe_to_plain(obj.to_dict())
     return obj

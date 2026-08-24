@@ -46,7 +46,7 @@ class FakeStripeResource:
     def __init__(self, payload):
         self.payload = payload
 
-    def to_dict_recursive(self):
+    def _to_dict_recursive(self):
         return self.payload
 
 
