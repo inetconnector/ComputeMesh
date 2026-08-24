@@ -56,7 +56,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 Verified on 2026-08-24 after the `v1.2.9` commit/tag/push:
 
 - local working tree: clean (`git status --short --branch` returned `## main...origin/main`);
-- current pushed `HEAD`: `e2612d2f01802527f5eb40569c88df57cb5c09dc` (`feat(release): publish stripe-only payment wording`);
+- pushed `main` contains the `v1.2.9` release commit `e2612d2f01802527f5eb40569c88df57cb5c09dc` plus subsequent state/distribution-verification documentation;
 - current release tag: `v1.2.9` points at release commit `e2612d2` and exists on `origin`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
