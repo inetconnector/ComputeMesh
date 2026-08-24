@@ -43,8 +43,7 @@ Convert accepted metering evidence into immutable, auditable customer debits and
 Live Checkout requires:
 
 - `STRIPE_API_KEY`
-- `STRIPE_WEBHOOK_SECRET`
 - `COMPUTEMESH_STRIPE_SESSION_STORE`
 - Python package `stripe>=15,<16`
 
-`/v1/billing/webhook` must receive the exact raw Stripe request body and the `Stripe-Signature` header. Parsed or reformatted JSON is rejected before ledger crediting.
+Signed ledger crediting from `/v1/billing/webhook` additionally requires `STRIPE_WEBHOOK_SECRET`. The endpoint must receive the exact raw Stripe request body and the `Stripe-Signature` header. Parsed or reformatted JSON is rejected before ledger crediting.

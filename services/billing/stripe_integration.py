@@ -235,12 +235,14 @@ class StripePaymentService:
     def _require_live_configuration(self) -> None:
         if not self.stripe_api_key:
             raise StripeIntegrationError("STRIPE_API_KEY is required for Stripe Checkout")
-        if not self.webhook_secret:
-            raise StripeIntegrationError("STRIPE_WEBHOOK_SECRET is required for signed Stripe webhooks")
         if self.stripe_client is None:
             raise StripeIntegrationError("Official Stripe client is not configured")
         if self.session_store is None:
             raise StripeIntegrationError("COMPUTEMESH_STRIPE_SESSION_STORE is required for durable Stripe reconciliation")
+
+    def _require_webhook_configuration(self) -> None:
+        if not self.webhook_secret:
+            raise StripeIntegrationError("STRIPE_WEBHOOK_SECRET is required for signed Stripe webhooks")
 
     def create_checkout_session(
         self,
@@ -347,8 +349,7 @@ class StripePaymentService:
         """Verifies a Stripe webhook and deposits successful Checkout payments."""
         if not signature_header:
             raise StripeIntegrationError("Missing Stripe-Signature header")
-        if not self.webhook_secret:
-            raise StripeIntegrationError("STRIPE_WEBHOOK_SECRET is required for signed Stripe webhooks")
+        self._require_webhook_configuration()
 
         try:
             if self.webhook_verifier:

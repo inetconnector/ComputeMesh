@@ -14,7 +14,7 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - **Server-Sent Events (SSE) Streaming:** Streams real-time token chunks with `data: {"object": "chat.completion.chunk", ...}` framing and clean `[DONE]` termination.
 - **Automated Ledger Integration:** Instantly meters token usage and debits customer deposits while crediting provider payout balances in integer micro-units.
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
-- **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
+- **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY` and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
 - **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header.
 
 ## Endpoints
@@ -32,11 +32,11 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 Install the runtime dependency with `python -m pip install -r requirements.txt` and configure:
 
 - `STRIPE_API_KEY`
-- `STRIPE_WEBHOOK_SECRET`
 - `COMPUTEMESH_STRIPE_SESSION_STORE`
+- `STRIPE_WEBHOOK_SECRET` for signed webhook crediting
 - optional `COMPUTEMESH_GATEWAY_LEDGER_PATH` for durable gateway ledger storage
 
-If `STRIPE_API_KEY` is present but the SDK, webhook secret, or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs.
+If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs. Webhook crediting remains fail-closed until `STRIPE_WEBHOOK_SECRET` is configured.
 
 ## Test Suite
 

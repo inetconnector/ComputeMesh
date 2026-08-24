@@ -82,6 +82,22 @@ class TestStripeIntegration(unittest.TestCase):
         with self.assertRaises(StripeIntegrationError):
             svc.create_checkout_session(customer_account_id="cust_unconfigured", amount_usd=25.00)
 
+    def test_checkout_can_be_configured_before_webhook_secret(self) -> None:
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            stripe_api_key="sk_test_checkout_only",
+            session_store=self.store,
+            stripe_client=self.fake_stripe,
+            require_live_configuration=True,
+        )
+        session = svc.create_checkout_session(customer_account_id="cust_checkout_only", amount_usd=25.00)
+        self.assertEqual(session.session_id, "cs_test_real_api_shape_001")
+        with self.assertRaises(StripeIntegrationError):
+            svc.process_webhook_payload(
+                raw_payload=json.dumps({"type": "customer.created"}).encode("utf-8"),
+                signature_header="t=123,v1=testsig",
+            )
+
     def test_webhook_successful_deposit(self) -> None:
         sess = self.stripe_svc.create_checkout_session(
             customer_account_id="cust_stripe_02",
