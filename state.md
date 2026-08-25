@@ -1401,6 +1401,22 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 4. **Git Synchronization:**
    - Alle Änderungen gestaged, committet und auf GitHub `origin/main` gepusht.
 
+---
+
+## 54. Webserver Local Linux Client Audit & Verification (2026-08-26)
+
+### Status des Linux-Clients auf `supersrv-trixie`
+- **Laufender Dienst:** `computemesh-node.service` (Systemd Daemon) führt `/usr/bin/python3 /opt/computemesh/linux_tray_app.py --daemon` aus.
+- **Installationsverzeichnis:** `/opt/computemesh/` wurde mit allen neuen Dateien und Modulen der Version `1.2.12` aktualisiert.
+- **Test-Verifikation im Client:** `cd /opt/computemesh && python3 run_all_tests.py` liefert **273/273 Tests bestanden (100% OK in 4.38s)**.
+- **Desktop & Autostart:**
+  - Desktop Entry `/usr/share/applications/computemesh.desktop` und Autostart-Eintrag `/etc/xdg/autostart/computemesh.desktop` angelegt.
+  - Ermöglicht Tray- und AppIndicator-Nutzung in interaktiven XFCE-Desktop-Sitzungen.
+- **Lokales Dashboard & Tunnel:**
+  - HTTP-API erreichbar auf Port 8081 (`http://127.0.0.1:8081/api/status` ➡️ `software.current_version = "1.2.12"`).
+  - Cloud-Tunnel-Heartbeat aktiv und verbunden mit `https://computemesh.inetconnector.com`.
+
+
 
 
 
