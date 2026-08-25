@@ -28,17 +28,22 @@ from services.billing.ledger import Ledger
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
 from services.common.config import CONFIG
-from services.gateway.auth import GatewayAuthManager, resolve_client_ip
+from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
 from services.gateway.catalog import AVAILABLE_MODELS, resolve_model_id
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
 from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.routes_provider import ProviderRoutesHandler
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    MAX_REQUEST_PAYLOAD_BYTES,
+    SECURITY_HEADERS,
+    sanitize_error_message,
+)
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
 
 DEFAULT_PORT = CONFIG.default_gateway_port
-MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB
 
 
 def _build_ledger_from_env() -> Ledger:
@@ -80,7 +85,10 @@ def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | 
 
 
 class GatewayHandler(BaseHTTPRequestHandler):
-    """High-performance HTTP Request Handler for OpenAI and Ollama APIs."""
+    """High-performance Military-Grade HTTP Request Handler for OpenAI and Ollama APIs."""
+
+    server_version = "ComputeMesh-Gateway/1.2"
+    sys_version = ""
 
     ledger: Ledger = _build_ledger_from_env()
     account_store: AccountingStore | None = _build_account_store_from_env()
@@ -107,12 +115,44 @@ class GatewayHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _check_rate_limit(self) -> bool:
+        client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
+        auth_token = extract_bearer_token(self.headers)
+        rate_id = f"token_{auth_token}" if auth_token else f"ip_{client_ip}"
+        allowed, retry_after = GLOBAL_RATE_LIMITER.is_allowed(rate_id, is_authenticated=bool(auth_token))
+        if not allowed:
+            self._send_rate_limit_response(retry_after)
+            return False
+        return True
+
+    def _send_rate_limit_response(self, retry_after: float) -> None:
+        payload = {
+            "error": {
+                "message": f"Too many requests. Rate limit exceeded. Retry in {retry_after}s.",
+                "type": "rate_limit_error",
+                "code": 429,
+            }
+        }
+        body = json.dumps(payload, indent=2).encode("utf-8")
+        self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
+        self.send_header("Content-Type", "application/json")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Retry-After", str(int(retry_after) + 1))
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+        self.close_connection = True
+
     def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Forwarded-For")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Forwarded-For, Stripe-Signature")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Connection", "close")
@@ -130,9 +170,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
             http_status = HTTPStatus(status_val)
         except ValueError:
             http_status = HTTPStatus.BAD_REQUEST
+        clean_msg = sanitize_error_message(message)
         payload = {
             "error": {
-                "message": message,
+                "message": clean_msg,
                 "type": error_type,
                 "code": status_val,
             }
@@ -141,6 +182,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Forwarded-For, Stripe-Signature")
@@ -149,6 +192,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.close_connection = True
 
     def do_GET(self) -> None:
+        if not self._check_rate_limit():
+            return
+
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
         query = parse_qs(parsed_path.query)
@@ -157,6 +203,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             text = self.metrics.render_prometheus_text()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
             self.send_header("Content-Length", str(len(text.encode("utf-8"))))
             self.send_header("Connection", "close")
             self.end_headers()
@@ -176,6 +224,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Connection", "close")
             self.end_headers()
@@ -230,6 +280,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
+        if not self._check_rate_limit():
+            return
+
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
 
@@ -244,8 +297,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response("Invalid Content-Length header", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
-        if content_length > MAX_REQUEST_BODY_BYTES:
-            self._send_error_response("Payload too large", "invalid_request_error", HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+        if content_length > MAX_REQUEST_PAYLOAD_BYTES:
+            self._send_error_response(
+                f"Payload exceeds maximum allowed size ({MAX_REQUEST_PAYLOAD_BYTES} bytes)",
+                "payload_too_large",
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            )
             return
 
         raw_body = self.rfile.read(content_length)

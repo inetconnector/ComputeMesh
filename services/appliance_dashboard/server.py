@@ -44,10 +44,16 @@ from services.appliance_dashboard.tunnel_relay import (
     CLOUD_TUNNEL_RELAY,
 )
 
+import hmac
+from services.gateway.security import SECURITY_HEADERS
+
 APPLIANCE_VERSION = CONFIG.appliance_version
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    server_version = "ComputeMesh-NodeOS/1.2"
+    sys_version = ""
+
     config: ApplianceConfig
     inventory: RigInventory
     node_id: str
@@ -57,12 +63,45 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _verify_action_auth(self) -> bool:
+        client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0])
+        # Loopback callers are allowed by default
+        if client_ip in ("127.0.0.1", "::1", "localhost"):
+            return True
+
+        # Non-local callers must supply valid node auth token
+        supplied_token = self.headers.get("X-Node-Auth-Token", "")
+        if not supplied_token:
+            parsed = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed.query)
+            supplied_token = q.get("auth", [""])[0]
+
+        if supplied_token and hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip()):
+            return True
+        return False
+
+    def _send_unauthorized(self) -> None:
+        body = json.dumps({"status": "error", "message": "Unauthorized. Valid X-Node-Auth-Token required."}).encode("utf-8")
+        self.send_response(HTTPStatus.UNAUTHORIZED)
+        self.send_header("Content-Type", "application/json")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+        self.close_connection = True
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Node-Auth-Token")
+        self.send_header("Connection", "close")
         self.end_headers()
+        self.close_connection = True
 
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
@@ -194,6 +233,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         content_len = int(self.headers.get("Content-Length", 0))
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
+        if not self._verify_action_auth():
+            self._send_unauthorized()
+            return
+
         if req_path == "/api/config":
             try:
                 data = json.loads(post_body.decode("utf-8"))
@@ -209,6 +252,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 resp = json.dumps({"status": "ok", "message": "Configuration saved successfully"}).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
@@ -217,6 +262,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.BAD_REQUEST)
                 self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()
@@ -228,6 +275,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
@@ -239,6 +288,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
@@ -248,13 +299,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if req_path == "/api/action/os_upgrade":
             try:
                 subprocess.Popen(
-                    ["bash", "-c", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq"],
+                    ["apt-get", "update", "-qq"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
                 resp = json.dumps({"status": "ok", "message": "OS package upgrade running in background"}).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
@@ -263,6 +316,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(err_resp)))
                 self.end_headers()

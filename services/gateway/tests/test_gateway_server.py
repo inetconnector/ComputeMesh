@@ -103,6 +103,7 @@ class TestGatewayServer(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tempdir = tempfile.TemporaryDirectory()
         cls.fake_stripe = FakeStripeClient()
+        os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test"
         GatewayHandler.ledger = Ledger()
         GatewayHandler.account_store = AccountingStore(Path(cls.tempdir.name) / "accounting.sqlite")
         GatewayHandler.stripe_svc = StripePaymentService(

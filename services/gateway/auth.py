@@ -1,14 +1,11 @@
-"""ComputeMesh Gateway Authentication & Entitlement Manager.
-
-Handles API key verification, dynamic provider token resolution,
-zero-fee self-compute authorization, admin token checking, and Free Teaser entitlement.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hmac
 from http import HTTPStatus
 import os
 from pathlib import Path
+import re
 import secrets
 import sys
 import threading
@@ -21,6 +18,9 @@ if str(REPO_ROOT) not in sys.path:
 from services.billing.ledger import Ledger
 from services.common.config import CONFIG
 from services.gateway.teaser import TeaserQuotaManager
+
+PROVIDER_NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
+API_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{8,128}$")
 
 
 @dataclass(frozen=True)
@@ -48,9 +48,11 @@ def resolve_client_ip(headers: Any, client_address: tuple[str, int] | None = Non
     if headers:
         forwarded = str(headers.get("X-Forwarded-For", "")).strip()
         if forwarded:
-            return forwarded.split(",")[0].strip()
+            ip = forwarded.split(",")[0].strip()
+            if ip and len(ip) <= 45:  # IPv6 max length
+                return ip
         real_ip = str(headers.get("X-Real-IP", "")).strip()
-        if real_ip:
+        if real_ip and len(real_ip) <= 45:
             return real_ip
     if client_address and len(client_address) > 0:
         return str(client_address[0])
@@ -58,7 +60,7 @@ def resolve_client_ip(headers: Any, client_address: tuple[str, int] | None = Non
 
 
 class GatewayAuthManager:
-    """Manages API keys, customer accounts, and caller entitlement tiers."""
+    """Manages API keys, customer accounts, and caller entitlement tiers with constant-time security."""
 
     def __init__(
         self,
@@ -76,7 +78,8 @@ class GatewayAuthManager:
         return self._api_keys
 
     def set_api_key(self, token: str, account_id: str) -> None:
-        self._api_keys[token] = account_id
+        with self._lock:
+            self._api_keys[token] = account_id
 
     def authenticate_request(
         self,
@@ -86,55 +89,63 @@ class GatewayAuthManager:
     ) -> AuthResult:
         token = extract_bearer_token(headers)
 
-        if token and token in self._api_keys:
-            account_id = self._api_keys[token]
-            if self.ledger.get_balance(account_id) == 0:
-                self.ledger.deposit_customer_credits(
-                    customer_account_id=account_id,
-                    amount_micro_units=10_000_000,
-                    payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
-                )
-            return AuthResult(
-                account_id=account_id,
-                is_teaser=False,
-                is_provider_self_compute=token.startswith("cm_provider_"),
-                is_quota_exceeded=False,
-            )
+        if token:
+            # Check registered keys using constant-time comparison
+            with self._lock:
+                for registered_token, account_id in self._api_keys.items():
+                    if hmac.compare_digest(token, registered_token):
+                        if self.ledger.get_balance(account_id) == 0:
+                            self.ledger.deposit_customer_credits(
+                                customer_account_id=account_id,
+                                amount_micro_units=10_000_000,
+                                payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                            )
+                        return AuthResult(
+                            account_id=account_id,
+                            is_teaser=False,
+                            is_provider_self_compute=token.startswith("cm_provider_"),
+                            is_quota_exceeded=False,
+                        )
 
-        # 1. Provider self-compute token (0% platform markup)
-        if token.startswith("cm_provider_"):
-            provider_node_id = token.removeprefix("cm_provider_").strip()
-            account_id = f"provider_self_{provider_node_id}"
-            self._api_keys[token] = account_id
-            if self.ledger.get_balance(account_id) == 0:
-                self.ledger.deposit_customer_credits(
-                    customer_account_id=account_id,
-                    amount_micro_units=100_000_000,
-                    payment_reference=f"provider_self_grant_{account_id}_{secrets.token_hex(4)}",
-                )
-            return AuthResult(
-                account_id=account_id,
-                is_teaser=False,
-                is_provider_self_compute=True,
-                is_quota_exceeded=False,
-            )
+            # 1. Provider self-compute token (0% platform markup)
+            if token.startswith("cm_provider_"):
+                provider_node_id = token.removeprefix("cm_provider_").strip()
+                if PROVIDER_NODE_ID_REGEX.match(provider_node_id):
+                    account_id = f"provider_self_{provider_node_id}"
+                    with self._lock:
+                        self._api_keys[token] = account_id
+                    if self.ledger.get_balance(account_id) == 0:
+                        self.ledger.deposit_customer_credits(
+                            customer_account_id=account_id,
+                            amount_micro_units=100_000_000,
+                            payment_reference=f"provider_self_grant_{account_id}_{secrets.token_hex(4)}",
+                        )
+                    return AuthResult(
+                        account_id=account_id,
+                        is_teaser=False,
+                        is_provider_self_compute=True,
+                        is_quota_exceeded=False,
+                    )
 
-        # 2. Registered live customer token
-        if token.startswith("cm_live_"):
-            account_id = f"cust_{token.removeprefix('cm_live_')}"
-            self._api_keys[token] = account_id
-            if self.ledger.get_balance(account_id) == 0:
-                self.ledger.deposit_customer_credits(
-                    customer_account_id=account_id,
-                    amount_micro_units=10_000_000,
-                    payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
-                )
-            return AuthResult(
-                account_id=account_id,
-                is_teaser=False,
-                is_provider_self_compute=False,
-                is_quota_exceeded=False,
-            )
+            # 2. Registered live customer token
+            if token.startswith("cm_live_"):
+                cust_suffix = token.removeprefix("cm_live_").strip()
+                if API_KEY_REGEX.match(token):
+                    account_id = f"cust_{cust_suffix}"
+                    with self._lock:
+                        self._api_keys[token] = account_id
+                    if self.ledger.get_balance(account_id) == 0:
+                        self.ledger.deposit_customer_credits(
+                            customer_account_id=account_id,
+                            amount_micro_units=10_000_000,
+                            payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                        )
+                    return AuthResult(
+                        account_id=account_id,
+                        is_teaser=False,
+                        is_provider_self_compute=False,
+                        is_quota_exceeded=False,
+                    )
 
         # 3. No token provided: evaluate Free Teaser Playground Mode
         if allow_teaser:
@@ -149,7 +160,8 @@ class GatewayAuthManager:
                 )
 
             # Auto-provision temporary teaser ledger balance
-            account_id = f"teaser_{client_ip.replace('.', '_').replace(':', '_')}"
+            sanitized_ip = re.sub(r"[^a-zA-Z0-9_]", "_", client_ip)
+            account_id = f"teaser_{sanitized_ip}"
             if self.ledger.get_balance(account_id) == 0:
                 self.ledger.deposit_customer_credits(
                     customer_account_id=account_id,
@@ -177,7 +189,10 @@ class GatewayAuthManager:
         if not token:
             return (None, "Missing provider authorization token", HTTPStatus.UNAUTHORIZED)
         if token.startswith("cm_provider_"):
-            return (token.removeprefix("cm_provider_").strip(), None, HTTPStatus.OK)
+            node_id = token.removeprefix("cm_provider_").strip()
+            if PROVIDER_NODE_ID_REGEX.match(node_id):
+                return (node_id, None, HTTPStatus.OK)
+            return (None, "Invalid provider node ID format in token", HTTPStatus.BAD_REQUEST)
         return (None, "Invalid provider authorization token format", HTTPStatus.UNAUTHORIZED)
 
     def authenticate_admin(self, headers: Any) -> tuple[bool, str | None, HTTPStatus]:
@@ -185,6 +200,7 @@ class GatewayAuthManager:
         if not token:
             return (False, "Missing Authorization header for admin endpoint", HTTPStatus.UNAUTHORIZED)
         env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
-        if token == env_admin or token.startswith("cm_admin_") or token == "computemesh_admin_secret":
+        # Constant-time comparison against configured admin secret
+        if hmac.compare_digest(token, env_admin):
             return (True, None, HTTPStatus.OK)
         return (False, "Invalid admin credentials", HTTPStatus.FORBIDDEN)

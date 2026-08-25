@@ -1,5 +1,6 @@
 """Unit tests for ComputeMesh Gateway Authentication & Entitlement Manager."""
 from http import HTTPStatus
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -100,7 +101,8 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertIsNone(auth.account_id)
 
     def test_authenticate_admin(self) -> None:
-        headers_valid = {"Authorization": "Bearer cm_admin_master_dani_2026"}
+        admin_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
+        headers_valid = {"Authorization": f"Bearer {admin_key}"}
         is_admin, err, status = self.auth_manager.authenticate_admin(headers_valid)
         self.assertTrue(is_admin)
         self.assertIsNone(err)

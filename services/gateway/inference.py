@@ -26,6 +26,7 @@ from services.gateway.catalog import (
     resolve_model_id,
 )
 from services.gateway.metrics_exporter import MetricsRegistry
+from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
 
 
@@ -383,9 +384,9 @@ class InferenceEngine:
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
-            return (None, str(exc), 402)
+            return (None, sanitize_error_message(exc), 402)
         except Exception as exc:
-            return (None, str(exc), 500)
+            return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_chat(
         self,
@@ -440,9 +441,9 @@ class InferenceEngine:
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
-            return (None, str(exc), 402)
+            return (None, sanitize_error_message(exc), 402)
         except Exception as exc:
-            return (None, str(exc), 500)
+            return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_generate(
         self,

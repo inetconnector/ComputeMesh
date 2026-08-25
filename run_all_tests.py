@@ -21,6 +21,7 @@ CATEGORIES: dict[str, list[str]] = {
     "Gateway Subsystem": [
         "services.gateway.tests.test_gateway_server",
         "services.gateway.tests.test_gateway_auth",
+        "services.gateway.tests.test_gateway_security",
         "services.gateway.tests.test_catalog_and_pricing",
         "services.gateway.tests.test_inference_engine",
     ],

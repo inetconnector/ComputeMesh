@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from typing import Any
 import urllib.parse
@@ -22,10 +23,15 @@ if str(REPO_ROOT) not in sys.path:
 
 from config import CONFIG
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
+from services.gateway.security import (
+    GLOBAL_RATE_LIMITER,
+    SECURITY_HEADERS,
+    sanitize_error_message,
+)
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
 
-PORTAL_DIR = REPO_ROOT / "portal"
+PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 
 ROUTE_MAP: dict[str, str] = {
     "/": "index.html",
@@ -45,8 +51,24 @@ STATIC_TEXT_ROUTES: dict[str, tuple[str, str]] = {
 }
 
 
+def _safe_resolve_portal_file(filename: str) -> Path | None:
+    """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR."""
+    if "\0" in filename or ".." in filename:
+        return None
+    try:
+        candidate = (PORTAL_DIR / filename.lstrip("/")).resolve()
+        if candidate.is_relative_to(PORTAL_DIR) and candidate.is_file():
+            return candidate
+    except Exception:
+        return None
+    return None
+
+
 class PortalHandler(BaseHTTPRequestHandler):
-    """High-performance HTTP Request Handler for Public Web Portal."""
+    """High-performance Military-Grade HTTP Request Handler for Public Web Portal."""
+
+    server_version = "ComputeMesh-Portal/1.2"
+    sys_version = ""
 
     registration_handler: PortalRegistrationHandler = PortalRegistrationHandler()
     quotes_handler: PortalQuotesHandler = PortalQuotesHandler()
@@ -54,9 +76,33 @@ class PortalHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _check_rate_limit(self) -> bool:
+        client_ip = "127.0.0.1"
+        if self.headers:
+            fwd = self.headers.get("X-Forwarded-For")
+            if fwd:
+                client_ip = fwd.split(",")[0].strip()
+            elif self.headers.get("X-Real-IP"):
+                client_ip = self.headers.get("X-Real-IP").strip()
+        allowed, retry_after = GLOBAL_RATE_LIMITER.is_allowed(f"portal_ip_{client_ip}", is_authenticated=False)
+        if not allowed:
+            self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
+            self.send_header("Content-Type", "text/plain")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
+            self.send_header("Retry-After", str(int(retry_after) + 1))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(b"Too Many Requests. Please slow down.\n")
+            self.close_connection = True
+            return False
+        return True
+
     def _send_bytes(self, data: bytes, content_type: str, status: int = HTTPStatus.OK) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Connection", "close")
         self.end_headers()
@@ -67,6 +113,8 @@ class PortalHandler(BaseHTTPRequestHandler):
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Connection", "close")
@@ -76,6 +124,8 @@ class PortalHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -84,6 +134,9 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.close_connection = True
 
     def do_GET(self) -> None:
+        if not self._check_rate_limit():
+            return
+
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path.rstrip("/")
         if clean_path == "":
@@ -110,27 +163,27 @@ class PortalHandler(BaseHTTPRequestHandler):
                 return
 
         if clean_path in ROUTE_MAP:
-            target_file = PORTAL_DIR / ROUTE_MAP[clean_path]
-            if target_file.exists():
+            target_file = _safe_resolve_portal_file(ROUTE_MAP[clean_path])
+            if target_file and target_file.exists():
                 self._send_bytes(target_file.read_bytes(), "text/html; charset=utf-8")
                 return
 
         if clean_path in STATIC_TEXT_ROUTES:
             filename, content_type = STATIC_TEXT_ROUTES[clean_path]
-            target_file = PORTAL_DIR / filename
-            if target_file.exists():
+            target_file = _safe_resolve_portal_file(filename)
+            if target_file and target_file.exists():
                 self._send_bytes(target_file.read_bytes(), content_type)
                 return
 
         if clean_path == "/portal.css":
-            css_file = PORTAL_DIR / "portal.css"
-            if css_file.exists():
+            css_file = _safe_resolve_portal_file("portal.css")
+            if css_file and css_file.exists():
                 self._send_bytes(css_file.read_bytes(), "text/css; charset=utf-8")
                 return
 
         if clean_path == "/portal.js":
-            js_file = PORTAL_DIR / "portal.js"
-            if js_file.exists():
+            js_file = _safe_resolve_portal_file("portal.js")
+            if js_file and js_file.exists():
                 self._send_bytes(js_file.read_bytes(), "application/javascript; charset=utf-8")
                 return
 
@@ -185,8 +238,15 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Resource Not Found")
 
     def do_POST(self) -> None:
+        if not self._check_rate_limit():
+            return
+
         clean_path = self.path.split("?")[0].rstrip("/")
         length = int(self.headers.get("Content-Length", 0))
+        if length > 10 * 1024 * 1024:
+            self._send_json({"error": "Payload too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
+
         raw_data = self.rfile.read(length) if length > 0 else b"{}"
 
         try:
@@ -197,8 +257,8 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
             auth_token = str(body.get("auth_token", "")).strip()
-            if not node_id:
-                self._send_json({"error": "node_id is required"}, HTTPStatus.BAD_REQUEST)
+            if not node_id or not re.match(r"^[a-zA-Z0-9_\-\.]{3,64}$", node_id):
+                self._send_json({"error": "Valid node_id is required"}, HTTPStatus.BAD_REQUEST)
                 return
 
             NODE_TELEMETRY_REGISTRY[node_id] = {
