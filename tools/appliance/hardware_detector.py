@@ -642,8 +642,9 @@ def scan_rig_hardware() -> RigInventory:
     windows_gpus = detect_windows_wmi_gpus(all_gpus)
     all_gpus.extend(windows_gpus)
 
-    # 4. Fallback: lspci if none detected
-    if not all_gpus and shutil.which("lspci"):
+    # 4. Supplement / Fallback: scan lspci to ensure all discrete GPUs (including 16GB + 8GB multi-GPU rigs) are captured
+    if shutil.which("lspci"):
+        existing_slots = {g.pci_slot.lower() for g in all_gpus if g.pci_slot}
         try:
             res = subprocess.run(
                 ["lspci", "-nn", "-D"],
@@ -657,22 +658,25 @@ def scan_rig_hardware() -> RigInventory:
                 l for l in res.stdout.splitlines()
                 if "VGA compatible controller" in l or "3D controller" in l or "Display controller" in l
             ]
-            for idx, line in enumerate(gpu_lines):
+            for line in gpu_lines:
                 slot_match = re.match(r"^([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F])", line)
-                slot = slot_match.group(1) if slot_match else f"pci:{idx}"
-                vendor = "unknown"
-                backend = "vulkan"
+                slot = slot_match.group(1) if slot_match else ""
+                short_slot = slot.split(":", 1)[-1] if ":" in slot else slot
+                if slot and (slot.lower() in existing_slots or any(short_slot.lower() in s for s in existing_slots)):
+                    continue
+
                 vendor, backend = detect_vendor_backend(line)
-                
                 model_name = line.split(": ", 1)[-1] if ": " in line else line
                 if is_integrated_display_adapter(vendor, model_name):
                     continue
-                vram_bytes = read_lspci_prefetchable_memory_bytes(slot)
+
+                vram_bytes = read_lspci_prefetchable_memory_bytes(slot) if slot else 0
                 if vram_bytes < MIN_PROVIDER_VRAM_BYTES:
                     vram_bytes = estimate_gpu_vram_from_name(model_name)
+
                 device = GpuDevice(
-                    index=idx,
-                    pci_slot=slot,
+                    index=len(all_gpus),
+                    pci_slot=slot or f"pci:{len(all_gpus)}",
                     vendor=vendor,
                     model_name=model_name,
                     vram_bytes=vram_bytes,
@@ -685,6 +689,8 @@ def scan_rig_hardware() -> RigInventory:
                 if not is_provider_compute_gpu(device):
                     continue
                 all_gpus.append(device)
+                if slot:
+                    existing_slots.add(slot.lower())
         except Exception:
             pass
 

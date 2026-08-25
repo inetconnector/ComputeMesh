@@ -1095,13 +1095,16 @@ HTML_PAGE = """<!DOCTYPE html>
 
         const gpus = (data.inventory && data.inventory.gpus) ? data.inventory.gpus : [];
         const healthyGpus = gpus.filter(g => g.healthy);
-        const totalVramGb = (data.inventory && data.inventory.total_vram_bytes) ? (data.inventory.total_vram_bytes / (1024*1024*1024)).toFixed(1) : '0.0';
+        const reserveMb = (data.config && data.config.vram_reserve_mb) || 512;
+        const totalVramBytes = (data.inventory && data.inventory.total_vram_bytes) || 0;
+        const totalVramGb = (totalVramBytes / (1024*1024*1024)).toFixed(1);
+        const totalUsableVramGb = Math.max(0.1, (totalVramBytes / (1024*1024*1024)) - ((reserveMb * healthyGpus.length) / 1024)).toFixed(1);
         const localTflops = (data.telemetry && data.telemetry.local_compute_tflops != null) ? data.telemetry.local_compute_tflops : (healthyGpus.length * 12.5).toFixed(1);
 
         const elGpus = document.getElementById('total-gpus');
         if (elGpus) elGpus.textContent = healthyGpus.length + ' GPUs (' + localTflops + ' TFLOPS)';
         const elVram = document.getElementById('total-vram');
-        if (elVram) elVram.textContent = totalVramGb + ' GB Dedicated VRAM';
+        if (elVram) elVram.textContent = `${totalUsableVramGb} GB Netto (${totalVramGb} GB Brutto, -${((reserveMb * healthyGpus.length)/1024).toFixed(1)} GB Reserve)`;
         const elTokens = document.getElementById('tokens-served');
         if (elTokens) elTokens.textContent = (data.telemetry && data.telemetry.tokens_processed != null) ? data.telemetry.tokens_processed.toLocaleString() : '0';
         const elEarnings = document.getElementById('earnings');
@@ -1158,17 +1161,19 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         }
 
-        // Populate GPU Overview Cards
+        // Populate GPU Overview Cards with VRAM headroom
         const container = document.getElementById('gpu-container');
         if (container && gpus.length > 0) {
           container.innerHTML = '';
           gpus.forEach((gpu, idx) => {
             const isDisabled = data.config && data.config.disabled_gpus && data.config.disabled_gpus.includes(gpu.index);
-            const vramGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
+            const totalGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
+            const usableGb = Math.max(0.1, (gpu.vram_bytes / (1024*1024*1024)) - (reserveMb / 1024)).toFixed(1);
             const therm = (data.telemetry && data.telemetry.gpu_thermals && data.telemetry.gpu_thermals[idx]) || {};
             const temp = therm.temp || 56;
             const fan = therm.fan || 62;
             const power = therm.power_watts || 110;
+            const tflops = therm.tflops || (gpu.model_name.includes('3080') ? 24.0 : (gpu.model_name.includes('MI25') ? 24.6 : 14.0));
 
             const card = document.createElement('div');
             card.className = 'gpu-card' + (isDisabled ? ' disabled' : '');
@@ -1176,33 +1181,33 @@ HTML_PAGE = """<!DOCTYPE html>
               <div class="gpu-header">
                 <div>
                   <div class="gpu-name">GPU ${gpu.index}: ${gpu.model_name}</div>
-                  <div class="gpu-pci">${gpu.pci_slot || 'PCIe'} • ${isDisabled ? 'DISABLED' : (gpu.driver_backend || 'CUDA').toUpperCase()}</div>
+                  <div class="gpu-pci">${gpu.pci_slot || 'PCIe'} • ${isDisabled ? 'DEAKTIVIERT' : (gpu.driver_backend || 'CUDA/ROCm').toUpperCase()} • ${tflops} TFLOPS</div>
                 </div>
                 <span class="gpu-badge" style="${isDisabled ? 'background: rgba(244,63,94,0.15); color: var(--accent-rose); border-color: rgba(244,63,94,0.3);' : ''}">
-                  ${isDisabled ? 'OFFLINE' : 'ACTIVE'}
+                  ${isDisabled ? 'OFFLINE' : 'ONLINE (BEREIT)'}
                 </span>
               </div>
               <div class="bar-wrap">
                 <div class="bar-labels">
-                  <span>VRAM Allocation</span>
-                  <span>${vramGb} GB Dedicated</span>
+                  <span>VRAM Allokation (abzgl. ${reserveMb} MB Reserve)</span>
+                  <span><strong style="color: var(--accent-cyan);">${usableGb} GB</strong> Bereitgestellt / ${totalGb} GB Total</span>
                 </div>
                 <div class="progress-bar">
-                  <div class="progress-fill" style="width: ${isDisabled ? '0%' : '85%'}; ${isDisabled ? 'background: #374151;' : ''}"></div>
+                  <div class="progress-fill" style="width: ${isDisabled ? '0%' : '90%'}; ${isDisabled ? 'background: #374151;' : ''}"></div>
                 </div>
               </div>
               <div class="gpu-metrics">
                 <div>
                   <div class="metric-val" style="color: ${temp > 75 ? 'var(--accent-amber)' : 'var(--accent-emerald)'}">${temp}°C</div>
-                  <div class="metric-lbl">Temp</div>
+                  <div class="metric-lbl">Temperatur</div>
                 </div>
                 <div>
                   <div class="metric-val">${fan}%</div>
-                  <div class="metric-lbl">Fan</div>
+                  <div class="metric-lbl">Lüfter</div>
                 </div>
                 <div>
                   <div class="metric-val">${power}W</div>
-                  <div class="metric-lbl">Power</div>
+                  <div class="metric-lbl">Leistung</div>
                 </div>
               </div>
             `;
