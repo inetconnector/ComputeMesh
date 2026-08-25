@@ -25,7 +25,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tools.security.ed25519_verify import verify_ed25519_signature
-from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX
+from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX, TRUSTED_RELEASE_PUBLIC_KEYS_HEX
 
 DEFAULT_UPDATE_URL = "https://computemesh.inetconnector.com/updates/version.json"
 
@@ -100,15 +100,16 @@ class AutoUpdater:
             if not signature_hex:
                 raise SignatureVerificationError("Missing digital signature in update manifest.")
 
-            # Verify public key matches embedded official release key
-            manifest_pub_hex = manifest_data.get("public_key")
-            if manifest_pub_hex and manifest_pub_hex.lower() != self.public_key_hex.lower():
+            # Verify public key matches trusted release keys
+            manifest_pub_hex = (manifest_data.get("public_key") or self.public_key_hex).lower()
+            trusted_keys = [k.lower() for k in TRUSTED_RELEASE_PUBLIC_KEYS_HEX]
+            if manifest_pub_hex not in trusted_keys and manifest_pub_hex != self.public_key_hex.lower():
                 raise SignatureVerificationError(
-                    f"Manifest public key ({manifest_pub_hex}) does not match trusted official key ({self.public_key_hex})"
+                    f"Manifest public key ({manifest_pub_hex}) does not match trusted keys ({trusted_keys})"
                 )
 
             # Verify Ed25519 signature
-            pub_bytes = bytes.fromhex(self.public_key_hex)
+            pub_bytes = bytes.fromhex(manifest_pub_hex)
             sig_bytes = bytes.fromhex(signature_hex)
             canonical_bytes = json.dumps(manifest_data, sort_keys=True).encode("utf-8")
             if not verify_ed25519_signature(pub_bytes, canonical_bytes, sig_bytes):
