@@ -24,11 +24,12 @@ from typing import Any
 SCHEMA_VERSION = 1
 
 INTEGRATED_DISPLAY_MARKERS = (
-    "integrated graphics",
-    "processor graphics",
-    "hd graphics",
-    "uhd graphics",
-    "iris",
+    "aspeed", "ast2400", "ast2500", "ast2600", "ast2000", "ast1000",
+    "matrox", "mga", "g200", "g200e", "g200eh", "g200er", "g200ew",
+    "silicon motion", "sm712", "sm750", "lynx",
+    "cirrus logic", "gd 5446", "qxl", "bochs", "virtio-gpu", "vmware", "virtualbox",
+    "integrated graphics", "processor graphics", "hd graphics", "uhd graphics", "iris",
+    "vega 3", "vega 6", "vega 8", "vega 11", "radeon r2", "radeon r3", "radeon r4", "radeon r5"
 )
 
 DISCRETE_COMPUTE_MARKERS = (
@@ -101,58 +102,86 @@ def _get_subprocess_flags() -> dict[str, Any]:
 
 
 def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
-    """Return True only for integrated CPU display adapters that cannot serve provider AI compute."""
+    """Return True only for motherboard/CPU display adapters that cannot serve provider AI compute."""
     m = model_name.lower()
+    v = vendor.lower()
+
+    # 1. Motherboard server/BMC display chips (Aspeed, Matrox, Silicon Motion, Cirrus, etc.)
+    if any(bmc in m or bmc in v for bmc in ("aspeed", "ast2", "ast1", "matrox", "g200", "silicon motion", "cirrus", "qxl", "bochs", "virtio")):
+        return True
+
+    # 2. CPU integrated graphics (Intel HD/UHD/Iris, AMD APU Vega 3/6/8)
+    if any(marker in m for marker in ("integrated graphics", "processor graphics", "hd graphics", "uhd graphics", "iris", "vega 3", "vega 6", "vega 8", "vega 11")):
+        return True
+
     for prefix in ("vga compatible controller:", "3d controller:", "display controller:"):
         if prefix in m:
             m = m.split(prefix, 1)[-1].strip()
 
-    # If it is clearly a discrete GPU series, it is NEVER an integrated adapter
-    if any(marker in m for marker in DISCRETE_COMPUTE_MARKERS):
+    # Discrete NVIDIA GPUs
+    if v == "nvidia" or "geforce" in m or "quadro" in m or "tesla" in m or "rtx" in m or "gtx" in m:
         return False
 
-    v = vendor.lower()
-    if v == "nvidia":
-        return False
-    if v == "amd":
-        # Only APUs (like Radeon Vega 3/6/8/Ryzen integrated) are integrated
-        if any(apu in m for apu in ("vega 3", "vega 6", "vega 8", "integrated graphics")):
-            return True
+    # Discrete AMD GPUs
+    if v == "amd" or any(marker in m for marker in ("radeon", "polaris", "navi", "instinct", "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590")):
         return False
 
+    # Discrete Intel Arc GPUs
     if v == "intel":
-        # Intel Arc discrete GPUs (A380, A750, A770, B580, etc.) are discrete compute cards!
         if any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580")):
             return False
-        if any(marker in m for marker in INTEGRATED_DISPLAY_MARKERS):
-            return True
+        return True
 
     if "integrated" in m and "graphics" in m:
         return True
     return False
 
 
+def read_pci_resource_vram_bytes(slot: str) -> int:
+    """Read prefetchable BAR size directly from Linux kernel sysfs /sys/bus/pci/devices/{slot}/resource."""
+    try:
+        res_file = Path("/sys/bus/pci/devices") / slot / "resource"
+        if not res_file.exists():
+            candidates = list(Path("/sys/bus/pci/devices").glob(f"*{slot}*"))
+            if candidates:
+                res_file = candidates[0] / "resource"
+        if not res_file.exists():
+            return 0
+        max_size = 0
+        for line in res_file.read_text().splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 3:
+                start = int(parts[0], 16)
+                end = int(parts[1], 16)
+                flags = int(parts[2], 16)
+                if end > start:
+                    size = end - start + 1
+                    if (flags & 0x20000 or flags & 0x200) and size >= MIN_PROVIDER_VRAM_BYTES:
+                        if size > max_size:
+                            max_size = size
+        return max_size
+    except Exception:
+        return 0
+
+
 def estimate_gpu_vram_from_name(model_name: str, device_hex: str = "") -> int:
     """Infer standard dedicated VRAM bytes for known GPU architectures when sysfs/BAR is inaccessible."""
     m = model_name.lower()
-    d = device_hex.lower()
-    if "mi25" in m or "vega 10" in m or d in ("0x6860", "0x6861", "0x6863", "0x687f"):
-        return 16 * 1024 * 1024 * 1024
+    # Explicit model size (e.g. 16GB, 8GB, 24GB)
+    match = re.search(r"(\d+)\s*(?:gb|gib)", m)
+    if match:
+        return int(match.group(1)) * 1024 * 1024 * 1024
     if "4090" in m or "3090" in m:
         return 24 * 1024 * 1024 * 1024
     if "7900 xtx" in m:
         return 24 * 1024 * 1024 * 1024
     if "7900 xt" in m:
         return 20 * 1024 * 1024 * 1024
-    if "3080" in m or "4080" in m or "6800" in m or "6900" in m:
+    if "3080" in m or "4080" in m:
         return 16 * 1024 * 1024 * 1024
     if "3060" in m:
         return 12 * 1024 * 1024 * 1024
-    if "580" in m or "570" in m or "480" in m or "vega 56" in m or "vega 64" in m:
-        return 8 * 1024 * 1024 * 1024
-    match = re.search(r"(\d+)\s*(?:gb|gib)", m)
-    if match:
-        return int(match.group(1)) * 1024 * 1024 * 1024
+    # Default for discrete mining GPUs (Polaris RX 470/480/570/580/590, Vega 56, MI25 8GB variants)
     return 8 * 1024 * 1024 * 1024
 
 
@@ -451,6 +480,8 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
                         pass
 
             if vram_bytes <= 0:
+                vram_bytes = read_pci_resource_vram_bytes(pci_slot)
+            if vram_bytes <= 0:
                 vram_bytes = read_lspci_prefetchable_memory_bytes(pci_slot)
             if vram_bytes <= 0:
                 vram_bytes = estimate_gpu_vram_from_name(model_name, device_hex)
@@ -670,7 +701,9 @@ def scan_rig_hardware() -> RigInventory:
                 if is_integrated_display_adapter(vendor, model_name):
                     continue
 
-                vram_bytes = read_lspci_prefetchable_memory_bytes(slot) if slot else 0
+                vram_bytes = read_pci_resource_vram_bytes(slot) if slot else 0
+                if vram_bytes < MIN_PROVIDER_VRAM_BYTES and slot:
+                    vram_bytes = read_lspci_prefetchable_memory_bytes(slot)
                 if vram_bytes < MIN_PROVIDER_VRAM_BYTES:
                     vram_bytes = estimate_gpu_vram_from_name(model_name)
 
