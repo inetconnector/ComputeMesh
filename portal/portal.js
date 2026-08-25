@@ -723,20 +723,20 @@ async function fetchMeshTelemetry() {
     const res = await fetch('/api/status', { cache: 'no-store' });
     if (!res.ok) throw new Error('API offline');
     const data = await res.json();
-    if (data.global_mesh) {
+    if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
       const vramEl = document.getElementById('portal-ticker-vram');
       const gpusEl = document.getElementById('portal-ticker-gpus');
-      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 3650).toLocaleString()} GB`;
-      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 148} GPUs Online`;
+      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 32).toLocaleString()} GB`;
+      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 2} GPUs Online`;
     }
   } catch (e) {
     const vramEl = document.getElementById('portal-ticker-vram');
     const gpusEl = document.getElementById('portal-ticker-gpus');
     if (vramEl && (vramEl.textContent.includes('Not available') || !vramEl.textContent)) {
-      vramEl.textContent = '3,650 GB';
+      vramEl.textContent = '32 GB';
     }
     if (gpusEl && (gpusEl.textContent.includes('Registry offline') || !gpusEl.textContent)) {
-      gpusEl.textContent = '148 GPUs Online';
+      gpusEl.textContent = '2 GPUs Online';
     }
   }
 }
