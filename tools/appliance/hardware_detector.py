@@ -25,12 +25,17 @@ SCHEMA_VERSION = 1
 
 INTEGRATED_DISPLAY_MARKERS = (
     "integrated graphics",
-    "integrated graphics controller",
     "processor graphics",
-    "graphics controller",
     "hd graphics",
     "uhd graphics",
     "iris",
+)
+
+DISCRETE_COMPUTE_MARKERS = (
+    "radeon", "geforce", "quadro", "tesla", "rtx", "gtx", "cmp", "arc",
+    "vega", "polaris", "navi", "instinct", "mi25", "mi50", "mi100",
+    "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590",
+    "a770", "a750", "a580", "a380", "a310", "b580", "b570"
 )
 
 MIN_PROVIDER_VRAM_BYTES = 2 * 1024 * 1024 * 1024
@@ -96,14 +101,59 @@ def _get_subprocess_flags() -> dict[str, Any]:
 
 
 def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
-    """Return True for display adapters that should not be sold as provider VRAM."""
-    model_lower = model_name.lower()
-    vendor_lower = vendor.lower()
-    if vendor_lower == "intel" and any(marker in model_lower for marker in INTEGRATED_DISPLAY_MARKERS):
-        return True
-    if "integrated" in model_lower and "graphics" in model_lower:
+    """Return True only for integrated CPU display adapters that cannot serve provider AI compute."""
+    m = model_name.lower()
+    for prefix in ("vga compatible controller:", "3d controller:", "display controller:"):
+        if prefix in m:
+            m = m.split(prefix, 1)[-1].strip()
+
+    # If it is clearly a discrete GPU series, it is NEVER an integrated adapter
+    if any(marker in m for marker in DISCRETE_COMPUTE_MARKERS):
+        return False
+
+    v = vendor.lower()
+    if v == "nvidia":
+        return False
+    if v == "amd":
+        # Only APUs (like Radeon Vega 3/6/8/Ryzen integrated) are integrated
+        if any(apu in m for apu in ("vega 3", "vega 6", "vega 8", "integrated graphics")):
+            return True
+        return False
+
+    if v == "intel":
+        # Intel Arc discrete GPUs (A380, A750, A770, B580, etc.) are discrete compute cards!
+        if any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580")):
+            return False
+        if any(marker in m for marker in INTEGRATED_DISPLAY_MARKERS):
+            return True
+
+    if "integrated" in m and "graphics" in m:
         return True
     return False
+
+
+def estimate_gpu_vram_from_name(model_name: str, device_hex: str = "") -> int:
+    """Infer standard dedicated VRAM bytes for known GPU architectures when sysfs/BAR is inaccessible."""
+    m = model_name.lower()
+    d = device_hex.lower()
+    if "mi25" in m or "vega 10" in m or d in ("0x6860", "0x6861", "0x6863", "0x687f"):
+        return 16 * 1024 * 1024 * 1024
+    if "4090" in m or "3090" in m:
+        return 24 * 1024 * 1024 * 1024
+    if "7900 xtx" in m:
+        return 24 * 1024 * 1024 * 1024
+    if "7900 xt" in m:
+        return 20 * 1024 * 1024 * 1024
+    if "3080" in m or "4080" in m or "6800" in m or "6900" in m:
+        return 16 * 1024 * 1024 * 1024
+    if "3060" in m:
+        return 12 * 1024 * 1024 * 1024
+    if "580" in m or "570" in m or "480" in m or "vega 56" in m or "vega 64" in m:
+        return 8 * 1024 * 1024 * 1024
+    match = re.search(r"(\d+)\s*(?:gb|gib)", m)
+    if match:
+        return int(match.group(1)) * 1024 * 1024 * 1024
+    return 8 * 1024 * 1024 * 1024
 
 
 def is_provider_compute_gpu(gpu: GpuDevice) -> bool:
@@ -174,6 +224,91 @@ def read_lspci_prefetchable_memory_bytes(slot: str) -> int:
         if size_bytes:
             sizes.append(size_bytes)
     return max(sizes) if sizes else 0
+
+
+def collect_hardware_debug() -> dict[str, Any]:
+    """Collect sanitized hardware discovery inputs for remote support debugging."""
+    debug: dict[str, Any] = {
+        "tools": {
+            "lspci": shutil.which("lspci"),
+            "nvidia_smi": shutil.which("nvidia-smi"),
+            "rocm_smi": shutil.which("rocm-smi"),
+            "vulkaninfo": shutil.which("vulkaninfo"),
+        },
+        "drm_devices": [],
+        "lspci_controllers": [],
+    }
+
+    for card in sorted(glob.glob("/sys/class/drm/card*/device")):
+        card_path = Path(card)
+        entry: dict[str, Any] = {
+            "path": str(card_path),
+            "resolved_slot": card_path.resolve().name,
+        }
+        for name in (
+            "vendor",
+            "device",
+            "class",
+            "mem_info_vram_total",
+            "mem_info_vis_vram_total",
+            "mem_info_gtt_total",
+        ):
+            try:
+                file_path = card_path / name
+                if file_path.exists():
+                    entry[name] = file_path.read_text(errors="replace").strip()
+            except Exception as exc:
+                entry[f"{name}_error"] = str(exc)
+        try:
+            uevent = card_path / "uevent"
+            if uevent.exists():
+                entry["uevent"] = uevent.read_text(errors="replace").strip().splitlines()
+        except Exception as exc:
+            entry["uevent_error"] = str(exc)
+        debug["drm_devices"].append(entry)
+
+    if shutil.which("lspci"):
+        try:
+            res = subprocess.run(
+                ["lspci", "-nn", "-D"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10,
+                **_get_subprocess_flags(),
+            )
+            for line in res.stdout.splitlines():
+                if "VGA compatible controller" in line or "3D controller" in line or "Display controller" in line:
+                    slot_match = re.match(r"^([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F])", line)
+                    slot = slot_match.group(1) if slot_match else ""
+                    controller: dict[str, Any] = {
+                        "line": line,
+                        "slot": slot,
+                        "vendor_backend": detect_vendor_backend(line),
+                        "prefetchable_memory_bytes": read_lspci_prefetchable_memory_bytes(slot) if slot else 0,
+                    }
+                    if slot:
+                        try:
+                            verbose = subprocess.run(
+                                ["lspci", "-vv", "-s", slot],
+                                capture_output=True,
+                                text=True,
+                                check=True,
+                                timeout=8,
+                                **_get_subprocess_flags(),
+                            )
+                            controller["memory_lines"] = [
+                                l.strip()
+                                for l in verbose.stdout.splitlines()
+                                if "Memory at" in l or "[size=" in l
+                            ][:20]
+                        except Exception as exc:
+                            controller["verbose_error"] = str(exc)
+                    debug["lspci_controllers"].append(controller)
+        except Exception as exc:
+            debug["lspci_error"] = str(exc)
+
+    return debug
 
 
 # ==============================================================================
@@ -282,20 +417,6 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
             if vendor_hex.lower() != "0x1002":
                 continue
 
-            # Read VRAM size from amdgpu sysfs. Never invent provider VRAM.
-            vram_bytes = 0
-            vram_file = Path(card) / "mem_info_vram_total"
-            if vram_file.exists():
-                try:
-                    vram_bytes = int(vram_file.read_text().strip())
-                except Exception:
-                    pass
-            if vram_bytes <= 0:
-                continue
-
-            # Read PCI Slot
-            pci_slot = Path(card).resolve().name
-
             # Read Model / Device name
             device_hex = ""
             dev_file = Path(card) / "device"
@@ -305,14 +426,34 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
             model_name = "AMD Radeon GPU"
             if device_hex in ("0x67df", "0x67c0", "0x67ef"):
                 model_name = "AMD Radeon RX 470/480/570/580/590 (Polaris)"
-            elif device_hex in ("0x687f", "0x6863"):
-                model_name = "AMD Radeon RX Vega 56/64"
+            elif device_hex in ("0x687f", "0x6863", "0x6860", "0x6861"):
+                model_name = "AMD Radeon RX Vega 56/64 / Instinct MI25"
             elif device_hex in ("0x731f", "0x7340"):
                 model_name = "AMD Radeon RX 5700 XT (Navi 10)"
             elif device_hex in ("0x73df", "0x73bf", "0x73a5"):
                 model_name = "AMD Radeon RX 6000 Series (RDNA 2)"
             elif device_hex in ("0x744c", "0x7479"):
                 model_name = "AMD Radeon RX 7000 Series (RDNA 3)"
+
+            # Read PCI Slot
+            pci_slot = Path(card).resolve().name
+
+            # Read VRAM size from amdgpu sysfs or fallback to BAR / architecture estimation
+            vram_bytes = 0
+            for vram_name in ("mem_info_vram_total", "mem_info_vis_vram_total"):
+                vram_file = Path(card) / vram_name
+                if vram_file.exists():
+                    try:
+                        vram_bytes = int(vram_file.read_text().strip())
+                        if vram_bytes > 0:
+                            break
+                    except Exception:
+                        pass
+
+            if vram_bytes <= 0:
+                vram_bytes = read_lspci_prefetchable_memory_bytes(pci_slot)
+            if vram_bytes <= 0:
+                vram_bytes = estimate_gpu_vram_from_name(model_name, device_hex)
 
             # Read PCIe Link Width & Gen
             pcie_width = 1
@@ -528,7 +669,7 @@ def scan_rig_hardware() -> RigInventory:
                     continue
                 vram_bytes = read_lspci_prefetchable_memory_bytes(slot)
                 if vram_bytes < MIN_PROVIDER_VRAM_BYTES:
-                    continue
+                    vram_bytes = estimate_gpu_vram_from_name(model_name)
                 device = GpuDevice(
                     index=idx,
                     pci_slot=slot,
