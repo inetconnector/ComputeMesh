@@ -297,3 +297,175 @@ class InferenceEngine:
             "eval_count": tokens_completion,
         }
         yield (json.dumps(final_chunk) + "\n").encode("utf-8")
+
+    def execute_chat_completion(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        messages: list[Any],
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> tuple[dict[str, Any] | None, str | None, int]:
+        try:
+            chat_id, completion_text, created_ts, tok_p, tok_c = self.create_metered_completion(
+                account_id=account_id,
+                model_id=model_id,
+                messages=messages,
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self_compute,
+                client_ip=client_ip,
+            )
+            res = self.format_openai_response(
+                chat_id=chat_id,
+                model_id=model_id,
+                completion_text=completion_text,
+                created_timestamp=created_ts,
+                tokens_prompt=tok_p,
+                tokens_completion=tok_c,
+            )
+            return (res, None, 200)
+        except InsufficientBalanceError as exc:
+            return (None, str(exc), 402)
+        except Exception as exc:
+            return (None, str(exc), 500)
+
+    def stream_chat_completions(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        messages: list[Any],
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> Generator[bytes, None, None]:
+        chat_id, completion_text, created_ts, _, _ = self.create_metered_completion(
+            account_id=account_id,
+            model_id=model_id,
+            messages=messages,
+            is_teaser=is_teaser,
+            is_provider_self_compute=is_provider_self_compute,
+            client_ip=client_ip,
+        )
+        yield from self.stream_openai_sse(
+            chat_id=chat_id,
+            model_id=model_id,
+            completion_text=completion_text,
+            created_timestamp=created_ts,
+        )
+
+    def execute_ollama_chat(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        messages: list[Any],
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> tuple[dict[str, Any] | None, str | None, int]:
+        try:
+            _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
+                account_id=account_id,
+                model_id=model_id,
+                messages=messages,
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self_compute,
+                client_ip=client_ip,
+            )
+            res = self.format_ollama_chat_response(
+                model_id=model_id,
+                completion_text=completion_text,
+                tokens_prompt=tok_p,
+                tokens_completion=tok_c,
+            )
+            return (res, None, 200)
+        except InsufficientBalanceError as exc:
+            return (None, str(exc), 402)
+        except Exception as exc:
+            return (None, str(exc), 500)
+
+    def stream_ollama_chat(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        messages: list[Any],
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> Generator[bytes, None, None]:
+        _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
+            account_id=account_id,
+            model_id=model_id,
+            messages=messages,
+            is_teaser=is_teaser,
+            is_provider_self_compute=is_provider_self_compute,
+            client_ip=client_ip,
+        )
+        yield from self.stream_ollama_chat_ndjson(
+            model_id=model_id,
+            completion_text=completion_text,
+            tokens_prompt=tok_p,
+            tokens_completion=tok_c,
+        )
+
+    def execute_ollama_generate(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        prompt: str,
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> tuple[dict[str, Any] | None, str | None, int]:
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
+                account_id=account_id,
+                model_id=model_id,
+                messages=messages,
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self_compute,
+                client_ip=client_ip,
+            )
+            res = self.format_ollama_generate_response(
+                model_id=model_id,
+                completion_text=completion_text,
+                tokens_prompt=tok_p,
+                tokens_completion=tok_c,
+            )
+            return (res, None, 200)
+        except InsufficientBalanceError as exc:
+            return (None, str(exc), 402)
+        except Exception as exc:
+            return (None, str(exc), 500)
+
+    def stream_ollama_generate(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        prompt: str,
+        is_teaser: bool = False,
+        is_provider_self_compute: bool = False,
+        client_ip: str = "127.0.0.1",
+    ) -> Generator[bytes, None, None]:
+        messages = [{"role": "user", "content": prompt}]
+        _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
+            account_id=account_id,
+            model_id=model_id,
+            messages=messages,
+            is_teaser=is_teaser,
+            is_provider_self_compute=is_provider_self_compute,
+            client_ip=client_ip,
+        )
+        yield from self.stream_ollama_generate_ndjson(
+            model_id=model_id,
+            completion_text=completion_text,
+            tokens_prompt=tok_p,
+            tokens_completion=tok_c,
+        )

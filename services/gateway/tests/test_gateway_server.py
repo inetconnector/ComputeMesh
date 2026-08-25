@@ -132,6 +132,7 @@ class TestGatewayServer(unittest.TestCase):
         GatewayHandler.api_keys = {
             "cm_live_default_test_key": "cust_test_default",
         }
+        GatewayHandler.sync_subsystems()
         cls.server = ThreadingHTTPServer(("127.0.0.1", 18000), GatewayHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()

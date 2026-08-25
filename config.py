@@ -31,6 +31,10 @@ class MeshEndpoints:
         return f"{self.base_url}/api/v1"
 
     @property
+    def api_url(self) -> str:
+        return f"{self.base_url}/v1"
+
+    @property
     def portal_url(self) -> str:
         return self.base_url
 
@@ -62,9 +66,22 @@ class TeaserConfig:
 
 
 @dataclass
+class PortConfig:
+    """Configures default networking ports."""
+    gateway: int = int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000"))
+    portal: int = int(os.environ.get("COMPUTEMESH_PORTAL_PORT", "3000"))
+    appliance_dashboard: int = int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080"))
+
+
+# Semantic alias
+EndpointConfig = MeshEndpoints
+
+
+@dataclass
 class ComputeMeshConfig:
     """Master configuration class containing all primary subsystem configurations."""
     endpoints: MeshEndpoints = field(default_factory=MeshEndpoints)
+    ports: PortConfig = field(default_factory=PortConfig)
     teaser: TeaserConfig = field(default_factory=TeaserConfig)
     appliance_version: str = "1.2.11"
     default_dashboard_port: int = 8080
@@ -77,6 +94,7 @@ class ComputeMeshConfig:
     def from_env(cls) -> ComputeMeshConfig:
         return cls(
             endpoints=MeshEndpoints(),
+            ports=PortConfig(),
             teaser=TeaserConfig(),
             appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.11"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),

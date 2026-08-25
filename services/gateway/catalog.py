@@ -86,22 +86,33 @@ AVAILABLE_MODELS: list[ModelSpec] = [
 
 
 def resolve_model_id(raw_model: str) -> str:
-    """Maps raw model name, Ollama tag (e.g. qwen2.5:7b), or alias to canonical model ID."""
+    """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, llama3.1:8b), or alias to canonical model ID."""
     if not raw_model:
         return AVAILABLE_MODELS[2].id  # default qwen2.5-7b
 
     model_clean = raw_model.strip().lower()
+
+    # 1. Exact match on full model ID
     for m in AVAILABLE_MODELS:
         if model_clean == m.id.lower():
             return m.id
-        # Ollama style: qwen2.5:7b or qwen2.5:72b or llama3.1:8b or deepseek-r1
-        short_name = m.id.split("/")[-1].lower()
-        if model_clean in short_name or short_name.startswith(model_clean.split(":")[0]):
-            return m.id
-        if ":" in model_clean:
-            base, tag = model_clean.split(":", 1)
-            if base in short_name and tag in short_name:
+
+    def norm(s: str) -> str:
+        return s.replace(".", "").replace("-", "").replace("_", "").lower()
+
+    # 2. Tagged alias matching e.g. "qwen2.5:7b", "llama3.1:8b", "llama3.3:70b"
+    if ":" in model_clean:
+        base, tag = model_clean.split(":", 1)
+        for m in AVAILABLE_MODELS:
+            short_name = m.id.split("/")[-1].lower()
+            if norm(base) in norm(short_name) and norm(tag) in norm(short_name):
                 return m.id
+
+    # 3. Direct substring match on short name
+    for m in AVAILABLE_MODELS:
+        short_name = m.id.split("/")[-1].lower()
+        if norm(model_clean) in norm(short_name):
+            return m.id
 
     return AVAILABLE_MODELS[2].id
 
