@@ -1191,5 +1191,22 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
    - Configured, deployed, and enabled `computemesh-node.service` on production server `supersrv-trixie` (`/opt/computemesh/linux_tray_app.py --daemon`).
    - Verified server node status endpoint returning active node inventory on `supersrv-trixie`.
 
+---
+
+## 42. Web Portal QR-Code Mobile Integration & Release Push (2026-08-25)
+
+### Status & Verification
+1. **Public Web Portal QR-Code Mobile Access:**
+   - Fixed QR-Code generation in [`services/appliance_dashboard/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/server.py): replaced local loopback (`127.0.0.1`) with the public web portal endpoint: `https://computemesh.inetconnector.com`.
+   - Smartphone camera scanning now instantly opens the official ComputeMesh Portal weltweit über WLAN/4G/5G.
+2. **Network IP Resolution & Web Chips:**
+   - Updated `get_network_interfaces()` to expose the primary Web Portal chip (`WEB: https://computemesh.inetconnector.com`) alongside physical LAN IP (`LAN: http://192.168.1.94:8080`), prioritizing physical network adapters over virtual WSL/Hyper-V interfaces.
+3. **Packaging, Release Signing & Production Sync:**
+   - Rebuilt Windows standalone installer [`ComputeMesh-Setup-x64.exe`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/downloads/ComputeMesh-Setup-x64.exe) and Linux package [`computemesh-linux-x86_64.tar.gz`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/downloads/computemesh-linux-x86_64.tar.gz).
+   - Re-signed [`portal/updates/version.json`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/updates/version.json) with Ed25519 keypair.
+   - Synchronized all downloads, manifests, and daemons on production web server `supersrv-trixie`.
+   - Committed and pushed to GitHub `origin/main` (commit `dae6b34`).
+
+
 
 
