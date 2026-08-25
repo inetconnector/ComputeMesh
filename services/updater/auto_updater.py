@@ -196,18 +196,28 @@ del "%~f0"
         import subprocess
 
         if downloaded_pkg.suffix in (".gz", ".tgz") or downloaded_pkg.name.endswith(".tar.gz"):
-            shutil.unpack_archive(str(downloaded_pkg), "/opt/computemesh")
-            nested = Path("/opt/computemesh/computemesh")
-            if nested.exists():
-                for item in nested.iterdir():
-                    dest = Path("/opt/computemesh") / item.name
-                    if item.is_dir():
-                        shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(str(item), str(dest))
+            for target_dir in ["/opt/computemesh", "/root/ComputeMesh"]:
+                p = Path(target_dir)
+                if p.exists():
+                    try:
+                        shutil.unpack_archive(str(downloaded_pkg), str(p))
+                        nested = p / "computemesh"
+                        if nested.exists():
+                            for item in nested.iterdir():
+                                dest = p / item.name
+                                if item.is_dir():
+                                    shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                                else:
+                                    shutil.copy2(str(item), str(dest))
+                    except Exception:
+                        pass
 
             # Restart all active computemesh services
-            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-gateway.service || true"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-gateway.service computemesh-autoupdate.service || true"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
 
 def main() -> int:

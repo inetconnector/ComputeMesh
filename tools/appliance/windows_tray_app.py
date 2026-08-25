@@ -80,13 +80,12 @@ def _cleanup_previous_instances() -> None:
         return
     try:
         current_pid = os.getpid()
-        parent_pid = os.getppid() if hasattr(os, "getppid") else 0
         cmd = [
             "powershell", "-NoProfile", "-Command",
-            f"Get-Process -Name 'ComputeMesh*', 'ComputeMesh-Setup*' -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne {current_pid} -and $_.Id -ne {parent_pid} }} | Stop-Process -Force -ErrorAction SilentlyContinue"
+            f"Get-Process -Name 'ComputeMesh' -ErrorAction SilentlyContinue | Where-Object {{ $_.Id -ne {current_pid} }} | Stop-Process -Force -ErrorAction SilentlyContinue"
         ]
         import subprocess
-        subprocess.run(cmd, capture_output=True, timeout=5, creationflags=0x08000000)
+        subprocess.run(cmd, capture_output=True, timeout=3, creationflags=0x08000000)
     except Exception:
         pass
 
