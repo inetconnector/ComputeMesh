@@ -845,8 +845,18 @@ class ComputeMeshProviderApp:
             # Update mesh cluster stats label
             try:
                 from services.appliance_dashboard.server import GLOBAL_MESH_AGGREGATOR
-                m_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats()
-                if m_stats and m_stats.get("total_nodes_online"):
+                local_payload = {
+                    "node_id": "windows-laptop",
+                    "status": "online",
+                    "inventory": self.inventory.to_dict(),
+                    "telemetry": {
+                        "tokens_processed": self.total_tokens_served,
+                        "earnings_cm": self.total_earnings_usd,
+                        "local_compute_tflops": self._calculate_local_tflops(),
+                    },
+                }
+                m_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
+                if m_stats:
                     nodes_cnt = m_stats.get("total_nodes_online", 2)
                     vram_pool = m_stats.get("total_vram_gb", 24.0)
                     tf_pool = m_stats.get("total_compute_tflops", 48.6)
