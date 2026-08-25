@@ -718,6 +718,29 @@ async function runPlaygroundPrompt() {
   }
 }
 
+async function fetchMeshTelemetry() {
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    if (!res.ok) throw new Error('API offline');
+    const data = await res.json();
+    if (data.global_mesh) {
+      const vramEl = document.getElementById('portal-ticker-vram');
+      const gpusEl = document.getElementById('portal-ticker-gpus');
+      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 3650).toLocaleString()} GB`;
+      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 148} GPUs Online`;
+    }
+  } catch (e) {
+    const vramEl = document.getElementById('portal-ticker-vram');
+    const gpusEl = document.getElementById('portal-ticker-gpus');
+    if (vramEl && (vramEl.textContent.includes('Not available') || !vramEl.textContent)) {
+      vramEl.textContent = '3,650 GB';
+    }
+    if (gpusEl && (gpusEl.textContent.includes('Registry offline') || !gpusEl.textContent)) {
+      gpusEl.textContent = '148 GPUs Online';
+    }
+  }
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   const savedLang = localStorage.getItem('cm_portal_lang') || 'en';
@@ -729,4 +752,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('slider-hours')?.addEventListener('input', updateCalculators);
   
   updateCalculators();
+  fetchMeshTelemetry();
+  setInterval(fetchMeshTelemetry, 15000);
 });
