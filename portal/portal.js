@@ -726,17 +726,17 @@ async function fetchMeshTelemetry() {
     if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
       const vramEl = document.getElementById('portal-ticker-vram');
       const gpusEl = document.getElementById('portal-ticker-gpus');
-      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 24).toLocaleString()} GB`;
-      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 2} GPUs Online`;
+      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 8).toLocaleString()} GB`;
+      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 1} GPU Online`;
     }
   } catch (e) {
     const vramEl = document.getElementById('portal-ticker-vram');
     const gpusEl = document.getElementById('portal-ticker-gpus');
     if (vramEl && (vramEl.textContent.includes('Not available') || !vramEl.textContent)) {
-      vramEl.textContent = '24 GB';
+      vramEl.textContent = '8 GB';
     }
     if (gpusEl && (gpusEl.textContent.includes('Registry offline') || !gpusEl.textContent)) {
-      gpusEl.textContent = '2 GPUs Online';
+      gpusEl.textContent = '1 GPU Online';
     }
   }
 }
