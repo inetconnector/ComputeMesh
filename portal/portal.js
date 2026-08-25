@@ -14,7 +14,7 @@ const translations = {
     nav_register: "API Key",
     
     hero_tagline: "Decentralized AI Compute Network",
-    hero_title: "Run Big AI Models 80% Cheaper on Pooled GPU Compute",
+    hero_title: "Run Big AI Models 80% Cheaper <br><span class=\"gradient-text\">on Pooled GPU Compute</span>",
     hero_sub: "Execute open-source AI models (Llama, DeepSeek & more) at a fraction of cloud costs or earn revenue by sharing your idle graphics cards and mining rigs.",
     btn_start_inferencing: "Run AI Models (API)",
     btn_provide_compute: "Provide GPU & Earn",
@@ -221,7 +221,7 @@ const translations = {
     nav_register: "API-Key",
     
     hero_tagline: "Dezentrales KI-Rechennetzwerk",
-    hero_title: "Große KI-Modelle 80% günstiger berechnen – auf geteilter GPU-Power",
+    hero_title: "Große KI-Modelle 80% günstiger berechnen <br><span class=\"gradient-text\">auf geteilter GPU-Power</span>",
     hero_sub: "Nutze Open-Source-KI (Llama, DeepSeek & Co.) zu einem Bruchteil der Cloud-Kosten oder verdiene Geld, indem du deine ungenutzten Grafikkarten & Mining-Rigs vermietest.",
     btn_start_inferencing: "KI-Modelle nutzen (API)",
     btn_provide_compute: "GPU vermieten & verdienen",
@@ -427,7 +427,7 @@ function switchLanguage(lang) {
       if (el.tagName === 'INPUT' && el.getAttribute('placeholder')) {
         el.setAttribute('placeholder', translations[lang][key]);
       } else {
-        el.textContent = translations[lang][key];
+        el.innerHTML = translations[lang][key];
       }
     }
   });

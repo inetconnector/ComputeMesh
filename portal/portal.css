@@ -231,8 +231,9 @@ header.site-header {
 
 /* Hero Section */
 section.hero {
-  padding: 5rem 0 4rem;
+  padding: 4.5rem 0 3.5rem;
   text-align: center;
+  position: relative;
 }
 
 .hero-tagline {
@@ -241,27 +242,30 @@ section.hero {
   gap: 0.5rem;
   background: rgba(0, 240, 255, 0.08);
   border: 1px solid var(--border-bright);
-  padding: 0.4rem 1rem;
+  padding: 0.45rem 1.25rem;
   border-radius: var(--radius-full);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--accent-cyan);
   margin-bottom: 1.5rem;
 }
 
 .hero h1 {
-  font-size: 3.8rem;
-  line-height: 1.15;
+  font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.2;
   margin-bottom: 1.5rem;
-  max-width: 950px;
+  max-width: 1000px;
   margin-left: auto;
   margin-right: auto;
+  letter-spacing: -0.03em;
 }
 
 .hero p.hero-sub {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
+  line-height: 1.65;
   color: var(--text-muted);
-  max-width: 750px;
+  max-width: 820px;
   margin: 0 auto 2.5rem;
 }
 
