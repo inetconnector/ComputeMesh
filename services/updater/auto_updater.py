@@ -215,7 +215,7 @@ del "%~f0"
 
             # Restart all active computemesh services
             subprocess.Popen(
-                ["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-gateway.service computemesh-autoupdate.service || true"],
+                ["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-dashboard.service computemesh-kiosk.service computemesh-console.service computemesh-node.service computemesh-gateway.service computemesh-autoupdate.service computemesh.service || true"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )

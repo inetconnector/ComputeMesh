@@ -224,7 +224,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path == "/api/action/restart_daemon":
-            subprocess.Popen(["systemctl", "restart", "computemesh-appliance.service"], stderr=subprocess.DEVNULL)
+            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-dashboard.service computemesh-node.service || true"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")

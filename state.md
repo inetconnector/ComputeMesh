@@ -1378,6 +1378,30 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 - **Speicher- & Socket-Hygiene:** Verbindungen werden mit `Connection: close` und `close_connection = True` leak-frei abgewickelt.
 - **Dokumentation:** Vollständige Test-Matrix [`docs/TEST_MATRIX.md`](file:///c:/Users/frede/Projekte/ComputeMesh/docs/TEST_MATRIX.md) angelegt.
 
+---
+
+## 53. Global Client & Node Rollout v1.2.12 (2026-08-26)
+
+### Release Build & Signing (`v1.2.12`)
+- **Version Bump:** [`config.py`](file:///c:/Users/frede/Projekte/ComputeMesh/config.py) auf `v1.2.12` aktualisiert.
+- **Binary Packaging:** Neuer Linux-Release-Tarball [`portal/downloads/computemesh-linux-x86_64.tar.gz`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/downloads/computemesh-linux-x86_64.tar.gz) gebaut (370.259 Bytes, SHA256: `350403fe2fc045996f97ce53cbdd26d19eda3c2a647f505b82c2b1c3bd0074ce`).
+- **Kryptographische Signatur:** Update-Manifest [`portal/updates/version.json`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/updates/version.json) digital mit Master-Ed25519-Key signiert und verifiziert (`[VALID]`).
+- **Webserver-Deployment:** Release-Archiv und Manifest live auf `https://computemesh.inetconnector.com/updates/version.json` und `/var/www/vhosts/inetconnector.com/site2/` synchronisiert.
+
+### Rollout Across All Clients & Rigs
+1. **Lokaler Windows Rig / Tray-Client:**
+   - Windows Tray-App neu gestartet (`task-2479`).
+   - Lokales Dashboard auf Port 8080 (`http://127.0.0.1:8080/api/status`) meldet Version `1.2.12`.
+2. **Headless Linux Server / Node (`supersrv-trixie`):**
+   - Release-Dateien nach `/opt/computemesh/` entpackt.
+   - `computemesh-node.service` und `computemesh-gateway.service` neu gestartet.
+   - Node-Dashboard auf Port 8081 (`http://127.0.0.1:8081/api/status`) meldet Version `1.2.12`.
+3. **Remote Mining Rig `192.168.1.27` (`cm-inference-node-01`):**
+   - Update `v1.2.12` per `POST /api/action/apply_update` erfolgreich heruntergeladen und entpackt.
+4. **Git Synchronization:**
+   - Alle Änderungen gestaged, committet und auf GitHub `origin/main` gepusht.
+
+
 
 
 
