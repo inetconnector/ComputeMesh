@@ -151,6 +151,20 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("qwen/qwen2.5-7b-instruct", model_ids)
             self.assertIn("llama/llama-3.1-70b-instruct", model_ids)
 
+    def test_list_models_ollama_tags_format(self) -> None:
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/api/tags",
+            headers={"Authorization": "Bearer cm_live_test_key_ollama_tags"},
+        )
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            model_ids = {m["name"] for m in data["models"]}
+            self.assertIn("qwen/qwen2.5-7b-instruct", model_ids)
+            self.assertIn("llama/llama-3.1-70b-instruct", model_ids)
+            first = data["models"][0]
+            self.assertEqual(first["details"]["format"], "computemesh-gateway")
+
     def test_chat_completions_non_streaming(self) -> None:
         payload = {
             "model": "qwen/qwen2.5-7b-instruct",
@@ -177,6 +191,53 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(data["choices"][0]["finish_reason"], "stop")
             self.assertIn("usage", data)
             self.assertGreater(data["usage"]["total_tokens"], 0)
+
+    def test_ollama_chat_non_streaming(self) -> None:
+        payload = {
+            "model": "qwen/qwen2.5-7b-instruct",
+            "messages": [
+                {"role": "user", "content": "Run through the Ollama compatible facade."},
+            ],
+            "stream": False,
+        }
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer cm_live_test_key_ollama_chat",
+            },
+        )
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["model"], "qwen/qwen2.5-7b-instruct")
+            self.assertTrue(data["done"])
+            self.assertEqual(data["message"]["role"], "assistant")
+            self.assertIn("ComputeMesh distributed response", data["message"]["content"])
+            self.assertGreater(data["eval_count"], 0)
+
+    def test_ollama_generate_non_streaming(self) -> None:
+        payload = {
+            "model": "qwen/qwen2.5-7b-instruct",
+            "prompt": "Run through Ollama generate.",
+            "stream": False,
+        }
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/api/generate",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer cm_live_test_key_ollama_generate",
+            },
+        )
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["model"], "qwen/qwen2.5-7b-instruct")
+            self.assertTrue(data["done"])
+            self.assertIn("ComputeMesh distributed response", data["response"])
+            self.assertGreater(data["prompt_eval_count"], 0)
 
     def test_chat_metering_uses_configured_provider_shares(self) -> None:
         key = "cm_live_test_key_provider_shares"

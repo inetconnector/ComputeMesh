@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""ComputeMesh OpenAI-Compatible Streaming API Gateway.
+"""ComputeMesh OpenAI/Ollama-compatible Streaming API Gateway.
 
 Provides a drop-in OpenAI-compatible REST & SSE streaming gateway (/v1/chat/completions,
-/v1/models) connecting client SDKs directly to the distributed mesh execution pipeline
-and double-entry billing ledger.
+/v1/models) plus a small Ollama-compatible facade (/api/chat, /api/generate,
+/api/tags) connecting client SDKs directly to the distributed mesh execution
+pipeline and double-entry billing ledger.
 """
 from __future__ import annotations
 
@@ -119,6 +120,10 @@ class ModelEntry:
     owned_by: str = "computemesh"
 
 
+class ModelNotFoundError(ValueError):
+    """Requested model is not in the active gateway catalog."""
+
+
 AVAILABLE_MODELS: list[ModelEntry] = [
     ModelEntry("qwen/qwen2.5-0.5b-instruct"),
     ModelEntry("qwen/qwen2.5-7b-instruct"),
@@ -170,6 +175,31 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "data": [asdict(m) for m in AVAILABLE_MODELS],
             }
             self._send_json(data)
+            return
+
+        if clean_path == "/api/tags":
+            if not self._authenticate():
+                return
+            self._send_json({
+                "models": [
+                    {
+                        "name": m.id,
+                        "model": m.id,
+                        "modified_at": datetime.fromtimestamp(m.created, timezone.utc).isoformat(),
+                        "size": 0,
+                        "digest": "",
+                        "details": {
+                            "parent_model": "",
+                            "format": "computemesh-gateway",
+                            "family": m.id.split("/", 1)[0],
+                            "families": [m.id.split("/", 1)[0]],
+                            "parameter_size": "",
+                            "quantization_level": "",
+                        },
+                    }
+                    for m in AVAILABLE_MODELS
+                ],
+            })
             return
 
         if clean_path == "/v1/billing/balance":
@@ -414,6 +444,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._handle_chat_completions(body)
             return
 
+        if clean_path == "/api/chat":
+            self._handle_ollama_chat(body)
+            return
+
+        if clean_path == "/api/generate":
+            self._handle_ollama_generate(body)
+            return
+
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def _authenticate_admin(self) -> bool:
@@ -477,6 +515,52 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         return self.api_keys[token]
 
+    def _create_metered_completion(
+        self,
+        *,
+        account_id: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+    ) -> tuple[str, str, int, int, int]:
+        valid_model_ids = {m.id for m in AVAILABLE_MODELS}
+        if model_id not in valid_model_ids:
+            raise ModelNotFoundError(f"Model '{model_id}' does not exist or is not active")
+
+        current_balance = self.ledger.get_balance(account_id)
+        if current_balance <= 0:
+            raise InsufficientBalanceError("You have insufficient credits to run inference. Please top up your balance.")
+
+        chat_id = f"chatcmpl-{secrets.token_hex(12)}"
+        created_timestamp = int(time.time())
+
+        last_user_msg = ""
+        for m in reversed(messages):
+            if isinstance(m, dict) and m.get("role") == "user":
+                last_user_msg = str(m.get("content", ""))
+                break
+
+        completion_text = f"ComputeMesh distributed response for: {last_user_msg[:60]}" if last_user_msg else "Hello from ComputeMesh decentralized inference!"
+        tokens_prompt = max(len(json.dumps(messages)) // 4, 8)
+        tokens_completion = max(len(completion_text) // 4, 12)
+
+        provider_shares = _provider_shares_from_env()
+        self.ledger.record_job_execution(
+            job_id=chat_id,
+            customer_account_id=account_id,
+            provider_shares=provider_shares,
+            model_id=model_id,
+            prompt_tokens=tokens_prompt,
+            completion_tokens=tokens_completion,
+        )
+        self.metrics.record_request(
+            model=model_id,
+            prompt_tokens=tokens_prompt,
+            completion_tokens=tokens_completion,
+            cost_micro_units=tokens_prompt * 100 + tokens_completion * 300,
+            status_code=200,
+        )
+        return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
+
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:
         account_id = self._authenticate()
         if not account_id:
@@ -494,58 +578,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response("Missing or invalid 'messages' array", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
-        # Check model exists
-        valid_model_ids = {m.id for m in AVAILABLE_MODELS}
-        if model_id not in valid_model_ids:
-            self._send_error_response(f"Model '{model_id}' does not exist or is not active", "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-
-        # Check balance
-        current_balance = self.ledger.get_balance(account_id)
-        if current_balance <= 0:
-            self._send_error_response(
-                "You have insufficient credits to run inference. Please top up your balance.",
-                "insufficient_quota",
-                HTTPStatus.PAYMENT_REQUIRED,
-            )
-            return
-
-        # Mock token generation response for standard OpenAI integration
-        chat_id = f"chatcmpl-{secrets.token_hex(12)}"
-        created_timestamp = int(time.time())
-
-        # Construct completion response text
-        last_user_msg = ""
-        for m in reversed(messages):
-            if isinstance(m, dict) and m.get("role") == "user":
-                last_user_msg = str(m.get("content", ""))
-                break
-
-        completion_text = f"ComputeMesh distributed response for: {last_user_msg[:60]}" if last_user_msg else "Hello from ComputeMesh decentralized inference!"
-        tokens_prompt = max(len(json.dumps(messages)) // 4, 8)
-        tokens_completion = max(len(completion_text) // 4, 12)
-
         try:
-            # Meter and debit via ledger
-            provider_shares = _provider_shares_from_env()
-            self.ledger.record_job_execution(
-                job_id=chat_id,
-                customer_account_id=account_id,
-                provider_shares=provider_shares,
+            chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+                account_id=account_id,
                 model_id=model_id,
-                prompt_tokens=tokens_prompt,
-                completion_tokens=tokens_completion,
-            )
-            # Record Prometheus operational telemetry
-            self.metrics.record_request(
-                model=model_id,
-                prompt_tokens=tokens_prompt,
-                completion_tokens=tokens_completion,
-                cost_micro_units=tokens_prompt * 100 + tokens_completion * 300,
-                status_code=200,
+                messages=messages,
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
+            return
+        except ModelNotFoundError as e:
+            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
         except ValueError as e:
             self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -619,6 +662,146 @@ class GatewayHandler(BaseHTTPRequestHandler):
         }
         self.wfile.write(f"data: {json.dumps(final_chunk)}\n\n".encode("utf-8"))
         self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
+
+    def _handle_ollama_chat(self, body: dict[str, Any]) -> None:
+        account_id = self._authenticate()
+        if not account_id:
+            return
+
+        model_id = body.get("model")
+        messages = body.get("messages")
+        stream = bool(body.get("stream", False))
+
+        if not model_id or not isinstance(model_id, str):
+            self._send_error_response("Missing required 'model' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+        if not messages or not isinstance(messages, list):
+            self._send_error_response("Missing or invalid 'messages' array", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        try:
+            _chat_id, completion_text, _created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+                account_id=account_id,
+                model_id=model_id,
+                messages=messages,
+            )
+        except InsufficientBalanceError as e:
+            self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
+            return
+        except ModelNotFoundError as e:
+            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as e:
+            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        created_at = datetime.now(timezone.utc).isoformat()
+        if not stream:
+            self._send_json({
+                "model": model_id,
+                "created_at": created_at,
+                "message": {
+                    "role": "assistant",
+                    "content": completion_text,
+                },
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": tokens_prompt,
+                "eval_count": tokens_completion,
+            })
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.end_headers()
+        for word in completion_text.split():
+            self.wfile.write((json.dumps({
+                "model": model_id,
+                "created_at": created_at,
+                "message": {"role": "assistant", "content": word + " "},
+                "done": False,
+            }) + "\n").encode("utf-8"))
+            self.wfile.flush()
+            time.sleep(0.01)
+        self.wfile.write((json.dumps({
+            "model": model_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "message": {"role": "assistant", "content": ""},
+            "done": True,
+            "done_reason": "stop",
+            "prompt_eval_count": tokens_prompt,
+            "eval_count": tokens_completion,
+        }) + "\n").encode("utf-8"))
+        self.wfile.flush()
+
+    def _handle_ollama_generate(self, body: dict[str, Any]) -> None:
+        prompt = body.get("prompt")
+        if not isinstance(prompt, str) or not prompt:
+            self._send_error_response("Missing or invalid 'prompt' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        account_id = self._authenticate()
+        if not account_id:
+            return
+
+        model_id = body.get("model")
+        stream = bool(body.get("stream", False))
+        if not model_id or not isinstance(model_id, str):
+            self._send_error_response("Missing required 'model' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            _chat_id, completion_text, _created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+                account_id=account_id,
+                model_id=model_id,
+                messages=messages,
+            )
+        except InsufficientBalanceError as e:
+            self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
+            return
+        except ModelNotFoundError as e:
+            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+        except ValueError as e:
+            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        created_at = datetime.now(timezone.utc).isoformat()
+        if not stream:
+            self._send_json({
+                "model": model_id,
+                "created_at": created_at,
+                "response": completion_text,
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": tokens_prompt,
+                "eval_count": tokens_completion,
+            })
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.end_headers()
+        for word in completion_text.split():
+            self.wfile.write((json.dumps({
+                "model": model_id,
+                "created_at": created_at,
+                "response": word + " ",
+                "done": False,
+            }) + "\n").encode("utf-8"))
+            self.wfile.flush()
+            time.sleep(0.01)
+        self.wfile.write((json.dumps({
+            "model": model_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "response": "",
+            "done": True,
+            "done_reason": "stop",
+            "prompt_eval_count": tokens_prompt,
+            "eval_count": tokens_completion,
+        }) + "\n").encode("utf-8"))
         self.wfile.flush()
 
     def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:

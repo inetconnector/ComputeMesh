@@ -34,6 +34,7 @@ Implemented foundations now include:
 - strict transport-neutral control envelopes and durable initial handlers;
 - authentication-gated node-session semantics and strict initial wire binding;
 - M1 reference node identity `computemesh-ed25519-v1` with enrollment/key-rotation/revocation reference state;
+- an authenticated OpenAI-compatible and Ollama-compatible gateway surface for the current cluster model catalog;
 - a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
 - a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;

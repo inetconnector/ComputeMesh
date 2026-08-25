@@ -34,6 +34,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - strikte transportneutrale Control-Envelopes und dauerhafte erste Handler;
 - authentifizierungspflichtige Node-Session-Semantik und strikte erste Wire-Bindung;
 - M1-Referenz-Node-Identity `computemesh-ed25519-v1` mit Enrollment-/Key-Rotation-/Revocation-Referenzzustand;
+- eine authentifizierte OpenAI-kompatible und Ollama-kompatible Gateway-Oberfläche für den aktuellen Cluster-Modellkatalog;
 - ein kontrollierter llama.cpp-RPC-**Research-Harness** für das erste gemeinsame M1-Runtime-Experiment;
 - ein fail-closed One-Command-**Physical-Shared-Trial-Runner**, der Bundle/Modell/Geräte erneut prüft, den Planer-Split über das Relay ausführt, Korrektheit prüft und das gebundene Proof-Artefakt erzeugt;
 - ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;

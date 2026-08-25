@@ -4,13 +4,15 @@
 
 ## Purpose
 
-Public OpenAI-compatible API entry point, SSE streaming engine, and credential authentication layer connecting external client SDKs directly to the distributed mesh and double-entry billing ledger.
+Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON streaming engine, and credential authentication layer connecting external client SDKs directly to the distributed mesh and double-entry billing ledger.
 
 ## Responsibilities
 
 - **API Authentication:** Validates `Authorization: Bearer cm_live_...` credentials and maps to customer ledger accounts.
 - **OpenAI Model Catalog:** Serves active models via `/v1/models` in standard OpenAI JSON schema format.
+- **Ollama Model Catalog:** Serves the same active models via `/api/tags` in Ollama-compatible JSON schema format.
 - **Non-Streaming Chat Completions:** Serves `/v1/chat/completions` with full metadata and exact token usage records.
+- **Ollama Chat/Generate Facade:** Serves `/api/chat` and `/api/generate` with Ollama-compatible JSON/NDJSON response shapes while using the same authentication, ledger metering and provider attribution as OpenAI requests.
 - **Server-Sent Events (SSE) Streaming:** Streams real-time token chunks with `data: {"object": "chat.completion.chunk", ...}` framing and clean `[DONE]` termination.
 - **Automated Ledger Integration:** Instantly meters token usage and debits customer deposits while crediting provider payout balances in integer micro-units.
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
@@ -23,6 +25,9 @@ Public OpenAI-compatible API entry point, SSE streaming engine, and credential a
 - `GET /healthz`: Service health check.
 - `GET /v1/models`: OpenAI-compatible list of available inference models.
 - `POST /v1/chat/completions`: Non-streaming and SSE streaming inference.
+- `GET /api/tags`: Ollama-compatible list of available inference models.
+- `POST /api/chat`: Ollama-compatible chat inference. Supports non-streaming JSON and streaming NDJSON.
+- `POST /api/generate`: Ollama-compatible prompt inference. Supports non-streaming JSON and streaming NDJSON.
 - `GET /v1/billing/balance`: Customer current credit balance inquiry.
 - `POST /v1/billing/checkout`: Create a Stripe Checkout Session for prepaid compute credits.
 - `POST /v1/billing/webhook`: Stripe webhook endpoint. Requires raw body plus `Stripe-Signature`.
@@ -61,4 +66,4 @@ Provider metering attribution is operator-controlled. Customer requests cannot p
 
 ## Test Suite
 
-- `services/gateway/tests/test_gateway_server.py` covers authentication, model listings, non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.
+- `services/gateway/tests/test_gateway_server.py` covers authentication, OpenAI and Ollama model listings, OpenAI and Ollama non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.
