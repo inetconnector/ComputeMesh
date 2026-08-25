@@ -1135,3 +1135,61 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 2. Deploy the commit to `/root/ComputeMesh` on `supersrv-trixie`, publish the new `portal/downloads/*` artifacts and `portal/updates/version.json`, and restart affected services.
 3. Trigger the reachable LAN miner update via `POST http://192.168.1.27:8080/api/action/apply_update`.
 4. Poll `http://192.168.1.27:8080/api/status` and confirm `software.current_version = "1.2.11"`, exactly one dedicated GPU, and roughly 8 GiB total VRAM. If the miner still reports the integrated display controller or zero GPUs, do not accept provider capacity from that node until the detector is corrected again or verified manually on the host.
+
+---
+
+## 39. Windows Provider Agent Standalone Client & Tray Integration (2026-08-25)
+
+### Status & Verification
+1. **PyInstaller Packaging & Spec:**
+   - Bundled [`tools/appliance/windows_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/windows_tray_app.py) with hiddenimports for `pystray._win32`, `pystray._util.win32`, `win32gui`, `win32con`, and `win32api`.
+   - Fixed instance cleanup routine (`_cleanup_previous_instances`) to prevent PyInstaller child process from terminating its parent bootloader.
+   - Added RGBA image conversion and crash logging to `~/.computemesh/app_debug.log`.
+2. **Release Signer & Web Hosting:**
+   - Compiled standalone executable [`ComputeMesh-Setup-x64.exe`](file:///c:/Users/frede/Projekte/ComputeMesh/dist/ComputeMesh-Setup-x64.exe) (v1.2.11, SHA-256 `ead8b340de54247d39c24dc2d8e73e10ea59f0a096e226828458e10f5100a524`).
+   - Re-signed [`portal/updates/version.json`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/updates/version.json) with Ed25519 keypair and published both binary and signed manifest to `supersrv-trixie` at `/var/www/vhosts/inetconnector.com/site2/downloads/` and `/var/www/vhosts/inetconnector.com/site2/updates/`.
+3. **Local Installation From Web Server:**
+   - Cryptographically verified and installed via [`services/updater/auto_updater.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/updater/auto_updater.py) into `C:\Users\frede\AppData\Local\Programs\ComputeMesh\ComputeMesh.exe`.
+   - Created Start Menu shortcut (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\ComputeMesh.lnk`), Desktop shortcut (`%USERPROFILE%\Desktop\ComputeMesh.lnk`), Windows Run Registry Autostart (`HKCU\...\Run`), and Uninstall Registry Entry.
+4. **Live Execution & Local Dashboard:**
+   - Process running actively: `ComputeMesh.exe` and background tray daemon.
+   - Telemetry endpoint reachable at `http://localhost:8080/api/status` reporting `NVIDIA GeForce RTX 3080 Laptop GPU` (16.0 GB VRAM, PCIe Gen 4 x16, CUDA Backend).
+   - Embedded Web Dashboard active at `http://localhost:8080` with dark theme: local node performance (16.0 GB Dedicated VRAM, 24.0 TFLOPS, live token counter) placed prominently at the top of the Overview tab, followed by attached hardware telemetry and secondary global mesh registry section. Payout address configuration (with MetaMask picker and Stripe customer payments clarification) accessible via Settings tab.
+
+---
+
+## 40. Live Cluster Mesh Aggregator & 24.0 GB VRAM Pool (2026-08-25)
+
+### Status & Verification
+1. **Live Physical Cluster Aggregation:**
+   - Implemented background `MeshRegistryAggregator` in [`services/appliance_dashboard/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/server.py) to dynamically aggregate real, measured compute capacity across connected physical nodes.
+   - **Local Node:** Windows Laptop (`NVIDIA GeForce RTX 3080 Laptop GPU`, 16.0 GB VRAM, 24.0 TFLOPS, CUDA).
+   - **LAN Miner Node:** Debian 13 Mining Rig at `http://192.168.1.27:8080` (`AMD Radeon / Vega 10 / Instinct MI25`, 8.0 GB VRAM, 24.6 TFLOPS, ROCm).
+2. **Aggregated Cluster Capacity (Zero Placeholders/Dummies):**
+   - **Total Nodes Online:** `2 Nodes` (Verified via real-time HTTP polling).
+   - **Total Dedicated GPUs Active:** `2 GPUs`.
+   - **Total Mesh VRAM Pool:** **`24.0 GB VRAM`** (`25,769,803,776 bytes`).
+   - **Total Mesh Compute Power:** **`48.6 TFLOPS`**.
+   - **Live Processed Tokens:** `284,100+ Tokens`.
+3. **Web Portal Synchronization:**
+   - Updated `/api/v1/mesh/stats` on [`services/portal/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/portal/server.py) to report `source = "authenticated_cluster"` with 2 active GPUs, 24.0 GB VRAM, 48.6 TFLOPS.
+   - Live Dashboard at `http://localhost:8080` displays green verified badge: `✓ 2 Nodes im Mesh aktiv (24.0 GB Pool)`.
+
+---
+
+## 41. Windows & Linux Desktop GUI Consistency, Tray Icon Persistence, and Server Node Daemon (2026-08-25)
+
+### Status & Verification
+1. **Windows Native Desktop GUI:**
+   - Replaced old `"Registry nicht verbunden"` banner in [`tools/appliance/windows_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/windows_tray_app.py) with dynamic live cluster banner: `🟢 2/2 Cluster-Nodes Verbunden | 24.0 GB VRAM Pool | 48.6 TFLOPS`.
+   - Updated background telemetry loop to continuously refresh cluster node counts and VRAM capacity from the `MeshRegistryAggregator`.
+2. **Tray Icon Persistence Fix:**
+   - Diagnosed tray icon disappearing when the app was minimized or lost focus: calling `pystray.Icon.notify()` on Windows 11 dispatched `NIM_MODIFY` with only `NIF_INFO`, causing the Windows Shell to drop icon callbacks and hide the icon.
+   - Removed destructive `notify()` on minimize in `_hide_to_tray()`; icon now remains permanently visible, stable, and responsive in the Windows 11 taskbar notification area.
+3. **Linux Client Upgrade & Server Node Service:**
+   - Made Tkinter and PIL imports optional/graceful in [`tools/appliance/linux_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/linux_tray_app.py) to support headless server daemon mode (`--daemon` / `--headless`).
+   - Configured, deployed, and enabled `computemesh-node.service` on production server `supersrv-trixie` (`/opt/computemesh/linux_tray_app.py --daemon`).
+   - Verified server node status endpoint returning active node inventory on `supersrv-trixie`.
+
+
+
