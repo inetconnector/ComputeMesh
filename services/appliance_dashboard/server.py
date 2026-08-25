@@ -714,23 +714,27 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="remote-info-left">
         <div class="remote-title-row">
           <div class="remote-title">
-            <span>📡 Remote-Dashboard</span>
+            <span>🌐 ComputeMesh Web-Portal & Mobile Access</span>
           </div>
-          <span class="remote-badge">Keine Tastatur am Rig nötig</span>
+          <span class="remote-badge" style="background: rgba(0, 240, 255, 0.15); border-color: rgba(0, 240, 255, 0.4); color: var(--accent-cyan);">Weltweit per Smartphone erreichbar</span>
         </div>
         <div class="remote-subtitle">
-          Öffne diese IP-Adresse auf deinem PC, Laptop oder Smartphone im selben Netzwerk:
+          Scanne den QR-Code mit dem Smartphone oder öffne das offizielle Web-Portal im Browser:
         </div>
         <div class="ip-addresses-row" id="remote-ip-chips">
+          <a class="ip-chip" href="https://computemesh.inetconnector.com" target="_blank" style="border-color: rgba(0, 240, 255, 0.5); background: rgba(0, 240, 255, 0.12);">
+            <span class="iface-tag" style="background: #00f0ff; color: #000; font-weight: 700;">WEB</span>
+            <span style="font-weight: 700; color: #fff;">https://computemesh.inetconnector.com</span>
+          </a>
           <div class="ip-chip">
             <span class="iface-tag">LAN</span>
-            <span id="primary-ip-display">Erkenne Netzwerk-IPs...</span>
+            <span id="primary-ip-display">Erkenne LAN-IPs...</span>
           </div>
         </div>
       </div>
       <div class="remote-qr-box" id="remote-qr-container">
-        <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http%3A%2F%2F127.0.0.1%3A8080%2F" alt="Scan QR Code">
-        <span class="qr-label">📱 Handy-Scan</span>
+        <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fcomputemesh.inetconnector.com" alt="Scan QR Code">
+        <span class="qr-label">📱 Handy-Scan (Webserver)</span>
       </div>
     </div>
 
@@ -1175,29 +1179,27 @@ HTML_PAGE = """<!DOCTYPE html>
         }
 
         // Populate Remote IP Address Chips & QR Code
-        const isRemoteClient = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-        const qrContainer = document.getElementById('remote-qr-container');
-        if (isRemoteClient && qrContainer) {
-          qrContainer.style.display = 'none';
-          const sub = document.querySelector('.remote-subtitle');
-          if (sub) sub.textContent = 'Du bist per Remote-Zugriff mit diesem Rig verbunden:';
-        }
-
         const ipContainer = document.getElementById('remote-ip-chips');
         if (ipContainer && data.network && data.network.interfaces && data.network.interfaces.length > 0) {
           ipContainer.innerHTML = '';
-          const firstUrl = data.network.interfaces[0].url;
           data.network.interfaces.forEach(iface => {
             const chip = document.createElement('a');
             chip.className = 'ip-chip';
             chip.href = iface.url;
             chip.target = '_blank';
-            chip.innerHTML = `<span class="iface-tag">${iface.interface.toUpperCase()}</span> <span style="word-break: break-all;">${iface.url}</span>`;
+            const isWeb = iface.interface.toLowerCase() === 'web';
+            if (isWeb) {
+              chip.style.borderColor = 'rgba(0, 240, 255, 0.5)';
+              chip.style.background = 'rgba(0, 240, 255, 0.12)';
+              chip.innerHTML = `<span class="iface-tag" style="background: #00f0ff; color: #000; font-weight: 700;">WEB</span> <span style="font-weight: 700; color: #fff;">${iface.url}</span>`;
+            } else {
+              chip.innerHTML = `<span class="iface-tag">${iface.interface.toUpperCase()}</span> <span style="word-break: break-all;">${iface.url}</span>`;
+            }
             ipContainer.appendChild(chip);
           });
           const qrImg = document.getElementById('remote-qr-code');
           if (qrImg && !qrImg.dataset.loaded) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(firstUrl)}`;
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fcomputemesh.inetconnector.com`;
             qrImg.dataset.loaded = 'true';
           }
         }
@@ -1501,7 +1503,47 @@ def get_network_interfaces() -> list[dict[str, str]]:
     interfaces: list[dict[str, str]] = []
     seen_ips = set()
 
-    # 1. Linux ip addr command
+    # 0. Official Web Portal Gateway (Reachable on every phone / browser worldwide)
+    interfaces.append({
+        "interface": "web",
+        "ip": "computemesh.inetconnector.com",
+        "url": "https://computemesh.inetconnector.com",
+        "config_url": "https://computemesh.inetconnector.com/#config",
+    })
+
+    # 1. Primary physical LAN socket IP (e.g. 192.168.1.94)
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        primary_ip = s.getsockname()[0]
+        s.close()
+        if primary_ip and not primary_ip.startswith("127."):
+            seen_ips.add(primary_ip)
+            interfaces.append({
+                "interface": "lan",
+                "ip": primary_ip,
+                "url": f"http://{primary_ip}:8080/",
+                "config_url": f"http://{primary_ip}:8080/#config",
+            })
+    except Exception:
+        pass
+
+    # 2. Hostname resolution (sort home LAN 192.168.* / 10.* before virtual 172.*)
+    try:
+        host_name = socket.gethostname()
+        for ip in socket.gethostbyname_ex(host_name)[2]:
+            if not ip.startswith("127.") and ip not in seen_ips:
+                seen_ips.add(ip)
+                interfaces.append({
+                    "interface": "lan",
+                    "ip": ip,
+                    "url": f"http://{ip}:8080/",
+                    "config_url": f"http://{ip}:8080/#config",
+                })
+    except Exception:
+        pass
+
+    # 3. Linux ip addr command
     if platform.system().lower() == "linux":
         try:
             out = subprocess.check_output(["ip", "-o", "-4", "addr", "show"], text=True, timeout=2)
@@ -1520,46 +1562,6 @@ def get_network_interfaces() -> list[dict[str, str]]:
                         })
         except Exception:
             pass
-
-    # 2. Hostname resolution
-    try:
-        host_name = socket.gethostname()
-        for ip in socket.gethostbyname_ex(host_name)[2]:
-            if not ip.startswith("127.") and ip not in seen_ips:
-                seen_ips.add(ip)
-                interfaces.append({
-                    "interface": "lan",
-                    "ip": ip,
-                    "url": f"http://{ip}:8080/",
-                    "config_url": f"http://{ip}:8080/#config",
-                })
-    except Exception:
-        pass
-
-    # 3. Default socket route
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        primary_ip = s.getsockname()[0]
-        s.close()
-        if primary_ip and not primary_ip.startswith("127.") and primary_ip not in seen_ips:
-            seen_ips.add(primary_ip)
-            interfaces.insert(0, {
-                "interface": "primary",
-                "ip": primary_ip,
-                "url": f"http://{primary_ip}:8080/",
-                "config_url": f"http://{primary_ip}:8080/#config",
-            })
-    except Exception:
-        pass
-
-    if not interfaces:
-        interfaces.append({
-            "interface": "localhost",
-            "ip": "127.0.0.1",
-            "url": "http://localhost:8080/",
-            "config_url": "http://localhost:8080/#config",
-        })
 
     return interfaces
 
