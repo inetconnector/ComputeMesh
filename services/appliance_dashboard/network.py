@@ -6,6 +6,7 @@ import socket
 import subprocess
 from typing import Any
 
+from config import CONFIG
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 
@@ -14,12 +15,12 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
     seen_ips = set()
 
     token = auth_token or NODE_AUTH_TOKEN
-    tunnel_url = f"https://computemesh.inetconnector.com/node/{node_id}?auth={token}"
+    tunnel_url = CONFIG.endpoints.get_node_tunnel_url(node_id=node_id, auth_token=token)
 
     # 0. Official Web Portal Encrypted Cloud Tunnel (Reachable on every phone / browser worldwide)
     interfaces.append({
         "interface": "tunnel",
-        "ip": "computemesh.inetconnector.com",
+        "ip": CONFIG.endpoints.host,
         "url": tunnel_url,
         "config_url": f"{tunnel_url}#config",
     })

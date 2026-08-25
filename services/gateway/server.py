@@ -47,10 +47,11 @@ from services.billing.stripe_integration import (
     StripeIntegrationError,
     StripePaymentService,
 )
+from config import CONFIG
 from services.portal.server import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
 from services.gateway.metrics_exporter import MetricsRegistry
 
-DEFAULT_PORT = 8000
+DEFAULT_PORT = CONFIG.default_gateway_port
 MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB payload limit
 
 

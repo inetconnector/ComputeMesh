@@ -24,10 +24,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from config import CONFIG
 from tools.security.ed25519_verify import verify_ed25519_signature
 from tools.security.signing_keys import OFFICIAL_RELEASE_PUBLIC_KEY_HEX, TRUSTED_RELEASE_PUBLIC_KEYS_HEX
 
-DEFAULT_UPDATE_URL = "https://computemesh.inetconnector.com/updates/version.json"
+DEFAULT_UPDATE_URL = CONFIG.endpoints.update_manifest_url
 
 
 @dataclass(frozen=True)

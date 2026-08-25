@@ -1,20 +1,20 @@
 {
   "version": "1.2.11",
-  "release_date": "2026-08-25T21:17:22.232498+00:00",
+  "release_date": "2026-08-25T21:27:31.010308+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
       "url": "https://computemesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "580fceb436b81cd57cb42c13c8db5647d2c9d42040c8b5e1d71d18071af20438",
-      "size_bytes": 37223224
+      "sha256": "ab3165228eb19bc8a3fd9240f71907472ff2057a949175d549eef58637850f89",
+      "size_bytes": 37236240
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
       "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "1401435dd1c18c8b1719e14d90eed6f73d0c7bd046bf621ef36737be89d949dc",
-      "size_bytes": 269039
+      "sha256": "44b244d80d15cab1745fcc570f32da3c86c819ded971e6b2b2d65fb65b9e51e3",
+      "size_bytes": 275444
     },
     "nodeos-iso": {
       "filename": "computemesh-nodeos-x86_64.iso",
@@ -35,5 +35,5 @@
       "size_bytes": 6649
     }
   },
-  "signature": "e50d39c8c5274367d7e659547388a938134c7728970346e8b6f00947990c14b59548ff606ddb262ce6adcec51d0370c4115e11aaceec1fd297b5f86e11d7e105"
+  "signature": "c351093845df5d15d51a4e4b98c3265cca1ae33908fd277e3d489d811a8c083b78631aa3979a8fa971281208ecde1bbf67da761d04999bc62e83f4ec4cd81a0a"
 }

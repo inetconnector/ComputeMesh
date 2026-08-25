@@ -30,7 +30,7 @@ from tools.appliance.hardware_detector import (
     scan_rig_hardware,
 )
 
-# Modular subcomponents
+from config import CONFIG
 from services.appliance_dashboard.template_loader import get_dashboard_html
 from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.mesh_aggregator import (
@@ -44,7 +44,7 @@ from services.appliance_dashboard.tunnel_relay import (
     CLOUD_TUNNEL_RELAY,
 )
 
-APPLIANCE_VERSION = "1.2.11"
+APPLIANCE_VERSION = CONFIG.appliance_version
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -137,7 +137,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 },
                 "software": {
                     "current_version": APPLIANCE_VERSION,
-                    "update_url": "https://computemesh.inetconnector.com/updates/version.json",
+                    "update_url": CONFIG.endpoints.update_manifest_url,
                 },
             }
             body = json.dumps(payload).encode("utf-8")

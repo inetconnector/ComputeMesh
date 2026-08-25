@@ -18,6 +18,8 @@ import re
 import sys
 from typing import Any
 
+from config import CONFIG
+
 DEFAULT_BOOT_CONFIG = Path("/boot/computemesh.env")
 DEFAULT_LIVE_BOOT_CONFIG = Path("/live/image/computemesh.env")
 DEFAULT_SYSTEM_CONFIG = Path("/etc/computemesh/config.json")
@@ -112,7 +114,7 @@ def load_appliance_config(
         env_vars.get("COORDINATOR_URL")
         or system_data.get("coordinator_url")
         or os.environ.get("COORDINATOR_URL")
-        or "https://computemesh.inetconnector.com"
+        or CONFIG.endpoints.base_url
     )
     network_mode = env_vars.get("NETWORK_MODE") or system_data.get("network_mode") or "dhcp"
     static_ip = env_vars.get("STATIC_IP") or system_data.get("static_ip")

@@ -10,6 +10,8 @@ import time
 from typing import Any
 import urllib.request
 
+from config import CONFIG
+
 
 def get_or_create_node_auth_token() -> str:
     token_file = Path.home() / ".computemesh" / "node_auth_token.txt"
@@ -62,7 +64,7 @@ class CloudTunnelRelay:
                 }
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
-                    "https://computemesh.inetconnector.com/api/v1/node/heartbeat",
+                    CONFIG.endpoints.heartbeat_url,
                     data=data,
                     headers={"Content-Type": "application/json", "User-Agent": "ComputeMesh-Node-Relay/1.2"},
                 )

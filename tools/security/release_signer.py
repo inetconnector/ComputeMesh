@@ -16,6 +16,11 @@ from pathlib import Path
 import sys
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config import CONFIG
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
@@ -113,11 +118,14 @@ def compute_sha256(file_path: Path) -> str:
     return h.hexdigest()
 
 
+from config import CONFIG
+
+
 def sign_manifest(
     version: str,
     downloads_dir: Path,
     output_manifest: Path,
-    base_url: str = "https://computemesh.inetconnector.com/downloads",
+    base_url: str = f"{CONFIG.endpoints.base_url}/downloads",
 ) -> dict[str, Any]:
     """Generate and cryptographically sign update manifest."""
     priv_key, pub_key = get_or_create_keypair()
