@@ -1274,6 +1274,23 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
    - Updated [`ComputeMesh-Setup-x64.spec`](file:///c:/Users/frede/Projekte/ComputeMesh/ComputeMesh-Setup-x64.spec) to bundle `config.py` and `services.common.config`.
    - Rebuilt Windows and Linux release packages, re-signed release manifest with Ed25519, and verified live on production server `supersrv-trixie`.
 
+---
+
+## 47. Windows System Tray Persistence & Thread-Safe Window Restoration (2026-08-25)
+
+### Status & Verification
+1. **Continuous System Tray Presence & Keepalive Watchdog:**
+   - In [`tools/appliance/windows_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/windows_tray_app.py), added a 3-second keepalive watchdog (`_tray_watchdog`) that ensures the notification icon stays permanently active and is automatically re-registered if the Windows Explorer taskbar refreshes or crashes.
+   - Bound `<Unmap>` event to automatically minimize the main window to the system tray whenever the user clicks the titlebar minimize button (`-`) or switches windows, completely freeing the taskbar.
+2. **Thread-Safe Main-Loop Restoration:**
+   - Wrapped tray menu callbacks (`🖥️ ComputeMesh öffnen`) in thread-safe `self.root.after(0, self._do_show_window)` calls.
+   - Restores window focus, lifts to topmost, clears iconic state, and focuses smoothly from the tray icon regardless of foreground application state.
+3. **Packaging, Release Signing & Production Push:**
+   - Rebuilt Windows standalone installer [`ComputeMesh-Setup-x64.exe`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/downloads/ComputeMesh-Setup-x64.exe) and signed update manifest (`v1.2.11`).
+   - Installed updated binary to local user directory (`C:\Users\frede\AppData\Local\Programs\ComputeMesh\ComputeMesh.exe`).
+   - Synced to production web server `supersrv-trixie` and pushed to GitHub `origin/main` (commit `91ed912`).
+
+
 
 
 
