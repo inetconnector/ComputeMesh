@@ -1253,6 +1253,28 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
    - Standalone Windows installer and Linux tarball rebuilt and signed.
    - Server `supersrv-trixie` synced with latest modular architecture.
 
+---
+
+## 46. Centralized Configuration Architecture & Single Source of Truth Domain (2026-08-25)
+
+### Status & Verification
+1. **Master Configuration Module ([`config.py`](file:///c:/Users/frede/Projekte/ComputeMesh/config.py)):**
+   - Created centralized `ComputeMeshConfig` dataclass and `MeshEndpoints` class serving as the single source of truth for the primary domain (`computemesh.inetconnector.com`), protocols, gateway ports, and update URLs.
+   - Allows changing the main domain in one central place (or overriding via `COMPUTEMESH_DOMAIN` / `COMPUTEMESH_SCHEME` environment variables).
+2. **Subsystem Integration:**
+   - Refactored all dependent modules to consume settings from `from config import CONFIG`:
+     - [`services/appliance_dashboard/network.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/network.py) (Cloud Tunnel & Web Gateway URLs)
+     - [`services/appliance_dashboard/tunnel_relay.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/tunnel_relay.py) (Heartbeat endpoint)
+     - [`services/appliance_dashboard/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/server.py) (Update manifest & version)
+     - [`services/updater/auto_updater.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/updater/auto_updater.py) (Default update URL)
+     - [`tools/security/release_signer.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/security/release_signer.py) (Base download URL)
+     - [`tools/appliance/appliance_config.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/appliance_config.py) (Default coordinator URL)
+     - [`services/gateway/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/server.py) & [`services/portal/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/portal/server.py)
+3. **Build & Production Verification:**
+   - Updated [`ComputeMesh-Setup-x64.spec`](file:///c:/Users/frede/Projekte/ComputeMesh/ComputeMesh-Setup-x64.spec) to bundle `config.py` and `services.common.config`.
+   - Rebuilt Windows and Linux release packages, re-signed release manifest with Ed25519, and verified live on production server `supersrv-trixie`.
+
+
 
 
 
