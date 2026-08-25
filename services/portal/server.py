@@ -16,6 +16,7 @@ from pathlib import Path
 import secrets
 import sys
 from typing import Any
+import urllib.parse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -25,6 +26,23 @@ from config import CONFIG
 from services.identity.vault import DEFAULT_VAULT
 
 PORTAL_DIR = REPO_ROOT / "portal"
+
+ROUTE_MAP: dict[str, str] = {
+    "/": "index.html",
+    "/docs": "docs.html",
+    "/status": "status.html",
+    "/benchmarks": "benchmarks.html",
+    "/terms": "terms.html",
+    "/privacy": "privacy.html",
+    "/impressum": "impressum.html",
+    "/contact": "contact.html",
+    "/google55d49cbebf6659d4.html": "google55d49cbebf6659d4.html",
+}
+
+STATIC_TEXT_ROUTES: dict[str, tuple[str, str]] = {
+    "/robots.txt": ("robots.txt", "text/plain"),
+    "/sitemap.xml": ("sitemap.xml", "application/xml"),
+}
 
 # In-memory customer & billing store with AES-256-GCM encrypted fields
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}
@@ -248,12 +266,34 @@ class PortalHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _send_bytes(self, data: bytes, content_type: str, status: int = HTTPStatus.OK) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(data)
+        self.close_connection = True
+
+    def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(data, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+        self.close_connection = True
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Connection", "close")
         self.end_headers()
+        self.close_connection = True
 
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
@@ -280,13 +320,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                 }
 
             html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
-            body = html.encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            self.end_headers()
-            self.wfile.write(body)
+            self._send_bytes(html.encode("utf-8"), "text/html; charset=utf-8")
             return
 
         # Authenticated Node Status API for remote dashboard live polling
@@ -295,82 +329,81 @@ class PortalHandler(BaseHTTPRequestHandler):
             if len(parts) >= 5:
                 node_id = parts[4]
                 node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
-                body = json.dumps(node_data).encode("utf-8")
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_json(node_data)
                 return
 
         if clean_path in ROUTE_MAP:
             target_file = PORTAL_DIR / ROUTE_MAP[clean_path]
             if target_file.exists():
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(target_file.read_bytes())
+                self._send_bytes(target_file.read_bytes(), "text/html; charset=utf-8")
                 return
 
         if clean_path in STATIC_TEXT_ROUTES:
             filename, content_type = STATIC_TEXT_ROUTES[clean_path]
             target_file = PORTAL_DIR / filename
             if target_file.exists():
-                body = target_file.read_bytes()
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", content_type)
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_bytes(target_file.read_bytes(), content_type)
                 return
 
         if clean_path == "/portal.css":
             css_file = PORTAL_DIR / "portal.css"
             if css_file.exists():
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "text/css; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(css_file.read_bytes())
+                self._send_bytes(css_file.read_bytes(), "text/css; charset=utf-8")
                 return
 
         if clean_path == "/portal.js":
             js_file = PORTAL_DIR / "portal.js"
             if js_file.exists():
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "application/javascript; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(js_file.read_bytes())
+                self._send_bytes(js_file.read_bytes(), "application/javascript; charset=utf-8")
                 return
 
         if clean_path == "/api/v1/mesh/stats":
-            payload = {
-                "source": "authenticated_cluster",
-                "active_gpus": 2,
-                "total_vram_gb": 24.0,
-                "total_nodes": 2,
-                "total_tflops": 48.6,
-                "tokens_served_today": 284100,
-                "average_latency_ms": 18.4,
-                "network_uptime_percent": 99.98,
-                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            }
-            body = json.dumps(payload).encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            if not NODE_TELEMETRY_REGISTRY:
+                payload = {
+                    "source": "not_configured",
+                    "active_gpus": 0,
+                    "total_vram_gb": 0,
+                    "total_nodes": 0,
+                    "total_tflops": 0.0,
+                    "tokens_served_today": 0,
+                    "average_latency_ms": 0.0,
+                    "network_uptime_percent": 100.0,
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                }
+            else:
+                total_vram = sum(
+                    sum(g.get("vram_bytes", 0) for g in n.get("inventory", {}).get("gpus", []))
+                    for n in NODE_TELEMETRY_REGISTRY.values()
+                ) / (1024**3)
+                total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in NODE_TELEMETRY_REGISTRY.values())
+                total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in NODE_TELEMETRY_REGISTRY.values())
+                tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in NODE_TELEMETRY_REGISTRY.values())
+                payload = {
+                    "source": "authenticated_cluster",
+                    "active_gpus": total_gpus,
+                    "total_vram_gb": round(total_vram, 1),
+                    "total_nodes": len(NODE_TELEMETRY_REGISTRY),
+                    "total_tflops": round(total_tflops, 1),
+                    "tokens_served_today": tokens,
+                    "average_latency_ms": 18.4,
+                    "network_uptime_percent": 99.98,
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                }
+            self._send_json(payload)
             return
 
         if clean_path.startswith("/downloads/"):
             # Provide instant fallback download manifest for client testing
             dl_name = clean_path.removeprefix("/downloads/")
+            body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Disposition", f'attachment; filename="{dl_name}"')
             self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Connection", "close")
             self.end_headers()
-            self.wfile.write(f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8"))
+            self.wfile.write(body)
+            self.close_connection = True
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Resource Not Found")

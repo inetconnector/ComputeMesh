@@ -185,6 +185,7 @@ class Ledger:
         model_id: str,
         prompt_tokens: int,
         completion_tokens: int,
+        network_fee_bps: int | None = None,
     ) -> Transaction:
         event_id = f"job:{job_id}"
         if event_id in self._processed_events:
@@ -204,8 +205,9 @@ class Ledger:
                 f"customer {customer_account_id} balance ({customer_balance}) insufficient for charge ({total_charge_micro})"
             )
 
-        # Split: Operator Network Fee (e.g. 20% to 30%, default 25%), Remaining Provider Pool (e.g. 75%)
-        network_fee = (total_charge_micro * self.network_fee_bps) // 10000
+        # Split: Operator Network Fee (e.g. 20% to 30%, default 25%, or 0% for provider self-compute), Remaining Provider Pool
+        fee_bps = self.network_fee_bps if network_fee_bps is None else max(0, network_fee_bps)
+        network_fee = (total_charge_micro * fee_bps) // 10000
         provider_pool = total_charge_micro - network_fee
 
         postings: list[Posting] = [
@@ -214,12 +216,15 @@ class Ledger:
                 account_type=AccountType.CUSTOMER_DEPOSIT.value,
                 debit_micro_units=total_charge_micro,
             ),
-            Posting(
-                account_id="revenue:network_fee",
-                account_type=AccountType.NETWORK_FEE_REVENUE.value,
-                credit_micro_units=network_fee,
-            ),
         ]
+        if network_fee > 0:
+            postings.append(
+                Posting(
+                    account_id="revenue:network_fee",
+                    account_type=AccountType.NETWORK_FEE_REVENUE.value,
+                    credit_micro_units=network_fee,
+                )
+            )
 
         # Allocate provider pool proportionally
         allocated_provider_units = 0
@@ -232,13 +237,14 @@ class Ledger:
                 share_units = int((provider_pool * ratio) / total_shares)
                 allocated_provider_units += share_units
 
-            postings.append(
-                Posting(
-                    account_id=f"provider:{provider_id}",
-                    account_type=AccountType.PROVIDER_PAYABLE.value,
-                    credit_micro_units=share_units,
+            if share_units > 0:
+                postings.append(
+                    Posting(
+                        account_id=f"provider:{provider_id}",
+                        account_type=AccountType.PROVIDER_PAYABLE.value,
+                        credit_micro_units=share_units,
+                    )
                 )
-            )
 
         tx_id = f"tx_job_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
         tx = Transaction(

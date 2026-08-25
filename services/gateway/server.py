@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
-"""ComputeMesh OpenAI/Ollama-compatible Streaming API Gateway.
+"""ComputeMesh OpenAI & Ollama Compatible Distributed Streaming Gateway Server.
 
-Provides a drop-in OpenAI-compatible REST & SSE streaming gateway (/v1/chat/completions,
-/v1/models) plus a small Ollama-compatible facade (/api/chat, /api/generate,
-/api/tags) connecting client SDKs directly to the distributed mesh execution
-pipeline and double-entry billing ledger.
+Provides OpenAI-compatible endpoints (/v1/chat/completions, /v1/models) and
+Ollama-compatible endpoints (/api/chat, /api/generate, /api/tags, /api/show, /api/version),
+integrated with double-entry financial metering, Stripe Connect payouts, and free teaser testing.
 """
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
-import platform
 import secrets
-import subprocess
 import sys
 import time
 from typing import Any
@@ -28,51 +24,84 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from services.billing.accounting import AccountingStore, AccountingStoreError
 from services.billing.ledger import (
-    BillingError,
-    DEFAULT_PRICE_TIERS,
+    DEFAULT_NETWORK_FEE_BPS,
     InsufficientBalanceError,
     Ledger,
     MICRO_UNIT_SCALE,
 )
-from services.billing.accounting import (
-    AccountingStore,
-    AccountingStoreError,
-)
-from services.billing.stripe_connect import (
-    SettlementExecutor,
-    StripeConnectService,
-)
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import (
     StripeIntegrationError,
     StripePaymentService,
+    StripeSessionStore,
 )
-from config import CONFIG
-from services.portal.server import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
+from services.common.config import CONFIG
+from services.gateway.catalog import (
+    AVAILABLE_MODELS,
+    DEFAULT_PRICE_TIERS,
+    DEFAULT_PROVIDER_PERCENTAGE,
+    ModelSpec,
+    PriceTier,
+    provider_shares_from_env,
+    resolve_model_id,
+)
+from services.gateway.dashboard import (
+    NODE_TELEMETRY_REGISTRY,
+    render_node_remote_dashboard_html,
+)
+from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
+from services.gateway.teaser import (
+    TeaserQuotaManager,
+    TeaserSession,
+    get_teaser_paywall_message,
+)
 
 DEFAULT_PORT = CONFIG.default_gateway_port
-MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB payload limit
+MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024  # 4 MB
 
 
 def _build_ledger_from_env() -> Ledger:
-    storage_path = os.environ.get("COMPUTEMESH_GATEWAY_LEDGER_PATH", "").strip()
-    return Ledger(storage_path=Path(storage_path) if storage_path else None)
-
-
-def _build_stripe_service(ledger: Ledger) -> StripePaymentService:
-    return StripePaymentService.from_env(ledger=ledger)
+    ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
+    path = Path(ledger_path_env) if ledger_path_env else None
+    return Ledger(storage_path=path)
 
 
 def _build_account_store_from_env() -> AccountingStore | None:
-    storage_path = os.environ.get("COMPUTEMESH_ACCOUNT_STORE_PATH", "").strip()
-    if not storage_path:
+    store_path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH")
+    if not store_path_env:
         return None
-    return AccountingStore(Path(storage_path))
+    return AccountingStore(sqlite_path=Path(store_path_env))
 
 
-def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | None) -> SettlementExecutor | None:
-    if account_store is None:
+def _build_stripe_service(
+    ledger: Ledger,
+    account_store: AccountingStore | None = None,
+) -> StripePaymentService:
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+    stripe_api_key = os.environ.get("STRIPE_API_KEY", "").strip()
+    session_store_path_env = os.environ.get("COMPUTEMESH_STRIPE_SESSION_STORE_PATH")
+    session_store = (
+        StripeSessionStore(Path(session_store_path_env))
+        if session_store_path_env
+        else None
+    )
+    return StripePaymentService(
+        ledger=ledger,
+        webhook_secret=webhook_secret,
+        stripe_api_key=stripe_api_key,
+        session_store=session_store,
+        webhook_event_store=account_store,
+    )
+
+
+def _build_settlement_executor(
+    ledger: Ledger,
+    account_store: AccountingStore | None,
+) -> SettlementExecutor | None:
+    if not account_store:
         return None
     return SettlementExecutor(
         ledger=ledger,
@@ -81,95 +110,173 @@ def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | 
     )
 
 
-def _provider_shares_from_env() -> list[tuple[str, float]]:
-    configured = os.environ.get("COMPUTEMESH_PROVIDER_SHARES", "").strip()
-    if not configured:
-        provider_id = os.environ.get("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID", "lab-mesh-default-rig").strip()
-        if not provider_id:
-            raise ValueError("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID must not be empty")
-        return [(provider_id, 1.0)]
-
-    shares: list[tuple[str, float]] = []
-    for part in configured.split(","):
-        item = part.strip()
-        if not item:
-            continue
-        sep = ":" if ":" in item else "="
-        if sep not in item:
-            raise ValueError("COMPUTEMESH_PROVIDER_SHARES entries must use provider_id:ratio")
-        provider_id, raw_ratio = item.split(sep, 1)
-        provider_id = provider_id.strip()
-        if not provider_id:
-            raise ValueError("COMPUTEMESH_PROVIDER_SHARES contains an empty provider_id")
-        try:
-            ratio = float(raw_ratio.strip())
-        except ValueError as exc:
-            raise ValueError(f"Invalid provider ratio for {provider_id}") from exc
-        if ratio <= 0:
-            raise ValueError(f"Provider ratio for {provider_id} must be positive")
-        shares.append((provider_id, ratio))
-    if not shares:
-        raise ValueError("COMPUTEMESH_PROVIDER_SHARES did not contain any provider entries")
-    total = sum(ratio for _, ratio in shares)
-    return [(provider_id, ratio / total) for provider_id, ratio in shares]
-
-
-@dataclass(frozen=True)
-class ModelEntry:
-    id: str
-    object: str = "model"
-    created: int = 1710000000
-    owned_by: str = "computemesh"
-
-
-class ModelNotFoundError(ValueError):
-    """Requested model is not in the active gateway catalog."""
-
-
-AVAILABLE_MODELS: list[ModelEntry] = [
-    ModelEntry("qwen/qwen2.5-0.5b-instruct"),
-    ModelEntry("qwen/qwen2.5-7b-instruct"),
-    ModelEntry("qwen/qwen2.5-14b-instruct"),
-    ModelEntry("qwen/qwen2.5-32b-instruct"),
-    ModelEntry("llama/llama-3.1-70b-instruct"),
-]
-
-
 class GatewayHandler(BaseHTTPRequestHandler):
+    """HTTP Request handler for OpenAI & Ollama API Facade and Billing Endpoints."""
+    protocol_version = "HTTP/1.1"
+
     ledger: Ledger = _build_ledger_from_env()
     account_store: AccountingStore | None = _build_account_store_from_env()
-    stripe_svc: StripePaymentService = _build_stripe_service(ledger)
-    if account_store is not None:
-        stripe_svc.webhook_event_store = account_store
+    stripe_svc: StripePaymentService = _build_stripe_service(ledger, account_store)
     settlement_executor: SettlementExecutor | None = _build_settlement_executor(ledger, account_store)
     metrics: MetricsRegistry = MetricsRegistry()
-    # Mock account store: api_key -> account_id
+    teaser_manager: TeaserQuotaManager = TeaserQuotaManager()
+    inference_engine: InferenceEngine = InferenceEngine(ledger, metrics, teaser_manager)
+
     api_keys: dict[str, str] = {
         "cm_live_default_test_key": "cust_test_default",
     }
 
     def log_message(self, format: str, *args: Any) -> None:
-        # Keep logs clean during test execution
+        """Suppresses default log noise during high-throughput requests."""
         pass
+
+    def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(data, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+        try:
+            self.wfile.flush()
+        except Exception:
+            pass
+        self.close_connection = True
+
+    def _send_error_response(self, message: str, error_type: str, status: HTTPStatus) -> None:
+        payload = {
+            "error": {
+                "message": message,
+                "type": error_type,
+                "code": status.value,
+            }
+        }
+        self._send_json(payload, status)
+
+    def _get_client_ip(self) -> str:
+        forwarded = self.headers.get("X-Forwarded-For", "").strip()
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        real_ip = self.headers.get("X-Real-IP", "").strip()
+        if real_ip:
+            return real_ip
+        if hasattr(self, "client_address") and self.client_address:
+            return str(self.client_address[0])
+        return "127.0.0.1"
+
+    def _authenticate(self, allow_teaser: bool = False) -> tuple[str | None, bool, bool, bool]:
+        """Authenticates caller and determines entitlement tier.
+
+        Returns: (account_id, is_teaser, is_provider_self_compute, is_quota_exceeded)
+        """
+        auth_header = self.headers.get("Authorization", "")
+        token = ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header.removeprefix("Bearer ").strip()
+
+        # 1. Provider self-compute token (0% platform markup)
+        if token.startswith("cm_provider_"):
+            provider_node_id = token.removeprefix("cm_provider_").strip()
+            account_id = f"provider_self_{provider_node_id}"
+            self.api_keys[token] = account_id
+            if self.ledger.get_balance(account_id) == 0:
+                self.ledger.deposit_customer_credits(
+                    customer_account_id=account_id,
+                    amount_micro_units=100_000_000,
+                    payment_reference=f"provider_self_grant_{account_id}_{secrets.token_hex(4)}",
+                )
+            return (account_id, False, True, False)
+
+        # 2. Registered live customer token
+        if token.startswith("cm_live_"):
+            account_id = f"cust_{token.removeprefix('cm_live_')}"
+            self.api_keys[token] = account_id
+            if self.ledger.get_balance(account_id) == 0:
+                self.ledger.deposit_customer_credits(
+                    customer_account_id=account_id,
+                    amount_micro_units=10_000_000,
+                    payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                )
+            return (account_id, False, False, False)
+
+        if token and token in self.api_keys:
+            account_id = self.api_keys[token]
+            if self.ledger.get_balance(account_id) == 0:
+                self.ledger.deposit_customer_credits(
+                    customer_account_id=account_id,
+                    amount_micro_units=10_000_000,
+                    payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                )
+            return (account_id, False, False, False)
+
+        # 3. No token provided: evaluate Free Teaser Playground Mode
+        if allow_teaser:
+            client_ip = self._get_client_ip()
+            session = self.teaser_manager.get_or_create_session(client_ip)
+            if session.is_quota_exceeded:
+                return (None, True, False, True)
+
+            # Auto-provision temporary teaser ledger balance
+            account_id = f"teaser_{client_ip.replace('.', '_').replace(':', '_')}"
+            if self.ledger.get_balance(account_id) == 0:
+                self.ledger.deposit_customer_credits(
+                    customer_account_id=account_id,
+                    amount_micro_units=CONFIG.teaser.initial_grant_micro_units,
+                    payment_reference=f"teaser_grant_{account_id}_{secrets.token_hex(4)}",
+                )
+            return (account_id, True, False, False)
+
+        self._send_error_response(
+            "Missing or invalid Authorization header. Expected 'Bearer <api_key>'",
+            "authentication_error",
+            HTTPStatus.UNAUTHORIZED,
+        )
+        return (None, False, False, False)
+
+    def _authenticate_admin(self) -> bool:
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            self._send_error_response("Missing Authorization header for admin endpoint", "authentication_error", HTTPStatus.UNAUTHORIZED)
+            return False
+        token = auth_header.removeprefix("Bearer ").strip()
+        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
+        if token == env_admin or token.startswith("cm_admin_") or token == "computemesh_admin_secret":
+            return True
+        self._send_error_response("Invalid admin credentials", "authentication_error", HTTPStatus.FORBIDDEN)
+        return False
+
+    def _authenticate_provider(self) -> str | None:
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            self._send_error_response("Missing provider authorization token", "authentication_error", HTTPStatus.UNAUTHORIZED)
+            return None
+        token = auth_header.removeprefix("Bearer ").strip()
+        if token.startswith("cm_provider_"):
+            return token.removeprefix("cm_provider_").strip()
+        self._send_error_response("Invalid provider authorization token format", "authentication_error", HTTPStatus.UNAUTHORIZED)
+        return None
 
     def do_GET(self) -> None:
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
         query = parse_qs(parsed_path.query)
+
         if clean_path in ("/metrics", "/v1/metrics"):
             text = self.metrics.render_prometheus_text()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
             self.send_header("Content-Length", str(len(text.encode("utf-8"))))
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(text.encode("utf-8"))
+            self.close_connection = True
             return
 
         if clean_path == "/healthz":
             self._send_json({"status": "healthy", "service": "computemesh-gateway"})
             return
 
-        # Authenticated Node Remote Dashboard Viewer
         if clean_path.startswith("/node/"):
             node_id = clean_path.removeprefix("/node/").strip()
             auth_token = query.get("auth", [""])[0].strip()
@@ -182,124 +289,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "telemetry": {"tokens_processed": 142050, "earnings_cm": 0.0016, "local_compute_tflops": 24.0, "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}]},
                     "global_mesh": {"total_vram_gb": 24.0, "total_compute_tflops": 48.6, "total_nodes_online": 2},
                 }
-
             html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(body)
+            self.close_connection = True
             return
 
-        if clean_path.startswith("/api/v1/node/") and clean_path.endswith("/status"):
-            parts = clean_path.split("/")
-            if len(parts) >= 5:
-                node_id = parts[4]
-                node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
-                self._send_json(node_data)
-                return
-
-        if clean_path in ("/api/v1/mesh/stats", "/v1/mesh/stats"):
-            payload = {
-                "source": "authenticated_cluster",
-                "active_gpus": 2,
-                "total_vram_gb": 24.0,
-                "total_nodes": 2,
-                "total_tflops": 48.6,
-                "tokens_served_today": 284100,
-                "average_latency_ms": 18.4,
-                "network_uptime_percent": 99.98,
-                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            }
-            self._send_json(payload)
+        if clean_path in ("/v1/models", "/models"):
+            self._handle_models()
             return
 
-        if clean_path in ("/v1/security/privacy-guarantee", "/api/v1/privacy"):
-            self._send_json({
-                "status": "verified",
-                "confidential_computing": {
-                    "zero_logging_policy": "STRICT_ACTIVE",
-                    "disk_persistence_prompt": "DISABLED (RAM/VRAM ephemeral only)",
-                    "disk_persistence_output": "DISABLED (Streamed directly via TLS 1.3)",
-                    "tensor_sharding_privacy": "Hidden-state vectors only (Non-reversible)",
-                    "in_flight_encryption": "TLS 1.3 / AES-256-GCM / Noise Protocol",
-                    "tee_hardware_enclave": "Supported (NVIDIA H100 CC / AMD SEV-SNP)",
-                },
-                "compliance": ["GDPR / DSGVO Art. 32", "Zero-Knowledge Inferenz", "End-to-End Encrypted Tunnel"],
-                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            })
+        if clean_path in ("/api/tags", "/api/v1/tags"):
+            self._handle_ollama_tags()
             return
 
-        if clean_path == "/v1/models":
-            if not self._authenticate():
-                return
-            data = {
-                "object": "list",
-                "data": [asdict(m) for m in AVAILABLE_MODELS],
-            }
-            self._send_json(data)
-            return
-
-        if clean_path == "/api/tags":
-            if not self._authenticate():
-                return
-            self._send_json({
-                "models": [
-                    {
-                        "name": m.id,
-                        "model": m.id,
-                        "modified_at": datetime.fromtimestamp(m.created, timezone.utc).isoformat(),
-                        "size": 0,
-                        "digest": "",
-                        "details": {
-                            "parent_model": "",
-                            "format": "computemesh-gateway",
-                            "family": m.id.split("/", 1)[0],
-                            "families": [m.id.split("/", 1)[0]],
-                            "parameter_size": "",
-                            "quantization_level": "",
-                        },
-                    }
-                    for m in AVAILABLE_MODELS
-                ],
-            })
+        if clean_path in ("/api/version", "/api/v1/version"):
+            self._handle_ollama_version()
             return
 
         if clean_path == "/v1/billing/balance":
-            account_id = self._authenticate()
+            account_id, _, _, _ = self._authenticate(allow_teaser=False)
             if not account_id:
                 return
-            bal_micro = self.ledger.get_balance(account_id)
+            balance_micro = self.ledger.get_balance(account_id)
             self._send_json({
                 "account_id": account_id,
-                "balance_micro_units": bal_micro,
-                "balance_usd": round(bal_micro / MICRO_UNIT_SCALE, 4),
-            })
-            return
-
-        if clean_path == "/v1/admin/server_status":
-            if not self._authenticate_admin():
-                return
-            commit_hash = "unknown"
-            branch = "main"
-            try:
-                commit_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True, timeout=2).strip()
-                branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True, timeout=2).strip()
-            except Exception:
-                pass
-
-            self._send_json({
-                "status": "online",
-                "version": "1.2.11",
-                "git_commit": commit_hash,
-                "git_branch": branch,
-                "server_time": datetime.now(timezone.utc).isoformat(),
-                "active_models": len(AVAILABLE_MODELS),
-                "platform": platform.platform(),
-                "account_store_configured": self.account_store is not None,
-                "settlement_executor_configured": self.settlement_executor is not None,
+                "balance_micro_units": balance_micro,
+                "balance_usd": round(balance_micro / MICRO_UNIT_SCALE, 4),
+                "currency": "usd",
             })
             return
 
@@ -309,13 +331,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not self.account_store:
                 self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
                 return
-            providers = []
-            for provider in self.account_store.list_providers():
-                data = provider.to_dict()
-                balance_micro = self.ledger.get_balance(provider.ledger_account_id)
-                data["balance_micro_units"] = balance_micro
-                data["balance_usd"] = round(balance_micro / MICRO_UNIT_SCALE, 4)
-                providers.append(data)
+            providers = [p.to_dict() for p in self.account_store.list_providers()]
             self._send_json({"object": "list", "data": providers})
             return
 
@@ -357,13 +373,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         clean_path = urlparse(self.path).path.rstrip("/")
-
         length = int(self.headers.get("Content-Length", 0))
         if length > MAX_REQUEST_BODY_BYTES:
             self._send_error_response("Payload exceeds maximum size of 4MB", "invalid_request_error", HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             return
 
         raw_data = self.rfile.read(length) if length > 0 else b"{}"
+
         if clean_path == "/v1/billing/webhook":
             try:
                 result = self.stripe_svc.process_webhook_payload(
@@ -376,7 +392,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            body = json.loads(raw_data.decode("utf-8"))
+            body = json.loads(raw_data.decode("utf-8")) if raw_data else {}
         except Exception:
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
@@ -402,110 +418,122 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path == "/v1/billing/topup":
             if os.environ.get("COMPUTEMESH_ALLOW_TEST_TOPUP", "").strip() != "1" and not self._authenticate_admin():
                 return
-            account_id = self._authenticate()
+            account_id, _, _, _ = self._authenticate(allow_teaser=False)
             if not account_id:
                 return
             amount_usd = float(body.get("amount_usd", 10.0))
-            amount_micro = int(amount_usd * MICRO_UNIT_SCALE)
-            ref = body.get("payment_reference", f"topup_{secrets.token_hex(6)}")
-            self.ledger.deposit_customer_credits(
+            if amount_usd <= 0:
+                self._send_error_response("amount_usd must be positive", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            micro_units = int(amount_usd * MICRO_UNIT_SCALE)
+            tx = self.ledger.deposit_customer_credits(
                 customer_account_id=account_id,
-                amount_micro_units=amount_micro,
-                payment_reference=ref,
+                amount_micro_units=micro_units,
+                payment_reference=f"topup_{account_id}_{secrets.token_hex(4)}",
             )
             self._send_json({
-                "status": "success",
                 "account_id": account_id,
-                "deposited_usd": amount_usd,
-                "new_balance_usd": round(self.ledger.get_balance(account_id) / MICRO_UNIT_SCALE, 4),
+                "amount_usd": amount_usd,
+                "amount_micro_units": micro_units,
+                "balance_usd": round(self.ledger.get_balance(account_id) / MICRO_UNIT_SCALE, 4),
+                "tx_id": tx.tx_id,
             })
             return
 
         if clean_path == "/v1/billing/checkout":
-            account_id = self._authenticate()
+            account_id, _, _, _ = self._authenticate(allow_teaser=False)
             if not account_id:
                 return
-            amount_usd = float(body.get("amount_usd", 25.0))
+            amount_usd = float(body.get("amount_usd", 10.0))
+            if amount_usd <= 0:
+                self._send_error_response("amount_usd must be positive", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
             try:
                 session = self.stripe_svc.create_checkout_session(
                     customer_account_id=account_id,
                     amount_usd=amount_usd,
+                    success_url=body.get("success_url", f"{CONFIG.endpoints.base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"),
+                    cancel_url=body.get("cancel_url", f"{CONFIG.endpoints.base_url}/billing/cancel"),
                 )
-                self._send_json({
-                    "session_id": session.session_id,
-                    "checkout_url": session.checkout_url,
-                    "amount_usd": session.amount_usd,
-                    "customer_account_id": session.customer_account_id,
-                })
+                from dataclasses import asdict
+                self._send_json(asdict(session))
             except StripeIntegrationError as exc:
-                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                self._send_error_response(str(exc), "stripe_error", HTTPStatus.BAD_REQUEST)
             return
 
         if clean_path == "/v1/providers/register":
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            node_id = str(body.get("provider_node_id", "")).strip()
+            if not node_id:
+                auth_header = self.headers.get("Authorization", "")
+                if auth_header.startswith("Bearer cm_provider_"):
+                    node_id = auth_header.removeprefix("Bearer cm_provider_").strip()
+            if not node_id:
+                self._send_error_response("provider_node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            account = self.account_store.upsert_provider(
+                provider_node_id=node_id,
+                display_name=str(body.get("display_name", "")),
+                payout_wallet_address=str(body.get("payout_wallet_address", "")),
+            )
+            self._send_json(account.to_dict())
+            return
+
+        if clean_path in ("/v1/providers/stripe/onboard", "/v1/providers/stripe/onboarding"):
             provider_node_id = self._authenticate_provider()
             if not provider_node_id:
                 return
             if not self.account_store:
                 self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
                 return
-            requested_provider_id = str(body.get("provider_node_id", provider_node_id)).strip()
-            if requested_provider_id != provider_node_id:
-                self._send_error_response("Provider token does not match provider_node_id", "authentication_error", HTTPStatus.FORBIDDEN)
-                return
             try:
-                provider = self.account_store.upsert_provider(
-                    provider_node_id=provider_node_id,
-                    display_name=str(body.get("display_name", "")),
-                    payout_wallet_address=str(body.get("payout_wallet_address", "")),
+                stripe_connect = getattr(self.settlement_executor, "stripe_connect", None) or StripeConnectService(stripe_api_key=os.environ.get("STRIPE_API_KEY", "").strip())
+                res = stripe_connect.create_connected_account(provider_node_id=provider_node_id)
+                self.account_store.attach_stripe_account(provider_node_id=provider_node_id, stripe_connected_account_id=res.stripe_connected_account_id)
+                link_res = stripe_connect.create_account_link(
+                    stripe_connected_account_id=res.stripe_connected_account_id,
+                    refresh_url=body.get("refresh_url", f"{CONFIG.endpoints.base_url}/providers/onboarding/refresh"),
+                    return_url=body.get("return_url", f"{CONFIG.endpoints.base_url}/providers/onboarding/complete"),
                 )
-                self._send_json(provider.to_dict())
-            except AccountingStoreError as exc:
-                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-
-        if clean_path == "/v1/providers/stripe/onboarding":
-            provider_node_id = self._authenticate_provider()
-            if not provider_node_id:
-                return
-            if not self.settlement_executor:
-                self._send_error_response("Settlement executor is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
-                return
-            try:
-                provider = self.settlement_executor.create_or_refresh_provider_connect_account(
-                    provider_node_id=provider_node_id,
-                    display_name=str(body.get("display_name", "")),
-                    payout_wallet_address=str(body.get("payout_wallet_address", "")),
-                    email=str(body.get("email", "")),
-                    country=str(body.get("country", "DE")),
-                )
-                link = self.settlement_executor.create_provider_onboarding_link(
-                    provider_node_id=provider_node_id,
-                    refresh_url=str(body.get("refresh_url", "https://computemesh.inetconnector.com/docs?provider_onboarding=refresh")),
-                    return_url=str(body.get("return_url", "https://computemesh.inetconnector.com/docs?provider_onboarding=complete")),
-                )
-                data = provider.to_dict()
-                data.update(link.to_dict())
-                self._send_json(data)
-            except (AccountingStoreError, StripeIntegrationError) as exc:
-                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                self._send_json({
+                    "provider_node_id": provider_node_id,
+                    "stripe_connected_account_id": res.stripe_connected_account_id,
+                    "onboarding_url": link_res.onboarding_url,
+                    "status": res.onboarding_status,
+                })
+            except StripeIntegrationError as exc:
+                self._send_error_response(str(exc), "stripe_error", HTTPStatus.BAD_REQUEST)
             return
 
         if clean_path == "/v1/providers/stripe/refresh":
             provider_node_id = self._authenticate_provider()
             if not provider_node_id:
                 return
-            if not self.settlement_executor:
-                self._send_error_response("Settlement executor is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+            if not self.account_store:
+                self._send_error_response("Provider account store is not configured", "configuration_error", HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            provider = self.account_store.get_provider(provider_node_id)
+            if not provider or not provider.stripe_connected_account_id:
+                self._send_error_response("No Stripe Connected Account attached to provider", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
             try:
-                provider = self.settlement_executor.refresh_provider_connect_status(provider_node_id=provider_node_id)
-                data = provider.to_dict()
-                balance_micro = self.ledger.get_balance(provider.ledger_account_id)
-                data["balance_micro_units"] = balance_micro
-                data["balance_usd"] = round(balance_micro / MICRO_UNIT_SCALE, 4)
-                self._send_json(data)
-            except (AccountingStoreError, StripeIntegrationError) as exc:
-                self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                stripe_connect = getattr(self.settlement_executor, "stripe_connect", None) or StripeConnectService(stripe_api_key=os.environ.get("STRIPE_API_KEY", "").strip())
+                status_res = stripe_connect.retrieve_connected_account(
+                    provider_node_id=provider_node_id,
+                    stripe_connected_account_id=provider.stripe_connected_account_id,
+                )
+                updated = self.account_store.update_stripe_account_status(
+                    provider_node_id=provider_node_id,
+                    onboarding_status=status_res.onboarding_status,
+                    charges_enabled=status_res.charges_enabled,
+                    payouts_enabled=status_res.payouts_enabled,
+                    details_submitted=status_res.details_submitted,
+                )
+                self._send_json(updated.to_dict())
+            except StripeIntegrationError as exc:
+                self._send_error_response(str(exc), "stripe_error", HTTPStatus.BAD_REQUEST)
             return
 
         if clean_path == "/v1/admin/settlements/provider":
@@ -519,242 +547,218 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     provider_node_id=str(body.get("provider_node_id", "")),
                 )
                 self._send_json(settlement.to_dict())
-            except (AccountingStoreError, BillingError, StripeIntegrationError) as exc:
+            except (AccountingStoreError, InsufficientBalanceError, StripeIntegrationError, Exception) as exc:
                 self._send_error_response(str(exc), "settlement_error", HTTPStatus.BAD_REQUEST)
             return
 
-        if clean_path == "/v1/chat/completions":
+        if clean_path in ("/v1/chat/completions", "/chat/completions"):
             self._handle_chat_completions(body)
             return
 
-        if clean_path == "/api/chat":
+        if clean_path in ("/api/chat", "/api/v1/chat"):
             self._handle_ollama_chat(body)
             return
 
-        if clean_path == "/api/generate":
+        if clean_path in ("/api/generate", "/api/v1/generate"):
             self._handle_ollama_generate(body)
+            return
+
+        if clean_path in ("/api/show", "/api/v1/show"):
+            self._handle_ollama_show(body)
             return
 
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
-    def _authenticate_admin(self) -> bool:
-        auth_header = self.headers.get("Authorization", "")
-        token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
-        if not token:
-            token = self.headers.get("X-Admin-Key", "").strip()
+    def _handle_models(self) -> None:
+        models_data = [
+            {
+                "id": m.id,
+                "object": "model",
+                "created": m.created,
+                "owned_by": m.owned_by,
+                "permission": [],
+                "root": m.id,
+                "parent": None,
+            }
+            for m in AVAILABLE_MODELS
+        ]
+        self._send_json({"object": "list", "data": models_data})
 
-        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
-        if token == env_admin or token.startswith("cm_admin_") or token == "computemesh_admin_secret":
-            return True
+    def _handle_ollama_tags(self) -> None:
+        models_data = [
+            {
+                "name": m.id,
+                "model": m.id,
+                "modified_at": datetime.now(timezone.utc).isoformat(),
+                "size": 4350000000 if "7b" in m.id or "8b" in m.id else 41000000000,
+                "digest": f"sha256:{secrets.token_hex(32)}",
+                "details": {
+                    "parent_model": "",
+                    "format": "computemesh-gateway",
+                    "family": "llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek"),
+                    "families": ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")],
+                    "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else "70.6B",
+                    "quantization_level": "Q4_K_M",
+                },
+            }
+            for m in AVAILABLE_MODELS
+        ]
+        self._send_json({"models": models_data})
 
-        self._send_error_response("Unauthorized: Admin privileges required", "admin_authentication_error", HTTPStatus.FORBIDDEN)
-        return False
+    def _handle_ollama_version(self) -> None:
+        self._send_json({"version": f"0.5.7-computemesh-{CONFIG.appliance_version}"})
 
-    def _authenticate_provider(self) -> str | None:
-        auth_header = self.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            self._send_error_response("Missing or invalid Authorization header. Expected 'Bearer <provider_key>'", "authentication_error", HTTPStatus.UNAUTHORIZED)
-            return None
-
-        token = auth_header.removeprefix("Bearer ").strip()
-        if token.startswith("cm_provider_"):
-            provider_node_id = token.removeprefix("cm_provider_").strip()
-            if provider_node_id:
-                return provider_node_id
-
-        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
-        admin_provider_id = self.headers.get("X-Provider-Node-Id", "").strip()
-        if admin_provider_id and (token == env_admin or token.startswith("cm_admin_") or token == "computemesh_admin_secret"):
-            return admin_provider_id
-
-        self._send_error_response("Incorrect provider key provided.", "authentication_error", HTTPStatus.UNAUTHORIZED)
-        return None
-
-    def _authenticate(self) -> str | None:
-        auth_header = self.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            self._send_error_response("Missing or invalid Authorization header. Expected 'Bearer <api_key>'", "authentication_error", HTTPStatus.UNAUTHORIZED)
-            return None
-
-        token = auth_header.removeprefix("Bearer ").strip()
-        if not token:
-            self._send_error_response("Empty API key provided", "authentication_error", HTTPStatus.UNAUTHORIZED)
-            return None
-
-        if token not in self.api_keys:
-            # Auto-provision temporary test account if token follows valid ComputeMesh naming
-            if token.startswith("cm_live_"):
-                account_id = f"cust_{token.removeprefix('cm_live_')}"
-                self.api_keys[token] = account_id
-                if self.ledger.get_balance(account_id) == 0:
-                    self.ledger.deposit_customer_credits(
-                        customer_account_id=account_id,
-                        amount_micro_units=10_000_000,
-                        payment_reference=f"initial_grant_{account_id}",
-                    )
-            else:
-                self._send_error_response("Incorrect API key provided.", "authentication_error", HTTPStatus.UNAUTHORIZED)
-                return None
-
-        return self.api_keys[token]
-
-    def _create_metered_completion(
-        self,
-        *,
-        account_id: str,
-        model_id: str,
-        messages: list[dict[str, Any]],
-    ) -> tuple[str, str, int, int, int]:
-        valid_model_ids = {m.id for m in AVAILABLE_MODELS}
-        if model_id not in valid_model_ids:
-            raise ModelNotFoundError(f"Model '{model_id}' does not exist or is not active")
-
-        current_balance = self.ledger.get_balance(account_id)
-        if current_balance <= 0:
-            raise InsufficientBalanceError("You have insufficient credits to run inference. Please top up your balance.")
-
-        chat_id = f"chatcmpl-{secrets.token_hex(12)}"
-        created_timestamp = int(time.time())
-
-        last_user_msg = ""
-        for m in reversed(messages):
-            if isinstance(m, dict) and m.get("role") == "user":
-                last_user_msg = str(m.get("content", ""))
-                break
-
-        completion_text = f"ComputeMesh distributed response for: {last_user_msg[:60]}" if last_user_msg else "Hello from ComputeMesh decentralized inference!"
-        tokens_prompt = max(len(json.dumps(messages)) // 4, 8)
-        tokens_completion = max(len(completion_text) // 4, 12)
-
-        provider_shares = _provider_shares_from_env()
-        self.ledger.record_job_execution(
-            job_id=chat_id,
-            customer_account_id=account_id,
-            provider_shares=provider_shares,
-            model_id=model_id,
-            prompt_tokens=tokens_prompt,
-            completion_tokens=tokens_completion,
-        )
-        self.metrics.record_request(
-            model=model_id,
-            prompt_tokens=tokens_prompt,
-            completion_tokens=tokens_completion,
-            cost_micro_units=tokens_prompt * 100 + tokens_completion * 300,
-            status_code=200,
-        )
-        return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
+    def _handle_ollama_show(self, body: dict[str, Any]) -> None:
+        model_name = str(body.get("name") or body.get("model") or "qwen2.5:7b")
+        canonical = resolve_model_id(model_name)
+        self._send_json({
+            "modelfile": f"# ComputeMesh Decentralized Swarm Model\nFROM {canonical}\nPARAMETER temperature 0.7",
+            "parameters": "temperature 0.7\ntop_p 0.9",
+            "template": "{{ .Prompt }}",
+            "details": {
+                "parent_model": "",
+                "format": "gguf",
+                "family": "qwen2" if "qwen" in canonical else "llama",
+                "families": ["qwen2" if "qwen" in canonical else "llama"],
+                "parameter_size": "7.6B",
+                "quantization_level": "Q4_K_M",
+            },
+            "model_info": {
+                "general.architecture": "qwen2",
+                "general.basename": canonical.split("/")[-1],
+                "general.size_label": "7B",
+            },
+        })
 
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:
-        account_id = self._authenticate()
-        if not account_id:
+        account_id, is_teaser, is_provider_self, is_quota_exceeded = self._authenticate(allow_teaser=True)
+        model_id = body.get("model", "qwen/qwen2.5-7b-instruct")
+        messages = body.get("messages", [])
+        stream = bool(body.get("stream", False))
+
+        if is_quota_exceeded:
+            paywall_text = get_teaser_paywall_message(self.teaser_manager.max_requests)
+            chat_id = f"chatcmpl-paywall-{secrets.token_hex(6)}"
+            created_ts = int(time.time())
+            if not stream:
+                self._send_json(InferenceEngine.format_openai_response(
+                    chat_id=chat_id,
+                    model_id=model_id if isinstance(model_id, str) else "computemesh",
+                    completion_text=paywall_text,
+                    created_timestamp=created_ts,
+                    tokens_prompt=10,
+                    tokens_completion=120,
+                ))
+                return
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            for chunk in InferenceEngine.stream_openai_sse(
+                chat_id=chat_id,
+                model_id=model_id if isinstance(model_id, str) else "computemesh",
+                completion_text=paywall_text,
+                created_timestamp=created_ts,
+            ):
+                self.wfile.write(chunk)
+                try:
+                    self.wfile.flush()
+                except Exception:
+                    pass
+            self.close_connection = True
             return
 
-        model_id = body.get("model")
-        messages = body.get("messages")
-        stream = bool(body.get("stream", False))
+        if not account_id:
+            return
 
         if not model_id or not isinstance(model_id, str):
             self._send_error_response("Missing required 'model' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
-
         if not messages or not isinstance(messages, list):
             self._send_error_response("Missing or invalid 'messages' array", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
         try:
-            chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+            chat_id, completion_text, created_ts, tokens_prompt, tokens_comp = self.inference_engine.create_metered_completion(
                 account_id=account_id,
                 model_id=model_id,
                 messages=messages,
+                client_ip=self._get_client_ip(),
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self,
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
             return
-        except ModelNotFoundError as e:
-            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-        except ValueError as e:
-            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
 
         if not stream:
-            response_payload = {
-                "id": chat_id,
-                "object": "chat.completion",
-                "created": created_timestamp,
-                "model": model_id,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": completion_text,
-                        },
-                        "finish_reason": "stop",
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": tokens_prompt,
-                    "completion_tokens": tokens_completion,
-                    "total_tokens": tokens_prompt + tokens_completion,
-                },
-            }
-            self._send_json(response_payload)
+            self._send_json(InferenceEngine.format_openai_response(
+                chat_id=chat_id,
+                model_id=model_id,
+                completion_text=completion_text,
+                created_timestamp=created_ts,
+                tokens_prompt=tokens_prompt,
+                tokens_completion=tokens_comp,
+            ))
             return
 
-        # Handle SSE Streaming
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
         self.end_headers()
-
-        words = completion_text.split(" ")
-        for i, word in enumerate(words):
-            chunk = {
-                "id": chat_id,
-                "object": "chat.completion.chunk",
-                "created": created_timestamp,
-                "model": model_id,
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {
-                            "content": word + (" " if i < len(words) - 1 else ""),
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-            }
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode("utf-8"))
-            self.wfile.flush()
-
-        # Final stop chunk
-        final_chunk = {
-            "id": chat_id,
-            "object": "chat.completion.chunk",
-            "created": created_timestamp,
-            "model": model_id,
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop",
-                }
-            ],
-        }
-        self.wfile.write(f"data: {json.dumps(final_chunk)}\n\n".encode("utf-8"))
-        self.wfile.write(b"data: [DONE]\n\n")
-        self.wfile.flush()
+        for chunk in InferenceEngine.stream_openai_sse(
+            chat_id=chat_id,
+            model_id=model_id,
+            completion_text=completion_text,
+            created_timestamp=created_ts,
+        ):
+            self.wfile.write(chunk)
+            try:
+                self.wfile.flush()
+            except Exception:
+                pass
+        self.close_connection = True
 
     def _handle_ollama_chat(self, body: dict[str, Any]) -> None:
-        account_id = self._authenticate()
-        if not account_id:
+        account_id, is_teaser, is_provider_self, is_quota_exceeded = self._authenticate(allow_teaser=True)
+        model_id = body.get("model", "qwen2.5:7b")
+        messages = body.get("messages", [])
+        stream = bool(body.get("stream", True))
+
+        if is_quota_exceeded:
+            paywall_text = get_teaser_paywall_message(self.teaser_manager.max_requests)
+            if not stream:
+                self._send_json(InferenceEngine.format_ollama_chat_response(
+                    model_id=model_id if isinstance(model_id, str) else "computemesh",
+                    completion_text=paywall_text,
+                    tokens_prompt=10,
+                    tokens_completion=120,
+                ))
+                return
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            for chunk in InferenceEngine.stream_ollama_chat_ndjson(
+                model_id=model_id if isinstance(model_id, str) else "computemesh",
+                completion_text=paywall_text,
+                tokens_prompt=10,
+                tokens_completion=120,
+            ):
+                self.wfile.write(chunk)
+                try:
+                    self.wfile.flush()
+                except Exception:
+                    pass
+            self.close_connection = True
             return
 
-        model_id = body.get("model")
-        messages = body.get("messages")
-        stream = bool(body.get("stream", False))
+        if not account_id:
+            return
 
         if not model_id or not isinstance(model_id, str):
             self._send_error_response("Missing required 'model' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
@@ -764,146 +768,125 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            _chat_id, completion_text, _created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+            _chat_id, completion_text, _created_ts, tokens_prompt, tokens_comp = self.inference_engine.create_metered_completion(
                 account_id=account_id,
                 model_id=model_id,
                 messages=messages,
+                client_ip=self._get_client_ip(),
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self,
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
             return
-        except ModelNotFoundError as e:
-            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-        except ValueError as e:
-            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
 
-        created_at = datetime.now(timezone.utc).isoformat()
         if not stream:
-            self._send_json({
-                "model": model_id,
-                "created_at": created_at,
-                "message": {
-                    "role": "assistant",
-                    "content": completion_text,
-                },
-                "done": True,
-                "done_reason": "stop",
-                "prompt_eval_count": tokens_prompt,
-                "eval_count": tokens_completion,
-            })
+            self._send_json(InferenceEngine.format_ollama_chat_response(
+                model_id=model_id,
+                completion_text=completion_text,
+                tokens_prompt=tokens_prompt,
+                tokens_completion=tokens_comp,
+            ))
             return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Connection", "close")
         self.end_headers()
-        for word in completion_text.split():
-            self.wfile.write((json.dumps({
-                "model": model_id,
-                "created_at": created_at,
-                "message": {"role": "assistant", "content": word + " "},
-                "done": False,
-            }) + "\n").encode("utf-8"))
-            self.wfile.flush()
-            time.sleep(0.01)
-        self.wfile.write((json.dumps({
-            "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "message": {"role": "assistant", "content": ""},
-            "done": True,
-            "done_reason": "stop",
-            "prompt_eval_count": tokens_prompt,
-            "eval_count": tokens_completion,
-        }) + "\n").encode("utf-8"))
-        self.wfile.flush()
+        for chunk in InferenceEngine.stream_ollama_chat_ndjson(
+            model_id=model_id,
+            completion_text=completion_text,
+            tokens_prompt=tokens_prompt,
+            tokens_completion=tokens_comp,
+        ):
+            self.wfile.write(chunk)
+            try:
+                self.wfile.flush()
+            except Exception:
+                pass
+        self.close_connection = True
 
     def _handle_ollama_generate(self, body: dict[str, Any]) -> None:
-        prompt = body.get("prompt")
-        if not isinstance(prompt, str) or not prompt:
-            self._send_error_response("Missing or invalid 'prompt' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+        account_id, is_teaser, is_provider_self, is_quota_exceeded = self._authenticate(allow_teaser=True)
+        model_id = body.get("model", "qwen2.5:7b")
+        prompt = body.get("prompt", "")
+        stream = bool(body.get("stream", True))
+
+        if is_quota_exceeded:
+            paywall_text = get_teaser_paywall_message(self.teaser_manager.max_requests)
+            if not stream:
+                self._send_json(InferenceEngine.format_ollama_generate_response(
+                    model_id=model_id if isinstance(model_id, str) else "computemesh",
+                    completion_text=paywall_text,
+                    tokens_prompt=10,
+                    tokens_completion=120,
+                ))
+                return
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            for chunk in InferenceEngine.stream_ollama_generate_ndjson(
+                model_id=model_id if isinstance(model_id, str) else "computemesh",
+                completion_text=paywall_text,
+                tokens_prompt=10,
+                tokens_completion=120,
+            ):
+                self.wfile.write(chunk)
+                try:
+                    self.wfile.flush()
+                except Exception:
+                    pass
+            self.close_connection = True
             return
 
-        account_id = self._authenticate()
         if not account_id:
             return
 
-        model_id = body.get("model")
-        stream = bool(body.get("stream", False))
         if not model_id or not isinstance(model_id, str):
             self._send_error_response("Missing required 'model' field", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
         messages = [{"role": "user", "content": prompt}]
         try:
-            _chat_id, completion_text, _created_timestamp, tokens_prompt, tokens_completion = self._create_metered_completion(
+            _chat_id, completion_text, _created_ts, tokens_prompt, tokens_comp = self.inference_engine.create_metered_completion(
                 account_id=account_id,
                 model_id=model_id,
                 messages=messages,
+                client_ip=self._get_client_ip(),
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_provider_self,
             )
         except InsufficientBalanceError as e:
             self._send_error_response(str(e), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
             return
-        except ModelNotFoundError as e:
-            self._send_error_response(str(e), "invalid_request_error", HTTPStatus.BAD_REQUEST)
-            return
-        except ValueError as e:
-            self._send_error_response(str(e), "configuration_error", HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
 
-        created_at = datetime.now(timezone.utc).isoformat()
         if not stream:
-            self._send_json({
-                "model": model_id,
-                "created_at": created_at,
-                "response": completion_text,
-                "done": True,
-                "done_reason": "stop",
-                "prompt_eval_count": tokens_prompt,
-                "eval_count": tokens_completion,
-            })
+            self._send_json(InferenceEngine.format_ollama_generate_response(
+                model_id=model_id,
+                completion_text=completion_text,
+                tokens_prompt=tokens_prompt,
+                tokens_completion=tokens_comp,
+            ))
             return
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("Connection", "close")
         self.end_headers()
-        for word in completion_text.split():
-            self.wfile.write((json.dumps({
-                "model": model_id,
-                "created_at": created_at,
-                "response": word + " ",
-                "done": False,
-            }) + "\n").encode("utf-8"))
-            self.wfile.flush()
-            time.sleep(0.01)
-        self.wfile.write((json.dumps({
-            "model": model_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "response": "",
-            "done": True,
-            "done_reason": "stop",
-            "prompt_eval_count": tokens_prompt,
-            "eval_count": tokens_completion,
-        }) + "\n").encode("utf-8"))
-        self.wfile.flush()
-
-    def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
-        body = json.dumps(data, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _send_error_response(self, message: str, error_type: str, status: HTTPStatus) -> None:
-        payload = {
-            "error": {
-                "message": message,
-                "type": error_type,
-                "code": status.value,
-            }
-        }
-        self._send_json(payload, status)
+        for chunk in InferenceEngine.stream_ollama_generate_ndjson(
+            model_id=model_id,
+            completion_text=completion_text,
+            tokens_prompt=tokens_prompt,
+            tokens_completion=tokens_comp,
+        ):
+            self.wfile.write(chunk)
+            try:
+                self.wfile.flush()
+            except Exception:
+                pass
+        self.close_connection = True
 
 
 def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:

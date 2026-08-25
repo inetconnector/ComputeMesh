@@ -1306,8 +1306,42 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
    - Verified live daemon on `supersrv-trixie` with `systemctl is-active computemesh-node` (🟢 active) and JSON API response on port 8081.
    - Pushed all commits to GitHub `origin/main` (commit `72ef894`).
 
+---
 
+## 49. Free Teaser Playground (20 Configurable Requests) & Gateway Modularization (2026-08-25)
 
+### Architectural Refactoring & Code Hygiene
+- **Zerschlagung monolithischer Klassen:** Die über 900 Zeilen umfassende Gateway-Architektur wurde in schlanke, hochgradig spezialisierte Module aufgeteilt:
+  - [`services/gateway/catalog.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/catalog.py): Model-Katalog, Kontext-Fenster, Pricing-Tiers und Provider-Vergütungsraten.
+  - [`services/gateway/teaser.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/teaser.py): Thread-sicherer `TeaserQuotaManager` mit `threading.RLock()`, IP-Tracking und modularer Paywall-Textgenerierung.
+  - [`services/gateway/dashboard.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/dashboard.py): Telemetrie-Registry und HTML-Remote-Dashboard-Renderer für Nodes.
+  - [`services/gateway/inference.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/inference.py): `InferenceEngine` mit Token-Kalkulation, Doppelbuchhaltungs-Ledger-Integration, OpenAI SSE- und Ollama ndjson-Streaming.
+  - [`services/gateway/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/server.py): Schlanker `GatewayHandler` mit HTTP-Routing, sauberem Connection-Lifecycle (`Connection: close`) und Auth-Tiers.
+
+### Features & Business Logic
+1. **20 kostenlose Teaser-Anfragen:**
+   - Konfigurierbar über `TeaserConfig` in [`config.py`](file:///c:/Users/frede/Projekte/ComputeMesh/config.py) (`max_free_requests = 20`, `max_free_tokens = 8192`).
+   - Reibungsfreier Testzugang ohne Registrierung für Ollama CLI (`export OLLAMA_HOST="computemesh.inetconnector.com:443"`) und OpenAI Python SDK (`base_url="https://computemesh.inetconnector.com/v1"`).
+   - Dynamischer Banner im Response-Stream mit Rest-Anfragen und Cluster-VRAM.
+2. **Graceful Paywall & Onboarding:**
+   - Nach Aufbrauchen der 20 kostenlosen Anfragen erhalten Nutzer eine conversion-optimierte Anleitung zur Consumer-API-Key-Erstellung oder zum Verbinden eigener Mining-Rigs/Server als Provider (`curl -sSL https://computemesh.inetconnector.com/install.sh | bash`).
+3. **0% Plattformgebühr für Provider Self-Compute:**
+   - Bei Nutzung des Provider-Tokens `cm_provider_<node_id>` entfällt der 25%-Plattformaufschlag (`fee_bps = 0`), sodass Provider eigene Lasten zum reinen Selbstkostenpreis über das Cluster abrechnen.
+4. **Ledger Robustness Fix:**
+   - [`services/billing/ledger.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/billing/ledger.py) wirft keine Fehler mehr bei 0-Credit-Postings, wenn `network_fee = 0` ist.
+
+---
+
+## 50. Live Deployment & Full Test Suite Verification (2026-08-25)
+
+### Verification Summary
+- **Unit & Integration Tests:** 63/63 Tests erfolgreich (100% Pass-Rate in 1.88s über Billing-, Gateway- und Portal-Subsysteme).
+- **Remote Server Deployment:** Synchronisiert mit `supersrv-trixie` und verifiziert (`computemesh-gateway.service` active & running).
+- **Live Endpoint Checks:**
+  - `https://computemesh.inetconnector.com/api/tags` -> 200 OK (Ollama Model-Katalog)
+  - `https://computemesh.inetconnector.com/api/version` -> 200 OK (`0.5.7-computemesh-1.2.11`)
+  - `https://computemesh.inetconnector.com/v1/chat/completions` -> 200 OK (Free Teaser Chat Completion mit Banner)
+- **Dokumentation:** Vollständiger Leitfaden [`docs/OLLAMA_TEASER_GUIDE.md`](file:///c:/Users/frede/Projekte/ComputeMesh/docs/OLLAMA_TEASER_GUIDE.md) erstellt.
 
 
 

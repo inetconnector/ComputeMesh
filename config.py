@@ -53,9 +53,19 @@ class MeshEndpoints:
 
 
 @dataclass
+class TeaserConfig:
+    """Free teaser playground configuration without upfront registration."""
+    max_free_requests: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_REQUESTS", "20"))
+    max_free_tokens: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_TOKENS", "8192"))
+    initial_grant_micro_units: int = int(os.environ.get("COMPUTEMESH_TEASER_INITIAL_GRANT", "20000000"))
+    enabled: bool = os.environ.get("COMPUTEMESH_TEASER_ENABLED", "1").strip().lower() in ("1", "true", "yes")
+
+
+@dataclass
 class ComputeMeshConfig:
     """Master configuration class containing all primary subsystem configurations."""
     endpoints: MeshEndpoints = field(default_factory=MeshEndpoints)
+    teaser: TeaserConfig = field(default_factory=TeaserConfig)
     appliance_version: str = "1.2.11"
     default_dashboard_port: int = 8080
     default_gateway_port: int = 8000
@@ -67,6 +77,7 @@ class ComputeMeshConfig:
     def from_env(cls) -> ComputeMeshConfig:
         return cls(
             endpoints=MeshEndpoints(),
+            teaser=TeaserConfig(),
             appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.11"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),
             default_gateway_port=int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000")),
