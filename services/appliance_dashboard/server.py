@@ -33,7 +33,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.10"
+APPLIANCE_VERSION = "1.2.11"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">

@@ -123,7 +123,7 @@ class LinuxComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.10"
+        self.version = "1.2.11"
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 

@@ -6,8 +6,10 @@ import unittest
 from tools.appliance.hardware_detector import (
     GpuDevice,
     RigInventory,
+    detect_vendor_backend,
     is_integrated_display_adapter,
     is_provider_compute_gpu,
+    parse_size_to_bytes,
     scan_rig_hardware,
 )
 
@@ -97,6 +99,18 @@ class TestHardwareDetector(unittest.TestCase):
             healthy=True,
         )
         self.assertTrue(is_provider_compute_gpu(gpu))
+
+    def test_vendor_detection_does_not_match_compatible_as_ati(self) -> None:
+        vendor, backend = detect_vendor_backend(
+            "0000:00:02.0 VGA compatible controller: Intel Corporation Integrated Graphics Controller [8086:0102]"
+        )
+        self.assertEqual(vendor, "intel")
+        self.assertEqual(backend, "sycl")
+
+    def test_parse_lspci_memory_size(self) -> None:
+        self.assertEqual(parse_size_to_bytes("8G"), 8 * 1024 * 1024 * 1024)
+        self.assertEqual(parse_size_to_bytes("256M"), 256 * 1024 * 1024)
+        self.assertIsNone(parse_size_to_bytes("unknown"))
 
 
 if __name__ == "__main__":

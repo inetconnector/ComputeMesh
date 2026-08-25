@@ -227,7 +227,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             self._send_json({
                 "status": "online",
-                "version": "1.2.10",
+                "version": "1.2.11",
                 "git_commit": commit_hash,
                 "git_branch": branch,
                 "server_time": datetime.now(timezone.utc).isoformat(),

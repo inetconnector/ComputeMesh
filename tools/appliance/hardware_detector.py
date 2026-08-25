@@ -33,6 +33,8 @@ INTEGRATED_DISPLAY_MARKERS = (
     "iris",
 )
 
+MIN_PROVIDER_VRAM_BYTES = 2 * 1024 * 1024 * 1024
+
 
 @dataclass(frozen=True)
 class GpuDevice:
@@ -107,6 +109,71 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
 def is_provider_compute_gpu(gpu: GpuDevice) -> bool:
     """Provider inventory must not count display-only or zero-VRAM adapters."""
     return gpu.healthy and gpu.vram_bytes > 0 and not is_integrated_display_adapter(gpu.vendor, gpu.model_name)
+
+
+def detect_vendor_backend(text: str) -> tuple[str, str]:
+    """Resolve a GPU vendor/backend from PCI or OS adapter text without substring traps."""
+    lower = text.lower()
+    if "nvidia" in lower or "ven_10de" in lower or "[10de:" in lower:
+        return "nvidia", "cuda"
+    if (
+        "advanced micro devices" in lower
+        or "[amd/ati]" in lower
+        or "[1002:" in lower
+        or "ven_1002" in lower
+        or re.search(r"\bamd\b", lower)
+        or re.search(r"\bati\b", lower)
+        or "radeon" in lower
+    ):
+        return "amd", "vulkan"
+    if "intel" in lower or "ven_8086" in lower or "[8086:" in lower:
+        return "intel", "sycl"
+    return "unknown", "vulkan"
+
+
+def parse_size_to_bytes(size_text: str) -> int | None:
+    match = re.match(r"^\s*(\d+(?:\.\d+)?)\s*([kmgt])(?:i?b?)?\s*$", size_text, re.IGNORECASE)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2).lower()
+    multipliers = {
+        "k": 1024,
+        "m": 1024**2,
+        "g": 1024**3,
+        "t": 1024**4,
+    }
+    return int(value * multipliers[unit])
+
+
+def read_lspci_prefetchable_memory_bytes(slot: str) -> int:
+    """Read a conservative dedicated-memory hint from PCI BAR sizes when available."""
+    if not shutil.which("lspci"):
+        return 0
+    try:
+        res = subprocess.run(
+            ["lspci", "-vv", "-s", slot],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=8,
+            **_get_subprocess_flags(),
+        )
+    except Exception:
+        return 0
+
+    sizes: list[int] = []
+    for line in res.stdout.splitlines():
+        lower = line.lower()
+        if "memory at" not in lower or "prefetchable" not in lower:
+            continue
+        match = re.search(r"\[size=([^\]]+)\]", line, re.IGNORECASE)
+        if not match:
+            continue
+        size_bytes = parse_size_to_bytes(match.group(1))
+        if size_bytes:
+            sizes.append(size_bytes)
+    return max(sizes) if sizes else 0
 
 
 # ==============================================================================
@@ -390,18 +457,7 @@ def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice
                 continue
                 
             name_lower = name.lower()
-            if "nvidia" in name_lower or "ven_10de" in pnp.lower():
-                vendor = "nvidia"
-                backend = "cuda"
-            elif "amd" in name_lower or "radeon" in name_lower or "ven_1002" in pnp.lower():
-                vendor = "amd"
-                backend = "vulkan"
-            elif "intel" in name_lower or "ven_8086" in pnp.lower():
-                vendor = "intel"
-                backend = "sycl"
-            else:
-                vendor = "unknown"
-                backend = "vulkan"
+            vendor, backend = detect_vendor_backend(f"{name_lower} {pnp}")
 
             device = GpuDevice(
                 index=start_index,
@@ -465,22 +521,29 @@ def scan_rig_hardware() -> RigInventory:
                 slot = slot_match.group(1) if slot_match else f"pci:{idx}"
                 vendor = "unknown"
                 backend = "vulkan"
-                lower = line.lower()
-                if "nvidia" in lower:
-                    vendor = "nvidia"
-                    backend = "cuda"
-                elif "amd" in lower or "advanced micro devices" in lower or "ati" in lower:
-                    vendor = "amd"
-                    backend = "vulkan"
-                elif "intel" in lower:
-                    vendor = "intel"
-                    backend = "sycl"
+                vendor, backend = detect_vendor_backend(line)
                 
                 model_name = line.split(": ", 1)[-1] if ": " in line else line
                 if is_integrated_display_adapter(vendor, model_name):
                     continue
-                # lspci does not expose dedicated VRAM; do not fabricate capacity.
-                continue
+                vram_bytes = read_lspci_prefetchable_memory_bytes(slot)
+                if vram_bytes < MIN_PROVIDER_VRAM_BYTES:
+                    continue
+                device = GpuDevice(
+                    index=idx,
+                    pci_slot=slot,
+                    vendor=vendor,
+                    model_name=model_name,
+                    vram_bytes=vram_bytes,
+                    pcie_gen=None,
+                    pcie_width=None,
+                    driver_backend=backend,
+                    is_headless=False,
+                    healthy=True,
+                )
+                if not is_provider_compute_gpu(device):
+                    continue
+                all_gpus.append(device)
         except Exception:
             pass
 
