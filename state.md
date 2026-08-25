@@ -1113,7 +1113,8 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 3. `services/portal/server.py` `/api/v1/mesh/stats` now returns `source = "not_configured"` and zero/null capacity/latency/uptime values instead of fabricated public mesh totals.
 4. `services/gateway/metrics_exporter.py` now initializes active GPUs, VRAM bytes, and active nodes to zero instead of static synthetic totals.
 5. `tools/appliance/windows_tray_app.py` and `tools/appliance/linux_tray_app.py` now state that no global VRAM/TFLOPS number is available without an authenticated node registry.
-6. Version constants for the provider apps, NodeOS dashboard, updater CLI default, release signer default, and gateway admin status were bumped to `1.2.10`.
+6. `portal/index.html` and `portal/status.html` no longer show static `18.58 GB` / `2 Active` capacity tickers; both now show unavailable/offline state until a real registry exists.
+7. Version constants for the provider apps, NodeOS dashboard, updater CLI default, release signer default, and gateway admin status were bumped to `1.2.10`.
 
 ### Release Artifacts Prepared Locally
 1. Windows artifact `portal/downloads/ComputeMesh-Setup-x64.exe`: 35,251,054 bytes, SHA-256 `a7965936d7bbfb6d301aabe623a02840fa8ba7bddaf62c77fa42f18f4a425066`.
