@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-25 17:02 CEST
+**Last updated:** 2026-08-25 17:28 CEST
 **Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`. Gateway billing now has a fail-closed real Stripe Checkout/Webhook implementation path plus a Stripe Connect Accounts v2 provider onboarding/settlement execution path. The webserver is configured with Stripe **testmode** keys, a test webhook endpoint, a Stripe Accounts v2 thin-event destination, durable test ledger/session paths, durable SQLite account/settlement store, EUR Stripe settlement transfers, and operator-controlled provider metering attribution to `node_test_settle_02`. A real Stripe test Checkout for the laptop user completed and was credited through the signed public webhook path after the SDK-object normalization fix. A separate API-onboarded US sandbox provider was also settled end-to-end in Stripe testmode: a EUR Stripe Transfer was created, the provider payable was cleared, and the ledger reconciled balanced. The gateway now also exposes authenticated Ollama-compatible `/api/tags`, `/api/chat`, and `/api/generate` facades for the same cluster model catalog and metered ledger path. German UG onboarding/KYC for the operator's real entity remains blocked until the UG is founded and registered; live-mode Stripe credentials and production database/ops controls are not configured end-to-end for real customer funds.
-**Release/version truth:** signed update release `1.2.9` is committed, tagged, pushed, deployed to the live webserver, and installed on the reachable LAN miner. Windows/Linux artifacts were rebuilt for the signed release, NodeOS ISO/IMG manifest entries were preserved, the webserver manifest signature verifies, and `http://192.168.1.27:8080/api/status` reports `software.current_version = "1.2.9"` with `/api/action/check_update` returning `update_available=false` after a 2026-08-25 re-apply. `main` now contains additional server-side Stripe billing and Ollama-compatible gateway fixes after the `v1.2.9` app artifact tag; no newer signed client artifact release has been cut yet. `server-stripe-connect-v2-20260824`, `server-stripe-v2-webhooks-20260824`, `server-provider-shares-20260824`, `docs-stripe-ug-blocker-20260824`, and the current Stripe test-settlement tag are non-release deployment/documentation tags for server-only billing activation. `v1.2.8` is the previous pushed signed release tag.
+**Release/version truth:** signed update release `1.2.10` has been built locally and signed in `portal/updates/version.json` to fix dishonest capacity reporting before release deployment. The previous live release is `1.2.9`, deployed to the live webserver and installed on the reachable LAN miner; before this fix, `http://192.168.1.27:8080/api/status` incorrectly reported two GPUs and 16 GiB because an Intel integrated display controller was counted alongside the 8 GiB AMD MI25. The `1.2.10` Windows/Linux artifacts are ready for commit/push/deployment; after deployment, the miner must be updated through the signed updater and rechecked for one dedicated GPU and roughly 8 GiB VRAM. `v1.2.8` is the previous pushed signed release tag before `v1.2.9`.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -14,7 +14,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
 - current merged code baseline before this handoff close-out: `f78ac87` (`deploy(portal): proxy ollama api gateway routes`)
-- current signed app/update release: `v1.2.9`
+- current signed app/update release: `v1.2.10` prepared locally; `v1.2.9` is still the last verified live-installed release until the deployment/update verification in section 38 is completed
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -1097,3 +1097,39 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
 9. Initial public `https://computemesh.inetconnector.com/api/...` smoke returned HTTP 404 because Plesk/Nginx only proxied `/v1/`. Commit `f78ac87` (`deploy(portal): proxy ollama api gateway routes`) added the `/api/` proxy, was pushed, fast-forward deployed, copied into the live Plesk vhost config, and Nginx reloaded successfully.
 10. Public laptop smoke after the proxy fix succeeded: `GET https://computemesh.inetconnector.com/api/tags` returned all five cluster models; `POST /api/chat` with `qwen/qwen2.5-7b-instruct` returned `done=true`, `prompt_eval_count=23`, `eval_count=24`; `POST /api/generate` returned `done=true`, `prompt_eval_count=19`, `eval_count=20`.
 11. The official Ollama Python client `ollama==0.6.2` was installed into the Windows user environment and tested from the laptop with `ollama.Client(host="https://computemesh.inetconnector.com", headers={"Authorization": "Bearer ..."})`. `client.chat(model="qwen/qwen2.5-7b-instruct", ...)` returned `model=qwen/qwen2.5-7b-instruct`, `done=true`, assistant content, `prompt_eval_count=26`, and `eval_count=24`.
+
+---
+
+## 38. Capacity Honesty / VRAM Counting Fix From 2026-08-25
+
+### Root Cause And Policy
+1. The reachable LAN miner at `http://192.168.1.27:8080/api/status` reported `inventory.total_gpus=2` and `inventory.total_vram_bytes=17179869184` before this fix. The two entries were an Intel integrated display controller with fabricated 8 GiB VRAM plus one AMD/ATI Vega 10 / Instinct MI25 with 8 GiB. That was materially wrong because the miner physically has one 8 GiB compute GPU plus integrated/board graphics.
+2. Global mesh capacity cards also displayed static unauthenticated values such as 148 nodes, 412 GPUs, 2,840.5 TFLOPS, 3,650 GB VRAM, and large token totals. Those values were not backed by a production authenticated node registry and must not be presented as sellable capacity.
+3. New policy: provider inventory must count only measured healthy dedicated GPU VRAM. Integrated display adapters, zero/unknown VRAM, and `lspci`-only adapters without reliable VRAM are skipped. Global VRAM/TFLOPS totals must remain unavailable until an authenticated capacity registry exists.
+
+### Implemented Locally
+1. `tools/appliance/hardware_detector.py` now adds `is_integrated_display_adapter(...)` and `is_provider_compute_gpu(...)`, skips Intel/integrated display adapters, stops fabricating 8 GiB in AMD sysfs fallback, stops fabricating 2 GiB in Windows WMI fallback, and refuses to add `lspci`-only adapters because `lspci` does not provide dedicated VRAM.
+2. `services/appliance_dashboard/server.py` now exposes `global_mesh = None`, changes the dashboard global mesh card to "Registry nicht verbunden", and only fills global capacity values when `data.global_mesh.source == "authenticated_registry"`.
+3. `services/portal/server.py` `/api/v1/mesh/stats` now returns `source = "not_configured"` and zero/null capacity/latency/uptime values instead of fabricated public mesh totals.
+4. `services/gateway/metrics_exporter.py` now initializes active GPUs, VRAM bytes, and active nodes to zero instead of static synthetic totals.
+5. `tools/appliance/windows_tray_app.py` and `tools/appliance/linux_tray_app.py` now state that no global VRAM/TFLOPS number is available without an authenticated node registry.
+6. Version constants for the provider apps, NodeOS dashboard, updater CLI default, release signer default, and gateway admin status were bumped to `1.2.10`.
+
+### Release Artifacts Prepared Locally
+1. Windows artifact `portal/downloads/ComputeMesh-Setup-x64.exe`: 35,251,054 bytes, SHA-256 `a7965936d7bbfb6d301aabe623a02840fa8ba7bddaf62c77fa42f18f4a425066`.
+2. Linux/miner artifact `portal/downloads/computemesh-linux-x86_64.tar.gz`: 661,333 bytes, SHA-256 `23af234f9c82cba2005a779fb3554804255d70223d9dab9cf7b2782ca62f96c4`.
+3. `portal/updates/version.json` is signed as `version = 1.2.10` with the existing Ed25519 release key and preserves the prior NodeOS ISO/IMG and installer-script entries.
+4. A `1.2.9` AutoUpdater pointed at the local signed manifest reports `version=1.2.10`, `filename=ComputeMesh-Setup-x64.exe`, and `is_newer=True`.
+
+### Verification Before Deployment
+1. Local laptop hardware scan through `python tools/appliance/hardware_detector.py` reports exactly one GPU: `NVIDIA GeForce RTX 3080 Laptop GPU`, `total_gpus=1`, `total_vram_bytes=17179869184` (16 GiB).
+2. `python -m py_compile tools/appliance/hardware_detector.py services/appliance_dashboard/server.py tools/appliance/windows_tray_app.py tools/appliance/linux_tray_app.py services/portal/server.py services/gateway/metrics_exporter.py services/gateway/server.py services/updater/auto_updater.py tools/security/release_signer.py tools/appliance/tests/test_hardware_detector.py services/appliance_dashboard/tests/test_dashboard_server.py services/portal/tests/test_portal_server.py services/gateway/tests/test_gateway_server.py` passed.
+3. `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server tools.appliance.tests.test_hardware_detector services.gateway.tests.test_gateway_server services.portal.tests.test_portal_server deploy.windows.tests.test_build_installer -v` ran 31 tests successfully.
+4. `python -c "from pathlib import Path; from tools.security.release_signer import verify_manifest; print(verify_manifest(Path('portal/updates/version.json')))"` returned `True`.
+5. `git diff --check` exited 0 with only the existing CRLF normalization warning for `portal/updates/version.json`.
+
+### Required Deployment Verification
+1. Commit and push the `1.2.10` capacity-honesty fix and signed artifacts.
+2. Deploy the commit to `/root/ComputeMesh` on `supersrv-trixie`, publish the new `portal/downloads/*` artifacts and `portal/updates/version.json`, and restart affected services.
+3. Trigger the reachable LAN miner update via `POST http://192.168.1.27:8080/api/action/apply_update`.
+4. Poll `http://192.168.1.27:8080/api/status` and confirm `software.current_version = "1.2.10"`, exactly one dedicated GPU, and roughly 8 GiB total VRAM. If the miner still reports the integrated display controller, do not accept provider capacity from that node until the detector is corrected again.

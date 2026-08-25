@@ -161,7 +161,7 @@ class ComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.9"
+        self.version = "1.2.10"
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 
@@ -414,7 +414,7 @@ class ComputeMeshProviderApp:
         
         lbl_mesh_stats = ttk.Label(
             mesh_frame,
-            text="● 148 Nodes Online  |  2,840.5 TFLOPS (2.84 PFLOPS)  |  3.65 TB Global VRAM  |  18.4M Tokens",
+            text="Registry nicht verbunden  |  Keine globale VRAM-/TFLOPS-Zahl ohne authentifizierte Node-Registry",
             font=("JetBrains Mono", 8),
             foreground="#9ca3af",
             background="#111827"

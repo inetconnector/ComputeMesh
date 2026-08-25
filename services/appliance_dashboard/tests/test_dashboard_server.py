@@ -74,6 +74,7 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(data["config"]["rig_name"], "test-rig")
                 self.assertEqual(data["config"]["payout_address"], "0x1234567890123456789012345678901234567890")
                 self.assertEqual(data["inventory"]["total_gpus"], 1)
+                self.assertIsNone(data["global_mesh"])
         finally:
             server.shutdown()
             server.server_close()

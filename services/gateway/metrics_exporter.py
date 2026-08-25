@@ -20,9 +20,9 @@ class MetricsRegistry:
     tokens_prompt_total: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     tokens_completion_total: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     invoiced_micro_units_total: int = 0
-    active_gpus: int = 1248
-    total_vram_bytes: int = 18_400_000_000_000  # ~18.4 TB VRAM pool
-    active_nodes: int = 256
+    active_gpus: int = 0
+    total_vram_bytes: int = 0
+    active_nodes: int = 0
     uptime_seconds_start: float = field(default_factory=time.time)
 
     def record_request(

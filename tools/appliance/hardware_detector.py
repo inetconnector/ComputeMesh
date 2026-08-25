@@ -23,6 +23,16 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 
+INTEGRATED_DISPLAY_MARKERS = (
+    "integrated graphics",
+    "integrated graphics controller",
+    "processor graphics",
+    "graphics controller",
+    "hd graphics",
+    "uhd graphics",
+    "iris",
+)
+
 
 @dataclass(frozen=True)
 class GpuDevice:
@@ -81,6 +91,22 @@ def _get_subprocess_flags() -> dict[str, Any]:
     if sys.platform == "win32":
         return {"creationflags": 0x08000000}
     return {}
+
+
+def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
+    """Return True for display adapters that should not be sold as provider VRAM."""
+    model_lower = model_name.lower()
+    vendor_lower = vendor.lower()
+    if vendor_lower == "intel" and any(marker in model_lower for marker in INTEGRATED_DISPLAY_MARKERS):
+        return True
+    if "integrated" in model_lower and "graphics" in model_lower:
+        return True
+    return False
+
+
+def is_provider_compute_gpu(gpu: GpuDevice) -> bool:
+    """Provider inventory must not count display-only or zero-VRAM adapters."""
+    return gpu.healthy and gpu.vram_bytes > 0 and not is_integrated_display_adapter(gpu.vendor, gpu.model_name)
 
 
 # ==============================================================================
@@ -189,14 +215,16 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
             if vendor_hex.lower() != "0x1002":
                 continue
 
-            # Read VRAM size from mem_info_vram_total or amdgpu sysfs
-            vram_bytes = 8 * 1024 * 1024 * 1024  # Default 8GB baseline
+            # Read VRAM size from amdgpu sysfs. Never invent provider VRAM.
+            vram_bytes = 0
             vram_file = Path(card) / "mem_info_vram_total"
             if vram_file.exists():
                 try:
                     vram_bytes = int(vram_file.read_text().strip())
                 except Exception:
                     pass
+            if vram_bytes <= 0:
+                continue
 
             # Read PCI Slot
             pci_slot = Path(card).resolve().name
@@ -241,20 +269,21 @@ def detect_amd_sysfs_gpus(start_index: int = 0) -> list[GpuDevice]:
                 except Exception:
                     pass
 
-            devices.append(
-                GpuDevice(
-                    index=current_index,
-                    pci_slot=pci_slot,
-                    vendor="amd",
-                    model_name=model_name,
-                    vram_bytes=vram_bytes,
-                    pcie_gen=pcie_gen,
-                    pcie_width=pcie_width,
-                    driver_backend="rocm" if shutil.which("rocm-smi") else "vulkan",
-                    is_headless=False,
-                    healthy=True,
-                )
+            device = GpuDevice(
+                index=current_index,
+                pci_slot=pci_slot,
+                vendor="amd",
+                model_name=model_name,
+                vram_bytes=vram_bytes,
+                pcie_gen=pcie_gen,
+                pcie_width=pcie_width,
+                driver_backend="rocm" if shutil.which("rocm-smi") else "vulkan",
+                is_headless=False,
+                healthy=True,
             )
+            if not is_provider_compute_gpu(device):
+                continue
+            devices.append(device)
             current_index += 1
         except Exception:
             continue
@@ -355,9 +384,10 @@ def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice
                 
             pnp = item.get("PNPDeviceID") or ""
             adapter_ram = item.get("AdapterRAM") or 0
-            # Default to at least 2GB for iGPUs if 32-bit unsigned overflow or 0
+            # Win32_VideoController may report 0 or overflow/capped values. Do not
+            # invent provider capacity when the dedicated adapter RAM is not clear.
             if adapter_ram <= 0 or adapter_ram > (128 * 1024 * 1024 * 1024):
-                adapter_ram = 2 * 1024 * 1024 * 1024
+                continue
                 
             name_lower = name.lower()
             if "nvidia" in name_lower or "ven_10de" in pnp.lower():
@@ -372,21 +402,22 @@ def detect_windows_wmi_gpus(existing_devices: list[GpuDevice]) -> list[GpuDevice
             else:
                 vendor = "unknown"
                 backend = "vulkan"
-                
-            devices.append(
-                GpuDevice(
-                    index=start_index,
-                    pci_slot=pnp.split("\\")[-1] if "\\" in pnp else f"pci:{start_index}",
-                    vendor=vendor,
-                    model_name=name,
-                    vram_bytes=int(adapter_ram),
-                    pcie_gen=3,
-                    pcie_width=16,
-                    driver_backend=backend,
-                    is_headless=False,
-                    healthy=True,
-                )
+
+            device = GpuDevice(
+                index=start_index,
+                pci_slot=pnp.split("\\")[-1] if "\\" in pnp else f"pci:{start_index}",
+                vendor=vendor,
+                model_name=name,
+                vram_bytes=int(adapter_ram),
+                pcie_gen=3,
+                pcie_width=16,
+                driver_backend=backend,
+                is_headless=False,
+                healthy=True,
             )
+            if not is_provider_compute_gpu(device):
+                continue
+            devices.append(device)
             start_index += 1
     except Exception:
         pass
@@ -445,20 +476,11 @@ def scan_rig_hardware() -> RigInventory:
                     vendor = "intel"
                     backend = "sycl"
                 
-                all_gpus.append(
-                    GpuDevice(
-                        index=idx,
-                        pci_slot=slot,
-                        vendor=vendor,
-                        model_name=line.split(": ", 1)[-1] if ": " in line else line,
-                        vram_bytes=8 * 1024 * 1024 * 1024,
-                        pcie_gen=None,
-                        pcie_width=1,
-                        driver_backend=backend,
-                        is_headless=False,
-                        healthy=True,
-                    )
-                )
+                model_name = line.split(": ", 1)[-1] if ": " in line else line
+                if is_integrated_display_adapter(vendor, model_name):
+                    continue
+                # lspci does not expose dedicated VRAM; do not fabricate capacity.
+                continue
         except Exception:
             pass
 

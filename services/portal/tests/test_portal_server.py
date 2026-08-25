@@ -75,7 +75,9 @@ class TestPortalServer(unittest.TestCase):
             data = json.loads(resp.read().decode("utf-8"))
             self.assertIn("active_gpus", data)
             self.assertIn("total_vram_gb", data)
-            self.assertGreater(data["active_gpus"], 0)
+            self.assertEqual(data["source"], "not_configured")
+            self.assertEqual(data["active_gpus"], 0)
+            self.assertEqual(data["total_vram_gb"], 0)
 
     def test_register_consumer_api(self) -> None:
         req_data = json.dumps({"email": "developer@ai-corp.com", "role": "consumer"}).encode("utf-8")

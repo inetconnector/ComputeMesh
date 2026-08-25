@@ -3,7 +3,13 @@ import json
 from pathlib import Path
 import unittest
 
-from tools.appliance.hardware_detector import GpuDevice, RigInventory, scan_rig_hardware
+from tools.appliance.hardware_detector import (
+    GpuDevice,
+    RigInventory,
+    is_integrated_display_adapter,
+    is_provider_compute_gpu,
+    scan_rig_hardware,
+)
 
 
 class TestHardwareDetector(unittest.TestCase):
@@ -55,6 +61,42 @@ class TestHardwareDetector(unittest.TestCase):
         self.assertIsInstance(inv, RigInventory)
         self.assertGreaterEqual(inv.total_gpus, 0)
         self.assertIsInstance(inv.to_dict(), dict)
+
+    def test_integrated_display_adapter_is_not_provider_compute(self) -> None:
+        self.assertTrue(
+            is_integrated_display_adapter(
+                "intel",
+                "Intel Corporation 2nd Generation Core Processor Family Integrated Graphics Controller",
+            )
+        )
+        gpu = GpuDevice(
+            index=0,
+            pci_slot="0000:00:02.0",
+            vendor="intel",
+            model_name="Intel Corporation 2nd Generation Core Processor Family Integrated Graphics Controller",
+            vram_bytes=8 * 1024 * 1024 * 1024,
+            pcie_gen=None,
+            pcie_width=1,
+            driver_backend="sycl",
+            is_headless=False,
+            healthy=True,
+        )
+        self.assertFalse(is_provider_compute_gpu(gpu))
+
+    def test_discrete_gpu_is_provider_compute(self) -> None:
+        gpu = GpuDevice(
+            index=0,
+            pci_slot="0000:05:00.0",
+            vendor="amd",
+            model_name="AMD Instinct MI25",
+            vram_bytes=8 * 1024 * 1024 * 1024,
+            pcie_gen=3,
+            pcie_width=16,
+            driver_backend="vulkan",
+            is_headless=False,
+            healthy=True,
+        )
+        self.assertTrue(is_provider_compute_gpu(gpu))
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ from tools.appliance.appliance_config import ApplianceConfig, load_appliance_con
 from tools.appliance.hardware_detector import RigInventory, scan_rig_hardware
 from tools.appliance.multi_gpu_launcher import compute_multi_gpu_allocation
 
-APPLIANCE_VERSION = "1.2.9"
+APPLIANCE_VERSION = "1.2.10"
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -737,32 +737,32 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="global-mesh-card" style="background: linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(0, 240, 255, 0.35); box-shadow: 0 0 20px rgba(0, 240, 255, 0.08); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
           <div style="font-size: 1.05rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
-            <span>🌐 Totale Globale Netzwerkkapazität (Global ComputeMesh Grid)</span>
+            <span>🌐 Netzwerkkapazität (authentifizierte Registry)</span>
           </div>
-          <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-emerald); font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">
-            ● 148 Nodes Dezentral Verbunden
+          <span id="mesh-registry-status" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">
+            Registry nicht verbunden
           </span>
         </div>
         <div class="stats-grid" style="margin-bottom: 0;">
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);">
             <div class="stat-label">Totale Rechenleistung (Global Compute)</div>
-            <div class="stat-value" id="mesh-tflops" style="color: var(--accent-cyan);">2,840.5 TFLOPS</div>
-            <div class="stat-sub">2.84 PFLOPS FP16 AI Inference Power</div>
+            <div class="stat-value" id="mesh-tflops" style="color: var(--accent-cyan);">Nicht verfügbar</div>
+            <div class="stat-sub">Keine authentifizierten Registry-Daten</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);">
             <div class="stat-label">Totaler VRAM Pool (Global VRAM)</div>
-            <div class="stat-value" id="mesh-vram">3,650 GB</div>
-            <div class="stat-sub">3.65 TB Dezentraler GPU-Speicher</div>
+            <div class="stat-value" id="mesh-vram">Nicht verfügbar</div>
+            <div class="stat-sub">Nur lokale Node-Werte sind gemessen</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);">
             <div class="stat-label">Aktive Nodes & GPUs</div>
-            <div class="stat-value" id="mesh-nodes">148 Nodes</div>
-            <div class="stat-sub" id="mesh-gpus">412 GPU Accelerators Online</div>
+            <div class="stat-value" id="mesh-nodes">Nicht verfügbar</div>
+            <div class="stat-sub" id="mesh-gpus">Registry nicht verbunden</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);">
             <div class="stat-label">Global Verarbeitete Tokens</div>
-            <div class="stat-value" id="mesh-tokens" style="color: var(--accent-emerald);">18,450,200</div>
-            <div class="stat-sub">Live Durchsatz aller Nodes</div>
+            <div class="stat-value" id="mesh-tokens" style="color: var(--accent-emerald);">Nicht verfügbar</div>
+            <div class="stat-sub">Keine globale Telemetriequelle konfiguriert</div>
           </div>
         </div>
       </div>
@@ -1109,18 +1109,25 @@ HTML_PAGE = """<!DOCTYPE html>
         const elFooter = document.getElementById('footer-node-id');
         if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
 
-        // Populate Global Mesh Network Stats
-        if (data.global_mesh) {
+        // Populate Global Mesh Network Stats only from authenticated registry data.
+        if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
+          const elRegistryStatus = document.getElementById('mesh-registry-status');
+          if (elRegistryStatus) {
+            elRegistryStatus.textContent = 'Registry verbunden';
+            elRegistryStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+            elRegistryStatus.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+            elRegistryStatus.style.color = 'var(--accent-emerald)';
+          }
           const elMeshTflops = document.getElementById('mesh-tflops');
-          if (elMeshTflops) elMeshTflops.textContent = Number(data.global_mesh.total_compute_tflops || 2840.5).toLocaleString() + ' TFLOPS';
+          if (elMeshTflops) elMeshTflops.textContent = Number(data.global_mesh.total_compute_tflops || 0).toLocaleString() + ' TFLOPS';
           const elMeshVram = document.getElementById('mesh-vram');
-          if (elMeshVram) elMeshVram.textContent = Number(data.global_mesh.total_vram_gb || 3650).toLocaleString() + ' GB';
+          if (elMeshVram) elMeshVram.textContent = Number(data.global_mesh.total_vram_gb || 0).toLocaleString() + ' GB';
           const elMeshNodes = document.getElementById('mesh-nodes');
-          if (elMeshNodes) elMeshNodes.textContent = (data.global_mesh.total_nodes_online || 148) + ' Nodes';
+          if (elMeshNodes) elMeshNodes.textContent = (data.global_mesh.total_nodes_online || 0) + ' Nodes';
           const elMeshGpus = document.getElementById('mesh-gpus');
-          if (elMeshGpus) elMeshGpus.textContent = (data.global_mesh.total_gpus_active || 412) + ' GPU Accelerators Online';
+          if (elMeshGpus) elMeshGpus.textContent = (data.global_mesh.total_gpus_active || 0) + ' GPU Accelerators Online';
           const elMeshTokens = document.getElementById('mesh-tokens');
-          if (elMeshTokens) elMeshTokens.textContent = Number(data.global_mesh.total_tokens_processed || 18450200).toLocaleString();
+          if (elMeshTokens) elMeshTokens.textContent = Number(data.global_mesh.total_tokens_processed || 0).toLocaleString();
         }
 
         // Populate Remote IP Address Chips & QR Code
@@ -1577,14 +1584,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "network": {
                     "interfaces": get_network_interfaces(),
                 },
-                "global_mesh": {
-                    "total_nodes_online": 148,
-                    "total_gpus_active": 412,
-                    "total_compute_tflops": 2840.5,
-                    "total_vram_gb": 3650.0,
-                    "total_tokens_processed": 18450200,
-                    "status": "HEALTHY",
-                },
+                "global_mesh": None,
                 "telemetry": {
                     "tokens_processed": self.tokens_served,
                     "earnings_cm": self.earnings_cm,

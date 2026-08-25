@@ -104,11 +104,12 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/v1/mesh/stats":
             payload = {
-                "active_gpus": 1248,
-                "total_vram_gb": 18432,
-                "tokens_served_today": 42819050,
-                "average_latency_ms": 28.5,
-                "network_uptime_percent": 99.98,
+                "source": "not_configured",
+                "active_gpus": 0,
+                "total_vram_gb": 0,
+                "tokens_served_today": 0,
+                "average_latency_ms": None,
+                "network_uptime_percent": None,
                 "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
             body = json.dumps(payload).encode("utf-8")
