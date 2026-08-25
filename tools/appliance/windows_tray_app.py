@@ -183,8 +183,9 @@ class ComputeMeshProviderApp:
         self._apply_styles()
         self._build_ui()
 
-        # Intercept window close button to minimize to System Tray
+        # Intercept window close button and minimize event to keep running in System Tray
         self.root.protocol("WM_DELETE_WINDOW", self._hide_to_tray)
+        self.root.bind("<Unmap>", self._on_window_unmap)
 
         # Start embedded local web dashboard server on port 8080 in background
         self.http_thread = threading.Thread(target=self._run_embedded_server, daemon=True)
@@ -198,10 +199,11 @@ class ComputeMeshProviderApp:
         self.updater_thread = threading.Thread(target=self._auto_updater_loop, daemon=True)
         self.updater_thread.start()
 
-        # Initialize System Tray Icon
+        # Initialize System Tray Icon & Keepalive Watchdog
         self.tray_icon = None
         if HAS_PYSTRAY:
             self._setup_tray_icon()
+            self.root.after(3000, self._tray_watchdog)
 
         # First-launch prompt check
         self.root.after(600, self._check_first_launch_prompts)
@@ -224,6 +226,12 @@ class ComputeMeshProviderApp:
 
     def _setup_tray_icon(self) -> None:
         try:
+            if self.tray_icon is not None:
+                try:
+                    self.tray_icon.stop()
+                except Exception:
+                    pass
+
             raw_img = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
             if hasattr(raw_img, "resize"):
                 tray_image = raw_img.resize((64, 64), Image.Resampling.LANCZOS).convert("RGBA")
@@ -231,16 +239,16 @@ class ComputeMeshProviderApp:
                 tray_image = _create_computemesh_icon_image()
 
             menu = pystray.Menu(
-                pystray.MenuItem("🖥️ Open ComputeMesh", self._show_from_tray, default=True),
+                pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
                 pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
-                    lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute",
+                    lambda item: "⏹ Rechenleistung pausieren" if self.is_running else "▶ Rechenleistung fortsetzen",
                     self._toggle_compute,
                 ),
-                pystray.MenuItem("🔄 Check for Updates", self._manual_update_check),
+                pystray.MenuItem("🔄 Nach Updates suchen", self._manual_update_check),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("❌ Exit ComputeMesh", self._quit_app),
+                pystray.MenuItem("❌ ComputeMesh beenden", self._quit_app),
             )
 
             self.tray_icon = pystray.Icon(
@@ -254,21 +262,66 @@ class ComputeMeshProviderApp:
         except Exception as e:
             _log_crash(f"Error setup tray: {e}\n{traceback.format_exc()}")
 
+    def _tray_watchdog(self) -> None:
+        """Periodic watchdog to ensure System Tray Icon stays active continuously."""
+        try:
+            if HAS_PYSTRAY:
+                if self.tray_icon is None or not getattr(self.tray_icon, "visible", False):
+                    self._setup_tray_icon()
+        except Exception:
+            pass
+        try:
+            self.root.after(3000, self._tray_watchdog)
+        except Exception:
+            pass
+
     def _hide_to_tray(self) -> None:
-        """Minimize application window to system tray without breaking shell tray icon."""
-        self.root.withdraw()
+        """Minimize application window to system tray without closing daemon."""
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+
+    def _on_window_unmap(self, event=None) -> None:
+        """When user clicks minimize (-) on title bar, hide to tray instead of taskbar."""
+        if event and event.widget == self.root:
+            try:
+                if self.root.state() == "iconic":
+                    self.root.after(10, self.root.withdraw)
+            except Exception:
+                pass
 
     def _show_from_tray(self, icon=None, item=None) -> None:
-        """Restore window from system tray."""
-        self.root.deiconify()
-        self.root.lift()
-        self.root.focus_force()
+        """Restore window from system tray (thread-safe on main Tk loop)."""
+        try:
+            self.root.after(0, self._do_show_window)
+        except Exception:
+            pass
+
+    def _do_show_window(self) -> None:
+        """Execute window restoration synchronously inside Tk main thread."""
+        try:
+            self.root.deiconify()
+            self.root.state("normal")
+            self.root.attributes("-topmost", True)
+            self.root.update_idletasks()
+            self.root.lift()
+            self.root.focus_force()
+            self.root.attributes("-topmost", False)
+        except Exception as e:
+            _log_crash(f"Error showing window from tray: {e}")
 
     def _quit_app(self, icon=None, item=None) -> None:
         """Completely exit application and stop daemon."""
         if self.tray_icon:
-            self.tray_icon.stop()
-        self.root.quit()
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+        try:
+            self.root.quit()
+        except Exception:
+            pass
         sys.exit(0)
 
     def _load_autoupdate_setting(self) -> bool:
