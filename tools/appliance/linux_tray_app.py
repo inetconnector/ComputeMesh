@@ -57,7 +57,10 @@ try:
 except ImportError:
     HAS_PYSTRAY = False
 
+from config import CONFIG
 from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
+from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, NODE_AUTH_TOKEN
+from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware
@@ -138,8 +141,8 @@ class LinuxComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(620, 560)
 
-        self.version = "1.2.11"
-        self.dashboard_port = 8080
+        self.version = CONFIG.appliance_version
+        self.dashboard_port = CONFIG.default_dashboard_port
         self.updater = AutoUpdater(current_version=self.version)
 
         # Auto-start providing compute immediately upon launch
@@ -153,12 +156,16 @@ class LinuxComputeMeshProviderApp:
         self._apply_styles()
         self._build_ui()
 
-        # Intercept window close button to minimize to System Tray
+        # Intercept window close button and minimize event to keep running in System Tray
         self.root.protocol("WM_DELETE_WINDOW", self._hide_to_tray)
+        self.root.bind("<Unmap>", self._on_window_unmap)
 
         # Start embedded local web dashboard server on port 8080 in background
         self.http_thread = threading.Thread(target=self._run_embedded_server, daemon=True)
         self.http_thread.start()
+
+        # Cloud Tunnel Relay (streams encrypted telemetry to Web Portal for mobile monitoring)
+        self.relay = CloudTunnelRelay(node_id="linux-provider-node")
 
         # Background telemetry polling thread
         self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
@@ -168,10 +175,11 @@ class LinuxComputeMeshProviderApp:
         self.updater_thread = threading.Thread(target=self._auto_updater_loop, daemon=True)
         self.updater_thread.start()
 
-        # System Tray
+        # System Tray & Keepalive Watchdog
         self.tray_icon = None
         if HAS_PYSTRAY:
             self._setup_tray_icon()
+            self.root.after(3000, self._tray_watchdog)
 
         # First-launch prompt check
         self.root.after(600, self._check_first_launch_prompts)
@@ -191,21 +199,97 @@ class LinuxComputeMeshProviderApp:
 
     def _setup_tray_icon(self) -> None:
         try:
-            tray_image = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
+            if self.tray_icon is not None:
+                try:
+                    self.tray_icon.stop()
+                except Exception:
+                    pass
+
+            raw_img = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
+            if hasattr(raw_img, "resize"):
+                tray_image = raw_img.resize((64, 64), Image.Resampling.LANCZOS).convert("RGBA")
+            else:
+                tray_image = _create_computemesh_icon_image()
+
             menu = pystray.Menu(
-                pystray.MenuItem("🖥️ Open ComputeMesh", self._show_from_tray, default=True),
+                pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
                 pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem(lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute", self._toggle_compute),
-                pystray.MenuItem("🔄 Check for Updates", self._manual_update_check),
+                pystray.MenuItem(
+                    lambda item: "⏹ Rechenleistung pausieren" if self.is_running else "▶ Rechenleistung fortsetzen",
+                    self._toggle_compute,
+                ),
+                pystray.MenuItem("🔄 Nach Updates suchen", self._manual_update_check),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("❌ Exit ComputeMesh", self._quit_app),
+                pystray.MenuItem("❌ ComputeMesh beenden", self._quit_app),
             )
-            self.tray_icon = pystray.Icon("ComputeMesh", tray_image, "ComputeMesh AI Node (Linux)", menu=menu)
+            self.tray_icon = pystray.Icon("ComputeMesh", tray_image, "ComputeMesh AI Provider Node (Linux)", menu=menu)
             tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
             tray_thread.start()
         except Exception:
             pass
+
+    def _tray_watchdog(self) -> None:
+        """Periodic watchdog to ensure System Tray Icon stays active continuously on Linux."""
+        try:
+            if HAS_PYSTRAY:
+                if self.tray_icon is None or not getattr(self.tray_icon, "visible", False):
+                    self._setup_tray_icon()
+        except Exception:
+            pass
+        try:
+            self.root.after(3000, self._tray_watchdog)
+        except Exception:
+            pass
+
+    def _hide_to_tray(self) -> None:
+        """Minimize application window to system tray without closing daemon."""
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+
+    def _on_window_unmap(self, event=None) -> None:
+        """When user clicks minimize (-) on title bar, hide to tray instead of taskbar."""
+        if event and event.widget == self.root:
+            try:
+                if self.root.state() == "iconic":
+                    self.root.after(10, self.root.withdraw)
+            except Exception:
+                pass
+
+    def _show_from_tray(self, icon=None, item=None) -> None:
+        """Restore window from system tray (thread-safe on main Tk loop)."""
+        try:
+            self.root.after(0, self._do_show_window)
+        except Exception:
+            pass
+
+    def _do_show_window(self) -> None:
+        """Execute window restoration synchronously inside Tk main thread."""
+        try:
+            self.root.deiconify()
+            self.root.state("normal")
+            self.root.attributes("-topmost", True)
+            self.root.update_idletasks()
+            self.root.lift()
+            self.root.focus_force()
+            self.root.attributes("-topmost", False)
+        except Exception:
+            pass
+
+    def _quit_app(self, icon=None, item=None) -> None:
+        """Completely exit application and stop daemon."""
+        if self.tray_icon:
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+        try:
+            self.root.quit()
+        except Exception:
+            pass
+        sys.exit(0)
 
     def _get_config_path(self) -> Path:
         cfg_dir = Path.home() / ".computemesh"
@@ -254,39 +338,6 @@ class LinuxComputeMeshProviderApp:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             except Exception:
                 pass
-
-    def _setup_tray_icon(self) -> None:
-        try:
-            img = Image.new("RGBA", (64, 64), color=(0, 240, 255, 255))
-            menu = pystray.Menu(
-                pystray.MenuItem("🖥️ Open Window", self._show_from_tray, default=True),
-                pystray.MenuItem("🌐 Web Dashboard (:8080)", self._open_web_dashboard),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem(
-                    lambda item: "⏹ Pause Compute" if self.is_running else "▶ Resume Compute",
-                    self._toggle_compute,
-                ),
-                pystray.MenuItem("🔄 Check for Updates", self._manual_update_check),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("❌ Exit", self._quit_app),
-            )
-            self.tray_icon = pystray.Icon("ComputeMesh", img, "ComputeMesh Linux Node", menu=menu)
-            threading.Thread(target=self.tray_icon.run, daemon=True).start()
-        except Exception:
-            pass
-
-    def _hide_to_tray(self) -> None:
-        self.root.withdraw()
-
-    def _show_from_tray(self, *args) -> None:
-        self.root.deiconify()
-        self.root.lift()
-
-    def _quit_app(self, *args) -> None:
-        if self.tray_icon:
-            self.tray_icon.stop()
-        self.root.quit()
-        sys.exit(0)
 
     def _apply_styles(self) -> None:
         self.style = ttk.Style()
@@ -663,7 +714,10 @@ def main() -> int:
         print("[ComputeMesh] Running in Headless Server Daemon Mode...")
         cfg = load_appliance_config()
         inv = scan_rig_hardware()
-        run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=inv, node_id="linux-provider-node")
+        node_id = getattr(cfg, "rig_name", None) or "supersrv-trixie"
+        from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
+        relay = CloudTunnelRelay(node_id=node_id)
+        run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)
         return 0
 
     try:
@@ -671,13 +725,16 @@ def main() -> int:
         root.withdraw()
         app = LinuxComputeMeshProviderApp(root)
         if "--tray" not in sys.argv:
-            root.deiconify()
+            root.after(50, root.deiconify)
         root.mainloop()
     except Exception as e:
         print(f"[ComputeMesh] GUI initialization skipped ({e}), falling back to headless server daemon...")
         cfg = load_appliance_config()
         inv = scan_rig_hardware()
-        run_dashboard_server(host="0.0.0.0", port=8080, config=cfg, inventory=inv, node_id="linux-provider-node")
+        node_id = getattr(cfg, "rig_name", None) or "supersrv-trixie"
+        from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
+        relay = CloudTunnelRelay(node_id=node_id)
+        run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)
     return 0
 
 
