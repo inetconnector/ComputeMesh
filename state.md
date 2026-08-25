@@ -1290,6 +1290,23 @@ Implemented in `services/updater/auto_updater.py` and `/etc/systemd/system/compu
    - Installed updated binary to local user directory (`C:\Users\frede\AppData\Local\Programs\ComputeMesh\ComputeMesh.exe`).
    - Synced to production web server `supersrv-trixie` and pushed to GitHub `origin/main` (commit `91ed912`).
 
+---
+
+## 48. Linux Client & Server Daemon Architectural Parity (2026-08-25)
+
+### Status & Verification
+1. **Linux Desktop GUI & System Tray Parity:**
+   - Refactored [`tools/appliance/linux_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/linux_tray_app.py) to achieve 100% architectural parity with the Windows client.
+   - Added persistent tray keepalive watchdog (`_tray_watchdog`), `<Unmap>` minimize-to-tray binding, thread-safe main-loop restoration (`_do_show_window`), and unified German tray menu items.
+2. **Headless Server Daemon & Cloud Tunnel Relay:**
+   - In headless server mode (`--daemon` / systemd `computemesh-node.service` without display), automatically starts `CloudTunnelRelay` streaming encrypted telemetry to `https://computemesh.inetconnector.com/api/v1/node/heartbeat`.
+   - Bound ports and URLs dynamically to the central [`config.py`](file:///c:/Users/frede/Projekte/ComputeMesh/config.py) module.
+3. **Deployment & Verification:**
+   - Updated Linux release archive [`portal/downloads/computemesh-linux-x86_64.tar.gz`](file:///c:/Users/frede/Projekte/ComputeMesh/portal/downloads/computemesh-linux-x86_64.tar.gz) and signed update manifest (`v1.2.11`).
+   - Verified live daemon on `supersrv-trixie` with `systemctl is-active computemesh-node` (🟢 active) and JSON API response on port 8081.
+   - Pushed all commits to GitHub `origin/main` (commit `72ef894`).
+
+
 
 
 
