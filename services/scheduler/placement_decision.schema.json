@@ -43,7 +43,13 @@
       "properties": {
         "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "peer_node_id": {"type": "string", "minLength": 1, "maxLength": 128},
-        "peer_binding": {"enum": ["unauthenticated_server_report_v1", "caller_asserted_v1"]}
+        "peer_binding": {
+          "enum": [
+            "unauthenticated_server_report_v1",
+            "caller_asserted_v1",
+            "computemesh_ed25519_session_v1"
+          ]
+        }
       }
     },
     "hard_constraints": {
