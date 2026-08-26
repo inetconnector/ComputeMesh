@@ -314,7 +314,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
             tiers_data = {
                 m_id: {
-                    "canonical_model_id": tier.canonical_model_id,
+                    "model_id": tier.model_id,
                     "prompt_usd_per_million": tier.prompt_usd_per_million,
                     "completion_usd_per_million": tier.completion_usd_per_million,
                     "blended_usd_per_million": round(tier.blended_usd_per_million, 4),
