@@ -1,8 +1,8 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-26 23:25 CEST
+**Last updated:** 2026-08-26 23:35 CEST
 **Release Version:** `v1.2.17`
-**Test Suite Status:** `372/372 PASSED (100% OK in 16.65s)` across all 9 categories
+**Test Suite Status:** `376/376 PASSED (100% OK in 16.82s)` across all 9 categories
 **Git Baseline:** Branch `main` at `v1.2.17` Canonical Release (Security Re-Audit & Canonical Pricing Engine)
 
 ---
@@ -18,10 +18,10 @@ system:
     architecture_concept: "8/10"
     orchestrator_state_machine: "8/10"
     evidence_attestation_model: "8/10"
-    test_framework_quality: "8/10 (367 unified unit/integration tests)"
+    test_framework_quality: "8/10 (376 unified unit/integration tests)"
     scheduler_maturity: "4/10 (Feasibility planner, contiguous 2-node split)"
     wan_internet_mesh: "4/10 (mTLS zero-config TCP tunnels, trusted CA)"
-    gateway_security: "8/10 (Hardened with rate limiting, token auth, XSS escaping, trusted proxies)"
+    gateway_security: "8/10 (Hardened with rate limiting, token auth, XSS escaping, trusted proxies, atomic holds)"
     production_readiness: "4-5/10 (Clear lab prototype boundaries)"
 security_boundaries:
   mtls_tunnel: "True mTLS with CERT_REQUIRED, CA verify locations, and allowed_client_nodes enforcement"
@@ -32,11 +32,17 @@ security_boundaries:
   client_ip_resolution: "X-Forwarded-For trusted only when direct socket peer is in TRUSTED_PROXIES (127.0.0.1, ::1)"
   initial_grant_idempotency: "Initial promo deposit ($10.00) issued strictly once per account; immune to balance-reset exploits"
   registry_persistence: "Atomic thread-safe writes with mutex lock and tempfile replacement"
+  credit_hold_engine: "Atomic CreditHold lifecycle (create_hold, capture_hold, release_hold) with max_tokens pre-reservation"
+  thread_safety: "Intrinsic threading.RLock() protecting all Ledger reads, mutations, and balance calculations"
 economic_model:
-  customer_price: "$1.00 per 1,000,000 computed tokens / credits (prepaid via Stripe Checkout)"
+  credit_definition: "1 CM Credit = 1 Micro-Unit ($0.000001 USD); 1,000,000 CM Credits = $1.00 USD"
+  canonical_pricing:
+    8b: "$0.15 prompt / $0.25 completion / 1M tokens ($0.175 blended)"
+    14b: "$0.30 prompt / $0.60 completion / 1M tokens ($0.375 blended)"
+    32b: "$0.50 prompt / $0.90 completion / 1M tokens ($0.60 blended)"
+    70b: "$1.00 prompt / $1.80 completion / 1M tokens ($1.20 blended)"
   operator_cut: "25% platform coordination fee (DEFAULT_NETWORK_FEE_BPS = 2500)"
-  provider_share: "75% pool paid out from real customer revenue"
-  fixed_payout_rate: "1,000,000 CM Credits = $0.75 USD Net Payout ($0.00000075 / Credit)"
+  provider_share: "75% pool paid out from real customer revenue ($0.13125/1M 8B tokens blended)"
   legal_classification_germany: "Utility accounting credits in a closed limited network (no e-money / no BaFin licensing requirement)"
 ```
 
@@ -56,46 +62,12 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
 - no arbitrary provider code is executed in V1
 
-### Historical implementation milestones
-
-- documentation v0.2: `cf85a47`
-- contracts/benchmark bootstrap: `7df5b4e`
-- transactional persistence/schema admission: `bfea175`
-- control envelope/structured errors: `9ed33be`
-- TCP network microbenchmark: `197a1ad`
-- llama-bench prefill/decode adapter: `6b0356a`
-- durable initial control handlers: `9bb4a72` + restriction `b23bf60`
-- physical distributed proof & M2 foundation: `48da999`
-- authentication-gated node-session semantics: `d7a110e`
-- Windows Lab Setup: `72773df` + UX/UAC hardening `cfe39a8`
-- Linux Lab Setup: `3c99457`
-- real Windows/Linux target smoke/fix pass: `86ea6a7`
-- node-session wire/readiness binding: `2f1f33b`
-- M1 reference node identity: `d45406f`
-- controlled llama.cpp RPC M1 spike harness: `3db6ef9`
-- bounded TCP measurement relay: `206248a`
-- deterministic M1 two-node feasibility planner: `6177218`
-- network-peer/model-layer evidence binding: PR #6
-- GGUF-v3 inspection/model-manifest generator: PR #7
-- fail-closed current experiment-evidence bundle: PR #8
-- bounded two-machine Lab evidence export/import + bundle launchers: PR #10
-- fail-closed shared-run proof binding: PR #11
-- one-command physical shared-trial orchestration: PR #12
-- llama.cpp benchmark→runtime build binding: PR #13
-- provider appliance, portal, billing, gateway, multi-GPU scheduler, transport, update, desktop and dashboard work: sections 16-33 below
-- network telemetry capacity display + configurable operator fee: `db292032`
-- signed 1.2.8 update flow and hosted artifacts: `45150e9`
-- Stripe-only customer payment wording + MetaMask provider-payout-address release: deployed as `v1.2.9` at commit `e2612d2` and tag `v1.2.9`
-- real Stripe testmode Checkout/Webhook implementation and SDK-object/tax-total fixes: server code commit `068cd88`
-- professional Stripe Connect provider-account/onboarding/settlement foundation: `0f137c4`
-- authenticated Ollama-compatible gateway facade for cluster model tests: this work block, 2026-08-25
-
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-24 after the Stripe Connect Accounts v2 activation work:
+Verified on 2026-08-26:
 
-- pushed `main` contains the `v1.2.9` release commit `e2612d2f01802527f5eb40569c88df57cb5c09dc` plus subsequent server-side Stripe testmode code commits, the authenticated Ollama-compatible gateway facade (`fa622b9`), and the public `/api/` proxy deployment (`f78ac87`); the webserver has fast-forward deployed this state and `computemesh-gateway.service` is active;
-- current signed client/update release tag: `v1.2.9` points at release commit `e2612d2` and exists on `origin`; the latest server code is intentionally ahead of that app artifact tag;
+- pushed `main` contains the `v1.2.17` release commit;
+- current signed client/update release tag: `v1.2.17` with valid Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);

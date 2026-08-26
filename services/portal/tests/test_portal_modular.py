@@ -70,16 +70,26 @@ class TestPortalModular(unittest.TestCase):
             self.assertEqual(stored["account_id"], res["account_id"])
 
     def test_quotes_calculation_and_savings(self) -> None:
-        res, err, status = self.quotes_handler.handle_quote({
+        res_70b, err, status = self.quotes_handler.handle_quote({
             "tokens_million": 100.0,
             "model_tier": "70b",
         })
         self.assertIsNone(err)
         self.assertEqual(status, HTTPStatus.OK)
-        self.assertIsNotNone(res)
-        self.assertEqual(res["total_cost_usd"], 120.0)  # $1.20 blended * 100
-        self.assertEqual(res["cloud_equivalent_usd"], 350.0)  # $3.50 * 100
-        self.assertGreaterEqual(res["savings_percent"], 60.0)
+        self.assertIsNotNone(res_70b)
+        self.assertEqual(res_70b["total_cost_usd"], 120.0)  # $1.20 blended * 100
+        self.assertEqual(res_70b["cloud_equivalent_usd"], 350.0)  # $3.50 * 100
+        self.assertGreaterEqual(res_70b["savings_percent"], 60.0)
+
+        # Verify 8B exact micro-unit calculation ($0.15*0.75 + $0.25*0.25 = $0.175/M -> $17.50 for 100M)
+        res_8b, err, status = self.quotes_handler.handle_quote({
+            "tokens_million": 100.0,
+            "model_tier": "8b",
+        })
+        self.assertIsNone(err)
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIsNotNone(res_8b)
+        self.assertEqual(res_8b["total_cost_usd"], 17.50)
 
 
 if __name__ == "__main__":

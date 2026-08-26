@@ -26,6 +26,13 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
+from services.billing.threadsafe_ledger import ThreadSafeLedger
+
+
+def _build_ledger_from_env() -> Ledger:
+    ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
+    path = Path(ledger_path_env) if ledger_path_env else None
+    return ThreadSafeLedger(storage_path=path)
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
 from services.common.config import CONFIG
@@ -51,10 +58,7 @@ from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_messa
 DEFAULT_PORT = CONFIG.default_gateway_port
 
 
-def _build_ledger_from_env() -> Ledger:
-    ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
-    path = Path(ledger_path_env) if ledger_path_env else None
-    return Ledger(storage_path=path)
+
 
 
 def _build_account_store_from_env() -> AccountingStore | None:
@@ -306,6 +310,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"version": f"0.5.7-computemesh-{CONFIG.appliance_version}"})
             return
 
+        if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
+            from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
+            tiers_data = {
+                m_id: {
+                    "canonical_model_id": tier.canonical_model_id,
+                    "prompt_usd_per_million": tier.prompt_usd_per_million,
+                    "completion_usd_per_million": tier.completion_usd_per_million,
+                    "blended_usd_per_million": round(tier.blended_usd_per_million, 4),
+                    "cloud_reference_usd_per_million": tier.cloud_reference_usd_per_million,
+                    "provider_share_ratio": 0.75,
+                }
+                for m_id, tier in DEFAULT_PRICE_TIERS.items()
+            }
+            self._send_json({
+                "currency": "USD",
+                "micro_units_per_usd": MICRO_UNITS_PER_USD,
+                "credits_per_usd": MICRO_UNITS_PER_USD,
+                "tiers": tiers_data,
+            })
+            return
+
         if clean_path == "/v1/billing/balance":
             res, err, status = self.billing_routes.handle_get_balance(self.headers)
             if err:
@@ -547,6 +572,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", False))
+        max_tokens_val = body.get("max_tokens") or body.get("max_completion_tokens")
+        max_tokens = int(max_tokens_val) if max_tokens_val is not None and str(max_tokens_val).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
@@ -561,6 +588,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             if err:
                 self._send_error_response(err, "inference_error", status)
@@ -582,6 +610,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         ):
             self.wfile.write(chunk)
             self.wfile.flush()
@@ -597,6 +626,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", True))
+        opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
+        max_tokens = int(opt_predict) if opt_predict is not None and str(opt_predict).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
@@ -611,6 +642,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             if err:
                 self._send_error_response(err, "inference_error", status)
@@ -630,6 +662,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         ):
             self.wfile.write(chunk)
             self.wfile.flush()
@@ -645,6 +678,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         prompt = body.get("prompt", "")
         stream = bool(body.get("stream", True))
+        opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
+        max_tokens = int(opt_predict) if opt_predict is not None and str(opt_predict).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
@@ -659,6 +694,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             if err:
                 self._send_error_response(err, "inference_error", status)
@@ -678,6 +714,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         ):
             self.wfile.write(chunk)
             self.wfile.flush()

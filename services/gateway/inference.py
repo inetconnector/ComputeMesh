@@ -61,75 +61,95 @@ class InferenceEngine:
         client_ip: str = "127.0.0.1",
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
+        max_tokens: int | None = None,
     ) -> tuple[str, str, int, int, int]:
-        """Execute inference first, then meter only a successful backend result.
+        """Execute inference with atomic credit hold reservation and post-completion capture.
 
         Returns: (chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion)
         """
         canonical_model_id = resolve_model_id(model_id)
 
-        current_balance = self.ledger.get_balance(account_id)
+        hold = None
         if not is_teaser and not is_provider_self_compute:
             est_prompt_tokens = sum(len(str(m.get("content", "")).split()) * 2 for m in messages if isinstance(m, dict)) or 64
-            min_required_hold = calculate_max_charge_micro(canonical_model_id, est_prompt_tokens, 128)
-            if current_balance < min_required_hold:
-                raise InsufficientBalanceError(
-                    f"Insufficient credits for compute reservation (balance: {current_balance} µ$, required minimum: {min_required_hold} µ$). Please top up."
+            requested_max = max_tokens or 512
+            max_required_hold = calculate_max_charge_micro(canonical_model_id, est_prompt_tokens, requested_max)
+            hold = self.ledger.create_hold(
+                account_id=account_id,
+                amount_micro_units=max_required_hold,
+                model_id=canonical_model_id,
+            )
+
+        try:
+            # Billing must never precede execution. A failed or malformed runtime response
+            # is not a billable job and therefore cannot credit a provider.
+            backend_result = self.backend.complete(
+                model_id=canonical_model_id,
+                messages=messages,
+            )
+            completion_text = backend_result.text
+            tokens_prompt = backend_result.prompt_tokens
+            tokens_completion = backend_result.completion_tokens
+
+            chat_id = f"chatcmpl-{secrets.token_hex(12)}"
+            created_timestamp = int(time.time())
+
+            if is_teaser:
+                sess = self.teaser_manager.record_usage(client_ip, tokens=tokens_prompt + tokens_completion)
+                rem = sess.remaining_requests
+                max_req = self.teaser_manager.max_requests
+                completion_text += f"\n\n---\n*⚡ ComputeMesh Free Teaser: Noch {rem}/{max_req} Anfragen übrig | {CONFIG.endpoints.domain}*"
+
+            # Verified orchestrated execution takes precedence over operator-configured
+            # shares. The ledger event also uses the durable orchestrator job id so the
+            # financial event can be traced back to its reservation/evidence record.
+            provider_shares = (
+                list(backend_result.provider_shares)
+                if backend_result.provider_shares is not None
+                else provider_shares_from_env()
+            )
+            billing_job_id = backend_result.execution_job_id or chat_id
+            fee_bps = 0 if is_provider_self_compute else None
+
+            if hold:
+                self.ledger.capture_hold(
+                    hold_id=hold.hold_id,
+                    job_id=billing_job_id,
+                    customer_account_id=account_id,
+                    provider_shares=provider_shares,
+                    model_id=canonical_model_id,
+                    prompt_tokens=tokens_prompt,
+                    completion_tokens=tokens_completion,
+                    network_fee_bps=fee_bps,
+                )
+            else:
+                self.ledger.record_job_execution(
+                    job_id=billing_job_id,
+                    customer_account_id=account_id,
+                    provider_shares=provider_shares,
+                    model_id=canonical_model_id,
+                    prompt_tokens=tokens_prompt,
+                    completion_tokens=tokens_completion,
+                    network_fee_bps=fee_bps,
                 )
 
-        # Billing must never precede execution. A failed or malformed runtime response
-        # is not a billable job and therefore cannot credit a provider.
-        backend_result = self.backend.complete(
-            model_id=canonical_model_id,
-            messages=messages,
-        )
-        completion_text = backend_result.text
-        tokens_prompt = backend_result.prompt_tokens
-        tokens_completion = backend_result.completion_tokens
-
-        chat_id = f"chatcmpl-{secrets.token_hex(12)}"
-        created_timestamp = int(time.time())
-
-        if is_teaser:
-            sess = self.teaser_manager.record_usage(client_ip, tokens=tokens_prompt + tokens_completion)
-            rem = sess.remaining_requests
-            max_req = self.teaser_manager.max_requests
-            completion_text += f"\n\n---\n*⚡ ComputeMesh Free Teaser: Noch {rem}/{max_req} Anfragen übrig | {CONFIG.endpoints.domain}*"
-
-        # Verified orchestrated execution takes precedence over operator-configured
-        # shares. The ledger event also uses the durable orchestrator job id so the
-        # financial event can be traced back to its reservation/evidence record.
-        provider_shares = (
-            list(backend_result.provider_shares)
-            if backend_result.provider_shares is not None
-            else provider_shares_from_env()
-        )
-        billing_job_id = backend_result.execution_job_id or chat_id
-        fee_bps = 0 if is_provider_self_compute else None
-
-        self.ledger.record_job_execution(
-            job_id=billing_job_id,
-            customer_account_id=account_id,
-            provider_shares=provider_shares,
-            model_id=canonical_model_id,
-            prompt_tokens=tokens_prompt,
-            completion_tokens=tokens_completion,
-            network_fee_bps=fee_bps,
-        )
-
-        cost_micro = calculate_token_charge_micro(
-            model_id=canonical_model_id,
-            prompt_tokens=tokens_prompt,
-            completion_tokens=tokens_completion,
-        )
-        self.metrics.record_request(
-            model=canonical_model_id,
-            prompt_tokens=tokens_prompt,
-            completion_tokens=tokens_completion,
-            cost_micro_units=cost_micro,
-            status_code=200,
-        )
-        return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
+            cost_micro = calculate_token_charge_micro(
+                model_id=canonical_model_id,
+                prompt_tokens=tokens_prompt,
+                completion_tokens=tokens_completion,
+            )
+            self.metrics.record_request(
+                model=canonical_model_id,
+                prompt_tokens=tokens_prompt,
+                completion_tokens=tokens_completion,
+                cost_micro_units=cost_micro,
+                status_code=200,
+            )
+            return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
+        except Exception:
+            if hold:
+                self.ledger.release_hold(hold.hold_id)
+            raise
 
     @staticmethod
     def format_openai_response(
@@ -322,6 +342,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         try:
             chat_id, completion_text, created_ts, tok_p, tok_c = self.create_metered_completion(
@@ -331,6 +352,7 @@ class InferenceEngine:
                 is_teaser=is_teaser,
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             res = self.format_openai_response(
                 chat_id=chat_id,
@@ -357,6 +379,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> Generator[bytes, None, None]:
         chat_id, completion_text, created_ts, _, _ = self.create_metered_completion(
             account_id=account_id,
@@ -365,6 +388,7 @@ class InferenceEngine:
             is_teaser=is_teaser,
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         )
         yield from self.stream_openai_sse(
             chat_id=chat_id,
@@ -382,6 +406,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         try:
             _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
@@ -391,6 +416,7 @@ class InferenceEngine:
                 is_teaser=is_teaser,
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             res = self.format_ollama_chat_response(
                 model_id=model_id,
@@ -415,6 +441,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> Generator[bytes, None, None]:
         _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
             account_id=account_id,
@@ -423,6 +450,7 @@ class InferenceEngine:
             is_teaser=is_teaser,
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         )
         yield from self.stream_ollama_chat_ndjson(
             model_id=model_id,
@@ -440,6 +468,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -450,6 +479,7 @@ class InferenceEngine:
                 is_teaser=is_teaser,
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
+                max_tokens=max_tokens,
             )
             res = self.format_ollama_generate_response(
                 model_id=model_id,
@@ -474,6 +504,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
+        max_tokens: int | None = None,
     ) -> Generator[bytes, None, None]:
         messages = [{"role": "user", "content": prompt}]
         _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
@@ -483,6 +514,7 @@ class InferenceEngine:
             is_teaser=is_teaser,
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
+            max_tokens=max_tokens,
         )
         yield from self.stream_ollama_generate_ndjson(
             model_id=model_id,

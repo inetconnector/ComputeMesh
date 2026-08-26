@@ -92,6 +92,14 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     if not mesh_nodes and (vram_gb > 0 or tflops > 0):
         mesh_nodes = 1
 
+    is_simulated = bool(telemetry.get("is_simulated", False) or node_data.get("is_simulated", False))
+    if is_simulated:
+        feed_badge = '<div class="badge-simulated" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600;">Authenticated Feed &middot; Simulated Metrics</div>'
+        metric_tag = ' <span style="font-size: 11px; color: #f59e0b; font-weight: 600; text-transform: uppercase;">[SIMULATED]</span>'
+    else:
+        feed_badge = '<div class="badge-live">Live Measured Feed</div>'
+        metric_tag = ''
+
     safe_domain = html.escape(str(CONFIG.endpoints.domain))
 
     return f"""<!DOCTYPE html>
@@ -126,39 +134,27 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             justify-content: space-between;
             align-items: center;
             max-width: 1200px;
-            margin: 0 auto 32px auto;
+            margin: 0 auto 24px auto;
+            padding-bottom: 16px;
             border-bottom: 1px solid var(--card-border);
-            padding-bottom: 20px;
         }}
         .logo {{
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
-            letter-spacing: -0.5px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            letter-spacing: -0.5px;
         }}
         .logo span {{ color: var(--accent); }}
         .badge-live {{
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
             background: rgba(16, 185, 129, 0.15);
             color: var(--green);
             border: 1px solid rgba(16, 185, 129, 0.3);
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 13px;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
             font-weight: 600;
-        }}
-        .badge-live::before {{
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: var(--green);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--green);
         }}
         .grid {{
             display: grid;
@@ -173,10 +169,9 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             border-radius: 12px;
             padding: 20px;
             backdrop-filter: blur(12px);
-            transition: transform 0.2s, border-color 0.2s;
+            transition: border-color 0.2s;
         }}
         .card:hover {{
-            transform: translateY(-2px);
             border-color: var(--accent);
         }}
         .card-main {{
@@ -258,7 +253,7 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             </svg>
             Compute<span>Mesh</span> &middot; Node Telemetry
         </div>
-        <div class="badge-live">Live Authenticated Feed</div>
+        {feed_badge}
     </header>
 
     <main class="grid">
@@ -280,25 +275,25 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
         </div>
 
         <div class="card">
-            <h3>Compute Delivered</h3>
+            <h3>Compute Delivered{metric_tag}</h3>
             <div class="value">{tokens_processed:,}</div>
             <div class="subtext">Tokens processed in swarm</div>
         </div>
 
         <div class="card">
-            <h3>Vergütete Credits & Auszahlung</h3>
+            <h3>Vergüteter Umsatz & Auszahlung{metric_tag}</h3>
             <div class="value">{tokens_processed:,} <span style="font-size: 16px; color: var(--accent);">CM (~ ${(tokens_processed * 0.00000075):.4f} USD)</span></div>
-            <div class="subtext">Kurs: 1M CM = $0.75 Netto (75% der Kundeneinnahmen)</div>
+            <div class="subtext">75% Provider-Umsatzanteil aus realen Kundeneinnahmen (1 CM = 1 Micro-Unit)</div>
         </div>
 
         <div class="card">
-            <h3>Compute Capacity</h3>
+            <h3>Compute Capacity{metric_tag}</h3>
             <div class="value">{tflops:.1f} <span style="font-size: 16px; color: var(--text-muted);">TFLOPS</span></div>
             <div class="subtext">Tensor Core FP16 throughput</div>
         </div>
 
         <div class="card">
-            <h3>GPU Thermals & Power</h3>
+            <h3>GPU Thermals & Power{metric_tag}</h3>
             <div class="value">{safe_gpu_temp}&deg;C <span style="font-size: 18px; color: var(--text-muted);">/ {safe_gpu_fan}% Fan</span></div>
             <div class="subtext">Current draw: {safe_gpu_power} W</div>
         </div>

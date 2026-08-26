@@ -41,17 +41,19 @@ class PortalQuotesHandler:
         canonical_id = TIER_MAP.get(model_tier, TIER_MAP["default"])
         tier = get_price_tier(canonical_id)
 
-        rate = round(tier.blended_usd_per_million, 2)
-        cloud_rate = round(tier.cloud_reference_usd_per_million, 2)
+        # Integer micro-unit exact math: 75% prompt + 25% completion blended standard
+        prompt_micro = tokens_m * 0.75 * tier.prompt_micro_per_million
+        completion_micro = tokens_m * 0.25 * tier.completion_micro_per_million
+        total_micro = prompt_micro + completion_micro
 
-        cost_usd = round(tokens_m * rate, 2)
-        cloud_cost_usd = round(tokens_m * cloud_rate, 2)
+        cost_usd = round(total_micro / 1_000_000, 2)
+        cloud_cost_usd = round(tokens_m * tier.cloud_reference_usd_per_million, 2)
         savings = round(((cloud_cost_usd - cost_usd) / cloud_cost_usd) * 100, 1) if cloud_cost_usd > 0 else 0.0
 
         return ({
             "tokens_million": tokens_m,
             "model_tier": model_tier,
-            "rate_per_million_usd": rate,
+            "rate_per_million_usd": round(tier.blended_usd_per_million, 4),
             "total_cost_usd": cost_usd,
             "cloud_equivalent_usd": cloud_cost_usd,
             "savings_percent": savings,

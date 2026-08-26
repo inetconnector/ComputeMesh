@@ -448,11 +448,11 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertEqual(charge, 200_000)  # $0.20
         self.assertEqual(charge / MICRO_UNITS_PER_USD, 0.20)
 
-        # Quotes handler calculation for 100M tokens of 8B
+        # Quotes handler calculation for 100M tokens of 8B ($0.15*0.75 + $0.25*0.25 = $0.175/M -> $17.50 for 100M)
         quotes = PortalQuotesHandler()
         res, err, status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
         self.assertIsNone(err)
-        self.assertEqual(res["total_cost_usd"], 17.0)  # $0.17 blended * 100
+        self.assertEqual(res["total_cost_usd"], 17.50)
 
     # 12. Pre-Inference Balance Reservation Prevents Unpaid Compute
     def test_pre_inference_reservation_prevents_unpaid_compute(self) -> None:
@@ -507,6 +507,100 @@ class TestSecurityAuditFixes(unittest.TestCase):
         auth_mgr.refresh_registered_keys()
         self.assertFalse(auth_mgr.is_valid_key("cm_live_key_alpha"))
         self.assertTrue(auth_mgr.is_valid_key("cm_live_key_beta"))
+
+    # 14. Ledger Thread-Safety Under Concurrent Credit Holds and Transactions
+    def test_ledger_thread_safety_under_concurrent_holds_and_transactions(self) -> None:
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_concurrent",
+            amount_micro_units=1_000_000,
+            payment_reference="dep_concurrent",
+        )
+        errors = []
+
+        def worker(idx: int):
+            try:
+                hold = self.ledger.create_hold(
+                    account_id="cust_concurrent",
+                    amount_micro_units=500,
+                    model_id="qwen/qwen2.5-7b-instruct",
+                )
+                time.sleep(0.001)
+                self.ledger.capture_hold(
+                    hold_id=hold.hold_id,
+                    job_id=f"job_con_{idx}",
+                    customer_account_id="cust_concurrent",
+                    provider_shares=[("node-a", 1.0)],
+                    model_id="qwen/qwen2.5-7b-instruct",
+                    prompt_tokens=100,
+                    completion_tokens=100,
+                )
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(len(errors), 0)
+        self.assertGreater(self.ledger.get_balance("provider:node-a"), 0)
+        self.assertEqual(self.ledger.reconcile()["status"], "balanced")
+
+    # 15. Credit Hold Lifecycle with max_tokens, Capture and Release
+    def test_credit_hold_lifecycle_with_max_tokens_and_capture_release(self) -> None:
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_hold_test",
+            amount_micro_units=200_000,
+            payment_reference="dep_hold_test",
+        )
+        # Create hold for 50,000 micro-units
+        hold = self.ledger.create_hold(
+            account_id="cust_hold_test",
+            amount_micro_units=50_000,
+            model_id="qwen/qwen2.5-7b-instruct",
+        )
+        # Available balance must reflect reserved hold
+        self.assertEqual(self.ledger.get_available_balance("cust_hold_test"), 150_000)
+        self.assertEqual(self.ledger.get_balance("cust_hold_test"), 200_000)
+
+        # Release hold
+        self.assertTrue(self.ledger.release_hold(hold.hold_id))
+        self.assertEqual(self.ledger.get_available_balance("cust_hold_test"), 200_000)
+
+    # 16. Portal Rate Limiter Blocks Spoofed X-Forwarded-For from Untrusted Clients
+    def test_portal_rate_limiter_blocks_spoofed_forwarded_for_from_untrusted_clients(self) -> None:
+        from http.client import HTTPMessage
+        headers = HTTPMessage()
+        headers["X-Forwarded-For"] = "1.2.3.4, 5.6.7.8"
+        # Remote untrusted socket address
+        resolved = resolve_client_ip(headers, ("198.51.100.25", 48200))
+        # Must resolve to remote peer IP, NOT the spoofed header
+        self.assertEqual(resolved, "198.51.100.25")
+
+        # Trusted loopback socket address
+        resolved_loopback = resolve_client_ip(headers, ("127.0.0.1", 48200))
+        self.assertEqual(resolved_loopback, "1.2.3.4")
+
+    # 17. Release Manifest SHA-256 Binary Integrity Verification
+    def test_release_manifest_sha256_binary_integrity(self) -> None:
+        import hashlib
+        manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"
+        self.assertTrue(manifest_file.exists())
+        data = json.loads(manifest_file.read_text(encoding="utf-8"))
+        self.assertEqual(data.get("version"), "1.2.17")
+
+        for platform, info in data.get("platforms", {}).items():
+            fn = info.get("filename")
+            expected_sha = info.get("sha256")
+            expected_size = info.get("size_bytes")
+            if fn:
+                local_binary = REPO_ROOT / "portal" / "downloads" / fn
+                if local_binary.exists():
+                    actual_bytes = local_binary.read_bytes()
+                    actual_sha = hashlib.sha256(actual_bytes).hexdigest()
+                    self.assertEqual(actual_sha, expected_sha, f"SHA-256 mismatch for {fn}")
+                    self.assertEqual(len(actual_bytes), expected_size, f"Size mismatch for {fn}")
 
 
 if __name__ == "__main__":

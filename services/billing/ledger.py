@@ -107,6 +107,27 @@ class PayoutSummary:
     created_at: str
 
 
+import secrets
+import threading
+import time
+
+
+@dataclass
+class CreditHold:
+    """Pre-inference financial hold reserved against customer deposit balance."""
+    hold_id: str
+    account_id: str
+    amount_micro_units: int
+    model_id: str
+    created_at: str
+    expires_at: float
+    status: str = "active"  # "active", "captured", "released", "expired"
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == "active" and time.time() < self.expires_at
+
+
 class Ledger:
     def __init__(
         self,
@@ -114,6 +135,7 @@ class Ledger:
         network_fee_bps: int | None = None,
         operator_treasury_wallet: str | None = None,
     ) -> None:
+        self._lock = threading.RLock()
         self.storage_path = Path(storage_path) if storage_path else None
         env_fee = os.environ.get("COMPUTEMESH_OPERATOR_FEE_BPS")
         self.network_fee_bps = (
@@ -129,8 +151,94 @@ class Ledger:
         self._processed_events: set[str] = set()
         self._balances: dict[str, int] = {}  # account_id -> signed net balance
         self._account_types: dict[str, str] = {}
+        self._holds: dict[str, CreditHold] = {}  # hold_id -> CreditHold
         if self.storage_path and self.storage_path.exists():
-            self._load_from_disk()
+            with self._lock:
+                self._load_from_disk()
+
+    def get_available_balance(self, account_id: str) -> int:
+        """Returns the customer spendable balance after deducting unexpired active credit holds."""
+        with self._lock:
+            raw_balance = self.get_balance(account_id)
+            active_holds = sum(
+                h.amount_micro_units
+                for h in self._holds.values()
+                if h.account_id == account_id and h.is_active
+            )
+            return max(0, raw_balance - active_holds)
+
+    def create_hold(
+        self,
+        *,
+        account_id: str,
+        amount_micro_units: int,
+        model_id: str = "",
+        ttl_seconds: float = 120.0,
+        hold_id: str | None = None,
+    ) -> CreditHold:
+        """Atomically reserves a credit hold if the customer's available balance is sufficient."""
+        if amount_micro_units <= 0:
+            raise BillingError("hold amount must be positive")
+        with self._lock:
+            avail = self.get_available_balance(account_id)
+            if avail < amount_micro_units:
+                raise InsufficientBalanceError(
+                    f"customer {account_id} available balance ({avail}) insufficient for hold ({amount_micro_units})"
+                )
+            hid = hold_id or f"hold_{secrets.token_hex(12)}"
+            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            hold = CreditHold(
+                hold_id=hid,
+                account_id=account_id,
+                amount_micro_units=amount_micro_units,
+                model_id=model_id,
+                created_at=now_iso,
+                expires_at=time.time() + max(5.0, ttl_seconds),
+                status="active",
+            )
+            self._holds[hid] = hold
+            return hold
+
+    def release_hold(self, hold_id: str) -> bool:
+        """Releases an active credit hold, immediately restoring available customer balance."""
+        with self._lock:
+            hold = self._holds.get(hold_id)
+            if hold and hold.status == "active":
+                hold.status = "released"
+                return True
+            return False
+
+    def capture_hold(
+        self,
+        *,
+        hold_id: str,
+        job_id: str,
+        customer_account_id: str,
+        provider_shares: list[tuple[str, float]],
+        model_id: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        network_fee_bps: int | None = None,
+    ) -> Transaction:
+        """Captures actual inference compute cost against an active hold and releases any remainder."""
+        with self._lock:
+            hold = self._holds.get(hold_id)
+            try:
+                tx = self.record_job_execution(
+                    job_id=job_id,
+                    customer_account_id=customer_account_id,
+                    provider_shares=provider_shares,
+                    model_id=model_id,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    network_fee_bps=network_fee_bps,
+                )
+                if hold:
+                    hold.status = "captured"
+                return tx
+            finally:
+                if hold and hold.status == "active":
+                    hold.status = "released"
 
     def deposit_customer_credits(
         self,
@@ -139,41 +247,43 @@ class Ledger:
         amount_micro_units: int,
         payment_reference: str,
     ) -> Transaction:
-        if amount_micro_units <= 0:
-            raise BillingError("deposit amount must be positive")
-        event_id = f"deposit:{payment_reference}"
-        if event_id in self._processed_events:
-            raise DuplicateEventError(f"payment reference {payment_reference} already deposited")
+        with self._lock:
+            if amount_micro_units <= 0:
+                raise BillingError("deposit amount must be positive")
+            event_id = f"deposit:{payment_reference}"
+            if event_id in self._processed_events:
+                raise DuplicateEventError(f"payment reference {payment_reference} already deposited")
 
-        tx_id = f"tx_dep_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
-        tx = Transaction(
-            tx_id=tx_id,
-            event_id=event_id,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            description=f"Prepaid credit top-up via {payment_reference}",
-            postings=(
-                Posting(
-                    account_id="gateway:escrow",
-                    account_type=AccountType.PAYMENT_GATEWAY_ESCROW.value,
-                    debit_micro_units=amount_micro_units,
+            tx_id = f"tx_dep_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
+            tx = Transaction(
+                tx_id=tx_id,
+                event_id=event_id,
+                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                description=f"Prepaid credit top-up via {payment_reference}",
+                postings=(
+                    Posting(
+                        account_id="gateway:escrow",
+                        account_type=AccountType.PAYMENT_GATEWAY_ESCROW.value,
+                        debit_micro_units=amount_micro_units,
+                    ),
+                    Posting(
+                        account_id=customer_account_id,
+                        account_type=AccountType.CUSTOMER_DEPOSIT.value,
+                        credit_micro_units=amount_micro_units,
+                    ),
                 ),
-                Posting(
-                    account_id=customer_account_id,
-                    account_type=AccountType.CUSTOMER_DEPOSIT.value,
-                    credit_micro_units=amount_micro_units,
-                ),
-            ),
-        )
-        self._record_transaction(tx)
-        return tx
+            )
+            self._record_transaction(tx)
+            return tx
 
     def has_received_initial_grant(self, customer_account_id: str) -> bool:
         """Checks if the customer account has already received an initial promotional grant."""
-        target_prefix = f"deposit:initial_grant_{customer_account_id}"
-        for event_id in self._processed_events:
-            if event_id.startswith(target_prefix):
-                return True
-        return False
+        with self._lock:
+            target_prefix = f"deposit:initial_grant_{customer_account_id}"
+            for event_id in self._processed_events:
+                if event_id.startswith(target_prefix):
+                    return True
+            return False
 
     def record_job_execution(
         self,
@@ -186,9 +296,10 @@ class Ledger:
         completion_tokens: int,
         network_fee_bps: int | None = None,
     ) -> Transaction:
-        event_id = f"job:{job_id}"
-        if event_id in self._processed_events:
-            raise DuplicateEventError(f"job {job_id} already billed")
+        with self._lock:
+            event_id = f"job:{job_id}"
+            if event_id in self._processed_events:
+                raise DuplicateEventError(f"job {job_id} already billed")
 
         total_charge_micro = calculate_token_charge_micro(
             model_id=model_id,
@@ -260,48 +371,49 @@ class Ledger:
         settlement_reference: str | None = None,
     ) -> tuple[Transaction, PayoutSummary]:
         """Transfers accumulated platform operator network fee revenue directly to the operator's treasury wallet."""
-        wallet = wallet_address or self.operator_treasury_wallet
-        if not wallet:
-            raise BillingError("No operator treasury wallet address specified for payout.")
+        with self._lock:
+            wallet = wallet_address or self.operator_treasury_wallet
+            if not wallet:
+                raise BillingError("No operator treasury wallet address specified for payout.")
 
-        balance = self.get_balance("revenue:network_fee")
-        if balance <= 0:
-            raise BillingError("Operator network fee treasury balance is zero.")
+            balance = self.get_balance("revenue:network_fee")
+            if balance <= 0:
+                raise BillingError("Operator network fee treasury balance is zero.")
 
-        event_id = f"payout:operator_treasury:{settlement_reference or secrets_token_hex(6)}"
-        if event_id in self._processed_events:
-            raise DuplicateEventError(f"operator settlement {settlement_reference} already paid out")
-        tx_id = f"tx_op_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
+            event_id = f"payout:operator_treasury:{settlement_reference or secrets_token_hex(6)}"
+            if event_id in self._processed_events:
+                raise DuplicateEventError(f"operator settlement {settlement_reference} already paid out")
+            tx_id = f"tx_op_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
 
-        tx = Transaction(
-            tx_id=tx_id,
-            event_id=event_id,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            description=f"Operator network protocol fee revenue payout to treasury {wallet}",
-            postings=(
-                Posting(
-                    account_id="revenue:network_fee",
-                    account_type=AccountType.NETWORK_FEE_REVENUE.value,
-                    debit_micro_units=balance,
+            tx = Transaction(
+                tx_id=tx_id,
+                event_id=event_id,
+                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                description=f"Operator network protocol fee revenue payout to treasury {wallet}",
+                postings=(
+                    Posting(
+                        account_id="revenue:network_fee",
+                        account_type=AccountType.NETWORK_FEE_REVENUE.value,
+                        debit_micro_units=balance,
+                    ),
+                    Posting(
+                        account_id="expense:settlements",
+                        account_type=AccountType.PAYOUT_SETTLEMENT.value,
+                        credit_micro_units=balance,
+                    ),
                 ),
-                Posting(
-                    account_id="expense:settlements",
-                    account_type=AccountType.PAYOUT_SETTLEMENT.value,
-                    credit_micro_units=balance,
-                ),
-            ),
-        )
-        self._record_transaction(tx)
+            )
+            self._record_transaction(tx)
 
-        summary = PayoutSummary(
-            payout_id=tx_id,
-            provider_node_id="operator_treasury",
-            amount_micro_units=balance,
-            amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
-            wallet_address=wallet,
-            created_at=tx.created_at,
-        )
-        return tx, summary
+            summary = PayoutSummary(
+                payout_id=tx_id,
+                provider_node_id="operator_treasury",
+                amount_micro_units=balance,
+                amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
+                wallet_address=wallet,
+                created_at=tx.created_at,
+            )
+            return tx, summary
 
     def create_provider_payout(
         self,
@@ -310,113 +422,119 @@ class Ledger:
         wallet_address: str,
         settlement_reference: str | None = None,
     ) -> tuple[Transaction, PayoutSummary]:
-        provider_account_id = f"provider:{provider_node_id}"
-        balance = self.get_balance(provider_account_id)
-        if balance < MINIMUM_PAYOUT_MICRO_UNITS:
-            raise BillingError(
-                f"provider balance {balance} below minimum payout threshold {MINIMUM_PAYOUT_MICRO_UNITS}"
+        with self._lock:
+            provider_account_id = f"provider:{provider_node_id}"
+            balance = self.get_balance(provider_account_id)
+            if balance < MINIMUM_PAYOUT_MICRO_UNITS:
+                raise BillingError(
+                    f"provider balance {balance} below minimum payout threshold {MINIMUM_PAYOUT_MICRO_UNITS}"
+                )
+
+            event_id = f"payout:{provider_node_id}:{settlement_reference or secrets_token_hex(6)}"
+            if event_id in self._processed_events:
+                raise DuplicateEventError(f"provider settlement {settlement_reference} already paid out")
+            tx_id = f"tx_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
+
+            tx = Transaction(
+                tx_id=tx_id,
+                event_id=event_id,
+                created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                description=f"Automated settlement withdrawal to {wallet_address}",
+                postings=(
+                    Posting(
+                        account_id=provider_account_id,
+                        account_type=AccountType.PROVIDER_PAYABLE.value,
+                        debit_micro_units=balance,
+                    ),
+                    Posting(
+                        account_id="expense:settlements",
+                        account_type=AccountType.PAYOUT_SETTLEMENT.value,
+                        credit_micro_units=balance,
+                    ),
+                ),
             )
+            self._record_transaction(tx)
 
-        event_id = f"payout:{provider_node_id}:{settlement_reference or secrets_token_hex(6)}"
-        if event_id in self._processed_events:
-            raise DuplicateEventError(f"provider settlement {settlement_reference} already paid out")
-        tx_id = f"tx_pay_{hashlib.sha256(event_id.encode('utf-8')).hexdigest()[:16]}"
-
-        tx = Transaction(
-            tx_id=tx_id,
-            event_id=event_id,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            description=f"Automated settlement withdrawal to {wallet_address}",
-            postings=(
-                Posting(
-                    account_id=provider_account_id,
-                    account_type=AccountType.PROVIDER_PAYABLE.value,
-                    debit_micro_units=balance,
-                ),
-                Posting(
-                    account_id="expense:settlements",
-                    account_type=AccountType.PAYOUT_SETTLEMENT.value,
-                    credit_micro_units=balance,
-                ),
-            ),
-        )
-        self._record_transaction(tx)
-
-        summary = PayoutSummary(
-            payout_id=tx_id,
-            provider_node_id=provider_node_id,
-            amount_micro_units=balance,
-            amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
-            wallet_address=wallet_address,
-            created_at=tx.created_at,
-        )
-        return tx, summary
+            summary = PayoutSummary(
+                payout_id=tx_id,
+                provider_node_id=provider_node_id,
+                amount_micro_units=balance,
+                amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
+                wallet_address=wallet_address,
+                created_at=tx.created_at,
+            )
+            return tx, summary
 
     def get_balance(self, account_id: str) -> int:
-        return self._balances.get(account_id, 0)
+        with self._lock:
+            return self._balances.get(account_id, 0)
 
     def get_platform_revenue_micro_units(self) -> int:
         """Return the accumulated net platform revenue (default 25% platform margin) in micro-units."""
-        return self.get_balance("revenue:network_fee")
+        with self._lock:
+            return self.get_balance("revenue:network_fee")
 
     def get_platform_revenue_usd(self) -> float:
         """Return the accumulated net platform revenue in USD."""
-        return round(self.get_platform_revenue_micro_units() / MICRO_UNIT_SCALE, 4)
+        with self._lock:
+            return round(self.get_platform_revenue_micro_units() / MICRO_UNIT_SCALE, 4)
 
     def reconcile(self) -> dict[str, Any]:
         """Perform comprehensive mathematical audit of the entire journal."""
-        sum_debits = 0
-        sum_credits = 0
-        computed_balances: dict[str, int] = {}
+        with self._lock:
+            sum_debits = 0
+            sum_credits = 0
+            computed_balances: dict[str, int] = {}
 
-        for tx in self._transactions:
-            for p in tx.postings:
-                sum_debits += p.debit_micro_units
-                sum_credits += p.credit_micro_units
-                # In double-entry: Credits increase liabilities/revenues, debits increase assets/expenses
-                if "liability" in p.account_type or "revenue" in p.account_type:
-                    computed_balances[p.account_id] = (
-                        computed_balances.get(p.account_id, 0) + p.credit_micro_units - p.debit_micro_units
+            for tx in self._transactions:
+                for p in tx.postings:
+                    sum_debits += p.debit_micro_units
+                    sum_credits += p.credit_micro_units
+                    # In double-entry: Credits increase liabilities/revenues, debits increase assets/expenses
+                    if "liability" in p.account_type or "revenue" in p.account_type:
+                        computed_balances[p.account_id] = (
+                            computed_balances.get(p.account_id, 0) + p.credit_micro_units - p.debit_micro_units
+                        )
+                    else:
+                        computed_balances[p.account_id] = (
+                            computed_balances.get(p.account_id, 0) + p.debit_micro_units - p.credit_micro_units
+                        )
+
+            if sum_debits != sum_credits:
+                raise LedgerReconciliationError(f"global journal imbalance: debits={sum_debits} != credits={sum_credits}")
+
+            for acc, bal in self._balances.items():
+                if computed_balances.get(acc, 0) != bal:
+                    raise LedgerReconciliationError(
+                        f"account {acc} balance drift: stored={bal} != computed={computed_balances.get(acc, 0)}"
                     )
-                else:
-                    computed_balances[p.account_id] = (
-                        computed_balances.get(p.account_id, 0) + p.debit_micro_units - p.credit_micro_units
-                    )
 
-        if sum_debits != sum_credits:
-            raise LedgerReconciliationError(f"global journal imbalance: debits={sum_debits} != credits={sum_credits}")
-
-        for acc, bal in self._balances.items():
-            if computed_balances.get(acc, 0) != bal:
-                raise LedgerReconciliationError(
-                    f"account {acc} balance drift: stored={bal} != computed={computed_balances.get(acc, 0)}"
-                )
-
-        return {
-            "status": "balanced",
-            "total_transactions": len(self._transactions),
-            "total_turnover_micro_units": sum_debits,
-            "total_turnover_usd": round(sum_debits / MICRO_UNIT_SCALE, 2),
-            "active_accounts": len(self._balances),
-            "audited_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
+            return {
+                "status": "balanced",
+                "total_transactions": len(self._transactions),
+                "total_turnover_micro_units": sum_debits,
+                "total_turnover_usd": round(sum_debits / MICRO_UNIT_SCALE, 2),
+                "active_accounts": len(self._balances),
+                "audited_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
 
     def _record_transaction(self, tx: Transaction) -> None:
-        for p in tx.postings:
-            self._account_types[p.account_id] = p.account_type
-            if "liability" in p.account_type or "revenue" in p.account_type:
-                self._balances[p.account_id] = (
-                    self._balances.get(p.account_id, 0) + p.credit_micro_units - p.debit_micro_units
-                )
-            else:
-                self._balances[p.account_id] = (
-                    self._balances.get(p.account_id, 0) + p.debit_micro_units - p.credit_micro_units
-                )
+        with self._lock:
+            for p in tx.postings:
+                self._account_types[p.account_id] = p.account_type
+                if "liability" in p.account_type or "revenue" in p.account_type:
+                    self._balances[p.account_id] = (
+                        self._balances.get(p.account_id, 0) + p.credit_micro_units - p.debit_micro_units
+                    )
+                else:
+                    self._balances[p.account_id] = (
+                        self._balances.get(p.account_id, 0) + p.debit_micro_units - p.credit_micro_units
+                    )
 
-        self._transactions.append(tx)
-        self._processed_events.add(tx.event_id)
-        if self.storage_path:
-            self._append_to_disk(tx)
+            self._transactions.append(tx)
+            self._processed_events.add(tx.event_id)
+            if self.storage_path:
+                self._append_to_disk(tx)
 
     def _append_to_disk(self, tx: Transaction) -> None:
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)

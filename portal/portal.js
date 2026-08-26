@@ -524,18 +524,51 @@ function toggleLanguage() {
   switchLanguage(nextLang);
 }
 
+// Canonical Pricing State
+let CM_PRICING = {
+  '8b': { blended: 0.175, cloud: 0.75 },
+  '14b': { blended: 0.375, cloud: 1.50 },
+  '32b': { blended: 0.60, cloud: 2.50 },
+  '70b': { blended: 1.20, cloud: 5.00 },
+};
+
+async function loadCanonicalPricing() {
+  try {
+    const res = await fetch('/api/v1/pricing');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.tiers) {
+        if (data.tiers['meta-llama/llama-3.1-8b-instruct']) {
+          CM_PRICING['8b'].blended = data.tiers['meta-llama/llama-3.1-8b-instruct'].blended_usd_per_million;
+          CM_PRICING['8b'].cloud = data.tiers['meta-llama/llama-3.1-8b-instruct'].cloud_reference_usd_per_million;
+        }
+        if (data.tiers['qwen/qwen2.5-14b-instruct']) {
+          CM_PRICING['14b'].blended = data.tiers['qwen/qwen2.5-14b-instruct'].blended_usd_per_million;
+          CM_PRICING['14b'].cloud = data.tiers['qwen/qwen2.5-14b-instruct'].cloud_reference_usd_per_million;
+        }
+        if (data.tiers['qwen/qwen2.5-32b-instruct']) {
+          CM_PRICING['32b'].blended = data.tiers['qwen/qwen2.5-32b-instruct'].blended_usd_per_million;
+          CM_PRICING['32b'].cloud = data.tiers['qwen/qwen2.5-32b-instruct'].cloud_reference_usd_per_million;
+        }
+        if (data.tiers['llama/llama-3.1-70b-instruct']) {
+          CM_PRICING['70b'].blended = data.tiers['llama/llama-3.1-70b-instruct'].blended_usd_per_million;
+          CM_PRICING['70b'].cloud = data.tiers['llama/llama-3.1-70b-instruct'].cloud_reference_usd_per_million;
+        }
+        updateCalculators();
+      }
+    }
+  } catch (e) {}
+}
+
 // Pricing Calculators
 function updateCalculators() {
   // Developer Calculator
   const tokensM = parseFloat(document.getElementById('slider-tokens')?.value || 50);
   const modelTier = document.getElementById('select-model')?.value || '8b';
   
-  let ratePerMillion = 0.20; // 8B base
-  let cloudRate = 1.00;
-  
-  if (modelTier === '14b') { ratePerMillion = 0.35; cloudRate = 1.75; }
-  else if (modelTier === '32b') { ratePerMillion = 0.70; cloudRate = 3.50; }
-  else if (modelTier === '70b') { ratePerMillion = 1.40; cloudRate = 7.00; }
+  const tierCfg = CM_PRICING[modelTier] || CM_PRICING['8b'];
+  const ratePerMillion = tierCfg.blended;
+  const cloudRate = tierCfg.cloud;
   
   const cmCost = (tokensM * ratePerMillion).toFixed(2);
   const cloudCost = (tokensM * cloudRate).toFixed(2);
@@ -548,21 +581,21 @@ function updateCalculators() {
   if (cloudEl) cloudEl.textContent = `$${cloudCost}`;
   if (tokensVal) tokensVal.textContent = `${tokensM} M`;
 
-  // Provider Calculator
+  // Provider Calculator (75% net revenue payout from processed tokens)
   const rigType = document.getElementById('select-rig')?.value || '5x8gb';
   const hours = parseFloat(document.getElementById('slider-hours')?.value || 24);
   
-  let monthlyYield = 145.0; // 5x 8GB base
+  let monthlyYield = 145.0; // 5x 8GB base (~$145 net/month)
   if (rigType === 'rtx3080') monthlyYield = 65.0;
   else if (rigType === 'rtx4090') monthlyYield = 195.0;
   else if (rigType === '8x3070') monthlyYield = 310.0;
   
   const estEarnings = ((monthlyYield * (hours / 24))).toFixed(2);
-  const earnedCredits = Math.round(Number(estEarnings) / 0.00000075);
+  const earnedCredits = Math.round(Number(estEarnings) * 1000000); // 1 USD = 1,000,000 Credits (Micro-Units)
   const earnEl = document.getElementById('calc-provider-earnings');
   const hoursVal = document.getElementById('hours-val');
   
-  if (earnEl) earnEl.innerHTML = `${(earnedCredits / 1000).toFixed(0)}k CM <span style="font-size: 1.1rem; color: var(--accent-emerald); font-weight: 600;">($${estEarnings} / Mo)</span>`;
+  if (earnEl) earnEl.innerHTML = `${(earnedCredits / 1000000).toFixed(2)}M CM <span style="font-size: 1.1rem; color: var(--accent-emerald); font-weight: 600;">($${estEarnings} / Mo)</span>`;
   if (hoursVal) hoursVal.textContent = `${hours} h/day`;
 }
 
@@ -1101,6 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('slider-hours')?.addEventListener('input', updateCalculators);
   
   updateCalculators();
+  loadCanonicalPricing();
   fetchMeshTelemetry();
   setInterval(fetchMeshTelemetry, 15000);
 });

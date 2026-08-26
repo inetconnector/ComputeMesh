@@ -85,26 +85,33 @@ class PortalHandler(BaseHTTPRequestHandler):
         pass
 
     def _check_rate_limit(self) -> bool:
-        client_ip = "127.0.0.1"
-        if self.headers:
-            fwd = self.headers.get("X-Forwarded-For")
-            if fwd:
-                client_ip = fwd.split(",")[0].strip()
-            elif self.headers.get("X-Real-IP"):
-                client_ip = self.headers.get("X-Real-IP").strip()
+        client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
         allowed, retry_after = GLOBAL_RATE_LIMITER.is_allowed(f"portal_ip_{client_ip}", is_authenticated=False)
         if not allowed:
             self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
             self.send_header("Content-Type", "text/plain")
             for h_name, h_val in SECURITY_HEADERS.items():
                 self.send_header(h_name, h_val)
-            self.send_header("Retry-After", str(int(retry_after) + 1))
+            self.send_header("Retry-After", str(retry_after))
+            self.send_header("Content-Length", "19")
             self.send_header("Connection", "close")
             self.end_headers()
-            self.wfile.write(b"Too Many Requests. Please slow down.\n")
+            self.wfile.write(b"Rate limit exceeded")
             self.close_connection = True
             return False
         return True
+
+    def _send_file(self, path: Path, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        data = path.read_bytes()
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(data)
+        self.close_connection = True
 
     def _send_bytes(self, data: bytes, content_type: str, status: int = HTTPStatus.OK) -> None:
         self.send_response(status)
@@ -147,13 +154,37 @@ class PortalHandler(BaseHTTPRequestHandler):
             self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token")
         self.send_header("Connection", "close")
         self.end_headers()
         self.close_connection = True
 
     def do_GET(self) -> None:
         if not self._check_rate_limit():
+            return
+
+        clean_path = self.path.split("?")[0].rstrip("/")
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+
+        if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
+            from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
+            tiers_data = {
+                m_id: {
+                    "canonical_model_id": tier.canonical_model_id,
+                    "prompt_usd_per_million": tier.prompt_usd_per_million,
+                    "completion_usd_per_million": tier.completion_usd_per_million,
+                    "blended_usd_per_million": round(tier.blended_usd_per_million, 4),
+                    "cloud_reference_usd_per_million": tier.cloud_reference_usd_per_million,
+                    "provider_share_ratio": 0.75,
+                }
+                for m_id, tier in DEFAULT_PRICE_TIERS.items()
+            }
+            self._send_json({
+                "currency": "USD",
+                "micro_units_per_usd": MICRO_UNITS_PER_USD,
+                "credits_per_usd": MICRO_UNITS_PER_USD,
+                "tiers": tiers_data,
+            })
             return
 
         parsed_url = urllib.parse.urlparse(self.path)
