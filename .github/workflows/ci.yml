@@ -40,6 +40,7 @@ jobs:
           python -m unittest services.gateway.tests.test_execution_attestation -v
           python -m unittest services.gateway.tests.test_live_bootstrap -v
           python -m unittest services.gateway.tests.test_cancellable_inference -v
+          python -m unittest services.billing.tests.test_threadsafe_ledger -v
 
       - name: Job-bound runtime attestation tests
         run: |
