@@ -38,11 +38,22 @@ def get_default_node_id() -> str:
     try:
         from tools.appliance.appliance_config import load_appliance_config
         cfg = load_appliance_config()
-        if cfg.node_id:
-            return cfg.node_id
+        if getattr(cfg, "rig_name", "") and getattr(cfg, "rig_name", "") != "cm-inference-node-01":
+            return cfg.rig_name
     except Exception:
         pass
-    return "test-node-custom"
+    import socket
+    if sys.platform == "win32":
+        return "test-node-custom"
+    try:
+        h = socket.gethostname()
+        if "trixie" in h or "srv" in h or "supersrv" in h:
+            return "supersrv-trixie"
+        if h:
+            return h
+    except Exception:
+        pass
+    return "supersrv-trixie"
 
 
 class CloudTunnelRelay:
