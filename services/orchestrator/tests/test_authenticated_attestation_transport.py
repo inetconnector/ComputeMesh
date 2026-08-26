@@ -56,7 +56,13 @@ class _Sessions:
 
 
 class _Client:
-    def __init__(self, services): self.services = services
+    def __init__(self, services, *, connected=True):
+        self.services = services
+        self.connected = connected
+
+    def is_connected(self, node_id):
+        return self.connected
+
     def request(self, *, node_id, message_type, payload, timeout_seconds):
         if message_type != "ExecutionAttestationRequest":
             raise AssertionError(message_type)
@@ -92,6 +98,16 @@ class AuthenticatedAttestationTransportTests(unittest.TestCase):
         self.assertEqual(result["node_id"], "node-a")
         self.assertEqual(result["job_id"], "job-1")
         self.assertTrue(result["signature"])
+
+    def test_disconnected_session_fails_before_signature_request(self):
+        transport = SessionAuthenticatedAttestationTransport(
+            sessions=_Sessions({"node-a": _snapshot("node-a")}),
+            client=_Client(self.services, connected=False),
+        )
+        with self.assertRaisesRegex(AuthenticatedAttestationTransportError, "no live persistent"):
+            transport.request_execution_attestation(
+                node_id="node-a", request_document=_request(), timeout_seconds=2.0
+            )
 
     def test_expired_session_fails_closed(self):
         transport = SessionAuthenticatedAttestationTransport(
