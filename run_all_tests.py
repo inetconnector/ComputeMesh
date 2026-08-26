@@ -73,6 +73,7 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.llama.tests.test_rpc_spike",
         "runtime.llama.tests.test_job_attestation",
         "runtime.llama.tests.test_job_bound_shared_trial",
+        "runtime.llama.tests.test_shared_request",
     ],
     "Configuration & Performance": [
         "services.common.tests.test_config",
