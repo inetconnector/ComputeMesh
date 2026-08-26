@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from runtime.llama.rpc_spike import RpcEndpoint
-from runtime.llama.shared_request_live import SharedRequestCancelled
+from runtime.llama.shared_request_live import SharedRequestAborted, SharedRequestCancelled
 from services.orchestrator.shared_request_backend import SharedRequestOrchestratedBackend
 from services.orchestrator.state_machine import JobState, ReservationState
 from services.orchestrator.tests.test_shared_request_backend import (
@@ -27,13 +27,8 @@ class _CountingTransport(_SigningTransport):
 
 
 class SharedRequestCancellationTests(SharedRequestBackendTests):
-    def test_cancelled_runtime_marks_job_cancelled_and_skips_attestation(self):
-        transport = _CountingTransport(self.keys)
-
-        def cancelled_runner(**kwargs):
-            raise SharedRequestCancelled("cancelled by request owner")
-
-        backend = SharedRequestOrchestratedBackend(
+    def _backend(self, *, job_id: str, transport, runner):
+        return SharedRequestOrchestratedBackend(
             store=self.store,
             placement=self.placement,
             bundle_path=self.root / "unused-bundle.json",
@@ -43,20 +38,48 @@ class SharedRequestCancellationTests(SharedRequestBackendTests):
             work_root=self.root / "jobs",
             attestation_transport=transport,
             attestation_resolver=self.resolver,
-            id_factory=lambda: "job-shared-cancel",
-            runner=cancelled_runner,
+            id_factory=lambda: job_id,
+            runner=runner,
         )
 
+    def test_cancelled_runtime_marks_job_cancelled_and_skips_attestation(self):
+        transport = _CountingTransport(self.keys)
+
+        def cancelled_runner(**kwargs):
+            raise SharedRequestCancelled("cancelled by request owner")
+
+        backend = self._backend(
+            job_id="job-shared-cancel",
+            transport=transport,
+            runner=cancelled_runner,
+        )
         with self.assertRaisesRegex(Exception, "shared request was cancelled"):
             backend.complete(
                 model_id="test-model",
                 messages=[{"role": "user", "content": "hello"}],
             )
-
         self.assertEqual(self.store.get_job("job-shared-cancel").state, JobState.CANCELLED)
         self.assertEqual(transport.calls, 0)
         for reservation_id in backend._reservation_ids("job-shared-cancel"):
-            self.assertEqual(
-                self.store.get_reservation(reservation_id).state,
-                ReservationState.RELEASED,
+            self.assertEqual(self.store.get_reservation(reservation_id).state, ReservationState.RELEASED)
+
+    def test_health_abort_marks_job_failed_and_skips_attestation(self):
+        transport = _CountingTransport(self.keys)
+
+        def aborted_runner(**kwargs):
+            raise SharedRequestAborted("node session lost")
+
+        backend = self._backend(
+            job_id="job-shared-health-lost",
+            transport=transport,
+            runner=aborted_runner,
+        )
+        with self.assertRaisesRegex(Exception, "shared-request orchestration failed"):
+            backend.complete(
+                model_id="test-model",
+                messages=[{"role": "user", "content": "hello"}],
             )
+        self.assertEqual(self.store.get_job("job-shared-health-lost").state, JobState.FAILED)
+        self.assertEqual(transport.calls, 0)
+        for reservation_id in backend._reservation_ids("job-shared-health-lost"):
+            self.assertEqual(self.store.get_reservation(reservation_id).state, ReservationState.RELEASED)
