@@ -12,7 +12,7 @@ from services.orchestrator.live_shared_runtime import LiveModelState, LiveShared
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_SCHEMA = ROOT / "protocol" / "schemas" / "model_manifest.schema.json"
-MAX_MANIFEST_BYTES = 1024 * 1024
+MAX_JSON_BYTES = 1024 * 1024
 MAX_MODEL_BYTES = 1024 * 1024 * 1024 * 1024
 
 
@@ -20,19 +20,16 @@ class LiveModelCatalogError(LiveSharedRuntimeError):
     pass
 
 
-def _load_json(path: Path) -> dict[str, Any]:
+def _load_json(path: Path) -> Any:
     if path.is_symlink() or not path.is_file():
-        raise LiveModelCatalogError("model manifest must be a regular file")
+        raise LiveModelCatalogError("catalog/manifest must be a regular non-symlink file")
     size = path.stat().st_size
-    if not (0 < size <= MAX_MANIFEST_BYTES):
-        raise LiveModelCatalogError("model manifest size is invalid")
+    if not (0 < size <= MAX_JSON_BYTES):
+        raise LiveModelCatalogError("catalog/manifest size is invalid")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise LiveModelCatalogError("model manifest must contain UTF-8 JSON") from exc
-    if not isinstance(value, dict):
-        raise LiveModelCatalogError("model manifest root must be an object")
-    return value
+        raise LiveModelCatalogError("catalog/manifest must contain UTF-8 JSON") from exc
 
 
 def _validate_manifest(manifest: dict[str, Any]) -> None:
@@ -45,6 +42,14 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
         first = errors[0]
         where = ".".join(str(part) for part in first.absolute_path) or "$"
         raise LiveModelCatalogError(f"model manifest invalid at {where}: {first.message}")
+    runtimes = manifest.get("runtime_compatibility") or []
+    if not any(isinstance(item, dict) and item.get("runtime") == "llama.cpp" for item in runtimes):
+        raise LiveModelCatalogError("model manifest is not compatible with llama.cpp")
+    partitioning = manifest.get("partitioning") or {}
+    if "contiguous_layers" not in partitioning.get("allowed", []):
+        raise LiveModelCatalogError("model manifest does not permit contiguous layer partitioning")
+    if not isinstance(manifest.get("layer_count"), int):
+        raise LiveModelCatalogError("live shared serving requires manifest layer_count")
 
 
 def _artifact_record(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -52,8 +57,9 @@ def _artifact_record(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(artifacts, list) or len(artifacts) != 1 or not isinstance(artifacts[0], dict):
         raise LiveModelCatalogError("live shared serving currently requires exactly one model artifact")
     artifact = dict(artifacts[0])
-    if artifact.get("format") != "gguf":
-        raise LiveModelCatalogError("live shared serving requires a GGUF artifact")
+    media_type = str(artifact.get("media_type", ""))
+    if media_type and media_type not in {"application/x-gguf", "application/octet-stream"}:
+        raise LiveModelCatalogError("live shared serving requires a GGUF-compatible artifact")
     return artifact
 
 
@@ -68,57 +74,69 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def load_verified_live_model(*, manifest_path: Path, model_root: Path) -> LiveModelState:
+def _resolve_beneath(root: Path, relative: str, *, label: str) -> Path:
+    if not relative or Path(relative).is_absolute():
+        raise LiveModelCatalogError(f"{label} must be a relative path")
+    resolved = (root / relative).resolve(strict=True)
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise LiveModelCatalogError(f"{label} escapes configured root") from exc
+    if resolved.is_symlink() or not resolved.is_file():
+        raise LiveModelCatalogError(f"{label} must be a regular non-symlink file")
+    return resolved
+
+
+def load_verified_live_model(*, manifest_path: Path, artifact_path: Path) -> LiveModelState:
     manifest_path = manifest_path.resolve(strict=True)
-    root = model_root.resolve(strict=True)
+    artifact_path = artifact_path.resolve(strict=True)
     manifest = _load_json(manifest_path)
+    if not isinstance(manifest, dict):
+        raise LiveModelCatalogError("model manifest root must be an object")
     _validate_manifest(manifest)
     artifact = _artifact_record(manifest)
-    filename = artifact.get("filename")
-    if not isinstance(filename, str) or not filename or Path(filename).name != filename:
-        raise LiveModelCatalogError("artifact filename must be a plain basename")
-    model_path = (root / filename).resolve(strict=True)
-    try:
-        model_path.relative_to(root)
-    except ValueError as exc:
-        raise LiveModelCatalogError("model artifact escapes configured model root") from exc
-    if model_path.is_symlink() or not model_path.is_file():
+    if artifact_path.is_symlink() or not artifact_path.is_file():
         raise LiveModelCatalogError("model artifact must be a regular non-symlink file")
-    size = model_path.stat().st_size
+    size = artifact_path.stat().st_size
     if size <= 0 or size > MAX_MODEL_BYTES:
         raise LiveModelCatalogError("model artifact size is invalid")
-    expected_size = artifact.get("size_bytes")
-    if expected_size is not None and int(expected_size) != size:
+    if int(artifact["size_bytes"]) != size:
         raise LiveModelCatalogError("model artifact size does not match manifest")
-    digest = _sha256_file(model_path)
-    expected_digest = str(artifact.get("sha256", "")).lower().removeprefix("sha256:")
+    digest = _sha256_file(artifact_path)
+    expected_digest = str(artifact["digest"]).lower().removeprefix("sha256:")
     if digest != expected_digest:
         raise LiveModelCatalogError("model artifact SHA-256 does not match manifest")
-    model_id = manifest.get("model_id")
-    if not isinstance(model_id, str) or not model_id:
-        raise LiveModelCatalogError("model manifest lacks model_id")
-    return LiveModelState(model_id=model_id, manifest=manifest, model_path=model_path)
+    model_id = str(manifest["model_id"])
+    return LiveModelState(model_id=model_id, manifest=manifest, model_path=artifact_path)
 
 
-def discover_verified_live_models(*, manifest_dir: Path, model_root: Path) -> tuple[LiveModelState, ...]:
-    directory = manifest_dir.resolve(strict=True)
-    if not directory.is_dir():
-        raise LiveModelCatalogError("model manifest path must be a directory")
+def discover_verified_live_models(*, catalog_path: Path, catalog_root: Path) -> tuple[LiveModelState, ...]:
+    root = catalog_root.resolve(strict=True)
+    if not root.is_dir():
+        raise LiveModelCatalogError("model catalog root must be a directory")
+    catalog = _load_json(catalog_path.resolve(strict=True))
+    if not isinstance(catalog, dict) or set(catalog) != {"schema_version", "models"} or catalog.get("schema_version") != 1:
+        raise LiveModelCatalogError("invalid live model catalog envelope")
+    entries = catalog.get("models")
+    if not isinstance(entries, list) or not entries or len(entries) > 256:
+        raise LiveModelCatalogError("live model catalog must contain 1..256 models")
     states: list[LiveModelState] = []
     seen: set[str] = set()
-    for path in sorted(directory.glob("*.computemesh-model-manifest.json")):
-        state = load_verified_live_model(manifest_path=path, model_root=model_root)
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {"manifest", "artifact"}:
+            raise LiveModelCatalogError("invalid live model catalog entry")
+        manifest = _resolve_beneath(root, str(entry["manifest"]), label="manifest path")
+        artifact = _resolve_beneath(root, str(entry["artifact"]), label="artifact path")
+        state = load_verified_live_model(manifest_path=manifest, artifact_path=artifact)
         if state.model_id in seen:
             raise LiveModelCatalogError(f"duplicate model_id {state.model_id!r}")
         seen.add(state.model_id)
         states.append(state)
-    if not states:
-        raise LiveModelCatalogError("no verified model manifests were discovered")
     return tuple(states)
 
 
-def register_verified_live_models(registry: Any, *, manifest_dir: Path, model_root: Path) -> tuple[str, ...]:
-    states = discover_verified_live_models(manifest_dir=manifest_dir, model_root=model_root)
+def register_verified_live_models(registry: Any, *, catalog_path: Path, catalog_root: Path) -> tuple[str, ...]:
+    states = discover_verified_live_models(catalog_path=catalog_path, catalog_root=catalog_root)
     for state in states:
         registry.register_model(state)
     return tuple(state.model_id for state in states)
