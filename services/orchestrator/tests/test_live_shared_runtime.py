@@ -13,7 +13,18 @@ from services.orchestrator.live_shared_runtime import (
 from services.scheduler.tests.test_placement import bench, manifest, profile
 
 
-def session(node_id: str) -> SessionSnapshot:
+class _ControlClient:
+    def __init__(self, connected=("node-a", "node-b")):
+        self.connected = set(connected)
+
+    def is_connected(self, node_id: str) -> bool:
+        return node_id in self.connected
+
+    def request(self, **kwargs):
+        raise NotImplementedError
+
+
+def session(node_id: str, *, expires_in: timedelta = timedelta(minutes=10)) -> SessionSnapshot:
     return SessionSnapshot(
         session_id=f"sess-{node_id}",
         state=NodeSessionState.READY,
@@ -23,7 +34,7 @@ def session(node_id: str) -> SessionSnapshot:
         node_id=node_id,
         principal_id=f"principal-{node_id}",
         auth_method="computemesh-ed25519-v1",
-        credential_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        credential_expires_at=datetime.now(timezone.utc) + expires_in,
         negotiated_capabilities=frozenset({"execution_attestation_v1"}),
         profile_revision=3,
         drain_reason=None,
@@ -31,10 +42,10 @@ def session(node_id: str) -> SessionSnapshot:
     )
 
 
-def live_node(node_id: str, gpu_memory: int, rpc_port: int) -> LiveNodeState:
+def live_node(node_id: str, gpu_memory: int, rpc_port: int, *, session_override=None) -> LiveNodeState:
     captured = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return LiveNodeState(
-        session=session(node_id),
+        session=session_override or session(node_id),
         profile=profile(node_id, gpu_memory=gpu_memory, captured=captured),
         prefill=bench("llama_cpp_prefill", f"{node_id}-p", 3, tps=200.0),
         decode=bench("llama_cpp_decode", f"{node_id}-d", 3, tps=60.0),
@@ -44,9 +55,15 @@ def live_node(node_id: str, gpu_memory: int, rpc_port: int) -> LiveNodeState:
     )
 
 
+def configured_registry(*, control=None) -> LiveSharedRuntimeRegistry:
+    registry = LiveSharedRuntimeRegistry()
+    registry.set_control_client(control or _ControlClient())
+    return registry
+
+
 class LiveSharedRuntimeTests(unittest.TestCase):
     def test_builds_fresh_two_node_plan_without_placement_file(self):
-        registry = LiveSharedRuntimeRegistry()
+        registry = configured_registry()
         registry.register_node(live_node("node-a", 10_000_000_000, 50051))
         registry.register_node(live_node("node-b", 6_000_000_000, 50052))
         network = bench(
@@ -72,8 +89,29 @@ class LiveSharedRuntimeTests(unittest.TestCase):
         self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50052")
         self.assertTrue(live.trial_plan.bundle_id.startswith("live:"))
 
+    def test_disconnected_node_is_excluded_before_scheduling(self):
+        registry = configured_registry(control=_ControlClient(("node-a",)))
+        registry.register_node(live_node("node-a", 10_000_000_000, 50051))
+        registry.register_node(live_node("node-b", 6_000_000_000, 50052))
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
+        with self.assertRaisesRegex(LiveSharedRuntimeError, "connected"):
+            registry.build_execution_plan("test-model", allow_experimental=True)
+
+    def test_expired_session_is_excluded_before_scheduling(self):
+        registry = configured_registry()
+        registry.register_node(live_node("node-a", 10_000_000_000, 50051))
+        registry.register_node(live_node(
+            "node-b",
+            6_000_000_000,
+            50052,
+            session_override=session("node-b", expires_in=timedelta(seconds=-1)),
+        ))
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
+        with self.assertRaisesRegex(LiveSharedRuntimeError, "connected"):
+            registry.build_execution_plan("test-model", allow_experimental=True)
+
     def test_rejects_runtime_build_mismatch(self):
-        registry = LiveSharedRuntimeRegistry()
+        registry = configured_registry()
         a = live_node("node-a", 10_000_000_000, 50051)
         b = live_node("node-b", 6_000_000_000, 50052)
         b = LiveNodeState(

@@ -7,6 +7,7 @@ A fresh placement is built for each request from the current registered state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 import threading
 from typing import Any
@@ -156,23 +157,48 @@ class LiveSharedRuntimeRegistry:
                 raise KeyError(node_id) from exc
 
     @staticmethod
-    def _session_ready(session: SessionSnapshot) -> bool:
+    def _session_ready(session: SessionSnapshot, *, now: datetime | None = None) -> bool:
+        current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         return (
             session.state in {NodeSessionState.CAPABILITIES_NEGOTIATED, NodeSessionState.PROFILE_SYNCED, NodeSessionState.READY}
             and session.credential_expires_at is not None
+            and session.credential_expires_at.astimezone(timezone.utc) > current
             and ATTESTATION_CAPABILITY in session.negotiated_capabilities
         )
+
+    def is_node_control_healthy(self, node_id: str) -> bool:
+        """Require both a current authenticated session and a live control channel."""
+        with self._lock:
+            state = self._nodes.get(node_id)
+            client = self._control_client
+        if state is None or not self._session_ready(state.session):
+            return False
+        if client is None:
+            return False
+        probe = getattr(client, "is_connected", None)
+        if not callable(probe):
+            # Live serving must not infer liveness from a stale SessionSnapshot.
+            return False
+        try:
+            return bool(probe(node_id))
+        except Exception:
+            return False
 
     def build_execution_plan(self, model_id: str, *, allow_experimental: bool) -> LiveExecutionPlan:
         with self._lock:
             model = self._models.get(model_id)
             if model is None:
                 raise LiveSharedRuntimeError(f"model {model_id!r} is not registered in live runtime")
-            nodes = [state for state in self._nodes.values() if self._session_ready(state.session)]
-            nodes.sort(key=lambda item: str(item.session.node_id))
+            states = list(self._nodes.values())
             networks = dict(self._network)
+        nodes = [
+            state
+            for state in states
+            if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))
+        ]
+        nodes.sort(key=lambda item: str(item.session.node_id))
         if len(nodes) < 2:
-            raise LiveSharedRuntimeError("fewer than two authenticated attestation-capable nodes are live")
+            raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
 
         failures: list[str] = []
         for coordinator in nodes:
