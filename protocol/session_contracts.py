@@ -16,6 +16,7 @@ _SCHEMA_BY_MESSAGE = {
     "NodeAuthenticate": "node_authenticate_payload.schema.json",
     "CapabilityNegotiation": "capability_negotiation_payload.schema.json",
     "NodeProfileUpdate": "node_profile.schema.json",
+    "RuntimeAdvertisement": "runtime_advertisement_payload.schema.json",
     "BenchmarkReport": "benchmark_result.schema.json",
     "DrainRequest": "drain_request_payload.schema.json",
     "ExecutionAttestationRequest": "execution_attestation_request_payload.schema.json",
