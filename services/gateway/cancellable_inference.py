@@ -20,16 +20,19 @@ class RequestContextBackend:
         request_id = getattr(self.local, "request_id", None)
         complete_for_request = getattr(self.delegate, "complete_for_request", None)
         if request_id and callable(complete_for_request):
-            return complete_for_request(
+            result = complete_for_request(
                 request_id=request_id,
                 model_id=model_id,
                 messages=messages,
             )
-        return self.delegate.complete(model_id=model_id, messages=messages)
+        else:
+            result = self.delegate.complete(model_id=model_id, messages=messages)
+        self.local.execution_job_id = result.execution_job_id
+        return result
 
 
 class CancellableInferenceEngine(InferenceEngine):
-    """Track active request ownership without changing generic billing semantics."""
+    """Track active request ownership and acknowledge live settlement after billing."""
 
     def __init__(self, *, ledger, metrics, teaser_manager, backend: InferenceBackend):
         self._request_local = threading.local()
@@ -68,6 +71,7 @@ class CancellableInferenceEngine(InferenceEngine):
     def create_metered_completion(self, **kwargs: Any):
         request_id = getattr(self._request_local, "request_id", None)
         account_id = str(kwargs.get("account_id", ""))
+        self._request_local.execution_job_id = None
         if request_id:
             with self._active_lock:
                 existing = self._active_owners.get(request_id)
@@ -75,8 +79,20 @@ class CancellableInferenceEngine(InferenceEngine):
                     raise ValueError("ComputeMesh request id is already active")
                 self._active_owners[request_id] = account_id
         try:
-            return super().create_metered_completion(**kwargs)
+            result = super().create_metered_completion(**kwargs)
+            execution_job_id = getattr(self._request_local, "execution_job_id", None)
+            acknowledge = getattr(self._delegate_backend, "acknowledge_settlement", None)
+            if execution_job_id and callable(acknowledge):
+                try:
+                    acknowledge(execution_job_id)
+                except Exception:
+                    # Billing has already committed. Do not turn a successful billed
+                    # response into a retry hazard; startup reconciliation repairs the
+                    # narrow ledger-commit/orchestrator-ack crash window.
+                    pass
+            return result
         finally:
+            self._request_local.execution_job_id = None
             if request_id:
                 with self._active_lock:
                     self._active_owners.pop(request_id, None)
