@@ -233,23 +233,23 @@ class MeshTunnelServer:
         self.total_bytes_sent = 0
 
     def start(self) -> int:
-        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ctx.load_cert_chain(certfile=str(self.server_creds.cert_path), keyfile=str(self.server_creds.key_path))
+        self._ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self._ctx.load_cert_chain(certfile=str(self.server_creds.cert_path), keyfile=str(self.server_creds.key_path))
         
         # Enforce strict Mutual TLS (mTLS) with CA verification
-        ctx.verify_mode = ssl.CERT_REQUIRED
-        ctx.check_hostname = False
+        self._ctx.verify_mode = ssl.CERT_REQUIRED
+        self._ctx.check_hostname = False
         if self.server_creds.ca_cert_path and self.server_creds.ca_cert_path.exists():
-            ctx.load_verify_locations(cafile=str(self.server_creds.ca_cert_path))
+            self._ctx.load_verify_locations(cafile=str(self.server_creds.ca_cert_path))
         else:
-            ctx.load_verify_locations(cafile=str(self.server_creds.cert_path))
+            self._ctx.load_verify_locations(cafile=str(self.server_creds.cert_path))
 
         raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         raw_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         raw_sock.bind((self.listen_host, self.listen_port))
         raw_sock.listen(16)
         self.listen_port = raw_sock.getsockname()[1]
-        self._server_sock = ctx.wrap_socket(raw_sock, server_side=True)
+        self._server_sock = raw_sock
 
         self._running = True
         self._thread = threading.Thread(target=self._accept_loop, daemon=True)
@@ -267,14 +267,16 @@ class MeshTunnelServer:
     def _accept_loop(self) -> None:
         while self._running:
             try:
-                client_ssl, _ = self._server_sock.accept()
-                threading.Thread(target=self._handle_client, args=(client_ssl,), daemon=True).start()
+                client_raw, _ = self._server_sock.accept()
+                threading.Thread(target=self._handle_client, args=(client_raw,), daemon=True).start()
             except Exception:
                 break
 
-    def _handle_client(self, client_ssl: ssl.SSLSocket) -> None:
+    def _handle_client(self, client_raw: socket.socket) -> None:
+        client_ssl = None
         target_sock = None
         try:
+            client_ssl = self._ctx.wrap_socket(client_raw, server_side=True)
             # Cryptographic identity validation of connecting peer
             peer_cert = client_ssl.getpeercert()
             client_node_id = extract_node_id_from_cert(peer_cert)
@@ -299,10 +301,16 @@ class MeshTunnelServer:
         except Exception as e:
             logger.debug(f"mTLS client session error: {e}")
         finally:
-            try:
-                client_ssl.close()
-            except Exception:
-                pass
+            if client_ssl:
+                try:
+                    client_ssl.close()
+                except Exception:
+                    pass
+            else:
+                try:
+                    client_raw.close()
+                except Exception:
+                    pass
             if target_sock:
                 try:
                     target_sock.close()
