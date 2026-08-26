@@ -16,10 +16,18 @@ from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
+from services.gateway.execution_evidence import (
+    ExecutionEvidenceError,
+    verify_shared_execution_evidence,
+)
 from services.gateway.placement_selection import (
     PlacementSelection,
     PlacementSelectionError,
     load_shared_placement_selection,
+)
+from services.orchestrator.evidence_store import (
+    ExecutionEvidenceBindingError,
+    ExecutionEvidenceStore,
 )
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState, ReservationState
@@ -34,6 +42,9 @@ class BackendResult:
     text: str
     prompt_tokens: int
     completion_tokens: int
+    execution_job_id: str | None = None
+    provider_shares: tuple[tuple[str, float], ...] | None = None
+    evidence_id: str | None = None
 
 
 class InferenceBackend(Protocol):
@@ -128,11 +139,13 @@ class OpenAICompatibleHTTPBackend:
 
 
 class OrchestratedInferenceBackend:
-    """Bind real runtime execution to durable job and reservation state.
+    """Bind real runtime execution to durable job, reservation, and evidence state.
 
-    A validated scheduler placement may supply the participating node IDs. Static
-    operator nodes remain available as a lab fallback. In both cases execution
-    cannot start until all reservations are leased, committed and activated.
+    A validated scheduler placement may supply the participating node IDs. When
+    scheduler placement is used, current shared-run evidence is mandatory before
+    the result can complete and expose provider shares for settlement. Static
+    operator nodes remain available as a lab fallback but do not become
+    evidence-derived merely by passing through this wrapper.
     """
 
     def __init__(
@@ -144,6 +157,7 @@ class OrchestratedInferenceBackend:
         lease_seconds: int = 180,
         id_factory: Callable[[], str] | None = None,
         placement: PlacementSelection | None = None,
+        execution_evidence_path: str | None = None,
     ) -> None:
         cleaned = [value.strip() for value in provider_node_ids if value.strip()]
         if len(cleaned) < 2:
@@ -154,12 +168,16 @@ class OrchestratedInferenceBackend:
             raise ValueError("lease_seconds must be between 10 and 3600")
         if placement is not None and tuple(cleaned) != placement.provider_node_ids:
             raise ValueError("provider nodes must exactly match scheduler placement")
+        if placement is not None and not execution_evidence_path:
+            raise ValueError("scheduler-derived orchestration requires shared-run evidence")
         self.delegate = delegate
         self.store = store
         self.provider_node_ids = tuple(cleaned)
         self.lease_seconds = lease_seconds
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
         self.placement = placement
+        self.execution_evidence_path = execution_evidence_path
+        self.evidence_store = ExecutionEvidenceStore(store) if placement is not None else None
 
     @property
     def placement_id(self) -> str:
@@ -265,6 +283,45 @@ class OrchestratedInferenceBackend:
         except Exception:
             pass
 
+    def _verify_and_bind_evidence(
+        self,
+        *,
+        job_id: str,
+        result: BackendResult,
+        execution_started_at: datetime,
+    ) -> BackendResult:
+        if self.placement is None:
+            return BackendResult(
+                result.text,
+                result.prompt_tokens,
+                result.completion_tokens,
+                execution_job_id=job_id,
+            )
+        assert self.execution_evidence_path is not None
+        assert self.evidence_store is not None
+        verified = verify_shared_execution_evidence(
+            self.execution_evidence_path,
+            placement=self.placement,
+            output_text=result.text,
+            not_before=execution_started_at,
+        )
+        self.evidence_store.bind(
+            job_id=job_id,
+            evidence_id=verified.evidence_id,
+            document_sha256=verified.document_sha256,
+            placement_decision_id=verified.placement_decision_id,
+            output_sha256=verified.output_sha256,
+            provider_shares=verified.provider_shares,
+        )
+        return BackendResult(
+            result.text,
+            result.prompt_tokens,
+            result.completion_tokens,
+            execution_job_id=job_id,
+            provider_shares=verified.provider_shares,
+            evidence_id=verified.evidence_id,
+        )
+
     def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
         if self.placement is not None and model_id != self.placement.model_id:
             raise InferenceBackendError("requested model does not match scheduler placement")
@@ -281,12 +338,21 @@ class OrchestratedInferenceBackend:
             self._advance_job(job_id, JobState.PREPARING)
             self._activate(job_id, reservation_ids)
             self._advance_job(job_id, JobState.RUNNING)
+            execution_started_at = datetime.now(timezone.utc)
             result = self.delegate.complete(model_id=model_id, messages=messages)
             self._advance_job(job_id, JobState.VERIFYING)
             if not isinstance(result.text, str) or result.prompt_tokens < 0 or result.completion_tokens < 0:
                 raise InferenceBackendError("runtime result failed orchestrator verification")
+            verified_result = self._verify_and_bind_evidence(
+                job_id=job_id,
+                result=result,
+                execution_started_at=execution_started_at,
+            )
             self._advance_job(job_id, JobState.COMPLETED)
-            return result
+            return verified_result
+        except (ExecutionEvidenceError, ExecutionEvidenceBindingError) as exc:
+            self._fail_job(job_id, exc)
+            raise InferenceBackendError("shared runtime evidence verification failed") from exc
         except Exception as exc:
             self._fail_job(job_id, exc)
             if isinstance(exc, InferenceBackendError):
@@ -321,6 +387,7 @@ def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
         )
     placement: PlacementSelection | None = None
     decision_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_PLACEMENT_DECISION", "").strip()
+    evidence_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_SHARED_RUN_EVIDENCE", "").strip() or None
     try:
         if decision_path:
             placement = load_shared_placement_selection(
@@ -344,6 +411,7 @@ def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
             provider_node_ids=nodes,
             lease_seconds=lease_seconds,
             placement=placement,
+            execution_evidence_path=evidence_path,
         )
     except (OSError, ValueError, PlacementSelectionError) as exc:
         raise InferenceBackendError("Invalid orchestrated inference configuration") from exc
