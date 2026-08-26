@@ -40,7 +40,9 @@ jobs:
           python -m unittest services.gateway.tests.test_execution_attestation -v
 
       - name: Job-bound runtime attestation tests
-        run: python -m unittest runtime.llama.tests.test_job_attestation -v
+        run: |
+          python -m unittest runtime.llama.tests.test_job_attestation -v
+          python -m unittest runtime.llama.tests.test_job_bound_shared_trial -v
 
       - name: Full test suite
         run: python run_all_tests.py
