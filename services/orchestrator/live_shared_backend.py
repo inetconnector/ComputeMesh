@@ -31,6 +31,7 @@ class LiveSharedInferenceBackend:
         max_attempts: int = 2,
         startup_timeout: float = 300.0,
         request_timeout: float = 300.0,
+        health_poll_seconds: float = 0.25,
     ) -> None:
         if max_attempts < 1 or max_attempts > 3:
             raise ValueError("max_attempts must be 1..3")
@@ -38,6 +39,8 @@ class LiveSharedInferenceBackend:
             raise ValueError("startup_timeout must be within (0,900]")
         if request_timeout <= 0 or request_timeout > 900:
             raise ValueError("request_timeout must be within (0,900]")
+        if health_poll_seconds <= 0 or health_poll_seconds > 5:
+            raise ValueError("health_poll_seconds must be within (0,5]")
         self.registry = registry
         self.store = store
         self.resolver = resolver
@@ -48,6 +51,7 @@ class LiveSharedInferenceBackend:
         self.max_attempts = max_attempts
         self.startup_timeout = startup_timeout
         self.request_timeout = request_timeout
+        self.health_poll_seconds = health_poll_seconds
         self._active_lock = threading.RLock()
         self._active_cancels: dict[str, threading.Event] = {}
 
@@ -66,6 +70,7 @@ class LiveSharedInferenceBackend:
         live: LiveExecutionPlan,
         attempt_job_id: str,
         cancel_event: threading.Event | None = None,
+        abort_event: threading.Event | None = None,
     ) -> SharedRequestOrchestratedBackend:
         try:
             transport = SessionAuthenticatedAttestationTransport(
@@ -82,6 +87,7 @@ class LiveSharedInferenceBackend:
                 startup_timeout=self.startup_timeout,
                 request_timeout=self.request_timeout,
                 cancel_event=cancel_event,
+                abort_event=abort_event,
                 **kwargs,
             )
 
@@ -139,6 +145,23 @@ class LiveSharedInferenceBackend:
         request_id = f"live-{secrets.token_hex(12)}"
         return self.complete_for_request(request_id=request_id, model_id=model_id, messages=messages)
 
+    def _start_health_watch(
+        self,
+        *,
+        provider_node_ids: tuple[str, ...],
+        abort_event: threading.Event,
+        stop_event: threading.Event,
+    ) -> threading.Thread:
+        def watch() -> None:
+            while not stop_event.wait(self.health_poll_seconds):
+                if any(not self.registry.is_node_control_healthy(node_id) for node_id in provider_node_ids):
+                    abort_event.set()
+                    return
+
+        thread = threading.Thread(target=watch, name="cm-shared-health-watch", daemon=True)
+        thread.start()
+        return thread
+
     def _complete(
         self,
         *,
@@ -163,10 +186,18 @@ class LiveSharedInferenceBackend:
                 raise InferenceBackendError("live shared placement repeated within one recovery group")
             previous_provider_sets.add(provider_set)
             attempt_job_id = f"{request_id}-a{attempt}"
+            abort_event = threading.Event()
+            health_stop = threading.Event()
+            health_thread = self._start_health_watch(
+                provider_node_ids=live.placement.provider_node_ids,
+                abort_event=abort_event,
+                stop_event=health_stop,
+            )
             backend = self._backend_for_attempt(
                 live=live,
                 attempt_job_id=attempt_job_id,
                 cancel_event=cancel_event,
+                abort_event=abort_event,
             )
             try:
                 return backend.complete(model_id=model_id, messages=messages)
@@ -177,6 +208,9 @@ class LiveSharedInferenceBackend:
                 if attempt >= self.max_attempts:
                     raise
                 continue
+            finally:
+                health_stop.set()
+                health_thread.join(timeout=max(0.5, self.health_poll_seconds * 2))
 
         assert last_error is not None
         raise last_error
