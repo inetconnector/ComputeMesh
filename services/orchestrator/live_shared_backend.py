@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import secrets
+import threading
 from typing import Any
 
 from runtime.llama.shared_request_live import run_live_shared_request
@@ -15,13 +16,7 @@ from services.orchestrator.shared_request_backend import SharedRequestOrchestrat
 
 
 class LiveSharedInferenceBackend:
-    """Resolve current nodes/benchmarks/placement, execute, and safely re-place once.
-
-    Each attempt is a separate durable orchestrator job. A retry is permitted only
-    before any BackendResult has been returned and only when a fresh scheduler pass
-    chooses a different provider set. The failed attempt remains FAILED in durable
-    state and its reservations are released by SharedRequestOrchestratedBackend.
-    """
+    """Resolve current placement, execute, re-place conservatively, and support cancel."""
 
     def __init__(
         self,
@@ -53,6 +48,8 @@ class LiveSharedInferenceBackend:
         self.max_attempts = max_attempts
         self.startup_timeout = startup_timeout
         self.request_timeout = request_timeout
+        self._active_lock = threading.RLock()
+        self._active_cancels: dict[str, threading.Event] = {}
 
     def _plan(self, model_id: str) -> LiveExecutionPlan:
         try:
@@ -68,6 +65,7 @@ class LiveSharedInferenceBackend:
         *,
         live: LiveExecutionPlan,
         attempt_job_id: str,
+        cancel_event: threading.Event | None = None,
     ) -> SharedRequestOrchestratedBackend:
         try:
             transport = SessionAuthenticatedAttestationTransport(
@@ -83,6 +81,7 @@ class LiveSharedInferenceBackend:
                 plan=live.trial_plan,
                 startup_timeout=self.startup_timeout,
                 request_timeout=self.request_timeout,
+                cancel_event=cancel_event,
                 **kwargs,
             )
 
@@ -101,12 +100,59 @@ class LiveSharedInferenceBackend:
             runner=runner,
         )
 
+    def cancel(self, request_id: str) -> bool:
+        if not isinstance(request_id, str) or not (1 <= len(request_id) <= 256):
+            return False
+        with self._active_lock:
+            event = self._active_cancels.get(request_id)
+        if event is None:
+            return False
+        event.set()
+        return True
+
+    def complete_for_request(
+        self,
+        *,
+        request_id: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+    ) -> BackendResult:
+        if not isinstance(request_id, str) or not (1 <= len(request_id) <= 256):
+            raise InferenceBackendError("invalid ComputeMesh request id")
+        cancel_event = threading.Event()
+        with self._active_lock:
+            if request_id in self._active_cancels:
+                raise InferenceBackendError("ComputeMesh request id is already active")
+            self._active_cancels[request_id] = cancel_event
+        try:
+            return self._complete(
+                request_id=request_id,
+                model_id=model_id,
+                messages=messages,
+                cancel_event=cancel_event,
+            )
+        finally:
+            with self._active_lock:
+                self._active_cancels.pop(request_id, None)
+
     def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
-        recovery_id = f"live-{secrets.token_hex(10)}"
+        request_id = f"live-{secrets.token_hex(12)}"
+        return self.complete_for_request(request_id=request_id, model_id=model_id, messages=messages)
+
+    def _complete(
+        self,
+        *,
+        request_id: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        cancel_event: threading.Event,
+    ) -> BackendResult:
         previous_provider_sets: set[frozenset[str]] = set()
         last_error: InferenceBackendError | None = None
 
         for attempt in range(1, self.max_attempts + 1):
+            if cancel_event.is_set():
+                raise InferenceBackendError("shared request was cancelled")
             live = self._plan(model_id)
             provider_set = frozenset(live.placement.provider_node_ids)
             if provider_set in previous_provider_sets:
@@ -116,16 +162,20 @@ class LiveSharedInferenceBackend:
                     ) from last_error
                 raise InferenceBackendError("live shared placement repeated within one recovery group")
             previous_provider_sets.add(provider_set)
-            attempt_job_id = f"{recovery_id}-a{attempt}"
-            backend = self._backend_for_attempt(live=live, attempt_job_id=attempt_job_id)
+            attempt_job_id = f"{request_id}-a{attempt}"
+            backend = self._backend_for_attempt(
+                live=live,
+                attempt_job_id=attempt_job_id,
+                cancel_event=cancel_event,
+            )
             try:
                 return backend.complete(model_id=model_id, messages=messages)
             except InferenceBackendError as exc:
                 last_error = exc
+                if cancel_event.is_set():
+                    raise InferenceBackendError("shared request was cancelled") from exc
                 if attempt >= self.max_attempts:
                     raise
-                # No BackendResult was returned, so no response or provider settlement
-                # escaped this attempt. A retry must obtain a fresh placement above.
                 continue
 
         assert last_error is not None

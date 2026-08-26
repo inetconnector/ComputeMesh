@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, run_shared_request
+from runtime.llama.shared_request_live import SharedRequestCancelled
 from services.gateway.execution_attestation import VerificationKeyResolver, verify_execution_attestations
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.gateway.placement_selection import PlacementSelection
@@ -69,12 +70,7 @@ def _render_messages(messages: list[dict[str, Any]]) -> str:
 
 
 class SharedRequestOrchestratedBackend:
-    """Execute and settle one scheduler-selected two-node request end-to-end.
-
-    The runtime produces evidence for the same durable job_id. Every reserved
-    participant must then sign those claims through an authenticated node-session
-    transport before evidence-derived provider shares are returned to the ledger.
-    """
+    """Execute and settle one scheduler-selected two-node request end-to-end."""
 
     def __init__(
         self,
@@ -176,19 +172,25 @@ class SharedRequestOrchestratedBackend:
                     request_fingerprint=f"release:{job_id}",
                 )
 
-    def _fail(self, job_id: str, exc: Exception) -> None:
+    def _terminal(self, job_id: str, target: JobState, fingerprint: str) -> None:
         try:
             current = self.store.get_job(job_id)
             if current.state not in {JobState.FAILED, JobState.CANCELLED, JobState.COMPLETED, JobState.SETTLED}:
                 self.store.transition_job(
                     job_id,
-                    request_id=f"{job_id}:job:failed",
+                    request_id=f"{job_id}:job:{target.value.lower()}",
                     expected_revision=current.revision,
-                    target=JobState.FAILED,
-                    request_fingerprint=f"shared-request-failure:{type(exc).__name__}",
+                    target=target,
+                    request_fingerprint=fingerprint,
                 )
         except Exception:
             pass
+
+    def _fail(self, job_id: str, exc: Exception) -> None:
+        self._terminal(job_id, JobState.FAILED, f"shared-request-failure:{type(exc).__name__}")
+
+    def _cancel(self, job_id: str) -> None:
+        self._terminal(job_id, JobState.CANCELLED, "shared-request-cancel:stop_new_billable_work")
 
     def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
         if model_id != self.placement.model_id:
@@ -263,6 +265,9 @@ class SharedRequestOrchestratedBackend:
                 provider_shares=verified.provider_shares,
                 evidence_id=verified.evidence_id,
             )
+        except SharedRequestCancelled as exc:
+            self._cancel(job_id)
+            raise SharedRequestSettlementError("shared request was cancelled") from exc
         except Exception as exc:
             self._fail(job_id, exc)
             if isinstance(exc, InferenceBackendError):
