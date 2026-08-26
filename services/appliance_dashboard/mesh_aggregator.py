@@ -78,9 +78,20 @@ class MeshRegistryAggregator:
                     })
                 except Exception:
                     pass
-
             for peer_data in self._peer_nodes.values():
                 nodes.append(peer_data)
+
+        # Deduplicate nodes by node_id to prevent duplicate tallying across multi-interface peers
+        seen_nids: set[str] = set()
+        deduped_nodes: list[dict[str, Any]] = []
+        for n in nodes:
+            nid = str(n.get("node_id", ""))
+            if nid and nid in seen_nids:
+                continue
+            if nid:
+                seen_nids.add(nid)
+            deduped_nodes.append(n)
+        nodes = deduped_nodes
 
         total_gpus = 0
         total_vram_bytes = 0
