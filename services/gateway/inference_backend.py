@@ -1,9 +1,9 @@
 """Inference backends for the public ComputeMesh gateway.
 
-Production requests must execute against a configured runtime endpoint. Synthetic
-responses are available only through an explicit opt-in intended for tests/dev.
-The orchestrated backend additionally binds runtime execution to the durable M0
-job/reservation state machine before an inference result can be returned.
+Production requests execute against a configured runtime endpoint. Synthetic
+responses require explicit test/dev opt-in. Orchestrated execution additionally
+binds runtime dispatch to durable job/reservation state and can derive reserved
+nodes from a validated M1 scheduler placement decision.
 """
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
+from services.gateway.placement_selection import (
+    PlacementSelection,
+    PlacementSelectionError,
+    load_shared_placement_selection,
+)
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState, ReservationState
 
@@ -55,8 +60,6 @@ class SyntheticInferenceBackend:
             if isinstance(message, dict) and message.get("role") == "user":
                 last_user_msg = str(message.get("content", ""))
                 break
-        # Keep legacy fixture text so existing gateway contract tests remain useful,
-        # while production can no longer reach this backend without explicit opt-in.
         text = (
             f"ComputeMesh distributed response for: {last_user_msg[:60]}"
             if last_user_msg
@@ -109,7 +112,6 @@ class OpenAICompatibleHTTPBackend:
                 raw = response.read(self.max_response_bytes + 1)
         except (error.HTTPError, error.URLError, TimeoutError, OSError) as exc:
             raise InferenceBackendError("Inference runtime request failed") from exc
-
         if len(raw) > self.max_response_bytes:
             raise InferenceBackendError("Inference runtime response exceeded size limit")
         try:
@@ -120,23 +122,17 @@ class OpenAICompatibleHTTPBackend:
             completion_tokens = int(usage["completion_tokens"])
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise InferenceBackendError("Inference runtime returned an invalid response") from exc
-
         if not isinstance(text, str) or prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Inference runtime returned invalid content or usage")
-        return BackendResult(
-            text=text,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-        )
+        return BackendResult(text, prompt_tokens, completion_tokens)
 
 
 class OrchestratedInferenceBackend:
-    """Bind a real runtime call to durable job and capacity-reservation state.
+    """Bind real runtime execution to durable job and reservation state.
 
-    This is deliberately a transitional production-hardening layer. The provider
-    nodes are operator-selected lab nodes, not yet scheduler-selected placement.
-    It nevertheless enforces the invariant that execution cannot start until all
-    configured capacity reservations have been leased, committed and activated.
+    A validated scheduler placement may supply the participating node IDs. Static
+    operator nodes remain available as a lab fallback. In both cases execution
+    cannot start until all reservations are leased, committed and activated.
     """
 
     def __init__(
@@ -144,9 +140,10 @@ class OrchestratedInferenceBackend:
         *,
         delegate: InferenceBackend,
         store: SQLiteStateStore,
-        provider_node_ids: list[str],
+        provider_node_ids: list[str] | tuple[str, ...],
         lease_seconds: int = 180,
         id_factory: Callable[[], str] | None = None,
+        placement: PlacementSelection | None = None,
     ) -> None:
         cleaned = [value.strip() for value in provider_node_ids if value.strip()]
         if len(cleaned) < 2:
@@ -155,11 +152,18 @@ class OrchestratedInferenceBackend:
             raise ValueError("provider node ids must be unique")
         if lease_seconds < 10 or lease_seconds > 3600:
             raise ValueError("lease_seconds must be between 10 and 3600")
+        if placement is not None and tuple(cleaned) != placement.provider_node_ids:
+            raise ValueError("provider nodes must exactly match scheduler placement")
         self.delegate = delegate
         self.store = store
         self.provider_node_ids = tuple(cleaned)
         self.lease_seconds = lease_seconds
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
+        self.placement = placement
+
+    @property
+    def placement_id(self) -> str:
+        return self.placement.decision_id if self.placement else "operator-static"
 
     def _advance_job(self, job_id: str, target: JobState) -> None:
         record = self.store.get_job(job_id)
@@ -168,23 +172,29 @@ class OrchestratedInferenceBackend:
             request_id=f"{job_id}:job:{target.value.lower()}",
             expected_revision=record.revision,
             target=target,
-            request_fingerprint=f"orchestrated-inference:{target.value}",
+            request_fingerprint=f"orchestrated-inference:{self.placement_id}:{target.value}",
         )
 
     def _reservation_ids(self, job_id: str) -> list[str]:
-        return [f"{job_id}:capacity:{index}:{node_id}" for index, node_id in enumerate(self.provider_node_ids)]
+        return [
+            f"{job_id}:capacity:{index}:{node_id}"
+            for index, node_id in enumerate(self.provider_node_ids)
+        ]
 
     def _reserve_capacity(self, job_id: str) -> list[str]:
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
         reservation_ids = self._reservation_ids(job_id)
-        for index, (reservation_id, node_id) in enumerate(zip(reservation_ids, self.provider_node_ids)):
+        for index, (reservation_id, node_id) in enumerate(
+            zip(reservation_ids, self.provider_node_ids)
+        ):
             self.store.ensure_reservation(reservation_id)
+            fingerprint = f"node={node_id};job={job_id};placement={self.placement_id}"
             leased = self.store.lease_reservation(
                 reservation_id,
                 request_id=f"{job_id}:lease:{index}",
                 expected_revision=0,
                 expires_at=expires_at,
-                request_fingerprint=f"node={node_id};job={job_id}",
+                request_fingerprint=fingerprint,
             )
             self.store.commit_reservation(
                 reservation_id,
@@ -192,7 +202,7 @@ class OrchestratedInferenceBackend:
                 expected_revision=leased.revision,
                 job_id=job_id,
                 stage_id=f"inference:{node_id}",
-                request_fingerprint=f"node={node_id};job={job_id}",
+                request_fingerprint=fingerprint,
             )
         return reservation_ids
 
@@ -215,7 +225,7 @@ class OrchestratedInferenceBackend:
                 request_id=f"{job_id}:activate:{index}",
                 expected_revision=record.revision,
                 target=ReservationState.ACTIVE,
-                request_fingerprint=f"dispatch:{job_id}",
+                request_fingerprint=f"dispatch:{job_id}:placement={self.placement_id}",
             )
 
     def _release(self, job_id: str, reservation_ids: list[str]) -> None:
@@ -233,7 +243,31 @@ class OrchestratedInferenceBackend:
                     request_fingerprint=f"release:{job_id}",
                 )
 
+    def _fail_job(self, job_id: str, exc: Exception) -> None:
+        try:
+            record = self.store.get_job(job_id)
+            if record.state in {
+                JobState.CREATED,
+                JobState.VALIDATING,
+                JobState.PLANNING,
+                JobState.RESERVING,
+                JobState.PREPARING,
+                JobState.RUNNING,
+                JobState.VERIFYING,
+            }:
+                self.store.transition_job(
+                    job_id,
+                    request_id=f"{job_id}:job:failed",
+                    expected_revision=record.revision,
+                    target=JobState.FAILED,
+                    request_fingerprint=f"runtime-failure:{type(exc).__name__}",
+                )
+        except Exception:
+            pass
+
     def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+        if self.placement is not None and model_id != self.placement.model_id:
+            raise InferenceBackendError("requested model does not match scheduler placement")
         job_id = self.id_factory()
         if not job_id:
             raise InferenceBackendError("orchestrator generated an empty job id")
@@ -247,35 +281,14 @@ class OrchestratedInferenceBackend:
             self._advance_job(job_id, JobState.PREPARING)
             self._activate(job_id, reservation_ids)
             self._advance_job(job_id, JobState.RUNNING)
-
             result = self.delegate.complete(model_id=model_id, messages=messages)
-
             self._advance_job(job_id, JobState.VERIFYING)
             if not isinstance(result.text, str) or result.prompt_tokens < 0 or result.completion_tokens < 0:
                 raise InferenceBackendError("runtime result failed orchestrator verification")
             self._advance_job(job_id, JobState.COMPLETED)
             return result
         except Exception as exc:
-            try:
-                record = self.store.get_job(job_id)
-                if record.state in {
-                    JobState.CREATED,
-                    JobState.VALIDATING,
-                    JobState.PLANNING,
-                    JobState.RESERVING,
-                    JobState.PREPARING,
-                    JobState.RUNNING,
-                    JobState.VERIFYING,
-                }:
-                    self.store.transition_job(
-                        job_id,
-                        request_id=f"{job_id}:job:failed",
-                        expected_revision=record.revision,
-                        target=JobState.FAILED,
-                        request_fingerprint=f"runtime-failure:{type(exc).__name__}",
-                    )
-            except Exception:
-                pass
+            self._fail_job(job_id, exc)
             if isinstance(exc, InferenceBackendError):
                 raise
             raise InferenceBackendError("orchestrated inference execution failed") from exc
@@ -300,6 +313,42 @@ def _openai_backend_from_env() -> OpenAICompatibleHTTPBackend:
     )
 
 
+def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
+    store_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_STATE_PATH", "").strip()
+    if not store_path:
+        raise InferenceBackendError(
+            "COMPUTEMESH_ORCHESTRATOR_STATE_PATH is required for orchestrated inference"
+        )
+    placement: PlacementSelection | None = None
+    decision_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_PLACEMENT_DECISION", "").strip()
+    try:
+        if decision_path:
+            placement = load_shared_placement_selection(
+                decision_path,
+                allow_experimental=(
+                    os.environ.get("COMPUTEMESH_ALLOW_EXPERIMENTAL_SHARED_PLACEMENT", "").strip()
+                    == "1"
+                ),
+            )
+            nodes = list(placement.provider_node_ids)
+        else:
+            nodes = [
+                value.strip()
+                for value in os.environ.get("COMPUTEMESH_ORCHESTRATOR_PROVIDER_NODES", "").split(",")
+                if value.strip()
+            ]
+        lease_seconds = int(os.environ.get("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", "180"))
+        return OrchestratedInferenceBackend(
+            delegate=_openai_backend_from_env(),
+            store=SQLiteStateStore(store_path),
+            provider_node_ids=nodes,
+            lease_seconds=lease_seconds,
+            placement=placement,
+        )
+    except (OSError, ValueError, PlacementSelectionError) as exc:
+        raise InferenceBackendError("Invalid orchestrated inference configuration") from exc
+
+
 def build_inference_backend_from_env() -> InferenceBackend:
     """Build the configured gateway backend using secure fail-closed defaults."""
     backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "disabled").strip().lower()
@@ -308,26 +357,7 @@ def build_inference_backend_from_env() -> InferenceBackend:
     if backend in {"openai", "openai-compatible", "openai_compatible", "llama.cpp", "llama_cpp"}:
         return _openai_backend_from_env()
     if backend in {"orchestrated", "orchestrated_openai", "orchestrated-openai"}:
-        store_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_STATE_PATH", "").strip()
-        if not store_path:
-            raise InferenceBackendError(
-                "COMPUTEMESH_ORCHESTRATOR_STATE_PATH is required for orchestrated inference"
-            )
-        nodes = [
-            value.strip()
-            for value in os.environ.get("COMPUTEMESH_ORCHESTRATOR_PROVIDER_NODES", "").split(",")
-            if value.strip()
-        ]
-        try:
-            lease_seconds = int(os.environ.get("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", "180"))
-            return OrchestratedInferenceBackend(
-                delegate=_openai_backend_from_env(),
-                store=SQLiteStateStore(store_path),
-                provider_node_ids=nodes,
-                lease_seconds=lease_seconds,
-            )
-        except (OSError, ValueError) as exc:
-            raise InferenceBackendError("Invalid orchestrated inference configuration") from exc
+        return _orchestrated_backend_from_env()
     if backend == "synthetic":
         if os.environ.get("COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE", "").strip() != "1":
             raise InferenceBackendError(
