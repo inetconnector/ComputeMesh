@@ -14,7 +14,7 @@ from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.live_bootstrap import install_live_shared_gateway
 from services.gateway.live_handler import LiveGatewayHandler
 from services.gateway.server import DEFAULT_PORT
-from services.identity.store import SQLiteIdentityStore
+from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
@@ -74,7 +74,7 @@ def _start_integrated_control_plane(
         )
     plane = IntegratedLiveControlPlane(
         registry=registry,
-        verifier=Ed25519ChallengeVerifier(SQLiteIdentityStore(identity_path)),
+        verifier=Ed25519ChallengeVerifier(SQLiteIdentityKeyResolver(identity_path)),
         host=host,
         port=port,
         cert_file=cert_file,

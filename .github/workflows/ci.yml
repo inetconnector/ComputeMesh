@@ -62,6 +62,7 @@ jobs:
           python -m unittest services.orchestrator.tests.test_live_provider_registration -v
           python -m unittest services.orchestrator.tests.test_startup_recovery -v
           python -m unittest services.orchestrator.tests.test_settlement_recovery -v
+          python -m unittest services.orchestrator.tests.test_threaded_live_sqlite -v
 
       - name: Full test suite
         run: python run_all_tests.py

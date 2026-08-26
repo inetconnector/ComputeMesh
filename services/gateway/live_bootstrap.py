@@ -7,7 +7,7 @@ from typing import Any
 
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import InferenceBackendError
-from services.identity.store import SQLiteIdentityStore
+from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_shared_backend import LiveSharedInferenceBackend
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
 from services.orchestrator.startup_recovery import RecoveryStateStore, reconcile_startup_state
@@ -60,7 +60,7 @@ def build_live_shared_backend_from_env(
         return LiveSharedInferenceBackend(
             registry=registry,
             store=store,
-            resolver=SQLiteIdentityStore(identity_path),
+            resolver=SQLiteIdentityKeyResolver(identity_path),
             llama_server=Path(llama_server),
             work_root=Path(work_root),
             allow_experimental=True,
