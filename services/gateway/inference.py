@@ -89,11 +89,19 @@ class InferenceEngine:
             max_req = self.teaser_manager.max_requests
             completion_text += f"\n\n---\n*⚡ ComputeMesh Free Teaser: Noch {rem}/{max_req} Anfragen übrig | {CONFIG.endpoints.domain}*"
 
-        provider_shares = provider_shares_from_env()
+        # Verified orchestrated execution takes precedence over operator-configured
+        # shares. The ledger event also uses the durable orchestrator job id so the
+        # financial event can be traced back to its reservation/evidence record.
+        provider_shares = (
+            list(backend_result.provider_shares)
+            if backend_result.provider_shares is not None
+            else provider_shares_from_env()
+        )
+        billing_job_id = backend_result.execution_job_id or chat_id
         fee_bps = 0 if is_provider_self_compute else None
 
         self.ledger.record_job_execution(
-            job_id=chat_id,
+            job_id=billing_job_id,
             customer_account_id=account_id,
             provider_shares=provider_shares,
             model_id=canonical_model_id,
