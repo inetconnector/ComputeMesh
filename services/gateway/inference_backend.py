@@ -2,15 +2,22 @@
 
 Production requests must execute against a configured runtime endpoint. Synthetic
 responses are available only through an explicit opt-in intended for tests/dev.
+The orchestrated backend additionally binds runtime execution to the durable M0
+job/reservation state machine before an inference result can be returned.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import json
 import os
-from typing import Any, Protocol
+import secrets
+from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
+
+from services.orchestrator.persistence import SQLiteStateStore
+from services.orchestrator.state_machine import JobState, ReservationState
 
 
 class InferenceBackendError(RuntimeError):
@@ -123,26 +130,204 @@ class OpenAICompatibleHTTPBackend:
         )
 
 
+class OrchestratedInferenceBackend:
+    """Bind a real runtime call to durable job and capacity-reservation state.
+
+    This is deliberately a transitional production-hardening layer. The provider
+    nodes are operator-selected lab nodes, not yet scheduler-selected placement.
+    It nevertheless enforces the invariant that execution cannot start until all
+    configured capacity reservations have been leased, committed and activated.
+    """
+
+    def __init__(
+        self,
+        *,
+        delegate: InferenceBackend,
+        store: SQLiteStateStore,
+        provider_node_ids: list[str],
+        lease_seconds: int = 180,
+        id_factory: Callable[[], str] | None = None,
+    ) -> None:
+        cleaned = [value.strip() for value in provider_node_ids if value.strip()]
+        if len(cleaned) < 2:
+            raise ValueError("orchestrated inference requires at least two provider nodes")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("provider node ids must be unique")
+        if lease_seconds < 10 or lease_seconds > 3600:
+            raise ValueError("lease_seconds must be between 10 and 3600")
+        self.delegate = delegate
+        self.store = store
+        self.provider_node_ids = tuple(cleaned)
+        self.lease_seconds = lease_seconds
+        self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
+
+    def _advance_job(self, job_id: str, target: JobState) -> None:
+        record = self.store.get_job(job_id)
+        self.store.transition_job(
+            job_id,
+            request_id=f"{job_id}:job:{target.value.lower()}",
+            expected_revision=record.revision,
+            target=target,
+            request_fingerprint=f"orchestrated-inference:{target.value}",
+        )
+
+    def _reservation_ids(self, job_id: str) -> list[str]:
+        return [f"{job_id}:capacity:{index}:{node_id}" for index, node_id in enumerate(self.provider_node_ids)]
+
+    def _reserve_capacity(self, job_id: str) -> list[str]:
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.lease_seconds)
+        reservation_ids = self._reservation_ids(job_id)
+        for index, (reservation_id, node_id) in enumerate(zip(reservation_ids, self.provider_node_ids)):
+            self.store.ensure_reservation(reservation_id)
+            leased = self.store.lease_reservation(
+                reservation_id,
+                request_id=f"{job_id}:lease:{index}",
+                expected_revision=0,
+                expires_at=expires_at,
+                request_fingerprint=f"node={node_id};job={job_id}",
+            )
+            self.store.commit_reservation(
+                reservation_id,
+                request_id=f"{job_id}:commit:{index}",
+                expected_revision=leased.revision,
+                job_id=job_id,
+                stage_id=f"inference:{node_id}",
+                request_fingerprint=f"node={node_id};job={job_id}",
+            )
+        return reservation_ids
+
+    def _activate(self, job_id: str, reservation_ids: list[str]) -> None:
+        for index, reservation_id in enumerate(reservation_ids):
+            record = self.store.get_reservation(reservation_id)
+            if record.state != ReservationState.COMMITTED:
+                raise InferenceBackendError("capacity reservation is not committed")
+            if record.lease_expires_at is None or record.lease_expires_at <= datetime.now(timezone.utc):
+                self.store.transition_reservation(
+                    reservation_id,
+                    request_id=f"{job_id}:expire:{index}",
+                    expected_revision=record.revision,
+                    target=ReservationState.RELEASED,
+                    request_fingerprint="expired-before-dispatch",
+                )
+                raise InferenceBackendError("capacity reservation expired before dispatch")
+            self.store.transition_reservation(
+                reservation_id,
+                request_id=f"{job_id}:activate:{index}",
+                expected_revision=record.revision,
+                target=ReservationState.ACTIVE,
+                request_fingerprint=f"dispatch:{job_id}",
+            )
+
+    def _release(self, job_id: str, reservation_ids: list[str]) -> None:
+        for index, reservation_id in enumerate(reservation_ids):
+            try:
+                record = self.store.get_reservation(reservation_id)
+            except KeyError:
+                continue
+            if record.state in {ReservationState.COMMITTED, ReservationState.ACTIVE}:
+                self.store.transition_reservation(
+                    reservation_id,
+                    request_id=f"{job_id}:release:{index}",
+                    expected_revision=record.revision,
+                    target=ReservationState.RELEASED,
+                    request_fingerprint=f"release:{job_id}",
+                )
+
+    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+        job_id = self.id_factory()
+        if not job_id:
+            raise InferenceBackendError("orchestrator generated an empty job id")
+        self.store.ensure_job(job_id)
+        reservation_ids: list[str] = []
+        try:
+            self._advance_job(job_id, JobState.VALIDATING)
+            self._advance_job(job_id, JobState.PLANNING)
+            self._advance_job(job_id, JobState.RESERVING)
+            reservation_ids = self._reserve_capacity(job_id)
+            self._advance_job(job_id, JobState.PREPARING)
+            self._activate(job_id, reservation_ids)
+            self._advance_job(job_id, JobState.RUNNING)
+
+            result = self.delegate.complete(model_id=model_id, messages=messages)
+
+            self._advance_job(job_id, JobState.VERIFYING)
+            if not isinstance(result.text, str) or result.prompt_tokens < 0 or result.completion_tokens < 0:
+                raise InferenceBackendError("runtime result failed orchestrator verification")
+            self._advance_job(job_id, JobState.COMPLETED)
+            return result
+        except Exception as exc:
+            try:
+                record = self.store.get_job(job_id)
+                if record.state in {
+                    JobState.CREATED,
+                    JobState.VALIDATING,
+                    JobState.PLANNING,
+                    JobState.RESERVING,
+                    JobState.PREPARING,
+                    JobState.RUNNING,
+                    JobState.VERIFYING,
+                }:
+                    self.store.transition_job(
+                        job_id,
+                        request_id=f"{job_id}:job:failed",
+                        expected_revision=record.revision,
+                        target=JobState.FAILED,
+                        request_fingerprint=f"runtime-failure:{type(exc).__name__}",
+                    )
+            except Exception:
+                pass
+            if isinstance(exc, InferenceBackendError):
+                raise
+            raise InferenceBackendError("orchestrated inference execution failed") from exc
+        finally:
+            self._release(job_id, reservation_ids)
+
+
+def _openai_backend_from_env() -> OpenAICompatibleHTTPBackend:
+    base_url = os.environ.get("COMPUTEMESH_INFERENCE_URL", "").strip()
+    if not base_url:
+        raise InferenceBackendError(
+            "COMPUTEMESH_INFERENCE_URL is required for the OpenAI-compatible backend"
+        )
+    try:
+        timeout = float(os.environ.get("COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS", "120"))
+    except ValueError as exc:
+        raise InferenceBackendError("Invalid COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS") from exc
+    return OpenAICompatibleHTTPBackend(
+        base_url=base_url,
+        api_key=os.environ.get("COMPUTEMESH_INFERENCE_API_KEY") or None,
+        timeout_seconds=timeout,
+    )
+
+
 def build_inference_backend_from_env() -> InferenceBackend:
     """Build the configured gateway backend using secure fail-closed defaults."""
     backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "disabled").strip().lower()
     if backend in {"", "disabled", "none"}:
         return DisabledInferenceBackend()
     if backend in {"openai", "openai-compatible", "openai_compatible", "llama.cpp", "llama_cpp"}:
-        base_url = os.environ.get("COMPUTEMESH_INFERENCE_URL", "").strip()
-        if not base_url:
+        return _openai_backend_from_env()
+    if backend in {"orchestrated", "orchestrated_openai", "orchestrated-openai"}:
+        store_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_STATE_PATH", "").strip()
+        if not store_path:
             raise InferenceBackendError(
-                "COMPUTEMESH_INFERENCE_URL is required for the OpenAI-compatible backend"
+                "COMPUTEMESH_ORCHESTRATOR_STATE_PATH is required for orchestrated inference"
             )
+        nodes = [
+            value.strip()
+            for value in os.environ.get("COMPUTEMESH_ORCHESTRATOR_PROVIDER_NODES", "").split(",")
+            if value.strip()
+        ]
         try:
-            timeout = float(os.environ.get("COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS", "120"))
-        except ValueError as exc:
-            raise InferenceBackendError("Invalid COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS") from exc
-        return OpenAICompatibleHTTPBackend(
-            base_url=base_url,
-            api_key=os.environ.get("COMPUTEMESH_INFERENCE_API_KEY") or None,
-            timeout_seconds=timeout,
-        )
+            lease_seconds = int(os.environ.get("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", "180"))
+            return OrchestratedInferenceBackend(
+                delegate=_openai_backend_from_env(),
+                store=SQLiteStateStore(store_path),
+                provider_node_ids=nodes,
+                lease_seconds=lease_seconds,
+            )
+        except (OSError, ValueError) as exc:
+            raise InferenceBackendError("Invalid orchestrated inference configuration") from exc
     if backend == "synthetic":
         if os.environ.get("COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE", "").strip() != "1":
             raise InferenceBackendError(
