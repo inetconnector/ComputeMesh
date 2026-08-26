@@ -310,6 +310,49 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"version": f"0.5.7-computemesh-{CONFIG.appliance_version}"})
             return
 
+        if clean_path in ("/mesh/stats", "/api/v1/mesh/stats"):
+            if not NODE_TELEMETRY_REGISTRY:
+                payload = {
+                    "source": "not_configured",
+                    "active_gpus": 0,
+                    "total_vram_gb": 0,
+                    "total_nodes": 0,
+                    "total_tflops": 0.0,
+                    "tokens_served_today": 0,
+                    "average_latency_ms": None,
+                    "network_uptime_percent": None,
+                    "measurement_status": "not_measured",
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                }
+            else:
+                total_vram = sum(
+                    sum(g.get("vram_bytes", 0) for g in n.get("inventory", {}).get("gpus", []))
+                    for n in NODE_TELEMETRY_REGISTRY.values()
+                ) / (1024**3)
+                total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in NODE_TELEMETRY_REGISTRY.values())
+                total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in NODE_TELEMETRY_REGISTRY.values())
+                tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in NODE_TELEMETRY_REGISTRY.values())
+                latencies = [
+                    float(n.get("telemetry", {}).get("ping_latency_ms", 0.0))
+                    for n in NODE_TELEMETRY_REGISTRY.values()
+                    if n.get("telemetry", {}).get("ping_latency_ms") is not None
+                ]
+                avg_lat = round(sum(latencies) / len(latencies), 1) if latencies else None
+                payload = {
+                    "source": "authenticated_cluster",
+                    "active_gpus": total_gpus,
+                    "total_vram_gb": round(total_vram, 1),
+                    "total_nodes": len(NODE_TELEMETRY_REGISTRY),
+                    "total_tflops": round(total_tflops, 1),
+                    "tokens_served_today": tokens,
+                    "average_latency_ms": avg_lat,
+                    "network_uptime_percent": None,
+                    "measurement_status": "live" if avg_lat is not None else "not_measured",
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                }
+            self._send_json(payload)
+            return
+
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
             from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
             tiers_data = {
