@@ -13,6 +13,20 @@ from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveS
 from services.orchestrator.persistence import SQLiteStateStore
 
 
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError as exc:
+        raise InferenceBackendError(f"invalid {name}") from exc
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError as exc:
+        raise InferenceBackendError(f"invalid {name}") from exc
+
+
 def build_live_shared_backend_from_env(
     *, registry: LiveSharedRuntimeRegistry = LIVE_SHARED_RUNTIME,
 ) -> LiveSharedInferenceBackend:
@@ -45,10 +59,6 @@ def build_live_shared_backend_from_env(
         raise InferenceBackendError(
             "live shared bootstrap refuses pre-positioned placement/evidence/attestation files"
         )
-    try:
-        lease_seconds = int(os.environ.get("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", "600"))
-    except ValueError as exc:
-        raise InferenceBackendError("invalid COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS") from exc
     return LiveSharedInferenceBackend(
         registry=registry,
         store=SQLiteStateStore(state_path),
@@ -56,7 +66,10 @@ def build_live_shared_backend_from_env(
         llama_server=Path(llama_server),
         work_root=Path(work_root),
         allow_experimental=True,
-        lease_seconds=lease_seconds,
+        lease_seconds=_int_env("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", 600),
+        max_attempts=_int_env("COMPUTEMESH_LIVE_MAX_ATTEMPTS", 2),
+        startup_timeout=_float_env("COMPUTEMESH_LIVE_STARTUP_TIMEOUT_SECONDS", 300.0),
+        request_timeout=_float_env("COMPUTEMESH_LIVE_REQUEST_TIMEOUT_SECONDS", 300.0),
     )
 
 
