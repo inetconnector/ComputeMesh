@@ -1,63 +1,46 @@
-# Local and generated files
-tmp/
-*.log
-*.tmp
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-.pytest_cache/
-.ruff_cache/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
 .venv/
 venv/
+env/
 
-# Node
-node_modules/
-dist/
-build/
-.next/
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
 
-# C/C++ / CMake
-cmake-build-*/
-CMakeFiles/
-CMakeCache.txt
-compile_commands.json
-
-# Go
-bin/
-coverage.out
-
-# Test / benchmark artifacts & model weights
-artifacts/
-benchmarks/raw/
-coverage/
-*.prof
-*.trace
-*.gguf
-
-# Visual Studio / VS Code
-.vs/
+# IDE / OS
 .vscode/
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# JetBrains
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Secrets
+# Runtime state / secrets
+*.sqlite
+*.sqlite3
+*.db
 .env
 .env.*
 !.env.example
 *.pem
 *.key
-*.p12
-*.pfx
 
-# Never commit local signing material
-signing/
-secrets/
+# Generated runtime evidence / lab outputs
+runtime_spike_result.json
+shared-run-evidence*.json
+placement*.json
+experiment-bundle*.json
+
+# Local logs / temporary files
+*.log
+*.tmp
+*.bak
