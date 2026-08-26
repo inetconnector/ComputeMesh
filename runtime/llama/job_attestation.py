@@ -95,6 +95,8 @@ def _load_private_key(path: Path) -> Ed25519PrivateKey:
         raise JobAttestationError("private key must be a bounded regular file")
     raw = path.read_bytes()
     try:
+        if len(raw) == 32:
+            return Ed25519PrivateKey.from_private_bytes(raw)
         if raw.startswith(b"-----BEGIN"):
             key = serialization.load_pem_private_key(raw, password=None)
             if not isinstance(key, Ed25519PrivateKey):
@@ -212,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     sign_parser.add_argument("--output", type=Path, required=True)
 
     bundle_parser = sub.add_parser("bundle")
-    bundle_parser.add_argument("--request", type=Path, required=True)
+    bundle_parser.add_argument("--request", type=Path, action="append", required=True)
     bundle_parser.add_argument("--attestation", type=Path, action="append", required=True)
     bundle_parser.add_argument("--output", type=Path, required=True)
 
