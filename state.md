@@ -1732,3 +1732,21 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
      - **Thermals & Power:** `58°C / 65% Fan / 115 W`
      - **Global Swarm:** `16.0 GB Pooled VRAM · 24.0 TFLOPS`
    - All **357/357 tests pass with 100% success in 10.70s**.
+
+---
+
+## 60. Platform Node ID Isolation & Persistent Gateway Telemetry Storage (2026-08-26 21:23 CEST)
+
+### Changes Made
+1. **Platform-Isolated Node Identifier Resolution:**
+   - In [`services/appliance_dashboard/tunnel_relay.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/tunnel_relay.py): Differentiated `get_default_node_id()` so Linux webservers default to `supersrv-trixie` (hostname-based) while Windows clients use `test-node-custom`. This prevents the GPU-less cloud VPS daemon from overwriting PC telemetry.
+2. **Persistent Gateway Telemetry Registry:**
+   - In [`services/gateway/dashboard.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/dashboard.py) and [`services/gateway/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/server.py): Implemented persistent JSON disk storage (`/tmp/computemesh_node_registry.json`) for `NODE_TELEMETRY_REGISTRY`. Node telemetry survives gateway service restarts.
+3. **Local Config Cleanup & Live Verification:**
+   - Cleared stale `disabled_gpus: [0]` entry in local `provider_config.json`.
+   - Verified live at `https://computemesh.inetconnector.com/node/test-node-custom?auth=...`:
+     - **Accelerator:** `NVIDIA GeForce RTX 3080 Laptop GPU (16.0 GB Dedicated VRAM)`
+     - **Compute Capacity:** `24.0 TFLOPS`
+     - **Thermals & Power:** `56°C / 60% Fan / 110 W`
+     - **Global Swarm Status:** `1 Nodes Online` | `16.0 GB Pooled VRAM · 24.0 TFLOPS`
+   - All **357/357 tests pass with 100% success in 10.70s**.
