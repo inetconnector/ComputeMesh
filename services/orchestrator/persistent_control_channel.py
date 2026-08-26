@@ -212,6 +212,16 @@ class PersistentNodeControlClient:
             self._connections.pop(node_id, None)
         current.close()
 
+    def is_connected(self, node_id: str) -> bool:
+        """Return true only for the currently registered live connection."""
+        with self._lock:
+            connection = self._connections.get(node_id)
+            return connection is not None and connection.alive
+
+    def live_node_ids(self) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(sorted(node_id for node_id, connection in self._connections.items() if connection.alive))
+
     def request(self, *, node_id: str, message_type: str, payload: dict[str, Any], timeout_seconds: float) -> dict[str, Any]:
         with self._lock:
             connection = self._connections.get(node_id)
