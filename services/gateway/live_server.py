@@ -1,15 +1,16 @@
 """Run the ComputeMesh gateway with automatic persistent provider registration.
 
 Providers authenticate over the persistent control channel and push their current
-profile/runtime/benchmarks into LIVE_SHARED_RUNTIME. An optional deployment module
-may still register models or site-specific state, but it no longer needs to create
-NodeSessions or a NodeControlClient.
+profile/runtime/benchmarks into LIVE_SHARED_RUNTIME. Models are loaded from a local
+content-addressed catalog whose GGUF files are verified against the standard
+ComputeMesh model manifests before serving starts.
 """
 from __future__ import annotations
 
 import argparse
 import importlib
 import os
+from pathlib import Path
 import sys
 from typing import Callable
 
@@ -18,6 +19,7 @@ from services.gateway.live_bootstrap import install_live_shared_gateway
 from services.gateway.server import DEFAULT_PORT, run_gateway_server
 from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
+from services.orchestrator.live_model_catalog import register_verified_live_models
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
 
 
@@ -30,7 +32,7 @@ def configure_live_runtime_from_module(
     *,
     registry: LiveSharedRuntimeRegistry = LIVE_SHARED_RUNTIME,
 ) -> None:
-    """Optionally load static/site-specific live state such as model registrations."""
+    """Optionally load additional site-specific live state."""
     if not module_name:
         return
     if len(module_name) > 256:
@@ -44,6 +46,20 @@ def configure_live_runtime_from_module(
             "control module must export configure_computemesh_live_runtime(registry)"
         )
     configure(registry)
+
+
+def _load_models_from_env(registry: LiveSharedRuntimeRegistry) -> tuple[str, ...]:
+    catalog = os.environ.get("COMPUTEMESH_LIVE_MODEL_CATALOG", "").strip()
+    root = os.environ.get("COMPUTEMESH_LIVE_MODEL_ROOT", "").strip()
+    if not catalog or not root:
+        raise LiveGatewayBootstrapError(
+            "live serving requires COMPUTEMESH_LIVE_MODEL_CATALOG and COMPUTEMESH_LIVE_MODEL_ROOT"
+        )
+    return register_verified_live_models(
+        registry,
+        catalog_path=Path(catalog),
+        catalog_root=Path(root),
+    )
 
 
 def _start_integrated_control_plane(
@@ -82,11 +98,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--control-module",
         default=os.environ.get("COMPUTEMESH_LIVE_CONTROL_MODULE", ""),
-        help="optional module for model/site-specific live registrations",
+        help="optional module for additional site-specific live registrations",
     )
     args = parser.parse_args(argv)
     control_plane: IntegratedLiveControlPlane | None = None
     try:
+        _load_models_from_env(LIVE_SHARED_RUNTIME)
         configure_live_runtime_from_module(args.control_module)
         control_plane = _start_integrated_control_plane(
             registry=LIVE_SHARED_RUNTIME,
