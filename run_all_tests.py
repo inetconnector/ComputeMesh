@@ -31,6 +31,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_placement_selection",
         "services.gateway.tests.test_execution_evidence",
         "services.gateway.tests.test_verified_settlement",
+        "services.gateway.tests.test_cancellable_inference",
     ],
     "Portal & Web Subsystem": [
         "services.portal.tests.test_portal_server",
@@ -82,6 +83,7 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.llama.tests.test_job_attestation",
         "runtime.llama.tests.test_job_bound_shared_trial",
         "runtime.llama.tests.test_shared_request",
+        "runtime.llama.tests.test_shared_request_live_health",
     ],
     "Configuration & Performance": [
         "services.common.tests.test_config",
