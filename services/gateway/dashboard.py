@@ -5,12 +5,34 @@ Provides authenticated web-based remote telemetry viewing for edge nodes and clu
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import sys
 from typing import Any
 
 from services.common.config import CONFIG
 
-# In-memory registry for dynamic node heartbeats and telemetry
-NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = {}
+REGISTRY_FILE = Path("/tmp/computemesh_node_registry.json") if sys.platform != "win32" else Path.home() / ".computemesh" / "node_registry.json"
+
+
+def _load_registry() -> dict[str, dict[str, Any]]:
+    try:
+        if REGISTRY_FILE.exists():
+            return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
+    try:
+        REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        REGISTRY_FILE.write_text(json.dumps(registry, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+# Persistent registry for dynamic node heartbeats and telemetry
+NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
 
 
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:

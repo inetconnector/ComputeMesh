@@ -30,7 +30,11 @@ from services.billing.stripe_integration import StripePaymentService, StripeSess
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
 from services.gateway.catalog import AVAILABLE_MODELS, resolve_model_id
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
+from services.gateway.dashboard import (
+    NODE_TELEMETRY_REGISTRY,
+    render_node_remote_dashboard_html,
+    save_node_telemetry_registry,
+)
 from services.gateway.inference import InferenceEngine
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.routes_billing import BillingRoutesHandler
@@ -377,6 +381,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "software": body.get("software", {}),
                 "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
+            save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id})
             return
 
