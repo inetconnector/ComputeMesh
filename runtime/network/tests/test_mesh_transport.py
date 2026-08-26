@@ -46,12 +46,20 @@ class TestMeshTransport(unittest.TestCase):
             try:
                 conn, _ = echo_sock.accept()
                 data = conn.recv(1024)
-                conn.sendall(b"ECHO:" + data)
+                if data:
+                    conn.sendall(b"ECHO:" + data)
+                try:
+                    conn.recv(1024)
+                except Exception:
+                    pass
                 conn.close()
             except Exception:
                 pass
             finally:
-                echo_sock.close()
+                try:
+                    echo_sock.close()
+                except Exception:
+                    pass
 
         threading.Thread(target=echo_worker, daemon=True).start()
 

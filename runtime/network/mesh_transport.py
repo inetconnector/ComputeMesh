@@ -290,7 +290,8 @@ class MeshTunnelServer:
             pass
         finally:
             try:
-                dst.shutdown(socket.SHUT_WR)
+                if not isinstance(dst, ssl.SSLSocket):
+                    dst.shutdown(socket.SHUT_WR)
             except Exception:
                 pass
 
@@ -407,6 +408,7 @@ class MeshTunnelClient:
             pass
         finally:
             try:
-                dst.shutdown(socket.SHUT_WR)
+                if not isinstance(dst, ssl.SSLSocket):
+                    dst.shutdown(socket.SHUT_WR)
             except Exception:
                 pass
