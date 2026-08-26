@@ -2,27 +2,19 @@
 
 ## Status
 
-This is an intermediate integration tranche between the public gateway/runtime bridge and fully verified scheduler-driven shared execution.
+The `orchestrated_openai` backend binds gateway inference to the durable orchestrator job/reservation state machines, scheduler placement, shared-run evidence, and Ed25519 participant attestations.
 
-The `orchestrated_openai` backend binds each gateway inference to the durable orchestrator job and reservation state machines. Reservations can be derived from a schema-valid M1 scheduler placement decision. Scheduler-derived mode now additionally requires matching `shared_run_evidence` before the job may complete and before provider shares may enter the ledger.
+Scheduler-derived provider settlement is now fail-closed unless the current runtime output is backed by matching `shared_run_evidence` **and every reserved provider node signs the exact execution tuple with an active enrolled ComputeMesh node key**.
 
-This still does **not** claim cryptographic attestation or production-ready shared scheduling. The current M1 evidence is structurally and content-bound verification of an experimental llama.cpp RPC proof, not a hardware root-of-trust.
+This is still experimental M1 scheduling rather than production hardware attestation. The signatures authenticate enrolled node identities and their claims; they do not prove a TEE/TPM measurement or make a compromised node truthful.
 
-## Invariants enforced
+## Successful scheduler-derived lifecycle
 
-A runtime call may start only after the job has progressed through validation/planning/reservation/preparation and every selected provider node has a durable capacity reservation that is leased, committed to the job/stage, and activated.
+`CREATED -> VALIDATING -> PLANNING -> RESERVING -> PREPARING -> RUNNING -> VERIFYING -> evidence verification -> participant signature verification -> durable evidence binding -> COMPLETED -> ledger settlement`
 
-Successful scheduler-derived execution progresses:
+Runtime, evidence, identity, or attestation verification failure moves the active job to `FAILED`. Capacity is released after success and failure.
 
-`CREATED -> VALIDATING -> PLANNING -> RESERVING -> PREPARING -> RUNNING -> VERIFYING -> evidence binding -> COMPLETED`
-
-Runtime or evidence-verification failure progresses the active job to `FAILED`. Capacity reservations are released after both success and failure.
-
-The backend requires at least two distinct provider nodes so this mode cannot silently degrade into a single-node orchestration proof.
-
-## Scheduler-derived experimental placement and execution evidence
-
-The preferred integration path is to feed both the JSON produced by `services.scheduler.placement.build_placement_decision()` and the matching proof produced by `runtime.llama.shared_run_evidence` into the orchestrated backend:
+## Configuration
 
 ```text
 COMPUTEMESH_INFERENCE_BACKEND=orchestrated_openai
@@ -30,62 +22,54 @@ COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:8080
 COMPUTEMESH_ORCHESTRATOR_STATE_PATH=/var/lib/computemesh/orchestrator.sqlite3
 COMPUTEMESH_ORCHESTRATOR_PLACEMENT_DECISION=/var/lib/computemesh/placement.json
 COMPUTEMESH_ORCHESTRATOR_SHARED_RUN_EVIDENCE=/var/lib/computemesh/shared-run-evidence.json
+COMPUTEMESH_ORCHESTRATOR_EXECUTION_ATTESTATIONS=/var/lib/computemesh/execution-attestations.json
+COMPUTEMESH_IDENTITY_STATE_PATH=/var/lib/computemesh/identity.sqlite3
 COMPUTEMESH_ALLOW_EXPERIMENTAL_SHARED_PLACEMENT=1
 COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS=180
 ```
 
-The placement adapter validates the decision against `placement_decision.schema.json` and fails closed unless:
+The experimental opt-in remains mandatory because the current M1 placement schema fixes `recommendation.production_scheduling=false`.
 
-- the recommendation is `shared_experiment`;
-- every hard constraint passed;
-- exactly one `shared_contiguous_layers` candidate is feasible;
-- the selected layer ranges contain distinct nodes, are contiguous, start at layer zero and cover the complete model;
-- the layer-range node IDs exactly match the coordinator/worker IDs in the decision;
-- the gateway request model matches the model ID in the placement decision; and
-- experimental shared placement is explicitly enabled.
+## Placement and evidence checks
 
-The evidence verifier then fails closed unless:
+The placement adapter fails closed unless all hard constraints pass, exactly one feasible `shared_contiguous_layers` candidate is selected, its node IDs match coordinator/worker identities, and layer ranges form a complete contiguous model assignment.
 
-- the document validates against `shared_run_evidence.schema.json`;
-- its evidence ID recomputes from its bound source digests and comparison fields;
-- `placement_decision_id` matches the decision that drove the reservations;
-- the immutable model artifact digest matches the placement artifact;
-- evidence layer ranges exactly match the scheduler-selected layer ranges;
-- the SHA-256 of the just-returned runtime text matches `shared_output_sha256`;
-- the evidence timestamp plausibly belongs to the current execution window; and
-- evidence participants equal the reserved provider nodes.
+The shared-run evidence verifier then checks schema validity, recomputed evidence ID, placement ID, immutable model digest, exact scheduler layer ranges, current output SHA-256, execution time window, and participant equality. It also derives a canonical SHA-256 of the evidence `runtime` object, so the runtime identity becomes part of the signed settlement tuple.
 
-After verification, provider shares are derived from the number of model layers assigned to each verified provider. The evidence document SHA-256 and evidence ID are durably bound to the orchestrator job in a single-use SQLite extension table. Both fields are unique, so the same proof cannot be replayed to settle a second job.
+Provider shares are derived from verified layer counts. Evidence ID and evidence document SHA-256 are durably single-use-bound to the orchestrator job, preventing reuse of one proof for a second settlement.
 
-The `BackendResult` carries the durable orchestrator `execution_job_id` plus the evidence-derived provider shares. `InferenceEngine` uses that orchestrator job ID as the ledger event ID and gives verified shares precedence over `COMPUTEMESH_PROVIDER_SHARES`.
+## Signed execution attestations
 
-The explicit experimental opt-in remains mandatory because the current M1 placement schema deliberately fixes `recommendation.production_scheduling` to `false`.
+Each reserved node must provide one Ed25519 signature using an active key already registered in `SQLiteIdentityStore`. The verifier requires the attestation set to exactly equal the reserved node set and binds each signature to:
+
+- `node_id` and `key_id`
+- `job_id`
+- `placement_decision_id`
+- `model_sha256`
+- canonical `runtime_sha256`
+- `evidence_sha256`
+- `output_sha256`
+- bounded `issued_at` / `expires_at`
+
+The signature domain is `ComputeMesh.ExecutionAttestation.v1`, separate from the existing node-session authentication domain. Revoked/unknown keys, missing participants, duplicates, stale attestations, altered claims, or invalid signatures fail verification before evidence is bound and before provider shares reach the ledger.
+
+Node private keys remain node-local; the gateway verifier consumes only enrolled public keys through the existing identity resolver.
 
 ## Static lab fallback
 
-For controlled development without a placement artifact, operator-selected nodes remain available:
+Without a placement artifact, operator-selected nodes remain available for controlled lab work:
 
 ```text
 COMPUTEMESH_ORCHESTRATOR_PROVIDER_NODES=node-a,node-b
 ```
 
-This path should not be described as scheduler-selected or evidence-derived placement. It retains legacy provider-share behavior and is not the preferred settlement path.
-
-`COMPUTEMESH_INFERENCE_API_KEY` and `COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS` retain their OpenAI-compatible backend meanings.
+This path is not scheduler-selected, evidence-derived, or signed-settlement proof and retains legacy provider-share behavior.
 
 ## Remaining limitations / next tranche
 
-The new binding closes the software path from a matching M1 shared-runtime proof into provider settlement, but two major limitations remain.
+The control-plane settlement trust chain is now authenticated, but two major gaps remain:
 
-First, the placement decision and evidence are still supplied as artifacts rather than generated as one atomic per-request runtime protocol. A real deployment should make the shared runtime/worker layer emit or publish the evidence for the exact current request before the orchestrator completes verification.
+1. Placement, shared-run evidence, and the attestation bundle are still supplied as artifacts rather than emitted atomically by a per-job shared execution protocol.
+2. Ed25519 proves that the enrolled node key signed the claims, not that untampered hardware executed them.
 
-Second, M1 evidence is not cryptographic node attestation. Its digests detect mutation and the single-use registry prevents replay inside this state store, but an attacker able to fabricate all source artifacts could fabricate a self-consistent proof. Production settlement therefore still requires signed node identities/evidence or another authenticated attestation mechanism.
-
-The intended next sequence is:
-
-1. generate placement dynamically from current registry/benchmark state at job planning time;
-2. make dispatch launch the planner-selected llama.cpp RPC topology directly;
-3. make each participating node sign execution evidence tied to job ID, model digest and runtime build;
-4. verify those signatures before ledger settlement;
-5. add cancellation/timeout/node-loss integration tests around real shared dispatch; and
-6. replace post-hoc word splitting with upstream runtime streaming.
+Next work should therefore make the planner-selected RPC dispatch create the current job-specific evidence and node attestations automatically, add cancellation/timeout/node-loss tests, then add optional hardware-backed attestation where available and replace post-hoc gateway word splitting with upstream streaming.
