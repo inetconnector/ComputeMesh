@@ -829,12 +829,13 @@ class ComputeMeshProviderApp:
         try:
             log_file.parent.mkdir(parents=True, exist_ok=True)
             cfg = load_appliance_config()
+            nid = getattr(cfg, "node_id", "") or "test-node-custom"
             server, actual_port = create_dashboard_server(
                 host="0.0.0.0",
                 port=8080,
                 config=cfg,
                 inventory=self.inventory,
-                node_id="windows-provider-node"
+                node_id=nid
             )
             self.dashboard_port = actual_port
             with open(log_file, "a", encoding="utf-8") as f:

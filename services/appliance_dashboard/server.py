@@ -386,6 +386,12 @@ def create_dashboard_server(
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = node_id
 
+    try:
+        from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
+        start_cloud_tunnel_relay(node_id=node_id)
+    except Exception:
+        pass
+
     for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
         try:
             server = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)

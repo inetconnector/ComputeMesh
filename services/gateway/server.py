@@ -362,6 +362,24 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
+        if clean_path in ("/api/v1/node/heartbeat", "/api/node/heartbeat", "/v1/node/heartbeat"):
+            node_id = str(body.get("node_id", "")).strip()
+            auth_token = str(body.get("auth_token", "")).strip()
+            if not node_id:
+                self._send_error_response("Valid node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            NODE_TELEMETRY_REGISTRY[node_id] = {
+                "node_id": node_id,
+                "auth_token": auth_token,
+                "inventory": body.get("inventory", {}),
+                "telemetry": body.get("telemetry", {}),
+                "global_mesh": body.get("global_mesh", {}),
+                "software": body.get("software", {}),
+                "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+            self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id})
+            return
+
         if clean_path == "/v1/billing/topup":
             res, err, status = self.billing_routes.handle_post_topup(self.headers, body)
             if err:

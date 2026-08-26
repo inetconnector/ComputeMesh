@@ -34,13 +34,43 @@ def get_or_create_node_auth_token() -> str:
 NODE_AUTH_TOKEN = get_or_create_node_auth_token()
 
 
+def get_default_node_id() -> str:
+    try:
+        from tools.appliance.appliance_config import load_appliance_config
+        cfg = load_appliance_config()
+        if cfg.node_id:
+            return cfg.node_id
+    except Exception:
+        pass
+    return "test-node-custom"
+
+
 class CloudTunnelRelay:
-    def __init__(self, node_id: str = "cm-laptop-node", auth_token: str | None = None) -> None:
-        self.node_id = node_id
+    def __init__(self, node_id: str | None = None, auth_token: str | None = None) -> None:
+        self.node_id = node_id or get_default_node_id()
         self.auth_token = auth_token or NODE_AUTH_TOKEN
         self._running = True
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
+
+    def _calculate_tflops(self, inv: Any) -> float:
+        total_tf = 0.0
+        for gpu in getattr(inv, "gpus", []):
+            m = gpu.model_name.lower()
+            if "4090" in m:
+                tf = 82.6
+            elif "3080" in m or "3090" in m:
+                tf = 24.0
+            elif "mi25" in m or "vega" in m:
+                tf = 24.6
+            elif "6800" in m or "6900" in m or "7900" in m:
+                tf = 32.0
+            elif "intel" in m:
+                tf = 1.0
+            else:
+                tf = round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)
+            total_tf += tf
+        return round(total_tf, 1)
 
     def _worker(self) -> None:
         while self._running:
@@ -50,6 +80,7 @@ class CloudTunnelRelay:
 
                 inv = scan_rig_hardware()
                 gm = GLOBAL_MESH_AGGREGATOR.get_mesh_stats()
+                tf = self._calculate_tflops(inv)
                 payload = {
                     "node_id": self.node_id,
                     "auth_token": self.auth_token,
@@ -57,7 +88,7 @@ class CloudTunnelRelay:
                     "telemetry": {
                         "tokens_processed": 142050,
                         "earnings_cm": 0.0016,
-                        "local_compute_tflops": 24.0,
+                        "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
                     },
                     "global_mesh": gm,
@@ -75,3 +106,11 @@ class CloudTunnelRelay:
 
 
 CLOUD_TUNNEL_RELAY: CloudTunnelRelay | None = None
+
+
+def start_cloud_tunnel_relay(node_id: str | None = None, auth_token: str | None = None) -> CloudTunnelRelay:
+    global CLOUD_TUNNEL_RELAY
+    if CLOUD_TUNNEL_RELAY is None:
+        CLOUD_TUNNEL_RELAY = CloudTunnelRelay(node_id=node_id, auth_token=auth_token)
+    return CLOUD_TUNNEL_RELAY
+
