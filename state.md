@@ -1471,6 +1471,32 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - Lokale Windows Tray App (`task-2741`) gestartet unter Version `1.2.13`.
 - AMD Mining Rig `192.168.1.27` synchronisiert.
 
+---
+
+## 56. Interactive AI Playground & Live Teaser Studio in Web Portal (2026-08-26)
+
+### 1. Browser-basierter Live-Inferenz-Playground (`portal/index.html`)
+- Prominent unterhalb der Hero- und Telemetrie-Sektion eingebettetes Studio (`#playground`).
+- **Modellauswahl:** Dropdown für `Qwen 2.5 7B`, `Llama 3.1 8B`, `DeepSeek Coder 6.7B`, `Mistral 7B Instruct` und `Phi-3 Mini 3.8B`.
+- **Echtzeit-Streaming:** SSE-Stream mit Token-by-Token-Rendering, animiertem Cursor und Codeblock-Syntax-Formatierung.
+- **Live-Metriken:** Permanente Anzeige von Inferenz-Status, Time-to-First-Token Latenz (`ms`), Durchsatz (`tok/s`) und kumulierter Tokenanzahl.
+- **Quick-Prompts:** Ein-Klick-Beispielprompts (*Was ist ComputeMesh?*, *FastAPI-Endpunkt*, *Pipeline-Sharding*, *Kostenvergleich*).
+
+### 2. Dynamischer Teaser-Quoten-Tracker & Konversions-Modal (`portal/portal.js`)
+- Quoten-Pill (`⚡ 20 Free Requests Left` / `20 Gratis-Anfragen übrig`) aktualisiert sich dynamisch über die Gateway-Response-Header `X-ComputeMesh-Teaser-Remaining`.
+- Bei Erreichen von 0 verbleibenden Anfragen (oder HTTP 402/429) öffnet sich automatisch das conversion-optimierte Onboarding-Modal:
+  1. **Entwickler-Pfad:** Direkte Erstellung eines echten API-Keys mit 1.000.000 Gratis-Startguthaben.
+  2. **Provider-Pfad (0% Plattformgebühr):** Einbindung eigener Hardware per `curl -sSL https://computemesh.inetconnector.com/install.sh | bash` oder Windows Tray App.
+- Vollständige zweisprachige Lokalisierung (Deutsch / Englisch) für sämtliche UI-Elemente und Platzhalter.
+
+### 3. Glassmorphic Dark Studio Design (`portal/portal.css`)
+- Responsives 2-Spalten-Layout mit modernem Glassmorphismus (`backdrop-filter: blur(16px)`), Neon-Farbakzenten (`--accent-cyan`, `--accent-emerald`, `--primary`) und pulsierendem Cluster-Aktivitätsindikator.
+
+### 4. QA-Verifikation & Produktiv-Deployment
+- **278/278 Tests bestanden (100% OK)** im zentralen Testframework ([`run_all_tests.py`](file:///c:/Users/frede/Projekte/ComputeMesh/run_all_tests.py)).
+- Live auf `supersrv-trixie` (`/var/www/vhosts/inetconnector.com/site2/`) bereitgestellt und über `https://computemesh.inetconnector.com/` verifiziert.
+
+
 
 
 

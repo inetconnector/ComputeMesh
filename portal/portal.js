@@ -207,6 +207,40 @@ const translations = {
     plan3_title: "Enterprise Dedicated",
     plan3_btn: "🏢 Contact Sales",
 
+    nav_playground: "⚡ Playground",
+    btn_try_playground: "⚡ Try Live Teaser (Free)",
+    pg_tag: "Live Teaser Demo • No Signup Required",
+    pg_title: "Test Decentralized Inference <span class=\"gradient-text\">Live in Your Browser</span>",
+    pg_sub: "Experience sub-millisecond dispatch and pooled GPU power instantly. 20 free teaser requests included before requiring an API key or provider node.",
+    pg_model_lbl: "Model:",
+    pg_mesh_active: "Mesh Active (8–64 GB VRAM Pool)",
+    pg_quota_badge: "20 Free Requests Left",
+    pg_badge_live: "LIVE MESH",
+    pg_welcome_msg: "Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.",
+    pg_status_lbl: "Status:",
+    pg_status_ready: "Ready",
+    pg_tps_lbl: "Speed:",
+    pg_latency_lbl: "Latency:",
+    pg_tokens_lbl: "Tokens:",
+    qp_explain: "⚡ What is ComputeMesh?",
+    qp_code: "🐍 Write a FastAPI endpoint",
+    qp_sharding: "🧩 Explain Pipeline Sharding",
+    qp_roi: "💰 ComputeMesh vs AWS/OpenAI costs",
+    pg_input_placeholder: "Ask anything... (Press Enter to send, Shift+Enter for newline)",
+    pg_btn_send: "Send Prompt",
+    conv_tag: "⚡ Free Teaser Limit Reached",
+    conv_title: "Unlock Unlimited High-Speed Inference",
+    conv_sub: "You've explored the decentralized cluster! Join the ecosystem as an API Consumer or Hardware Provider to continue without limits.",
+    conv_opt1_badge: "Option A: Developer",
+    conv_opt1_title: "🔑 Get Your Live API Key",
+    conv_opt1_desc: "Instant OpenAI-compatible access. 80% cheaper tokens with pre-paid Stripe top-up and double-entry accounting.",
+    conv_opt1_btn: "Generate API Key →",
+    conv_opt2_badge: "Option B: Provider (0% Fee)",
+    conv_opt2_title: "⚡ Share GPU & Earn Credits",
+    conv_opt2_desc: "Connect your idle PC or mining rig. Earn passive revenue and get 0% platform fees when running your own models.",
+    conv_opt2_btn: "Register Node",
+    conv_opt2_dl: "Download App",
+
     footer_rights: "All rights reserved. Decentralized AI Mesh Architecture.",
   },
   
@@ -413,6 +447,40 @@ const translations = {
     plan3_title: "Enterprise Dedicated",
     plan3_btn: "🏢 Vertrieb kontaktieren",
 
+    nav_playground: "⚡ Playground",
+    btn_try_playground: "⚡ Live-Teaser testen (Gratis)",
+    pg_tag: "Live-Teaser-Demo • Keine Registrierung nötig",
+    pg_title: "Dezentrale KI-Inferenz <span class=\"gradient-text\">live im Browser testen</span>",
+    pg_sub: "Erlebe Sub-Millisekunden-Dispatching und verteilte GPU-Power sofort. 20 kostenlose Teaser-Anfragen inklusive, bevor ein API-Key oder eigener Provider-Node nötig wird.",
+    pg_model_lbl: "Modell:",
+    pg_mesh_active: "Mesh Aktiv (8–64 GB VRAM-Pool)",
+    pg_quota_badge: "20 Gratis-Anfragen übrig",
+    pg_badge_live: "LIVE MESH",
+    pg_welcome_msg: "Willkommen bei ComputeMesh! Du kannst unseren dezentralen GPU-Cluster direkt hier mit 20 kostenlosen Teaser-Anfragen ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz.",
+    pg_status_lbl: "Status:",
+    pg_status_ready: "Bereit",
+    pg_tps_lbl: "Geschwindigkeit:",
+    pg_latency_lbl: "Latenz:",
+    pg_tokens_lbl: "Tokens:",
+    qp_explain: "⚡ Was ist ComputeMesh?",
+    qp_code: "🐍 Schreibe einen FastAPI-Endpunkt",
+    qp_sharding: "🧩 Erkläre Pipeline-Sharding",
+    qp_roi: "💰 ComputeMesh vs. AWS/OpenAI Kosten",
+    pg_input_placeholder: "Stelle eine Frage... (Enter zum Senden, Shift+Enter für neue Zeile)",
+    pg_btn_send: "Prompt senden",
+    conv_tag: "⚡ Kostenloses Teaser-Limit erreicht",
+    conv_title: "Unbegrenzte High-Speed-Inferenz freischalten",
+    conv_sub: "Du hast das dezentrale Mesh erfolgreich getestet! Werde Teil des Netzwerks als API-Nutzer oder GPU-Provider, um ohne Limits weiterzumachen.",
+    conv_opt1_badge: "Option A: Entwickler",
+    conv_opt1_title: "🔑 Echten API-Key erstellen",
+    conv_opt1_desc: "Sofortiger OpenAI-kompatibler Zugriff. 80% günstigere Tokens mit sicherem Stripe-Guthaben und transparenter Buchhaltung.",
+    conv_opt1_btn: "API-Key generieren →",
+    conv_opt2_badge: "Option B: Provider (0% Gebühr)",
+    conv_opt2_title: "⚡ Eigene GPU teilen & Credits verdienen",
+    conv_opt2_desc: "Binde deinen PC oder dein Mining-Rig an. Verdiene passive Erlöse und nutze eigene Modelle mit 0% Plattformgebühr (Self-Compute).",
+    conv_opt2_btn: "Node registrieren",
+    conv_opt2_dl: "App herunterladen",
+
     footer_rights: "Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.",
   }
 };
@@ -429,6 +497,12 @@ function switchLanguage(lang) {
       } else {
         el.innerHTML = translations[lang][key];
       }
+    }
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    const key = el.getAttribute('data-i18n-ph');
+    if (translations[lang] && translations[lang][key]) {
+      el.setAttribute('placeholder', translations[lang][key]);
     }
   });
   const btn = document.getElementById('lang-toggle-btn');
@@ -625,25 +699,203 @@ function handleContactSubmit(e) {
   }
 }
 
-async function runPlaygroundPrompt() {
-  const modelEl = document.getElementById('playground-model');
-  const inputEl = document.getElementById('playground-input');
-  const outputEl = document.getElementById('playground-output');
-  const statsEl = document.getElementById('playground-stats');
-  const btnEl = document.getElementById('playground-btn');
+/* ==============================================================================
+   Interactive AI Playground & Live Teaser Studio Controller
+   ============================================================================== */
 
-  if (!modelEl || !inputEl || !outputEl || !statsEl) return;
+let playgroundChatHistory = [];
+let teaserRequestsRemaining = 20;
+let isPlaygroundInferencing = false;
+
+const QUICK_PROMPTS = {
+  explain_mesh: "In 2 concise sentences, what is ComputeMesh and how does it achieve 80% lower inference costs?",
+  python_fastapi: "Write a high-performance Python FastAPI server endpoint that forwards requests to an OpenAI-compatible /v1/chat/completions gateway with streaming.",
+  gpu_sharding: "Explain how pipeline layer sharding works across multiple consumer GPUs connected via PCIe 1x mining risers.",
+  compare_costs: "Provide a quick comparison table: ComputeMesh decentralized inference vs AWS Bedrock vs OpenAI API on 10M tokens."
+};
+
+function formatChatMarkdown(text) {
+  if (!text) return "";
+  // Escape basic HTML
+  let escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  
+  // Format code blocks ```python ... ```
+  escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langLabel = lang ? `<div style="font-size:0.7rem; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:0.25rem;">${lang}</div>` : '';
+    return `<pre>${langLabel}<code>${code.trim()}</code></pre>`;
+  });
+
+  // Format inline code `...`
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Format bold **...**
+  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // Format line breaks
+  escaped = escaped.replace(/\n/g, '<br>');
+
+  return escaped;
+}
+
+function updateTeaserQuota(remaining, limit) {
+  if (typeof remaining === 'number' && !isNaN(remaining)) {
+    teaserRequestsRemaining = remaining;
+    const quotaTextEl = document.getElementById('pg-quota-text');
+    if (quotaTextEl) {
+      if (currentLang === 'de') {
+        quotaTextEl.textContent = `${remaining} Gratis-Anfragen übrig`;
+      } else {
+        quotaTextEl.textContent = `${remaining} Free Requests Left`;
+      }
+    }
+  }
+}
+
+function openTeaserConversionModal() {
+  const modal = document.getElementById('teaser-conversion-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
+}
+
+function closeTeaserConversionModal() {
+  const modal = document.getElementById('teaser-conversion-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+  }
+}
+
+function copyCliCommand(btn, cmd) {
+  navigator.clipboard.writeText(cmd).then(() => {
+    const originalText = btn.textContent;
+    btn.textContent = "✓";
+    setTimeout(() => { btn.textContent = originalText; }, 2000);
+  }).catch(() => {
+    alert("Copied: " + cmd);
+  });
+}
+
+function clearPlaygroundChat() {
+  playgroundChatHistory = [];
+  const streamEl = document.getElementById('playground-chat-stream');
+  if (streamEl) {
+    const welcomeMsg = currentLang === 'de'
+      ? "Willkommen bei ComputeMesh! Du kannst unseren dezentralen GPU-Cluster direkt hier mit 20 kostenlosen Teaser-Anfragen ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz."
+      : "Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.";
+
+    streamEl.innerHTML = `
+      <div class="chat-msg chat-msg-ai">
+        <div class="chat-avatar">🤖</div>
+        <div class="chat-bubble">
+          <div class="chat-author">ComputeMesh AI <span class="chat-badge">${currentLang === 'de' ? 'LIVE MESH' : 'LIVE MESH'}</span></div>
+          <div class="chat-body">${welcomeMsg}</div>
+        </div>
+      </div>
+    `;
+  }
+  const statusEl = document.getElementById('pg-metric-status');
+  const tpsEl = document.getElementById('pg-metric-tps');
+  const latEl = document.getElementById('pg-metric-latency');
+  const tokEl = document.getElementById('pg-metric-tokens');
+  if (statusEl) statusEl.textContent = currentLang === 'de' ? 'Bereit' : 'Ready';
+  if (tpsEl) tpsEl.textContent = '— tok/s';
+  if (latEl) latEl.textContent = '— ms';
+  if (tokEl) tokEl.textContent = '0';
+}
+
+function applyQuickPrompt(promptKey) {
+  const prompt = QUICK_PROMPTS[promptKey];
+  const inputEl = document.getElementById('playground-prompt-input');
+  if (prompt && inputEl) {
+    inputEl.value = prompt;
+    inputEl.focus();
+    sendPlaygroundMessage();
+  }
+}
+
+function handlePlaygroundKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendPlaygroundMessage();
+  }
+}
+
+async function sendPlaygroundMessage() {
+  if (isPlaygroundInferencing) return;
+
+  const inputEl = document.getElementById('playground-prompt-input');
+  const modelEl = document.getElementById('playground-model-select');
+  const streamEl = document.getElementById('playground-chat-stream');
+  const sendBtn = document.getElementById('playground-send-btn');
+  const sendBtnText = document.getElementById('pg-send-btn-text');
+  const statusEl = document.getElementById('pg-metric-status');
+  const tpsEl = document.getElementById('pg-metric-tps');
+  const latEl = document.getElementById('pg-metric-latency');
+  const tokEl = document.getElementById('pg-metric-tokens');
+
+  if (!inputEl || !modelEl || !streamEl) return;
+
+  const promptText = inputEl.value.trim();
+  if (!promptText) return;
+
+  // Check quota limit
+  if (teaserRequestsRemaining <= 0) {
+    openTeaserConversionModal();
+    return;
+  }
+
+  // Clear input
+  inputEl.value = "";
+  inputEl.style.height = "44px";
+
+  // Append user message to UI
+  const userMsgHtml = `
+    <div class="chat-msg chat-msg-user">
+      <div class="chat-avatar">👤</div>
+      <div class="chat-bubble">
+        <div class="chat-author" style="color: #c7d2fe;">You</div>
+        <div class="chat-body">${formatChatMarkdown(promptText)}</div>
+      </div>
+    </div>
+  `;
+  streamEl.insertAdjacentHTML('beforeend', userMsgHtml);
+
+  // Append AI placeholder bubble
+  const aiMsgId = 'ai-msg-' + Date.now();
+  const aiMsgHtml = `
+    <div class="chat-msg chat-msg-ai">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-bubble">
+        <div class="chat-author">ComputeMesh AI <span class="chat-badge">LIVE MESH</span></div>
+        <div class="chat-body" id="${aiMsgId}"><span class="chat-cursor"></span></div>
+      </div>
+    </div>
+  `;
+  streamEl.insertAdjacentHTML('beforeend', aiMsgHtml);
+  streamEl.scrollTop = streamEl.scrollHeight;
+
+  const aiBodyEl = document.getElementById(aiMsgId);
+
+  // Lock UI state
+  isPlaygroundInferencing = true;
+  if (sendBtn) sendBtn.disabled = true;
+  if (sendBtnText) sendBtnText.textContent = currentLang === 'de' ? 'Generiere...' : 'Inferencing...';
+  if (statusEl) {
+    statusEl.textContent = currentLang === 'de' ? 'Routing Mesh...' : 'Routing Mesh...';
+    statusEl.className = 'pg-metric-val';
+  }
 
   const model = modelEl.value;
-  const prompt = inputEl.value.trim();
-  if (!prompt) return;
-
-  outputEl.textContent = "";
-  statsEl.textContent = "Connecting to distributed mesh...";
-  statsEl.style.color = "var(--primary)";
-  if (btnEl) btnEl.disabled = true;
+  playgroundChatHistory.push({ role: 'user', content: promptText });
 
   const startTime = performance.now();
+  let firstTokenTime = 0;
+  let rawAiText = "";
   let tokenCount = 0;
 
   try {
@@ -651,21 +903,41 @@ async function runPlaygroundPrompt() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer cm_live_playground_guest_token'
+        'X-ComputeMesh-Client': 'web-playground-v1.2'
       },
       body: JSON.stringify({
         model: model,
-        messages: [{ role: 'user', content: prompt }],
-        stream: true
+        messages: playgroundChatHistory.slice(-6),
+        stream: true,
+        temperature: 0.7
       })
     });
 
+    // Extract teaser remaining headers
+    const remainingHdr = response.headers.get('X-ComputeMesh-Teaser-Remaining');
+    const limitHdr = response.headers.get('X-ComputeMesh-Teaser-Limit');
+    if (remainingHdr) {
+      updateTeaserQuota(parseInt(remainingHdr, 10), parseInt(limitHdr || '20', 10));
+    } else {
+      teaserRequestsRemaining = Math.max(0, teaserRequestsRemaining - 1);
+      updateTeaserQuota(teaserRequestsRemaining, 20);
+    }
+
+    if (response.status === 402 || response.status === 429) {
+      const errJson = await response.json().catch(() => ({}));
+      const errMsg = errJson.message || (currentLang === 'de' ? 'Kostenloses Teaser-Limit erreicht (20/20).' : 'Free teaser limit reached (20/20).');
+      if (aiBodyEl) {
+        aiBodyEl.innerHTML = `<span style="color: #f87171;">⚠️ ${errMsg}</span>`;
+      }
+      openTeaserConversionModal();
+      return;
+    }
+
     if (!response.ok) {
       const errText = await response.text();
-      outputEl.textContent = `Error (${response.status}): ${errText}`;
-      statsEl.textContent = "Inference Failed";
-      statsEl.style.color = "var(--accent-red)";
-      if (btnEl) btnEl.disabled = false;
+      if (aiBodyEl) {
+        aiBodyEl.innerHTML = `<span style="color: #f87171;">Inference error (${response.status}): ${errText}</span>`;
+      }
       return;
     }
 
@@ -685,36 +957,63 @@ async function runPlaygroundPrompt() {
         const trimmed = line.trim();
         if (trimmed.startsWith("data: ")) {
           const dataStr = trimmed.slice(6);
-          if (dataStr === "[DONE]") {
-            break;
-          }
+          if (dataStr === "[DONE]") break;
           try {
             const parsed = JSON.parse(dataStr);
             const delta = parsed.choices?.[0]?.delta?.content || "";
             if (delta) {
-              outputEl.textContent += delta;
+              if (!firstTokenTime) {
+                firstTokenTime = performance.now();
+                const latencyMs = Math.round(firstTokenTime - startTime);
+                if (latEl) latEl.textContent = `${latencyMs} ms`;
+              }
+              rawAiText += delta;
               tokenCount++;
-              const elapsedSec = (performance.now() - startTime) / 1000;
-              const tps = (tokenCount / elapsedSec).toFixed(1);
-              statsEl.textContent = `Streaming: ${tokenCount} tokens • ${tps} tok/s`;
+              if (aiBodyEl) {
+                aiBodyEl.innerHTML = formatChatMarkdown(rawAiText) + '<span class="chat-cursor"></span>';
+              }
+              streamEl.scrollTop = streamEl.scrollHeight;
+
+              const elapsedSec = (performance.now() - (firstTokenTime || startTime)) / 1000;
+              const tps = (tokenCount / Math.max(elapsedSec, 0.05)).toFixed(1);
+              if (tpsEl) tpsEl.textContent = `${tps} tok/s`;
+              if (tokEl) tokEl.textContent = `${tokenCount}`;
             }
           } catch (e) {
-            // Ignore partial SSE JSON parse
+            // Ignore SSE json chunk split
           }
         }
       }
     }
 
+    // Finalize message rendering
+    if (aiBodyEl) {
+      aiBodyEl.innerHTML = formatChatMarkdown(rawAiText);
+    }
+    playgroundChatHistory.push({ role: 'assistant', content: rawAiText });
+
     const totalElapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
-    const finalTps = (tokenCount / (totalElapsedSec > 0 ? totalElapsedSec : 1)).toFixed(1);
-    statsEl.textContent = `✓ Completed in ${totalElapsedSec}s • ${tokenCount} tokens • ${finalTps} tok/s • Cost: ~$0.0001`;
-    statsEl.style.color = "var(--accent-emerald)";
+    const finalTps = (tokenCount / Math.max(parseFloat(totalElapsedSec), 0.05)).toFixed(1);
+    if (statusEl) {
+      statusEl.textContent = currentLang === 'de' ? 'Abgeschlossen' : 'Completed';
+      statusEl.className = 'pg-metric-val emerald';
+    }
+    if (tpsEl) tpsEl.textContent = `${finalTps} tok/s`;
+    if (tokEl) tokEl.textContent = `${tokenCount}`;
+
   } catch (err) {
-    outputEl.textContent = `Network Error: Could not connect to API gateway.\n${err.message}`;
-    statsEl.textContent = "Connection Error";
-    statsEl.style.color = "var(--accent-red)";
+    if (aiBodyEl) {
+      aiBodyEl.innerHTML = `<span style="color: #f87171;">Connection error: ${err.message}</span>`;
+    }
+    if (statusEl) {
+      statusEl.textContent = currentLang === 'de' ? 'Fehler' : 'Error';
+      statusEl.className = 'pg-metric-val';
+    }
   } finally {
-    if (btnEl) btnEl.disabled = false;
+    isPlaygroundInferencing = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (sendBtnText) sendBtnText.textContent = currentLang === 'de' ? 'Prompt senden' : 'Send Prompt';
+    streamEl.scrollTop = streamEl.scrollHeight;
   }
 }
 

@@ -47,6 +47,7 @@
       </a>
 
       <ul class="nav-links">
+        <li><a href="#playground" data-i18n="nav_playground">⚡ Playground</a></li>
         <li><a href="#features" data-i18n="nav_features">Features</a></li>
         <li><a href="#pricing" data-i18n="nav_pricing">Pricing</a></li>
         <li><a href="#downloads" data-i18n="nav_downloads">Downloads</a></li>
@@ -77,7 +78,7 @@
       </p>
 
       <div class="hero-cta">
-        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="btn_start_inferencing">Run AI Models (API)</button>
+        <a href="#playground" class="btn btn-primary" data-i18n="btn_try_playground">⚡ Try Live Teaser (Free)</a>
         <button class="btn btn-emerald" onclick="openModal('provider')" data-i18n="btn_provide_compute">Provide GPU & Earn</button>
       </div>
 
@@ -98,6 +99,100 @@
         <div class="ticker-item amber">
           <div class="ticker-val">~80% Lower</div>
           <div class="ticker-lbl" data-i18n="ticker_uptime">vs. Cloud Hyperscalers</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive AI Playground & Live Teaser Studio -->
+  <section class="playground-sec" id="playground">
+    <div class="container">
+      <div class="section-header" style="margin-bottom: 2rem;">
+        <span class="section-tag" data-i18n="pg_tag">Live Teaser Demo • No Signup Required</span>
+        <h2 data-i18n="pg_title">Test Decentralized Inference <span class="gradient-text">Live in Your Browser</span></h2>
+        <p data-i18n="pg_sub">Experience sub-millisecond dispatch and pooled GPU power instantly. 20 free teaser requests included before requiring an API key or provider node.</p>
+      </div>
+
+      <div class="playground-studio">
+        <!-- Top Toolbar -->
+        <div class="pg-toolbar">
+          <div class="pg-toolbar-left">
+            <div class="pg-control-group">
+              <label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Model:</label>
+              <select id="playground-model-select" class="pg-select">
+                <option value="qwen2.5:7b" selected>Qwen 2.5 7B (Ultra-Fast • Quantized)</option>
+                <option value="llama3.1:8b">Llama 3.1 8B (Smart • Meta AI)</option>
+                <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B (Code Specialist)</option>
+                <option value="mistral:7b">Mistral 7B Instruct (Balanced)</option>
+                <option value="phi3:mini">Phi-3 Mini 3.8B (Lightweight)</option>
+              </select>
+            </div>
+            <div class="pg-cluster-badge">
+              <span class="pulse-dot"></span>
+              <span id="pg-cluster-status" data-i18n="pg_mesh_active">Mesh Active (8–64 GB VRAM Pool)</span>
+            </div>
+          </div>
+
+          <div class="pg-toolbar-right">
+            <div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="Click to view upgrade options">
+              <span>⚡</span>
+              <span id="pg-quota-text" data-i18n="pg_quota_badge">20 Free Requests Left</span>
+            </div>
+            <button id="pg-clear-chat-btn" class="pg-btn-icon" onclick="clearPlaygroundChat()" title="Clear Chat">🗑️</button>
+          </div>
+        </div>
+
+        <!-- Chat / Message Stream Area -->
+        <div id="playground-chat-stream" class="pg-chat-stream">
+          <!-- Initial Assistant Welcome Message -->
+          <div class="chat-msg chat-msg-ai">
+            <div class="chat-avatar">🤖</div>
+            <div class="chat-bubble">
+              <div class="chat-author">ComputeMesh AI <span class="chat-badge" data-i18n="pg_badge_live">LIVE MESH</span></div>
+              <div class="chat-body" data-i18n="pg_welcome_msg">
+                Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Metrics / Status Bar -->
+        <div id="playground-live-metrics" class="pg-metrics-bar">
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_status_lbl">Status:</span>
+            <span id="pg-metric-status" class="pg-metric-val emerald" data-i18n="pg_status_ready">Ready</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_tps_lbl">Speed:</span>
+            <span id="pg-metric-tps" class="pg-metric-val">— tok/s</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_latency_lbl">Latency:</span>
+            <span id="pg-metric-latency" class="pg-metric-val">— ms</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_tokens_lbl">Tokens:</span>
+            <span id="pg-metric-tokens" class="pg-metric-val">0</span>
+          </div>
+        </div>
+
+        <!-- Quick Prompt Suggestion Pills -->
+        <div class="pg-quick-prompts">
+          <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain">⚡ What is ComputeMesh?</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_code">🐍 Write a FastAPI endpoint</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_sharding">🧩 Explain Pipeline Sharding</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_roi">💰 ComputeMesh vs AWS/OpenAI costs</button>
+        </div>
+
+        <!-- Prompt Input & Controls Area -->
+        <div class="pg-input-container">
+          <textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Ask anything... (Press Enter to send, Shift+Enter for newline)" data-i18n-ph="pg_input_placeholder" onkeydown="handlePlaygroundKey(event)"></textarea>
+          <div class="pg-input-actions">
+            <button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()">
+              <span id="pg-send-btn-text" data-i18n="pg_btn_send">Send Prompt</span>
+              <span class="pg-send-icon">🚀</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -449,6 +544,44 @@ response = client.chat.completions.create(
       </form>
 
       <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
+    </div>
+  </div>
+
+  <!-- Teaser Limit / Conversion Onboarding Modal -->
+  <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-box modal-lg" style="max-width: 680px;">
+      <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
+      
+      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">⚡ Free Teaser Limit Reached</div>
+      <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem;" data-i18n="conv_title">Unlock Unlimited High-Speed Inference</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="conv_sub">
+        You've explored the decentralized cluster! Join the ecosystem as an API Consumer or Hardware Provider to continue without limits.
+      </p>
+
+      <div class="conv-options-grid">
+        <!-- Option 1: Developer API Key -->
+        <div class="conv-card highlight">
+          <div class="conv-card-badge" data-i18n="conv_opt1_badge">Option A: Developer</div>
+          <h4 data-i18n="conv_opt1_title">🔑 Get Your Live API Key</h4>
+          <p data-i18n="conv_opt1_desc">Instant OpenAI-compatible access. 80% cheaper tokens with pre-paid Stripe top-up and double-entry accounting.</p>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Generate API Key →</button>
+        </div>
+
+        <!-- Option 2: Provide Hardware & Earn -->
+        <div class="conv-card emerald">
+          <div class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Option B: Provider (0% Fee)</div>
+          <h4 data-i18n="conv_opt2_title">⚡ Share GPU & Earn Credits</h4>
+          <p data-i18n="conv_opt2_desc">Connect your idle PC or mining rig. Earn passive revenue and get 0% platform fees when running your own models.</p>
+          <div class="conv-cli-box">
+            <code>curl -sSL https://computemesh.inetconnector.com/install.sh | bash</code>
+            <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -sSL https://computemesh.inetconnector.com/install.sh | bash')">📋</button>
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem;">
+            <button class="btn btn-emerald" style="flex: 1;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">Register Node</button>
+            <a href="#downloads" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Download App</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
