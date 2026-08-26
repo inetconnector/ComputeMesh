@@ -1,13 +1,8 @@
-"""Run the ComputeMesh gateway with automatic persistent provider registration.
-
-Providers authenticate over the persistent control channel and push their current
-profile/runtime/benchmarks into LIVE_SHARED_RUNTIME. Models are loaded from a local
-content-addressed catalog whose GGUF files are verified against the standard
-ComputeMesh model manifests before serving starts.
-"""
+"""Run ComputeMesh live serving with verified models and cancellable requests."""
 from __future__ import annotations
 
 import argparse
+from http.server import ThreadingHTTPServer
 import importlib
 import os
 from pathlib import Path
@@ -15,8 +10,10 @@ import sys
 from typing import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
+from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.live_bootstrap import install_live_shared_gateway
-from services.gateway.server import DEFAULT_PORT, run_gateway_server
+from services.gateway.live_handler import LiveGatewayHandler
+from services.gateway.server import DEFAULT_PORT
 from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
@@ -32,7 +29,6 @@ def configure_live_runtime_from_module(
     *,
     registry: LiveSharedRuntimeRegistry = LIVE_SHARED_RUNTIME,
 ) -> None:
-    """Optionally load additional site-specific live state."""
     if not module_name:
         return
     if len(module_name) > 256:
@@ -87,6 +83,28 @@ def _start_integrated_control_plane(
     return plane
 
 
+def _install_cancellable_live_gateway():
+    backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
+    LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
+        ledger=LiveGatewayHandler.ledger,
+        metrics=LiveGatewayHandler.metrics,
+        teaser_manager=LiveGatewayHandler.teaser_manager,
+        backend=backend,
+    )
+    return backend
+
+
+def _run_live_gateway(*, host: str, port: int) -> None:
+    server = ThreadingHTTPServer((host, port), LiveGatewayHandler)
+    print(f"ComputeMesh Live Gateway listening on http://{host}:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down live gateway...")
+    finally:
+        server.server_close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ComputeMesh live shared-inference gateway")
     parser.add_argument("--host", default="0.0.0.0")
@@ -113,14 +131,14 @@ def main(argv: list[str] | None = None) -> int:
             key_file=args.control_key,
             identity_path=os.environ.get("COMPUTEMESH_IDENTITY_STATE_PATH", "").strip(),
         )
-        install_live_shared_gateway()
+        _install_cancellable_live_gateway()
     except Exception as exc:
         if control_plane is not None:
             control_plane.close()
         print(f"live gateway bootstrap failed: {type(exc).__name__}: {str(exc)[:1024]}", file=sys.stderr)
         return 2
     try:
-        run_gateway_server(host=args.host, port=args.port)
+        _run_live_gateway(host=args.host, port=args.port)
     finally:
         if control_plane is not None:
             control_plane.close()

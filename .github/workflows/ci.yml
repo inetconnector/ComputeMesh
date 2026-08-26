@@ -39,6 +39,7 @@ jobs:
           python -m unittest services.gateway.tests.test_inference_backend -v
           python -m unittest services.gateway.tests.test_execution_attestation -v
           python -m unittest services.gateway.tests.test_live_bootstrap -v
+          python -m unittest services.gateway.tests.test_cancellable_inference -v
 
       - name: Job-bound runtime attestation tests
         run: |
@@ -46,12 +47,18 @@ jobs:
           python -m unittest runtime.llama.tests.test_job_bound_shared_trial -v
           python -m unittest runtime.llama.tests.test_shared_request -v
 
-      - name: Attestation control-plane tests
+      - name: Live control-plane and recovery tests
         run: |
           python -m unittest services.orchestrator.tests.test_attestation_collection -v
           python -m unittest services.orchestrator.tests.test_authenticated_attestation_transport -v
           python -m unittest services.orchestrator.tests.test_shared_request_backend -v
+          python -m unittest services.orchestrator.tests.test_shared_request_cancellation -v
           python -m unittest services.orchestrator.tests.test_live_shared_runtime -v
+          python -m unittest services.orchestrator.tests.test_live_model_catalog -v
+          python -m unittest services.orchestrator.tests.test_live_shared_recovery -v
+          python -m unittest services.orchestrator.tests.test_live_request_cancel_registry -v
+          python -m unittest services.orchestrator.tests.test_persistent_control_channel -v
+          python -m unittest services.orchestrator.tests.test_live_provider_registration -v
 
       - name: Full test suite
         run: python run_all_tests.py

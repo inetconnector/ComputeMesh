@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.orchestrator.live_shared_backend import LiveSharedInferenceBackend
+from services.orchestrator.persistence import SQLiteStateStore
 
 
 class _Registry:
@@ -55,10 +57,10 @@ class LiveSharedRecoveryTests(unittest.TestCase):
         _FakeAttemptBackend.outcomes = []
         _FakeAttemptBackend.jobs = []
 
-    def _backend(self, registry, *, max_attempts=2):
+    def _backend(self, registry, *, max_attempts=2, store=None):
         return LiveSharedInferenceBackend(
             registry=registry,
-            store=object(),
+            store=store if store is not None else object(),
             resolver=object(),
             llama_server=Path("llama-server"),
             work_root=Path("work"),
@@ -73,9 +75,7 @@ class LiveSharedRecoveryTests(unittest.TestCase):
         registry = _Registry([_plan("node-a", "node-b"), _plan("node-c", "node-d")])
         expected = BackendResult("ok", 2, 3, execution_job_id="final")
         _FakeAttemptBackend.outcomes = [InferenceBackendError("first failed"), expected]
-
         result = self._backend(registry).complete(model_id="model", messages=[{"role": "user", "content": "x"}])
-
         self.assertIs(result, expected)
         self.assertEqual(registry.calls, 2)
         self.assertEqual(len(_FakeAttemptBackend.jobs), 2)
@@ -88,7 +88,6 @@ class LiveSharedRecoveryTests(unittest.TestCase):
     def test_retry_refuses_same_failed_provider_set(self):
         registry = _Registry([_plan("node-a", "node-b"), _plan("node-b", "node-a")])
         _FakeAttemptBackend.outcomes = [InferenceBackendError("first failed")]
-
         with self.assertRaisesRegex(InferenceBackendError, "failed provider set again"):
             self._backend(registry).complete(model_id="model", messages=[{"role": "user", "content": "x"}])
         self.assertEqual(len(_FakeAttemptBackend.jobs), 1)
@@ -97,7 +96,6 @@ class LiveSharedRecoveryTests(unittest.TestCase):
     def test_max_attempts_one_never_retries(self):
         registry = _Registry([_plan("node-a", "node-b"), _plan("node-c", "node-d")])
         _FakeAttemptBackend.outcomes = [InferenceBackendError("first failed")]
-
         with self.assertRaises(InferenceBackendError):
             self._backend(registry, max_attempts=1).complete(model_id="model", messages=[])
         self.assertEqual(registry.calls, 1)
@@ -105,15 +103,18 @@ class LiveSharedRecoveryTests(unittest.TestCase):
     @patch("services.orchestrator.live_shared_backend.run_live_shared_request")
     def test_runtime_deadlines_are_forwarded(self, run):
         registry = _Registry([_plan("node-a", "node-b")])
-        backend = self._backend(registry)
-        live = registry.build_execution_plan("model", allow_experimental=True)
-        attempt = backend._backend_for_attempt(live=live, attempt_job_id="job-a1")
-        run.return_value = object()
-
-        attempt.runner(job_id="job-a1", bundle_path=Path("ignored"), llama_server=Path("x"), model_path=Path("y"), worker_rpc=object(), output_dir=Path("z"), prompt="p")
-
-        self.assertEqual(run.call_args.kwargs["startup_timeout"], 12.0)
-        self.assertEqual(run.call_args.kwargs["request_timeout"], 34.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = SQLiteStateStore(Path(tmp) / "state.sqlite3")
+            try:
+                backend = self._backend(registry, store=store)
+                live = registry.build_execution_plan("model", allow_experimental=True)
+                attempt = backend._backend_for_attempt(live=live, attempt_job_id="job-a1")
+                run.return_value = object()
+                attempt.runner(job_id="job-a1", bundle_path=Path("ignored"), llama_server=Path("x"), model_path=Path("y"), worker_rpc=object(), output_dir=Path("z"), prompt="p")
+                self.assertEqual(run.call_args.kwargs["startup_timeout"], 12.0)
+                self.assertEqual(run.call_args.kwargs["request_timeout"], 34.0)
+            finally:
+                store.close()
 
 
 if __name__ == "__main__":
