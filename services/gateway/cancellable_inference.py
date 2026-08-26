@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import threading
 from typing import Any, Iterator
 
-from services.billing.ledger import DEFAULT_PRICE_TIERS
+from services.billing.ledger import DEFAULT_NETWORK_FEE_BPS, DEFAULT_PRICE_TIERS
 from services.gateway.catalog import resolve_model_id
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import BackendResult, InferenceBackend
@@ -108,7 +108,8 @@ class CancellableInferenceEngine(InferenceEngine):
             DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"],
         )
         is_self_compute = bool(kwargs.get("is_provider_self_compute", False))
-        fee_bps = 0 if is_self_compute else int(self.ledger.network_fee_bps)
+        configured_fee = getattr(self.ledger, "network_fee_bps", DEFAULT_NETWORK_FEE_BPS)
+        fee_bps = 0 if is_self_compute else int(configured_fee)
 
         self._request_local.execution_job_id = None
         self._request_local.billing_context = {
@@ -132,13 +133,11 @@ class CancellableInferenceEngine(InferenceEngine):
                 try:
                     self.billing_intents.mark_recorded(execution_job_id)
                 except Exception:
-                    # Ledger has already committed. Startup replay repairs outbox status.
                     pass
             if execution_job_id and store is not None:
                 try:
                     acknowledge_job_settlement(store, execution_job_id)
                 except Exception:
-                    # Billing has already committed. Startup reconciliation repairs ACK.
                     pass
             return result
         finally:
