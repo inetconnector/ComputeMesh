@@ -103,7 +103,7 @@ class TestGatewayServer(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tempdir = tempfile.TemporaryDirectory()
         cls.fake_stripe = FakeStripeClient()
-        os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test"
+        os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
         GatewayHandler.ledger = Ledger()
         GatewayHandler.account_store = AccountingStore(Path(cls.tempdir.name) / "accounting.sqlite")
         GatewayHandler.stripe_svc = StripePaymentService(
@@ -132,6 +132,10 @@ class TestGatewayServer(unittest.TestCase):
         )
         GatewayHandler.api_keys = {
             "cm_live_default_test_key": "cust_test_default",
+            "cm_live_test_key_002": "cust_test_002",
+            "cm_live_test_key_ollama_chat": "cust_test_ollama_chat",
+            "cm_live_test_key_ollama_generate": "cust_test_ollama_generate",
+            "cm_live_test_key_003": "cust_test_003",
         }
         GatewayHandler.sync_subsystems()
         cls.server = ThreadingHTTPServer(("127.0.0.1", 18000), GatewayHandler)
@@ -145,6 +149,16 @@ class TestGatewayServer(unittest.TestCase):
         cls.server.server_close()
         cls.tempdir.cleanup()
 
+    def register_customer_key(self, key: str, account_id: str | None = None) -> str:
+        account = account_id or f"cust_{key.removeprefix('cm_live_')}"
+        GatewayHandler.auth_manager.set_api_key(key, account)
+        return account
+
+    def register_provider_key(self, provider_node_id: str) -> str:
+        token = f"cm_provider_{provider_node_id}"
+        GatewayHandler.auth_manager.set_api_key(token, f"provider_self_{provider_node_id}")
+        return token
+
     def test_healthz(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:18000/healthz") as resp:
             self.assertEqual(resp.status, 200)
@@ -156,6 +170,23 @@ class TestGatewayServer(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             urllib.request.urlopen(req)
         self.assertEqual(ctx.exception.code, 401)
+
+    def test_provider_registration_requires_auth_before_store_access(self) -> None:
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/providers/register",
+            data=json.dumps({"provider_node_id": "node_without_auth"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        original_store = GatewayHandler.account_store
+        try:
+            GatewayHandler.account_store = None
+            GatewayHandler.sync_subsystems()
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req)
+            self.assertEqual(ctx.exception.code, 401)
+        finally:
+            GatewayHandler.account_store = original_store
+            GatewayHandler.sync_subsystems()
 
     def test_list_models_openai_format(self) -> None:
         # Publicly accessible without API key for model discovery
@@ -256,6 +287,7 @@ class TestGatewayServer(unittest.TestCase):
 
     def test_chat_metering_uses_configured_provider_shares(self) -> None:
         key = f"cm_live_test_key_shares_{secrets.token_hex(4)}"
+        self.register_customer_key(key)
         share_a = f"node_gateway_share_a_{secrets.token_hex(3)}"
         share_b = f"node_gateway_share_b_{secrets.token_hex(3)}"
         before_a = GatewayHandler.ledger.get_balance(f"provider:{share_a}")
@@ -315,6 +347,7 @@ class TestGatewayServer(unittest.TestCase):
 
     def test_balance_and_metering(self) -> None:
         key = f"cm_live_test_key_bal_{secrets.token_hex(4)}"
+        self.register_customer_key(key)
         bal_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/billing/balance",
             headers={"Authorization": f"Bearer {key}"},
@@ -326,6 +359,7 @@ class TestGatewayServer(unittest.TestCase):
 
     def test_billing_checkout_and_webhook(self) -> None:
         key = f"cm_live_test_key_stripe_{secrets.token_hex(4)}"
+        self.register_customer_key(key)
         # 1. Create Checkout Session
         checkout_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/billing/checkout",
@@ -390,6 +424,7 @@ class TestGatewayServer(unittest.TestCase):
 
     def test_provider_registration_status_and_stripe_onboarding(self) -> None:
         provider_key = "cm_provider_node_gateway_provider"
+        self.register_provider_key("node_gateway_provider")
         register_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/providers/register",
             data=json.dumps({
@@ -457,7 +492,7 @@ class TestGatewayServer(unittest.TestCase):
 
         admin_providers_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/admin/providers",
-            headers={"Authorization": "Bearer cm_admin_gateway_test"},
+            headers={"Authorization": "Bearer cm_admin_gateway_test_secret_2026"},
         )
         with urllib.request.urlopen(admin_providers_req) as resp:
             self.assertEqual(resp.status, 200)
@@ -500,7 +535,7 @@ class TestGatewayServer(unittest.TestCase):
             data=json.dumps({"provider_node_id": provider_id}).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": "Bearer cm_admin_gateway_test",
+                "Authorization": "Bearer cm_admin_gateway_test_secret_2026",
             },
         )
         with urllib.request.urlopen(settlement_req) as resp:
@@ -513,7 +548,7 @@ class TestGatewayServer(unittest.TestCase):
 
         settlements_req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/admin/settlements?status=completed&limit=10",
-            headers={"Authorization": "Bearer cm_admin_gateway_test"},
+            headers={"Authorization": "Bearer cm_admin_gateway_test_secret_2026"},
         )
         with urllib.request.urlopen(settlements_req) as resp:
             self.assertEqual(resp.status, 200)
@@ -624,7 +659,7 @@ class TestGatewayServer(unittest.TestCase):
 
     def test_provider_self_compute_zero_fee(self) -> None:
         provider_node = "my_custom_rig_01"
-        provider_token = f"cm_provider_{provider_node}"
+        provider_token = self.register_provider_key(provider_node)
 
         req = urllib.request.Request(
             "http://127.0.0.1:18000/v1/chat/completions",

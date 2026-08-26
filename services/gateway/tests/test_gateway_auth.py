@@ -3,7 +3,9 @@ from http import HTTPStatus
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+import json
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -21,12 +23,17 @@ from services.gateway.teaser import TeaserQuotaManager
 
 class TestGatewayAuth(unittest.TestCase):
     def setUp(self) -> None:
+        os.environ.pop("COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS", None)
+        os.environ.pop("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS", None)
         self.ledger = Ledger()
         self.teaser_manager = TeaserQuotaManager(max_requests=5, max_tokens=1000)
         self.auth_manager = GatewayAuthManager(
             ledger=self.ledger,
             teaser_manager=self.teaser_manager,
-            api_keys={"cm_live_registered_test_key": "cust_registered_user"},
+            api_keys={
+                "cm_live_registered_test_key": "cust_registered_user",
+                "cm_provider_rig_alpha_01": "provider_self_rig_alpha_01",
+            },
         )
 
     def test_extract_bearer_token(self) -> None:
@@ -59,14 +66,48 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertFalse(auth.is_quota_exceeded)
         self.assertGreater(self.ledger.get_balance("cust_registered_user"), 0)
 
-    def test_authenticate_dynamic_live_customer(self) -> None:
+    def test_unknown_live_customer_rejected_by_default(self) -> None:
         headers = {"Authorization": "Bearer cm_live_fresh_customer_99"}
         auth = self.auth_manager.authenticate_request(headers)
+        self.assertFalse(auth.is_authenticated)
+        self.assertEqual(auth.status_code, HTTPStatus.UNAUTHORIZED)
+
+    def test_dynamic_live_customer_requires_explicit_lab_flag(self) -> None:
+        os.environ["COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS"] = "1"
+        try:
+            headers = {"Authorization": "Bearer cm_live_fresh_customer_99"}
+            auth = self.auth_manager.authenticate_request(headers)
+            self.assertTrue(auth.is_authenticated)
+            self.assertEqual(auth.account_id, "cust_fresh_customer_99")
+            self.assertFalse(auth.is_teaser)
+            self.assertFalse(auth.is_provider_self_compute)
+            self.assertGreater(self.ledger.get_balance("cust_fresh_customer_99"), 0)
+        finally:
+            os.environ.pop("COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS", None)
+
+    def test_authenticate_customer_from_shared_api_key_store(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            store_path = Path(td) / "api_keys.json"
+            store_path.write_text(
+                json.dumps({
+                    "keys": [
+                        {
+                            "api_key": "cm_live_store_backed_customer",
+                            "account_id": "cust_store_backed_customer",
+                            "role": "consumer",
+                        }
+                    ]
+                }),
+                encoding="utf-8",
+            )
+            manager = GatewayAuthManager(
+                ledger=self.ledger,
+                teaser_manager=self.teaser_manager,
+                api_key_store_path=store_path,
+            )
+            auth = manager.authenticate_request({"Authorization": "Bearer cm_live_store_backed_customer"})
         self.assertTrue(auth.is_authenticated)
-        self.assertEqual(auth.account_id, "cust_fresh_customer_99")
-        self.assertFalse(auth.is_teaser)
-        self.assertFalse(auth.is_provider_self_compute)
-        self.assertGreater(self.ledger.get_balance("cust_fresh_customer_99"), 0)
+        self.assertEqual(auth.account_id, "cust_store_backed_customer")
 
     def test_authenticate_provider_self_compute(self) -> None:
         headers = {"Authorization": "Bearer cm_provider_rig_alpha_01"}
@@ -101,18 +142,29 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertIsNone(auth.account_id)
 
     def test_authenticate_admin(self) -> None:
-        admin_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
-        headers_valid = {"Authorization": f"Bearer {admin_key}"}
-        is_admin, err, status = self.auth_manager.authenticate_admin(headers_valid)
-        self.assertTrue(is_admin)
-        self.assertIsNone(err)
-        self.assertEqual(status, HTTPStatus.OK)
+        os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
+        try:
+            headers_valid = {"Authorization": "Bearer cm_admin_gateway_test_secret_2026"}
+            is_admin, err, status = self.auth_manager.authenticate_admin(headers_valid)
+            self.assertTrue(is_admin)
+            self.assertIsNone(err)
+            self.assertEqual(status, HTTPStatus.OK)
 
-        headers_invalid = {"Authorization": "Bearer cm_invalid_admin"}
-        is_admin, err, status = self.auth_manager.authenticate_admin(headers_invalid)
+            headers_invalid = {"Authorization": "Bearer cm_invalid_admin"}
+            is_admin, err, status = self.auth_manager.authenticate_admin(headers_invalid)
+            self.assertFalse(is_admin)
+            self.assertIsNotNone(err)
+            self.assertEqual(status, HTTPStatus.FORBIDDEN)
+        finally:
+            os.environ.pop("COMPUTEMESH_ADMIN_KEY", None)
+
+    def test_admin_auth_fails_closed_without_configured_key(self) -> None:
+        os.environ.pop("COMPUTEMESH_ADMIN_KEY", None)
+        headers = {"Authorization": "Bearer cm_admin_master_dani_2026"}
+        is_admin, err, status = self.auth_manager.authenticate_admin(headers)
         self.assertFalse(is_admin)
-        self.assertIsNotNone(err)
-        self.assertEqual(status, HTTPStatus.FORBIDDEN)
+        self.assertEqual(status, HTTPStatus.SERVICE_UNAVAILABLE)
+        self.assertIn("not configured", err or "")
 
 
 if __name__ == "__main__":

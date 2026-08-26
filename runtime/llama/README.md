@@ -1,6 +1,6 @@
 # llama.cpp Runtime Integration
 
-**Status:** M1 research spike harness, fail-closed shared-run evidence binding, and one-command physical shared-trial orchestration implemented; no real distributed-inference result yet.
+**Status:** M1 research spike harness, fail-closed shared-run evidence binding, and one-command physical shared-trial orchestration implemented; one physical two-machine proof is recorded in `state.md`, but this is still trusted-lab evidence rather than a production runtime.
 
 ## Purpose
 
@@ -219,9 +219,9 @@ The network relay has its own real-loopback forwarding/fault/timing/schema tests
 
 ## Important limitations
 
-This code does **not** yet prove M1. In particular:
+This code does **not** yet provide a production runtime. In particular:
 
-- no real private-LAN shared run has been recorded yet;
+- one real physical two-machine shared run is recorded in `state.md`, but it is evidence for that exact lab topology/model/runtime only;
 - opaque RPC byte accounting exists, but activation tensors are not identified separately;
 - controlled TCP-stream delay/jitter injection exists, but no packet-level loss/reordering result exists;
 - controlled relay disconnect injection exists, but no real llama.cpp disconnect experiment has been recorded yet;

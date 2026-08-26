@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -32,6 +33,8 @@ from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
+NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
+NODE_AUTH_TOKEN_REGEX = re.compile(r"^cm_tunnel_[a-fA-F0-9]{32,128}$")
 
 ROUTE_MAP: dict[str, str] = {
     "/": "index.html",
@@ -122,6 +125,17 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         self.close_connection = True
 
+    def _authorize_node_view(self, node_id: str, supplied_token: str) -> tuple[dict[str, Any] | None, HTTPStatus | None]:
+        if not NODE_ID_REGEX.match(node_id):
+            return (None, HTTPStatus.BAD_REQUEST)
+        node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+        if not node_data:
+            return (None, HTTPStatus.NOT_FOUND)
+        expected = str(node_data.get("auth_token", "")).strip()
+        if not expected or not supplied_token or not hmac.compare_digest(supplied_token, expected):
+            return (None, HTTPStatus.UNAUTHORIZED)
+        return (node_data, None)
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
         for h_name, h_val in SECURITY_HEADERS.items():
@@ -148,7 +162,10 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path.startswith("/node/"):
             node_id = clean_path.removeprefix("/node/").strip()
             auth_token = query_params.get("auth", [""])[0].strip()
-            node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
+            node_data, auth_status = self._authorize_node_view(node_id, auth_token)
+            if auth_status is not None:
+                self._send_json({"error": "Node dashboard unavailable or unauthorized"}, auth_status)
+                return
             html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
             self._send_bytes(html.encode("utf-8"), "text/html; charset=utf-8")
             return
@@ -158,7 +175,13 @@ class PortalHandler(BaseHTTPRequestHandler):
             parts = clean_path.split("/")
             if len(parts) >= 5:
                 node_id = parts[4]
-                node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
+                auth_token = query_params.get("auth", [""])[0].strip()
+                if not auth_token:
+                    auth_token = self.headers.get("X-Node-Auth-Token", "").strip()
+                node_data, auth_status = self._authorize_node_view(node_id, auth_token)
+                if auth_status is not None:
+                    self._send_json({"error": "Node status unavailable or unauthorized"}, auth_status)
+                    return
                 self._send_json(node_data)
                 return
 
@@ -257,8 +280,11 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
             auth_token = str(body.get("auth_token", "")).strip()
-            if not node_id or not re.match(r"^[a-zA-Z0-9_\-\.]{3,64}$", node_id):
+            if not node_id or not NODE_ID_REGEX.match(node_id):
                 self._send_json({"error": "Valid node_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            if not NODE_AUTH_TOKEN_REGEX.match(auth_token):
+                self._send_json({"error": "Valid node auth token is required"}, HTTPStatus.UNAUTHORIZED)
                 return
 
             NODE_TELEMETRY_REGISTRY[node_id] = {

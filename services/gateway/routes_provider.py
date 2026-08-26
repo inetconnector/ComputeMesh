@@ -39,20 +39,19 @@ class ProviderRoutesHandler:
         self.ledger = ledger
 
     def handle_register(self, headers: Any, body: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
+        provider_node_id, err_msg, status = self.auth_manager.authenticate_provider(headers)
+        if not provider_node_id:
+            return (None, err_msg or "Unauthorized", status)
+
         if not self.account_store:
             return (None, "Provider account store is not configured", HTTPStatus.SERVICE_UNAVAILABLE)
 
-        node_id = str(body.get("provider_node_id", "")).strip()
-        if not node_id:
-            token = extract_bearer_token(headers)
-            if token.startswith("cm_provider_"):
-                node_id = token.removeprefix("cm_provider_").strip()
-
-        if not node_id:
-            return (None, "provider_node_id is required", HTTPStatus.BAD_REQUEST)
+        requested_node_id = str(body.get("provider_node_id", "")).strip()
+        if requested_node_id and requested_node_id != provider_node_id:
+            return (None, "provider_node_id does not match authenticated provider token", HTTPStatus.FORBIDDEN)
 
         account = self.account_store.upsert_provider(
-            provider_node_id=node_id,
+            provider_node_id=provider_node_id,
             display_name=str(body.get("display_name", "")),
             payout_wallet_address=str(body.get("payout_wallet_address", "")),
         )

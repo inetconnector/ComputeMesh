@@ -5,9 +5,11 @@ from pathlib import Path
 import threading
 import time
 import unittest
+import urllib.error
 import urllib.request
 
 from services.portal.server import PortalHandler
+from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 
 
 class TestPortalServer(unittest.TestCase):
@@ -70,6 +72,7 @@ class TestPortalServer(unittest.TestCase):
             self.assertIn("translations", js)
 
     def test_mesh_stats_api(self) -> None:
+        NODE_TELEMETRY_REGISTRY.clear()
         with urllib.request.urlopen("http://127.0.0.1:13000/api/v1/mesh/stats") as resp:
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
@@ -78,6 +81,32 @@ class TestPortalServer(unittest.TestCase):
             self.assertEqual(data["source"], "not_configured")
             self.assertEqual(data["active_gpus"], 0)
             self.assertEqual(data["total_vram_gb"], 0)
+
+    def test_node_heartbeat_and_status_require_node_token(self) -> None:
+        NODE_TELEMETRY_REGISTRY.clear()
+        heartbeat = urllib.request.Request(
+            "http://127.0.0.1:13000/api/v1/node/heartbeat",
+            data=json.dumps({
+                "node_id": "node-secure-01",
+                "auth_token": "cm_tunnel_0123456789abcdef0123456789abcdef",
+                "inventory": {},
+                "telemetry": {},
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(heartbeat) as resp:
+            self.assertEqual(resp.status, 200)
+
+        with self.assertRaises(urllib.error.HTTPError) as missing_ctx:
+            urllib.request.urlopen("http://127.0.0.1:13000/api/v1/node/node-secure-01/status")
+        self.assertEqual(missing_ctx.exception.code, 401)
+
+        with urllib.request.urlopen(
+            "http://127.0.0.1:13000/api/v1/node/node-secure-01/status?auth=cm_tunnel_0123456789abcdef0123456789abcdef"
+        ) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["node_id"], "node-secure-01")
 
     def test_register_consumer_api(self) -> None:
         req_data = json.dumps({"email": "developer@ai-corp.com", "role": "consumer"}).encode("utf-8")
@@ -109,7 +138,7 @@ class TestPortalServer(unittest.TestCase):
             self.assertEqual(resp.status, 201)
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["status"], "success")
-            self.assertTrue(data["api_key"].startswith("cm_node_"))
+            self.assertTrue(data["api_key"].startswith("cm_provider_"))
             self.assertEqual(data["encryption"], "AES-256-GCM")
             self.assertEqual(data["payout_target_masked"], "0x71a9...B12F")
 

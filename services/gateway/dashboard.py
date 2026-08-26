@@ -31,9 +31,9 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     gpu_fan = thermals.get("fan", "--")
     gpu_power = thermals.get("power_watts", "--")
 
-    mesh_vram = global_mesh.get("total_vram_gb", 24.0)
-    mesh_tflops = global_mesh.get("total_compute_tflops", 48.6)
-    mesh_nodes = global_mesh.get("total_nodes_online", 2)
+    mesh_vram = global_mesh.get("total_vram_gb", 0.0)
+    mesh_tflops = global_mesh.get("total_compute_tflops", 0.0)
+    mesh_nodes = global_mesh.get("total_nodes_online", 0)
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -185,8 +185,8 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
                     <div class="val" style="color: var(--accent);">{CONFIG.endpoints.domain}</div>
                 </div>
                 <div class="stat-pill">
-                    <div class="label">Relay Encryption Status</div>
-                    <div class="val" style="color: var(--green);">mTLS 1.3 &middot; Zero-Knowledge</div>
+                    <div class="label">Node Access</div>
+                    <div class="val" style="color: var(--green);">Token protected telemetry</div>
                 </div>
             </div>
         </div>

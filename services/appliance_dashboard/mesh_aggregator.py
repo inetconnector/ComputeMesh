@@ -11,7 +11,7 @@ import urllib.request
 
 
 class MeshRegistryAggregator:
-    def __init__(self, known_peers: list[str] | None = None) -> None:
+    def __init__(self, known_peers: list[str] | None = None, *, autostart: bool = False) -> None:
         raw_peers = os.environ.get("COMPUTEMESH_CLUSTER_PEERS", "").strip()
         if raw_peers:
             self.known_peers = [p.strip() for p in raw_peers.split(",") if p.strip()]
@@ -19,9 +19,20 @@ class MeshRegistryAggregator:
             self.known_peers = ["http://192.168.1.27:8080"]
         self._peer_nodes: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+        self._running = False
+        self._thread: threading.Thread | None = None
+        if autostart:
+            self.start()
+
+    def start(self) -> None:
+        if self._running:
+            return
         self._running = True
         self._thread = threading.Thread(target=self._background_poller, daemon=True)
         self._thread.start()
+
+    def stop(self) -> None:
+        self._running = False
 
     def _background_poller(self) -> None:
         while self._running:
@@ -112,4 +123,6 @@ class MeshRegistryAggregator:
         }
 
 
-GLOBAL_MESH_AGGREGATOR = MeshRegistryAggregator()
+GLOBAL_MESH_AGGREGATOR = MeshRegistryAggregator(
+    autostart=os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "").strip().lower() in ("1", "true", "yes", "on")
+)

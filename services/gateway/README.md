@@ -8,7 +8,7 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 
 ## Responsibilities
 
-- **API Authentication:** Validates `Authorization: Bearer cm_live_...` credentials and maps to customer ledger accounts.
+- **API Authentication:** Validates registered `Authorization: Bearer cm_live_...` and `cm_provider_...` credentials and maps them to ledger accounts. Unknown live/provider tokens fail closed unless an explicit lab compatibility flag is enabled.
 - **OpenAI Model Catalog:** Serves active models via `/v1/models` in standard OpenAI JSON schema format.
 - **Ollama Model Catalog:** Serves the same active models via `/api/tags` in Ollama-compatible JSON schema format.
 - **Non-Streaming Chat Completions:** Serves `/v1/chat/completions` with full metadata and exact token usage records.
@@ -55,6 +55,10 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - optional `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, defaulting to `usd`, for Stripe Connect Transfers when the platform Stripe balance settles in another currency such as `eur`
 - optional `COMPUTEMESH_PROVIDER_SHARES` as `provider_id:ratio,provider_id:ratio` for operator-controlled metering attribution before the scheduler supplies runtime provider shares
 - optional `COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID`, defaulting to `lab-mesh-default-rig`, when no provider-share list is configured
+- optional `COMPUTEMESH_API_KEY_STORE_PATH` for the shared Portal/Gateway JSON key registry written by `/api/v1/register`
+- optional `COMPUTEMESH_API_KEYS` as comma-separated `token:account_id` static registrations for operator-managed keys
+- required `COMPUTEMESH_ADMIN_KEY` for admin endpoints; there is no built-in default admin credential
+- optional lab-only `COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS=1` and `COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS=1` for private throwaway testing only
 
 If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs. Webhook crediting remains fail-closed until `STRIPE_WEBHOOK_SECRET` is configured.
 
@@ -64,6 +68,8 @@ Stripe Connect settlement fails closed until the account store is configured, St
 
 Provider metering attribution is operator-controlled. Customer requests cannot pick their payout provider through headers or request JSON; until scheduler-integrated shares exist, configure `COMPUTEMESH_PROVIDER_SHARES` on the gateway host.
 
+The gateway inference engine still returns deterministic synthetic completion text while exercising API compatibility, streaming, quota and ledger paths. It is not yet wired to the real llama.cpp runtime/scheduler dispatch path.
+
 ## Test Suite
 
-- `services/gateway/tests/test_gateway_server.py` covers authentication, OpenAI and Ollama model listings, OpenAI and Ollama non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.
+- `services/gateway/tests/test_gateway_server.py` covers authentication, registered-key enforcement, OpenAI and Ollama model listings, OpenAI and Ollama non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.

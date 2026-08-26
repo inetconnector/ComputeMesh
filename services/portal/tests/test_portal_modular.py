@@ -1,7 +1,10 @@
 """Unit tests for Modular Portal Registration and Quotes Handlers."""
 from http import HTTPStatus
+import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -42,10 +45,29 @@ class TestPortalModular(unittest.TestCase):
         self.assertIsNone(err)
         self.assertEqual(status, HTTPStatus.CREATED)
         self.assertIsNotNone(res)
-        self.assertTrue(res["api_key"].startswith("cm_node_"))
+        self.assertTrue(res["api_key"].startswith("cm_provider_"))
 
         stored = self.store[res["api_key"]]
         self.assertEqual(DEFAULT_VAULT.decrypt(stored["wallet_encrypted"]), "0x1234567890abcdef1234567890abcdef12345678")
+
+    def test_registration_persists_gateway_api_key_store_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "api_keys.json"
+            os.environ["COMPUTEMESH_API_KEY_STORE_PATH"] = str(path)
+            try:
+                res, err, status = self.reg_handler.handle_register({
+                    "email": "store@computemesh.test",
+                    "role": "consumer",
+                })
+            finally:
+                os.environ.pop("COMPUTEMESH_API_KEY_STORE_PATH", None)
+            self.assertIsNone(err)
+            self.assertEqual(status, HTTPStatus.CREATED)
+            self.assertIsNotNone(res)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            stored = data["keys"][0]
+            self.assertEqual(stored["api_key"], res["api_key"])
+            self.assertEqual(stored["account_id"], res["account_id"])
 
     def test_quotes_calculation_and_savings(self) -> None:
         res, err, status = self.quotes_handler.handle_quote({

@@ -74,4 +74,4 @@ class CloudTunnelRelay:
             time.sleep(5)
 
 
-CLOUD_TUNNEL_RELAY = CloudTunnelRelay(node_id="cm-laptop-node", auth_token=NODE_AUTH_TOKEN)
+CLOUD_TUNNEL_RELAY: CloudTunnelRelay | None = None

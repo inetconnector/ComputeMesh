@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hmac
 from http import HTTPStatus
+import json
 import os
 from pathlib import Path
 import re
@@ -21,6 +22,71 @@ from services.gateway.teaser import TeaserQuotaManager
 
 PROVIDER_NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
 API_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{8,128}$")
+ADMIN_KEY_MIN_LENGTH = 24
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _load_env_api_keys() -> dict[str, str]:
+    """Load static API keys from COMPUTEMESH_API_KEYS as token:account_id pairs."""
+    configured = os.environ.get("COMPUTEMESH_API_KEYS", "").strip()
+    if not configured:
+        return {}
+    result: dict[str, str] = {}
+    for raw_entry in configured.split(","):
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        sep = ":" if ":" in entry else "="
+        if sep not in entry:
+            continue
+        token, account_id = entry.split(sep, 1)
+        token = token.strip()
+        account_id = account_id.strip()
+        if token and account_id and API_KEY_REGEX.match(token):
+            result[token] = account_id
+    return result
+
+
+def _load_api_key_store(path: Path | None) -> dict[str, str]:
+    """Load JSON or JSONL token/account records from the shared portal/gateway store."""
+    if path is None or not path.exists():
+        return {}
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return {}
+    if not raw:
+        return {}
+
+    records: list[dict[str, Any]] = []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            if isinstance(parsed.get("keys"), list):
+                records = [r for r in parsed["keys"] if isinstance(r, dict)]
+            else:
+                records = [parsed]
+        elif isinstance(parsed, list):
+            records = [r for r in parsed if isinstance(r, dict)]
+    except json.JSONDecodeError:
+        for line in raw.splitlines():
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(item, dict):
+                records.append(item)
+
+    result: dict[str, str] = {}
+    for record in records:
+        token = str(record.get("api_key") or record.get("token") or "").strip()
+        account_id = str(record.get("account_id") or "").strip()
+        if token and account_id and API_KEY_REGEX.match(token):
+            result[token] = account_id
+    return result
 
 
 @dataclass(frozen=True)
@@ -67,10 +133,19 @@ class GatewayAuthManager:
         ledger: Ledger,
         teaser_manager: TeaserQuotaManager,
         api_keys: dict[str, str] | None = None,
+        api_key_store_path: Path | None = None,
     ) -> None:
         self.ledger = ledger
         self.teaser_manager = teaser_manager
-        self._api_keys: dict[str, str] = api_keys if api_keys is not None else {}
+        self._api_keys: dict[str, str] = api_keys.copy() if api_keys is not None else {}
+        store_path = api_key_store_path or (
+            Path(os.environ["COMPUTEMESH_API_KEY_STORE_PATH"])
+            if os.environ.get("COMPUTEMESH_API_KEY_STORE_PATH")
+            else None
+        )
+        self.api_key_store_path = store_path
+        self._api_keys.update(_load_env_api_keys())
+        self._api_keys.update(_load_api_key_store(self.api_key_store_path))
         self._lock = threading.RLock()
 
     @property
@@ -78,8 +153,25 @@ class GatewayAuthManager:
         return self._api_keys
 
     def set_api_key(self, token: str, account_id: str) -> None:
+        if not API_KEY_REGEX.match(token):
+            raise ValueError("invalid API key format")
+        if not account_id.strip():
+            raise ValueError("account_id is required")
         with self._lock:
-            self._api_keys[token] = account_id
+            self._api_keys[token] = account_id.strip()
+
+    def refresh_registered_keys(self) -> None:
+        with self._lock:
+            self._api_keys.update(_load_env_api_keys())
+            self._api_keys.update(_load_api_key_store(self.api_key_store_path))
+
+    def _lookup_registered_key(self, token: str) -> str | None:
+        self.refresh_registered_keys()
+        with self._lock:
+            for registered_token, account_id in self._api_keys.items():
+                if hmac.compare_digest(token, registered_token):
+                    return account_id
+        return None
 
     def authenticate_request(
         self,
@@ -91,24 +183,23 @@ class GatewayAuthManager:
 
         if token:
             # Check registered keys using constant-time comparison
-            with self._lock:
-                for registered_token, account_id in self._api_keys.items():
-                    if hmac.compare_digest(token, registered_token):
-                        if self.ledger.get_balance(account_id) == 0:
-                            self.ledger.deposit_customer_credits(
-                                customer_account_id=account_id,
-                                amount_micro_units=10_000_000,
-                                payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
-                            )
-                        return AuthResult(
-                            account_id=account_id,
-                            is_teaser=False,
-                            is_provider_self_compute=token.startswith("cm_provider_"),
-                            is_quota_exceeded=False,
-                        )
+            account_id = self._lookup_registered_key(token)
+            if account_id:
+                if self.ledger.get_balance(account_id) == 0:
+                    self.ledger.deposit_customer_credits(
+                        customer_account_id=account_id,
+                        amount_micro_units=10_000_000,
+                        payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                    )
+                return AuthResult(
+                    account_id=account_id,
+                    is_teaser=False,
+                    is_provider_self_compute=token.startswith("cm_provider_"),
+                    is_quota_exceeded=False,
+                )
 
-            # 1. Provider self-compute token (0% platform markup)
-            if token.startswith("cm_provider_"):
+            # Lab/private appliance compatibility must be enabled explicitly.
+            if token.startswith("cm_provider_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
                 provider_node_id = token.removeprefix("cm_provider_").strip()
                 if PROVIDER_NODE_ID_REGEX.match(provider_node_id):
                     account_id = f"provider_self_{provider_node_id}"
@@ -127,8 +218,7 @@ class GatewayAuthManager:
                         is_quota_exceeded=False,
                     )
 
-            # 2. Registered live customer token
-            if token.startswith("cm_live_"):
+            if token.startswith("cm_live_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS"):
                 cust_suffix = token.removeprefix("cm_live_").strip()
                 if API_KEY_REGEX.match(token):
                     account_id = f"cust_{cust_suffix}"
@@ -191,7 +281,9 @@ class GatewayAuthManager:
         if token.startswith("cm_provider_"):
             node_id = token.removeprefix("cm_provider_").strip()
             if PROVIDER_NODE_ID_REGEX.match(node_id):
-                return (node_id, None, HTTPStatus.OK)
+                if self._lookup_registered_key(token) or _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
+                    return (node_id, None, HTTPStatus.OK)
+                return (None, "Provider token is not registered", HTTPStatus.UNAUTHORIZED)
             return (None, "Invalid provider node ID format in token", HTTPStatus.BAD_REQUEST)
         return (None, "Invalid provider authorization token format", HTTPStatus.UNAUTHORIZED)
 
@@ -199,7 +291,9 @@ class GatewayAuthManager:
         token = extract_bearer_token(headers)
         if not token:
             return (False, "Missing Authorization header for admin endpoint", HTTPStatus.UNAUTHORIZED)
-        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "cm_admin_master_dani_2026")
+        env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+        if len(env_admin) < ADMIN_KEY_MIN_LENGTH:
+            return (False, "Admin key is not configured", HTTPStatus.SERVICE_UNAVAILABLE)
         # Constant-time comparison against configured admin secret
         if hmac.compare_digest(token, env_admin):
             return (True, None, HTTPStatus.OK)

@@ -2,7 +2,7 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Stage:** M0 foundation moving into the first controlled M1 shared-runtime experiment.  
+> **Stage:** M0 foundation, one verified M1 trusted-lab shared-runtime proof, and M2 foundation components for portal, gateway, billing, updater, desktop/provider apps and telemetry.
 > **Important:** ComputeMesh is **not yet a production distributed-inference product**. The Windows/Linux setup prepares the lab/benchmark workflow that actually exists today; it is not a public provider-node installer.
 
 ComputeMesh explores whether heterogeneous computers can cooperate as one model-aware AI inference fabric. The long-term goal is simple: choose a model and policy, while ComputeMesh handles feasibility, placement, preparation, execution, failures, verification, and auditable accounting.
@@ -41,7 +41,8 @@ Implemented foundations now include:
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
 - a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
 - an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver;
-- fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them.
+- fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them;
+- registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags.
 
 ## M1 two-node placement and evidence bundle
 
@@ -110,7 +111,7 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. The automated runner currently requires an accelerator-backed coordinator rather than inventing local-CPU split semantics. See [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 remains Proposed.** The harness, transfer/evidence-bundle path and planner prepare the proof; no real correct shared two-node inference result has been recorded yet.
+ADR 0002 has one recorded trusted-lab physical proof in `state.md`, but the harness remains an experiment path. It is not a production runtime or security boundary, and any new topology/model/runtime build needs fresh evidence.
 
 ## Runtime network measurement relay
 
@@ -142,7 +143,7 @@ Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identit
 
 ## Not implemented yet
 
-There is still no production provider-node installer/service, no completed distributed shared-inference result, no calibrated/production scheduler ranking, no production Gateway/API, no production identity network service, no authenticated production node/capacity registry, no automatic authenticated evidence transfer/attestation between machines, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, no fully production-hardened billing/verification/telemetry product stack, and no signed production release/update pipeline.
+There is still no production distributed runtime, no calibrated/production scheduler ranking, no production identity network service, no automatic authenticated evidence transfer/attestation between machines, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, and no fully production-hardened billing/verification/telemetry product stack.
 
 Payment boundary: the intended real-money purchase path for compute credits is Stripe. The gateway now has a fail-closed Stripe Checkout/Webhook integration path that calls the official Stripe SDK when configured with `STRIPE_API_KEY` and a durable `COMPUTEMESH_STRIPE_SESSION_STORE`; signed webhook crediting additionally requires `STRIPE_WEBHOOK_SECRET`. Checkout metadata/session-store values define the purchased compute-credit amount, so tax-inclusive Stripe totals are not credited as extra compute balance. Provider payout operations now have a Stripe Connect Accounts v2 / Express recipient onboarding path with durable provider accounts, onboarding links, settlement records, transfer idempotency, configurable transfer currency through `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, and internal ledger payable clearing. Without Stripe configuration it will not issue fake live Checkout or Connect URLs. Real Stripe Connect onboarding still requires the provider/operator's legal entity and KYC details; a German UG cannot be truthfully completed in Stripe until it is founded and registered. MetaMask/EVM wallet handling in the current provider UI is only for selecting a provider payout destination address for earnings from contributed compute power; wallets are not used to buy compute credits or to charge customers.
 

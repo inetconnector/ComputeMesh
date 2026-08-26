@@ -2,7 +2,7 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Phase:** M0-Grundlage beim Übergang zum ersten kontrollierten gemeinsamen M1-Runtime-Experiment.  
+> **Phase:** M0-Grundlage, ein verifizierter M1-Shared-Runtime-Proof im Trusted Lab und M2-Grundkomponenten für Portal, Gateway, Billing, Updater, Desktop-/Provider-Apps und Telemetrie.
 > **Wichtig:** ComputeMesh ist **noch kein produktionsreifes verteiltes Inferenzprodukt**. Das Windows-/Linux-Setup richtet den heute tatsächlich vorhandenen Lab-/Benchmark-Ablauf ein; es ist kein öffentlicher Provider-Node-Installer.
 
 ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
@@ -41,7 +41,8 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein deterministischer M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
 - ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
 - ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können;
-- fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert.
+- fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert;
+- registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist.
 
 ## M1-Zwei-Node-Placement und Evidenzbundle
 
@@ -110,7 +111,7 @@ Aktuelle llama.cpp-Split-Metadaten werden ebenfalls erkannt. Ein primärer Shard
 
 Der erste Experimentpfad hält Coordinator-HTTP auf `127.0.0.1`, beschränkt RPC auf literales Loopback/RFC1918-IPv4, nutzt `--offline`, deaktiviert automatisches Fit und Cache-Flächen und behandelt Upstream-RPC ausschließlich als Trusted-Lab-Implementierungsdetail. Der automatische Runner verlangt derzeit einen Accelerator-backed Coordinator, statt lokale CPU-Split-Semantik zu erfinden. Details: [runtime/llama/README.md](runtime/llama/README.md).
 
-**ADR 0002 bleibt Proposed.** Harness, Transfer-/Evidenzbundle-Pfad und Planer bereiten den Nachweis vor; ein echter korrekter gemeinsamer Zwei-Node-Inferenzlauf wurde noch nicht aufgezeichnet.
+ADR 0002 hat einen in `state.md` aufgezeichneten physischen Trusted-Lab-Proof, aber der Harness bleibt ein Experimentpfad. Er ist weder Produktionsruntime noch Sicherheitsgrenze, und jede neue Topologie/jedes neue Modell/jeder neue Runtime-Build braucht frische Evidenz.
 
 ## Runtime-Netzwerkmess-Relay
 
@@ -142,7 +143,7 @@ Upstream-llama.cpp-RPC bleibt **nur Trusted Lab**. Die aktuelle ComputeMesh-Iden
 
 ## Noch nicht implementiert
 
-Es gibt weiterhin keinen produktiven Provider-Node-Installer/-Service, keinen abgeschlossenen gemeinsamen Inferenznachweis, kein kalibriertes/produktives Scheduler-Ranking, kein produktives Gateway/API, keinen produktiven Identity-Netzwerkservice, keine authentifizierte produktive Node-/Kapazitäts-Registry, keine automatische authentifizierte Evidenzübertragung/-Attestation zwischen Rechnern, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte, keinen vollständig produktionsgehärteten Billing-/Verification-/Telemetry-Produktstack und keinen signierten Produktions-Release-/Update-Pfad.
+Es gibt weiterhin keine produktive verteilte Runtime, kein kalibriertes/produktives Scheduler-Ranking, keinen produktiven Identity-Netzwerkservice, keine automatische authentifizierte Evidenzübertragung/-Attestation zwischen Rechnern, keinen vollständigen Artifact-/Runtime-/Failure-Wire-Pfad, keinen produktiven Runtime-Transport, kein Paket-Level-Loss-/Reordering-Experiment, keinen Schema-v1-Vertrag für Identität/Reihenfolge mehrteiliger GGUF-Artefakte und keinen vollständig produktionsgehärteten Billing-/Verification-/Telemetry-Produktstack.
 
 Payment-Grenze: Der vorgesehene Real-Money-Pfad für den Kauf von Rechenguthaben ist Stripe. Der Gateway besitzt jetzt einen fail-closed Stripe-Checkout-/Webhook-Pfad, der bei Konfiguration von `STRIPE_API_KEY` und einem dauerhaften `COMPUTEMESH_STRIPE_SESSION_STORE` das offizielle Stripe-SDK nutzt; signiertes Webhook-Crediting benötigt zusätzlich `STRIPE_WEBHOOK_SECRET`. Checkout-Metadaten und Session-Store bestimmen den gekauften Compute-Credit-Betrag, damit steuerbehaftete Stripe-Gesamtsummen nicht als zusätzliches Rechenguthaben verbucht werden. Provider-Auszahlungen besitzen jetzt einen Stripe-Connect-Accounts-v2-/Express-Recipient-Onboarding-Pfad mit dauerhaften Provider-Konten, Onboarding-Links, Settlement-Records, Transfer-Idempotenz, konfigurierbarer Transfer-Währung über `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` und interner Ledger-Ausbuchung der Provider-Verbindlichkeiten. Ohne Stripe-Konfiguration werden keine Fake-Live-Checkout- oder Connect-URLs ausgegeben. Echtes Stripe-Connect-Onboarding benötigt weiterhin die Rechtsform- und KYC-Daten des Providers/Betreibers; eine deutsche UG kann in Stripe erst wahrheitsgemäß abgeschlossen werden, wenn sie gegründet und eingetragen ist. MetaMask/EVM-Wallets dienen in der aktuellen Provider-Oberfläche nur dazu, eine Auszahlungsadresse für Einnahmen aus bereitgestellter Rechenleistung festzulegen; Wallets werden nicht zum Kauf von Rechenguthaben oder zum Belasten von Kunden verwendet.
 

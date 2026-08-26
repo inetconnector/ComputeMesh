@@ -61,7 +61,7 @@ def get_teaser_paywall_message(max_requests: int | None = None) -> str:
         "3. **⚡ Eigener Server = 0% Plattform-Aufschlag (Provider-Rabatt):**\n"
         "   Wenn du deinen eigenen Server im Mesh betreibst, rechnest du eigene Anfragen ohne Plattformgebühr zum reinen Selbstkostenpreis direkt über deine eigene Hardware ab!\n\n"
         "---\n"
-        f"🌐 Web: {base_url} | 🛡️ Zero-Knowledge & DSGVO Art. 32 Konform"
+        f"🌐 Web: {base_url} | Tokenbasierte Registrierung und Stripe-Abrechnung"
     )
 
 

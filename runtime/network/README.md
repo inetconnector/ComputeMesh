@@ -161,4 +161,4 @@ The user-facing `SETUP.cmd` / `./setup.sh` **all tests** path also runs this sui
 
 ## M1 evidence boundary
 
-The relay is now available to instrument the first real two-machine llama.cpp RPC run. No real shared-runtime byte totals, injected-delay results, disconnect results, or packet-loss results have been recorded yet.
+The relay has captured the first recorded physical two-machine llama.cpp RPC proof noted in `state.md`. Injected-delay, disconnect, activation-frame attribution, and packet-loss/reordering experiments remain future work.

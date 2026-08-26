@@ -130,7 +130,7 @@ The coordinator then:
 
 If current evidence is ambiguous, stale, from the wrong network direction, from mismatching profile revisions/model sizes, or requires the old caller-asserted peer/layer fallbacks, bundle construction fails instead of guessing.
 
-The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation.
+The ZIP hashes protect transfer/copy integrity and reproducibility. They do **not** authenticate who created the evidence and are not hardware attestation. The first physical two-machine proof recorded in `state.md` validates one trusted-lab topology; repeat the workflow for any new topology, model, or runtime build.
 
 ## Run the first shared proof
 
@@ -270,7 +270,7 @@ Evidence-transfer coverage includes exclusion of arbitrary/GGUF files, path-free
 
 The evidence-binding tests additionally verify that the setup passes its own Lab node ID into both network roles, that current benchmark peers can self-report a bounded ID, and that peer mismatches fail instead of being silently accepted.
 
-This remains software/loopback/synthetic evidence until a fresh trusted-private-LAN two-computer run using one identical complete GGUF is retained.
+The repository now records one physical trusted-lab two-computer proof in `state.md`. New machines, models, runtime builds, injected-delay runs, disconnect runs, and packet-level network experiments still require fresh evidence rather than reuse of that historical proof.
 
 Additional real target smoke evidence exists from 2026-08-21:
 

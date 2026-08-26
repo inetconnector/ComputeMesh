@@ -404,6 +404,7 @@ def run_dashboard_server(
     inventory: RigInventory | None = None,
     node_id: str = "cm-inference-node-01",
 ) -> int:
+    GLOBAL_MESH_AGGREGATOR.start()
     server, actual_port = create_dashboard_server(host, port, config, inventory, node_id)
     try:
         if sys.stdout is not None:

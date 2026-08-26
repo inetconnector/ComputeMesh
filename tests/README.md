@@ -75,6 +75,8 @@ The current M1 tests additionally enforce:
 - legacy/caller-asserted network binding cannot produce a current experiment bundle;
 - evidence-looking JSON that fails its schema aborts discovery rather than causing silent fallback to older evidence;
 - bundle provenance stores safe basenames and SHA-256 of exact source JSON documents, never absolute local paths;
+- gateway authentication rejects unregistered `cm_live_...` and `cm_provider_...` tokens by default, requires `COMPUTEMESH_ADMIN_KEY` for admin routes, and accepts Portal/Gateway shared key-store records through `COMPUTEMESH_API_KEY_STORE_PATH`;
+- public node telemetry status/dashboard routes require the node's tunnel token instead of returning registered node data to unauthenticated callers;
 - bundle and placement identities are deterministic for the same source evidence/policy;
 - Lab export excludes GGUF weights, llama.cpp binaries, config and arbitrary non-evidence files;
 - the export manifest contains only safe relative evidence paths plus exact size/SHA-256 and does not leak the source root;
@@ -108,4 +110,4 @@ The latest cross-platform suite counts and workflow evidence are recorded in `st
 
 The current TCP measurement relay can inject userspace stream delay/jitter and deliberate disconnects, but it is not a packet-loss emulator and is not the production runtime transport. The current planner is feasibility-only and deliberately does not predict shared speedup before a correct shared run exists.
 
-No production system-test harness exists yet; the launchers only orchestrate the implemented local suites.
+No production system-test harness exists yet; the launchers only orchestrate the implemented local suites. Latest local validation: `python run_all_tests.py` passed 284/284 tests in 11.39s on 2026-08-26.

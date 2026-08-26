@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-25 18:13 CEST
-**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing). Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
+**Last updated:** 2026-08-26 07:29 CEST
+**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing) + v1.2.15 professional auth/telemetry hardening implemented, signed, deployed, and verified on reachable clients. Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
 **Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`. Gateway billing now has a fail-closed real Stripe Checkout/Webhook implementation path plus a Stripe Connect Accounts v2 provider onboarding/settlement execution path. The webserver is configured with Stripe **testmode** keys, a test webhook endpoint, a Stripe Accounts v2 thin-event destination, durable test ledger/session paths, durable SQLite account/settlement store, EUR Stripe settlement transfers, and operator-controlled provider metering attribution to `node_test_settle_02`. A real Stripe test Checkout for the laptop user completed and was credited through the signed public webhook path after the SDK-object normalization fix. A separate API-onboarded US sandbox provider was also settled end-to-end in Stripe testmode: a EUR Stripe Transfer was created, the provider payable was cleared, and the ledger reconciled balanced. The gateway now also exposes authenticated Ollama-compatible `/api/tags`, `/api/chat`, and `/api/generate` facades for the same cluster model catalog and metered ledger path. German UG onboarding/KYC for the operator's real entity remains blocked until the UG is founded and registered; live-mode Stripe credentials and production database/ops controls are not configured end-to-end for real customer funds.
-**Release/version truth:** signed update release `1.2.11` has been built locally and signed in `portal/updates/version.json` to fix dishonest capacity reporting and the follow-up AMD detection gap found on the LAN miner. Release `1.2.10` did install on the reachable miner and removed the fake global mesh values, but it reported `0` GPUs because the strict detector did not find the AMD card through sysfs. `1.2.11` adds a conservative measured `lspci -vv` prefetchable-memory BAR fallback and fixes the `ati` substring bug that classified `VGA compatible controller` as AMD. After deployment, the miner must update from `1.2.10` to `1.2.11` and be rechecked for one dedicated GPU and roughly 8 GiB VRAM. `v1.2.8` is the previous pushed signed release tag before `v1.2.9`.
+**Release/version truth:** signed update release `1.2.15` is live in `portal/updates/version.json` and on the public web/update server. The previous v1.2.14 release fixed mining-rig iGPU isolation and reported the 24.0 GB pool correctly. v1.2.15 removes the built-in admin-key fallback, requires registered customer/provider tokens by default, adds the shared Portal/Gateway API-key store, protects remote node status/dashboard reads with the node tunnel token where the Python portal server is used, removes static Vault fallback secrets, and stops import-time CloudTunnel/mesh polling side effects. Reachable clients verified after rollout: local Windows client `1.2.15`, LAN rig `cm-inference-node-01` `1.2.15`, server node `test-node-custom` `1.2.15`, public Gateway API `0.5.7-computemesh-1.2.15`.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -14,7 +14,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
 - current merged code baseline before this handoff close-out: `f78ac87` (`deploy(portal): proxy ollama api gateway routes`)
-- current signed app/update release: `v1.2.11` prepared locally; `1.2.10` is live-installed on the miner but under-counts the AMD GPU until the `1.2.11` deployment/update verification in section 38 is completed
+- current signed app/update release: `v1.2.15` is built, signed, hosted, and applied to all reachable clients checked in section 58
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -1528,8 +1528,73 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 
 
 
+## 58. Professional Auth, Telemetry Hardening & v1.2.15 Rollout (2026-08-26)
 
+### Admin-Key Root Cause
+- `git blame services/gateway/auth.py` shows the built-in default `cm_admin_master_dani_2026` was introduced in commit `ac7f019` during the gateway/portal modularization work and later touched in `ab910f7` only to add a constant-time comparison comment.
+- It was a bootstrap/test convenience that accidentally became a production fallback. It has now been removed. Admin endpoints require `COMPUTEMESH_ADMIN_KEY` with a minimum length; if the variable is missing/too short, admin auth fails closed with `503 Service Unavailable`.
 
+### Implemented Hardening
+1. **Registered Gateway Tokens Only by Default:**
+   - `services/gateway/auth.py` now loads registered API keys from injected test/config maps, `COMPUTEMESH_API_KEYS`, and optional shared JSON store `COMPUTEMESH_API_KEY_STORE_PATH`.
+   - Unknown `cm_live_...` customer tokens and `cm_provider_...` provider tokens are rejected by default.
+   - Old auto-provision behavior is available only behind explicit lab flags: `COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS=1` and `COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS=1`.
+2. **Provider Route Authentication:**
+   - `services/gateway/routes_provider.py` now authenticates `/v1/providers/register` through `GatewayAuthManager.authenticate_provider(...)` and rejects body `provider_node_id` values that do not match the authenticated provider token.
+   - Auth is checked before provider-store availability so missing credentials return `401` rather than leaking deployment configuration state as `503`.
+3. **Portal/Gateway Key Store:**
+   - `services/portal/routes_registration.py` now emits provider tokens as `cm_provider_...` rather than unusable `cm_node_...` tokens.
+   - When `COMPUTEMESH_API_KEY_STORE_PATH` is configured, `/api/v1/register` persists the generated token/account mapping to a JSON key registry readable by the gateway.
+   - `portal/portal.js` no longer invents keys client-side; it calls `/api/v1/register` and displays the server-issued key.
+4. **Vault Secret Boundary:**
+   - `services/identity/vault.py` no longer contains a reusable static AES-GCM fallback key. Without `COMPUTEMESH_VAULT_KEY` or a key file it uses a process-ephemeral key suitable only for tests/non-durable demos.
+5. **Node Telemetry Access:**
+   - `services/portal/server.py` now requires `cm_tunnel_...` node auth tokens on heartbeat ingestion and checks the stored token before serving `/node/<node>` and `/api/v1/node/<node>/status`.
+   - `services/gateway/dashboard.py` no longer fills missing mesh stats with hard-coded 24.0 GB / 48.6 TFLOPS defaults and no longer claims "mTLS 1.3 / Zero-Knowledge" for this dashboard path.
+6. **Import-Time Side Effects Removed:**
+   - `services/appliance_dashboard/tunnel_relay.py` no longer starts `CloudTunnelRelay` at import time.
+   - `services/appliance_dashboard/mesh_aggregator.py` no longer starts peer polling at import time; `run_dashboard_server(...)` starts it explicitly for the real dashboard server.
 
+### Release Artifacts
+- `config.py` bumped to `1.2.15`.
+- Windows installer rebuilt with PyInstaller from `ComputeMesh-Setup-x64.spec`.
+- Linux package rebuilt as `portal/downloads/computemesh-linux-x86_64.tar.gz`.
+- `portal/updates/version.json` signed as `1.2.15`; `tools.security.release_signer.verify_manifest(...)` returned `True`.
+- Local artifact hashes:
+  - Windows `ComputeMesh-Setup-x64.exe`: SHA-256 `9ea12411824e26031ebaff682d1c92a2173b129cad3b03a27df9328563c2b364`, size `37,387,793` bytes.
+  - Linux `computemesh-linux-x86_64.tar.gz`: SHA-256 `1d06f26fe1216d7931342f77b6bdd067b4fa7cc397ff7487a421f847095e4d06`, size `1,076,666` bytes.
+  - Installer script `install.sh`: SHA-256 `da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf`, size `6,649` bytes.
 
+### Verification
+- `python -m py_compile services\gateway\auth.py services\gateway\routes_provider.py services\portal\routes_registration.py services\portal\server.py services\gateway\dashboard.py services\identity\vault.py services\appliance_dashboard\mesh_aggregator.py services\appliance_dashboard\tunnel_relay.py services\appliance_dashboard\server.py config.py` passed.
+- Targeted auth/portal/gateway/security run passed 49/49 tests before the final provider-registration ordering fix; final gateway-auth targeted run passed 32/32 tests after that fix.
+- Full local QA: `python run_all_tests.py` passed **284/284 tests** in **11.39s** with one existing Runtime & Mesh Network skip.
+- Full remote QA on `supersrv-trixie` from `/root/ComputeMesh`: `.venv/bin/python run_all_tests.py` passed **284/284 tests** in **4.41s**.
+- `portal/updates/version.json` signature verification returned `True`.
 
+### Deployment & Client Rollout
+- Public web/update server `supersrv-trixie` was backed up before deploy:
+  - `/root/computemesh-backups/ComputeMesh-final-20260826-072726.tar.gz`
+  - `/root/computemesh-backups/computemesh-final-20260826-072726.tar.gz`
+- Webroot `/var/www/vhosts/inetconnector.com/site2/` now serves `1.2.15` with verified artifact hashes:
+  - Windows `ComputeMesh-Setup-x64.exe`: `9ea12411824e26031ebaff682d1c92a2173b129cad3b03a27df9328563c2b364`
+  - Linux `computemesh-linux-x86_64.tar.gz`: `1d06f26fe1216d7931342f77b6bdd067b4fa7cc397ff7487a421f847095e4d06`
+  - Installer `install.sh`: `da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf`
+- Server systemd status after deploy: `computemesh-gateway.service`, `computemesh-node.service`, and `computemesh-autoupdate.service` all active.
+- Server env was hardened with `/etc/computemesh/gateway.env` (mode `0600`) containing `COMPUTEMESH_ADMIN_KEY`, `COMPUTEMESH_API_KEY_STORE_PATH=/var/lib/computemesh/api_keys.json`, and `COMPUTEMESH_VAULT_KEY`; secret values were intentionally not copied into this handoff.
+- Server node note: port `8080` is occupied by a Docker proxy, so the updated node dashboard bound to `8081`; `http://127.0.0.1:8081/api/status` reported `test-node-custom` on `1.2.15`.
+- Public live checks after deploy:
+  - `https://computemesh.inetconnector.com/api/version` returned `0.5.7-computemesh-1.2.15`.
+  - `https://computemesh.inetconnector.com/updates/version.json` returned signed manifest `1.2.15`.
+  - `https://computemesh.inetconnector.com/v1/admin/providers` with the old built-in key `cm_admin_master_dani_2026` returned `403 Invalid admin credentials`.
+  - `https://computemesh.inetconnector.com/v1/providers/register` without Bearer token returned `401 Missing provider authorization token`.
+- Reachable client update verification:
+  - Local Windows installed binary at `%LOCALAPPDATA%\Programs\ComputeMesh\ComputeMesh.exe` was replaced with final SHA-256 `9ea12411824e26031ebaff682d1c92a2173b129cad3b03a27df9328563c2b364`; local status API reported `test-node-custom` on `1.2.15`.
+  - LAN rig `http://192.168.1.27:8080/api/status` initially reported `1.2.14`, accepted `/api/action/apply_update`, and then reported `cm-inference-node-01` on `1.2.15`.
+  - Server node reported `test-node-custom` on `1.2.15`.
+
+### Remaining Hard Boundaries
+- Gateway inference still returns synthetic deterministic completion text and is not wired to real model runtime dispatch.
+- The mTLS tunnel helper still uses `ssl.CERT_NONE`; do not claim production peer authentication from `runtime/network/mesh_transport.py`.
+- `COMPUTEMESH_VAULT_KEY`, `COMPUTEMESH_ADMIN_KEY`, `COMPUTEMESH_API_KEY_STORE_PATH` and durable billing/accounting paths must be configured on any new deployment host before treating registration/admin/payment flows as persistent production services. `supersrv-trixie` now has the required auth/vault/key-store env file, but production live-mode Stripe and full ops controls remain out of scope.
+- The public `/node/<node>` URL currently returns the static portal shell without auth when served by the webroot/proxy path; it did not expose node JSON during this rollout check. The Python portal server route is hardened, but the production reverse-proxy/static routing should still be revisited before marketing remote node dashboard links as a protected live feature.

@@ -589,19 +589,35 @@ function closeModal() {
   if (resBox) resBox.style.display = 'none';
 }
 
-function handleRegistration(e) {
+async function handleRegistration(e) {
   e.preventDefault();
+  const form = e.currentTarget;
   const role = document.getElementById('modal-role').value;
-  const prefix = role === 'consumer' ? 'cm_live_' : 'cm_node_';
-  const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-  const generatedKey = prefix + randomHex;
-  
+  const email = form.querySelector('input[type="email"]')?.value || '';
+  const wallet = form.querySelector('input[data-i18n="modal_wallet_placeholder"]')?.value || '';
   const keyInput = document.getElementById('generated-key-val');
-  if (keyInput) keyInput.value = generatedKey;
-  
   const resBox = document.getElementById('modal-result-box');
+  if (keyInput) keyInput.value = currentLang === 'de' ? 'Registrierung läuft...' : 'Registering...';
   if (resBox) resBox.style.display = 'block';
+
+  try {
+    const resp = await fetch('/api/v1/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role, wallet })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.api_key) {
+      throw new Error(data.error || 'registration_failed');
+    }
+    if (keyInput) keyInput.value = data.api_key;
+  } catch (err) {
+    if (keyInput) {
+      keyInput.value = currentLang === 'de'
+        ? 'Registrierung fehlgeschlagen. Bitte später erneut versuchen.'
+        : 'Registration failed. Please try again later.';
+    }
+  }
 }
 
 function copyKey() {

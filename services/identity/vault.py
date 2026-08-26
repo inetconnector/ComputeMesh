@@ -50,8 +50,9 @@ class EncryptedVault:
             else:
                 self._key = base64.b64decode(content)[:32].ljust(32, b"\0")
         else:
-            # Default secure in-process 256-bit master key
-            self._key = b"ComputeMesh-AES256-GCM-MasterKey!"[:32]
+            # Ephemeral process-local key for tests and non-durable demos. Durable
+            # deployments must set COMPUTEMESH_VAULT_KEY or pass a key file.
+            self._key = secrets.token_bytes(32)
 
         self._aesgcm = AESGCM(self._key)
 
