@@ -35,7 +35,9 @@ jobs:
         run: python -m compileall -q apps deploy models protocol runtime sdk services setup tests tools
 
       - name: Gateway backend tests
-        run: python -m unittest services.gateway.tests.test_inference_backend -v
+        run: |
+          python -m unittest services.gateway.tests.test_inference_backend -v
+          python -m unittest services.gateway.tests.test_execution_attestation -v
 
       - name: Full test suite
         run: python run_all_tests.py

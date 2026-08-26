@@ -31,6 +31,16 @@ class OrchestratedInferenceBackendTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    @staticmethod
+    def _placement() -> PlacementSelection:
+        return PlacementSelection(
+            decision_id="placement-0123456789abcdef",
+            model_id="test-model",
+            artifact_digest="sha256:" + "a" * 64,
+            provider_node_ids=("node-a", "node-b"),
+            layer_ranges=(("node-a", 0, 16), ("node-b", 16, 32)),
+        )
+
     def test_success_requires_and_releases_two_capacity_reservations(self):
         store = SQLiteStateStore(self.db_path)
         backend = OrchestratedInferenceBackend(
@@ -105,19 +115,40 @@ class OrchestratedInferenceBackendTests(unittest.TestCase):
 
     def test_scheduler_placement_requires_shared_run_evidence(self):
         store = SQLiteStateStore(self.db_path)
-        placement = PlacementSelection(
-            decision_id="placement-0123456789abcdef",
-            model_id="test-model",
-            artifact_digest="sha256:" + "a" * 64,
-            provider_node_ids=("node-a", "node-b"),
-            layer_ranges=(("node-a", 0, 16), ("node-b", 16, 32)),
-        )
+        placement = self._placement()
         with self.assertRaisesRegex(ValueError, "requires shared-run evidence"):
             OrchestratedInferenceBackend(
                 delegate=_SuccessBackend(),
                 store=store,
                 provider_node_ids=placement.provider_node_ids,
                 placement=placement,
+            )
+        store.close()
+
+    def test_scheduler_placement_requires_execution_attestations(self):
+        store = SQLiteStateStore(self.db_path)
+        placement = self._placement()
+        with self.assertRaisesRegex(ValueError, "requires execution attestations"):
+            OrchestratedInferenceBackend(
+                delegate=_SuccessBackend(),
+                store=store,
+                provider_node_ids=placement.provider_node_ids,
+                placement=placement,
+                execution_evidence_path="evidence.json",
+            )
+        store.close()
+
+    def test_scheduler_placement_requires_identity_resolver(self):
+        store = SQLiteStateStore(self.db_path)
+        placement = self._placement()
+        with self.assertRaisesRegex(ValueError, "requires an identity resolver"):
+            OrchestratedInferenceBackend(
+                delegate=_SuccessBackend(),
+                store=store,
+                provider_node_ids=placement.provider_node_ids,
+                placement=placement,
+                execution_evidence_path="evidence.json",
+                execution_attestation_path="attestations.json",
             )
         store.close()
 

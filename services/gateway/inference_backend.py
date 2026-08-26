@@ -16,6 +16,11 @@ from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
+from services.gateway.execution_attestation import (
+    ExecutionAttestationError,
+    VerificationKeyResolver,
+    verify_execution_attestations,
+)
 from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
     verify_shared_execution_evidence,
@@ -25,6 +30,7 @@ from services.gateway.placement_selection import (
     PlacementSelectionError,
     load_shared_placement_selection,
 )
+from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.evidence_store import (
     ExecutionEvidenceBindingError,
     ExecutionEvidenceStore,
@@ -139,13 +145,11 @@ class OpenAICompatibleHTTPBackend:
 
 
 class OrchestratedInferenceBackend:
-    """Bind real runtime execution to durable job, reservation, and evidence state.
+    """Bind real runtime execution to durable job, reservation, evidence and attestations.
 
-    A validated scheduler placement may supply the participating node IDs. When
-    scheduler placement is used, current shared-run evidence is mandatory before
-    the result can complete and expose provider shares for settlement. Static
-    operator nodes remain available as a lab fallback but do not become
-    evidence-derived merely by passing through this wrapper.
+    Scheduler-derived execution may settle only after current shared-run evidence
+    matches the dispatch and every reserved node authenticates the exact
+    job/model/runtime/evidence/output tuple with an enrolled active Ed25519 key.
     """
 
     def __init__(
@@ -158,6 +162,8 @@ class OrchestratedInferenceBackend:
         id_factory: Callable[[], str] | None = None,
         placement: PlacementSelection | None = None,
         execution_evidence_path: str | None = None,
+        execution_attestation_path: str | None = None,
+        attestation_resolver: VerificationKeyResolver | None = None,
     ) -> None:
         cleaned = [value.strip() for value in provider_node_ids if value.strip()]
         if len(cleaned) < 2:
@@ -170,6 +176,10 @@ class OrchestratedInferenceBackend:
             raise ValueError("provider nodes must exactly match scheduler placement")
         if placement is not None and not execution_evidence_path:
             raise ValueError("scheduler-derived orchestration requires shared-run evidence")
+        if placement is not None and not execution_attestation_path:
+            raise ValueError("scheduler-derived orchestration requires execution attestations")
+        if placement is not None and attestation_resolver is None:
+            raise ValueError("scheduler-derived orchestration requires an identity resolver")
         self.delegate = delegate
         self.store = store
         self.provider_node_ids = tuple(cleaned)
@@ -177,6 +187,8 @@ class OrchestratedInferenceBackend:
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
         self.placement = placement
         self.execution_evidence_path = execution_evidence_path
+        self.execution_attestation_path = execution_attestation_path
+        self.attestation_resolver = attestation_resolver
         self.evidence_store = ExecutionEvidenceStore(store) if placement is not None else None
 
     @property
@@ -298,12 +310,25 @@ class OrchestratedInferenceBackend:
                 execution_job_id=job_id,
             )
         assert self.execution_evidence_path is not None
+        assert self.execution_attestation_path is not None
+        assert self.attestation_resolver is not None
         assert self.evidence_store is not None
         verified = verify_shared_execution_evidence(
             self.execution_evidence_path,
             placement=self.placement,
             output_text=result.text,
             not_before=execution_started_at,
+        )
+        verify_execution_attestations(
+            self.execution_attestation_path,
+            resolver=self.attestation_resolver,
+            expected_nodes=self.provider_node_ids,
+            job_id=job_id,
+            placement_decision_id=verified.placement_decision_id,
+            model_sha256=verified.model_sha256,
+            runtime_sha256=verified.runtime_sha256,
+            evidence_sha256=verified.document_sha256.removeprefix("sha256:"),
+            output_sha256=verified.output_sha256,
         )
         self.evidence_store.bind(
             job_id=job_id,
@@ -350,9 +375,9 @@ class OrchestratedInferenceBackend:
             )
             self._advance_job(job_id, JobState.COMPLETED)
             return verified_result
-        except (ExecutionEvidenceError, ExecutionEvidenceBindingError) as exc:
+        except (ExecutionEvidenceError, ExecutionEvidenceBindingError, ExecutionAttestationError) as exc:
             self._fail_job(job_id, exc)
-            raise InferenceBackendError("shared runtime evidence verification failed") from exc
+            raise InferenceBackendError("shared runtime evidence/attestation verification failed") from exc
         except Exception as exc:
             self._fail_job(job_id, exc)
             if isinstance(exc, InferenceBackendError):
@@ -388,7 +413,10 @@ def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
     placement: PlacementSelection | None = None
     decision_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_PLACEMENT_DECISION", "").strip()
     evidence_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_SHARED_RUN_EVIDENCE", "").strip() or None
+    attestation_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_EXECUTION_ATTESTATIONS", "").strip() or None
+    identity_path = os.environ.get("COMPUTEMESH_IDENTITY_STATE_PATH", "").strip() or None
     try:
+        resolver: VerificationKeyResolver | None = None
         if decision_path:
             placement = load_shared_placement_selection(
                 decision_path,
@@ -398,6 +426,9 @@ def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
                 ),
             )
             nodes = list(placement.provider_node_ids)
+            if not identity_path:
+                raise ValueError("COMPUTEMESH_IDENTITY_STATE_PATH is required for signed execution")
+            resolver = SQLiteIdentityStore(identity_path)
         else:
             nodes = [
                 value.strip()
@@ -412,6 +443,8 @@ def _orchestrated_backend_from_env() -> OrchestratedInferenceBackend:
             lease_seconds=lease_seconds,
             placement=placement,
             execution_evidence_path=evidence_path,
+            execution_attestation_path=attestation_path,
+            attestation_resolver=resolver,
         )
     except (OSError, ValueError, PlacementSelectionError) as exc:
         raise InferenceBackendError("Invalid orchestrated inference configuration") from exc

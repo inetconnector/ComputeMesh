@@ -26,6 +26,8 @@ class VerifiedExecutionEvidence:
     evidence_id: str
     document_sha256: str
     placement_decision_id: str
+    model_sha256: str
+    runtime_sha256: str
     output_sha256: str
     provider_shares: tuple[tuple[str, float], ...]
     captured_at: datetime
@@ -150,13 +152,7 @@ def verify_shared_execution_evidence(
     not_before: datetime,
     now: datetime | None = None,
 ) -> VerifiedExecutionEvidence:
-    """Validate and bind one shared-run proof to the just-finished runtime output.
-
-    The M1 proof is intentionally experimental. This verifier does not turn it into
-    production attestation; it ensures that settlement uses only a structurally
-    valid proof matching the scheduler decision, immutable model artifact, current
-    output bytes, and the current execution window.
-    """
+    """Validate and bind one shared-run proof to the just-finished runtime output."""
     if not_before.tzinfo is None:
         raise ValueError("not_before must be timezone-aware")
     evidence, raw = _load_document(Path(evidence_path))
@@ -203,6 +199,8 @@ def verify_shared_execution_evidence(
         evidence_id=str(evidence["evidence_id"]),
         document_sha256="sha256:" + hashlib.sha256(raw).hexdigest(),
         placement_decision_id=placement.decision_id,
+        model_sha256=evidence["model"]["sha256"],
+        runtime_sha256=_canonical_digest(evidence["runtime"]),
         output_sha256=output_sha256,
         provider_shares=provider_shares,
         captured_at=captured_at,
