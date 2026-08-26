@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/runtime_advertisement_payload.schema.json",
+  "title": "ComputeMesh Runtime Advertisement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "profile_revision", "runtime", "llama_build_commit", "llama_build_number", "rpc"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "profile_revision": {"type": "integer", "minimum": 0},
+    "runtime": {"const": "llama.cpp"},
+    "llama_build_commit": {"type": "string", "minLength": 1, "maxLength": 128},
+    "llama_build_number": {"type": "integer", "minimum": 1},
+    "rpc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1, "maxLength": 253},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    }
+  }
+}
