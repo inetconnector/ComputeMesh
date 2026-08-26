@@ -44,8 +44,10 @@ jobs:
           python -m unittest runtime.llama.tests.test_job_attestation -v
           python -m unittest runtime.llama.tests.test_job_bound_shared_trial -v
 
-      - name: Attestation collection tests
-        run: python -m unittest services.orchestrator.tests.test_attestation_collection -v
+      - name: Attestation control-plane tests
+        run: |
+          python -m unittest services.orchestrator.tests.test_attestation_collection -v
+          python -m unittest services.orchestrator.tests.test_authenticated_attestation_transport -v
 
       - name: Full test suite
         run: python run_all_tests.py
