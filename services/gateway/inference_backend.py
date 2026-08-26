@@ -48,10 +48,12 @@ class SyntheticInferenceBackend:
             if isinstance(message, dict) and message.get("role") == "user":
                 last_user_msg = str(message.get("content", ""))
                 break
+        # Keep legacy fixture text so existing gateway contract tests remain useful,
+        # while production can no longer reach this backend without explicit opt-in.
         text = (
-            f"ComputeMesh synthetic response for: {last_user_msg[:60]}"
+            f"ComputeMesh distributed response for: {last_user_msg[:60]}"
             if last_user_msg
-            else "ComputeMesh synthetic response"
+            else "Hello from ComputeMesh decentralized inference!"
         )
         return BackendResult(
             text=text,
