@@ -25,6 +25,8 @@ class NodeSessionRegistry(Protocol):
 
 
 class NodeControlClient(Protocol):
+    def is_connected(self, node_id: str) -> bool: ...
+
     def request(
         self,
         *,
@@ -62,6 +64,10 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         if ATTESTATION_CAPABILITY not in session.negotiated_capabilities:
             raise AuthenticatedAttestationTransportError(
                 f"node {node_id} did not negotiate {ATTESTATION_CAPABILITY}"
+            )
+        if not self.client.is_connected(node_id):
+            raise AuthenticatedAttestationTransportError(
+                f"node {node_id} has no live persistent control channel"
             )
         return session
 
