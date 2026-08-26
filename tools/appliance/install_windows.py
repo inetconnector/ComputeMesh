@@ -34,8 +34,21 @@ def install():
     except Exception:
         pass
     
+    import time
+    time.sleep(1.0)
+    
     print(f"Copying {source_exe} -> {target_exe}...")
-    shutil.copy2(source_exe, target_exe)
+    copied = False
+    for attempt in range(5):
+        try:
+            shutil.copy2(source_exe, target_exe)
+            copied = True
+            break
+        except PermissionError:
+            time.sleep(0.8)
+    
+    if not copied:
+        shutil.copy2(source_exe, target_exe)
     
     if source_ico.exists():
         shutil.copy2(source_ico, target_ico)
@@ -87,6 +100,13 @@ $s2.Save()
         print("Created Desktop and Start Menu shortcuts.")
     except Exception as e:
         print(f"Warning creating shortcuts: {e}")
+
+    # Launch interactive desktop app immediately after install
+    try:
+        subprocess.Popen(["explorer.exe", str(target_exe)])
+        print("Launched ComputeMesh in user interactive desktop session.")
+    except Exception as e:
+        print(f"Warning auto-launching app: {e}")
 
     print(f"\n[OK] ComputeMesh v{CONFIG.appliance_version} successfully installed on this PC!")
     print(f"Location: {target_exe}")
