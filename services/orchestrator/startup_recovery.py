@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
+import sqlite3
+import threading
 from typing import Iterable
 
 from services.orchestrator.persistence import SQLiteStateStore, StateRecord
@@ -33,7 +36,84 @@ class StartupRecoveryReport:
 
 
 class RecoveryStateStore(SQLiteStateStore):
-    """SQLiteStateStore with bounded enumeration used only for startup recovery."""
+    """Cross-thread live state store with serialized access and recovery enumeration.
+
+    The live gateway creates this store before starting ThreadingHTTPServer and then
+    uses it from request threads. Python sqlite connections default to thread-affine;
+    this variant explicitly allows cross-thread use and protects each logical store
+    operation with one re-entrant lock so transactions cannot interleave.
+    """
+
+    def __init__(self, path: str | Path):
+        self.path = str(path)
+        self._lock = threading.RLock()
+        self._db = sqlite3.connect(
+            self.path,
+            timeout=5.0,
+            isolation_level=None,
+            check_same_thread=False,
+        )
+        self._db.row_factory = sqlite3.Row
+        self._db.execute("PRAGMA foreign_keys = ON")
+        self._db.execute("PRAGMA busy_timeout = 5000")
+        if self.path != ":memory:":
+            self._db.execute("PRAGMA journal_mode = WAL")
+        self._migrate()
+
+    def close(self) -> None:
+        with self._lock:
+            super().close()
+
+    def _ensure(self, kind, entity_id, initial_state):
+        with self._lock:
+            return super()._ensure(kind, entity_id, initial_state)
+
+    def get(self, kind, entity_id):
+        with self._lock:
+            return super().get(kind, entity_id)
+
+    def get_reservation_binding(self, reservation_id):
+        with self._lock:
+            return super().get_reservation_binding(reservation_id)
+
+    def _transition(
+        self,
+        kind,
+        entity_id,
+        request_id,
+        expected_revision,
+        target,
+        lease_expires_at,
+        request_fingerprint,
+        binding,
+    ):
+        with self._lock:
+            return super()._transition(
+                kind,
+                entity_id,
+                request_id,
+                expected_revision,
+                target,
+                lease_expires_at,
+                request_fingerprint,
+                binding,
+            )
+
+    def expire_reservation_if_due(
+        self,
+        reservation_id,
+        *,
+        request_id,
+        expected_revision,
+        now,
+    ):
+        with self._lock:
+            return super().expire_reservation_if_due(
+                reservation_id,
+                request_id=request_id,
+                expected_revision=expected_revision,
+                now=now,
+            )
 
     def records(self, *, kind: str, states: Iterable[str] | None = None) -> tuple[StateRecord, ...]:
         if kind not in {"job", "reservation"}:
@@ -45,7 +125,8 @@ class RecoveryStateStore(SQLiteStateStore):
             sql += " AND state IN (" + ",".join("?" for _ in state_values) + ")"
             params.extend(state_values)
         sql += " ORDER BY entity_id"
-        rows = self._db.execute(sql, tuple(params)).fetchall()
+        with self._lock:
+            rows = self._db.execute(sql, tuple(params)).fetchall()
         result: list[StateRecord] = []
         for row in rows:
             state = JobState(row["state"]) if kind == "job" else ReservationState(row["state"])
@@ -56,12 +137,13 @@ class RecoveryStateStore(SQLiteStateStore):
         return tuple(result)
 
     def reservations_for_job(self, job_id: str) -> tuple[StateRecord, ...]:
-        rows = self._db.execute(
-            "SELECT e.kind, e.entity_id, e.state, e.revision, e.lease_expires_at "
-            "FROM entity_state e JOIN reservation_binding b ON b.reservation_id=e.entity_id "
-            "WHERE e.kind='reservation' AND b.job_id=? ORDER BY e.entity_id",
-            (job_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT e.kind, e.entity_id, e.state, e.revision, e.lease_expires_at "
+                "FROM entity_state e JOIN reservation_binding b ON b.reservation_id=e.entity_id "
+                "WHERE e.kind='reservation' AND b.job_id=? ORDER BY e.entity_id",
+                (job_id,),
+            ).fetchall()
         result: list[StateRecord] = []
         for row in rows:
             lease = None
@@ -74,13 +156,6 @@ class RecoveryStateStore(SQLiteStateStore):
 
 
 def reconcile_startup_state(store: RecoveryStateStore, *, now: datetime | None = None) -> StartupRecoveryReport:
-    """Make durable state safe before accepting new requests after a restart.
-
-    A restarted control-plane process cannot prove that an old in-flight runtime process,
-    its authenticated sessions, or its cancellation handle are still the same execution.
-    In-flight jobs are therefore failed rather than resumed. Bound capacity is released,
-    and expired unbound leases are expired. Terminal/settlement states are untouched.
-    """
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     failed_jobs: list[str] = []
     released: list[str] = []
@@ -88,8 +163,6 @@ def reconcile_startup_state(store: RecoveryStateStore, *, now: datetime | None =
 
     jobs = store.records(kind="job", states=(state.value for state in _RECOVERABLE_JOB_STATES))
     for job in jobs:
-        # Release capacity first. If the process dies again after this point, the job is
-        # still fail-able on the next startup; capacity will not stay stuck ACTIVE.
         for reservation in store.reservations_for_job(job.entity_id):
             if reservation.state not in _RELEASABLE_RESERVATION_STATES:
                 continue
@@ -112,8 +185,6 @@ def reconcile_startup_state(store: RecoveryStateStore, *, now: datetime | None =
             )
             failed_jobs.append(job.entity_id)
 
-    # Leased candidates without a committed job binding are independently safe to expire
-    # once their durable lease deadline has passed.
     for reservation in store.records(kind="reservation", states=(ReservationState.LEASED.value,)):
         if reservation.lease_expires_at is None or reservation.lease_expires_at > current:
             continue
