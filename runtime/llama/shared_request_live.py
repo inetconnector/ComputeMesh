@@ -1,13 +1,9 @@
-"""Single-pass shared llama.cpp request from a validated in-memory TrialPlan.
-
-This is the serving counterpart to the file-backed M1 experiment path. It keeps
-all current runtime/model/device/RPC checks but does not require an experiment
-bundle on disk once the control plane has already built and validated a plan.
-"""
+"""Single-pass shared llama.cpp request from a validated in-memory TrialPlan."""
 from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import threading
 import time
 
 from runtime.llama.rpc_spike import (
@@ -42,6 +38,10 @@ from runtime.llama.shared_trial import (
 )
 
 
+class SharedRequestCancelled(SharedRequestError):
+    pass
+
+
 def run_live_shared_request(
     *,
     job_id: str,
@@ -61,7 +61,11 @@ def run_live_shared_request(
     seed: int = 1,
     startup_timeout: float = 300.0,
     request_timeout: float = 300.0,
+    cancel_event: threading.Event | None = None,
 ) -> SharedRequestResult:
+    cancelled = cancel_event or threading.Event()
+    if cancelled.is_set():
+        raise SharedRequestCancelled("shared request was cancelled before dispatch")
     if not isinstance(prompt, str) or not prompt:
         raise ValueError("prompt must be non-empty text")
     output_dir.mkdir(parents=True, exist_ok=False)
@@ -89,10 +93,26 @@ def run_live_shared_request(
     selected_local = choose_local_device(local_listing, plan, local_device)
     remote_listing = preflight_server_rpc(llama_server, worker_rpc, llama_cli=llama_cli)
     selected_rpc = choose_rpc_device(remote_listing, rpc_device)
+    if cancelled.is_set():
+        raise SharedRequestCancelled("shared request was cancelled before runtime start")
 
     relay_metrics_path = output_dir / "relay_metrics.json"
     relay = start_measurement_relay(worker_rpc, relay_metrics_path, listen_port=relay_port)
     process: subprocess.Popen | None = None
+    watcher: threading.Thread | None = None
+    watcher_stop = threading.Event()
+
+    def watch_cancel() -> None:
+        while not watcher_stop.is_set():
+            if cancelled.wait(0.1):
+                current = process
+                if current is not None and current.poll() is None:
+                    try:
+                        current.terminate()
+                    except OSError:
+                        pass
+                return
+
     try:
         spike_plan = SpikePlan(
             llama_server=llama_server,
@@ -112,7 +132,11 @@ def run_live_shared_request(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        watcher = threading.Thread(target=watch_cancel, name=f"cm-cancel-{job_id}", daemon=True)
+        watcher.start()
         model_ready_ms = wait_until_ready(local_port, timeout=startup_timeout, process=process)
+        if cancelled.is_set():
+            raise SharedRequestCancelled("shared request was cancelled during model startup")
         started = time.monotonic()
         doc = _json_request(
             "POST",
@@ -120,14 +144,25 @@ def run_live_shared_request(
             completion_payload(prompt, n_predict=n_predict, seed=seed),
             request_timeout,
         )
+        if cancelled.is_set():
+            raise SharedRequestCancelled("shared request was cancelled during inference")
         request_ms = (time.monotonic() - started) * 1000.0
         content, _tokens, timings = parse_completion_response(doc)
         timings = dict(timings)
         timings["request_ms"] = request_ms
         timings["model_ready_ms"] = model_ready_ms
+    except SharedRequestCancelled:
+        stop_relay(relay)
+        raise
     except Exception as exc:
+        stop_relay(relay)
+        if cancelled.is_set():
+            raise SharedRequestCancelled("shared request was cancelled during inference") from exc
         raise SharedRequestError("live shared runtime request failed") from exc
     finally:
+        watcher_stop.set()
+        if watcher is not None:
+            watcher.join(timeout=0.5)
         if process is not None and process.poll() is None:
             process.terminate()
             try:
@@ -139,8 +174,13 @@ def run_live_shared_request(
         wait_relay_success(relay, relay_metrics_path)
     except SharedTrialError as exc:
         stop_relay(relay)
+        if cancelled.is_set():
+            raise SharedRequestCancelled("shared request was cancelled before relay completion") from exc
         raise SharedRequestError("live shared request relay did not complete cleanly") from exc
 
+    if cancelled.is_set():
+        stop_relay(relay)
+        raise SharedRequestCancelled("shared request was cancelled before evidence creation")
     relay_metrics = _read_relay_metrics(relay_metrics_path)
     evidence = build_shared_request_evidence(
         job_id=job_id,
