@@ -98,6 +98,7 @@ class PersistentControlPlaneListener:
 
     def _authenticate_socket(self, raw: socket.socket) -> None:
         wrapped: ssl.SSLSocket | None = None
+        transferred = False
         try:
             wrapped = self._context.wrap_socket(raw, server_side=True)
             accepted = accept_authenticated_provider(
@@ -108,21 +109,15 @@ class PersistentControlPlaneListener:
                 control_plane_id=self.control_plane_id,
                 control_plane_capabilities=self.capabilities,
             )
+            transferred = True
             if self.on_session is not None:
                 self.on_session(accepted)
-            # PersistentNodeConnection owns the socket after this point.
-            wrapped = None
         except Exception:
             pass
         finally:
-            if wrapped is not None:
+            if not transferred:
                 try:
-                    wrapped.close()
-                except OSError:
-                    pass
-            else:
-                try:
-                    raw.close()
+                    (wrapped or raw).close()
                 except OSError:
                     pass
 
