@@ -100,6 +100,9 @@ def load_verified_live_model(*, manifest_path: Path, artifact_path: Path) -> Liv
     size = artifact_path.stat().st_size
     if size <= 0 or size > MAX_MODEL_BYTES:
         raise LiveModelCatalogError("model artifact size is invalid")
+    with artifact_path.open("rb") as handle:
+        if handle.read(4) != b"GGUF":
+            raise LiveModelCatalogError("model artifact does not have GGUF magic")
     if int(artifact["size_bytes"]) != size:
         raise LiveModelCatalogError("model artifact size does not match manifest")
     digest = _sha256_file(artifact_path)
