@@ -8,6 +8,7 @@ from services.gateway.inference_backend import (
     InferenceBackendError,
     OrchestratedInferenceBackend,
 )
+from services.gateway.placement_selection import PlacementSelection
 from services.orchestrator.persistence import SQLiteStateStore
 from services.orchestrator.state_machine import JobState, ReservationState
 
@@ -47,6 +48,8 @@ class OrchestratedInferenceBackendTests(unittest.TestCase):
         self.assertEqual(result.text, "real runtime output")
         self.assertEqual(result.prompt_tokens, 11)
         self.assertEqual(result.completion_tokens, 7)
+        self.assertEqual(result.execution_job_id, "job-success")
+        self.assertIsNone(result.provider_shares)
         job = store.get_job("job-success")
         self.assertEqual(job.state, JobState.COMPLETED)
         self.assertEqual(job.revision, 7)
@@ -97,6 +100,24 @@ class OrchestratedInferenceBackendTests(unittest.TestCase):
                 delegate=_SuccessBackend(),
                 store=store,
                 provider_node_ids=["node-a", "node-a"],
+            )
+        store.close()
+
+    def test_scheduler_placement_requires_shared_run_evidence(self):
+        store = SQLiteStateStore(self.db_path)
+        placement = PlacementSelection(
+            decision_id="placement-0123456789abcdef",
+            model_id="test-model",
+            artifact_digest="sha256:" + "a" * 64,
+            provider_node_ids=("node-a", "node-b"),
+            layer_ranges=(("node-a", 0, 16), ("node-b", 16, 32)),
+        )
+        with self.assertRaisesRegex(ValueError, "requires shared-run evidence"):
+            OrchestratedInferenceBackend(
+                delegate=_SuccessBackend(),
+                store=store,
+                provider_node_ids=placement.provider_node_ids,
+                placement=placement,
             )
         store.close()
 
