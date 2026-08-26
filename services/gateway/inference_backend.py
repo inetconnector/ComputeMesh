@@ -54,14 +54,26 @@ class BackendResult:
 
 
 class InferenceBackend(Protocol):
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         """Execute one non-streaming chat completion."""
 
 
 class DisabledInferenceBackend:
     """Fail closed when no real inference backend is configured."""
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         raise InferenceBackendError(
             "Inference backend is not configured. Set COMPUTEMESH_INFERENCE_BACKEND "
             "and COMPUTEMESH_INFERENCE_URL before serving inference traffic."
@@ -71,7 +83,13 @@ class DisabledInferenceBackend:
 class SyntheticInferenceBackend:
     """Deterministic backend for tests and explicitly opted-in development only."""
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         last_user_msg = ""
         for message in reversed(messages):
             if isinstance(message, dict) and message.get("role") == "user":
@@ -82,10 +100,13 @@ class SyntheticInferenceBackend:
             if last_user_msg
             else "Hello from ComputeMesh decentralized inference!"
         )
+        gen_tokens = max(len(text) // 4, 12)
+        if max_tokens is not None:
+            gen_tokens = min(gen_tokens, max_tokens)
         return BackendResult(
             text=text,
             prompt_tokens=max(len(json.dumps(messages)) // 4, 8),
-            completion_tokens=max(len(text) // 4, 12),
+            completion_tokens=gen_tokens,
         )
 
 
@@ -112,12 +133,18 @@ class OpenAICompatibleHTTPBackend:
         self.max_response_bytes = max_response_bytes
         self.model_override = model_override.strip() if model_override else ""
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         runtime_model = self.model_override or model_id
-        payload = json.dumps(
-            {"model": runtime_model, "messages": messages, "stream": False},
-            separators=(",", ":"),
-        ).encode("utf-8")
+        payload_data: dict[str, Any] = {"model": runtime_model, "messages": messages, "stream": False}
+        if max_tokens is not None:
+            payload_data["max_tokens"] = max_tokens
+        payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -196,10 +223,17 @@ class OllamaHTTPBackend:
             normalized.insert(0, {"role": "system", "content": system_prompt})
         return normalized or [{"role": "user", "content": "Hello"}]
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         runtime_model = self.model_override or model_id
         normalized = self._normalise_messages(messages, self.system_prompt)
-        options: dict[str, int | float] = {"temperature": 0.2, "num_predict": self.num_predict}
+        predict_limit = max_tokens if max_tokens is not None else self.num_predict
+        options: dict[str, int | float] = {"temperature": 0.2, "num_predict": predict_limit}
         if self.num_ctx is not None:
             options["num_ctx"] = self.num_ctx
         if self.num_thread is not None:
@@ -453,7 +487,13 @@ class OrchestratedInferenceBackend:
             evidence_id=verified.evidence_id,
         )
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         if self.placement is not None and model_id != self.placement.model_id:
             raise InferenceBackendError("requested model does not match scheduler placement")
         job_id = self.id_factory()
@@ -470,7 +510,10 @@ class OrchestratedInferenceBackend:
             self._activate(job_id, reservation_ids)
             self._advance_job(job_id, JobState.RUNNING)
             execution_started_at = datetime.now(timezone.utc)
-            result = self.delegate.complete(model_id=model_id, messages=messages)
+            try:
+                result = self.delegate.complete(model_id=model_id, messages=messages, max_tokens=max_tokens)
+            except TypeError:
+                result = self.delegate.complete(model_id=model_id, messages=messages)
             self._advance_job(job_id, JobState.VERIFYING)
             if not isinstance(result.text, str) or result.prompt_tokens < 0 or result.completion_tokens < 0:
                 raise InferenceBackendError("runtime result failed orchestrator verification")

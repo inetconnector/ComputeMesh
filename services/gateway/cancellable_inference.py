@@ -26,17 +26,34 @@ class RequestContextBackend:
         self.local = local
         self.billing_intents = billing_intents
 
-    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+    def complete(
+        self,
+        *,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> BackendResult:
         request_id = getattr(self.local, "request_id", None)
         complete_for_request = getattr(self.delegate, "complete_for_request", None)
         if request_id and callable(complete_for_request):
-            result = complete_for_request(
-                request_id=request_id,
-                model_id=model_id,
-                messages=messages,
-            )
+            try:
+                result = complete_for_request(
+                    request_id=request_id,
+                    model_id=model_id,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                )
+            except TypeError:
+                result = complete_for_request(
+                    request_id=request_id,
+                    model_id=model_id,
+                    messages=messages,
+                )
         else:
-            result = self.delegate.complete(model_id=model_id, messages=messages)
+            try:
+                result = self.delegate.complete(model_id=model_id, messages=messages, max_tokens=max_tokens)
+            except TypeError:
+                result = self.delegate.complete(model_id=model_id, messages=messages)
 
         self.local.execution_job_id = result.execution_job_id
         context = getattr(self.local, "billing_context", None)
@@ -70,21 +87,26 @@ class CancellableInferenceEngine(InferenceEngine):
         self._delegate_backend = backend
         store = getattr(backend, "store", None)
         self.billing_intents = BillingIntentStore(store) if store is not None else None
+        wrapped_backend = RequestContextBackend(
+            backend,
+            self._request_local,
+            self.billing_intents,
+        )
         super().__init__(
             ledger=ledger,
             metrics=metrics,
             teaser_manager=teaser_manager,
-            backend=RequestContextBackend(backend, self._request_local, self.billing_intents),
+            backend=wrapped_backend,
         )
 
-    @staticmethod
-    def validate_request_id(request_id: str) -> str:
-        value = request_id.strip()
-        if not (1 <= len(value) <= 128):
-            raise ValueError("X-ComputeMesh-Request-ID must be 1..128 characters")
-        allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
-        if any(ch not in allowed for ch in value):
-            raise ValueError("X-ComputeMesh-Request-ID contains invalid characters")
+    def validate_request_id(self, value: Any) -> str:
+        if not isinstance(value, str):
+            raise ValueError("ComputeMesh request id must be a string")
+        value = value.strip()
+        if not value or len(value) > 128:
+            raise ValueError("ComputeMesh request id must be between 1 and 128 characters")
+        if not all(c.isalnum() or c in "-_.:" for c in value):
+            raise ValueError("ComputeMesh request id contains invalid characters")
         return value
 
     @contextmanager
@@ -108,17 +130,21 @@ class CancellableInferenceEngine(InferenceEngine):
             DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"],
         )
         is_self_compute = bool(kwargs.get("is_provider_self_compute", False))
+        is_teaser = bool(kwargs.get("is_teaser", False))
         configured_fee = getattr(self.ledger, "network_fee_bps", DEFAULT_NETWORK_FEE_BPS)
         fee_bps = 0 if is_self_compute else int(configured_fee)
 
         self._request_local.execution_job_id = None
-        self._request_local.billing_context = {
-            "account_id": account_id,
-            "model_id": canonical_model,
-            "network_fee_bps": fee_bps,
-            "prompt_micro_per_token": tier.prompt_micro_per_token,
-            "completion_micro_per_token": tier.completion_micro_per_token,
-        }
+        if not is_teaser and not is_self_compute and account_id:
+            self._request_local.billing_context = {
+                "account_id": account_id,
+                "model_id": canonical_model,
+                "network_fee_bps": fee_bps,
+                "prompt_micro_per_token": tier.prompt_micro_per_token,
+                "completion_micro_per_token": tier.completion_micro_per_token,
+            }
+        else:
+            self._request_local.billing_context = None
         if request_id:
             with self._active_lock:
                 existing = self._active_owners.get(request_id)

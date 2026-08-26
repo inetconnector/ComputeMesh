@@ -73,7 +73,13 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     safe_gpu_name = html.escape(str(gpu_name))
 
     tokens_processed = int(telemetry.get("tokens_processed", 0) or 0)
-    earnings_cm = float(telemetry.get("earnings_cm", 0.0) or 0.0)
+    provider_payable_micro = int(
+        telemetry.get("provider_payable_micro_units")
+        or telemetry.get("earnings_cm")
+        or 0
+    )
+    earnings_cm = provider_payable_micro
+    earnings_usd = earnings_cm / 1_000_000.0
     tflops = float(telemetry.get("local_compute_tflops", 0.0) or 0.0)
     
     thermals_list = telemetry.get("gpu_thermals", [{}])
@@ -282,8 +288,8 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
 
         <div class="card">
             <h3>Vergüteter Umsatz & Auszahlung{metric_tag}</h3>
-            <div class="value">{tokens_processed:,} <span style="font-size: 16px; color: var(--accent);">CM (~ ${(tokens_processed * 0.00000075):.4f} USD)</span></div>
-            <div class="subtext">75% Provider-Umsatzanteil aus realen Kundeneinnahmen (1 CM = 1 Micro-Unit)</div>
+            <div class="value">{earnings_cm:,} <span style="font-size: 16px; color: var(--accent);">CM (${earnings_usd:.4f} USD)</span></div>
+            <div class="subtext">75% Provider-Umsatzanteil im Ledger (1 CM = 1 Micro-Unit &middot; 1.000.000 CM = $1.00 USD)</div>
         </div>
 
         <div class="card">

@@ -173,7 +173,7 @@ class Ledger:
         account_id: str,
         amount_micro_units: int,
         model_id: str = "",
-        ttl_seconds: float = 120.0,
+        ttl_seconds: float = 600.0,
         hold_id: str | None = None,
     ) -> CreditHold:
         """Atomically reserves a credit hold if the customer's available balance is sufficient."""
@@ -199,6 +199,15 @@ class Ledger:
             self._holds[hid] = hold
             return hold
 
+    def renew_hold(self, hold_id: str, additional_seconds: float = 300.0) -> bool:
+        """Renews an active credit hold lease."""
+        with self._lock:
+            hold = self._holds.get(hold_id)
+            if hold and hold.status == "active":
+                hold.expires_at = max(hold.expires_at, time.time()) + additional_seconds
+                return True
+            return False
+
     def release_hold(self, hold_id: str) -> bool:
         """Releases an active credit hold, immediately restoring available customer balance."""
         with self._lock:
@@ -223,6 +232,34 @@ class Ledger:
         """Captures actual inference compute cost against an active hold and releases any remainder."""
         with self._lock:
             hold = self._holds.get(hold_id)
+            if not hold:
+                raise BillingError(f"Credit hold '{hold_id}' not found")
+            if hold.status != "active":
+                raise BillingError(f"Credit hold '{hold_id}' is not active (status: {hold.status})")
+            if hold.account_id != customer_account_id:
+                raise BillingError(f"Credit hold '{hold_id}' account mismatch ({hold.account_id} != {customer_account_id})")
+            if hold.model_id and hold.model_id != model_id:
+                raise BillingError(f"Credit hold '{hold_id}' model mismatch ({hold.model_id} != {model_id})")
+            if not hold.is_active:
+                raise BillingError(f"Credit hold '{hold_id}' has expired")
+
+            actual_charge = calculate_token_charge_micro(
+                model_id=model_id,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
+
+            # Check if actual charge exceeds hold amount
+            if actual_charge > hold.amount_micro_units:
+                extra = actual_charge - hold.amount_micro_units
+                avail = self.get_available_balance(customer_account_id)
+                if avail < extra:
+                    raise InsufficientBalanceError(
+                        f"Actual compute charge ({actual_charge} µ$) exceeded hold ({hold.amount_micro_units} µ$) and available balance ({avail} µ$) cannot cover extra {extra} µ$"
+                    )
+                # Expand hold to cover extra
+                hold.amount_micro_units = actual_charge
+
             try:
                 tx = self.record_job_execution(
                     job_id=job_id,
@@ -233,11 +270,10 @@ class Ledger:
                     completion_tokens=completion_tokens,
                     network_fee_bps=network_fee_bps,
                 )
-                if hold:
-                    hold.status = "captured"
+                hold.status = "captured"
                 return tx
             finally:
-                if hold and hold.status == "active":
+                if hold.status == "active":
                     hold.status = "released"
 
     def deposit_customer_credits(

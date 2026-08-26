@@ -582,9 +582,10 @@ class TestSecurityAuditFixes(unittest.TestCase):
         resolved_loopback = resolve_client_ip(headers, ("127.0.0.1", 48200))
         self.assertEqual(resolved_loopback, "1.2.3.4")
 
-    # 17. Release Manifest SHA-256 Binary Integrity Verification
+    # 17. Release Manifest SHA-256 Binary Integrity & Ed25519 Signature Verification
     def test_release_manifest_sha256_binary_integrity(self) -> None:
         import hashlib
+        from tools.security.ed25519_verify import verify_ed25519_signature
         manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"
         self.assertTrue(manifest_file.exists())
         data = json.loads(manifest_file.read_text(encoding="utf-8"))
@@ -596,11 +597,73 @@ class TestSecurityAuditFixes(unittest.TestCase):
             expected_size = info.get("size_bytes")
             if fn:
                 local_binary = REPO_ROOT / "portal" / "downloads" / fn
-                if local_binary.exists():
-                    actual_bytes = local_binary.read_bytes()
-                    actual_sha = hashlib.sha256(actual_bytes).hexdigest()
-                    self.assertEqual(actual_sha, expected_sha, f"SHA-256 mismatch for {fn}")
-                    self.assertEqual(len(actual_bytes), expected_size, f"Size mismatch for {fn}")
+                self.assertTrue(local_binary.exists(), f"Release binary {fn} must exist in portal/downloads")
+                actual_bytes = local_binary.read_bytes()
+                actual_sha = hashlib.sha256(actual_bytes).hexdigest()
+                self.assertEqual(actual_sha, expected_sha, f"SHA-256 mismatch for {fn}")
+                self.assertEqual(len(actual_bytes), expected_size, f"Size mismatch for {fn}")
+
+        pub_hex = data.get("public_key")
+        sig_hex = data.get("signature")
+        self.assertTrue(pub_hex, "Public key must be present in release manifest")
+        self.assertTrue(sig_hex, "Digital signature must be present in release manifest")
+
+        manifest_copy = dict(data)
+        manifest_copy.pop("signature", None)
+        canonical_bytes = json.dumps(manifest_copy, sort_keys=True).encode("utf-8")
+        is_valid = verify_ed25519_signature(bytes.fromhex(pub_hex), canonical_bytes, bytes.fromhex(sig_hex))
+        self.assertTrue(is_valid, "Release manifest digital signature must be cryptographically valid")
+
+    # 18. Strict capture_hold Invariants & Hold Overrun Protection
+    def test_capture_hold_strict_invariants(self) -> None:
+        from services.billing.ledger import BillingError, InsufficientBalanceError
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_strict",
+            amount_micro_units=500_000,
+            payment_reference="dep_strict",
+        )
+        hold = self.ledger.create_hold(
+            account_id="cust_strict",
+            amount_micro_units=100_000,
+            model_id="qwen/qwen2.5-7b-instruct",
+        )
+
+        # A. Nonexistent hold is rejected
+        with self.assertRaises(BillingError):
+            self.ledger.capture_hold(
+                hold_id="hold_nonexistent",
+                job_id="job_x",
+                customer_account_id="cust_strict",
+                provider_shares=[("node-a", 1.0)],
+                model_id="qwen/qwen2.5-7b-instruct",
+                prompt_tokens=100,
+                completion_tokens=100,
+            )
+
+        # B. Account mismatch is rejected
+        with self.assertRaises(BillingError):
+            self.ledger.capture_hold(
+                hold_id=hold.hold_id,
+                job_id="job_x",
+                customer_account_id="cust_other",
+                provider_shares=[("node-a", 1.0)],
+                model_id="qwen/qwen2.5-7b-instruct",
+                prompt_tokens=100,
+                completion_tokens=100,
+            )
+
+        # C. Valid capture succeeds and marks hold captured
+        tx = self.ledger.capture_hold(
+            hold_id=hold.hold_id,
+            job_id="job_valid_cap",
+            customer_account_id="cust_strict",
+            provider_shares=[("node-a", 1.0)],
+            model_id="qwen/qwen2.5-7b-instruct",
+            prompt_tokens=1000,
+            completion_tokens=1000,
+        )
+        self.assertIsNotNone(tx)
+        self.assertEqual(hold.status, "captured")
 
 
 if __name__ == "__main__":

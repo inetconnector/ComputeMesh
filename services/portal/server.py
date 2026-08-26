@@ -255,8 +255,9 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "total_nodes": 0,
                     "total_tflops": 0.0,
                     "tokens_served_today": 0,
-                    "average_latency_ms": 0.0,
-                    "network_uptime_percent": 100.0,
+                    "average_latency_ms": None,
+                    "network_uptime_percent": None,
+                    "measurement_status": "not_measured",
                     "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 }
             else:
@@ -267,6 +268,12 @@ class PortalHandler(BaseHTTPRequestHandler):
                 total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in NODE_TELEMETRY_REGISTRY.values())
                 total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in NODE_TELEMETRY_REGISTRY.values())
                 tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in NODE_TELEMETRY_REGISTRY.values())
+                latencies = [
+                    float(n.get("telemetry", {}).get("ping_latency_ms", 0.0))
+                    for n in NODE_TELEMETRY_REGISTRY.values()
+                    if n.get("telemetry", {}).get("ping_latency_ms") is not None
+                ]
+                avg_lat = round(sum(latencies) / len(latencies), 1) if latencies else None
                 payload = {
                     "source": "authenticated_cluster",
                     "active_gpus": total_gpus,
@@ -274,8 +281,9 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "total_nodes": len(NODE_TELEMETRY_REGISTRY),
                     "total_tflops": round(total_tflops, 1),
                     "tokens_served_today": tokens,
-                    "average_latency_ms": 18.4,
-                    "network_uptime_percent": 99.98,
+                    "average_latency_ms": avg_lat,
+                    "network_uptime_percent": None,
+                    "measurement_status": "live" if avg_lat is not None else "not_measured",
                     "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 }
             self._send_json(payload)

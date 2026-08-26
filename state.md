@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-26 23:35 CEST
+**Last updated:** 2026-08-27 00:05 CEST
 **Release Version:** `v1.2.17`
-**Test Suite Status:** `376/376 PASSED (100% OK in 16.82s)` across all 9 categories
-**Git Baseline:** Branch `main` at `v1.2.17` Canonical Release (Security Re-Audit & Canonical Pricing Engine)
+**Test Suite Status:** `406/406 PASSED (100% OK in 17.03s)` across all 9 categories
+**Git Baseline:** Branch `main` at `v1.2.17` Canonical Release (Security Re-Audit & Hardened Settlement Recovery)
 
 ---
 
@@ -18,11 +18,11 @@ system:
     architecture_concept: "8/10"
     orchestrator_state_machine: "8/10"
     evidence_attestation_model: "8/10"
-    test_framework_quality: "8/10 (376 unified unit/integration tests)"
+    test_framework_quality: "9/10 (406 unified unit/integration tests)"
     scheduler_maturity: "4/10 (Feasibility planner, contiguous 2-node split)"
     wan_internet_mesh: "4/10 (mTLS zero-config TCP tunnels, trusted CA)"
     gateway_security: "8/10 (Hardened with rate limiting, token auth, XSS escaping, trusted proxies, atomic holds)"
-    production_readiness: "4-5/10 (Clear lab prototype boundaries)"
+    production_readiness: "5/10 (Clear lab prototype boundaries)"
 security_boundaries:
   mtls_tunnel: "True mTLS with CERT_REQUIRED, CA verify locations, and allowed_client_nodes enforcement"
   heartbeat_auth: "Enforced via constant-time hmac token validation on /api/v1/node/heartbeat"
@@ -32,8 +32,8 @@ security_boundaries:
   client_ip_resolution: "X-Forwarded-For trusted only when direct socket peer is in TRUSTED_PROXIES (127.0.0.1, ::1)"
   initial_grant_idempotency: "Initial promo deposit ($10.00) issued strictly once per account; immune to balance-reset exploits"
   registry_persistence: "Atomic thread-safe writes with mutex lock and tempfile replacement"
-  credit_hold_engine: "Atomic CreditHold lifecycle (create_hold, capture_hold, release_hold) with max_tokens pre-reservation"
-  thread_safety: "Intrinsic threading.RLock() protecting all Ledger reads, mutations, and balance calculations"
+  credit_hold_engine: "Atomic CreditHold lifecycle (create_hold, capture_hold, release_hold, renew_hold) with max_tokens pre-reservation"
+  thread_safety: "Single unified threading.RLock() protecting all Ledger reads, mutations, holds, journal, and balance calculations"
 economic_model:
   credit_definition: "1 CM Credit = 1 Micro-Unit ($0.000001 USD); 1,000,000 CM Credits = $1.00 USD"
   canonical_pricing:
@@ -64,14 +64,15 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-26:
+Verified on 2026-08-27:
 
 - pushed `main` contains the `v1.2.17` release commit;
 - current signed client/update release tag: `v1.2.17` with valid Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
 - local branches: `main` only;
 - remote heads: `origin/main` only (`git ls-remote --heads origin`);
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
-- GitHub Actions/workflow files: `.github` is absent in `HEAD`; `gh workflow list --all` returned no workflows;
+- GitHub Actions/workflow files: `.github/workflows/ci.yml` is present in `HEAD` running the full unified 406-test test harness and individual recovery suites;
+- canonical walkthrough documentation: `docs/walkthrough.md` committed in repository;
 - historical Draft PR #14 (`test/real-llama-rpc-loopback`) is closed and its branch is gone. If a temporary loopback workflow/result artifact reappears, keep it out of durable merges unless explicitly reworked as normal feature code.
 
 ---

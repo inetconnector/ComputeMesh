@@ -21,9 +21,50 @@ class _BillingLedger(_LedgerView):
     def __init__(self):
         super().__init__()
         self.recorded = []
+        self._holds = {}
+        self._hold_seq = 0
 
     def get_balance(self, account_id):
         return 1_000_000
+
+    def get_available_balance(self, account_id):
+        return 1_000_000
+
+    def create_hold(self, *, account_id, amount_micro_units, model_id, ttl_seconds=300):
+        import time
+        from services.billing.ledger import CreditHold
+        self._hold_seq += 1
+        hold_id = f"hold_{self._hold_seq}"
+        hold = CreditHold(
+            hold_id=hold_id,
+            account_id=account_id,
+            amount_micro_units=amount_micro_units,
+            model_id=model_id,
+            created_at=time.time(),
+            expires_at=time.time() + ttl_seconds,
+            status="active",
+        )
+        self._holds[hold_id] = hold
+        return hold
+
+    def release_hold(self, hold_id):
+        if hold_id in self._holds:
+            self._holds[hold_id].status = "released"
+            return True
+        return False
+
+    def capture_hold(self, *, hold_id, job_id, customer_account_id, provider_shares, model_id, prompt_tokens, completion_tokens, network_fee_bps=None):
+        if hold_id in self._holds:
+            self._holds[hold_id].status = "captured"
+        return self.record_job_execution(
+            job_id=job_id,
+            customer_account_id=customer_account_id,
+            provider_shares=provider_shares,
+            model_id=model_id,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            network_fee_bps=network_fee_bps,
+        )
 
     def record_job_execution(self, **kwargs):
         self.recorded.append(kwargs)

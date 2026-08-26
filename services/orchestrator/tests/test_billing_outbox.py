@@ -75,19 +75,21 @@ class BillingOutboxTests(unittest.TestCase):
     def _intent(self, job_id: str = "job-1"):
         complete_job(self.store, job_id)
         intents = BillingIntentStore(self.store)
-        intent = intents.put_pending(
-            job_id=job_id,
-            account_id="acct",
-            model_id="frozen-model",
-            prompt_tokens=3,
-            completion_tokens=5,
-            provider_shares=(("node-a", 0.4), ("node-b", 0.6)),
-            network_fee_bps=2000,
-            prompt_micro_per_token=111,
-            completion_micro_per_token=777,
-        )
-        intents.close()
-        return intent
+        try:
+            intent = intents.put_pending(
+                job_id=job_id,
+                account_id="acct",
+                model_id="frozen-model",
+                prompt_tokens=3,
+                completion_tokens=5,
+                provider_shares=(("node-a", 0.4), ("node-b", 0.6)),
+                network_fee_bps=2000,
+                prompt_micro_per_token=111,
+                completion_micro_per_token=777,
+            )
+            return intent
+        finally:
+            intents.close()
 
     def test_replays_crash_after_intent_before_ledger(self):
         intent = self._intent()
@@ -101,7 +103,11 @@ class BillingOutboxTests(unittest.TestCase):
         self.assertEqual(self.ledger.get_balance("acct"), 10_000_000 - intent.total_charge_micro_units)
         # Exact frozen prices are used; current catalog pricing is irrelevant.
         self.assertEqual(intent.total_charge_micro_units, 3 * 111 + 5 * 777)
-        self.assertEqual(BillingIntentStore(self.store).get("job-1").status, "RECORDED")
+        intents = BillingIntentStore(self.store)
+        try:
+            self.assertEqual(intents.get("job-1").status, "RECORDED")
+        finally:
+            intents.close()
 
     def test_repairs_crash_after_ledger_before_outbox_ack(self):
         intent = self._intent("job-ledger-first")

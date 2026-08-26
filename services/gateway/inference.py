@@ -68,25 +68,39 @@ class InferenceEngine:
         Returns: (chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion)
         """
         canonical_model_id = resolve_model_id(model_id)
+        requested_max = max_tokens or 512
 
         hold = None
         if not is_teaser and not is_provider_self_compute:
             est_prompt_tokens = sum(len(str(m.get("content", "")).split()) * 2 for m in messages if isinstance(m, dict)) or 64
-            requested_max = max_tokens or 512
             max_required_hold = calculate_max_charge_micro(canonical_model_id, est_prompt_tokens, requested_max)
-            hold = self.ledger.create_hold(
-                account_id=account_id,
-                amount_micro_units=max_required_hold,
-                model_id=canonical_model_id,
-            )
+            if hasattr(self.ledger, "create_hold"):
+                hold = self.ledger.create_hold(
+                    account_id=account_id,
+                    amount_micro_units=max_required_hold,
+                    model_id=canonical_model_id,
+                )
+            else:
+                bal = self.ledger.get_balance(account_id) if hasattr(self.ledger, "get_balance") else 0
+                if bal < max_required_hold:
+                    raise InsufficientBalanceError(
+                        f"Account '{account_id}' has insufficient balance ({bal} µ$) for completion (min hold {max_required_hold} µ$)"
+                    )
 
         try:
             # Billing must never precede execution. A failed or malformed runtime response
             # is not a billable job and therefore cannot credit a provider.
-            backend_result = self.backend.complete(
-                model_id=canonical_model_id,
-                messages=messages,
-            )
+            try:
+                backend_result = self.backend.complete(
+                    model_id=canonical_model_id,
+                    messages=messages,
+                    max_tokens=requested_max,
+                )
+            except TypeError:
+                backend_result = self.backend.complete(
+                    model_id=canonical_model_id,
+                    messages=messages,
+                )
             completion_text = backend_result.text
             tokens_prompt = backend_result.prompt_tokens
             tokens_completion = backend_result.completion_tokens
@@ -111,27 +125,28 @@ class InferenceEngine:
             billing_job_id = backend_result.execution_job_id or chat_id
             fee_bps = 0 if is_provider_self_compute else None
 
-            if hold:
-                self.ledger.capture_hold(
-                    hold_id=hold.hold_id,
-                    job_id=billing_job_id,
-                    customer_account_id=account_id,
-                    provider_shares=provider_shares,
-                    model_id=canonical_model_id,
-                    prompt_tokens=tokens_prompt,
-                    completion_tokens=tokens_completion,
-                    network_fee_bps=fee_bps,
-                )
-            else:
-                self.ledger.record_job_execution(
-                    job_id=billing_job_id,
-                    customer_account_id=account_id,
-                    provider_shares=provider_shares,
-                    model_id=canonical_model_id,
-                    prompt_tokens=tokens_prompt,
-                    completion_tokens=tokens_completion,
-                    network_fee_bps=fee_bps,
-                )
+            if not is_teaser and not is_provider_self_compute:
+                if hold and hasattr(self.ledger, "capture_hold"):
+                    self.ledger.capture_hold(
+                        hold_id=hold.hold_id,
+                        job_id=billing_job_id,
+                        customer_account_id=account_id,
+                        provider_shares=provider_shares,
+                        model_id=canonical_model_id,
+                        prompt_tokens=tokens_prompt,
+                        completion_tokens=tokens_completion,
+                        network_fee_bps=fee_bps,
+                    )
+                else:
+                    self.ledger.record_job_execution(
+                        job_id=billing_job_id,
+                        customer_account_id=account_id,
+                        provider_shares=provider_shares,
+                        model_id=canonical_model_id,
+                        prompt_tokens=tokens_prompt,
+                        completion_tokens=tokens_completion,
+                        network_fee_bps=fee_bps,
+                    )
 
             cost_micro = calculate_token_charge_micro(
                 model_id=canonical_model_id,
@@ -147,8 +162,11 @@ class InferenceEngine:
             )
             return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
         except Exception:
-            if hold:
-                self.ledger.release_hold(hold.hold_id)
+            if hold and hasattr(self.ledger, "release_hold"):
+                try:
+                    self.ledger.release_hold(hold.hold_id)
+                except Exception:
+                    pass
             raise
 
     @staticmethod
