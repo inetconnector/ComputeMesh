@@ -46,6 +46,7 @@ jobs:
           python -m unittest runtime.llama.tests.test_job_attestation -v
           python -m unittest runtime.llama.tests.test_job_bound_shared_trial -v
           python -m unittest runtime.llama.tests.test_shared_request -v
+          python -m unittest runtime.llama.tests.test_shared_request_live_health -v
 
       - name: Live control-plane and recovery tests
         run: |
