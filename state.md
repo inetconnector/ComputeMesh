@@ -1713,3 +1713,22 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Launched installed binary `ComputeMesh.exe` — PID active, serving `http://127.0.0.1:8080/api/status` with NVIDIA RTX 3080 Laptop GPU (16.0 GB VRAM).
    - Re-attempted secondary execution — single-instance mutex triggered and cleanly activated existing window without duplicates.
    - All **357/357 tests pass with 100% success in 11.90s**.
+
+---
+
+## 59. Live Cloud Tunnel Relay Heartbeat Integration in Gateway & Dashboard (2026-08-26 21:12 CEST)
+
+### Changes Made
+1. **Public Gateway Node Heartbeat Routing:**
+   - In [`services/gateway/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/gateway/server.py): Added endpoint `POST /api/v1/node/heartbeat` (and `/api/node/heartbeat`) into public gateway request dispatcher, storing dynamic node heartbeats into `NODE_TELEMETRY_REGISTRY`.
+2. **Dynamic Hardware Telemetry in CloudTunnelRelay:**
+   - In [`services/appliance_dashboard/tunnel_relay.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/tunnel_relay.py): Enhanced `CloudTunnelRelay` to calculate dynamic TFLOPS based on scanned GPUs and stream live telemetry every 5 seconds.
+   - In [`services/appliance_dashboard/server.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/appliance_dashboard/server.py): Automatically starts `CloudTunnelRelay` with the node's configured identifier in `create_dashboard_server`.
+3. **Live Verification & Webserver Deployment:**
+   - Deployed updated gateway service to `supersrv-trixie` (`89.58.11.237`).
+   - Verified that `https://computemesh.inetconnector.com/node/test-node-custom` now correctly renders:
+     - **Accelerator:** `NVIDIA GeForce RTX 3080 Laptop GPU (16.0 GB Dedicated VRAM)`
+     - **Compute Capacity:** `24.0 TFLOPS`
+     - **Thermals & Power:** `58°C / 65% Fan / 115 W`
+     - **Global Swarm:** `16.0 GB Pooled VRAM · 24.0 TFLOPS`
+   - All **357/357 tests pass with 100% success in 10.70s**.
