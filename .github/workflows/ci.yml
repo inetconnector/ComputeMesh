@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m unittest runtime.llama.tests.test_job_attestation -v
           python -m unittest runtime.llama.tests.test_job_bound_shared_trial -v
+          python -m unittest runtime.llama.tests.test_shared_request -v
 
       - name: Attestation control-plane tests
         run: |
