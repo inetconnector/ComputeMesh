@@ -438,7 +438,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id})
             return
 
-        if clean_path == "/v1/billing/topup":
+        if clean_path in ("/api/v1/billing/quote", "/v1/billing/quote"):
+            from services.portal.routes_quotes import PortalQuotesHandler
+            quotes_handler = PortalQuotesHandler()
+            res, err, status = quotes_handler.handle_quote(body)
+            if err:
+                self._send_error_response(err, "quote_error", status)
+            else:
+                self._send_json(res or {}, status)
+            return
+
+        if clean_path in ("/api/v1/register", "/v1/register"):
+            from services.portal.routes_registration import PortalRegistrationHandler
+            reg_handler = PortalRegistrationHandler()
+            res, err, status = reg_handler.handle_register(body)
+            if err:
+                self._send_error_response(err, "registration_error", status)
+            else:
+                self._send_json(res or {}, status)
+            return
+
+        if clean_path in ("/v1/billing/topup", "/api/v1/billing/topup"):
             res, err, status = self.billing_routes.handle_post_topup(self.headers, body)
             if err:
                 self._send_error_response(err, "billing_error", status)
@@ -446,7 +466,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res or {}, status)
             return
 
-        if clean_path == "/v1/billing/checkout":
+        if clean_path in ("/v1/billing/checkout", "/api/v1/billing/checkout"):
             res, err, status = self.billing_routes.handle_post_checkout(self.headers, body)
             if err:
                 self._send_error_response(err, "stripe_error", status)
