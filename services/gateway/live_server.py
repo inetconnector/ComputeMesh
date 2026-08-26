@@ -18,6 +18,7 @@ from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
+from services.orchestrator.settlement_recovery import reconcile_completed_settlements
 
 
 class LiveGatewayBootstrapError(RuntimeError):
@@ -85,6 +86,7 @@ def _start_integrated_control_plane(
 
 def _install_cancellable_live_gateway():
     backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
+    reconcile_completed_settlements(backend.store, LiveGatewayHandler.ledger)
     LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
         ledger=LiveGatewayHandler.ledger,
         metrics=LiveGatewayHandler.metrics,
