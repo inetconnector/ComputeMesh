@@ -1,4 +1,4 @@
-"""Unit tests for ComputeMesh Military-Grade Security, Rate Limiting & Data Sanitization."""
+"""Unit tests for ComputeMesh Hardened Security, Rate Limiting & Data Sanitization."""
 from pathlib import Path
 import sys
 import time

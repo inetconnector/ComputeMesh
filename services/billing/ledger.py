@@ -176,6 +176,14 @@ class Ledger:
         self._record_transaction(tx)
         return tx
 
+    def has_received_initial_grant(self, customer_account_id: str) -> bool:
+        """Checks if the customer account has already received an initial promotional grant."""
+        target_prefix = f"deposit:initial_grant_{customer_account_id}"
+        for event_id in self._processed_events:
+            if event_id.startswith(target_prefix):
+                return True
+        return False
+
     def record_job_execution(
         self,
         *,

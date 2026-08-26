@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -89,7 +90,7 @@ def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | 
 
 
 class GatewayHandler(BaseHTTPRequestHandler):
-    """High-performance Military-Grade HTTP Request Handler for OpenAI and Ollama APIs."""
+    """High-performance Hardened HTTP Request Handler for OpenAI and Ollama APIs."""
 
     server_version = "ComputeMesh-Gateway/1.2"
     sys_version = ""
@@ -123,8 +124,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
     def _check_rate_limit(self) -> bool:
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
         auth_token = extract_bearer_token(self.headers)
-        rate_id = f"token_{auth_token}" if auth_token else f"ip_{client_ip}"
-        allowed, retry_after = GLOBAL_RATE_LIMITER.is_allowed(rate_id, is_authenticated=bool(auth_token))
+        is_authenticated = bool(auth_token) and self.auth_manager.is_valid_key(auth_token)
+        rate_id = f"token_{auth_token}" if is_authenticated else f"ip_{client_ip}"
+        allowed, retry_after = GLOBAL_RATE_LIMITER.is_allowed(rate_id, is_authenticated=is_authenticated)
         if not allowed:
             self._send_rate_limit_response(retry_after)
             return False
@@ -264,7 +266,20 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path.startswith("/node/"):
             node_id = clean_path.removeprefix("/node/").strip()
             auth_token = query.get("auth", [""])[0].strip()
-            node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
+
+            if not node_id or node_id not in NODE_TELEMETRY_REGISTRY:
+                self._send_error_response(f"Node '{node_id}' not found in cluster telemetry registry.", "not_found", HTTPStatus.NOT_FOUND)
+                return
+
+            node_data = NODE_TELEMETRY_REGISTRY[node_id]
+            expected_auth_token = str(node_data.get("auth_token", "")).strip()
+
+            # Enforce authentication if node telemetry is protected with an auth token
+            if expected_auth_token:
+                if not auth_token or not hmac.compare_digest(auth_token, expected_auth_token):
+                    self._send_error_response("Unauthorized: Valid auth token required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                    return
+
             html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
@@ -372,6 +387,18 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not node_id:
                 self._send_error_response("Valid node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
+
+            if not auth_token:
+                self._send_error_response("Non-empty auth_token is required for node authentication", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
+            existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node:
+                expected_token = str(existing_node.get("auth_token", "")).strip()
+                if expected_token and not hmac.compare_digest(auth_token, expected_token):
+                    self._send_error_response("Unauthorized: auth_token mismatch for existing node", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                    return
+
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
@@ -656,9 +683,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.close_connection = True
 
 
-def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
+def create_gateway_server(host: str = "127.0.0.1", port: int = 0) -> tuple[ThreadingHTTPServer, int]:
+    """Creates a ThreadingHTTPServer instance bound to host and port."""
     server = ThreadingHTTPServer((host, port), GatewayHandler)
-    print(f"ComputeMesh Gateway Server listening on http://{host}:{port}")
+    bound_port = server.server_address[1]
+    return server, bound_port
+
+
+def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
+    server, bound_port = create_gateway_server(host, port)
+    print(f"ComputeMesh Gateway Server listening on http://{host}:{bound_port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,9 +1,46 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-26 17:40 CEST
-**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing) + v1.2.16 web teaser cooldown/Ollama demo runtime hardening implemented, locally tested, and partially live-verified on `supersrv-trixie`. Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
-**Production services/runtime:** no fully production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service`, `computemesh-gateway.service`, and local Ollama. Gateway billing now has a fail-closed real Stripe Checkout/Webhook implementation path plus a Stripe Connect Accounts v2 provider onboarding/settlement execution path. The webserver is configured with Stripe **testmode** keys, a test webhook endpoint, a Stripe Accounts v2 thin-event destination, durable test ledger/session paths, durable SQLite account/settlement store, EUR Stripe settlement transfers, and operator-controlled provider metering attribution to `node_test_settle_02`. The gateway exposes authenticated and teaser OpenAI/Ollama-compatible routes; the public teaser currently maps catalog aliases to a local Ollama model through `COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct` with low-context CPU-safe settings. German UG onboarding/KYC for the operator's real entity remains blocked until the UG is founded and registered; live-mode Stripe credentials and production database/ops controls are not configured end-to-end for real customer funds.
-**Release/version truth:** signed update release `1.2.16` is live in `portal/updates/version.json` and on the public web/update server. v1.2.16 keeps v1.2.15 auth hardening, adds a 20-request configurable four-hour unauthenticated teaser window with structured `429`/`Retry-After` cooldowns, adds Ollama runtime tuning (`COMPUTEMESH_INFERENCE_CONTEXT_TOKENS`, `COMPUTEMESH_INFERENCE_THREADS`, `COMPUTEMESH_INFERENCE_SYSTEM_PROMPT`), and shows a matching Ollama config on the website. Reachable client rollout beyond `supersrv-trixie` still needs local Windows and LAN rig update verification after this state block.
+**Last updated:** 2026-08-26 22:40 CEST
+**Release Version:** `v1.2.17`
+**Test Suite Status:** `367/367 PASSED (100% OK in 15.75s)` across all 9 categories
+**Git Baseline:** Branch `main` at `ec363d1` + Security Hardening Patches
+
+---
+
+## 0. CURRENT TRUTH BLOCK (Canonical System Snapshot)
+
+```yaml
+system:
+  name: ComputeMesh
+  version: "1.2.17"
+  status: "Experimental Distributed Inference Prototype / Lab Mesh"
+  maturity_rating:
+    architecture_concept: "8/10"
+    orchestrator_state_machine: "8/10"
+    evidence_attestation_model: "8/10"
+    test_framework_quality: "8/10 (367 unified unit/integration tests)"
+    scheduler_maturity: "4/10 (Feasibility planner, contiguous 2-node split)"
+    wan_internet_mesh: "4/10 (mTLS zero-config TCP tunnels, trusted CA)"
+    gateway_security: "8/10 (Hardened with rate limiting, token auth, XSS escaping, trusted proxies)"
+    production_readiness: "4-5/10 (Clear lab prototype boundaries)"
+security_boundaries:
+  mtls_tunnel: "True mTLS with CERT_REQUIRED, CA verify locations, and allowed_client_nodes enforcement"
+  heartbeat_auth: "Enforced via constant-time hmac token validation on /api/v1/node/heartbeat"
+  dashboard_auth: "Gated with 401 Unauthorized for invalid/missing token on /node/<id>?auth=..."
+  xss_sanitization: "Strict html.escape() applied across all dynamic telemetry and GPU properties"
+  rate_limiter: "Authenticated rate tier strictly gated on validated API keys; unverified Bearer falls back to IP tier"
+  client_ip_resolution: "X-Forwarded-For trusted only when direct socket peer is in TRUSTED_PROXIES (127.0.0.1, ::1)"
+  initial_grant_idempotency: "Initial promo deposit ($10.00) issued strictly once per account; immune to balance-reset exploits"
+  registry_persistence: "Atomic thread-safe writes with mutex lock and tempfile replacement"
+economic_model:
+  customer_price: "$1.00 per 1,000,000 computed tokens / credits (prepaid via Stripe Checkout)"
+  operator_cut: "25% platform coordination fee (DEFAULT_NETWORK_FEE_BPS = 2500)"
+  provider_share: "75% pool paid out from real customer revenue"
+  fixed_payout_rate: "1,000,000 CM Credits = $0.75 USD Net Payout ($0.00000075 / Credit)"
+  legal_classification_germany: "Utility accounting credits in a closed limited network (no e-money / no BaFin licensing requirement)"
+```
+
+---
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -13,8 +50,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- current merged upstream code baseline before v1.2.16 work: `209b022` (`Merge pull request #38 from inetconnector/feat/durable-billing-outbox`)
-- current signed app/update release: `v1.2.16` artifacts are being finalized from the local working tree on top of `209b022`
+- current signed app/update release: `v1.2.17` live in `portal/updates/version.json`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -1789,4 +1825,37 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - Windows-Executable `ComputeMesh-Setup-x64.exe` gebaut, lokal installiert und getestet.
 - Linux-Tarball `computemesh-linux-x86_64.tar.gz` kompakt neu gepackt (649 KB).
 - Manifest `portal/updates/version.json` signiert und verifiziert (`[VALID]`).
+
+---
+
+## 62. P0/P1 Security Hardening & Audit Remediation (2026-08-26 22:40 CEST)
+
+### 1. Behebung der kritischen Sicherheitsbefunde (P0 / P1)
+1. **Echtes mTLS mit Peer-Zertifikatsvalidierung (`runtime/network/mesh_transport.py`):**
+   - Umstellung von `CERT_NONE` auf striktes `ssl.CERT_REQUIRED` auf Server- und Client-Seite.
+   - CA-Generierung (`generate_mesh_ca`) und Bindung an `MeshCACredentials`.
+   - Extraktion des Subject CommonName (`node-<node_id>`) und Validierung gegen `allowed_client_nodes`. Unberechtigte oder unzertifizierte Peers werden sofort vor Weiterleitung verworfen.
+2. **Node-Heartbeat Authentifizierung (`services/gateway/server.py`):**
+   - Endpoints `/api/v1/node/heartbeat`, `/api/node/heartbeat`, `/v1/node/heartbeat` erfordern einen nicht-leeren `auth_token`.
+   - Bei existierenden Nodes wird der eingehende Token per `hmac.compare_digest()` gegen den hinterlegten Node-Token geprüft; Manipulationen fremder Nodes werden mit `401 Unauthorized` blockiert.
+3. **Remote Dashboard Token-Gating (`/node/<node_id>`):**
+   - Das Dashboard prüft das Query-Attribut `auth` via `hmac.compare_digest()`.
+   - Fehlende oder falsche Tokens resultieren in `401 Unauthorized`. Nicht existierende Nodes liefern `404 Not Found`.
+4. **Stored-XSS-Prävention (`services/gateway/dashboard.py`):**
+   - Sämtliche dynamischen Werte (`node_id`, `gpu_name`, `auth_token`, Telemetrie-Temperaturen, Fan-Speeds, etc.) werden vor der HTML-Interpolation via `html.escape()` sanitisiert.
+5. **Rate-Limiter Tier-Validierung (`services/gateway/server.py`):**
+   - Der authentifizierte Tier wird erst zugewiesen, nachdem `auth_manager.is_valid_key(token)` den Key per Constant-Time HMAC bestätigt hat. Unvalidierte `Bearer`-Tokens fallen auf den IP-gebundenen Unauthenticated-Tier zurück.
+6. **Trusted Proxy für Client-IP (`services/gateway/auth.py`):**
+   - `resolve_client_ip()` berücksichtigt `X-Forwarded-For` und `X-Real-IP` ausschließlich dann, wenn die direkte TCP-Verbindung von einem vertrauenswürdigen Proxy (`127.0.0.1`, `::1`) stammt. Remote-Clients können ihre IP nicht mehr fälschen.
+7. **Idempotente Initial-Credit Vergabe (`services/billing/ledger.py` & `services/gateway/auth.py`):**
+   - Startguthaben ($10.00 / 10M Units) wird einmalig pro Account verbucht (`has_received_initial_grant()`). Das Erreichen eines 0-Saldos führt nicht mehr zu wiederholten automatischen Gutschriften.
+8. **Thread-sichere atomare Telemetrie-Persistenz (`services/gateway/dashboard.py`):**
+   - Verwendung eines Mutex-Locks und atomarem Temp-File Replacement (`temp_file.replace(REGISTRY_FILE)`).
+9. **Bereinigung von Marketing-Overclaims:**
+   - Entfernung irreführender Bezeichnungen wie „Military-Grade“ zugunsten sachlicher technischer Beschreibungen („Hardened Security“, „TLS 1.3 & mTLS“).
+
+### 2. QA & Test-Status
+- **367/367 Tests erfolgreich bestanden (100% OK in 15.75s)** inklusive neuer dedizierter Regressionstest-Suite `tests/test_security_audit_fixes.py`.
+- Release `v1.2.17` gepackt und signiert.
+
 

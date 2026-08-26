@@ -4,31 +4,44 @@ Provides authenticated web-based remote telemetry viewing for edge nodes and clu
 """
 from __future__ import annotations
 
+import html
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
+import threading
 from typing import Any
 
 from services.common.config import CONFIG
 
 REGISTRY_FILE = Path("/tmp/computemesh_node_registry.json") if sys.platform != "win32" else Path.home() / ".computemesh" / "node_registry.json"
+_registry_lock = threading.Lock()
 
 
 def _load_registry() -> dict[str, dict[str, Any]]:
-    try:
-        if REGISTRY_FILE.exists():
-            return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        pass
-    return {}
+    with _registry_lock:
+        try:
+            if REGISTRY_FILE.exists():
+                return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        return {}
 
 
 def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
-    try:
-        REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        REGISTRY_FILE.write_text(json.dumps(registry, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    """Atomically and thread-safely persists node telemetry registry to disk."""
+    with _registry_lock:
+        try:
+            REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            temp_file = REGISTRY_FILE.with_suffix(f".tmp_{os.getpid()}_{threading.get_ident()}")
+            temp_file.write_text(json.dumps(registry, indent=2), encoding="utf-8")
+            temp_file.replace(REGISTRY_FILE)
+            if registry is not NODE_TELEMETRY_REGISTRY:
+                NODE_TELEMETRY_REGISTRY.clear()
+                NODE_TELEMETRY_REGISTRY.update(registry)
+        except Exception:
+            pass
 
 
 # Persistent registry for dynamic node heartbeats and telemetry
@@ -36,13 +49,16 @@ NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
 
 
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:
-    """Renders a responsive, modern dark-mode dashboard for node monitoring."""
+    """Renders a responsive, modern dark-mode dashboard for node monitoring with strict XSS escaping."""
+    safe_node_id = html.escape(str(node_id))
+    safe_auth_token = html.escape(str(auth_token))
+
     inventory = node_data.get("inventory", {})
     telemetry = node_data.get("telemetry", {})
     global_mesh = node_data.get("global_mesh", {})
 
     gpus = inventory.get("gpus", [])
-    if gpus:
+    if gpus and isinstance(gpus, list):
         gpu_name = gpus[0].get("model_name", "Cluster Node GPU")
         vram_gb = round(gpus[0].get("vram_bytes", 0) / (1024**3), 1)
     else:
@@ -54,30 +70,36 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             gpu_name = "CPU Fallback (No GPU)"
             vram_gb = 0.0
 
-    tokens_processed = telemetry.get("tokens_processed", 0)
-    earnings_cm = telemetry.get("earnings_cm", 0.0)
-    tflops = telemetry.get("local_compute_tflops", 0.0)
-    thermals = telemetry.get("gpu_thermals", [{}])[0]
-    gpu_temp = thermals.get("temp", "--")
-    gpu_fan = thermals.get("fan", "--")
-    gpu_power = thermals.get("power_watts", "--")
+    safe_gpu_name = html.escape(str(gpu_name))
 
-    mesh_vram = global_mesh.get("total_vram_gb", 0.0)
+    tokens_processed = int(telemetry.get("tokens_processed", 0) or 0)
+    earnings_cm = float(telemetry.get("earnings_cm", 0.0) or 0.0)
+    tflops = float(telemetry.get("local_compute_tflops", 0.0) or 0.0)
+    
+    thermals_list = telemetry.get("gpu_thermals", [{}])
+    thermals = thermals_list[0] if thermals_list and isinstance(thermals_list, list) else {}
+    safe_gpu_temp = html.escape(str(thermals.get("temp", "--")))
+    safe_gpu_fan = html.escape(str(thermals.get("fan", "--")))
+    safe_gpu_power = html.escape(str(thermals.get("power_watts", "--")))
+
+    mesh_vram = float(global_mesh.get("total_vram_gb", 0.0) or 0.0)
     if not mesh_vram and vram_gb > 0:
         mesh_vram = vram_gb
-    mesh_tflops = global_mesh.get("total_compute_tflops", 0.0)
+    mesh_tflops = float(global_mesh.get("total_compute_tflops", 0.0) or 0.0)
     if not mesh_tflops and tflops > 0:
         mesh_tflops = tflops
-    mesh_nodes = global_mesh.get("total_nodes_online", 0)
+    mesh_nodes = int(global_mesh.get("total_nodes_online", 0) or 0)
     if not mesh_nodes and (vram_gb > 0 or tflops > 0):
         mesh_nodes = 1
+
+    safe_domain = html.escape(str(CONFIG.endpoints.domain))
 
     return f"""<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ComputeMesh Remote Node — {node_id}</title>
+    <title>ComputeMesh Remote Node — {safe_node_id}</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
@@ -118,38 +140,38 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
         }}
         .logo span {{ color: var(--accent); }}
         .badge-live {{
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
         }}
         .badge-live::before {{
             content: '';
+            display: inline-block;
             width: 8px;
             height: 8px;
             background: var(--green);
             border-radius: 50%;
-            display: inline-block;
             box-shadow: 0 0 8px var(--green);
         }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
+        .grid {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }}
         .card {{
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 24px;
+            border-radius: 12px;
+            padding: 20px;
             backdrop-filter: blur(12px);
             transition: transform 0.2s, border-color 0.2s;
         }}
@@ -157,69 +179,98 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             transform: translateY(-2px);
             border-color: var(--accent);
         }}
+        .card-main {{
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(30, 27, 75, 0.6), rgba(15, 23, 42, 0.8));
+            border-color: rgba(99, 102, 241, 0.35);
+        }}
+        .node-title {{
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }}
+        .node-sub {{
+            color: var(--text-muted);
+            font-size: 14px;
+        }}
+        .stat-pills {{
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }}
+        .stat-pill {{
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 8px 14px;
+        }}
+        .stat-pill .label {{
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .stat-pill .val {{
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }}
         .card h3 {{
             font-size: 13px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             color: var(--text-muted);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }}
         .card .value {{
-            font-family: 'JetBrains Mono', monospace;
             font-size: 28px;
             font-weight: 700;
-            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-main);
         }}
         .card .subtext {{
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-muted);
-            margin-top: 6px;
+            margin-top: 4px;
         }}
-        .hero-card {{
-            grid-column: 1 / -1;
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
-            border: 1px solid var(--accent);
-            box-shadow: 0 8px 32px var(--accent-glow);
-        }}
-        .grid-2 {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 16px;
-        }}
-        .stat-pill {{
-            background: rgba(0, 0, 0, 0.25);
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }}
-        .stat-pill .label {{ font-size: 11px; color: var(--text-muted); text-transform: uppercase; }}
-        .stat-pill .val {{ font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; margin-top: 4px; }}
         .footer {{
             max-width: 1200px;
             margin: 40px auto 0 auto;
             text-align: center;
             color: var(--text-muted);
             font-size: 13px;
+            border-top: 1px solid var(--card-border);
+            padding-top: 20px;
         }}
     </style>
 </head>
 <body>
     <header class="header">
-        <div class="logo">⚡ Compute<span>Mesh</span> Node Monitor</div>
-        <div class="badge-live">ONLINE &middot; P2P RELAY ACTIVE</div>
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 3v18M3 12h18"/>
+            </svg>
+            Compute<span>Mesh</span> &middot; Node Telemetry
+        </div>
+        <div class="badge-live">Live Authenticated Feed</div>
     </header>
 
-    <main class="container">
-        <div class="card hero-card">
-            <h3>Active Node Appliance</h3>
-            <div class="value">{node_id}</div>
-            <div class="subtext">Accelerator: <strong style="color: #fff;">{gpu_name}</strong> ({vram_gb} GB Dedicated VRAM)</div>
-            
-            <div class="grid-2">
+    <main class="grid">
+        <div class="card card-main">
+            <div>
+                <div class="node-title">Node ID: {safe_node_id}</div>
+                <div class="node-sub">Active Hardware: <strong>{safe_gpu_name}</strong> &middot; {vram_gb} GB Dedicated VRAM</div>
+            </div>
+            <div class="stat-pills">
                 <div class="stat-pill">
                     <div class="label">Mesh Gateway Endpoint</div>
-                    <div class="val" style="color: var(--accent);">{CONFIG.endpoints.domain}</div>
+                    <div class="val" style="color: var(--accent);">{safe_domain}</div>
                 </div>
                 <div class="stat-pill">
                     <div class="label">Node Access</div>
@@ -248,8 +299,8 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
 
         <div class="card">
             <h3>GPU Thermals & Power</h3>
-            <div class="value">{gpu_temp}&deg;C <span style="font-size: 18px; color: var(--text-muted);">/ {gpu_fan}% Fan</span></div>
-            <div class="subtext">Current draw: {gpu_power} W</div>
+            <div class="value">{safe_gpu_temp}&deg;C <span style="font-size: 18px; color: var(--text-muted);">/ {safe_gpu_fan}% Fan</span></div>
+            <div class="subtext">Current draw: {safe_gpu_power} W</div>
         </div>
 
         <div class="card">
@@ -266,7 +317,7 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     </main>
 
     <footer class="footer">
-        ComputeMesh Decentralized AI &copy; 2026 &middot; computemesh.inetconnector.com &middot; Enterprise Security Grade
+        ComputeMesh Decentralized AI &copy; 2026 &middot; computemesh.inetconnector.com &middot; Audited &amp; Hardened
     </footer>
 </body>
 </html>"""

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import ipaddress
+import logging
 from pathlib import Path
 import socket
 import ssl
@@ -27,9 +28,19 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+logger = logging.getLogger("computemesh.mesh_transport")
+
 
 class MeshTransportError(RuntimeError):
     """Base exception for mesh transport and handshake errors."""
+
+
+@dataclass(frozen=True)
+class MeshCACredentials:
+    ca_cert_pem: bytes
+    ca_key_pem: bytes
+    ca_cert_path: Path
+    ca_key_path: Path
 
 
 @dataclass(frozen=True)
@@ -39,22 +50,77 @@ class NodeCredentials:
     key_pem: bytes
     cert_path: Path
     key_path: Path
+    ca_cert_path: Path | None = None
 
 
-def generate_node_tls_credentials(node_id: str, temp_dir: Path) -> NodeCredentials:
-    """Generates an ephemeral RSA/TLS certificate for mutual authentication."""
+def generate_mesh_ca(temp_dir: Path) -> MeshCACredentials:
+    """Generates a self-signed root Certificate Authority for the ComputeMesh cluster."""
     temp_dir.mkdir(parents=True, exist_ok=True)
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
     subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "ComputeMesh Root CA"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "ComputeMesh Decentralized Network"),
+    ])
+
+    ca_cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    ca_cert_pem = ca_cert.public_bytes(serialization.Encoding.PEM)
+    ca_key_pem = ca_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    ca_cert_path = temp_dir / "computemesh_mesh_ca_cert.pem"
+    ca_key_path = temp_dir / "computemesh_mesh_ca_key.pem"
+    ca_cert_path.write_bytes(ca_cert_pem)
+    ca_key_path.write_bytes(ca_key_pem)
+
+    return MeshCACredentials(
+        ca_cert_pem=ca_cert_pem,
+        ca_key_pem=ca_key_pem,
+        ca_cert_path=ca_cert_path,
+        ca_key_path=ca_key_path,
+    )
+
+
+def generate_node_tls_credentials(
+    node_id: str,
+    temp_dir: Path,
+    ca_creds: MeshCACredentials | None = None,
+) -> NodeCredentials:
+    """Generates an ephemeral RSA/TLS certificate for mutual authentication.
+    If no ca_creds is passed, creates or uses a shared local CA in temp_dir.
+    """
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    if ca_creds is None:
+        ca_creds = generate_mesh_ca(temp_dir)
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    subject = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, f"node-{node_id}"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "ComputeMesh Decentralized Network"),
     ])
 
+    ca_cert = x509.load_pem_x509_certificate(ca_creds.ca_cert_pem)
+    ca_key = serialization.load_pem_private_key(ca_creds.ca_key_pem, password=None)
+
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
-        .issuer_name(issuer)
+        .issuer_name(ca_cert.subject)
         .public_key(private_key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
@@ -62,11 +128,13 @@ def generate_node_tls_credentials(node_id: str, temp_dir: Path) -> NodeCredentia
         .add_extension(
             x509.SubjectAlternativeName([
                 x509.DNSName("localhost"),
+                x509.DNSName(f"node-{node_id}"),
                 x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
             ]),
             critical=False,
         )
-        .sign(private_key, hashes.SHA256())
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .sign(ca_key, hashes.SHA256())
     )
 
     cert_pem = cert.public_bytes(serialization.Encoding.PEM)
@@ -87,7 +155,21 @@ def generate_node_tls_credentials(node_id: str, temp_dir: Path) -> NodeCredentia
         key_pem=key_pem,
         cert_path=cert_path,
         key_path=key_path,
+        ca_cert_path=ca_creds.ca_cert_path,
     )
+
+
+def extract_node_id_from_cert(peer_cert: dict[str, Any] | None) -> str | None:
+    """Extracts node identifier from peer certificate Subject Common Name."""
+    if not peer_cert:
+        return None
+    for rdn in peer_cert.get("subject", ()):
+        for k, v in rdn:
+            if k == "commonName":
+                if str(v).startswith("node-"):
+                    return str(v).removeprefix("node-")
+                return str(v)
+    return None
 
 
 class MeshTunnelServer:
@@ -117,10 +199,15 @@ class MeshTunnelServer:
 
     def start(self) -> int:
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ctx.load_cert_chain(certfile=self.server_creds.cert_path, keyfile=self.server_creds.key_path)
-        # Allow self-signed client certificates verified at application layer
+        ctx.load_cert_chain(certfile=str(self.server_creds.cert_path), keyfile=str(self.server_creds.key_path))
+        
+        # Enforce strict Mutual TLS (mTLS) with CA verification
+        ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        if self.server_creds.ca_cert_path and self.server_creds.ca_cert_path.exists():
+            ctx.load_verify_locations(cafile=str(self.server_creds.ca_cert_path))
+        else:
+            ctx.load_verify_locations(cafile=str(self.server_creds.cert_path))
 
         raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         raw_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -153,6 +240,19 @@ class MeshTunnelServer:
     def _handle_client(self, client_ssl: ssl.SSLSocket) -> None:
         target_sock = None
         try:
+            # Cryptographic identity validation of connecting peer
+            peer_cert = client_ssl.getpeercert()
+            client_node_id = extract_node_id_from_cert(peer_cert)
+            if not client_node_id:
+                logger.warning("Rejected mTLS connection: Missing or invalid peer certificate.")
+                client_ssl.close()
+                return
+
+            if self.allowed_client_nodes is not None and client_node_id not in self.allowed_client_nodes:
+                logger.warning(f"Rejected mTLS connection: Node '{client_node_id}' not in allowed_client_nodes.")
+                client_ssl.close()
+                return
+
             target_sock = socket.create_connection((self.target_host, self.target_port), timeout=5)
             # Bidirectional pipe
             t1 = threading.Thread(target=self._pipe, args=(client_ssl, target_sock, "c2t"), daemon=True)
@@ -161,8 +261,8 @@ class MeshTunnelServer:
             t2.start()
             t1.join()
             t2.join()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"mTLS client session error: {e}")
         finally:
             try:
                 client_ssl.close()
@@ -206,12 +306,14 @@ class MeshTunnelClient:
         remote_tunnel_host: str,
         remote_tunnel_port: int,
         client_creds: NodeCredentials,
+        expected_server_node_id: str | None = None,
     ) -> None:
         self.local_listen_host = local_listen_host
         self.local_listen_port = local_listen_port
         self.remote_tunnel_host = remote_tunnel_host
         self.remote_tunnel_port = remote_tunnel_port
         self.client_creds = client_creds
+        self.expected_server_node_id = expected_server_node_id
         self._running = False
         self._server_sock: socket.socket | None = None
         self._thread: threading.Thread | None = None
@@ -251,12 +353,24 @@ class MeshTunnelClient:
         ssl_sock = None
         try:
             ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            ctx.load_cert_chain(certfile=str(self.client_creds.cert_path), keyfile=str(self.client_creds.key_path))
+            ctx.verify_mode = ssl.CERT_REQUIRED
             ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            ctx.load_cert_chain(certfile=self.client_creds.cert_path, keyfile=self.client_creds.key_path)
+            if self.client_creds.ca_cert_path and self.client_creds.ca_cert_path.exists():
+                ctx.load_verify_locations(cafile=str(self.client_creds.ca_cert_path))
+            else:
+                ctx.load_verify_locations(cafile=str(self.client_creds.cert_path))
 
             raw_sock = socket.create_connection((self.remote_tunnel_host, self.remote_tunnel_port), timeout=5)
             ssl_sock = ctx.wrap_socket(raw_sock, server_hostname="localhost")
+
+            # Validate server peer certificate and expected node identity
+            peer_cert = ssl_sock.getpeercert()
+            server_node_id = extract_node_id_from_cert(peer_cert)
+            if self.expected_server_node_id is not None and server_node_id != self.expected_server_node_id:
+                logger.warning(f"mTLS server identity mismatch: expected '{self.expected_server_node_id}', got '{server_node_id}'")
+                ssl_sock.close()
+                return
 
             t1 = threading.Thread(target=self._pipe, args=(app_sock, ssl_sock, "a2s"), daemon=True)
             t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a"), daemon=True)
@@ -264,8 +378,8 @@ class MeshTunnelClient:
             t2.start()
             t1.join()
             t2.join()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"mTLS app tunnel error: {e}")
         finally:
             try:
                 app_sock.close()

@@ -143,7 +143,7 @@ const translations = {
     privacy_title: "Privacy Policy & Data Security Standards",
     privacy_sec1_title: "1. Absolute Zero Prompt Logging & Ephemeral VRAM Processing",
     privacy_sec1_text: "ComputeMesh operates under a strict, mathematically guaranteed Zero-Log Policy. User prompts and generated model responses are NEVER written to persistent disks, never stored in databases, and never used for model training. Inference activations exist solely in volatile GPU VRAM during real-time streaming and are wiped from memory immediately upon request completion.",
-    privacy_sec2_title: "2. Military-Grade End-to-End Encryption in Transit (TLS 1.3 & mTLS)",
+    privacy_sec2_title: "2. End-to-End Encryption in Transit (TLS 1.3 & mTLS)",
     privacy_sec2_text: "All communications between client applications and our edge gateways are strictly encrypted via TLS 1.3 with Perfect Forward Secrecy (PFS). Internal communications across distributed provider nodes use mutual TLS (mTLS) with cryptographically authenticated Ed25519/X25519 handshakes, preventing eavesdropping, tampering, or man-in-the-middle attacks.",
     privacy_sec3_title: "3. Data-at-Rest Encryption (AES-256-GCM / ChaCha20)",
     privacy_sec3_text: "All persistent account metadata, ledger accounts, and API access credentials are encrypted at rest using industry-standard AES-256-GCM and ChaCha20-Poly1305. Master cryptographic keys and salts are strictly isolated in hardened hardware security modules (HSM) and never exposed in application memory.",

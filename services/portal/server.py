@@ -68,7 +68,7 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
 
 
 class PortalHandler(BaseHTTPRequestHandler):
-    """High-performance Military-Grade HTTP Request Handler for Public Web Portal."""
+    """High-performance Hardened HTTP Request Handler for Public Web Portal."""
 
     server_version = "ComputeMesh-Portal/1.2"
     sys_version = ""

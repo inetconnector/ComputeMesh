@@ -1,4 +1,4 @@
-"""ComputeMesh Military-Grade Gateway Security, Rate Limiting & Data Sanitization Module.
+"""ComputeMesh Hardened Gateway Security, Rate Limiting & Data Sanitization Module.
 
 Provides:
 - In-memory Token-Bucket rate limiter with sliding window burst protection

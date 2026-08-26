@@ -110,8 +110,18 @@ def extract_bearer_token(headers: Any) -> str:
     return ""
 
 
-def resolve_client_ip(headers: Any, client_address: tuple[str, int] | None = None) -> str:
-    if headers:
+TRUSTED_PROXIES: set[str] = {"127.0.0.1", "::1", "localhost"}
+
+
+def resolve_client_ip(
+    headers: Any,
+    client_address: tuple[str, int] | None = None,
+    trusted_proxies: set[str] | None = None,
+) -> str:
+    peer_ip = str(client_address[0]) if client_address and len(client_address) > 0 else "127.0.0.1"
+    trusted = trusted_proxies if trusted_proxies is not None else TRUSTED_PROXIES
+    is_trusted_peer = peer_ip in trusted or peer_ip.startswith("127.") or peer_ip == "::1"
+    if headers and is_trusted_peer:
         forwarded = str(headers.get("X-Forwarded-For", "")).strip()
         if forwarded:
             ip = forwarded.split(",")[0].strip()
@@ -120,9 +130,7 @@ def resolve_client_ip(headers: Any, client_address: tuple[str, int] | None = Non
         real_ip = str(headers.get("X-Real-IP", "")).strip()
         if real_ip and len(real_ip) <= 45:
             return real_ip
-    if client_address and len(client_address) > 0:
-        return str(client_address[0])
-    return "127.0.0.1"
+    return peer_ip
 
 
 class GatewayAuthManager:
@@ -173,6 +181,12 @@ class GatewayAuthManager:
                     return account_id
         return None
 
+    def is_valid_key(self, token: str) -> bool:
+        """Verifies whether a token is a valid registered API key using constant-time comparison."""
+        if not token or not isinstance(token, str):
+            return False
+        return self._lookup_registered_key(token) is not None
+
     def authenticate_request(
         self,
         headers: Any,
@@ -185,11 +199,11 @@ class GatewayAuthManager:
             # Check registered keys using constant-time comparison
             account_id = self._lookup_registered_key(token)
             if account_id:
-                if self.ledger.get_balance(account_id) == 0:
+                if not self.ledger.has_received_initial_grant(account_id) and self.ledger.get_balance(account_id) == 0:
                     self.ledger.deposit_customer_credits(
                         customer_account_id=account_id,
                         amount_micro_units=10_000_000,
-                        payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
+                        payment_reference=f"initial_grant_{account_id}",
                     )
                 return AuthResult(
                     account_id=account_id,

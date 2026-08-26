@@ -32,6 +32,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_execution_evidence",
         "services.gateway.tests.test_verified_settlement",
         "services.gateway.tests.test_cancellable_inference",
+        "tests.test_security_audit_fixes",
     ],
     "Portal & Web Subsystem": [
         "services.portal.tests.test_portal_server",
