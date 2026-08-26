@@ -10,7 +10,7 @@ from services.gateway.inference_backend import InferenceBackendError
 from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.live_shared_backend import LiveSharedInferenceBackend
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
-from services.orchestrator.persistence import SQLiteStateStore
+from services.orchestrator.startup_recovery import RecoveryStateStore, reconcile_startup_state
 
 
 def _int_env(name: str, default: int) -> int:
@@ -30,12 +30,6 @@ def _float_env(name: str, default: float) -> float:
 def build_live_shared_backend_from_env(
     *, registry: LiveSharedRuntimeRegistry = LIVE_SHARED_RUNTIME,
 ) -> LiveSharedInferenceBackend:
-    """Build the fileless-placement shared backend from process/runtime state.
-
-    Placement, execution evidence and attestation bundles are deliberately not
-    accepted as environment file inputs here. They are produced per request from
-    the live registry/runtime and authenticated node sessions.
-    """
     state_path = os.environ.get("COMPUTEMESH_ORCHESTRATOR_STATE_PATH", "").strip()
     identity_path = os.environ.get("COMPUTEMESH_IDENTITY_STATE_PATH", "").strip()
     llama_server = os.environ.get("COMPUTEMESH_LLAMA_SERVER_PATH", "").strip()
@@ -59,18 +53,25 @@ def build_live_shared_backend_from_env(
         raise InferenceBackendError(
             "live shared bootstrap refuses pre-positioned placement/evidence/attestation files"
         )
-    return LiveSharedInferenceBackend(
-        registry=registry,
-        store=SQLiteStateStore(state_path),
-        resolver=SQLiteIdentityStore(identity_path),
-        llama_server=Path(llama_server),
-        work_root=Path(work_root),
-        allow_experimental=True,
-        lease_seconds=_int_env("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", 600),
-        max_attempts=_int_env("COMPUTEMESH_LIVE_MAX_ATTEMPTS", 2),
-        startup_timeout=_float_env("COMPUTEMESH_LIVE_STARTUP_TIMEOUT_SECONDS", 300.0),
-        request_timeout=_float_env("COMPUTEMESH_LIVE_REQUEST_TIMEOUT_SECONDS", 300.0),
-    )
+
+    store = RecoveryStateStore(state_path)
+    try:
+        reconcile_startup_state(store)
+        return LiveSharedInferenceBackend(
+            registry=registry,
+            store=store,
+            resolver=SQLiteIdentityStore(identity_path),
+            llama_server=Path(llama_server),
+            work_root=Path(work_root),
+            allow_experimental=True,
+            lease_seconds=_int_env("COMPUTEMESH_ORCHESTRATOR_LEASE_SECONDS", 600),
+            max_attempts=_int_env("COMPUTEMESH_LIVE_MAX_ATTEMPTS", 2),
+            startup_timeout=_float_env("COMPUTEMESH_LIVE_STARTUP_TIMEOUT_SECONDS", 300.0),
+            request_timeout=_float_env("COMPUTEMESH_LIVE_REQUEST_TIMEOUT_SECONDS", 300.0),
+        )
+    except Exception:
+        store.close()
+        raise
 
 
 def install_live_shared_gateway(
@@ -78,7 +79,6 @@ def install_live_shared_gateway(
     handler_cls: Any | None = None,
     registry: LiveSharedRuntimeRegistry = LIVE_SHARED_RUNTIME,
 ) -> LiveSharedInferenceBackend:
-    """Install the live backend into the normal GatewayHandler dependencies."""
     if handler_cls is None:
         from services.gateway.server import GatewayHandler
         handler_cls = GatewayHandler
