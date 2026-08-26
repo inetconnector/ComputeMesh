@@ -271,7 +271,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path == "/api/action/restart_daemon":
-            subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-dashboard.service computemesh-node.service || true"], stderr=subprocess.DEVNULL)
+            if sys.platform == "win32":
+                # On Windows, restart daemon thread or no-op
+                pass
+            else:
+                subprocess.Popen(["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-dashboard.service computemesh-node.service || true"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Daemon restarting"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
@@ -284,7 +288,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path == "/api/action/reboot":
-            subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
+            if sys.platform == "win32":
+                subprocess.Popen(["shutdown", "/r", "/t", "5"], stderr=subprocess.DEVNULL, creationflags=0x08000000)
+            else:
+                subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")

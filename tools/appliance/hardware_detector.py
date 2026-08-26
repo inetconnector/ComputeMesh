@@ -102,7 +102,7 @@ def _get_subprocess_flags() -> dict[str, Any]:
 
 
 def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
-    """Return True only for motherboard/CPU display adapters that cannot serve provider AI compute."""
+    """Return True for motherboard/CPU display adapters that cannot serve provider AI compute."""
     m = model_name.lower()
     v = vendor.lower()
 
@@ -110,27 +110,31 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
     if any(bmc in m or bmc in v for bmc in ("aspeed", "ast2", "ast1", "matrox", "g200", "silicon motion", "cirrus", "qxl", "bochs", "virtio")):
         return True
 
-    # 2. CPU integrated graphics (Intel HD/UHD/Iris, AMD APU Vega 3/6/8)
-    if any(marker in m for marker in ("integrated graphics", "processor graphics", "hd graphics", "uhd graphics", "iris", "vega 3", "vega 6", "vega 8", "vega 11")):
+    # 2. CPU integrated graphics (Intel HD/UHD/Iris, AMD APU Vega 3/6/8, etc.)
+    if any(marker in m for marker in (
+        "integrated graphics", "processor graphics", "hd graphics", "uhd graphics", "iris",
+        "vega 3", "vega 6", "vega 8", "vega 11", "radeon r2", "radeon r3", "radeon r4", "radeon r5",
+        "radeon graphics", "apu", "amd custom gpu", "rembrandt", "renoir", "cezanne", "barcelo",
+        "raphael", "mendocino", "phoenix", "hawk point", "strix point", "family integrated graphics"
+    )):
         return True
+
+    # 3. If Intel vendor and not a discrete Arc/Data Center GPU -> It is an integrated CPU GPU!
+    if v == "intel" or "8086:" in m or "ven_8086" in m:
+        if not any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580", "b570")):
+            return True
 
     for prefix in ("vga compatible controller:", "3d controller:", "display controller:"):
         if prefix in m:
             m = m.split(prefix, 1)[-1].strip()
 
     # Discrete NVIDIA GPUs
-    if v == "nvidia" or "geforce" in m or "quadro" in m or "tesla" in m or "rtx" in m or "gtx" in m:
+    if v == "nvidia" or any(n in m for n in ("geforce", "quadro", "tesla", "rtx", "gtx", "cmp", "a100", "h100", "l40", "t4", "p106", "p104", "p102")):
         return False
 
     # Discrete AMD GPUs
-    if v == "amd" or any(marker in m for marker in ("radeon", "polaris", "navi", "instinct", "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590")):
+    if (v == "amd" or "1002:" in m) and any(marker in m for marker in ("radeon", "polaris", "navi", "instinct", "mi25", "mi50", "mi100", "mi200", "mi300", "vega 56", "vega 64", "vega 10", "vega 20", "rx 4", "rx 5", "rx 6", "rx 7", "rx 570", "rx 580", "rx 590", "w6800", "w7900")):
         return False
-
-    # Discrete Intel Arc GPUs
-    if v == "intel":
-        if any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580")):
-            return False
-        return True
 
     if "integrated" in m and "graphics" in m:
         return True
@@ -167,6 +171,8 @@ def read_pci_resource_vram_bytes(slot: str) -> int:
 def estimate_gpu_vram_from_name(model_name: str, device_hex: str = "") -> int:
     """Infer standard dedicated VRAM bytes for known GPU architectures when sysfs/BAR is inaccessible."""
     m = model_name.lower()
+    if is_integrated_display_adapter("unknown", model_name):
+        return 0
     # Explicit model size (e.g. 16GB, 8GB, 24GB)
     match = re.search(r"(\d+)\s*(?:gb|gib)", m)
     if match:
@@ -181,18 +187,27 @@ def estimate_gpu_vram_from_name(model_name: str, device_hex: str = "") -> int:
         return 16 * 1024 * 1024 * 1024
     if "3060" in m:
         return 12 * 1024 * 1024 * 1024
-    # Default for discrete mining GPUs (Polaris RX 470/480/570/580/590, Vega 56, MI25 8GB variants)
-    return 8 * 1024 * 1024 * 1024
+    if any(amd_8g in m for amd_8g in ("580", "570", "590", "480", "470", "vega", "mi25", "polaris")):
+        return 8 * 1024 * 1024 * 1024
+    if any(disc in m for disc in DISCRETE_COMPUTE_MARKERS):
+        return 8 * 1024 * 1024 * 1024
+    return 0
 
 
 def is_provider_compute_gpu(gpu: GpuDevice) -> bool:
-    """Provider inventory must not count display-only or zero-VRAM adapters."""
-    return gpu.healthy and gpu.vram_bytes > 0 and not is_integrated_display_adapter(gpu.vendor, gpu.model_name)
+    """Provider inventory must only count discrete compute GPUs with dedicated VRAM."""
+    if not gpu.healthy:
+        return False
+    if is_integrated_display_adapter(gpu.vendor, gpu.model_name):
+        return False
+    return gpu.vram_bytes >= MIN_PROVIDER_VRAM_BYTES
 
 
 def detect_vendor_backend(text: str) -> tuple[str, str]:
     """Resolve a GPU vendor/backend from PCI or OS adapter text without substring traps."""
     lower = text.lower()
+    if "intel" in lower or "ven_8086" in lower or "[8086:" in lower:
+        return "intel", "sycl"
     if "nvidia" in lower or "ven_10de" in lower or "[10de:" in lower:
         return "nvidia", "cuda"
     if (
@@ -205,8 +220,6 @@ def detect_vendor_backend(text: str) -> tuple[str, str]:
         or "radeon" in lower
     ):
         return "amd", "vulkan"
-    if "intel" in lower or "ven_8086" in lower or "[8086:" in lower:
-        return "intel", "sycl"
     return "unknown", "vulkan"
 
 

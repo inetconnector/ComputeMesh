@@ -1,18 +1,27 @@
 {
-  "version": "1.2.13",
-  "release_date": "2026-08-26T01:21:00Z",
-  "download_url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-  "sha256": "f4100d7cb031c59b4b15fe54ce6620343a3881af58ea9479747ad3341ba1fc1f",
-  "size_bytes": 78511,
-  "changelog": [
-    "Hardened Military-Grade Gateway Security Module (services/gateway/security.py)",
-    "Sliding Token-Bucket In-Memory Rate Limiting with 429 Retry-After protection",
-    "OWASP HTTP Security Headers (HSTS, CSP, X-Frame-Options DENY, nosniff)",
-    "Zero-Trace AI Prompt Memory Scrubbing & Error Traceback Sanitization",
-    "Path Traversal & Null-Byte Injection Immunity on Web Portal",
-    "Appliance Dashboard Action Endpoints Authenticated with Constant-Time Verification",
-    "Enhanced Unified Test Framework with 278 automated QA tests passing (100%)"
-  ],
-  "signature": "ed25519:6c2fa790d98bbef57e3f89e248a3560b2961d6e87b7a4c7e6c46a6f1947b1c3e0df7b512019485a3c26b9e38e64c29d91f2bb8b8375e2b027cfa29a1b6c7010a",
-  "min_supported_version": "1.0.0"
+  "version": "1.2.14",
+  "release_date": "2026-08-26T04:32:47.476888+00:00",
+  "min_compatible_version": "1.0.0",
+  "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
+  "platforms": {
+    "windows-x64": {
+      "filename": "ComputeMesh-Setup-x64.exe",
+      "url": "https://computemesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
+      "sha256": "e5aa50092759b212941cfab91c3109e3a59574391fccb6b3468ea778b0896ab9",
+      "size_bytes": 37239624
+    },
+    "linux-x64": {
+      "filename": "computemesh-linux-x86_64.tar.gz",
+      "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
+      "sha256": "60c525db5f0760f5f530dcf3e68592dd78b9aca1efd005f9aac07488060a8b4c",
+      "size_bytes": 308512
+    },
+    "installer-script": {
+      "filename": "install.sh",
+      "url": "https://computemesh.inetconnector.com/downloads/install.sh",
+      "sha256": "da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf",
+      "size_bytes": 6649
+    }
+  },
+  "signature": "e27111e181eee7b2dba57658a1ec482492b642b94c2da68a832d17abceba00af0e57684b9d170b538e737ac4475fc9c8659c81b9bfaddb3d403419bc2547c600"
 }

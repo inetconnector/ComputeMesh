@@ -1496,6 +1496,35 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - **278/278 Tests bestanden (100% OK)** im zentralen Testframework ([`run_all_tests.py`](file:///c:/Users/frede/Projekte/ComputeMesh/run_all_tests.py)).
 - Live auf `supersrv-trixie` (`/var/www/vhosts/inetconnector.com/site2/`) bereitgestellt und über `https://computemesh.inetconnector.com/` verifiziert.
 
+---
+
+## 57. Mining Rig iGPU Isolation, Precise VRAM Accounting & Global v1.2.14 Rollout (2026-08-26)
+
+### 1. Fehleranalyse & Ursachenbehebung (`tools/appliance/hardware_detector.py`)
+- **Problem:** Auf dem Mining-Rig `192.168.1.27` (`cm-inference-node-01`) wurde die integrierte CPU-Grafikkarte (`Intel Corporation 2nd Generation Core Processor Family Integrated Graphics Controller`) fälschlicherweise als diskrete Rechenkarte mit 8 GB VRAM erfasst, wodurch das Rig in Summe 16 GB statt der real verbauten 8 GB anzeigte.
+- **Root Cause & Fix:**
+  - `is_integrated_display_adapter()` erweitert: Sämtliche Intel-Grafikprozessoren ohne dedizierte Arc/Data-Center-Kennung sowie alle AMD APUs (Vega 3/6/8/11, Renoir, Raphael, Rembrandt etc.) und Family Integrated Graphics Controller werden strikt als Display-Adapter klassifiziert.
+  - `detect_vendor_backend()` priorisiert `[8086:` und `ven_8086` vor generischen Substring-Prüfungen.
+  - `estimate_gpu_vram_from_name()` liefert für integrierte Adapter strikt `0` VRAM Bytes zurück.
+  - `is_provider_compute_gpu()` prüft strikt `gpu.vram_bytes >= MIN_PROVIDER_VRAM_BYTES` (mindestens 2 GB dedizierter Speicher).
+
+### 2. Live-Ergebnis auf dem Mining-Rig (`192.168.1.27:8080`)
+- **Vorher:** 2 GPUs (1x Intel iGPU 8GB + 1x AMD Vega 10 8GB = 16GB Total).
+- **Nachher (v1.2.14):** **1 GPU** (`Advanced Micro Devices, Inc. [AMD/ATI] Vega 10 [Instinct MI25]`, **8.0 GB VRAM**, 24.6 TFLOPS).
+- Integrierte Intel-Grafikkarte wird 100% sauber ignoriert.
+
+### 3. Globaler Versions-Bump (`v1.2.14`) & Cluster-Synchronisation
+- **Webserver `supersrv-trixie` (89.58.11.237):**
+  - Neuer Release-Tarball `computemesh-linux-x86_64.tar.gz` (308.512 Bytes) gebaut und mit Master-Ed25519-Schlüssel signiert (`portal/updates/version.json`).
+  - Webserver-Dienste (`computemesh-gateway.service`, `computemesh-node.service`) aktualisiert und neu gestartet.
+- **Mining-Rig `192.168.1.27`:**
+  - Update `v1.2.14` via `POST /api/action/apply_update` erfolgreich angewendet und neu gestartet.
+- **Lokaler Windows-Client:**
+  - Windows Tray App unter `v1.2.14` neu gestartet.
+  - Globales Mesh meldet exakt **24.0 GB Pool** (16 GB RTX 3080 Laptop + 8 GB AMD Vega 10 MI25).
+- **QA-Harness:** **278/278 Tests bestanden (100% OK in 9.60s)**.
+
+
 
 
 
