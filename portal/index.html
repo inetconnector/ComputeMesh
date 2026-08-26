@@ -110,7 +110,7 @@
       <div class="section-header" style="margin-bottom: 2rem;">
         <span class="section-tag" data-i18n="pg_tag">Live Teaser Demo • No Signup Required</span>
         <h2 data-i18n="pg_title">Test Decentralized Inference <span class="gradient-text">Live in Your Browser</span></h2>
-        <p data-i18n="pg_sub">Experience sub-millisecond dispatch and pooled GPU power instantly. 20 free teaser requests included before requiring an API key or provider node.</p>
+        <p data-i18n="pg_sub">Ask the live demo through the ComputeMesh gateway. 20 free requests refresh automatically every 4 hours per client.</p>
       </div>
 
       <div class="playground-studio">
@@ -150,7 +150,7 @@
             <div class="chat-bubble">
               <div class="chat-author">ComputeMesh AI <span class="chat-badge" data-i18n="pg_badge_live">LIVE MESH</span></div>
               <div class="chat-body" data-i18n="pg_welcome_msg">
-                Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.
+                Welcome to ComputeMesh! You can test the live gateway directly here with 20 free requests per 4-hour window. Ask a coding question, summarize text, or benchmark token throughput.
               </div>
             </div>
           </div>
@@ -193,6 +193,24 @@
               <span class="pg-send-icon">🚀</span>
             </button>
           </div>
+        </div>
+
+        <div class="pg-ollama-config">
+          <div class="pg-config-head">
+            <span data-i18n="pg_ollama_title">Ollama-compatible endpoint</span>
+            <span data-i18n="pg_ollama_badge">Free demo window</span>
+          </div>
+          <pre><code>export OLLAMA_HOST=https://computemesh.inetconnector.com
+curl https://computemesh.inetconnector.com/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen/qwen2.5-7b-instruct","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":false}'</code></pre>
+          <pre><code>COMPUTEMESH_INFERENCE_BACKEND=ollama
+COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:11434
+COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct
+COMPUTEMESH_INFERENCE_MAX_PREDICT=48
+COMPUTEMESH_INFERENCE_CONTEXT_TOKENS=128
+COMPUTEMESH_INFERENCE_THREADS=2</code></pre>
+          <p data-i18n="pg_ollama_note">Gateway operators can back the demo with Ollama using COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS, and COMPUTEMESH_INFERENCE_SYSTEM_PROMPT.</p>
         </div>
       </div>
     </div>

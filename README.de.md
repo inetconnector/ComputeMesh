@@ -42,7 +42,8 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
 - ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können;
 - fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert;
-- registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist.
+- registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist;
+- einen Web-Playground-Teaser mit 20 kostenlosen Anfragen pro konfigurierbarem Vier-Stunden-Clientfenster und optionalem privaten OpenAI-/Ollama-kompatiblem Demo-Upstream für echte Modellantworten, wenn er konfiguriert ist.
 
 ## M1-Zwei-Node-Placement und Evidenzbundle
 

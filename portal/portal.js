@@ -211,12 +211,12 @@ const translations = {
     btn_try_playground: "⚡ Try Live Teaser (Free)",
     pg_tag: "Live Teaser Demo • No Signup Required",
     pg_title: "Test Decentralized Inference <span class=\"gradient-text\">Live in Your Browser</span>",
-    pg_sub: "Experience sub-millisecond dispatch and pooled GPU power instantly. 20 free teaser requests included before requiring an API key or provider node.",
+    pg_sub: "Ask the live demo through the ComputeMesh gateway. 20 free requests refresh automatically every 4 hours per client.",
     pg_model_lbl: "Model:",
     pg_mesh_active: "Mesh Active (8–64 GB VRAM Pool)",
     pg_quota_badge: "20 Free Requests Left",
     pg_badge_live: "LIVE MESH",
-    pg_welcome_msg: "Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.",
+    pg_welcome_msg: "Welcome to ComputeMesh! You can test the live gateway directly here with 20 free requests per 4-hour window. Ask a coding question, summarize text, or benchmark token throughput.",
     pg_status_lbl: "Status:",
     pg_status_ready: "Ready",
     pg_tps_lbl: "Speed:",
@@ -228,6 +228,9 @@ const translations = {
     qp_roi: "💰 ComputeMesh vs AWS/OpenAI costs",
     pg_input_placeholder: "Ask anything... (Press Enter to send, Shift+Enter for newline)",
     pg_btn_send: "Send Prompt",
+    pg_ollama_title: "Ollama-compatible endpoint",
+    pg_ollama_badge: "Free demo window",
+    pg_ollama_note: "Gateway operators can back the demo with Ollama using COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS, and COMPUTEMESH_INFERENCE_SYSTEM_PROMPT.",
     conv_tag: "⚡ Free Teaser Limit Reached",
     conv_title: "Unlock Unlimited High-Speed Inference",
     conv_sub: "You've explored the decentralized cluster! Join the ecosystem as an API Consumer or Hardware Provider to continue without limits.",
@@ -451,12 +454,12 @@ const translations = {
     btn_try_playground: "⚡ Live-Teaser testen (Gratis)",
     pg_tag: "Live-Teaser-Demo • Keine Registrierung nötig",
     pg_title: "Dezentrale KI-Inferenz <span class=\"gradient-text\">live im Browser testen</span>",
-    pg_sub: "Erlebe Sub-Millisekunden-Dispatching und verteilte GPU-Power sofort. 20 kostenlose Teaser-Anfragen inklusive, bevor ein API-Key oder eigener Provider-Node nötig wird.",
+    pg_sub: "Stelle eine echte Demo-Anfrage über das ComputeMesh-Gateway. 20 kostenlose Anfragen werden pro Client alle 4 Stunden automatisch erneuert.",
     pg_model_lbl: "Modell:",
     pg_mesh_active: "Mesh Aktiv (8–64 GB VRAM-Pool)",
     pg_quota_badge: "20 Gratis-Anfragen übrig",
     pg_badge_live: "LIVE MESH",
-    pg_welcome_msg: "Willkommen bei ComputeMesh! Du kannst unseren dezentralen GPU-Cluster direkt hier mit 20 kostenlosen Teaser-Anfragen ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz.",
+    pg_welcome_msg: "Willkommen bei ComputeMesh! Du kannst das Live-Gateway direkt hier mit 20 kostenlosen Anfragen pro 4-Stunden-Fenster ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz.",
     pg_status_lbl: "Status:",
     pg_status_ready: "Bereit",
     pg_tps_lbl: "Geschwindigkeit:",
@@ -468,6 +471,9 @@ const translations = {
     qp_roi: "💰 ComputeMesh vs. AWS/OpenAI Kosten",
     pg_input_placeholder: "Stelle eine Frage... (Enter zum Senden, Shift+Enter für neue Zeile)",
     pg_btn_send: "Prompt senden",
+    pg_ollama_title: "Ollama-kompatibler Endpunkt",
+    pg_ollama_badge: "Gratis-Demofenster",
+    pg_ollama_note: "Gateway-Betreiber können die Demo mit Ollama über COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS und COMPUTEMESH_INFERENCE_SYSTEM_PROMPT betreiben.",
     conv_tag: "⚡ Kostenloses Teaser-Limit erreicht",
     conv_title: "Unbegrenzte High-Speed-Inferenz freischalten",
     conv_sub: "Du hast das dezentrale Mesh erfolgreich getestet! Werde Teil des Netzwerks als API-Nutzer oder GPU-Provider, um ohne Limits weiterzumachen.",
@@ -721,6 +727,7 @@ function handleContactSubmit(e) {
 
 let playgroundChatHistory = [];
 let teaserRequestsRemaining = 20;
+let teaserResetAtMs = 0;
 let isPlaygroundInferencing = false;
 
 const QUICK_PROMPTS = {
@@ -756,12 +763,29 @@ function formatChatMarkdown(text) {
   return escaped;
 }
 
-function updateTeaserQuota(remaining, limit) {
+function formatResetDuration(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.ceil((totalSeconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return currentLang === 'de' ? `${Math.max(1, minutes)} Min.` : `${Math.max(1, minutes)} min`;
+}
+
+function updateTeaserQuota(remaining, limit, resetSeconds = 0, resetAt = "") {
   if (typeof remaining === 'number' && !isNaN(remaining)) {
     teaserRequestsRemaining = remaining;
+    const parsedResetSeconds = parseInt(resetSeconds || "0", 10);
+    const parsedResetAt = resetAt ? Date.parse(resetAt) : 0;
+    teaserResetAtMs = parsedResetAt || (parsedResetSeconds > 0 ? Date.now() + parsedResetSeconds * 1000 : 0);
     const quotaTextEl = document.getElementById('pg-quota-text');
     if (quotaTextEl) {
-      if (currentLang === 'de') {
+      if (remaining <= 0 && teaserResetAtMs > Date.now()) {
+        quotaTextEl.textContent = currentLang === 'de'
+          ? `Pause: ${formatResetDuration(teaserResetAtMs - Date.now())}`
+          : `Paused: ${formatResetDuration(teaserResetAtMs - Date.now())}`;
+      } else if (currentLang === 'de') {
         quotaTextEl.textContent = `${remaining} Gratis-Anfragen übrig`;
       } else {
         quotaTextEl.textContent = `${remaining} Free Requests Left`;
@@ -801,8 +825,8 @@ function clearPlaygroundChat() {
   const streamEl = document.getElementById('playground-chat-stream');
   if (streamEl) {
     const welcomeMsg = currentLang === 'de'
-      ? "Willkommen bei ComputeMesh! Du kannst unseren dezentralen GPU-Cluster direkt hier mit 20 kostenlosen Teaser-Anfragen ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz."
-      : "Welcome to ComputeMesh! You can test our pooled GPU cluster directly here with 20 free teaser requests. Ask a coding question, summarize text, or benchmark token throughput.";
+      ? "Willkommen bei ComputeMesh! Du kannst das Live-Gateway direkt hier mit 20 kostenlosen Anfragen pro 4-Stunden-Fenster ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz."
+      : "Welcome to ComputeMesh! You can test the live gateway directly here with 20 free requests per 4-hour window. Ask a coding question, summarize text, or benchmark token throughput.";
 
     streamEl.innerHTML = `
       <div class="chat-msg chat-msg-ai">
@@ -860,7 +884,7 @@ async function sendPlaygroundMessage() {
   if (!promptText) return;
 
   // Check quota limit
-  if (teaserRequestsRemaining <= 0) {
+  if (teaserRequestsRemaining <= 0 && teaserResetAtMs > Date.now()) {
     openTeaserConversionModal();
     return;
   }
@@ -919,7 +943,7 @@ async function sendPlaygroundMessage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-ComputeMesh-Client': 'web-playground-v1.2'
+        'X-ComputeMesh-Client': 'web-playground-v1.2.16'
       },
       body: JSON.stringify({
         model: model,
@@ -932,8 +956,10 @@ async function sendPlaygroundMessage() {
     // Extract teaser remaining headers
     const remainingHdr = response.headers.get('X-ComputeMesh-Teaser-Remaining');
     const limitHdr = response.headers.get('X-ComputeMesh-Teaser-Limit');
+    const resetSecondsHdr = response.headers.get('X-ComputeMesh-Teaser-Reset-Seconds');
+    const resetAtHdr = response.headers.get('X-ComputeMesh-Teaser-Reset-At');
     if (remainingHdr) {
-      updateTeaserQuota(parseInt(remainingHdr, 10), parseInt(limitHdr || '20', 10));
+      updateTeaserQuota(parseInt(remainingHdr, 10), parseInt(limitHdr || '20', 10), resetSecondsHdr || "0", resetAtHdr || "");
     } else {
       teaserRequestsRemaining = Math.max(0, teaserRequestsRemaining - 1);
       updateTeaserQuota(teaserRequestsRemaining, 20);
@@ -941,9 +967,16 @@ async function sendPlaygroundMessage() {
 
     if (response.status === 402 || response.status === 429) {
       const errJson = await response.json().catch(() => ({}));
-      const errMsg = errJson.message || (currentLang === 'de' ? 'Kostenloses Teaser-Limit erreicht (20/20).' : 'Free teaser limit reached (20/20).');
+      const retryAfter = parseInt(response.headers.get('Retry-After') || errJson.teaser?.retry_after_seconds || "0", 10);
+      if (retryAfter > 0) {
+        teaserResetAtMs = Date.now() + retryAfter * 1000;
+      }
+      const fallbackMsg = currentLang === 'de'
+        ? `Kostenloses Demo-Limit erreicht. Deine Anfragen werden in ${formatResetDuration((retryAfter || 3600) * 1000)} automatisch freigeschaltet.`
+        : `Free demo limit reached. Your requests refresh automatically in ${formatResetDuration((retryAfter || 3600) * 1000)}.`;
+      const errMsg = errJson.message || errJson.error?.message || fallbackMsg;
       if (aiBodyEl) {
-        aiBodyEl.innerHTML = `<span style="color: #f87171;">⚠️ ${errMsg}</span>`;
+        aiBodyEl.innerHTML = `<span style="color: #f87171;">${errMsg}</span>`;
       }
       openTeaserConversionModal();
       return;

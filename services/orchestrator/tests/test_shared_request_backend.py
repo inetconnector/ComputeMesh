@@ -76,6 +76,7 @@ class SharedRequestBackendTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.store = SQLiteStateStore(self.root / "state.sqlite3")
+        self.backends = []
         self.placement = PlacementSelection(
             decision_id="placement-0123456789abcdef",
             model_id="test-model",
@@ -92,6 +93,8 @@ class SharedRequestBackendTests(unittest.TestCase):
         self.resolver = _Resolver(records)
 
     def tearDown(self):
+        for backend in reversed(self.backends):
+            backend.close()
         self.store.close()
         self.tmp.cleanup()
 
@@ -126,6 +129,7 @@ class SharedRequestBackendTests(unittest.TestCase):
             id_factory=lambda: "job-shared-1",
             runner=self._runner,
         )
+        self.backends.append(backend)
         result = backend.complete(model_id="test-model", messages=[{"role": "user", "content": "hello"}])
         self.assertEqual(result.text, "real shared output")
         self.assertEqual(result.execution_job_id, "job-shared-1")
@@ -155,6 +159,7 @@ class SharedRequestBackendTests(unittest.TestCase):
             id_factory=lambda: "job-shared-fail",
             runner=self._runner,
         )
+        self.backends.append(backend)
         with self.assertRaisesRegex(Exception, "shared-request orchestration failed"):
             backend.complete(model_id="test-model", messages=[{"role": "user", "content": "hello"}])
         self.assertEqual(self.store.get_job("job-shared-fail").state, JobState.FAILED)

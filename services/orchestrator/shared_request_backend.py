@@ -108,6 +108,15 @@ class SharedRequestOrchestratedBackend:
         self.prompt_renderer = prompt_renderer
         self.evidence_store = ExecutionEvidenceStore(store)
 
+    def close(self) -> None:
+        self.evidence_store.close()
+
+    def __enter__(self) -> "SharedRequestOrchestratedBackend":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
     def _advance(self, job_id: str, target: JobState) -> None:
         current = self.store.get_job(job_id)
         self.store.transition_job(

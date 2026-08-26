@@ -6,6 +6,7 @@ and delivers a high-conversion onboarding guide when the free quota is exhausted
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import threading
@@ -27,15 +28,40 @@ class TeaserSession:
     tokens_used: int = 0
     max_free_requests: int = 20
     max_free_tokens: int = 8192
+    window_seconds: int = 14400
     created_at: float = field(default_factory=time.time)
+    window_started_at: float = field(default_factory=time.time)
+
+    def refresh_if_expired(self, now: float | None = None) -> None:
+        current = now if now is not None else time.time()
+        if current >= self.reset_at:
+            self.requests_used = 0
+            self.tokens_used = 0
+            self.window_started_at = current
 
     @property
     def is_quota_exceeded(self) -> bool:
+        if time.time() >= self.reset_at:
+            return False
         return self.requests_used >= self.max_free_requests or self.tokens_used >= self.max_free_tokens
 
     @property
     def remaining_requests(self) -> int:
+        if time.time() >= self.reset_at:
+            return self.max_free_requests
         return max(0, self.max_free_requests - self.requests_used)
+
+    @property
+    def reset_at(self) -> float:
+        return self.window_started_at + max(1, self.window_seconds)
+
+    @property
+    def retry_after_seconds(self) -> int:
+        return max(0, int(self.reset_at - time.time()) + 1)
+
+    @property
+    def reset_at_iso(self) -> str:
+        return datetime.fromtimestamp(self.reset_at, tz=timezone.utc).isoformat()
 
 
 def get_teaser_paywall_message(max_requests: int | None = None) -> str:
@@ -67,9 +93,15 @@ def get_teaser_paywall_message(max_requests: int | None = None) -> str:
 
 class TeaserQuotaManager:
     """Manages IP-based free teaser sessions without requiring user registration."""
-    def __init__(self, max_requests: int | None = None, max_tokens: int | None = None) -> None:
+    def __init__(
+        self,
+        max_requests: int | None = None,
+        max_tokens: int | None = None,
+        window_seconds: int | None = None,
+    ) -> None:
         self.max_requests = max_requests if max_requests is not None else CONFIG.teaser.max_free_requests
         self.max_tokens = max_tokens if max_tokens is not None else CONFIG.teaser.max_free_tokens
+        self.window_seconds = window_seconds if window_seconds is not None else CONFIG.teaser.window_seconds
         self._sessions: dict[str, TeaserSession] = {}
         self._lock = threading.RLock()
 
@@ -80,8 +112,14 @@ class TeaserQuotaManager:
                     client_ip=client_ip,
                     max_free_requests=self.max_requests,
                     max_free_tokens=self.max_tokens,
+                    window_seconds=self.window_seconds,
                 )
-            return self._sessions[client_ip]
+            sess = self._sessions[client_ip]
+            sess.max_free_requests = self.max_requests
+            sess.max_free_tokens = self.max_tokens
+            sess.window_seconds = self.window_seconds
+            sess.refresh_if_expired()
+            return sess
 
     def record_usage(self, client_ip: str, tokens: int = 10) -> TeaserSession:
         with self._lock:
@@ -89,6 +127,15 @@ class TeaserQuotaManager:
             sess.requests_used += 1
             sess.tokens_used += tokens
             return sess
+
+    def response_headers(self, client_ip: str) -> dict[str, str]:
+        sess = self.get_or_create_session(client_ip)
+        return {
+            "X-ComputeMesh-Teaser-Remaining": str(sess.remaining_requests),
+            "X-ComputeMesh-Teaser-Limit": str(self.max_requests),
+            "X-ComputeMesh-Teaser-Reset-Seconds": str(sess.retry_after_seconds if sess.is_quota_exceeded else 0),
+            "X-ComputeMesh-Teaser-Reset-At": sess.reset_at_iso,
+        }
 
     def reset_for_test(self) -> None:
         with self._lock:

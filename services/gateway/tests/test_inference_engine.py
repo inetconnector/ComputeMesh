@@ -10,8 +10,23 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.gateway.inference import InferenceEngine
+from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
+
+
+class _FakeBackend:
+    def complete(self, *, model_id, messages):
+        last = ""
+        for message in reversed(messages):
+            if isinstance(message, dict) and message.get("role") == "user":
+                last = str(message.get("content", ""))
+                break
+        return BackendResult(
+            text=f"ComputeMesh distributed response for: {last[:60]}",
+            prompt_tokens=max(len(json.dumps(messages)) // 4, 8),
+            completion_tokens=18,
+        )
 
 
 class TestInferenceEngine(unittest.TestCase):
@@ -23,6 +38,7 @@ class TestInferenceEngine(unittest.TestCase):
             ledger=self.ledger,
             metrics=self.metrics,
             teaser_manager=self.teaser_manager,
+            backend=_FakeBackend(),
         )
         self.ledger.deposit_customer_credits(
             customer_account_id="cust_test_infer",

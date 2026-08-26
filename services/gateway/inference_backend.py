@@ -99,6 +99,7 @@ class OpenAICompatibleHTTPBackend:
         api_key: str | None = None,
         timeout_seconds: float = 120.0,
         max_response_bytes: int = 8 * 1024 * 1024,
+        model_override: str | None = None,
     ) -> None:
         parsed = urlparse(base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -109,10 +110,12 @@ class OpenAICompatibleHTTPBackend:
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
+        self.model_override = model_override.strip() if model_override else ""
 
     def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+        runtime_model = self.model_override or model_id
         payload = json.dumps(
-            {"model": model_id, "messages": messages, "stream": False},
+            {"model": runtime_model, "messages": messages, "stream": False},
             separators=(",", ":"),
         ).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -142,6 +145,99 @@ class OpenAICompatibleHTTPBackend:
         if not isinstance(text, str) or prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Inference runtime returned invalid content or usage")
         return BackendResult(text, prompt_tokens, completion_tokens)
+
+
+class OllamaHTTPBackend:
+    """Call a private Ollama HTTP chat endpoint and normalize its response."""
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        timeout_seconds: float = 120.0,
+        max_response_bytes: int = 8 * 1024 * 1024,
+        model_override: str | None = None,
+        num_predict: int = 320,
+        num_ctx: int | None = None,
+        num_thread: int | None = None,
+        system_prompt: str | None = None,
+    ) -> None:
+        parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("COMPUTEMESH_INFERENCE_URL must be an http(s) URL")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.max_response_bytes = max_response_bytes
+        self.model_override = model_override.strip() if model_override else ""
+        self.num_predict = max(1, min(int(num_predict), 4096))
+        self.num_ctx = max(128, min(int(num_ctx), 131072)) if num_ctx is not None else None
+        self.num_thread = max(1, min(int(num_thread), 256)) if num_thread is not None else None
+        self.system_prompt = system_prompt.strip() if system_prompt else ""
+
+    @staticmethod
+    def _normalise_messages(
+        messages: list[dict[str, Any]],
+        system_prompt: str = "",
+    ) -> list[dict[str, str]]:
+        normalized: list[dict[str, str]] = []
+        has_system = False
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role", "user")).strip() or "user"
+            content = str(message.get("content", ""))
+            if content:
+                if role == "system":
+                    has_system = True
+                normalized.append({"role": role, "content": content})
+        if system_prompt and not has_system:
+            normalized.insert(0, {"role": "system", "content": system_prompt})
+        return normalized or [{"role": "user", "content": "Hello"}]
+
+    def complete(self, *, model_id: str, messages: list[dict[str, Any]]) -> BackendResult:
+        runtime_model = self.model_override or model_id
+        normalized = self._normalise_messages(messages, self.system_prompt)
+        options: dict[str, int | float] = {"temperature": 0.2, "num_predict": self.num_predict}
+        if self.num_ctx is not None:
+            options["num_ctx"] = self.num_ctx
+        if self.num_thread is not None:
+            options["num_thread"] = self.num_thread
+        payload = json.dumps(
+            {
+                "model": runtime_model,
+                "messages": normalized,
+                "stream": False,
+                "options": options,
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+        req = request.Request(
+            f"{self.base_url}/api/chat",
+            data=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        try:
+            with request.urlopen(req, timeout=self.timeout_seconds) as response:
+                raw = response.read(self.max_response_bytes + 1)
+        except (error.HTTPError, error.URLError, TimeoutError, OSError) as exc:
+            raise InferenceBackendError("Ollama inference runtime request failed") from exc
+        if len(raw) > self.max_response_bytes:
+            raise InferenceBackendError("Ollama inference runtime response exceeded size limit")
+        try:
+            body = json.loads(raw.decode("utf-8"))
+            text = body["message"]["content"]
+        except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise InferenceBackendError("Ollama inference runtime returned an invalid response") from exc
+        if not isinstance(text, str) or not text.strip():
+            raise InferenceBackendError("Ollama inference runtime returned empty content")
+        prompt_tokens = int(body.get("prompt_eval_count") or max(len(json.dumps(normalized)) // 4, 1))
+        completion_tokens = int(body.get("eval_count") or max(len(text) // 4, 1))
+        if prompt_tokens < 0 or completion_tokens < 0:
+            raise InferenceBackendError("Ollama inference runtime returned invalid token usage")
+        return BackendResult(text.strip(), prompt_tokens, completion_tokens)
 
 
 class OrchestratedInferenceBackend:
@@ -190,6 +286,16 @@ class OrchestratedInferenceBackend:
         self.execution_attestation_path = execution_attestation_path
         self.attestation_resolver = attestation_resolver
         self.evidence_store = ExecutionEvidenceStore(store) if placement is not None else None
+
+    def close(self) -> None:
+        if self.evidence_store is not None:
+            self.evidence_store.close()
+
+    def __enter__(self) -> "OrchestratedInferenceBackend":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
 
     @property
     def placement_id(self) -> str:
@@ -401,6 +507,33 @@ def _openai_backend_from_env() -> OpenAICompatibleHTTPBackend:
         base_url=base_url,
         api_key=os.environ.get("COMPUTEMESH_INFERENCE_API_KEY") or None,
         timeout_seconds=timeout,
+        model_override=os.environ.get("COMPUTEMESH_INFERENCE_MODEL") or None,
+    )
+
+
+def _ollama_backend_from_env() -> OllamaHTTPBackend:
+    base_url = os.environ.get("COMPUTEMESH_INFERENCE_URL", "").strip()
+    if not base_url:
+        raise InferenceBackendError(
+            "COMPUTEMESH_INFERENCE_URL is required for the Ollama backend"
+        )
+    try:
+        timeout = float(os.environ.get("COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS", "120"))
+        num_predict = int(os.environ.get("COMPUTEMESH_INFERENCE_MAX_PREDICT", "320"))
+        raw_num_ctx = os.environ.get("COMPUTEMESH_INFERENCE_CONTEXT_TOKENS", "").strip()
+        raw_num_thread = os.environ.get("COMPUTEMESH_INFERENCE_THREADS", "").strip()
+        num_ctx = int(raw_num_ctx) if raw_num_ctx else None
+        num_thread = int(raw_num_thread) if raw_num_thread else None
+    except ValueError as exc:
+        raise InferenceBackendError("Invalid Ollama inference timeout, context, thread or max-predict configuration") from exc
+    return OllamaHTTPBackend(
+        base_url=base_url,
+        timeout_seconds=timeout,
+        model_override=os.environ.get("COMPUTEMESH_INFERENCE_MODEL") or None,
+        num_predict=num_predict,
+        num_ctx=num_ctx,
+        num_thread=num_thread,
+        system_prompt=os.environ.get("COMPUTEMESH_INFERENCE_SYSTEM_PROMPT") or None,
     )
 
 
@@ -457,6 +590,8 @@ def build_inference_backend_from_env() -> InferenceBackend:
         return DisabledInferenceBackend()
     if backend in {"openai", "openai-compatible", "openai_compatible", "llama.cpp", "llama_cpp"}:
         return _openai_backend_from_env()
+    if backend in {"ollama", "ollama-http", "ollama_http"}:
+        return _ollama_backend_from_env()
     if backend in {"orchestrated", "orchestrated_openai", "orchestrated-openai"}:
         return _orchestrated_backend_from_env()
     if backend == "synthetic":

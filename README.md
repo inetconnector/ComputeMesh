@@ -42,7 +42,8 @@ Implemented foundations now include:
 - a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
 - an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver;
 - fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them;
-- registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags.
+- registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags;
+- a web playground teaser path with 20 free requests per configurable four-hour client window and an optional private OpenAI/Ollama-compatible demo upstream for real model answers when configured.
 
 ## M1 two-node placement and evidence bundle
 

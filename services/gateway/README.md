@@ -14,6 +14,7 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 - **Non-Streaming Chat Completions:** Serves `/v1/chat/completions` with full metadata and runtime-reported token usage records.
 - **Ollama Chat/Generate Facade:** Serves `/api/chat` and `/api/generate` with Ollama-compatible JSON/NDJSON response shapes while using the same authentication, ledger metering and provider attribution as OpenAI requests.
 - **Server-Sent Events (SSE) Streaming:** Streams response chunks with `data: {"object": "chat.completion.chunk", ...}` framing and clean `[DONE]` termination.
+- **Web Teaser Demo:** Allows unauthenticated browser/OpenAI/Ollama demo requests for a limited rolling window and can forward to a private OpenAI- or Ollama-compatible runtime backend when configured.
 - **Automated Ledger Integration:** Meters successful inference usage and debits customer deposits while crediting provider payout balances in integer micro-units.
 - **Fail-Closed Runtime Configuration:** Production inference returns service-unavailable rather than fabricating completion output when no runtime backend is configured.
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
@@ -53,6 +54,21 @@ COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS=120
 
 `COMPUTEMESH_INFERENCE_API_KEY` is optional for a protected compatible endpoint. The runtime response must contain `choices[0].message.content` and integer `usage.prompt_tokens` / `usage.completion_tokens`; malformed responses are rejected and are not billed.
 
+For an Ollama-backed public demo on a private local daemon, set:
+
+```text
+COMPUTEMESH_INFERENCE_BACKEND=ollama
+COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:11434
+COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct
+COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS=60
+COMPUTEMESH_INFERENCE_MAX_PREDICT=48
+COMPUTEMESH_INFERENCE_CONTEXT_TOKENS=128
+COMPUTEMESH_INFERENCE_THREADS=2
+COMPUTEMESH_INFERENCE_SYSTEM_PROMPT=You are the ComputeMesh demo assistant. Explain that ComputeMesh is a decentralized AI inference network and answer concisely.
+```
+
+`COMPUTEMESH_INFERENCE_MODEL` is optional; when set, it maps public catalog aliases to the concrete locally installed runtime model.
+
 Synthetic completion is retained only as an explicit test/development fixture and requires both:
 
 ```text
@@ -81,6 +97,8 @@ Install the runtime dependency with `python -m pip install -r requirements.txt` 
 - optional `COMPUTEMESH_API_KEYS` as comma-separated `token:account_id` static registrations for operator-managed keys
 - required `COMPUTEMESH_ADMIN_KEY` for admin endpoints; there is no built-in default admin credential
 - optional lab-only `COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS=1` and `COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS=1` for private throwaway testing only
+- optional `COMPUTEMESH_TEASER_WINDOW_SECONDS`, defaulting to `14400`, for automatic unauthenticated demo quota reset
+- optional `COMPUTEMESH_INFERENCE_MODEL` for mapping public catalog IDs to a concrete local runtime model such as an Ollama tag
 
 If `STRIPE_API_KEY` is present but the SDK or session store is missing, startup/checkout fails closed instead of issuing fake payment URLs. Webhook crediting remains fail-closed until `STRIPE_WEBHOOK_SECRET` is configured.
 

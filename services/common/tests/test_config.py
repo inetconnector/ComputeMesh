@@ -29,6 +29,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(CONFIG.ports.appliance_dashboard, 8080)
         self.assertEqual(CONFIG.teaser.max_free_requests, 20)
         self.assertEqual(CONFIG.teaser.max_free_tokens, 8192)
+        self.assertEqual(CONFIG.teaser.window_seconds, 14400)
 
     def test_custom_domain_override(self) -> None:
         cfg = EndpointConfig(domain="custom.mesh.internal")
@@ -37,9 +38,10 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.api_url, "https://custom.mesh.internal/v1")
 
     def test_teaser_config_parameters(self) -> None:
-        teaser = TeaserConfig(max_free_requests=50, max_free_tokens=16384, enabled=True)
+        teaser = TeaserConfig(max_free_requests=50, max_free_tokens=16384, window_seconds=7200, enabled=True)
         self.assertEqual(teaser.max_free_requests, 50)
         self.assertEqual(teaser.max_free_tokens, 16384)
+        self.assertEqual(teaser.window_seconds, 7200)
         self.assertTrue(teaser.enabled)
 
 

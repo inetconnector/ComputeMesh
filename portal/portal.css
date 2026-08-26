@@ -1060,6 +1060,56 @@ footer.site-footer {
   white-space: nowrap;
 }
 
+.pg-ollama-config {
+  margin: 0 1.5rem 1.5rem;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(0, 240, 255, 0.16);
+  border-radius: var(--radius-sm);
+}
+
+.pg-config-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.86rem;
+  margin-bottom: 0.75rem;
+}
+
+.pg-config-head span:last-child {
+  color: var(--accent-emerald);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pg-ollama-config pre {
+  overflow-x: auto;
+  padding: 0.85rem;
+  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: #a7f3d0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.pg-ollama-config code {
+  font-family: var(--font-mono);
+}
+
+.pg-ollama-config p {
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 /* Conversion Modal Grid */
 .conv-options-grid {
   display: grid;
@@ -1153,4 +1203,3 @@ footer.site-footer {
   .nav-links { display: none; }
   .footer-grid { grid-template-columns: 1fr; }
 }
-

@@ -61,6 +61,7 @@ class TeaserConfig:
     """Free teaser playground configuration without upfront registration."""
     max_free_requests: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_REQUESTS", "20"))
     max_free_tokens: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_TOKENS", "8192"))
+    window_seconds: int = int(os.environ.get("COMPUTEMESH_TEASER_WINDOW_SECONDS", "14400"))
     initial_grant_micro_units: int = int(os.environ.get("COMPUTEMESH_TEASER_INITIAL_GRANT", "20000000"))
     enabled: bool = os.environ.get("COMPUTEMESH_TEASER_ENABLED", "1").strip().lower() in ("1", "true", "yes")
 
@@ -83,7 +84,7 @@ class ComputeMeshConfig:
     endpoints: MeshEndpoints = field(default_factory=MeshEndpoints)
     ports: PortConfig = field(default_factory=PortConfig)
     teaser: TeaserConfig = field(default_factory=TeaserConfig)
-    appliance_version: str = "1.2.15"
+    appliance_version: str = "1.2.16"
     default_dashboard_port: int = 8080
     default_gateway_port: int = 8000
     default_cluster_peers: list[str] = field(default_factory=lambda: [
@@ -96,7 +97,7 @@ class ComputeMeshConfig:
             endpoints=MeshEndpoints(),
             ports=PortConfig(),
             teaser=TeaserConfig(),
-            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.15"),
+            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.16"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),
             default_gateway_port=int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000")),
         )

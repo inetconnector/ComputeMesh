@@ -4,8 +4,9 @@
 
 ComputeMesh bietet einen sofortigen, reibungsfreien Einstieg („Zero-Friction Teaser“) für Entwickler und KI-Nutzer:
 - **Keine Registrierung oder API-Key nötig:** Nutzer können Modelle direkt via Standard Ollama CLI oder OpenAI Python SDK anfragen.
-- **Konfigurierbare Test-Quota:** Standardmäßig **20 kostenlose Anfragen** (konfigurierbar über `COMPUTEMESH_TEASER_MAX_REQUESTS` in der Konfiguration).
-- **Graceful Paywall & Onboarding:** Nach Aufbrauchen der 20 kostenlosen Anfragen wird eine strukturierte Anleitung zurückgegeben, wie man entweder einen Consumer API-Key erwirbt oder seinen eigenen Server/GPU als Provider einhängt.
+- **Konfigurierbare Test-Quota:** Standardmäßig **20 kostenlose Anfragen pro 4 Stunden** (konfigurierbar über `COMPUTEMESH_TEASER_MAX_REQUESTS` und `COMPUTEMESH_TEASER_WINDOW_SECONDS`).
+- **Timed Cooldown & Onboarding:** Nach Aufbrauchen der 20 kostenlosen Anfragen antwortet das Gateway mit `429`, `Retry-After` und Reset-Headern; danach wird das Kontingent automatisch erneuert.
+- **Echte Demo-Antworten, wenn konfiguriert:** `COMPUTEMESH_INFERENCE_BACKEND` kann auf einen privaten OpenAI-kompatiblen oder Ollama-Modellserver zeigen.
 - **Provider-Vorteil (0% Plattformgebühr):** Wenn Nutzer eigene Hardware im Mesh betreiben, nutzen sie das Cluster für eigene Anfragen ohne Plattform-Aufschlag (reiner Selbstkostenpreis / Provider Self-Compute).
 
 ---
@@ -36,8 +37,37 @@ class TeaserConfig:
     enabled: bool = True
     max_free_requests: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_REQUESTS", "20"))
     max_free_tokens: int = int(os.environ.get("COMPUTEMESH_TEASER_MAX_TOKENS", "8192"))
+    window_seconds: int = int(os.environ.get("COMPUTEMESH_TEASER_WINDOW_SECONDS", "14400"))
     initial_grant_micro_units: int = int(os.environ.get("COMPUTEMESH_TEASER_INITIAL_GRANT", "20000000"))
 ```
+
+---
+
+## 3.1. Reales Demo-Modell anbinden
+
+Für eine lokale Ollama-Instanz auf dem Gateway-Host:
+
+```bash
+COMPUTEMESH_INFERENCE_BACKEND=ollama
+COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:11434
+COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct
+COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS=60
+COMPUTEMESH_INFERENCE_MAX_PREDICT=48
+COMPUTEMESH_INFERENCE_CONTEXT_TOKENS=128
+COMPUTEMESH_INFERENCE_THREADS=2
+COMPUTEMESH_INFERENCE_SYSTEM_PROMPT="You are the ComputeMesh demo assistant. Explain that ComputeMesh is a decentralized AI inference network and answer concisely."
+```
+
+Für OpenAI-kompatible private Runtimes:
+
+```bash
+COMPUTEMESH_INFERENCE_BACKEND=openai_compatible
+COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:8081
+COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct
+COMPUTEMESH_INFERENCE_API_KEY=<optional>
+```
+
+Die öffentlichen Modellnamen aus dem Gateway-Katalog bleiben stabil; `COMPUTEMESH_INFERENCE_MODEL` mappt sie bei Bedarf auf den tatsächlich installierten Runtime-Modellnamen.
 
 ---
 
@@ -57,7 +87,7 @@ ollama list
 ollama run qwen2.5-7b-instruct "Erkläre mir die Vorteile von verteiltem Rechnen."
 ```
 
-Jede Antwort enthält einen Teaser-Banner mit den verbleibenden freien Anfragen:
+Jede erfolgreiche Teaser-Antwort enthält einen Teaser-Banner mit den verbleibenden freien Anfragen:
 `⚡ ComputeMesh Free Teaser: Noch 19/20 Anfragen übrig | 🟢 Cluster-Verbund: 24.0 GB VRAM | computemesh.inetconnector.com`
 
 ---
@@ -97,7 +127,7 @@ Für Hardware-Provider, die eigene Rigs im Mesh betreiben:
 
 ## 7. Paywall & Conversion-Mechanik
 
-Sobald das Kontingent von 20 Anfragen aufgebraucht ist, liefert das Gateway automatisch die strukturierte Conversion-Nachricht aus:
+Sobald das Kontingent von 20 Anfragen im aktuellen Zeitfenster aufgebraucht ist, liefert das Gateway `429 Too Many Requests`, `Retry-After`, `X-ComputeMesh-Teaser-Reset-Seconds` und eine strukturierte Conversion-Nachricht aus:
 
 ```markdown
 🚀 **ComputeMesh Free Teaser-Limit erreicht (20 kostenlose Test-Anfragen)!**

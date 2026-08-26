@@ -619,9 +619,10 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("ComputeMesh distributed response", data["response"])
             self.assertIn("ComputeMesh Free Teaser", data["response"])
 
-    def test_free_teaser_quota_exhaustion_and_paywall_message(self) -> None:
+    def test_free_teaser_quota_exhaustion_returns_retry_after(self) -> None:
         GatewayHandler.teaser_manager.reset_for_test()
         GatewayHandler.teaser_manager.max_requests = 3  # Set to 3 for fast test
+        GatewayHandler.teaser_manager.window_seconds = 14400
         test_ip = "198.51.100.99"
 
         # Make 3 free requests to exhaust the quota
@@ -639,7 +640,7 @@ class TestGatewayServer(unittest.TestCase):
                 self.assertEqual(resp.status, 200)
                 _ = resp.read()
 
-        # 4th Request: Quota exceeded -> Graceful Paywall Onboarding Response
+        # 4th Request: Quota exceeded -> timed cooldown response
         req4 = urllib.request.Request(
             "http://127.0.0.1:18000/v1/chat/completions",
             data=json.dumps({
@@ -649,13 +650,15 @@ class TestGatewayServer(unittest.TestCase):
             }).encode("utf-8"),
             headers={"Content-Type": "application/json", "X-Forwarded-For": test_ip},
         )
-        with urllib.request.urlopen(req4) as resp:
-            self.assertEqual(resp.status, 200)
-            data = json.loads(resp.read().decode("utf-8"))
-            paywall_content = data["choices"][0]["message"]["content"]
-            self.assertIn("ComputeMesh Free Teaser-Limit erreicht", paywall_content)
-            self.assertIn("curl -sSL https://computemesh.inetconnector.com/install.sh | bash", paywall_content)
-            self.assertIn("0% Plattform-Aufschlag", paywall_content)
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req4)
+        self.assertEqual(ctx.exception.code, 429)
+        self.assertGreater(int(ctx.exception.headers["Retry-After"]), 0)
+        self.assertEqual(ctx.exception.headers["X-ComputeMesh-Teaser-Remaining"], "0")
+        data = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(data["error"]["type"], "teaser_quota_exceeded")
+        self.assertIn("refreshes automatically", data["message"])
+        self.assertIn("ComputeMesh Free Teaser-Limit erreicht", data["teaser"]["upgrade_message"])
 
     def test_provider_self_compute_zero_fee(self) -> None:
         provider_node = "my_custom_rig_01"

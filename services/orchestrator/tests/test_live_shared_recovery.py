@@ -128,6 +128,7 @@ class LiveSharedRecoveryTests(unittest.TestCase):
         registry = _Registry([_plan("node-a", "node-b")])
         with tempfile.TemporaryDirectory() as tmp:
             store = SQLiteStateStore(Path(tmp) / "state.sqlite3")
+            attempt = None
             try:
                 backend = self._backend(registry, store=store)
                 live = registry.build_execution_plan("model", allow_experimental=True)
@@ -138,6 +139,8 @@ class LiveSharedRecoveryTests(unittest.TestCase):
                 self.assertEqual(run.call_args.kwargs["request_timeout"], 34.0)
                 self.assertIn("abort_event", run.call_args.kwargs)
             finally:
+                if attempt is not None:
+                    attempt.close()
                 store.close()
 
 

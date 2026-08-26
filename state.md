@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-26 07:29 CEST
-**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing) + v1.2.15 professional auth/telemetry hardening implemented, signed, deployed, and verified on reachable clients. Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
-**Production services/runtime:** no production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service` plus `computemesh-gateway.service`. Gateway billing now has a fail-closed real Stripe Checkout/Webhook implementation path plus a Stripe Connect Accounts v2 provider onboarding/settlement execution path. The webserver is configured with Stripe **testmode** keys, a test webhook endpoint, a Stripe Accounts v2 thin-event destination, durable test ledger/session paths, durable SQLite account/settlement store, EUR Stripe settlement transfers, and operator-controlled provider metering attribution to `node_test_settle_02`. A real Stripe test Checkout for the laptop user completed and was credited through the signed public webhook path after the SDK-object normalization fix. A separate API-onboarded US sandbox provider was also settled end-to-end in Stripe testmode: a EUR Stripe Transfer was created, the provider payable was cleared, and the ledger reconciled balanced. The gateway now also exposes authenticated Ollama-compatible `/api/tags`, `/api/chat`, and `/api/generate` facades for the same cluster model catalog and metered ledger path. German UG onboarding/KYC for the operator's real entity remains blocked until the UG is founded and registered; live-mode Stripe credentials and production database/ops controls are not configured end-to-end for real customer funds.
-**Release/version truth:** signed update release `1.2.15` is live in `portal/updates/version.json` and on the public web/update server. The previous v1.2.14 release fixed mining-rig iGPU isolation and reported the 24.0 GB pool correctly. v1.2.15 removes the built-in admin-key fallback, requires registered customer/provider tokens by default, adds the shared Portal/Gateway API-key store, protects remote node status/dashboard reads with the node tunnel token where the Python portal server is used, removes static Vault fallback secrets, and stops import-time CloudTunnel/mesh polling side effects. Reachable clients verified after rollout: local Windows client `1.2.15`, LAN rig `cm-inference-node-01` `1.2.15`, server node `test-node-custom` `1.2.15`, public Gateway API `0.5.7-computemesh-1.2.15`.
+**Last updated:** 2026-08-26 17:40 CEST
+**Phase:** M0 foundation + M1 physical distributed inference verified + M2 Foundation (Appliance, Portal, Double-Entry Ledger, OpenAI Gateway, Multi-GPU Scheduler, updater, desktop apps, telemetry and operator-fee plumbing) + v1.2.16 web teaser cooldown/Ollama demo runtime hardening implemented, locally tested, and partially live-verified on `supersrv-trixie`. Physical two-machine distributed inference proof between Windows coordinator (`lab-d6332cbe`, NVIDIA RTX 3080) and Debian 13 Linux server (`lab-144a13f1`, AMD EPYC-Genoa) is **fully evidenced and verified with 100% exact token match** (`evidence_id = shared-run-evidence-27f5408b7ebd8eaf`, `token_ids_sha256 = cb093b3b5ae26195e38ca82be7032f2ab2a1bfb72bea4227c4429e139d28e944`). Bounded multi-connection measurement relay captured 85 client connections and 278.6 MB forwarded traffic with clean `eof` teardown. ComputeMesh NodeOS / Mining Rig Provider Appliance subproject initialized and verified.
+**Production services/runtime:** no fully production inference/control/payment runtime. The public web/update server is reachable by SSH as `supersrv-trixie` and runs active `computemesh-autoupdate.service`, `computemesh-gateway.service`, and local Ollama. Gateway billing now has a fail-closed real Stripe Checkout/Webhook implementation path plus a Stripe Connect Accounts v2 provider onboarding/settlement execution path. The webserver is configured with Stripe **testmode** keys, a test webhook endpoint, a Stripe Accounts v2 thin-event destination, durable test ledger/session paths, durable SQLite account/settlement store, EUR Stripe settlement transfers, and operator-controlled provider metering attribution to `node_test_settle_02`. The gateway exposes authenticated and teaser OpenAI/Ollama-compatible routes; the public teaser currently maps catalog aliases to a local Ollama model through `COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct` with low-context CPU-safe settings. German UG onboarding/KYC for the operator's real entity remains blocked until the UG is founded and registered; live-mode Stripe credentials and production database/ops controls are not configured end-to-end for real customer funds.
+**Release/version truth:** signed update release `1.2.16` is live in `portal/updates/version.json` and on the public web/update server. v1.2.16 keeps v1.2.15 auth hardening, adds a 20-request configurable four-hour unauthenticated teaser window with structured `429`/`Retry-After` cooldowns, adds Ollama runtime tuning (`COMPUTEMESH_INFERENCE_CONTEXT_TOKENS`, `COMPUTEMESH_INFERENCE_THREADS`, `COMPUTEMESH_INFERENCE_SYSTEM_PROMPT`), and shows a matching Ollama config on the website. Reachable client rollout beyond `supersrv-trixie` still needs local Windows and LAN rig update verification after this state block.
 
 This file is the **canonical context-free engineering handoff**. A new AI model with no access to prior chat history must be able to read `state.md`, inspect the referenced repository files/commits if necessary, and immediately continue the project safely without guessing what is merged, what is experimental, what has actually been measured, what failed, and what must happen next.
 
@@ -13,8 +13,8 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- current merged code baseline before this handoff close-out: `f78ac87` (`deploy(portal): proxy ollama api gateway routes`)
-- current signed app/update release: `v1.2.15` is built, signed, hosted, and applied to all reachable clients checked in section 58
+- current merged upstream code baseline before v1.2.16 work: `209b022` (`Merge pull request #38 from inetconnector/feat/durable-billing-outbox`)
+- current signed app/update release: `v1.2.16` artifacts are being finalized from the local working tree on top of `209b022`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -1598,3 +1598,95 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - The mTLS tunnel helper still uses `ssl.CERT_NONE`; do not claim production peer authentication from `runtime/network/mesh_transport.py`.
 - `COMPUTEMESH_VAULT_KEY`, `COMPUTEMESH_ADMIN_KEY`, `COMPUTEMESH_API_KEY_STORE_PATH` and durable billing/accounting paths must be configured on any new deployment host before treating registration/admin/payment flows as persistent production services. `supersrv-trixie` now has the required auth/vault/key-store env file, but production live-mode Stripe and full ops controls remain out of scope.
 - The public `/node/<node>` URL currently returns the static portal shell without auth when served by the webroot/proxy path; it did not expose node JSON during this rollout check. The Python portal server route is hardened, but the production reverse-proxy/static routing should still be revisited before marketing remote node dashboard links as a protected live feature.
+
+---
+
+## 59. GitHub Sync, Ollama Demo Runtime Tuning & v1.2.16 Finalization (2026-08-26)
+
+### GitHub / PR / Branch Truth
+- Local `main` was updated from GitHub with `git fetch origin main` and `git pull --ff-only origin main` to upstream `209b022` (`Merge pull request #38 from inetconnector/feat/durable-billing-outbox`).
+- Incoming upstream brought the current CI workflow plus live shared-runtime, cancellation, recovery, attestation and durable billing-outbox work. Local v1.2.16 teaser/Ollama changes were stashed, replayed, and merge conflicts in `services/gateway/README.md` and `services/gateway/inference.py` were resolved.
+- `gh pr list --state open --json ...` returned `[]`; there are no open PRs at this handoff point.
+- Remote branch cleanup was completed after verifying PR state: all `origin/feat/*` branches were deleted. Post-cleanup `git branch -a -vv` showed only local `main`, `origin/main`, and `origin/HEAD -> origin/main`.
+- GitHub Actions state: `gh workflow list --all` shows one active workflow, `CI` (`342694709`). No obsolete workflow file was removed; historical failed run records were left intact as measurement/debug history because later successful PR/main runs superseded them.
+
+### Model Loading / Where Models Come From
+- ComputeMesh repository does **not** ship production model weights. It ships model catalogs, GGUF manifest tooling, scheduler metadata and runtime adapters.
+- The gateway public model IDs are aliases/catalog entries. Actual inference depends on the configured backend:
+  - `COMPUTEMESH_INFERENCE_BACKEND=openai_compatible` forwards to an OpenAI-compatible private runtime.
+  - `COMPUTEMESH_INFERENCE_BACKEND=ollama` forwards to a private Ollama daemon.
+  - `COMPUTEMESH_INFERENCE_MODEL` maps public catalog aliases to the concrete installed runtime model/tag.
+- On `supersrv-trixie`, local Ollama is installed as `/usr/local/bin/ollama serve` with `OLLAMA_HOST=127.0.0.1:11434`, version `0.30.11`.
+- Server-local Ollama models observed:
+  - `llama3.2:1b`
+  - `qwen2.5:1.5b-instruct`
+  - `gemma4:e2b`
+  - `computemesh-qwen2.5-0.5b` created from `/root/ComputeMesh/artifacts/lab/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf` for CPU demo testing
+- A llama.cpp RPC server is also running for lab/runtime work: `/root/ComputeMesh/artifacts/lab/runtime/llama.cpp/b10549-cpu-x86_64/llama-b10549/ggml-rpc-server -H 127.0.0.1 -p 50052`.
+
+### Ollama Runtime Audit
+- `supersrv-trixie` has only 4 vCPUs, 7.8 GiB RAM and no real accelerator GPU (`lspci` only showed a generic VGA device). `ollama ps` reported `100% CPU`.
+- Default/high-context Ollama settings were not acceptable for the public demo:
+  - `qwen2.5:1.5b-instruct` without tuned context/thread settings timed out through the gateway at 60 seconds.
+  - `llama3.2:1b` without tuned settings timed out through the gateway at 90 seconds.
+  - `computemesh-qwen2.5-0.5b` was fast only after reducing context and thread settings; otherwise it produced poor/slow demo behavior.
+- Direct server measurement found `num_thread=4` is worse on this VPS; `num_thread=1/2` is much faster for small requests.
+- Current public teaser backend env on `supersrv-trixie`:
+  - `COMPUTEMESH_INFERENCE_BACKEND=ollama`
+  - `COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:11434`
+  - `COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct`
+  - `COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS=45`
+  - `COMPUTEMESH_INFERENCE_MAX_PREDICT=64`
+  - `COMPUTEMESH_INFERENCE_CONTEXT_TOKENS=128`
+  - `COMPUTEMESH_INFERENCE_THREADS=2`
+  - `COMPUTEMESH_INFERENCE_SYSTEM_PROMPT` explains ComputeMesh as a decentralized AI inference network and asks for short factual answers.
+
+### Implemented v1.2.16 Changes
+- `services/gateway/teaser.py` now tracks a configurable rolling/cooldown window (`COMPUTEMESH_TEASER_WINDOW_SECONDS`, default `14400`) and refreshes unauthenticated client quota automatically after expiry.
+- Teaser exhaustion now returns structured HTTP `429 Too Many Requests` with `Retry-After`, `X-ComputeMesh-Teaser-Reset-Seconds`, `X-ComputeMesh-Teaser-Reset-At`, remaining/limit headers, and an upgrade/onboarding payload instead of pretending a paywall text is a successful model answer.
+- `services/gateway/server.py` exposes teaser quota/reset headers to browsers through CORS and includes teaser headers on successful non-streaming teaser responses.
+- `services/gateway/inference_backend.py` adds a private Ollama HTTP backend and extends runtime mapping with `COMPUTEMESH_INFERENCE_MODEL`, `COMPUTEMESH_INFERENCE_MAX_PREDICT`, `COMPUTEMESH_INFERENCE_CONTEXT_TOKENS`, `COMPUTEMESH_INFERENCE_THREADS`, and `COMPUTEMESH_INFERENCE_SYSTEM_PROMPT`.
+- `services/orchestrator/shared_request_backend.py` and scheduler/shared-request tests now close secondary SQLite evidence-store connections deterministically; this fixed Windows `PermissionError: [WinError 32]` temp-directory cleanup failures introduced by the upstream shared-request tests.
+- `portal/index.html`, `portal/portal.js`, and `portal/portal.css` show the timed 20-request/four-hour demo window and a visible Ollama-compatible endpoint/config block.
+- `docs/OLLAMA_TEASER_GUIDE.md`, `services/gateway/README.md`, `docs/TEST_MATRIX.md`, `tests/README.md`, `README.md`, and `README.de.md` were updated to match the current behavior.
+
+### Live Demo Measurements
+- Before runtime tuning, the public non-streaming demo returned a synthetic echo in about `172 ms`, which was fast but not acceptable as a real AI demo.
+- After switching to real Ollama without tuning, public demo calls failed with `503` after 60-90 seconds; not acceptable.
+- After tuned Ollama settings:
+  - Direct local Ollama `qwen2.5:1.5b-instruct`, `num_thread=2`, `num_ctx=128`, `num_predict=64`: `5866 ms`, 52 prompt tokens, 63 eval tokens, coherent short German answer.
+  - Public gateway teaser route `https://computemesh.inetconnector.com/v1/chat/completions`: HTTP `200`, `3366 ms`, usage `prompt_tokens=82`, `completion_tokens=54`, `total_tokens=136`, teaser headers `19/20`, reset seconds `0`.
+- Assessment: current CPU-only public teaser is acceptable as a small free web demo after tuning, but it is **not** evidence of final distributed production inference speed. For stronger marketing claims, move the demo backend to a GPU-backed local runtime or the live shared scheduler path once stable.
+
+### Verification
+- `python -m py_compile services\gateway\inference_backend.py services\gateway\tests\test_inference_backend.py` passed.
+- Targeted runtime/portal tests passed: `python -m unittest services.gateway.tests.test_inference_backend services.gateway.tests.test_gateway_server services.portal.tests.test_portal_server services.portal.tests.test_portal_modular -v` ran **41/41** tests successfully.
+- Full local QA after all code changes: `python run_all_tests.py` passed **357/357 tests** in **12.32s** with one existing runtime/network skip.
+- `git diff --check` passed; line-ending normalization warnings for portal files were informational.
+
+### Release Artifact State
+- Windows artifact rebuilt with PyInstaller from `ComputeMesh-Setup-x64.spec`.
+- Final Windows artifact:
+  - `portal/downloads/ComputeMesh-Setup-x64.exe`
+  - SHA-256 `cfca70444bbcdff9241821c6836ec2a51495de11ec77a4e21a0f90aff3e3dd24`
+  - size `38,858,126` bytes
+- Linux artifact is rebuilt from source paths while excluding local model weights, build output, downloads/updates, pycache and `state.md` to keep the archive deterministic after this handoff update.
+- Final Linux artifact:
+  - `portal/downloads/computemesh-linux-x86_64.tar.gz`
+  - SHA-256 `9618882413fd8641c590880eac82a57a8e0944390e43347d408b6953bbfcd70f`
+  - size `624,600` bytes
+- Installer script remains:
+  - `portal/downloads/install.sh`
+  - SHA-256 `da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf`
+  - size `6,649` bytes
+- Final manifest:
+  - `portal/updates/version.json`
+  - version `1.2.16`
+  - SHA-256 `ed1dea0de02efd53cd2abfc5eff143d5d272ef34cf037896b769ef3e8e0b62ba`
+  - `tools.security.release_signer.verify_manifest(...)` returned `True`.
+- Public webroot hashes on `supersrv-trixie` matched the final local artifact hashes after upload; `computemesh-gateway.service`, `computemesh-node.service`, and `computemesh-autoupdate.service` were all active, and local gateway `/api/version` returned `0.5.7-computemesh-1.2.16`.
+
+### Next Required Steps
+1. Update the local Windows client and LAN rig from the signed `1.2.16` manifest and verify `/api/status`.
+2. Commit and push v1.2.16 to `origin/main`.
+3. Wait for GitHub CI on `main` and record the result.

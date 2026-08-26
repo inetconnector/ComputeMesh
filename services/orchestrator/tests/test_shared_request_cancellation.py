@@ -28,7 +28,7 @@ class _CountingTransport(_SigningTransport):
 
 class SharedRequestCancellationTests(SharedRequestBackendTests):
     def _backend(self, *, job_id: str, transport, runner):
-        return SharedRequestOrchestratedBackend(
+        backend = SharedRequestOrchestratedBackend(
             store=self.store,
             placement=self.placement,
             bundle_path=self.root / "unused-bundle.json",
@@ -41,6 +41,8 @@ class SharedRequestCancellationTests(SharedRequestBackendTests):
             id_factory=lambda: job_id,
             runner=runner,
         )
+        self.backends.append(backend)
+        return backend
 
     def test_cancelled_runtime_marks_job_cancelled_and_skips_attestation(self):
         transport = _CountingTransport(self.keys)

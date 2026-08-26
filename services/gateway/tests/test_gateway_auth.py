@@ -141,6 +141,18 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertTrue(auth.is_quota_exceeded)
         self.assertIsNone(auth.account_id)
 
+    def test_teaser_quota_resets_after_window(self) -> None:
+        manager = TeaserQuotaManager(max_requests=2, max_tokens=1000, window_seconds=1)
+        manager.record_usage("203.0.113.44")
+        manager.record_usage("203.0.113.44")
+        exhausted = manager.get_or_create_session("203.0.113.44")
+        self.assertTrue(exhausted.is_quota_exceeded)
+
+        exhausted.window_started_at -= 2
+        reset = manager.get_or_create_session("203.0.113.44")
+        self.assertFalse(reset.is_quota_exceeded)
+        self.assertEqual(reset.remaining_requests, 2)
+
     def test_authenticate_admin(self) -> None:
         os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
         try:

@@ -98,6 +98,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
     teaser_manager: TeaserQuotaManager = TeaserQuotaManager(
         max_requests=CONFIG.teaser.max_free_requests,
         max_tokens=CONFIG.teaser.max_free_tokens,
+        window_seconds=CONFIG.teaser.window_seconds,
     )
     auth_manager: GatewayAuthManager = GatewayAuthManager(ledger=ledger, teaser_manager=teaser_manager)
     billing_routes: BillingRoutesHandler = BillingRoutesHandler(ledger=ledger, stripe_svc=stripe_svc, auth_manager=auth_manager)
@@ -145,7 +146,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         self.close_connection = True
 
-    def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+    def _send_json(
+        self,
+        data: dict[str, Any],
+        status: HTTPStatus = HTTPStatus.OK,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -153,7 +159,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Forwarded-For, Stripe-Signature")
+        self.send_header(
+            "Access-Control-Expose-Headers",
+            "X-ComputeMesh-Teaser-Remaining, X-ComputeMesh-Teaser-Limit, "
+            "X-ComputeMesh-Teaser-Reset-Seconds, X-ComputeMesh-Teaser-Reset-At, Retry-After",
+        )
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        for h_name, h_val in (extra_headers or {}).items():
+            self.send_header(h_name, h_val)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Connection", "close")
         self.end_headers()
@@ -163,6 +176,34 @@ class GatewayHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
         self.close_connection = True
+
+    def _send_teaser_quota_response(self, client_ip: str) -> None:
+        headers = self.teaser_manager.response_headers(client_ip)
+        retry_after = headers.get("X-ComputeMesh-Teaser-Reset-Seconds", "3600")
+        headers["Retry-After"] = retry_after
+        limit = self.teaser_manager.max_requests
+        reset_minutes = max(1, (int(retry_after) + 59) // 60)
+        paywall = get_teaser_paywall_message(limit)
+        message = (
+            f"Free teaser limit reached ({limit}/{limit}). "
+            f"Your demo quota refreshes automatically in about {reset_minutes} minutes."
+        )
+        payload = {
+            "message": message,
+            "error": {
+                "message": message,
+                "type": "teaser_quota_exceeded",
+                "code": 429,
+            },
+            "teaser": {
+                "remaining_requests": 0,
+                "limit": limit,
+                "retry_after_seconds": int(retry_after),
+                "reset_at": headers.get("X-ComputeMesh-Teaser-Reset-At", ""),
+                "upgrade_message": paywall,
+            },
+        }
+        self._send_json(payload, HTTPStatus.TOO_MANY_REQUESTS, headers)
 
     def _send_error_response(self, message: str, error_type: str, status: HTTPStatus | int) -> None:
         status_val = status.value if isinstance(status, HTTPStatus) else int(status)
@@ -455,29 +496,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", False))
+        client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
-            paywall = get_teaser_paywall_message(self.teaser_manager.max_requests)
-            if not stream:
-                self._send_json({
-                    "id": f"chatcmpl-{secrets.token_hex(12)}",
-                    "object": "chat.completion",
-                    "created": int(time.time()),
-                    "model": model_id,
-                    "choices": [{"index": 0, "message": {"role": "assistant", "content": paywall}, "finish_reason": "stop"}],
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 50, "total_tokens": 60},
-                })
-            else:
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Connection", "close")
-                self.end_headers()
-                self.wfile.write(f"data: {json.dumps({'choices': [{'delta': {'content': paywall}}]})}\n\ndata: [DONE]\n\n".encode("utf-8"))
-                self.close_connection = True
+            self._send_teaser_quota_response(client_ip)
             return
-
-        client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if not stream:
             res, err, status = self.inference_engine.execute_chat_completion(
@@ -491,7 +514,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if err:
                 self._send_error_response(err, "inference_error", status)
             else:
-                self._send_json(res or {}, status)
+                headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
+                self._send_json(res or {}, HTTPStatus(status), headers)
             return
 
         # SSE Streaming response
@@ -525,13 +549,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
-            paywall = get_teaser_paywall_message(self.teaser_manager.max_requests)
-            self._send_json({
-                "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "message": {"role": "assistant", "content": paywall},
-                "done": True,
-            })
+            self._send_teaser_quota_response(client_ip)
             return
 
         if not stream:
@@ -546,7 +564,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if err:
                 self._send_error_response(err, "inference_error", status)
             else:
-                self._send_json(res or {}, status)
+                headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
+                self._send_json(res or {}, HTTPStatus(status), headers)
             return
 
         self.send_response(HTTPStatus.OK)
@@ -578,13 +597,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
         if auth.is_quota_exceeded:
-            paywall = get_teaser_paywall_message(self.teaser_manager.max_requests)
-            self._send_json({
-                "model": model_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "response": paywall,
-                "done": True,
-            })
+            self._send_teaser_quota_response(client_ip)
             return
 
         if not stream:
@@ -599,7 +612,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if err:
                 self._send_error_response(err, "inference_error", status)
             else:
-                self._send_json(res or {}, status)
+                headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
+                self._send_json(res or {}, HTTPStatus(status), headers)
             return
 
         self.send_response(HTTPStatus.OK)
