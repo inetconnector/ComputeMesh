@@ -1690,3 +1690,26 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 1. Update the local Windows client and LAN rig from the signed `1.2.16` manifest and verify `/api/status`.
 2. Commit and push v1.2.16 to `origin/main`.
 3. Wait for GitHub CI on `main` and record the result.
+
+---
+
+## 58. Windows Desktop Client Installation & Strict Single-Instance Enforcement (2026-08-26 20:45 CEST)
+
+### Changes Made
+1. **PyInstaller Child-Process Bootloader Protection:**
+   - In [`tools/appliance/windows_tray_app.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/windows_tray_app.py): Added `multiprocessing.freeze_support()` at module level and inside `main()`.
+   - In [`services/updater/auto_updater.py`](file:///c:/Users/frede/Projekte/ComputeMesh/services/updater/auto_updater.py): Sanitized PyInstaller environment variables (`_MEIPASS`, `_MEIPASS2`, `PYINSTALLER_STRICT_UNPACK_MODE`) before invoking update batch scripts and subprocesses.
+2. **Strict System-Wide Named Mutex Single-Instance Enforcement:**
+   - Implemented `_acquire_single_instance_lock()` using `kernel32.CreateMutexW(None, False, "Global\\ComputeMesh_Windows_Desktop_App_SingleInstance_Mutex")`.
+   - When a second instance launches (`ERROR_ALREADY_EXISTS`), it finds the existing window with `FindWindowW` and restores/focuses it (`ShowWindow(hwnd, 9)`, `SetForegroundWindow(hwnd)`), exiting immediately with `return 0` without duplicate instances or error modals.
+3. **Local Windows PC Installation:**
+   - Executed [`tools/appliance/install_windows.py`](file:///c:/Users/frede/Projekte/ComputeMesh/tools/appliance/install_windows.py):
+     - Installed binary to `%LOCALAPPDATA%\Programs\ComputeMesh\ComputeMesh.exe`.
+     - Installed branded icon to `%LOCALAPPDATA%\Programs\ComputeMesh\computemesh.ico`.
+     - Configured Windows Autostart (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+     - Configured Windows Uninstall (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ComputeMesh`).
+     - Created Desktop and Start Menu shortcuts (`ComputeMesh.lnk`).
+4. **Live Verification:**
+   - Launched installed binary `ComputeMesh.exe` — PID active, serving `http://127.0.0.1:8080/api/status` with NVIDIA RTX 3080 Laptop GPU (16.0 GB VRAM).
+   - Re-attempted secondary execution — single-instance mutex triggered and cleanly activated existing window without duplicates.
+   - All **357/357 tests pass with 100% success in 11.90s**.

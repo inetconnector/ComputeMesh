@@ -1,24 +1,38 @@
 #!/usr/bin/env python3
 """ComputeMesh Windows Local Client Installer Script."""
+from __future__ import annotations
+
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import winreg
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config import CONFIG
 
 def install():
     local_app_data = os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
     install_dir = Path(local_app_data) / "Programs" / "ComputeMesh"
     install_dir.mkdir(parents=True, exist_ok=True)
     
-    repo_root = Path(__file__).resolve().parents[2]
-    source_exe = repo_root / "dist" / "ComputeMesh-Setup-x64.exe"
+    source_exe = REPO_ROOT / "dist" / "ComputeMesh-Setup-x64.exe"
     if not source_exe.exists():
-        source_exe = repo_root / "portal" / "downloads" / "ComputeMesh-Setup-x64.exe"
+        source_exe = REPO_ROOT / "portal" / "downloads" / "ComputeMesh-Setup-x64.exe"
     
     target_exe = install_dir / "ComputeMesh.exe"
-    source_ico = repo_root / "tools" / "appliance" / "computemesh.ico"
+    source_ico = REPO_ROOT / "tools" / "appliance" / "computemesh.ico"
     target_ico = install_dir / "computemesh.ico"
+    
+    # Terminate any running ComputeMesh instance before replacing
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "ComputeMesh.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
     
     print(f"Copying {source_exe} -> {target_exe}...")
     shutil.copy2(source_exe, target_exe)
@@ -41,7 +55,7 @@ def install():
         uninstall_path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ComputeMesh"
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, uninstall_path) as key:
             winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "ComputeMesh Provider Agent")
-            winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, "1.2.11")
+            winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, CONFIG.appliance_version)
             winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "ComputeMesh Network Foundation")
             winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(target_ico))
             winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(install_dir))
@@ -51,7 +65,6 @@ def install():
 
     # Shortcuts
     try:
-        import subprocess
         ps_script = f"""
 $wsh = New-Object -ComObject WScript.Shell
 $startDir = "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs"
@@ -75,7 +88,7 @@ $s2.Save()
     except Exception as e:
         print(f"Warning creating shortcuts: {e}")
 
-    print("\n[OK] ComputeMesh v1.2.11 successfully installed on this PC!")
+    print(f"\n[OK] ComputeMesh v{CONFIG.appliance_version} successfully installed on this PC!")
     print(f"Location: {target_exe}")
 
 if __name__ == "__main__":
