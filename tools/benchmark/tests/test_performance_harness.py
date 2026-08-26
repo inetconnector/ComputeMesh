@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from services.billing.ledger import Ledger
 from services.gateway.auth import GatewayAuthManager
 from services.gateway.inference import InferenceEngine
+from services.gateway.inference_backend import SyntheticInferenceBackend
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
 
@@ -29,6 +30,7 @@ class TestPerformanceHarness(unittest.TestCase):
             ledger=self.ledger,
             metrics=self.metrics,
             teaser_manager=self.teaser_manager,
+            backend=SyntheticInferenceBackend(),
         )
         self.ledger.deposit_customer_credits(
             customer_account_id="perf_customer_01",

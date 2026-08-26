@@ -101,6 +101,7 @@ class CloudTunnelRelay:
                         "earnings_cm": 0.0016,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
+                        "is_simulated": True,
                     },
                 }
                 gm = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
@@ -120,6 +121,7 @@ class CloudTunnelRelay:
                         "earnings_cm": 0.0016,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
+                        "is_simulated": True,
                     },
                     "global_mesh": gm,
                 }

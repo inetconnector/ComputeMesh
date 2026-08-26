@@ -51,8 +51,8 @@ class TestBillingLedger(unittest.TestCase):
             customer_account_id="cust_001",
             provider_shares=[("node_miner_5x8gb", 1.0)],
             model_id="qwen/qwen2.5-7b-instruct",
-            prompt_tokens=5000,
-            completion_tokens=5000,
+            prompt_tokens=5_000_000,
+            completion_tokens=5_000_000,
         )
         self.assertIsNotNone(tx.tx_id)
         self.assertEqual(self.ledger.get_balance("cust_001"), 18_000_000)  # $18.00 remaining
@@ -69,7 +69,7 @@ class TestBillingLedger(unittest.TestCase):
         )
 
         # Two nodes: Coordinator (30%) + Worker Rig (70%)
-        # Model 32B ($0.70 / 1M = 700 micro/tok), 10,000 tokens = 7,000,000 micro-units ($7.00)
+        # Model 32B ($0.50 prompt / $0.90 completion = $0.70/1M blended), 10M tokens = 7,000,000 micro-units ($7.00)
         # Operator Network fee 25% = 1,750,000 micro-units ($1.75)
         # Provider pool 75% = 5,250,000 micro-units ($5.25)
         # Node A (30%) = 1,575,000 micro-units ($1.575)
@@ -79,8 +79,8 @@ class TestBillingLedger(unittest.TestCase):
             customer_account_id="cust_002",
             provider_shares=[("coord_rtx3080", 0.3), ("worker_rig_5x8gb", 0.7)],
             model_id="qwen/qwen2.5-32b-instruct",
-            prompt_tokens=5000,
-            completion_tokens=5000,
+            prompt_tokens=5_000_000,
+            completion_tokens=5_000_000,
         )
         self.assertEqual(self.ledger.get_balance("provider:coord_rtx3080"), 1_575_000)
         self.assertEqual(self.ledger.get_balance("provider:worker_rig_5x8gb"), 3_675_000)
@@ -98,8 +98,8 @@ class TestBillingLedger(unittest.TestCase):
             customer_account_id="cust_op_test",
             provider_shares=[("node_1", 1.0)],
             model_id="llama/llama-3.1-70b-instruct",
-            prompt_tokens=5000,
-            completion_tokens=2142,
+            prompt_tokens=5_000_000,
+            completion_tokens=2_777_778,
         )
         op_balance = self.ledger.get_platform_revenue_micro_units()
         self.assertGreater(op_balance, 0)
@@ -122,8 +122,8 @@ class TestBillingLedger(unittest.TestCase):
                 customer_account_id="cust_broke",
                 provider_shares=[("node_1", 1.0)],
                 model_id="qwen/qwen2.5-7b-instruct",
-                prompt_tokens=5000,
-                completion_tokens=5000,
+                prompt_tokens=5_000_000,
+                completion_tokens=5_000_000,
             )
 
     def test_idempotent_duplicate_event_prevention(self) -> None:
@@ -152,8 +152,8 @@ class TestBillingLedger(unittest.TestCase):
             customer_account_id="cust_whale",
             provider_shares=[("miner_node_top", 1.0)],
             model_id="llama/llama-3.1-70b-instruct",
-            prompt_tokens=15000,
-            completion_tokens=15000,
+            prompt_tokens=15_000_000,
+            completion_tokens=15_000_000,
         )
         provider_bal = self.ledger.get_balance("provider:miner_node_top")
         self.assertGreaterEqual(provider_bal, 25_000_000)
@@ -177,8 +177,8 @@ class TestBillingLedger(unittest.TestCase):
             customer_account_id="cust_persist",
             provider_shares=[("node_persist", 1.0)],
             model_id="qwen/qwen2.5-7b-instruct",
-            prompt_tokens=1000,
-            completion_tokens=1000,
+            prompt_tokens=10_000_000,
+            completion_tokens=10_000_000,
         )
 
         # Reload new instance from same file

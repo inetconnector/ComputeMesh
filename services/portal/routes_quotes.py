@@ -7,17 +7,26 @@ from __future__ import annotations
 from http import HTTPStatus
 from typing import Any
 
-# Pricing matrix: ComputeMesh price vs Centralized Cloud Baseline ($ per 1M tokens)
-PRICE_RATES: dict[str, tuple[float, float]] = {
-    "8b": (0.15, 0.75),      # $0.15 vs $0.75 on AWS Bedrock / Azure
-    "70b": (0.75, 3.50),     # $0.75 vs $3.50 on Cloud
-    "r1": (1.20, 6.00),      # $1.20 vs $6.00 on DeepSeek Official API
-    "default": (0.30, 1.50),
+from services.common.pricing import (
+    DEFAULT_PRICE_TIERS,
+    get_price_tier,
+)
+
+# Canonical reference map from model tier tag to canonical model ID
+TIER_MAP: dict[str, str] = {
+    "8b": "meta-llama/llama-3.1-8b-instruct",
+    "7b": "qwen/qwen2.5-7b-instruct",
+    "14b": "qwen/qwen2.5-14b-instruct",
+    "32b": "qwen/qwen2.5-32b-instruct",
+    "70b": "llama/llama-3.1-70b-instruct",
+    "72b": "qwen/qwen2.5-72b-instruct",
+    "r1": "deepseek-ai/deepseek-r1",
+    "default": "qwen/qwen2.5-7b-instruct",
 }
 
 
 class PortalQuotesHandler:
-    """Calculates enterprise token quotes and cloud savings."""
+    """Calculates enterprise token quotes and cloud savings using canonical pricing."""
 
     def handle_quote(self, body: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
         try:
@@ -29,7 +38,11 @@ class PortalQuotesHandler:
             return (None, "tokens_million must be positive", HTTPStatus.BAD_REQUEST)
 
         model_tier = str(body.get("model_tier", "8b")).lower()
-        rate, cloud_rate = PRICE_RATES.get(model_tier, PRICE_RATES["default"])
+        canonical_id = TIER_MAP.get(model_tier, TIER_MAP["default"])
+        tier = get_price_tier(canonical_id)
+
+        rate = round(tier.blended_usd_per_million, 2)
+        cloud_rate = round(tier.cloud_reference_usd_per_million, 2)
 
         cost_usd = round(tokens_m * rate, 2)
         cloud_cost_usd = round(tokens_m * cloud_rate, 2)

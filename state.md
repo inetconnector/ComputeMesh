@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-26 22:40 CEST
+**Last updated:** 2026-08-26 23:25 CEST
 **Release Version:** `v1.2.17`
-**Test Suite Status:** `367/367 PASSED (100% OK in 15.75s)` across all 9 categories
-**Git Baseline:** Branch `main` at `ec363d1` + Security Hardening Patches
+**Test Suite Status:** `372/372 PASSED (100% OK in 16.65s)` across all 9 categories
+**Git Baseline:** Branch `main` at `v1.2.17` Canonical Release (Security Re-Audit & Canonical Pricing Engine)
 
 ---
 
@@ -1855,7 +1855,64 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Entfernung irreführender Bezeichnungen wie „Military-Grade“ zugunsten sachlicher technischer Beschreibungen („Hardened Security“, „TLS 1.3 & mTLS“).
 
 ### 2. QA & Test-Status
-- **367/367 Tests erfolgreich bestanden (100% OK in 15.75s)** inklusive neuer dedizierter Regressionstest-Suite `tests/test_security_audit_fixes.py`.
+- **372/372 Tests erfolgreich bestanden (100% OK in 16.65s)** inklusive erweiterter Regressionstest-Suite `tests/test_security_audit_fixes.py`.
 - Release `v1.2.17` gepackt und signiert.
+
+---
+
+## 63. Re-Audit P0/P1 Remediation, Canonical Pricing Engine & Live Release v1.2.17 (2026-08-26 23:20 CEST)
+
+### 1. Vollständige Behebung der Audit-Befunde (P0, P1, P2)
+
+1. **🔴 P0: Appliance Dashboard Control-Token Leak beseitigt (`services/appliance_dashboard/server.py`):**
+   - `"auth_token": NODE_AUTH_TOKEN` wurde vollständig aus dem `/api/status` Payload entfernt.
+   - Endpoint `/api/status/public` eingeführt für unauthentifizierte Statusüberwachung ohne Zugangsdaten/SSH-Keys.
+   - Lokale oder Token-basierte Autorisierung via `_verify_action_auth()` abgesichert.
+   - Verifiziert via `test_appliance_status_does_not_leak_auth_token`.
+
+2. **🔴 P0: Portal Heartbeat Authentifizierung vereinheitlicht (`services/portal/server.py`):**
+   - Zweiter Heartbeat-Pfad unter `POST /api/v1/node/heartbeat` prüft eingehende Tokens für existierende Nodes strikt per Constant-Time HMAC (`hmac.compare_digest`). Token-Mismatches werden mit `401 Unauthorized` abgewiesen.
+   - Atomare Speicherung via `save_node_telemetry_registry()`.
+   - Verifiziert via `test_portal_heartbeat_rejects_token_mismatch_for_existing_node`.
+
+3. **🔴 P0: Kanonische Pricing-Engine & Faktor-1000 Skalierungs-Korrektur (`services/common/pricing.py`):**
+   - Zentrale `services/common/pricing.py` als alleinige „Single Source of Truth“ für alle Preistabellen und Einheiten implementiert:
+     - $1.00 USD = 1.000.000 Micro-Units (1 Micro-Unit = $0.000001 USD = 1 CM Credit).
+     - Standard 7B-Modell: $0.15 / 1M Prompt, $0.25 / 1M Completion (~$0.20/1M blended = 200.000 Micro-Units für 1M Tokens).
+     - Hilfsfunktionen `calculate_token_charge_micro()` und `calculate_max_charge_micro()`.
+   - Alle 4 inkonsistenten Preistabellen in `Ledger`, `Catalog`, `Routes Quotes` und Tests auf die kanonische Pricing-Engine umgestellt.
+   - Verifiziert via `test_pricing_scale_consistency_across_subsystems`.
+
+4. **🟠 P1: Pre-Inference Balance Reservation / Hold (`services/gateway/inference.py`):**
+   - Vor der Übergabe an das Inferenz-Backend wird das erforderliche Mindestguthaben (`min_required_hold`) berechnet.
+   - Reicht das Kundenguthaben nicht aus, bricht die Gateway-Pipeline sofort mit `InsufficientBalanceError` ab, bevor Compute auf Worker-Knoten ausgeführt wird.
+   - Verifiziert via `test_pre_inference_reservation_prevents_unpaid_compute`.
+
+5. **🟠 P1: Dynamische API-Key Revocation (`services/gateway/auth.py`):**
+   - `refresh_registered_keys()` baut die interne API-Key-Tabelle dynamisch neu auf.
+   - Aus dem persistenten Key-Store oder der Umgebung gelöschte Keys werden sofort ohne Gateway-Neustart ungültig.
+   - Verifiziert via `test_api_key_revocation_removes_deleted_keys`.
+
+6. **🟠 P1: Telemetrie-Transparenz & Bugfix (`services/appliance_dashboard/tunnel_relay.py`):**
+   - Fehlender `import sys` Bug behoben.
+   - Synthetische Telemetrie-Werte explizit mit `"is_simulated": True` gekennzeichnet.
+
+7. **🟠 P1: Sachliche Richtigstellung von Privacy Policy & SLA-Aussagen (`portal/privacy.html`, `portal/portal.js`):**
+   - Behauptungen über „HSM Master Keys“ und „mathematisch garantiertes Zero-Log“ durch präzise technische Beschreibungen ersetzt (mTLS Root CA, AES-256-GCM Ledger-Verschlüsselung at rest, ephemere volatile VRAM-Verarbeitung).
+   - Version `v1.2.17` im Client-Header (`X-ComputeMesh-Client: web-playground-v1.2.17`) und in `config.py` synchronisiert.
+
+### 2. QA & Test-Status
+- **372/372 Tests erfolgreich bestanden (100% OK in 16.65s)** über alle 9 Teilsysteme:
+  - Protocol & Session Wire: 3/3
+  - Gateway Subsystem: 82/82
+  - Portal & Web Subsystem: 13/13
+  - Billing & Financial Ledger: 35/35
+  - Identity & Vault Security: 17/17
+  - Appliance & Hardware Daemon: 10/10
+  - Scheduler & Orchestrator: 108/108
+  - Runtime & Mesh Network: 68/68
+  - Configuration & Performance: 36/36
+- Release `v1.2.17` gepackt (`portal/downloads/computemesh-linux-x86_64.tar.gz`) und kryptographisch signiert (`portal/updates/version.json` -> `[VALID]`).
+
 
 

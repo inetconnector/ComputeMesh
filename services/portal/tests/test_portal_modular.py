@@ -77,9 +77,9 @@ class TestPortalModular(unittest.TestCase):
         self.assertIsNone(err)
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIsNotNone(res)
-        self.assertEqual(res["total_cost_usd"], 75.0)  # $0.75 * 100
+        self.assertEqual(res["total_cost_usd"], 120.0)  # $1.20 blended * 100
         self.assertEqual(res["cloud_equivalent_usd"], 350.0)  # $3.50 * 100
-        self.assertGreaterEqual(res["savings_percent"], 70.0)
+        self.assertGreaterEqual(res["savings_percent"], 60.0)
 
 
 if __name__ == "__main__":

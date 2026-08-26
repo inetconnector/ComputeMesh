@@ -344,8 +344,8 @@ class TestAccountingAndSettlement(unittest.TestCase):
             customer_account_id="cust_settle",
             provider_shares=[("node_ready", 1.0)],
             model_id="llama/llama-3.1-70b-instruct",
-            prompt_tokens=15000,
-            completion_tokens=15000,
+            prompt_tokens=15_000_000,
+            completion_tokens=15_000_000,
         )
 
         payable = self.ledger.get_balance("provider:node_ready")
@@ -383,8 +383,8 @@ class TestAccountingAndSettlement(unittest.TestCase):
             customer_account_id="cust_settle_eur",
             provider_shares=[("node_ready_eur", 1.0)],
             model_id="llama/llama-3.1-70b-instruct",
-            prompt_tokens=15000,
-            completion_tokens=15000,
+            prompt_tokens=15_000_000,
+            completion_tokens=15_000_000,
         )
 
         with patch.dict(os.environ, {"COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY": "eur"}):

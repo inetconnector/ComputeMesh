@@ -9,12 +9,17 @@ from dataclasses import dataclass
 import os
 import time
 
+from services.common.pricing import (
+    DEFAULT_NETWORK_FEE_BPS,
+    DEFAULT_PRICE_TIERS,
+    DEFAULT_PROVIDER_PERCENTAGE,
+    ModelPriceTier,
+    calculate_max_charge_micro,
+    calculate_token_charge_micro,
+    get_price_tier,
+)
 
-@dataclass(frozen=True)
-class PriceTier:
-    """Pricing configuration in micro-units ($1.00 = 1,000,000 micro-units)."""
-    prompt_micro_per_token: int
-    completion_micro_per_token: int
+PriceTier = ModelPriceTier
 
 
 @dataclass(frozen=True)
@@ -24,20 +29,8 @@ class ModelSpec:
     owned_by: str = "computemesh"
     context_window: int = 32768
     created: int = 1700000000
-    price_tier: PriceTier = PriceTier(100, 300)
+    price_tier: ModelPriceTier = DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"]
 
-
-DEFAULT_PROVIDER_PERCENTAGE = 0.75  # 75% to hardware providers, 25% platform fee
-
-DEFAULT_PRICE_TIERS: dict[str, PriceTier] = {
-    "deepseek-ai/deepseek-r1": PriceTier(prompt_micro_per_token=550, completion_micro_per_token=2190),
-    "qwen/qwen2.5-72b-instruct": PriceTier(prompt_micro_per_token=400, completion_micro_per_token=1200),
-    "qwen/qwen2.5-7b-instruct": PriceTier(prompt_micro_per_token=100, completion_micro_per_token=300),
-    "llama/llama-3.1-70b-instruct": PriceTier(prompt_micro_per_token=600, completion_micro_per_token=1800),
-    "meta-llama/llama-3.3-70b-instruct": PriceTier(prompt_micro_per_token=600, completion_micro_per_token=1800),
-    "meta-llama/llama-3.1-8b-instruct": PriceTier(prompt_micro_per_token=100, completion_micro_per_token=300),
-    "mistralai/mistral-large-2407": PriceTier(prompt_micro_per_token=2000, completion_micro_per_token=6000),
-}
 
 AVAILABLE_MODELS: list[ModelSpec] = [
     ModelSpec(

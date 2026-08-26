@@ -15,8 +15,8 @@ class _VerifiedBackend:
     def complete(self, *, model_id, messages):
         return BackendResult(
             text="verified distributed output",
-            prompt_tokens=10,
-            completion_tokens=10,
+            prompt_tokens=10_000,
+            completion_tokens=10_000,
             execution_job_id="job-verified-001",
             provider_shares=(("node-a", 0.25), ("node-b", 0.75)),
             evidence_id="shared-run-evidence-0123456789abcdef",

@@ -157,14 +157,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             }
             mesh_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
 
+            if not self._verify_action_auth():
+                self._send_unauthorized()
+                return
+
             current_node_id = getattr(self.config, "rig_name", None) or self.node_id
             payload = {
                 "node_id": current_node_id,
-                "auth_token": NODE_AUTH_TOKEN,
                 "config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
                 "inventory": self.inventory.to_dict(),
                 "network": {
-                    "interfaces": get_network_interfaces(node_id=current_node_id, auth_token=NODE_AUTH_TOKEN),
+                    "interfaces": get_network_interfaces(node_id=current_node_id, auth_token="[REDACTED]"),
                 },
                 "global_mesh": mesh_stats,
                 "telemetry": {

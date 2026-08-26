@@ -287,7 +287,7 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
 
         <div class="card">
             <h3>Vergütete Credits & Auszahlung</h3>
-            <div class="value">{tokens_processed:,} <span style="font-size: 16px; color: var(--accent);">CM (≈ ${(tokens_processed * 0.00000075):.4f} USD)</span></div>
+            <div class="value">{tokens_processed:,} <span style="font-size: 16px; color: var(--accent);">CM (~ ${(tokens_processed * 0.00000075):.4f} USD)</span></div>
             <div class="subtext">Kurs: 1M CM = $0.75 Netto (75% der Kundeneinnahmen)</div>
         </div>
 

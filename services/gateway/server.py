@@ -116,7 +116,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         cls.auth_manager = GatewayAuthManager(ledger=cls.ledger, teaser_manager=cls.teaser_manager, api_keys=getattr(cls, "api_keys", {}))
         cls.billing_routes = BillingRoutesHandler(ledger=cls.ledger, stripe_svc=cls.stripe_svc, auth_manager=cls.auth_manager)
         cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
-        cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager)
+        backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
+        cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager, backend=backend)
 
     def log_message(self, format: str, *args: Any) -> None:
         pass

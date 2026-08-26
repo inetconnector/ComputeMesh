@@ -11,7 +11,7 @@ from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 
 class LiveBootstrapTests(unittest.TestCase):
     def test_requires_explicit_experimental_opt_in(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp)
             env = {
                 "COMPUTEMESH_ORCHESTRATOR_STATE_PATH": str(root / "orch.sqlite3"),
@@ -24,7 +24,7 @@ class LiveBootstrapTests(unittest.TestCase):
                     build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_refuses_prepositioned_settlement_artifacts(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp)
             env = {
                 "COMPUTEMESH_ORCHESTRATOR_STATE_PATH": str(root / "orch.sqlite3"),
@@ -39,7 +39,7 @@ class LiveBootstrapTests(unittest.TestCase):
                     build_live_shared_backend_from_env(registry=LiveSharedRuntimeRegistry())
 
     def test_builds_without_placement_evidence_or_attestation_files(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp)
             env = {
                 "COMPUTEMESH_ORCHESTRATOR_STATE_PATH": str(root / "orch.sqlite3"),

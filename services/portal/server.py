@@ -23,7 +23,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import CONFIG
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, render_node_remote_dashboard_html
+from services.gateway.auth import resolve_client_ip
+from services.gateway.dashboard import (
+    NODE_TELEMETRY_REGISTRY,
+    render_node_remote_dashboard_html,
+    save_node_telemetry_registry,
+)
 from services.gateway.security import (
     GLOBAL_RATE_LIMITER,
     SECURITY_HEADERS,
@@ -287,6 +292,13 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Valid node auth token is required"}, HTTPStatus.UNAUTHORIZED)
                 return
 
+            existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node:
+                expected_token = str(existing_node.get("auth_token", "")).strip()
+                if expected_token and not hmac.compare_digest(auth_token, expected_token):
+                    self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
+                    return
+
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
@@ -296,6 +308,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "software": body.get("software", {}),
                 "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
+            save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id}, HTTPStatus.OK)
             return
 

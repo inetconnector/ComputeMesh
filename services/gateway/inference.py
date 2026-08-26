@@ -22,6 +22,8 @@ from services.common.config import CONFIG
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
     DEFAULT_PRICE_TIERS,
+    calculate_max_charge_micro,
+    calculate_token_charge_micro,
     provider_shares_from_env,
     resolve_model_id,
 )
@@ -67,8 +69,13 @@ class InferenceEngine:
         canonical_model_id = resolve_model_id(model_id)
 
         current_balance = self.ledger.get_balance(account_id)
-        if current_balance <= 0 and not is_teaser and not is_provider_self_compute:
-            raise InsufficientBalanceError("You have insufficient credits to run inference. Please top up your balance.")
+        if not is_teaser and not is_provider_self_compute:
+            est_prompt_tokens = sum(len(str(m.get("content", "")).split()) * 2 for m in messages if isinstance(m, dict)) or 64
+            min_required_hold = calculate_max_charge_micro(canonical_model_id, est_prompt_tokens, 128)
+            if current_balance < min_required_hold:
+                raise InsufficientBalanceError(
+                    f"Insufficient credits for compute reservation (balance: {current_balance} µ$, required minimum: {min_required_hold} µ$). Please top up."
+                )
 
         # Billing must never precede execution. A failed or malformed runtime response
         # is not a billable job and therefore cannot credit a provider.
@@ -110,10 +117,10 @@ class InferenceEngine:
             network_fee_bps=fee_bps,
         )
 
-        tier = DEFAULT_PRICE_TIERS.get(canonical_model_id)
-        cost_micro = (
-            tokens_prompt * (tier.prompt_micro_per_token if tier else 100)
-            + tokens_completion * (tier.completion_micro_per_token if tier else 300)
+        cost_micro = calculate_token_charge_micro(
+            model_id=canonical_model_id,
+            prompt_tokens=tokens_prompt,
+            completion_tokens=tokens_completion,
         )
         self.metrics.record_request(
             model=canonical_model_id,

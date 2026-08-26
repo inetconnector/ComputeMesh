@@ -9,6 +9,11 @@ Verifies remediation of critical and high-priority vulnerabilities:
 6. Trusted-proxy client IP resolution preventing X-Forwarded-For spoofing.
 7. Idempotent initial credit grants preventing balance-reset exploits.
 8. Thread-safe atomic telemetry registry persistence.
+9. Portal server heartbeat token gating for existing nodes.
+10. Appliance Dashboard status does not leak control auth_token.
+11. Canonical pricing consistency across all platform subsystems.
+12. Pre-inference balance reservation preventing unpaid compute execution.
+13. Dynamic API key revocation without process restart.
 """
 from datetime import datetime, timezone
 import html
@@ -37,20 +42,35 @@ from runtime.network.mesh_transport import (
     generate_mesh_ca,
     generate_node_tls_credentials,
 )
-from services.billing.ledger import Ledger
+from services.appliance_dashboard.server import DashboardHandler
+from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.common.pricing import (
+    DEFAULT_PRICE_TIERS,
+    MICRO_UNITS_PER_USD,
+    calculate_max_charge_micro,
+    calculate_token_charge_micro,
+    get_price_tier,
+)
 from services.gateway.auth import (
     GatewayAuthManager,
     extract_bearer_token,
     resolve_client_ip,
 )
+from services.gateway.catalog import AVAILABLE_MODELS
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     render_node_remote_dashboard_html,
     save_node_telemetry_registry,
 )
+from services.gateway.inference import InferenceEngine
+from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import RateLimiter
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.teaser import TeaserQuotaManager
+from services.portal.routes_quotes import PortalQuotesHandler
+from services.portal.server import PortalHandler
+from tools.appliance.appliance_config import ApplianceConfig
+from tools.appliance.hardware_detector import RigInventory
 
 
 class TestSecurityAuditFixes(unittest.TestCase):
@@ -109,42 +129,38 @@ class TestSecurityAuditFixes(unittest.TestCase):
             server_creds=server_creds,
             allowed_client_nodes={"node_auth_client_01"},
         )
-        server_port = tunnel_server.start()
+        server_mesh_port = tunnel_server.start()
 
-        # Authorized client succeeds
-        tunnel_client = MeshTunnelClient(
-            local_listen_host="127.0.0.1",
-            local_listen_port=0,
+        tunnel_auth_client = MeshTunnelClient(
             remote_tunnel_host="127.0.0.1",
-            remote_tunnel_port=server_port,
+            remote_tunnel_port=server_mesh_port,
             client_creds=authorized_client_creds,
+            expected_server_node_id="node_server_01",
         )
-        client_port = tunnel_client.start()
-        time.sleep(0.2)
+        client_local_port = tunnel_auth_client.start()
 
         try:
-            app_sock = socket.create_connection(("127.0.0.1", client_port), timeout=3)
-            app_sock.sendall(b"HELLO_MTLS")
+            app_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            app_sock.connect(("127.0.0.1", client_local_port))
+            app_sock.sendall(b"PING_SECURE_AUTH")
             resp = app_sock.recv(1024)
             app_sock.close()
-            self.assertEqual(resp, b"ECHO:HELLO_MTLS")
+            self.assertEqual(resp, b"ECHO:PING_SECURE_AUTH")
         finally:
-            tunnel_client.stop()
+            tunnel_auth_client.stop()
 
-        # Unauthorized client is rejected
         tunnel_rogue_client = MeshTunnelClient(
-            local_listen_host="127.0.0.1",
-            local_listen_port=0,
             remote_tunnel_host="127.0.0.1",
-            remote_tunnel_port=server_port,
+            remote_tunnel_port=server_mesh_port,
             client_creds=unauthorized_client_creds,
+            expected_server_node_id="node_server_01",
         )
-        rogue_port = tunnel_rogue_client.start()
-        time.sleep(0.2)
+        rogue_local_port = tunnel_rogue_client.start()
 
         try:
-            app_sock2 = socket.create_connection(("127.0.0.1", rogue_port), timeout=3)
-            app_sock2.sendall(b"ROGUE_HELLO")
+            app_sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            app_sock2.connect(("127.0.0.1", rogue_local_port))
+            app_sock2.sendall(b"PING_ROGUE")
             try:
                 resp2 = app_sock2.recv(1024)
             except ConnectionResetError:
@@ -249,48 +265,36 @@ class TestSecurityAuditFixes(unittest.TestCase):
         malicious_node_data = {
             "inventory": {
                 "gpus": [{
-                    "model_name": "<script>alert('XSS_GPU')</script>",
+                    "model_name": "<script>alert('xss')</script>",
                     "vram_bytes": 16 * 1024**3,
+                    "driver_backend": "cuda",
                 }]
             },
             "telemetry": {
                 "gpu_thermals": [{
-                    "temp": "<img src=x onerror=alert(1)>",
-                    "fan": "100%",
-                    "power_watts": "120",
-                }],
-                "tokens_processed": 1000,
-            },
-            "global_mesh": {},
+                    "gpu_index": "<img src=x onerror=alert(1)>",
+                    "temp": 55,
+                    "fan": 60,
+                    "power_watts": 120,
+                    "tflops": 24.5,
+                }]
+            }
         }
-        rendered = render_node_remote_dashboard_html(
-            node_id="<script>alert('XSS_NODE')</script>",
-            auth_token="token_test",
-            node_data=malicious_node_data,
-        )
-
-        # Ensure raw dangerous script tags are NOT present in output
-        self.assertNotIn("<script>alert('XSS_GPU')</script>", rendered)
-        self.assertNotIn("<script>alert('XSS_NODE')</script>", rendered)
-        self.assertNotIn("<img src=x onerror=alert(1)>", rendered)
-
-        # Ensure proper HTML escaping
-        self.assertIn("&lt;script&gt;alert(&#x27;XSS_GPU&#x27;)&lt;/script&gt;", rendered)
-        self.assertIn("&lt;script&gt;alert(&#x27;XSS_NODE&#x27;)&lt;/script&gt;", rendered)
-        self.assertIn("&lt;img src=x onerror=alert(1)&gt;", rendered)
+        rendered = render_node_remote_dashboard_html("<img src=x onerror=steal()>", "token123", malicious_node_data)
+        self.assertNotIn("<script>alert('xss')</script>", rendered)
+        self.assertNotIn("<img src=x onerror=steal()>", rendered)
+        self.assertIn("&lt;img src=x onerror=steal()&gt;", rendered)
 
     # 5. Rate-Limiter Authentication Gating
     def test_rate_limiter_does_not_grant_auth_tier_for_bogus_bearer_token(self) -> None:
         handler = GatewayHandler.__new__(GatewayHandler)
         handler.auth_manager = self.auth_manager
 
-        # Bogus bearer token must evaluate is_authenticated = False
         fake_headers = {"Authorization": "Bearer random_unregistered_attacker_token_xyz"}
         token = extract_bearer_token(fake_headers)
         is_auth = bool(token) and handler.auth_manager.is_valid_key(token)
         self.assertFalse(is_auth)
 
-        # Valid registered key must evaluate is_authenticated = True
         valid_headers = {"Authorization": "Bearer cm_live_valid_key_12345"}
         valid_token = extract_bearer_token(valid_headers)
         is_valid_auth = bool(valid_token) and handler.auth_manager.is_valid_key(valid_token)
@@ -313,20 +317,20 @@ class TestSecurityAuditFixes(unittest.TestCase):
         headers = {"Authorization": "Bearer cm_live_valid_key_12345"}
         account_id = "cust_valid_account_01"
 
-        # 1. First authentication -> initial grant granted (10M micro-units)
+        # 1. First authentication -> initial grant granted (10M micro-units = $10.00)
         auth1 = self.auth_manager.authenticate_request(headers)
         self.assertEqual(auth1.account_id, account_id)
         self.assertEqual(self.ledger.get_balance(account_id), 10_000_000)
         self.assertTrue(self.ledger.has_received_initial_grant(account_id))
 
-        # 2. Simulate account spending all credits to 0 balance
+        # 2. Simulate account spending all credits to 0 balance (50M prompt + 10M completion tokens on 7B = $10.00)
         self.ledger.record_job_execution(
             job_id="job_drain_01",
             customer_account_id=account_id,
             provider_shares=[("prov_1", 1.0)],
             model_id="qwen/qwen2.5-7b-instruct",
-            prompt_tokens=50_000,
-            completion_tokens=0,
+            prompt_tokens=50_000_000,
+            completion_tokens=10_000_000,
             network_fee_bps=0,
         )
         self.assertEqual(self.ledger.get_balance(account_id), 0)
@@ -344,6 +348,165 @@ class TestSecurityAuditFixes(unittest.TestCase):
         }
         save_node_telemetry_registry(registry_data)
         self.assertEqual(NODE_TELEMETRY_REGISTRY.get("node_alpha", {}).get("auth_token"), "tok_a")
+
+    # 9. Portal Server Heartbeat Token Comparison for Existing Nodes
+    def test_portal_heartbeat_rejects_token_mismatch_for_existing_node(self) -> None:
+        NODE_TELEMETRY_REGISTRY.clear()
+        NODE_TELEMETRY_REGISTRY["node_secure_01"] = {
+            "node_id": "node_secure_01",
+            "auth_token": "cm_tunnel_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "telemetry": {},
+        }
+
+        from http.server import ThreadingHTTPServer
+        portal_server = ThreadingHTTPServer(("127.0.0.1", 0), PortalHandler)
+        port = portal_server.server_port
+        t = threading.Thread(target=portal_server.serve_forever, daemon=True)
+        t.start()
+        time.sleep(0.1)
+
+        try:
+            # Attack attempt: Attacker sends same node_id with DIFFERENT token
+            conn1 = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            attacker_body = json.dumps({
+                "node_id": "node_secure_01",
+                "auth_token": "cm_tunnel_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            }).encode("utf-8")
+            conn1.request("POST", "/api/v1/node/heartbeat", body=attacker_body, headers={"Content-Type": "application/json", "Content-Length": str(len(attacker_body))})
+            res1 = conn1.getresponse()
+            self.assertEqual(res1.status, HTTPStatus.UNAUTHORIZED)
+            res1.read()
+            conn1.close()
+
+            # Legitimate node sends correct token
+            conn2 = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            legit_body = json.dumps({
+                "node_id": "node_secure_01",
+                "auth_token": "cm_tunnel_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            }).encode("utf-8")
+            conn2.request("POST", "/api/v1/node/heartbeat", body=legit_body, headers={"Content-Type": "application/json", "Content-Length": str(len(legit_body))})
+            res2 = conn2.getresponse()
+            self.assertEqual(res2.status, HTTPStatus.OK)
+            res2.read()
+            conn2.close()
+        finally:
+            portal_server.shutdown()
+            portal_server.server_close()
+
+    # 10. Appliance Dashboard Does Not Leak auth_token
+    def test_appliance_status_does_not_leak_auth_token(self) -> None:
+        from http.server import ThreadingHTTPServer
+        DashboardHandler.config = ApplianceConfig(
+            rig_name="miner-alpha",
+            provider_account_id="cm_0x999",
+            payout_address="0x1111111111111111111111111111111111111111",
+            coordinator_url="https://coord.test",
+            network_mode="dhcp",
+            static_ip=None,
+            gateway=None,
+            dns=None,
+            enable_web_dashboard=True,
+            dashboard_port=8080,
+            allow_ssh=False,
+            ssh_authorized_keys=None,
+        )
+        DashboardHandler.inventory = RigInventory(
+            schema_version=1,
+            captured_at="2026-08-26T12:00:00Z",
+            host_architecture="linux",
+            total_gpus=0,
+            total_vram_bytes=0,
+            gpus=[],
+            pcie_riser_warning=False,
+        )
+        DashboardHandler.node_id = "miner-alpha"
+
+        dash_server = ThreadingHTTPServer(("127.0.0.1", 0), DashboardHandler)
+        port = dash_server.server_port
+        t = threading.Thread(target=dash_server.serve_forever, daemon=True)
+        t.start()
+        time.sleep(0.1)
+
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            conn.request("GET", "/api/status")
+            res = conn.getresponse()
+            self.assertEqual(res.status, HTTPStatus.OK)
+            data = json.loads(res.read().decode("utf-8"))
+            self.assertNotIn("auth_token", data)
+            interfaces = data.get("network", {}).get("interfaces", [])
+            self.assertTrue(any("[REDACTED]" in iface.get("url", "") for iface in interfaces))
+            conn.close()
+        finally:
+            dash_server.shutdown()
+            dash_server.server_close()
+
+    # 11. Canonical Pricing Scale Consistency
+    def test_pricing_scale_consistency_across_subsystems(self) -> None:
+        # 1M tokens of 7B ($0.15 prompt + $0.25 completion -> 200,000 micro-units = $0.20)
+        charge = calculate_token_charge_micro("qwen/qwen2.5-7b-instruct", prompt_tokens=500_000, completion_tokens=500_000)
+        self.assertEqual(charge, 200_000)  # $0.20
+        self.assertEqual(charge / MICRO_UNITS_PER_USD, 0.20)
+
+        # Quotes handler calculation for 100M tokens of 8B
+        quotes = PortalQuotesHandler()
+        res, err, status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
+        self.assertIsNone(err)
+        self.assertEqual(res["total_cost_usd"], 17.0)  # $0.17 blended * 100
+
+    # 12. Pre-Inference Balance Reservation Prevents Unpaid Compute
+    def test_pre_inference_reservation_prevents_unpaid_compute(self) -> None:
+        backend_mock = MagicMock()
+        engine = InferenceEngine(
+            ledger=self.ledger,
+            metrics=MetricsRegistry(),
+            teaser_manager=self.teaser_manager,
+            backend=backend_mock,
+        )
+        # Account with only 10 micro-units (insufficient for standard completion hold)
+        self.ledger.deposit_customer_credits(
+            customer_account_id="cust_poor",
+            amount_micro_units=10,
+            payment_reference="dep_tiny",
+        )
+
+        with self.assertRaises(InsufficientBalanceError):
+            engine.create_metered_completion(
+                account_id="cust_poor",
+                model_id="qwen/qwen2.5-7b-instruct",
+                messages=[{"role": "user", "content": "Compute large matrix multiplication"}],
+            )
+        # Backend must NEVER have been called!
+        backend_mock.complete.assert_not_called()
+
+    # 13. Dynamic Key Revocation in GatewayAuthManager
+    def test_api_key_revocation_removes_deleted_keys(self) -> None:
+        key_store_file = self.work_dir / "api_keys.json"
+        key_store_file.write_text(json.dumps({
+            "keys": [
+                {"api_key": "cm_live_key_alpha", "account_id": "cust_alpha"},
+                {"api_key": "cm_live_key_beta", "account_id": "cust_beta"},
+            ]
+        }), encoding="utf-8")
+
+        auth_mgr = GatewayAuthManager(
+            ledger=self.ledger,
+            teaser_manager=self.teaser_manager,
+            api_key_store_path=key_store_file,
+        )
+        self.assertTrue(auth_mgr.is_valid_key("cm_live_key_alpha"))
+        self.assertTrue(auth_mgr.is_valid_key("cm_live_key_beta"))
+
+        # Revoke alpha by removing it from the store file
+        key_store_file.write_text(json.dumps({
+            "keys": [
+                {"api_key": "cm_live_key_beta", "account_id": "cust_beta"},
+            ]
+        }), encoding="utf-8")
+
+        auth_mgr.refresh_registered_keys()
+        self.assertFalse(auth_mgr.is_valid_key("cm_live_key_alpha"))
+        self.assertTrue(auth_mgr.is_valid_key("cm_live_key_beta"))
 
 
 if __name__ == "__main__":

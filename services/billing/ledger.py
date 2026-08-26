@@ -46,21 +46,12 @@ class AccountType(enum.Enum):
     PAYOUT_SETTLEMENT = "expense:payout_settlement"
 
 
-@dataclass(frozen=True)
-class ModelPriceTier:
-    model_id: str
-    prompt_micro_per_token: int      # e.g., 200 micro-units = $0.20 per 1M tokens
-    completion_micro_per_token: int  # e.g., 200 micro-units = $0.20 per 1M tokens
-
-
-# Standard default pricing catalog in micro-units per token
-DEFAULT_PRICE_TIERS: dict[str, ModelPriceTier] = {
-    "qwen/qwen2.5-0.5b-instruct": ModelPriceTier("qwen/qwen2.5-0.5b-instruct", 50, 50),
-    "qwen/qwen2.5-7b-instruct": ModelPriceTier("qwen/qwen2.5-7b-instruct", 200, 200),
-    "qwen/qwen2.5-14b-instruct": ModelPriceTier("qwen/qwen2.5-14b-instruct", 350, 350),
-    "qwen/qwen2.5-32b-instruct": ModelPriceTier("qwen/qwen2.5-32b-instruct", 700, 700),
-    "llama/llama-3.1-70b-instruct": ModelPriceTier("llama/llama-3.1-70b-instruct", 1400, 1400),
-}
+from services.common.pricing import (
+    DEFAULT_PRICE_TIERS,
+    ModelPriceTier,
+    calculate_token_charge_micro,
+    get_price_tier,
+)
 
 
 @dataclass(frozen=True)
@@ -199,13 +190,11 @@ class Ledger:
         if event_id in self._processed_events:
             raise DuplicateEventError(f"job {job_id} already billed")
 
-        price_tier = DEFAULT_PRICE_TIERS.get(model_id, DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"])
-        total_charge_micro = (
-            prompt_tokens * price_tier.prompt_micro_per_token
-            + completion_tokens * price_tier.completion_micro_per_token
+        total_charge_micro = calculate_token_charge_micro(
+            model_id=model_id,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
-        if total_charge_micro <= 0:
-            total_charge_micro = 1  # Minimum 1 micro-unit charge for metered request
 
         customer_balance = self.get_balance(customer_account_id)
         if customer_balance < total_charge_micro:

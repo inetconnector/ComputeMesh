@@ -18,6 +18,7 @@ from services.billing.stripe_integration import StripePaymentService, StripeSess
 from services.gateway.server import GatewayHandler
 from services.gateway.teaser import TeaserQuotaManager
 from services.gateway.inference import InferenceEngine
+from services.gateway.inference_backend import SyntheticInferenceBackend
 
 
 class FakeCheckoutSessionAPI:
@@ -101,7 +102,7 @@ def trusted_json_verifier(payload: bytes, signature: str, secret: str) -> dict:
 class TestGatewayServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.tempdir = tempfile.TemporaryDirectory()
+        cls.tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         cls.fake_stripe = FakeStripeClient()
         os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
         GatewayHandler.ledger = Ledger()
@@ -129,6 +130,7 @@ class TestGatewayServer(unittest.TestCase):
             ledger=GatewayHandler.ledger,
             metrics=GatewayHandler.metrics,
             teaser_manager=GatewayHandler.teaser_manager,
+            backend=SyntheticInferenceBackend(),
         )
         GatewayHandler.api_keys = {
             "cm_live_default_test_key": "cust_test_default",
@@ -151,11 +153,13 @@ class TestGatewayServer(unittest.TestCase):
 
     def register_customer_key(self, key: str, account_id: str | None = None) -> str:
         account = account_id or f"cust_{key.removeprefix('cm_live_')}"
+        GatewayHandler.api_keys[key] = account
         GatewayHandler.auth_manager.set_api_key(key, account)
         return account
 
     def register_provider_key(self, provider_node_id: str) -> str:
         token = f"cm_provider_{provider_node_id}"
+        GatewayHandler.api_keys[token] = f"provider_self_{provider_node_id}"
         GatewayHandler.auth_manager.set_api_key(token, f"provider_self_{provider_node_id}")
         return token
 
@@ -526,8 +530,8 @@ class TestGatewayServer(unittest.TestCase):
             customer_account_id=cust_id,
             provider_shares=[(provider_id, 1.0)],
             model_id="llama/llama-3.1-70b-instruct",
-            prompt_tokens=15000,
-            completion_tokens=15000,
+            prompt_tokens=15_000_000,
+            completion_tokens=15_000_000,
         )
         payable = GatewayHandler.ledger.get_balance(f"provider:{provider_id}")
         settlement_req = urllib.request.Request(

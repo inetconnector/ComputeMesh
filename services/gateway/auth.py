@@ -145,16 +145,17 @@ class GatewayAuthManager:
     ) -> None:
         self.ledger = ledger
         self.teaser_manager = teaser_manager
-        self._api_keys: dict[str, str] = api_keys.copy() if api_keys is not None else {}
+        self._initial_api_keys: dict[str, str] = api_keys.copy() if api_keys is not None else {}
+        self._explicit_keys: dict[str, str] = {}
+        self._api_keys: dict[str, str] = {}
         store_path = api_key_store_path or (
             Path(os.environ["COMPUTEMESH_API_KEY_STORE_PATH"])
             if os.environ.get("COMPUTEMESH_API_KEY_STORE_PATH")
             else None
         )
         self.api_key_store_path = store_path
-        self._api_keys.update(_load_env_api_keys())
-        self._api_keys.update(_load_api_key_store(self.api_key_store_path))
         self._lock = threading.RLock()
+        self.refresh_registered_keys()
 
     @property
     def api_keys(self) -> dict[str, str]:
@@ -166,12 +167,16 @@ class GatewayAuthManager:
         if not account_id.strip():
             raise ValueError("account_id is required")
         with self._lock:
+            self._explicit_keys[token] = account_id.strip()
             self._api_keys[token] = account_id.strip()
 
     def refresh_registered_keys(self) -> None:
         with self._lock:
-            self._api_keys.update(_load_env_api_keys())
-            self._api_keys.update(_load_api_key_store(self.api_key_store_path))
+            fresh_keys = self._initial_api_keys.copy()
+            fresh_keys.update(_load_env_api_keys())
+            fresh_keys.update(_load_api_key_store(self.api_key_store_path))
+            fresh_keys.update(self._explicit_keys)
+            self._api_keys = fresh_keys
 
     def _lookup_registered_key(self, token: str) -> str | None:
         self.refresh_registered_keys()
