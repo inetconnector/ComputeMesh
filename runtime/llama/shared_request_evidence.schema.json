@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","captured_at","scope","job_id","placement_decision_id","model","runtime","planner_split","participants","request","network","production_scheduling","evidence_id"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "scope": {"const": "shared_request_execution"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "placement_decision_id": {"type": "string", "pattern": "^placement-[0-9a-f]{16}$"},
+    "model": {"type":"object","additionalProperties":false,"required":["basename","size_bytes","sha256"],"properties":{"basename":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":1},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"}}},
+    "runtime": {"type":"object","additionalProperties":false,"required":["name","version"],"properties":{"name":{"const":"llama.cpp"},"version":{"type":"string","minLength":1,"maxLength":4096}}},
+    "planner_split": {"type":"object","additionalProperties":false,"required":["tensor_split","layer_ranges"],"properties":{"tensor_split":{"type":"array","minItems":2,"items":{"type":"number","exclusiveMinimum":0}},"layer_ranges":{"type":"array","minItems":2,"items":{"type":"object","additionalProperties":false,"required":["node_id","start_layer","end_layer_exclusive"],"properties":{"node_id":{"type":"string","minLength":1,"maxLength":128},"start_layer":{"type":"integer","minimum":0},"end_layer_exclusive":{"type":"integer","minimum":1}}}}}},
+    "participants": {"type":"array","minItems":2,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":128}},
+    "request": {"type":"object","additionalProperties":false,"required":["prompt_sha256","output_sha256","prompt_tokens","completion_tokens","request_ms"],"properties":{"prompt_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"output_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"prompt_tokens":{"type":"integer","minimum":0},"completion_tokens":{"type":"integer","minimum":0},"request_ms":{"type":"number","minimum":0}}},
+    "network": {"type":"object","additionalProperties":false,"required":["coordinator_to_worker_bytes","worker_to_coordinator_bytes"],"properties":{"coordinator_to_worker_bytes":{"type":"integer","minimum":1},"worker_to_coordinator_bytes":{"type":"integer","minimum":1}}},
+    "production_scheduling": {"const": false},
+    "evidence_id": {"type":"string","pattern":"^shared-request-evidence-[0-9a-f]{16}$"}
+  }
+}
