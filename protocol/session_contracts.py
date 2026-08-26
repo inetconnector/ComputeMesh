@@ -18,11 +18,13 @@ _SCHEMA_BY_MESSAGE = {
     "NodeProfileUpdate": "node_profile.schema.json",
     "BenchmarkReport": "benchmark_result.schema.json",
     "DrainRequest": "drain_request_payload.schema.json",
+    "ExecutionAttestationRequest": "execution_attestation_request_payload.schema.json",
+    "ExecutionAttestationResponse": "execution_attestation_response_payload.schema.json",
 }
 
 
 class SessionMessageContractValidator:
-    """Validate the documented M0 node-session wire payload family."""
+    """Validate the documented node-session wire payload family."""
 
     def __init__(self, schema_dir: str | Path | None = None):
         self.schema_dir = (
