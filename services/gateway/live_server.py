@@ -10,6 +10,7 @@ import sys
 from typing import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
+from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.live_bootstrap import install_live_shared_gateway
 from services.gateway.live_handler import LiveGatewayHandler
@@ -84,11 +85,29 @@ def _start_integrated_control_plane(
     return plane
 
 
+def _synchronize_live_ledger() -> SynchronizedLedgerProxy:
+    current = LiveGatewayHandler.ledger
+    if isinstance(current, SynchronizedLedgerProxy):
+        return current
+    proxy = SynchronizedLedgerProxy(current)
+    LiveGatewayHandler.ledger = proxy
+    # Existing payment/settlement services were constructed when server.py was
+    # imported. Rebind their ledger reference to the same synchronized facade so
+    # deposits, inference charges and payouts share one journal lock.
+    if getattr(LiveGatewayHandler, "stripe_svc", None) is not None:
+        LiveGatewayHandler.stripe_svc.ledger = proxy
+    executor = getattr(LiveGatewayHandler, "settlement_executor", None)
+    if executor is not None and hasattr(executor, "ledger"):
+        executor.ledger = proxy
+    return proxy
+
+
 def _install_cancellable_live_gateway():
+    ledger = _synchronize_live_ledger()
     backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
-    reconcile_completed_settlements(backend.store, LiveGatewayHandler.ledger)
+    reconcile_completed_settlements(backend.store, ledger)
     LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
-        ledger=LiveGatewayHandler.ledger,
+        ledger=ledger,
         metrics=LiveGatewayHandler.metrics,
         teaser_manager=LiveGatewayHandler.teaser_manager,
         backend=backend,
