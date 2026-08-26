@@ -34,6 +34,15 @@ coverage/
 *.trace
 *.gguf
 
+# Runtime state / generated orchestration evidence
+*.sqlite
+*.sqlite3
+*.db
+runtime_spike_result.json
+shared-run-evidence*.json
+placement*.json
+experiment-bundle*.json
+
 # Visual Studio / VS Code
 .vs/
 .vscode/
