@@ -7,6 +7,7 @@ from typing import Any, Iterator
 
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import BackendResult, InferenceBackend
+from services.orchestrator.settlement_recovery import acknowledge_job_settlement
 
 
 class RequestContextBackend:
@@ -81,14 +82,14 @@ class CancellableInferenceEngine(InferenceEngine):
         try:
             result = super().create_metered_completion(**kwargs)
             execution_job_id = getattr(self._request_local, "execution_job_id", None)
-            acknowledge = getattr(self._delegate_backend, "acknowledge_settlement", None)
-            if execution_job_id and callable(acknowledge):
+            store = getattr(self._delegate_backend, "store", None)
+            if execution_job_id and store is not None:
                 try:
-                    acknowledge(execution_job_id)
+                    acknowledge_job_settlement(store, execution_job_id)
                 except Exception:
-                    # Billing has already committed. Do not turn a successful billed
-                    # response into a retry hazard; startup reconciliation repairs the
-                    # narrow ledger-commit/orchestrator-ack crash window.
+                    # Billing has already committed. Returning an error here would invite
+                    # a client retry and possible duplicate billing semantics. Startup
+                    # settlement reconciliation repairs this narrow acknowledgement gap.
                     pass
             return result
         finally:
