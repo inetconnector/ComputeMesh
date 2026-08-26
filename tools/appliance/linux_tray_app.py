@@ -421,12 +421,14 @@ class LinuxComputeMeshProviderApp:
         self.lbl_tokens = ttk.Label(c3, text="0", font=("Outfit", 13, "bold"), foreground="#ffffff", background="#111827")
         self.lbl_tokens.pack(anchor="w", pady=(2, 0))
 
-        # Card 4: Earnings
+        # Card 4: Vergütete Credits & Auszahlung
         c4 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
         c4.pack(side="left", fill="both", expand=True, padx=(4, 0))
-        ttk.Label(c4, text="Estimated Earnings", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_earnings = ttk.Label(c4, text="$0.0000", font=("Outfit", 13, "bold"), foreground="#10b981", background="#111827")
+        ttk.Label(c4, text="Vergütete Credits (Auszahlung)", style="StatLbl.TLabel").pack(anchor="w")
+        self.lbl_earnings = ttk.Label(c4, text="0 CM ($0.0000)", font=("Outfit", 12, "bold"), foreground="#10b981", background="#111827")
         self.lbl_earnings.pack(anchor="w", pady=(2, 0))
+        self.lbl_rate_info = ttk.Label(c4, text="Kurs: 1M CM = $0.75 Netto (75% Pool)", font=("Inter", 7), foreground="#6ee7b7", background="#111827")
+        self.lbl_rate_info.pack(anchor="w", pady=(1, 0))
 
         # Hardware Matrix Box
         hw_frame = ttk.Frame(self.root, style="Card.TFrame", padding=12)
@@ -679,7 +681,7 @@ class LinuxComputeMeshProviderApp:
                 self.total_earnings_usd += (45 * 0.00000075)
                 try:
                     self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
-                    self.lbl_earnings.config(text=f"${self.total_earnings_usd:.4f}")
+                    self.lbl_earnings.config(text=f"{self.total_tokens_served:,} CM (${self.total_earnings_usd:.4f})")
                 except Exception:
                     pass
 

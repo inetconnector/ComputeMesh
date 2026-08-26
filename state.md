@@ -1750,3 +1750,43 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
      - **Thermals & Power:** `56°C / 60% Fan / 110 W`
      - **Global Swarm Status:** `1 Nodes Online` | `16.0 GB Pooled VRAM · 24.0 TFLOPS`
    - All **357/357 tests pass with 100% success in 10.70s**.
+
+---
+
+## 61. Window Geometry, Silent Single-Instance Exit, Credits & Rate Alignment, and Legal Evaluation (2026-08-26 22:20 CEST)
+
+### 1. UI Window Sizing & PyInstaller Security Validation Fix
+- **Fenstergröße:** Start-Geometrie auf `960x580` (Minsize `860x520`) angepasst, zentriert auf dem Bildschirm. Sämtliche 4 Metrik-Karten, GPU-Matrix und Payout-Zeile rendern horizontal ohne Umbrüche.
+- **Single-Instance Enforcement & Silent Exit:**
+  - Beim Doppelklick/Zweitstart wird das bestehende Fenster per Win32 API (`ShowWindow(hwnd, 9)`, `SetForegroundWindow(hwnd)`) in den Vordergrund geholt und der zweite Prozess beendet sich sofort geräuschlos (`sys.exit(0)`).
+  - PyInstaller Child-Process Umgebungsvariablen (`_MEIPASS2`, `_PYI_PARENT_PID`, `_PYI_CHILD_PROCESS`, `PYINSTALLER_STRICT_UNPACK_MODE`) werden zu Beginn von `tools/appliance/windows_tray_app.py` bereinigt, wodurch die PyInstaller Bootloader-Fehlermeldung (`Security validation failure: failed to obtain executable path for parent proces!`) vollständig eliminiert wurde.
+
+### 2. Einheitliches Credits- & Kurs-Modell über alle Apps und Portale
+- **Ökonomische Zuordnung:**
+  - **Kundeneinnahmen (Customer Payments):** Kunden zahlen $1.00 pro 1M Tokens via Stripe Checkout.
+  - **Plattform-Koordination (Operator Cut):** 25% Netzwerkgebühr (`DEFAULT_NETWORK_FEE_BPS = 2500`).
+  - **Vergütete Credits (Provider Pool):** **75% aller Kundeneinnahmen** fließen direkt an die Rechenknoten.
+  - **Fester Auszahlungs-Kurs:** $\mathbf{1.000.000\ \text{CM Credits} = \mathbf{\$0.75\ \text{USD Netto-Auszahlung}}}$ ($\$0.00000075$ pro Token / Credit).
+- **Konsistente Anzeige in allen Oberflächen:**
+  - **Windows & Linux Desktop GUI:** Card 4 zeigt `Vergütete Credits (Auszahlung): {tokens:,} CM (${payout:.4f})` mit Sub-Info `Kurs: 1M CM = $0.75 Netto (75% Pool)`.
+  - **Lokales Dashboard (:8080):** Stat-Card zeigt `Vergütete Credits & Netto-Auszahlung` mit Kurs-Hinweis `Kurs: 1M CM = $0.75 Netto (75% der bezahlten Kundeneinnahmen)`.
+  - **Gateway Remote Viewer:** Zeigt `Vergütete Credits & Auszahlung: {tokens:,} CM (≈ ${tokens*0.00000075:.4f} USD)` mit Kursangabe.
+  - **Web-Portal (DE / EN):** Rechner weist monatlich verdiente Credits (`CM / Mo`) und Netto-Auszahlung (`$ / Mo`) mit Kurs-Formel aus.
+
+### 3. Rechtliche Bewertung des Credit-Modells in Deutschland
+- **ZAG / E-Geld / KWG (BaFin):**
+  - Compute Credits (CM) sind **kein E-Geld** (§ 1 Abs. 2 ZAG) und **kein gesetzliches Zahlungsmittel**, da sie ein rein geschlossenes Verrechnungskonto (*Limited Network / Dienstleistungskontingent*) innerhalb der ComputeMesh-Plattform darstellen.
+  - Kein Krypto-Verwahrgeschäft: Credits sind nicht frei P2P übertragbar oder an externen Krypto-Börsen handelbar.
+- **Vertragliche Einstufung (BGB):**
+  - Entwickler/Kunden schließen einen Dienstleistungsvertrag zur KI-Inferenznutzung (Prepaid-Nutzungskontingent via Stripe).
+  - Provider schließen einen Kooperations-/Provisionsvertrag und erhalten einen vertraglichen Anspruch auf 75% der durch ihre Hardware erwirtschafteten und vereinnahmten Kundengelder (*Fully-Backed Revenue Principle*).
+- **Auszahlung & Steuern (UStG / Gewerbe):**
+  - Auszahlungen an Provider erfolgen in Fiat (EUR/USD via Stripe Connect / Banküberweisung) oder vertraglich vereinbarter Zahlungsart ab dem Mindestbetrag von $25.00.
+  - Provider handeln steuerlich als eigenständige Unternehmer (bzw. Kleingewerbetreibende) und sind für die Versteuerung ihrer Erlöse selbst verantwortlich.
+
+### 4. Release & QA Verifikation
+- Alle **357/357 Tests erfolgreich bestanden (100% OK)**.
+- Windows-Executable `ComputeMesh-Setup-x64.exe` gebaut, lokal installiert und getestet.
+- Linux-Tarball `computemesh-linux-x86_64.tar.gz` kompakt neu gepackt (649 KB).
+- Manifest `portal/updates/version.json` signiert und verifiziert (`[VALID]`).
+

@@ -61,9 +61,9 @@ const translations = {
     
     lbl_gpu_setup: "Your Hardware Setup",
     lbl_hours_online: "Uptime per Day (Hours)",
-    lbl_est_earnings: "Estimated Monthly Earnings",
-    lbl_payout_note: "Stripe-backed payouts from $25; MetaMask only sets a provider payout address",
-    lbl_provider_threshold_info: "💡 <strong>Provider earnings:</strong> Real-time on-ledger accounting per token. Customer payments are handled through Stripe. Your 0x... wallet is only a payout destination for earnings from provided compute power.",
+    lbl_est_earnings: "Earned Compute Credits & Monthly Payout",
+    lbl_payout_note: "Fixed Rate: 1M CM = $0.75 USD Net Payout (75% of customer payments) • Stripe payouts from $25",
+    lbl_provider_threshold_info: "💡 <strong>Credits & Rate:</strong> Earned Compute Credits (CM) represent verified compute units backed 1:1 by real customer payments with a fixed payout rate of 75% ($0.75 per 1M tokens). Payouts are executed via Stripe Connect.",
 
     dl_tag: "One-Click Deploy",
     dl_title: "Download Node Installers & NodeOS Images",
@@ -305,9 +305,9 @@ const translations = {
     
     lbl_gpu_setup: "Deine Hardware-Ausstattung",
     lbl_hours_online: "Laufzeit pro Tag (Stunden)",
-    lbl_est_earnings: "Geschätzter Monatsverdienst",
-    lbl_payout_note: "Stripe-gestützte Auszahlungen ab 25 $; MetaMask setzt nur die Provider-Auszahlungsadresse",
-    lbl_provider_threshold_info: "💡 <strong>Provider-Earnings:</strong> Echtzeit-Verbuchung pro Token im Ledger. Kundenzahlungen laufen über Stripe. Deine 0x... Wallet ist nur das Auszahlungsziel für Einnahmen aus bereitgestellter Rechenleistung.",
+    lbl_est_earnings: "Vergütete Credits & Monatsauszahlung",
+    lbl_payout_note: "Fester Kurs: 1M CM = 0,75 $ Netto-Auszahlung (75% der Kundeneinnahmen) • Stripe-Auszahlungen ab 25 $",
+    lbl_provider_threshold_info: "💡 <strong>Credits & Kurs:</strong> Deine verdienten Compute Credits (CM) entsprechen 1:1 den erbrachten Recheneinheiten mit einem festen Kurs von 75% aller real bezahlten Kundeneinnahmen (0,75 $ pro 1M Tokens). Auszahlungen erfolgen automatisiert über Stripe Connect.",
 
     dl_tag: "1-Klick-Installation",
     dl_title: "Node-Installer & NodeOS-Images herunterladen",
@@ -558,10 +558,11 @@ function updateCalculators() {
   else if (rigType === '8x3070') monthlyYield = 310.0;
   
   const estEarnings = ((monthlyYield * (hours / 24))).toFixed(2);
+  const earnedCredits = Math.round(Number(estEarnings) / 0.00000075);
   const earnEl = document.getElementById('calc-provider-earnings');
   const hoursVal = document.getElementById('hours-val');
   
-  if (earnEl) earnEl.textContent = `$${estEarnings} / Mo`;
+  if (earnEl) earnEl.innerHTML = `${(earnedCredits / 1000).toFixed(0)}k CM <span style="font-size: 1.1rem; color: var(--accent-emerald); font-weight: 600;">($${estEarnings} / Mo)</span>`;
   if (hoursVal) hoursVal.textContent = `${hours} h/day`;
 }
 

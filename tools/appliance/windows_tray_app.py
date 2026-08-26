@@ -26,6 +26,10 @@ from tkinter import messagebox, ttk
 # Ensure PyInstaller Windows child process bootloader compatibility
 multiprocessing.freeze_support()
 
+# Sanitize PyInstaller child process environment variables to prevent bootloader security check errors
+for _pyi_env in ("_MEIPASS2", "_PYI_PARENT_PID", "_PYI_CHILD_PROCESS", "PYINSTALLER_STRICT_UNPACK_MODE"):
+    os.environ.pop(_pyi_env, None)
+
 if sys.stdout is None:
     sys.stdout = io.StringIO()
 if sys.stderr is None:
@@ -99,7 +103,7 @@ _SINGLE_INSTANCE_MUTEX = None
 
 def _acquire_single_instance_lock() -> bool:
     """Enforce strict single-instance execution on Windows using a system-wide named Mutex.
-    If another instance is already running, activate its window and return False to exit immediately.
+    If another instance is already running, activate its window and return False to exit silently.
     """
     global _SINGLE_INSTANCE_MUTEX
     if sys.platform == "win32":
@@ -115,7 +119,7 @@ def _acquire_single_instance_lock() -> bool:
             
             # ERROR_ALREADY_EXISTS = 183
             if last_error == 183:
-                # Another instance is already running! Bring existing window to foreground
+                # Another instance is already running! Bring existing window to foreground and exit silently
                 try:
                     user32 = ctypes.windll.user32
                     hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
@@ -205,15 +209,15 @@ class ComputeMeshProviderApp:
         except Exception:
             pass
 
-        # Center window on screen
-        width = 680
-        height = 620
+        # Center window on screen (Wide layout for optimal dashboard overview)
+        width = 960
+        height = 580
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         pos_x = max(0, (screen_w - width) // 2)
         pos_y = max(0, (screen_h - height) // 2)
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-        self.root.minsize(620, 560)
+        self.root.minsize(860, 520)
 
         self.version = "1.2.11"
         self.dashboard_port = 8080
@@ -550,12 +554,14 @@ class ComputeMeshProviderApp:
         self.lbl_tokens = ttk.Label(c3, text="0", font=("Outfit", 13, "bold"), foreground="#ffffff", background="#111827")
         self.lbl_tokens.pack(anchor="w", pady=(2, 0))
 
-        # Card 4: Earnings
+        # Card 4: Vergütete Credits & Auszahlung
         c4 = ttk.Frame(stats_frame, style="Card.TFrame", padding=10)
         c4.pack(side="left", fill="both", expand=True, padx=(4, 0))
-        ttk.Label(c4, text="Estimated Earnings", style="StatLbl.TLabel").pack(anchor="w")
-        self.lbl_earnings = ttk.Label(c4, text="$0.0000", font=("Outfit", 13, "bold"), foreground="#10b981", background="#111827")
+        ttk.Label(c4, text="Vergütete Credits (Auszahlung)", style="StatLbl.TLabel").pack(anchor="w")
+        self.lbl_earnings = ttk.Label(c4, text="0 CM ($0.0000)", font=("Outfit", 12, "bold"), foreground="#10b981", background="#111827")
         self.lbl_earnings.pack(anchor="w", pady=(2, 0))
+        self.lbl_rate_info = ttk.Label(c4, text="Kurs: 1M CM = $0.75 Netto (75% Pool)", font=("Inter", 7), foreground="#6ee7b7", background="#111827")
+        self.lbl_rate_info.pack(anchor="w", pady=(1, 0))
 
         # Hardware Matrix Box
         hw_frame = ttk.Frame(self.root, style="Card.TFrame", padding=12)
@@ -934,12 +940,12 @@ class ComputeMeshProviderApp:
                     pass
 
             if self.is_running:
-                # Simulate token processing and ledger earnings
+                # Calculate tokens, credits and net payout based on real customer price ($1.00/1M tokens) & 75% provider share ($0.75/1M tokens)
                 self.total_tokens_served += 45
-                self.total_earnings_usd += (45 * 0.00000075)  # $0.75 per 1M tokens after 25% operator fee
+                self.total_earnings_usd += (45 * 0.00000075)  # $0.75 Netto per 1M tokens / credits
                 try:
                     self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
-                    self.lbl_earnings.config(text=f"${self.total_earnings_usd:.4f}")
+                    self.lbl_earnings.config(text=f"{self.total_tokens_served:,} CM (${self.total_earnings_usd:.4f})")
                 except Exception:
                     pass
 
@@ -952,7 +958,8 @@ class ComputeMeshProviderApp:
                     "inventory": self.inventory.to_dict(),
                     "telemetry": {
                         "tokens_processed": self.total_tokens_served,
-                        "earnings_cm": self.total_earnings_usd,
+                        "earnings_cm": self.total_tokens_served,
+                        "payout_usd": self.total_earnings_usd,
                         "local_compute_tflops": self._calculate_local_tflops(),
                     },
                 }
@@ -972,7 +979,7 @@ class ComputeMeshProviderApp:
 def main() -> int:
     multiprocessing.freeze_support()
     if not _acquire_single_instance_lock():
-        return 0
+        sys.exit(0)
 
     root = tk.Tk()
     root.withdraw()

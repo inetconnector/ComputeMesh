@@ -716,9 +716,9 @@
           <div class="stat-sub">Live Inferenz-Shards</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Geschätzte Provider-Einnahmen</div>
-          <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">$0.0000</div>
-          <div class="stat-sub">75% Provider-Anteil (Auszahlung per 0x Wallet)</div>
+          <div class="stat-label">Vergütete Credits & Netto-Auszahlung</div>
+          <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">0 CM ($0.0000)</div>
+          <div class="stat-sub">Kurs: 1M CM = $0.75 Netto (75% der bezahlten Kundeneinnahmen)</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Node Status & Backend</div>
@@ -1098,7 +1098,11 @@
         const elTokens = document.getElementById('tokens-served');
         if (elTokens) elTokens.textContent = (data.telemetry && data.telemetry.tokens_processed != null) ? data.telemetry.tokens_processed.toLocaleString() : '0';
         const elEarnings = document.getElementById('earnings');
-        if (elEarnings) elEarnings.textContent = '$' + ((data.telemetry && data.telemetry.earnings_cm != null) ? (data.telemetry.earnings_cm * 0.75).toFixed(4) : '0.0000');
+        if (elEarnings) {
+          const rawCredits = (data.telemetry && data.telemetry.earnings_cm != null) ? Number(data.telemetry.earnings_cm) : 0;
+          const payoutUsd = rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : rawCredits * 0.75;
+          elEarnings.textContent = `${rawCredits >= 1000 ? rawCredits.toLocaleString() : rawCredits.toFixed(2)} CM ($${(rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : (rawCredits * 0.75)).toFixed(4)})`;
+        }
         const elFooter = document.getElementById('footer-node-id');
         if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
 
