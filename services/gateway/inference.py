@@ -1,7 +1,7 @@
 """ComputeMesh Distributed Inference Engine.
 
-Handles OpenAI-compatible and Ollama-compatible request execution, token estimation,
-double-entry metering, and multi-format streaming generation.
+Handles OpenAI-compatible and Ollama-compatible request execution, metering,
+and multi-format streaming generation.
 """
 from __future__ import annotations
 
@@ -25,6 +25,11 @@ from services.gateway.catalog import (
     provider_shares_from_env,
     resolve_model_id,
 )
+from services.gateway.inference_backend import (
+    InferenceBackend,
+    InferenceBackendError,
+    build_inference_backend_from_env,
+)
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
@@ -38,10 +43,12 @@ class InferenceEngine:
         ledger: Ledger,
         metrics: MetricsRegistry,
         teaser_manager: TeaserQuotaManager,
+        backend: InferenceBackend | None = None,
     ) -> None:
         self.ledger = ledger
         self.metrics = metrics
         self.teaser_manager = teaser_manager
+        self.backend = backend if backend is not None else build_inference_backend_from_env()
 
     def create_metered_completion(
         self,
@@ -53,7 +60,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
     ) -> tuple[str, str, int, int, int]:
-        """Runs validation, token estimation, ledger metering, and returns completion data.
+        """Execute inference first, then meter only a successful backend result.
 
         Returns: (chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion)
         """
@@ -63,24 +70,24 @@ class InferenceEngine:
         if current_balance <= 0 and not is_teaser and not is_provider_self_compute:
             raise InsufficientBalanceError("You have insufficient credits to run inference. Please top up your balance.")
 
+        # Billing must never precede execution. A failed or malformed runtime response
+        # is not a billable job and therefore cannot credit a provider.
+        backend_result = self.backend.complete(
+            model_id=canonical_model_id,
+            messages=messages,
+        )
+        completion_text = backend_result.text
+        tokens_prompt = backend_result.prompt_tokens
+        tokens_completion = backend_result.completion_tokens
+
         chat_id = f"chatcmpl-{secrets.token_hex(12)}"
         created_timestamp = int(time.time())
-
-        last_user_msg = ""
-        for m in reversed(messages):
-            if isinstance(m, dict) and m.get("role") == "user":
-                last_user_msg = str(m.get("content", ""))
-                break
-
-        completion_text = f"ComputeMesh distributed response for: {last_user_msg[:60]}" if last_user_msg else "Hello from ComputeMesh decentralized inference!"
-        tokens_prompt = max(len(json.dumps(messages)) // 4, 8)
-        tokens_completion = max(len(completion_text) // 4, 12)
 
         if is_teaser:
             sess = self.teaser_manager.record_usage(client_ip, tokens=tokens_prompt + tokens_completion)
             rem = sess.remaining_requests
             max_req = self.teaser_manager.max_requests
-            completion_text += f"\n\n---\n*⚡ ComputeMesh Free Teaser: Noch {rem}/{max_req} Anfragen übrig | 🟢 Cluster-Verbund: 24.0 GB VRAM | {CONFIG.endpoints.domain}*"
+            completion_text += f"\n\n---\n*⚡ ComputeMesh Free Teaser: Noch {rem}/{max_req} Anfragen übrig | {CONFIG.endpoints.domain}*"
 
         provider_shares = provider_shares_from_env()
         fee_bps = 0 if is_provider_self_compute else None
@@ -204,12 +211,8 @@ class InferenceEngine:
             },
             "done": True,
             "done_reason": "stop",
-            "total_duration": 450000000,
-            "load_duration": 12000000,
             "prompt_eval_count": tokens_prompt,
-            "prompt_eval_duration": 150000000,
             "eval_count": tokens_completion,
-            "eval_duration": 288000000,
         }
 
     @staticmethod
@@ -259,12 +262,8 @@ class InferenceEngine:
             "response": completion_text,
             "done": True,
             "done_reason": "stop",
-            "total_duration": 420000000,
-            "load_duration": 10000000,
             "prompt_eval_count": tokens_prompt,
-            "prompt_eval_duration": 140000000,
             "eval_count": tokens_completion,
-            "eval_duration": 270000000,
         }
 
     @staticmethod
@@ -329,8 +328,10 @@ class InferenceEngine:
             return (res, None, 200)
         except InsufficientBalanceError as exc:
             return (None, str(exc), 402)
+        except InferenceBackendError as exc:
+            return (None, sanitize_error_message(exc), 503)
         except Exception as exc:
-            return (None, str(exc), 500)
+            return (None, sanitize_error_message(exc), 500)
 
     def stream_chat_completions(
         self,
@@ -385,6 +386,8 @@ class InferenceEngine:
             return (res, None, 200)
         except InsufficientBalanceError as exc:
             return (None, sanitize_error_message(exc), 402)
+        except InferenceBackendError as exc:
+            return (None, sanitize_error_message(exc), 503)
         except Exception as exc:
             return (None, sanitize_error_message(exc), 500)
 
@@ -442,6 +445,8 @@ class InferenceEngine:
             return (res, None, 200)
         except InsufficientBalanceError as exc:
             return (None, sanitize_error_message(exc), 402)
+        except InferenceBackendError as exc:
+            return (None, sanitize_error_message(exc), 503)
         except Exception as exc:
             return (None, sanitize_error_message(exc), 500)
 
