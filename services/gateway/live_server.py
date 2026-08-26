@@ -19,7 +19,10 @@ from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
 from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
-from services.orchestrator.settlement_recovery import reconcile_completed_settlements
+from services.orchestrator.settlement_recovery import (
+    reconcile_completed_settlements,
+    replay_billing_outbox,
+)
 
 
 class LiveGatewayBootstrapError(RuntimeError):
@@ -91,9 +94,6 @@ def _synchronize_live_ledger() -> SynchronizedLedgerProxy:
         return current
     proxy = SynchronizedLedgerProxy(current)
     LiveGatewayHandler.ledger = proxy
-    # Existing payment/settlement services were constructed when server.py was
-    # imported. Rebind their ledger reference to the same synchronized facade so
-    # deposits, inference charges and payouts share one journal lock.
     if getattr(LiveGatewayHandler, "stripe_svc", None) is not None:
         LiveGatewayHandler.stripe_svc.ledger = proxy
     executor = getattr(LiveGatewayHandler, "settlement_executor", None)
@@ -105,6 +105,10 @@ def _synchronize_live_ledger() -> SynchronizedLedgerProxy:
 def _install_cancellable_live_gateway():
     ledger = _synchronize_live_ledger()
     backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
+    # Replay exact frozen billing intents first. This closes the crash window after
+    # verified execution but before the ledger append. Legacy COMPLETED rows without
+    # an outbox record are then reconciled against already-persisted ledger events.
+    replay_billing_outbox(backend.store, ledger)
     reconcile_completed_settlements(backend.store, ledger)
     LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
         ledger=ledger,
