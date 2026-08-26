@@ -11,10 +11,11 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 - **API Authentication:** Validates registered `Authorization: Bearer cm_live_...` and `cm_provider_...` credentials and maps them to ledger accounts. Unknown live/provider tokens fail closed unless an explicit lab compatibility flag is enabled.
 - **OpenAI Model Catalog:** Serves active models via `/v1/models` in standard OpenAI JSON schema format.
 - **Ollama Model Catalog:** Serves the same active models via `/api/tags` in Ollama-compatible JSON schema format.
-- **Non-Streaming Chat Completions:** Serves `/v1/chat/completions` with full metadata and exact token usage records.
+- **Non-Streaming Chat Completions:** Serves `/v1/chat/completions` with full metadata and runtime-reported token usage records.
 - **Ollama Chat/Generate Facade:** Serves `/api/chat` and `/api/generate` with Ollama-compatible JSON/NDJSON response shapes while using the same authentication, ledger metering and provider attribution as OpenAI requests.
-- **Server-Sent Events (SSE) Streaming:** Streams real-time token chunks with `data: {"object": "chat.completion.chunk", ...}` framing and clean `[DONE]` termination.
-- **Automated Ledger Integration:** Instantly meters token usage and debits customer deposits while crediting provider payout balances in integer micro-units.
+- **Server-Sent Events (SSE) Streaming:** Streams response chunks with `data: {"object": "chat.completion.chunk", ...}` framing and clean `[DONE]` termination.
+- **Automated Ledger Integration:** Meters successful inference usage and debits customer deposits while crediting provider payout balances in integer micro-units.
+- **Fail-Closed Runtime Configuration:** Production inference returns service-unavailable rather than fabricating completion output when no runtime backend is configured.
 - **Fail-Closed Quota Enforcement:** Rejects requests with HTTP 402 `insufficient_quota` if customer balances are exhausted.
 - **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY` and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
 - **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header, normalizing Stripe SDK event objects before ledger processing.
@@ -39,6 +40,27 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 - `GET /v1/admin/providers`: Admin-only provider account and payable-balance listing.
 - `GET /v1/admin/settlements`: Admin-only settlement record listing with optional `status` and `limit` query parameters.
 - `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect. Settlement records include the Stripe Transfer currency.
+
+## Inference Runtime Configuration
+
+The gateway no longer treats an internally generated string as successful inference. With no backend configured it fails closed. For an OpenAI-compatible runtime such as a suitably configured `llama-server`, set:
+
+```text
+COMPUTEMESH_INFERENCE_BACKEND=openai_compatible
+COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:8080
+COMPUTEMESH_INFERENCE_TIMEOUT_SECONDS=120
+```
+
+`COMPUTEMESH_INFERENCE_API_KEY` is optional for a protected compatible endpoint. The runtime response must contain `choices[0].message.content` and integer `usage.prompt_tokens` / `usage.completion_tokens`; malformed responses are rejected and are not billed.
+
+Synthetic completion is retained only as an explicit test/development fixture and requires both:
+
+```text
+COMPUTEMESH_INFERENCE_BACKEND=synthetic
+COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE=1
+```
+
+This gateway backend is a real runtime bridge, not yet the final scheduler/orchestrator integration. The next step is for the orchestrator to dispatch a reserved planner-selected multi-node execution and expose that execution through the same backend contract.
 
 ## Stripe Runtime Configuration
 
@@ -68,8 +90,7 @@ Stripe Connect settlement fails closed until the account store is configured, St
 
 Provider metering attribution is operator-controlled. Customer requests cannot pick their payout provider through headers or request JSON; until scheduler-integrated shares exist, configure `COMPUTEMESH_PROVIDER_SHARES` on the gateway host.
 
-The gateway inference engine still returns deterministic synthetic completion text while exercising API compatibility, streaming, quota and ledger paths. It is not yet wired to the real llama.cpp runtime/scheduler dispatch path.
-
 ## Test Suite
 
 - `services/gateway/tests/test_gateway_server.py` covers authentication, registered-key enforcement, OpenAI and Ollama model listings, OpenAI and Ollama non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.
+- `services/gateway/tests/test_inference_backend.py` covers fail-closed configuration, explicit synthetic opt-in, OpenAI-compatible runtime response parsing, usage propagation, invalid-response rejection, and URL validation.
