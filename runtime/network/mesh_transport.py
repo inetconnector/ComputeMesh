@@ -72,6 +72,7 @@ def generate_mesh_ca(temp_dir: Path) -> MeshCACredentials:
         .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
         .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
         .add_extension(
             x509.KeyUsage(
                 digital_signature=True,
@@ -148,6 +149,8 @@ def generate_node_tls_credentials(
             critical=False,
         )
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()), critical=False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
         .add_extension(
             x509.KeyUsage(
                 digital_signature=True,

@@ -1,6 +1,6 @@
 {
   "version": "1.2.17",
-  "release_date": "2026-08-26T20:42:57.953241+00:00",
+  "release_date": "2026-08-26T20:43:53.181725+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
@@ -13,8 +13,8 @@
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
       "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "11bf1560e76fe84b2e23ec4c59161616c84fb4375cf79c1f05a4aeb6a66e3b1b",
-      "size_bytes": 655488
+      "sha256": "731430d26588883ffaccfbd50d346aa555108d5a4b980d85626f7c4ed6d3d3c3",
+      "size_bytes": 655519
     },
     "installer-script": {
       "filename": "install.sh",
@@ -23,5 +23,5 @@
       "size_bytes": 6649
     }
   },
-  "signature": "9275f9dc8af6c99892bab3676048c09d8c4b0b1d2fc769d782fade1db43dfc46672aba60ee0ecb25e6c903abf92560832d9d74dc6611ec81e7bd53d0d3e02307"
+  "signature": "8f2d58172c65d0e21b457957fde02cdf7e8839589f1f69b545381eb8b1d3a9524f0ae07f48259e5977469eb125cff120d2adf9f1169dfb6e0f331e394ad43704"
 }
