@@ -17,6 +17,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 CATEGORIES: dict[str, list[str]] = {
+    "Protocol & Session Wire": [
+        "protocol.tests.test_attestation_session_wire",
+    ],
     "Gateway Subsystem": [
         "services.gateway.tests.test_gateway_server",
         "services.gateway.tests.test_gateway_auth",
@@ -97,63 +100,43 @@ def run_test_suite() -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-
     print("=" * 80)
     print(" [COMPUTEMESH] UNIFIED TEST SUITE & QUALITY ASSURANCE HARNESS")
     print("=" * 80)
-
     loader = unittest.TestLoader()
     overall_start = time.perf_counter()
     category_results: list[CategoryResult] = []
     all_successful = True
-
     for cat_name, modules in CATEGORIES.items():
         print(f"\n>> Running Category: {cat_name}...")
         suite = unittest.TestSuite()
         for mod in modules:
             try:
-                tests = loader.loadTestsFromName(mod)
-                suite.addTests(tests)
+                suite.addTests(loader.loadTestsFromName(mod))
             except Exception as exc:
                 print(f"  [ERROR] Failed to load test module {mod}: {exc}")
                 all_successful = False
-
         cat_start = time.perf_counter()
-        runner = unittest.TextTestRunner(verbosity=1)
-        result = runner.run(suite)
-        cat_duration = time.perf_counter() - cat_start
-
+        result = unittest.TextTestRunner(verbosity=1).run(suite)
         failures_count = len(result.failures)
         errors_count = len(result.errors)
-        passed_count = result.testsRun - (failures_count + errors_count)
+        passed_count = result.testsRun - failures_count - errors_count
         if not result.wasSuccessful():
             all_successful = False
-
-        category_results.append(CategoryResult(
-            name=cat_name,
-            total=result.testsRun,
-            passed=passed_count,
-            failed=failures_count,
-            errors=errors_count,
-            duration_sec=cat_duration,
-        ))
-
+        category_results.append(CategoryResult(cat_name, result.testsRun, passed_count, failures_count, errors_count, time.perf_counter() - cat_start))
     total_duration = time.perf_counter() - overall_start
     print("\n" + "=" * 80)
     print(" TEST EXECUTION SUMMARY")
     print("=" * 80)
     print(f"{'Category':<32} | {'Total':<6} | {'Passed':<7} | {'Failed':<6} | {'Errors':<6} | {'Time (s)':<8}")
     print("-" * 80)
-
     total_all = sum(r.total for r in category_results)
     passed_all = sum(r.passed for r in category_results)
     failed_all = sum(r.failed for r in category_results)
     errors_all = sum(r.errors for r in category_results)
-
     for r in category_results:
         status_flag = "[OK]  " if r.failed == 0 and r.errors == 0 else "[FAIL]"
         print(f"{status_flag} {r.name:<25} | {r.total:<6} | {r.passed:<7} | {r.failed:<6} | {r.errors:<6} | {r.duration_sec:<8.2f}")
-
     print("-" * 80)
     summary_flag = "ALL TESTS PASSED" if all_successful else "FAILURES DETECTED"
     print(f"Total Across All Subsystems     | {total_all:<6} | {passed_all:<7} | {failed_all:<6} | {errors_all:<6} | {total_duration:<8.2f}")
