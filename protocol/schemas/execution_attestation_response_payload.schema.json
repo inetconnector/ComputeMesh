@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/execution_attestation_response_payload.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "node_id", "request_id", "attestation"],
+  "properties": {
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "request_id": {"type": "string", "pattern": "^execution-attestation-request-[0-9a-f]{16}$"},
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "node_id", "key_id", "job_id", "placement_decision_id", "model_sha256", "runtime_sha256", "evidence_sha256", "output_sha256", "issued_at", "expires_at", "signature"],
+      "properties": {
+        "v": {"const": 1},
+        "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "key_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "job_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "placement_decision_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "model_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "runtime_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "issued_at": {"type": "integer"},
+        "expires_at": {"type": "integer"},
+        "signature": {"type": "string", "minLength": 80, "maxLength": 128}
+      }
+    }
+  }
+}
