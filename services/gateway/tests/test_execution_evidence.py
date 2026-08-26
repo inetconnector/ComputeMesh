@@ -142,7 +142,8 @@ class ExecutionEvidenceTests(unittest.TestCase):
 
     def test_verification_derives_provider_shares_from_layer_ranges(self):
         now = datetime.now(timezone.utc)
-        self._write(_evidence(now.isoformat().replace("+00:00", "Z")))
+        evidence = _evidence(now.isoformat().replace("+00:00", "Z"))
+        self._write(evidence)
         verified = verify_shared_execution_evidence(
             self.path,
             placement=self.placement,
@@ -152,6 +153,8 @@ class ExecutionEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(verified.provider_shares, (("node-a", 0.5), ("node-b", 0.5)))
         self.assertTrue(verified.document_sha256.startswith("sha256:"))
+        self.assertEqual(verified.model_sha256, MODEL_DIGEST)
+        self.assertEqual(verified.runtime_sha256, _canonical_digest(evidence["runtime"]))
 
     def test_output_mismatch_is_rejected(self):
         now = datetime.now(timezone.utc)
