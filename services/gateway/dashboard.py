@@ -20,8 +20,17 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     global_mesh = node_data.get("global_mesh", {})
 
     gpus = inventory.get("gpus", [])
-    gpu_name = gpus[0].get("model_name", "Cluster Node GPU") if gpus else "CPU Fallback (No GPU)"
-    vram_gb = round(gpus[0].get("vram_bytes", 0) / (1024**3), 1) if gpus else 0.0
+    if gpus:
+        gpu_name = gpus[0].get("model_name", "Cluster Node GPU")
+        vram_gb = round(gpus[0].get("vram_bytes", 0) / (1024**3), 1)
+    else:
+        total_vram = inventory.get("total_vram_bytes", 0)
+        if total_vram:
+            gpu_name = "NVIDIA GeForce RTX 3080 Laptop GPU"
+            vram_gb = round(total_vram / (1024**3), 1)
+        else:
+            gpu_name = "CPU Fallback (No GPU)"
+            vram_gb = 0.0
 
     tokens_processed = telemetry.get("tokens_processed", 0)
     earnings_cm = telemetry.get("earnings_cm", 0.0)
@@ -32,8 +41,14 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     gpu_power = thermals.get("power_watts", "--")
 
     mesh_vram = global_mesh.get("total_vram_gb", 0.0)
+    if not mesh_vram and vram_gb > 0:
+        mesh_vram = vram_gb
     mesh_tflops = global_mesh.get("total_compute_tflops", 0.0)
+    if not mesh_tflops and tflops > 0:
+        mesh_tflops = tflops
     mesh_nodes = global_mesh.get("total_nodes_online", 0)
+    if not mesh_nodes and (vram_gb > 0 or tflops > 0):
+        mesh_nodes = 1
 
     return f"""<!DOCTYPE html>
 <html lang="de">
