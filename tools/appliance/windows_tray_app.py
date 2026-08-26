@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import io
 import json
+import multiprocessing
 import os
 from pathlib import Path
 import sys
@@ -21,6 +22,9 @@ import threading
 import time
 import tkinter as tk
 from tkinter import messagebox, ttk
+
+# Ensure PyInstaller Windows child process bootloader compatibility
+multiprocessing.freeze_support()
 
 if sys.stdout is None:
     sys.stdout = io.StringIO()
@@ -91,10 +95,53 @@ def global_excepthook(exc_type, exc_value, exc_traceback):
     _log_crash(f"Unhandled Exception: {err}")
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
-sys.excepthook = global_excepthook
+_SINGLE_INSTANCE_MUTEX = None
+
+def _acquire_single_instance_lock() -> bool:
+    """Enforce strict single-instance execution on Windows using a system-wide named Mutex.
+    If another instance is already running, activate its window and return False to exit immediately.
+    """
+    global _SINGLE_INSTANCE_MUTEX
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            
+            kernel32 = ctypes.windll.kernel32
+            mutex_name = "Global\\ComputeMesh_Windows_Desktop_App_SingleInstance_Mutex"
+            
+            # Create or open named mutex
+            _SINGLE_INSTANCE_MUTEX = kernel32.CreateMutexW(None, False, mutex_name)
+            last_error = kernel32.GetLastError()
+            
+            # ERROR_ALREADY_EXISTS = 183
+            if last_error == 183:
+                # Another instance is already running! Bring existing window to foreground
+                try:
+                    user32 = ctypes.windll.user32
+                    hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
+                    if hwnd:
+                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                        user32.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
+                return False
+            return True
+        except Exception as e:
+            _log_crash(f"Single instance mutex check exception: {e}")
+            return True
+    else:
+        try:
+            import fcntl
+            lock_path = Path.home() / ".computemesh" / "app.lock"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            _lock_file = open(lock_path, "w")
+            fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except Exception:
+            return False
 
 def _cleanup_previous_instances() -> None:
-    """Safe single-instance check."""
+    """Safe single-instance check stub for backward compatibility."""
     pass
 
 
@@ -922,7 +969,10 @@ class ComputeMeshProviderApp:
 
 
 def main() -> int:
-    _cleanup_previous_instances()
+    multiprocessing.freeze_support()
+    if not _acquire_single_instance_lock():
+        return 0
+
     root = tk.Tk()
     root.withdraw()
     app = ComputeMeshProviderApp(root)
