@@ -16,7 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# Test Suite Categories
 CATEGORIES: dict[str, list[str]] = {
     "Gateway Subsystem": [
         "services.gateway.tests.test_gateway_server",
@@ -60,6 +59,8 @@ CATEGORIES: dict[str, list[str]] = {
         "services.orchestrator.tests.test_handlers",
         "services.orchestrator.tests.test_state_machine",
         "services.orchestrator.tests.test_persistence_v2",
+        "services.orchestrator.tests.test_attestation_collection",
+        "services.orchestrator.tests.test_authenticated_attestation_transport",
     ],
     "Runtime & Mesh Network": [
         "runtime.network.tests.test_tcp_relay",
@@ -67,6 +68,8 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.llama.tests.test_shared_trial",
         "runtime.llama.tests.test_shared_run_evidence",
         "runtime.llama.tests.test_rpc_spike",
+        "runtime.llama.tests.test_job_attestation",
+        "runtime.llama.tests.test_job_bound_shared_trial",
     ],
     "Configuration & Performance": [
         "services.common.tests.test_config",
@@ -123,7 +126,6 @@ def run_test_suite() -> int:
         failures_count = len(result.failures)
         errors_count = len(result.errors)
         passed_count = result.testsRun - (failures_count + errors_count)
-
         if not result.wasSuccessful():
             all_successful = False
 
@@ -137,7 +139,6 @@ def run_test_suite() -> int:
         ))
 
     total_duration = time.perf_counter() - overall_start
-
     print("\n" + "=" * 80)
     print(" TEST EXECUTION SUMMARY")
     print("=" * 80)
@@ -157,7 +158,6 @@ def run_test_suite() -> int:
     summary_flag = "ALL TESTS PASSED" if all_successful else "FAILURES DETECTED"
     print(f"Total Across All Subsystems     | {total_all:<6} | {passed_all:<7} | {failed_all:<6} | {errors_all:<6} | {total_duration:<8.2f}")
     print(f"\nFinal Result: {summary_flag} ({passed_all}/{total_all} tests passing in {total_duration:.2f}s)\n")
-
     return 0 if all_successful else 1
 
 
