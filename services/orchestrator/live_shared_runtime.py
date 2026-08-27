@@ -191,7 +191,15 @@ class LiveSharedRuntimeRegistry:
         detail = "; ".join(failures[:4])
         raise LiveSharedRuntimeError("no reference two-node placement is feasible" + (f": {detail}" if detail else ""))
 
-    def build_execution_plan(self, model_id: str, *, allow_experimental: bool) -> LiveExecutionPlan:
+    def build_execution_plan(
+        self,
+        model_id: str,
+        *,
+        allow_experimental: bool,
+        avoid_provider_sets: tuple[frozenset[str], ...] = (),
+    ) -> LiveExecutionPlan:
+        if len(avoid_provider_sets) > 8 or any(len(item) != 2 for item in avoid_provider_sets):
+            raise LiveSharedRuntimeError("invalid recovery provider-set constraints")
         with self._lock:
             model = self._models.get(model_id)
             if model is None:
@@ -224,17 +232,23 @@ class LiveSharedRuntimeRegistry:
                 }
                 for state in nodes
             ]
+            candidate_ids = {item["node_id"] for item in candidates}
             network_edges = [
                 {"source_node_id": source, "target_node_id": target, "result": result}
                 for (source, target), result in sorted(networks.items())
-                if source in {item["node_id"] for item in candidates} and target in {item["node_id"] for item in candidates}
+                if source in candidate_ids and target in candidate_ids
             ]
+            recovery_sets = [sorted(item) for item in avoid_provider_sets]
             try:
                 plan = provider.decide(
                     model_manifest=model.manifest,
                     candidates=candidates,
                     network_edges=network_edges,
-                    constraints={"topology": "shared_contiguous_layers", "executor_max_stages": 2},
+                    constraints={
+                        "topology": "shared_contiguous_layers",
+                        "executor_max_stages": 2,
+                        "avoid_provider_sets": recovery_sets,
+                    },
                 )
             except (PlacementProviderError, ValueError, KeyError) as exc:
                 raise LiveSharedRuntimeError(f"private global placement failed: {exc}") from exc
@@ -250,6 +264,8 @@ class LiveSharedRuntimeRegistry:
             raise LiveSharedRuntimeError("signed placement selected runtime-incompatible nodes")
         if plan.model_id != model_id:
             raise LiveSharedRuntimeError("signed placement model mismatch")
+        if frozenset((plan.coordinator_node_id, plan.worker_node_id)) in avoid_provider_sets:
+            raise LiveSharedRuntimeError("signed placement violated private recovery exclusion")
 
         return LiveExecutionPlan(
             placement=_selection_from_plan(plan),
