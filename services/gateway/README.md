@@ -2,6 +2,8 @@
 
 **Status:** implemented (Milestone M2 Foundation)
 
+> **Current shared-serving note:** The compatibility backend documentation below is retained because those paths still exist. In addition, `services.gateway.live_server` now provides the integrated live shared-inference path: verified model catalog, authenticated provider control channel, persistent recovery state, private global placement through `ComputeMesh-ControlPlane`, Ed25519 verification of the returned execution plan, two-stage llama.cpp RPC execution, evidence/attestation and billing recovery. The public reference scheduler is research-only. Production scheduling remains gated on physical LAN/WAN measurements, and true upstream shared-runtime token streaming remains open.
+
 ## Purpose
 
 Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON streaming engine, and credential authentication layer connecting external client SDKs directly to the distributed mesh and double-entry billing ledger.
@@ -76,7 +78,7 @@ COMPUTEMESH_INFERENCE_BACKEND=synthetic
 COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE=1
 ```
 
-This gateway backend is a real runtime bridge, not yet the final scheduler/orchestrator integration. The next step is for the orchestrator to dispatch a reserved planner-selected multi-node execution and expose that execution through the same backend contract.
+The compatibility backend remains useful for local/demo operation. The integrated shared path is now `python -m services.gateway.live_server`; it dispatches reserved planner-selected multi-node execution through the live orchestrator rather than using this compatibility bridge.
 
 ## Stripe Runtime Configuration
 
@@ -106,9 +108,10 @@ Stripe Checkout tax totals are handled as payment/tax settlement data, not extra
 
 Stripe Connect settlement fails closed until the account store is configured, Stripe Connect can create/retrieve connected accounts, provider onboarding is complete enough for payouts, and the provider payable balance exceeds the minimum payout threshold. The Stripe webhook path accepts v1 `account.updated` and Accounts v2 `v2.core.account...` requirement events to keep provider Connect readiness in sync when the Stripe event destination is subscribed to those event types. For legal entities such as a German UG, Connect onboarding also requires real company formation, registry, representative/KYC, and payout bank details before `payouts_enabled=true` is expected.
 
-Provider metering attribution is operator-controlled. Customer requests cannot pick their payout provider through headers or request JSON; until scheduler-integrated shares exist, configure `COMPUTEMESH_PROVIDER_SHARES` on the gateway host.
+Provider metering attribution is operator-controlled. Customer requests cannot pick their payout provider through headers or request JSON; live shared execution derives attribution from verified executed placement/evidence. Compatibility operation may still use `COMPUTEMESH_PROVIDER_SHARES`.
 
 ## Test Suite
 
 - `services/gateway/tests/test_gateway_server.py` covers authentication, registered-key enforcement, OpenAI and Ollama model listings, OpenAI and Ollama non-streaming execution, SSE chunk streaming, balance checks, quota enforcement, Stripe Checkout wiring, signed webhook crediting, missing-signature rejection, provider registration/status/onboarding/refresh, admin provider listing, settlement listing, and admin provider settlement execution.
 - `services/gateway/tests/test_inference_backend.py` covers fail-closed configuration, explicit synthetic opt-in, OpenAI-compatible runtime response parsing, usage propagation, invalid-response rejection, and URL validation.
+- Live shared bootstrap/runtime tests cover private placement wiring, recovery and fail-closed execution invariants; physical cross-machine validation remains a real-hardware gate rather than a mock substitute.
