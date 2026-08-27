@@ -186,6 +186,8 @@ class AutoUpdater:
 timeout /t 2 /nobreak > NUL
 set _MEIPASS=
 set _MEIPASS2=
+set _PYI_PARENT_PID=
+set _PYI_CHILD_PROCESS=
 set PYINSTALLER_STRICT_UNPACK_MODE=
 copy /y "{downloaded_exe}" "{current_exe}" > NUL
 start "" "{current_exe}"
@@ -193,9 +195,9 @@ del "%~f0"
 """
         updater_bat.write_text(bat_content, encoding="utf-8")
         clean_env = os.environ.copy()
-        clean_env.pop("_MEIPASS", None)
-        clean_env.pop("_MEIPASS2", None)
-        clean_env.pop("PYINSTALLER_STRICT_UNPACK_MODE", None)
+        for k in list(clean_env.keys()):
+            if k.startswith("_MEI") or k.startswith("_PYI") or k.startswith("PYINSTALLER"):
+                clean_env.pop(k, None)
         subprocess.Popen(["cmd.exe", "/c", str(updater_bat)], creationflags=0x08000000, env=clean_env)
         sys.exit(0)
 

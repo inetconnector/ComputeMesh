@@ -499,8 +499,24 @@ const translations = {
 
 let currentLang = 'en';
 
+function detectInitialLanguage() {
+  const saved = localStorage.getItem('cm_portal_lang');
+  if (saved && (saved === 'de' || saved === 'en')) {
+    return saved;
+  }
+  const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+  if (browserLang.startsWith('de')) {
+    return 'de';
+  }
+  return 'en';
+}
+
 function switchLanguage(lang) {
+  if (!lang || (lang !== 'de' && lang !== 'en')) {
+    lang = 'en';
+  }
   currentLang = lang;
+  document.documentElement.lang = lang;
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (translations[lang] && translations[lang][key]) {
@@ -521,14 +537,23 @@ function switchLanguage(lang) {
   if (btn) {
     btn.textContent = lang === 'en' ? '🇩🇪 Deutsch' : '🇬🇧 English';
   }
-  localStorage.setItem('cm_portal_lang', lang);
+  try {
+    localStorage.setItem('cm_portal_lang', lang);
+  } catch (e) {}
   updateCalculators();
+  if (typeof window.syncComplianceLanguage === 'function') {
+    window.syncComplianceLanguage(lang);
+  }
 }
 
 function toggleLanguage() {
   const nextLang = currentLang === 'en' ? 'de' : 'en';
   switchLanguage(nextLang);
 }
+
+window.detectInitialLanguage = detectInitialLanguage;
+window.switchLanguage = switchLanguage;
+window.toggleLanguage = toggleLanguage;
 
 // Canonical Pricing State
 let CM_PRICING = {
@@ -1129,10 +1154,14 @@ async function fetchMeshTelemetry() {
   }
 }
 
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-  const savedLang = localStorage.getItem('cm_portal_lang') || 'en';
-  switchLanguage(savedLang);
+// Initialize on DOM load or immediately if already loaded
+let _portalInitialized = false;
+function initPortal() {
+  if (_portalInitialized) return;
+  _portalInitialized = true;
+
+  const initialLang = detectInitialLanguage();
+  switchLanguage(initialLang);
   
   document.getElementById('slider-tokens')?.addEventListener('input', updateCalculators);
   document.getElementById('select-model')?.addEventListener('change', updateCalculators);
@@ -1143,4 +1172,12 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCanonicalPricing();
   fetchMeshTelemetry();
   setInterval(fetchMeshTelemetry, 15000);
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPortal);
+} else {
+  initPortal();
+}
+
+window.initPortal = initPortal;

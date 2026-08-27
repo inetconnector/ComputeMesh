@@ -27,8 +27,9 @@ from tkinter import messagebox, ttk
 multiprocessing.freeze_support()
 
 # Sanitize PyInstaller child process environment variables to prevent bootloader security check errors
-for _pyi_env in ("_MEIPASS2", "_PYI_PARENT_PID", "_PYI_CHILD_PROCESS", "PYINSTALLER_STRICT_UNPACK_MODE"):
-    os.environ.pop(_pyi_env, None)
+for _pyi_env in list(os.environ.keys()):
+    if _pyi_env.startswith("_MEI") or _pyi_env.startswith("_PYI") or _pyi_env.startswith("PYINSTALLER"):
+        os.environ.pop(_pyi_env, None)
 
 if sys.stdout is None:
     sys.stdout = io.StringIO()

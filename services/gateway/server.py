@@ -464,8 +464,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
             if existing_node:
                 expected_token = str(existing_node.get("auth_token", "")).strip()
-                if expected_token and not hmac.compare_digest(auth_token, expected_token):
-                    self._send_error_response("Unauthorized: auth_token mismatch for existing node", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                updated_at_str = str(existing_node.get("updated_at", "")).strip()
+                is_stale = False
+                if updated_at_str:
+                    try:
+                        ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                        if (datetime.now(timezone.utc) - ts).total_seconds() > 300:
+                            is_stale = True
+                    except Exception:
+                        is_stale = True
+                if expected_token and not is_stale and not hmac.compare_digest(auth_token, expected_token):
+                    self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
             NODE_TELEMETRY_REGISTRY[node_id] = {
