@@ -1,123 +1,128 @@
-# ComputeMesh Documentation Review — 2026-08-20
+# ComputeMesh Documentation Audit — 2026-08-27
 
 ## Scope
 
-Reviewed the documentation present in the initial repository bootstrap:
+This audit rechecked the complete documentation surface against the current public code and the implemented public/private control-plane boundary. It supersedes the initial 2026-08-20 bootstrap-only documentation review.
 
-- root project documents;
-- architecture/protocol/security documents;
-- state handoff;
+Reviewed classes include:
+
+- root project/status/architecture/protocol/security documents;
+- all component `README.md` files under `apps/`, `services/`, `runtime/`, `protocol/`, `setup/`, `tests/`, `tools/`, `models/`, `research/`, `deploy/` and `sdk/`;
+- public/private split and trade-secret documents;
+- benchmark/data/failure/privacy/test specifications;
 - ADRs;
-- all component directory READMEs.
+- the public `state.md` engineering history;
+- public portal documentation/status surfaces;
+- bilingual README/setup documentation.
 
-## Main findings
+The private umbrella repository was audited in parallel. Its current private authority is `ComputeMesh-ControlPlane/STATE.md`; private production-policy details must not be copied into public documentation.
 
-### 1. Vision and implementation contract were mixed
+## Documentation authority after this audit
 
-The bootstrap documents correctly described the intended system, but many statements did not distinguish:
+### Current public status
 
-- fixed invariant;
-- hypothesis;
-- proposed design;
-- accepted decision;
-- measured fact.
+Use:
 
-The v0.2 rewrite labels these more explicitly.
+- `docs/CURRENT_STATUS.md`
+- `docs/CURRENT_STATUS.de.md`
 
-### 2. Scheduler model was too simplistic
+These files are the current public-safe status source. When older documents contain historical phase labels such as “M0” or an earlier “next step”, the current-status files take precedence for **current implementation state**.
 
-The original illustrative score:
+### Historical engineering record
 
-```text
-(compute * reliability * locality * availability) / (latency * price * failure_risk)
-```
+`state.md` remains the large public engineering/handoff history. It is valuable for chronology and evidence provenance, but it is not the place for proprietary current control-plane internals.
 
-is useful as intuition but unsafe as the scheduling architecture.
+### Target/normative design
 
-The revised model uses:
+`ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md`, `IMPLEMENTATION_PLAN.md`, specifications and ADRs remain design/history documents. Their original gate structure and accepted decision context are preserved rather than rewritten merely because implementation advanced. Current status is layered on top through the current-status documents and component READMEs.
 
-1. hard feasibility constraints;
-2. prediction of latency/cost/failure;
-3. request-policy-weighted objective;
-4. placement explanation.
+### Private current state
 
-### 3. Reservation semantics were missing
+The private umbrella repository's `STATE.md` is authoritative for current private placement/performance/reputation/fraud/pricing/marketplace/settlement/dispatch/outcome implementation and private next work.
 
-A distributed scheduler needs a lease between placement and dispatch. Without it, capacity can disappear or be double-assigned.
+## Major drift found and corrected
 
-The architecture now introduces reservation states and expiry.
+### 1. The project is no longer merely “M0 planning”
 
-### 4. Prefill and decode were not separated enough
+Several older documents still used the initial M0/M1 bootstrap language. Current code now includes a runnable provider agent, authenticated persistent provider sessions, live gateway/orchestration, private remote-first production placement, signed execution-plan verification, evidence/attestation, durable outcome feedback and real shared-runtime/network research tooling.
 
-They have different bottlenecks and must be benchmarked and scheduled separately.
+`SECURITY.md` and the canonical current-status documents now describe this correctly.
 
-### 5. KV-cache transport needed clarification
+### 2. Public reference scheduler versus private production scheduler
 
-KV cache should normally remain with the layers/stage that owns it. Constant WAN KV transfer would be expensive. The docs now treat KV transfer as migration/recovery/rebalance unless a runtime explicitly requires another design.
+The public `services/scheduler/placement.py` remains a disclosed deterministic research/reference planner. It must not be documented as the production ranking engine.
 
-### 6. Protocol was an outline, not a specification
+Production feasibility/ranking/selection and recovery policy live behind the private `ComputeMesh-ControlPlane` boundary. Public runtime code submits a bounded candidate/network snapshot, verifies the signed returned plan and executes it without receiving score decomposition or private policy.
 
-Missing elements included:
+### 3. Provider agent and remote provider bring-up exist
 
-- protocol version negotiation;
-- common envelope;
-- idempotency semantics;
-- errors;
-- deadlines;
-- leases;
-- backpressure;
-- stream classes;
-- cancellation;
-- replay protection.
+The public repository contains `apps/node/provider_agent.py`. The private umbrella contains SSH operator tooling that enrolls a remote key without extracting its private half and a one-command provider runtime path that captures real evidence, starts remote-loopback llama.cpp RPC, creates secure development tunnels and starts the public provider agent.
 
-These are now specified at draft level.
+Documentation must no longer imply that provider operation is only a future UI concept or only the old manual lab path.
 
-### 7. Privacy claims needed stronger limits
+### 4. Measured feedback exists
 
-Encrypted transport does not make provider execution confidential. The new privacy-tier spec makes `confidential_compute` unavailable as a guarantee until a concrete attestation/TEE design exists.
+Verified public execution measurements can be durably delivered to the private outcome/performance path. Documentation must distinguish this from a future generic telemetry service and must not claim true TTFT when the non-streaming runtime has not directly measured it.
 
-### 8. Verification needed residual-risk language
+### 5. Standalone service names versus implemented foundations
 
-Canaries, redundancy, and reputation can lower error/fraud risk but are not automatically cryptographic proof of inference.
+Some component READMEs used “planned component / no implementation” even though their responsibilities are partly implemented elsewhere. These are now distinguished explicitly:
 
-### 9. Data model was too coarse
+- standalone registry service: still future, but model manifests, artifact identity and live model catalog foundations exist;
+- standalone telemetry service: still future, but bounded evidence/metrics/network observations and private measured feedback exist;
+- standalone public verification/reputation service: still future, but execution attestation/evidence verification exists publicly and production reputation/fraud state is private;
+- `apps/admin`, `apps/dashboard`, `apps/desktop`, public SDK, vLLM adapter and custom CUDA research component remain future-specific surfaces unless/until their actual entry points are implemented.
 
-The revised model separates:
+### 6. Upstream llama.cpp RPC security wording
 
-- node versus node profile;
-- job versus placement versus attempt;
-- metering versus ledger;
-- model versus immutable model version versus artifact/shard;
-- reservation versus availability.
+All current documentation must preserve the invariant that upstream llama.cpp RPC is experimental/insecure and is not the ComputeMesh provider security boundary. Trusted networking/SSH tunnelling is a development containment mechanism, not proof that RPC itself is production-safe.
 
-### 10. Failure/billing semantics needed one canonical document
+### 7. Private state-document correction
 
-The new failure spec defines retries, replans, stale results, reservation expiry, ambiguous completion, cancellation, and billing neutrality.
+Before this audit the private umbrella repository did **not** have a `STATE.md`. A private canonical `STATE.md` has now been added. The public `state.md` remains separate and public-safe.
 
-## New documents added
+## Documents intentionally preserved as historical/design baselines
 
-- `docs/BENCHMARK_SPEC.md`
-- `docs/DATA_MODEL.md`
-- `docs/FAILURE_SEMANTICS.md`
-- `docs/PRIVACY_TIERS.md`
-- `docs/TEST_MATRIX.md`
-- `research/TECHNOLOGY_BASELINE.md`
-- ADRs 0002-0007
+The following classes are not rewritten merely to replace every old phase word:
 
-## Recommended next engineering action
+- accepted/proposed ADRs, because they record decision context;
+- `IMPLEMENTATION_PLAN.md`, because its gates/hypotheses remain useful as the original execution plan;
+- architecture/protocol target sections that remain normative design goals;
+- historical measurements/evidence in `state.md`;
+- the original lab setup/evidence procedures that remain valid and reproducible.
 
-Do not create the marketplace layer next.
+Where their old “current phase” language can mislead, `docs/CURRENT_STATUS.md` is the explicit current-state override.
 
-The highest-value next sequence is:
+## Documents verified as still correctly future/planned
+
+At this audit, the following specific surfaces remain genuinely future/planned and their status should not be inflated:
+
+- `apps/admin/` dedicated admin application;
+- `apps/dashboard/` dedicated customer/provider dashboard application;
+- `apps/desktop/` dedicated end-user desktop client;
+- `sdk/` public client-library package;
+- `runtime/vllm/` vLLM integration;
+- `runtime/cuda/` custom CUDA research implementation beyond existing benchmark/runtime use.
+
+Other existing portal/appliance/dashboard code must not be mislabeled as those exact planned components.
+
+## Current engineering priority reflected in documentation
+
+The highest-value next work is physical system validation and hardening, not another architecture split:
 
 ```text
-runtime ADR
--> node/profile schemas
--> benchmark harness
--> reservation/job state skeleton
--> local runtime baseline
--> two-node transport benchmark
--> shared inference
+current umbrella stack
+-> real enrolled target providers
+-> full gateway/private-placement/shared-runtime/attestation/feedback proof
+-> controlled LAN matrix
+-> WAN/two-site matrix
+-> private predictor calibration
+-> provider-enforced resource leases
+-> production-safe data plane and node-key/session lifecycle
+-> adversarial/system validation
+-> wider production scheduling
 ```
 
-That sequence gives the scheduler real data and attacks the core feasibility risk first.
+## Maintenance rule
+
+Every feature PR that changes a public interface, trust boundary, operator entry point, readiness claim or component implementation status must update the nearest component README and, when it changes system-level truth, `docs/CURRENT_STATUS.md` (plus the German counterpart when user-facing wording changes). Private production-policy changes update private `STATE.md`/architecture without leaking proprietary internals into this repository.
