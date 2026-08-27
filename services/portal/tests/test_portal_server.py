@@ -1,6 +1,7 @@
 """Unit tests for ComputeMesh Public Web Portal & Registration Server."""
 from http.server import ThreadingHTTPServer
 import json
+from pathlib import Path
 import threading
 import time
 import unittest
@@ -10,6 +11,17 @@ import urllib.request
 from services.portal.server import PortalHandler
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.portal.routes_registration import CURRENT_TERMS_VERSION
+
+
+PORTAL_DIR = Path(__file__).resolve().parents[3] / "portal"
+FORBIDDEN_BROWSER_ORIGINS = (
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "cdn.jsdelivr.net",
+    "googletagmanager.com",
+    "google-analytics.com",
+    "connect.facebook.net",
+)
 
 
 def accepted_registration_payload(**overrides):
@@ -57,6 +69,15 @@ class TestPortalServer(unittest.TestCase):
                     self.assertIn("ComputeMesh", content)
                     self.assertIn("<!DOCTYPE html>", content)
                     self.assertIn('rel="canonical"', content)
+
+    def test_portal_html_has_no_forbidden_third_party_resources(self) -> None:
+        violations: list[str] = []
+        for path in sorted(PORTAL_DIR.glob("*.html")):
+            text = path.read_text(encoding="utf-8")
+            for origin in FORBIDDEN_BROWSER_ORIGINS:
+                if origin in text:
+                    violations.append(f"{path.name}: {origin}")
+        self.assertEqual(violations, [], "Forbidden third-party browser resources: " + ", ".join(violations))
 
     def test_serve_google_crawl_entrypoints(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:13000/robots.txt") as resp:
