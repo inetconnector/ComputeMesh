@@ -3,49 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ComputeMesh — Decentralized AI Inference & Multi-GPU Computing</title>
-  <meta name="description" content="Decentralized high-performance AI inference on pooled consumer GPUs and multi-GPU mining rigs. OpenAI-compatible, 80% lower cost.">
+  <title>ComputeMesh — Distributed AI Inference Engineering</title>
+  <meta name="description" content="ComputeMesh is a pre-production distributed AI inference engineering project with an OpenAI-compatible gateway, provider tooling and measured two-node runtime research.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh - Decentralized AI Inference & Multi-GPU Computing">
-  <meta property="og:description" content="Decentralized high-performance AI inference on pooled consumer GPUs and multi-GPU mining rigs. OpenAI-compatible, 80% lower cost.">
+  <meta property="og:title" content="ComputeMesh — Distributed AI Inference Engineering">
+  <meta property="og:description" content="Pre-production distributed AI inference engineering with a public gateway/provider runtime and measured two-node research path.">
   <meta property="og:url" content="https://computemesh.inetconnector.com/">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ComputeMesh - Decentralized AI Inference">
-  <meta name="twitter:description" content="OpenAI-compatible decentralized AI inference on pooled GPU compute.">
+  <meta name="twitter:title" content="ComputeMesh — Distributed AI Inference Engineering">
+  <meta name="twitter:description" content="Pre-production distributed AI inference engineering with evidence-bound runtime validation.">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "ComputeMesh",
     "url": "https://computemesh.inetconnector.com/",
-    "sameAs": [
-      "https://github.com/inetconnector/ComputeMesh"
-    ],
-    "description": "Decentralized high-performance AI inference on pooled consumer GPUs and multi-GPU mining rigs."
+    "sameAs": ["https://github.com/inetconnector/ComputeMesh"],
+    "description": "Pre-production distributed AI inference engineering project."
   }
   </script>
-  
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- Styles -->
   <link rel="stylesheet" href="portal.css">
 </head>
 <body>
-
-  <!-- Site Navigation Header -->
   <header class="site-header">
     <div class="container nav-wrap">
       <a href="#" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">v1.0 Mesh</span>
+        <span class="brand-badge">Engineering Preview</span>
       </a>
-
       <ul class="nav-links">
         <li><a href="#playground" data-i18n="nav_playground">⚡ Playground</a></li>
         <li><a href="#features" data-i18n="nav_features">Features</a></li>
@@ -54,7 +45,6 @@
         <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
         <li><a href="/status" data-i18n="nav_status">Status</a></li>
       </ul>
-
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
         <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Top Up</button>
@@ -63,597 +53,195 @@
     </div>
   </header>
 
-  <!-- Hero Section -->
   <section class="hero">
     <div class="container">
-      <div class="hero-tagline">
-        <span>⚡</span>
-        <span data-i18n="hero_tagline">Decentralized AI Compute Network</span>
-      </div>
-      
-      <h1 data-i18n="hero_title">Run Big AI Models 80% Cheaper <br><span class="gradient-text">on Pooled GPU Compute</span></h1>
-      
-      <p class="hero-sub" data-i18n="hero_sub">
-        Execute open-source AI models (Llama, DeepSeek & more) at a fraction of cloud costs or earn revenue by sharing your idle graphics cards and mining rigs.
-      </p>
-
+      <div class="hero-tagline"><span>⚡</span><span>Pre-production distributed inference engineering</span></div>
+      <h1>Pool heterogeneous compute.<br><span class="gradient-text">Measure what actually works.</span></h1>
+      <p class="hero-sub">ComputeMesh combines an authenticated gateway/provider-control path, public provider runtime, private production placement policy and evidence-bound two-node llama.cpp research. Availability, model support and economics depend on the actual deployment and measured hardware/network path.</p>
       <div class="hero-cta">
-        <a href="#playground" class="btn btn-primary" data-i18n="btn_try_playground">⚡ Try Live Teaser (Free)</a>
-        <button class="btn btn-emerald" onclick="openModal('provider')" data-i18n="btn_provide_compute">Provide GPU & Earn</button>
+        <a href="#playground" class="btn btn-primary">⚡ Try configured gateway</a>
+        <button class="btn btn-emerald" onclick="openModal('provider')">Register provider</button>
       </div>
-
-      <!-- Live Mesh Telemetry Ticker -->
       <div class="telemetry-ticker">
-        <div class="ticker-item emerald">
-          <div class="ticker-val" id="portal-ticker-vram">8 GB</div>
-          <div class="ticker-lbl" data-i18n="ticker_vram">Total Usable VRAM Pool</div>
-        </div>
-        <div class="ticker-item">
-          <div class="ticker-val" id="portal-ticker-gpus">1 GPU Online</div>
-          <div class="ticker-lbl" data-i18n="ticker_gpus">Active GPUs (AMD & NVIDIA)</div>
-        </div>
-        <div class="ticker-item indigo">
-          <div class="ticker-val">100% Match</div>
-          <div class="ticker-lbl" data-i18n="ticker_tokens">Two-Node Proof (ADR-0002)</div>
-        </div>
-        <div class="ticker-item amber">
-          <div class="ticker-val">~80% Lower</div>
-          <div class="ticker-lbl" data-i18n="ticker_uptime">vs. Cloud Hyperscalers</div>
-        </div>
+        <div class="ticker-item emerald"><div class="ticker-val" id="portal-ticker-vram">Unavailable</div><div class="ticker-lbl">Authenticated live VRAM total</div></div>
+        <div class="ticker-item"><div class="ticker-val" id="portal-ticker-gpus">Unavailable</div><div class="ticker-lbl">Authenticated live GPU count</div></div>
+        <div class="ticker-item indigo"><div class="ticker-val">Bound proof</div><div class="ticker-lbl">Narrow two-node trusted-lab evidence</div></div>
+        <div class="ticker-item amber"><div class="ticker-val">Pre-production</div><div class="ticker-lbl">Broad LAN/WAN validation still open</div></div>
       </div>
     </div>
   </section>
 
-  <!-- Interactive AI Playground & Live Teaser Studio -->
   <section class="playground-sec" id="playground">
     <div class="container">
       <div class="section-header" style="margin-bottom: 2rem;">
-        <span class="section-tag" data-i18n="pg_tag">Live Teaser Demo • No Signup Required</span>
-        <h2 data-i18n="pg_title">Test Decentralized Inference <span class="gradient-text">Live in Your Browser</span></h2>
-        <p data-i18n="pg_sub">Ask the live demo through the ComputeMesh gateway. 20 free requests refresh automatically every 4 hours per client.</p>
+        <span class="section-tag">Gateway playground</span>
+        <h2>Test the <span class="gradient-text">configured gateway</span></h2>
+        <p>The playground works only when its backend and selected model are actually configured. It is not evidence that a public distributed mesh or every listed model is currently available.</p>
       </div>
-
       <div class="playground-studio">
-        <!-- Top Toolbar -->
         <div class="pg-toolbar">
           <div class="pg-toolbar-left">
             <div class="pg-control-group">
-              <label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Model:</label>
+              <label for="playground-model-select" class="pg-label">Model:</label>
               <select id="playground-model-select" class="pg-select">
-                <option value="qwen2.5:7b" selected>Qwen 2.5 7B (Ultra-Fast • Quantized)</option>
-                <option value="llama3.1:8b">Llama 3.1 8B (Smart • Meta AI)</option>
-                <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B (Code Specialist)</option>
-                <option value="mistral:7b">Mistral 7B Instruct (Balanced)</option>
-                <option value="phi3:mini">Phi-3 Mini 3.8B (Lightweight)</option>
+                <option value="qwen2.5:7b" selected>Example: Qwen 2.5 7B</option>
+                <option value="llama3.1:8b">Example: Llama 3.1 8B</option>
+                <option value="deepseek-coder:6.7b">Example: DeepSeek Coder 6.7B</option>
+                <option value="mistral:7b">Example: Mistral 7B</option>
+                <option value="phi3:mini">Example: Phi-3 Mini</option>
               </select>
             </div>
-            <div class="pg-cluster-badge">
-              <span class="pulse-dot"></span>
-              <span id="pg-cluster-status" data-i18n="pg_mesh_active">Mesh Active (8–64 GB VRAM Pool)</span>
-            </div>
+            <div class="pg-cluster-badge"><span class="pulse-dot"></span><span id="pg-cluster-status">Gateway status pending</span></div>
           </div>
-
           <div class="pg-toolbar-right">
-            <div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="Click to view upgrade options">
-              <span>⚡</span>
-              <span id="pg-quota-text" data-i18n="pg_quota_badge">20 Free Requests Left</span>
-            </div>
+            <div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="View account/provider options"><span>⚡</span><span id="pg-quota-text">Demo quota</span></div>
             <button id="pg-clear-chat-btn" class="pg-btn-icon" onclick="clearPlaygroundChat()" title="Clear Chat">🗑️</button>
           </div>
         </div>
-
-        <!-- Chat / Message Stream Area -->
         <div id="playground-chat-stream" class="pg-chat-stream">
-          <!-- Initial Assistant Welcome Message -->
-          <div class="chat-msg chat-msg-ai">
-            <div class="chat-avatar">🤖</div>
-            <div class="chat-bubble">
-              <div class="chat-author">ComputeMesh AI <span class="chat-badge" data-i18n="pg_badge_live">LIVE MESH</span></div>
-              <div class="chat-body" data-i18n="pg_welcome_msg">
-                Welcome to ComputeMesh! You can test the live gateway directly here with 20 free requests per 4-hour window. Ask a coding question, summarize text, or benchmark token throughput.
-              </div>
-            </div>
-          </div>
+          <div class="chat-msg chat-msg-ai"><div class="chat-avatar">🤖</div><div class="chat-bubble"><div class="chat-author">ComputeMesh AI <span class="chat-badge">GATEWAY</span></div><div class="chat-body">If the configured demo backend is available, requests sent here use that gateway path. Check the engineering status and benchmark pages for what has actually been validated.</div></div></div>
         </div>
-
-        <!-- Live Metrics / Status Bar -->
         <div id="playground-live-metrics" class="pg-metrics-bar">
-          <div class="pg-metric-item">
-            <span class="pg-metric-lbl" data-i18n="pg_status_lbl">Status:</span>
-            <span id="pg-metric-status" class="pg-metric-val emerald" data-i18n="pg_status_ready">Ready</span>
-          </div>
-          <div class="pg-metric-item">
-            <span class="pg-metric-lbl" data-i18n="pg_tps_lbl">Speed:</span>
-            <span id="pg-metric-tps" class="pg-metric-val">— tok/s</span>
-          </div>
-          <div class="pg-metric-item">
-            <span class="pg-metric-lbl" data-i18n="pg_latency_lbl">Latency:</span>
-            <span id="pg-metric-latency" class="pg-metric-val">— ms</span>
-          </div>
-          <div class="pg-metric-item">
-            <span class="pg-metric-lbl" data-i18n="pg_tokens_lbl">Tokens:</span>
-            <span id="pg-metric-tokens" class="pg-metric-val">0</span>
-          </div>
+          <div class="pg-metric-item"><span class="pg-metric-lbl">Status:</span><span id="pg-metric-status" class="pg-metric-val emerald">Ready</span></div>
+          <div class="pg-metric-item"><span class="pg-metric-lbl">Speed:</span><span id="pg-metric-tps" class="pg-metric-val">— tok/s</span></div>
+          <div class="pg-metric-item"><span class="pg-metric-lbl">Latency:</span><span id="pg-metric-latency" class="pg-metric-val">— ms</span></div>
+          <div class="pg-metric-item"><span class="pg-metric-lbl">Tokens:</span><span id="pg-metric-tokens" class="pg-metric-val">0</span></div>
         </div>
-
-        <!-- Quick Prompt Suggestion Pills -->
         <div class="pg-quick-prompts">
-          <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain">⚡ What is ComputeMesh?</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_code">🐍 Write a FastAPI endpoint</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_sharding">🧩 Explain Pipeline Sharding</button>
-          <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_roi">💰 ComputeMesh vs AWS/OpenAI costs</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')">⚡ What is ComputeMesh?</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')">🐍 Write a FastAPI endpoint</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')">🧩 Explain Pipeline Sharding</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')">💰 Explain cost variables</button>
         </div>
-
-        <!-- Prompt Input & Controls Area -->
         <div class="pg-input-container">
-          <textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Ask anything... (Press Enter to send, Shift+Enter for newline)" data-i18n-ph="pg_input_placeholder" onkeydown="handlePlaygroundKey(event)"></textarea>
-          <div class="pg-input-actions">
-            <button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()">
-              <span id="pg-send-btn-text" data-i18n="pg_btn_send">Send Prompt</span>
-              <span class="pg-send-icon">🚀</span>
-            </button>
-          </div>
+          <textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Ask anything... (Enter to send, Shift+Enter for newline)" onkeydown="handlePlaygroundKey(event)"></textarea>
+          <div class="pg-input-actions"><button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()"><span id="pg-send-btn-text">Send Prompt</span><span class="pg-send-icon">🚀</span></button></div>
         </div>
-
         <div class="pg-ollama-config">
-          <div class="pg-config-head">
-            <span data-i18n="pg_ollama_title">Ollama-compatible endpoint</span>
-            <span data-i18n="pg_ollama_badge">Free demo window</span>
-          </div>
+          <div class="pg-config-head"><span>Ollama-compatible endpoint</span><span>Deployment-dependent demo</span></div>
           <pre><code>export OLLAMA_HOST=https://computemesh.inetconnector.com
 curl https://computemesh.inetconnector.com/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen/qwen2.5-7b-instruct","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":false}'</code></pre>
-          <pre><code>COMPUTEMESH_INFERENCE_BACKEND=ollama
-COMPUTEMESH_INFERENCE_URL=http://127.0.0.1:11434
-COMPUTEMESH_INFERENCE_MODEL=qwen2.5:1.5b-instruct
-COMPUTEMESH_INFERENCE_MAX_PREDICT=48
-COMPUTEMESH_INFERENCE_CONTEXT_TOKENS=128
-COMPUTEMESH_INFERENCE_THREADS=2</code></pre>
-          <p data-i18n="pg_ollama_note">Gateway operators can back the demo with Ollama using COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS, and COMPUTEMESH_INFERENCE_SYSTEM_PROMPT.</p>
+  -d '{"model":"&lt;active-model&gt;","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":false}'</code></pre>
+          <p>Gateway operators may configure a private Ollama-compatible demo upstream. A configured demo backend is distinct from evidence of distributed execution.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Features Section -->
   <section class="container" id="features" style="padding: 5rem 1.5rem;">
-    <div class="section-header">
-      <span class="section-tag" data-i18n="features_tag">Decentralized Architecture</span>
-      <h2 data-i18n="features_title">Engineered for Ultra-Fast, Low-Cost Inference</h2>
-      <p data-i18n="features_sub">ComputeMesh solves the high cost of centralized AI by pooling consumer GPUs, datacenter accelerators, and multi-GPU mining rigs.</p>
-    </div>
-
+    <div class="section-header"><span class="section-tag">Current architecture</span><h2>Implemented foundations with explicit readiness limits</h2><p>ComputeMesh separates public execution/protocol/provider code from private production placement/data/policy.</p></div>
     <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">🧩</div>
-        <h3 data-i18n="feat1_title">Pipeline Layer Sharding</h3>
-        <p data-i18n="feat1_desc">Models are seamlessly split across distributed GPUs. Activation tensors transmit in microseconds, unlocking massive 32B+ models across 8GB cards.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <h3 data-i18n="feat2_title">Native AMD & NVIDIA Dual-Stack</h3>
-        <p data-i18n="feat2_desc">Full native support for NVIDIA CUDA, AMD ROCm, and universal Vulkan backends. Mix arbitrary GPUs in one rig with zero friction.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">💰</div>
-        <h3 data-i18n="feat3_title">80% Cost Reduction</h3>
-        <p data-i18n="feat3_desc">Prepaid micro-credit billing and decentralized hardware yield drastic savings compared to traditional centralized hyperscalers.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🌐</div>
-        <h3 data-i18n="feat4_title">OpenAI-Compatible Gateway</h3>
-        <p data-i18n="feat4_desc">Drop-in replacement for OpenAI SDKs and cURL. Simply switch your baseURL to start serving low-latency tokens immediately.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">📦</div>
-        <h3 data-i18n="feat5_title">Mining Rig NodeOS</h3>
-        <p data-i18n="feat5_desc">Flashable USB appliance image turning 4–12 GPU Ethereum mining rigs into autonomous provider nodes in under 2 minutes.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🔒</div>
-        <h3 data-i18n="feat6_title">Verifiable Double-Entry Ledger</h3>
-        <p data-i18n="feat6_desc">Every token computed is cryptographically metered and settled to an auditable append-only ledger for instant provider payouts.</p>
-      </div>
+      <div class="feature-card"><div class="feature-icon">🧩</div><h3>Measured layer splitting</h3><p>Contiguous two-node layer splits are researched and validated per exact model/runtime/hardware/network evidence. No universal speedup is assumed.</p></div>
+      <div class="feature-card"><div class="feature-icon">⚡</div><h3>Heterogeneous provider foundations</h3><p>Hardware inventory and CUDA/ROCm/Vulkan-related tooling exist, but production support is validated per actual target rather than claimed for arbitrary GPU mixes.</p></div>
+      <div class="feature-card"><div class="feature-icon">🧠</div><h3>Private production placement</h3><p>The public runtime receives a signed execution plan; production ranking, empirical performance, reputation/fraud and economics remain private.</p></div>
+      <div class="feature-card"><div class="feature-icon">🌐</div><h3>OpenAI-compatible gateway</h3><p>Supported OpenAI-style endpoints are implemented. This is not a claim of compatibility with every OpenAI API or SDK behavior.</p></div>
+      <div class="feature-card"><div class="feature-icon">📦</div><h3>Provider/NodeOS tooling</h3><p>Windows/Linux/provider and appliance tooling exists for supported engineering targets. Exact driver/GPU combinations still require validation.</p></div>
+      <div class="feature-card"><div class="feature-icon">🔒</div><h3>Evidence & accounting foundations</h3><p>Execution evidence, provider attestations, durable feedback and double-entry ledger foundations exist. Settlement/payout policy is deployment- and private-policy-dependent.</p></div>
     </div>
   </section>
 
-  <!-- Interactive ROI & Pricing Calculator Section -->
   <section class="calculator-sec" id="pricing">
     <div class="container">
-      <div class="section-header">
-        <span class="section-tag" data-i18n="calc_tag">ROI & Economics</span>
-        <h2 data-i18n="calc_title">Calculate Your Savings or Earnings</h2>
-        <p data-i18n="calc_sub">Transparent pay-as-you-go pricing for developers and high-yield passive revenue for hardware providers.</p>
-      </div>
-
+      <div class="section-header"><span class="section-tag">Illustrative economics UI</span><h2>Explore variables — not a production price quote</h2><p>The existing calculator remains available as an interface experiment. Its computed values are illustrative and must not be treated as a live quote, guaranteed saving or guaranteed provider income. Production pricing/settlement policy is private and deployment-dependent.</p></div>
       <div class="calc-box">
-        <div class="calc-tabs">
-          <button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')" data-i18n="tab_developer">Developer Cost Calculator</button>
-          <button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')" data-i18n="tab_provider">Hardware Provider Earnings</button>
-        </div>
-
-        <!-- Developer Pane -->
+        <div class="calc-tabs"><button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')">Illustrative developer estimate</button><button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')">Illustrative provider estimate</button></div>
         <div id="pane-dev" class="calc-content calc-pane">
           <div>
-            <div class="slider-group">
-              <div class="slider-labels">
-                <span data-i18n="lbl_monthly_tokens">Monthly Inference Volume (Million Tokens)</span>
-                <span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono);">50 M</span>
-              </div>
-              <input type="range" id="slider-tokens" min="1" max="500" value="50" step="5">
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-labels">
-                <span data-i18n="lbl_model_tier">Model Size Tier</span>
-              </div>
-              <select id="select-model" class="form-control" style="cursor: pointer;">
-                <option value="8b">Qwen / Llama 8B (Quantized Q4_K_M)</option>
-                <option value="14b">Qwen 2.5 14B</option>
-                <option value="32b">Qwen 2.5 / DeepSeek 32B</option>
-                <option value="70b">Llama 3.1 70B (High Precision)</option>
-              </select>
-            </div>
+            <div class="slider-group"><div class="slider-labels"><span>Monthly inference volume (million tokens)</span><span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono);">50 M</span></div><input type="range" id="slider-tokens" min="1" max="500" value="50" step="5"></div>
+            <div class="slider-group"><div class="slider-labels"><span>Illustrative model tier</span></div><select id="select-model" class="form-control" style="cursor: pointer;"><option value="8b">8B class</option><option value="14b">14B class</option><option value="32b">32B class</option><option value="70b">70B class</option></select></div>
           </div>
-
-          <div class="calc-result-card">
-            <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_computemesh_cost">ComputeMesh Cost</div>
-            <div id="calc-cm-cost" class="calc-big-num">$10.00</div>
-            <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">
-              <span data-i18n="lbl_cloud_cost">Traditional Cloud Cost:</span> <span id="calc-cloud-cost" style="text-decoration: line-through;">$50.00</span>
-            </div>
-            <div class="gradient-emerald" style="font-weight: 700; font-size: 1.1rem;" data-i18n="lbl_your_savings">
-              Estimated Savings: ~80%
-            </div>
-          </div>
+          <div class="calc-result-card"><div style="font-size: 0.9rem; color: var(--text-muted);">Illustrative computed value</div><div id="calc-cm-cost" class="calc-big-num">—</div><div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;">Comparison input: <span id="calc-cloud-cost">—</span></div><div class="gradient-emerald" style="font-weight: 700; font-size: 1rem;">Not a production quote or guaranteed saving.</div></div>
         </div>
-
-        <!-- Provider Pane -->
         <div id="pane-prov" class="calc-content calc-pane" style="display: none;">
           <div>
-            <div class="slider-group">
-              <div class="slider-labels">
-                <span data-i18n="lbl_gpu_setup">Your Hardware Setup</span>
-              </div>
-              <select id="select-rig" class="form-control" style="cursor: pointer;">
-                <option value="5x8gb">5x 8GB Mining Rig (e.g. RX 580 / GTX 1070) • 40GB VRAM</option>
-                <option value="8x3070">8x RTX 3070 8GB Rig • 64GB VRAM</option>
-                <option value="rtx3080">Single RTX 3080 (16GB VRAM)</option>
-                <option value="rtx4090">Single RTX 4090 (24GB VRAM)</option>
-              </select>
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-labels">
-                <span data-i18n="lbl_hours_online">Uptime per Day (Hours)</span>
-                <span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono);">24 h/day</span>
-              </div>
-              <input type="range" id="slider-hours" min="1" max="24" value="24" step="1">
-            </div>
+            <div class="slider-group"><div class="slider-labels"><span>Illustrative hardware profile</span></div><select id="select-rig" class="form-control" style="cursor: pointer;"><option value="5x8gb">5x 8GB class rig</option><option value="8x3070">8x 8GB class rig</option><option value="rtx3080">Single RTX 3080 class</option><option value="rtx4090">Single RTX 4090 class</option></select></div>
+            <div class="slider-group"><div class="slider-labels"><span>Uptime assumption</span><span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono);">24 h/day</span></div><input type="range" id="slider-hours" min="1" max="24" value="24" step="1"></div>
           </div>
-
-          <div class="calc-result-card">
-            <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Earned Compute Credits & Monthly Payout</div>
-            <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">145,000,000 CM <span style="font-size: 1.1rem; color: var(--accent-emerald); font-weight: 600;">($145.00 / Mo)</span></div>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;" data-i18n="lbl_payout_note">
-              Canonical Unit: 1 CM Credit = 1 Micro-Unit ($0.000001 USD) • 1,000,000 CM = $1.00 USD (75% Provider Pool) • Stripe payouts from $25
-            </div>
-            <div style="margin-top: 0.5rem; padding: 0.6rem 0.85rem; background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-sm); font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); text-align: left;" data-i18n="lbl_provider_threshold_info">
-              💡 <strong>Credits & Settlement:</strong> Earned Compute Credits (CM) represent verified micro-units ($0.000001 USD) in the double-entry ledger. Hardware providers receive 75% of model-dependent customer revenue (e.g. ~$0.13125 / 1M tokens on 8B up to ~$0.90 / 1M tokens on 70B). Payouts are executed via Stripe Connect from $25.00.
-            </div>
-          </div>
+          <div class="calc-result-card"><div style="font-size: 0.9rem; color: var(--text-muted);">Illustrative computed value</div><div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">—</div><div style="font-size: 0.85rem; color: var(--text-muted);">Real earnings require paid customer demand, verified execution, current private pricing/settlement policy and successful provider payout eligibility.</div></div>
         </div>
       </div>
-
-      <!-- B2B & Developer Plans Matrix -->
-      <div style="margin-top: 3.5rem;">
-        <div class="section-header" style="margin-bottom: 2rem;">
-          <span class="section-tag" data-i18n="plans_tag">Transparent B2B & Developer Tiers</span>
-          <h3 style="font-size: 2rem; margin-top: 0.5rem;" data-i18n="plans_title">Pay-As-You-Go Tokens or Enterprise Subscriptions</h3>
-          <p style="color: var(--text-muted); font-size: 1rem;" data-i18n="plans_sub">No surprise monthly bills. 100% verifiably metered by our double-entry ledger with instant prepaid top-up.</p>
-        </div>
-
-        <div class="download-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-          <!-- Tier 1: Developer Pay-As-You-Go -->
-          <div class="download-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan1_badge">Developer Self-Service</div>
-              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan1_title">Pay-As-You-Go</h4>
-              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-bottom: 1rem;">$0 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ mo + usage</span></div>
-              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
-                <li>✓ Full access to Llama 3.1 70B & Qwen 2.5</li>
-                <li>✓ Instant OpenAI SDK drop-in</li>
-                <li>✓ Prepaid deposit tiers: $10, $50, $250, $1,000</li>
-                <li>✓ Stripe Checkout: card, SEPA, Link, Apple Pay</li>
-                <li>✓ 80% cheaper than AWS / OpenAI</li>
-              </ul>
-            </div>
-            <button class="btn btn-secondary" style="width: 100%;" onclick="openDepositModal()" data-i18n="plan1_btn">💳 Top Up Credits</button>
-          </div>
-
-          <!-- Tier 2: Pro Mesh (Highlighted) -->
-          <div class="download-card highlight" style="display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan2_badge">High-Throughput Apps</div>
-              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan2_title">Pro Mesh SLA</h4>
-              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-emerald); margin-bottom: 1rem;">$99 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ month</span></div>
-              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
-                <li>✓ <strong>Prioritized Low-Latency Queue</strong></li>
-                <li>✓ 99.9% Target Inferenz Uptime (High Availability)</li>
-                <li>✓ Low-Latency Streaming (Target Sub-Second TTFT)</li>
-                <li>✓ Includes $50 monthly compute credits</li>
-                <li>✓ 5 Team API Keys & Usage Analytics</li>
-              </ul>
-            </div>
-            <a href="/contact" class="btn btn-emerald" style="width: 100%;" data-i18n="plan2_btn">🚀 Start Pro Mesh</a>
-          </div>
-
-          <!-- Tier 3: Enterprise Dedicated -->
-          <div class="download-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent-amber); text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="plan3_badge">Custom Clusters</div>
-              <h4 style="font-size: 1.6rem; margin: 0.5rem 0;" data-i18n="plan3_title">Enterprise Dedicated</h4>
-              <div style="font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-bottom: 1rem;">$999 <span style="font-size: 1rem; color: var(--text-muted); font-family: var(--font-main); font-weight: 400;">/ month</span></div>
-              <ul style="list-style: none; padding: 0; margin: 0 0 1.5rem 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.9rem; color: var(--text-muted);">
-                <li>✓ <strong>100% Dedicated GPU Multi-Cluster</strong></li>
-                <li>✓ Guaranteed EU Data Residency (DSGVO)</li>
-                <li>✓ Custom Fine-Tuned LoRA Weight Caching</li>
-                <li>✓ Target 99.99% Enterprise SLA & Priority Support</li>
-                <li>✓ Dedicated B2B Invoice & SEPA Mandate</li>
-              </ul>
-            </div>
-            <a href="/contact" class="btn btn-secondary" style="width: 100%;" data-i18n="plan3_btn">🏢 Contact Sales</a>
-          </div>
-        </div>
-      </div>
+      <div style="margin-top: 3rem;" class="feature-card"><h3>Commercial plans</h3><p style="color: var(--text-muted); line-height: 1.6;">No public SLA, fixed discount, dedicated-cluster guarantee, model entitlement or provider revenue percentage is established by this engineering page. Contact the operator for an actual offer; technical capabilities remain subject to the current status and measured deployment.</p><a href="/contact" class="btn btn-secondary" style="margin-top: 1rem;">Contact</a></div>
     </div>
   </section>
 
-  <!-- One-Click Downloads Section -->
   <section class="downloads-sec" id="downloads">
     <div class="container">
-      <div class="section-header">
-        <span class="section-tag" data-i18n="dl_tag">One-Click Deploy</span>
-        <h2 data-i18n="dl_title">Download Node Installers & NodeOS Images</h2>
-        <p data-i18n="dl_sub">Get started in seconds on Windows, Linux, or dedicated multi-GPU mining rigs.</p>
-      </div>
-
+      <div class="section-header"><span class="section-tag">Provider tooling</span><h2>Installers & appliance artifacts</h2><p>Use only artifacts appropriate to your target and verify the published/current deployment instructions. Installer availability does not imply that every GPU/driver topology is production-supported.</p></div>
       <div class="download-grid">
-        <!-- Windows Card -->
-        <div class="download-card">
-          <div>
-            <div class="dl-platform-icon">🪟</div>
-            <h3 data-i18n="dl_win_title">Windows Provider Agent</h3>
-            <p data-i18n="dl_win_desc">GUI tray app with automatic NVIDIA CUDA acceleration and background inference daemon.</p>
-          </div>
-          <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-secondary" style="width: 100%;" data-i18n="dl_win_btn">Download for Windows (.exe)</a>
-        </div>
-
-        <!-- Linux Card -->
-        <div class="download-card">
-          <div>
-            <div class="dl-platform-icon">🐧</div>
-            <h3 data-i18n="dl_linux_title">Linux Headless Agent</h3>
-            <p data-i18n="dl_linux_desc">One-command terminal installer for Ubuntu 22.04/24.04 and Debian 12/13 servers.</p>
-            <div class="dl-code-box">curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash</div>
-          </div>
-          <button class="btn btn-secondary" style="width: 100%;" onclick="copyLinuxCommand()" data-i18n="dl_linux_btn">Copy Install Command</button>
-        </div>
-
-        <!-- Mining Rig Card -->
-        <div class="download-card highlight">
-          <div>
-            <div class="dl-platform-icon">⚡</div>
-            <h3 data-i18n="dl_rig_title">Mining Rig Appliance (NodeOS)</h3>
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
-            <a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-emerald" style="width: 100%; text-align: center;" data-i18n="dl_rig_iso_btn">Download Bootable ISO (.iso)</a>
-            <a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" style="width: 100%; text-align: center;" data-i18n="dl_rig_btn">Download Flash Image (.img.xz)</a>
-          </div>
-        </div>
+        <div class="download-card"><div><div class="dl-platform-icon">🪟</div><h3>Windows Provider Agent</h3><p>Windows provider/installer path for supported engineering targets.</p></div><a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-secondary" style="width: 100%;">Download for Windows (.exe)</a></div>
+        <div class="download-card"><div><div class="dl-platform-icon">🐧</div><h3>Linux Headless Agent</h3><p>Headless provider setup path. Review the current repository setup/provider documentation before use.</p><div class="dl-code-box">curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash</div></div><button class="btn btn-secondary" style="width: 100%;" onclick="copyLinuxCommand()">Copy Install Command</button></div>
+        <div class="download-card highlight"><div><div class="dl-platform-icon">⚡</div><h3>Mining Rig Appliance (NodeOS)</h3><p>Experimental appliance artifacts; validate exact hardware/driver combinations.</p></div><div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;"><a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-emerald" style="width: 100%; text-align: center;">Download Bootable ISO (.iso)</a><a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" style="width: 100%; text-align: center;">Download Flash Image (.img.xz)</a></div></div>
       </div>
     </div>
   </section>
 
-  <!-- API Integration Preview -->
   <section class="container" id="api" style="padding: 5rem 1.5rem;">
-    <div class="section-header">
-      <span class="section-tag" data-i18n="api_tag">Integration</span>
-      <h2 data-i18n="api_title">100% OpenAI API Compatible</h2>
-      <p data-i18n="api_sub">Change one line of code in Python, TypeScript, or cURL to start routing requests through ComputeMesh.</p>
-    </div>
+    <div class="section-header"><span class="section-tag">Integration</span><h2>OpenAI-compatible supported surface</h2><p>Point a compatible client at the deployment's `/v1` base URL, use a registered API key and choose an actually exposed model. Check `/v1/models` and current API documentation rather than assuming every OpenAI endpoint exists.</p></div>
+    <div class="code-window"><div class="code-header"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span style="margin-left: 0.5rem;">inference_example.py</span></div><pre><code>from openai import OpenAI
 
-    <div class="code-window">
-      <div class="code-header">
-        <div class="dot red"></div>
-        <div class="dot yellow"></div>
-        <div class="dot green"></div>
-        <span style="margin-left: 0.5rem;">inference_example.py</span>
-      </div>
-      <pre><code><span style="color: #f59e0b;">from</span> openai <span style="color: #f59e0b;">import</span> OpenAI
-
-<span style="color: #64748b;"># Point directly to the ComputeMesh Decentralized Gateway</span>
 client = OpenAI(
-    base_url=<span style="color: #00f0ff;">"https://api.computemesh.net/v1"</span>,
-    api_key=<span style="color: #10b981;">"cm_live_71a9f02c4b8e6d..."</span>
+    base_url="https://computemesh.inetconnector.com/v1",
+    api_key="cm_live_your_registered_key"
 )
 
-response = client.chat.completions.create(
-    model=<span style="color: #00f0ff;">"qwen/qwen2.5-7b-instruct"</span>,
-    messages=[{<span style="color: #00f0ff;">"role"</span>: <span style="color: #00f0ff;">"user"</span>, <span style="color: #00f0ff;">"content"</span>: <span style="color: #00f0ff;">"Explain quantum computing in 3 sentences."</span>}],
-    stream=<span style="color: #3b82f6;">True</span>
-)
-
-<span style="color: #f59e0b;">for</span> chunk <span style="color: #f59e0b;">in</span> response:
-    print(chunk.choices[0].delta.content <span style="color: #f59e0b;">or</span> <span style="color: #00f0ff;">""</span>, end=<span style="color: #00f0ff;">""</span>)</code></pre>
-    </div>
+models = client.models.list()
+# Select a model actually exposed by the active deployment.</code></pre></div>
   </section>
 
-  <!-- Interactive Registration Modal -->
   <div id="register-modal" class="modal-backdrop">
     <div class="modal-box">
       <button class="modal-close" onclick="closeModal()">&times;</button>
-      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="modal_title">Get Started with ComputeMesh</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="modal_sub">Create an account to generate your API key or register your hardware node.</p>
-
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Get Started with ComputeMesh</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Generate/register credentials through the configured gateway/account path. Provider availability and earnings are not guaranteed.</p>
       <form onsubmit="handleRegistration(event)">
-        <div class="form-group">
-          <label data-i18n="modal_role_lbl">I want to:</label>
-          <select id="modal-role" class="form-control">
-            <option value="consumer" data-i18n="role_consumer">Use AI Models (Developer API)</option>
-            <option value="provider" data-i18n="role_provider">Provide GPUs (Earn Revenue)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label data-i18n="modal_email_lbl">Email Address</label>
-          <input type="email" class="form-control" required placeholder="developer@company.com">
-        </div>
-
-        <div class="form-group">
-          <label data-i18n="modal_wallet_lbl">Provider Payout Wallet (Optional)</label>
-          <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum / Polygon / Arbitrum)">
-          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers only: enter the 0x address that should receive earnings from contributed compute power. MetaMask is only an address picker here. Buying compute credits and all customer payments are handled through Stripe.</small>
-        </div>
-
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
+        <div class="form-group"><label>I want to:</label><select id="modal-role" class="form-control"><option value="consumer">Use the Developer API</option><option value="provider">Register provider hardware</option></select></div>
+        <div class="form-group"><label>Email Address</label><input type="email" class="form-control" required placeholder="developer@company.com"></div>
+        <div class="form-group"><label>Provider payout wallet (optional metadata)</label><input type="text" class="form-control" placeholder="0x... (EVM / Ethereum / Polygon / Arbitrum)"><small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;">Where enabled, this is payout-destination metadata only; it is not a customer payment method.</small></div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Generate Credentials</button>
       </form>
-
-      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
-        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Your Generated Key:</label>
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-          <input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);">
-          <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Copy Key</button>
-        </div>
-      </div>
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;"><label style="font-size: 0.85rem; color: var(--text-muted);">Generated key:</label><div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;"><input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);"><button class="btn btn-secondary" onclick="copyKey()">Copy Key</button></div></div>
     </div>
   </div>
 
-  <!-- Interactive Stripe Deposit & Top-Up Modal -->
   <div id="deposit-modal" class="modal-backdrop">
     <div class="modal-box">
       <button class="modal-close" onclick="closeDepositModal()">&times;</button>
-      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Top Up Compute Credits</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Purchase prepaid micro-credits through Stripe Checkout. Wallets are not charged by ComputeMesh.</p>
-
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">💳 Top Up Compute Credits</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">When Stripe Checkout is configured, this form can request a checkout session. Displayed deposit amounts do not promise a specific token count or model price.</p>
       <form onsubmit="handleDepositSubmit(event)">
-        <div class="form-group">
-          <label data-i18n="topup_key_lbl">Your API Key:</label>
-          <input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);">
-        </div>
-
-        <div class="form-group">
-          <label data-i18n="topup_amount_lbl">Select Deposit Tier:</label>
-          <select id="deposit-amount-select" class="form-control" style="cursor: pointer;">
-            <option value="10">$10.00 USD (Starter • ~10M 7B Tokens)</option>
-            <option value="25" selected>$25.00 USD (Developer • ~25M 7B Tokens)</option>
-            <option value="50">$50.00 USD (Pro • ~50M 7B Tokens)</option>
-            <option value="100">$100.00 USD (Growth • ~100M 7B Tokens)</option>
-            <option value="500">$500.00 USD (Scale Enterprise)</option>
-          </select>
-        </div>
-
-        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="topup_submit_btn">Proceed to Stripe Checkout →</button>
+        <div class="form-group"><label>Your API Key:</label><input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);"></div>
+        <div class="form-group"><label>Select deposit amount:</label><select id="deposit-amount-select" class="form-control" style="cursor: pointer;"><option value="10">$10.00 USD</option><option value="25" selected>$25.00 USD</option><option value="50">$50.00 USD</option><option value="100">$100.00 USD</option><option value="500">$500.00 USD</option></select></div>
+        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Proceed to configured Checkout →</button>
       </form>
-
       <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
     </div>
   </div>
 
-  <!-- Teaser Limit / Conversion Onboarding Modal -->
   <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;">
     <div class="modal-box modal-lg" style="max-width: 680px;">
       <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
-      
-      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">⚡ Free Teaser Limit Reached</div>
-      <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem;" data-i18n="conv_title">Unlock Unlimited High-Speed Inference</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="conv_sub">
-        You've explored the decentralized cluster! Join the ecosystem as an API Consumer or Hardware Provider to continue without limits.
-      </p>
-
+      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;">Gateway options</div>
+      <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem;">Continue with an API key or register a provider</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Availability, prices and provider revenue depend on the configured deployment and verified workload.</p>
       <div class="conv-options-grid">
-        <!-- Option 1: Developer API Key -->
-        <div class="conv-card highlight">
-          <div class="conv-card-badge" data-i18n="conv_opt1_badge">Option A: Developer</div>
-          <h4 data-i18n="conv_opt1_title">🔑 Get Your Live API Key</h4>
-          <p data-i18n="conv_opt1_desc">Instant OpenAI-compatible access. 80% cheaper tokens with pre-paid Stripe top-up and double-entry accounting.</p>
-          <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Generate API Key →</button>
-        </div>
-
-        <!-- Option 2: Provide Hardware & Earn -->
-        <div class="conv-card emerald">
-          <div class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Option B: Provider (0% Fee)</div>
-          <h4 data-i18n="conv_opt2_title">⚡ Share GPU & Earn Credits</h4>
-          <p data-i18n="conv_opt2_desc">Connect your idle PC or mining rig. Earn passive revenue and get 0% platform fees when running your own models.</p>
-          <div class="conv-cli-box">
-            <code>curl -sSL https://computemesh.inetconnector.com/install.sh | bash</code>
-            <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -sSL https://computemesh.inetconnector.com/install.sh | bash')">📋</button>
-          </div>
-          <div style="display: flex; gap: 0.5rem; margin-top: 0.8rem;">
-            <button class="btn btn-emerald" style="flex: 1;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">Register Node</button>
-            <a href="#downloads" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Download App</a>
-          </div>
-        </div>
+        <div class="conv-card highlight"><div class="conv-card-badge">Developer</div><h4>🔑 API credentials</h4><p>Use the supported gateway surface with a registered key and active model catalog.</p><button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="closeTeaserConversionModal(); openModal('consumer');">Generate API Key →</button></div>
+        <div class="conv-card emerald"><div class="conv-card-badge emerald">Provider</div><h4>⚡ Register hardware</h4><p>Provider eligibility and earnings require compatible measured hardware/runtime, successful enrollment and paid demand.</p><div class="conv-cli-box"><code>curl -sSL https://computemesh.inetconnector.com/install.sh | bash</code><button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -sSL https://computemesh.inetconnector.com/install.sh | bash')">📋</button></div><div style="display: flex; gap: 0.5rem; margin-top: 0.8rem;"><button class="btn btn-emerald" style="flex: 1;" onclick="closeTeaserConversionModal(); openModal('provider');">Register Node</button><a href="#downloads" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;" onclick="closeTeaserConversionModal();">Downloads</a></div></div>
       </div>
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
-        <div>
-          <div class="brand" style="margin-bottom: 1rem;">
-            <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-          </div>
-          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 320px;">
-            The open, high-performance decentralized inference network pooling global GPU power.
-          </p>
-        </div>
-
-        <div class="footer-col">
-          <h4>Platform</h4>
-          <ul class="footer-links">
-            <li><a href="#features">Architecture</a></li>
-            <li><a href="#pricing">Pricing & ROI</a></li>
-            <li><a href="#downloads">Downloads</a></li>
-            <li><a href="#api">API Integration</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Resources</h4>
-          <ul class="footer-links">
-            <li><a href="https://github.com/inetconnector/ComputeMesh">GitHub Repository</a></li>
-            <li><a href="/docs">Technical Docs</a></li>
-            <li><a href="/status">Network Status</a></li>
-            <li><a href="/benchmarks">Model Benchmarks</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Legal & Company</h4>
-          <ul class="footer-links">
-            <li><a href="/terms">Terms of Service</a></li>
-            <li><a href="/privacy">Privacy Policy</a></li>
-            <li><a href="/impressum">Impressum</a></li>
-            <li><a href="/contact">Support</a></li>
-          </ul>
-        </div>
+        <div><div class="brand" style="margin-bottom: 1rem;"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span></div><p style="color: var(--text-muted); font-size: 0.9rem; max-width: 320px;">Pre-production distributed-inference engineering with public provider/runtime interoperability and private production policy.</p></div>
+        <div class="footer-col"><h4>Platform</h4><ul class="footer-links"><li><a href="#features">Architecture</a></li><li><a href="#pricing">Economics UI</a></li><li><a href="#downloads">Downloads</a></li><li><a href="#api">API Integration</a></li></ul></div>
+        <div class="footer-col"><h4>Resources</h4><ul class="footer-links"><li><a href="https://github.com/inetconnector/ComputeMesh">GitHub Repository</a></li><li><a href="/docs">Technical Docs</a></li><li><a href="/status">Engineering Status</a></li><li><a href="/benchmarks">Measured Benchmarks</a></li></ul></div>
+        <div class="footer-col"><h4>Legal & Company</h4><ul class="footer-links"><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy">Privacy Policy</a></li><li><a href="/impressum">Impressum</a></li><li><a href="/contact">Support</a></li></ul></div>
       </div>
-
-      <div class="footer-bottom">
-        <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
-        <div>Hosted on <strong>computemesh.inetconnector.com</strong> / <strong>computemesh.com</strong></div>
-      </div>
+      <div class="footer-bottom"><div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div><div>Technical status: <a href="/status" style="color: var(--accent-cyan);">pre-production engineering</a></div></div>
     </div>
   </footer>
-
   <script src="portal.js"></script>
 </body>
 </html>
