@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Network Status — ComputeMesh Decentralized AI</title>
-  <meta name="description" content="Live cluster health, uptime metrics, regional gateway performance, and active GPU telemetry for ComputeMesh.">
+  <title>Engineering Status — ComputeMesh</title>
+  <meta name="description" content="Current pre-production engineering and validation status for ComputeMesh.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/status">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh Network Status">
-  <meta property="og:description" content="Live cluster health, uptime metrics, regional gateway performance, and active GPU telemetry for ComputeMesh.">
+  <meta property="og:title" content="ComputeMesh Engineering Status">
+  <meta property="og:description" content="Current pre-production engineering and validation status for ComputeMesh.">
   <meta property="og:url" content="https://computemesh.inetconnector.com/status">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,18 +18,17 @@
   <link rel="stylesheet" href="portal.css">
 </head>
 <body>
-
   <header class="site-header">
     <div class="container nav-wrap">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Status</span>
+        <span class="brand-badge">Status</span>
       </a>
       <ul class="nav-links">
         <li><a href="/" data-i18n="nav_home">Home</a></li>
         <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
         <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li>
-        <li><a href="/status" class="gradient-emerald" data-i18n="nav_status">Network Status</a></li>
+        <li><a href="/status" class="gradient-emerald">Engineering Status</a></li>
       </ul>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
@@ -39,81 +38,65 @@
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
-    <!-- Global Status Banner -->
-    <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); padding: 2rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; flex-wrap: wrap; gap: 1rem;">
+    <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 3rem;">
       <div style="display: flex; align-items: center; gap: 1rem;">
         <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan);"></div>
         <div>
-          <h2 style="font-size: 1.5rem; color: var(--text-main);" data-i18n="status_all_systems">Genesis Network & Public Alpha Active</h2>
-          <p style="color: var(--text-muted); font-size: 0.9rem;" data-i18n="status_uptime_desc">ComputeMesh Genesis Bootstrap Phase is live. Developer testnet API and provider node onboarding open.</p>
+          <h2 style="font-size: 1.5rem; color: var(--text-main);">Pre-production engineering & validation</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">ComputeMesh has implemented gateway, provider-control, provider-agent, orchestration, private placement and measured-evidence foundations. It is not yet presented as a generally production-ready public distributed-inference network.</p>
         </div>
       </div>
-      <div style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--accent-cyan);">
-        Verified 2026-08-23 UTC
-      </div>
+      <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan); margin-top: 1rem;">Documentation status reviewed 2026-08-27 UTC</div>
     </div>
 
-    <!-- Live Telemetry Grid -->
     <div class="telemetry-ticker" style="margin-bottom: 3.5rem;">
       <div class="ticker-item emerald">
-        <div class="ticker-val">Not available</div>
-        <div class="ticker-lbl" data-i18n="ticker_vram">Total Usable VRAM Pool</div>
+        <div class="ticker-val">Implemented</div>
+        <div class="ticker-lbl">Authenticated provider-control foundation</div>
       </div>
       <div class="ticker-item">
-        <div class="ticker-val">Registry offline</div>
-        <div class="ticker-lbl" data-i18n="ticker_gpus">Active GPUs (AMD & NVIDIA)</div>
+        <div class="ticker-val">Verified narrow proof</div>
+        <div class="ticker-lbl">Two-machine trusted-lab shared runtime</div>
       </div>
       <div class="ticker-item indigo">
-        <div class="ticker-val">~14.2 ms</div>
-        <div class="ticker-lbl" data-i18n="status_avg_latency">EU-Central Gateway Latency</div>
+        <div class="ticker-val">Unavailable</div>
+        <div class="ticker-lbl">Authenticated live global capacity metric</div>
       </div>
       <div class="ticker-item amber">
-        <div class="ticker-val">Public Alpha</div>
-        <div class="ticker-lbl" data-i18n="ticker_uptime">Genesis Network Online</div>
+        <div class="ticker-val">Open gate</div>
+        <div class="ticker-lbl">Broad LAN/WAN production validation</div>
       </div>
     </div>
 
-    <!-- Regional Nodes -->
     <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <h3 style="font-size: 1.8rem;" data-i18n="status_regional_title">Operational Gateways & Active Mesh Nodes</h3>
+      <h3 style="font-size: 1.8rem;">Validated and remaining boundaries</h3>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 4rem;">
       <div class="feature-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🇪🇺 EU-Central (Frankfurt / inetconnector)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Operational (Alpha)</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Role: <strong>Primary API Gateway & Double-Entry Ledger</strong></p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Latency: <strong>~14.2 ms</strong> • Protocol: <strong>TLS 1.3 / HTTP/2</strong></p>
-      </div>
-
-      <div class="feature-card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">⚡ NodeOS Appliance (cm-miner-rig-01)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Online & Ready</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>AMD Vega 10 Instinct MI25 (8.58 GB Dedicated VRAM)</strong></p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Backend: <strong>Vulkan / ROCm</strong> • Dashboard: <strong>Port 8080 (Active)</strong></p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">✅ Software foundations</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Authenticated gateway/provider-control paths, runnable public provider agent, durable orchestration/recovery mechanics, signed private placement decisions, execution evidence/attestations and measured-outcome feedback are implemented foundations.</p>
       </div>
 
       <div class="feature-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🔬 Genesis Validation Lab (ADR-0002 Proof)</h4>
-          <span class="brand-badge" style="border-color: var(--border-emerald); color: var(--accent-emerald);">Verified & Active</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Hardware: <strong>NVIDIA RTX 3080 10GB (CUDA) + AMD EPYC Server</strong></p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Verification: <strong>100% Exact Token Match Verified</strong></p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🔬 Physical evidence</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">A narrow trusted-lab two-machine llama.cpp shared-runtime proof is recorded for its exact hardware/model/runtime/topology. It is not a universal performance or production-readiness claim.</p>
       </div>
 
       <div class="feature-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h4 style="font-size: 1.2rem;">🌍 Community Genesis Onboarding</h4>
-          <span class="brand-badge" style="border-color: var(--border-bright); color: var(--accent-cyan);">Accepting Nodes</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">Supported: <strong>Windows Agent, Linux & Mining Rig NodeOS</strong></p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Payment Rule: <strong>Compute credits via Stripe; wallet addresses only for provider payouts from $25.00</strong></p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🔒 Runtime security boundary</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Upstream llama.cpp RPC remains experimental and is not a public ComputeMesh security boundary. Current development bring-up contains it behind trusted/private networking or SSH tunnels.</p>
       </div>
+
+      <div class="feature-card">
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🧪 Remaining readiness gates</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Representative LAN/WAN measurement matrices, provider-enforced resource leases, production data-plane and key/session hardening, adversarial/system testing, calibrated private performance prediction and production operations/HA remain open.</p>
+      </div>
+    </div>
+
+    <div class="feature-card" style="margin-bottom: 3rem;">
+      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">About status metrics</h3>
+      <p style="color: var(--text-muted); line-height: 1.7;">This page deliberately does not display placeholder global VRAM, GPU count, uptime or gateway-latency numbers as though they were live. Such metrics should appear only when sourced from an authenticated current registry/telemetry path. Until then, unavailable means unavailable.</p>
     </div>
   </main>
 
