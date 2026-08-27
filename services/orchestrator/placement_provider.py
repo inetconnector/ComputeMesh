@@ -7,11 +7,17 @@ disclosed M1/reference scheduler and reproducible research.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 from typing import Any, Protocol
 from urllib import error as urlerror
 from urllib import request as urlrequest
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from services.scheduler.placement import build_placement_decision
 
@@ -101,6 +107,59 @@ class ReferencePlacementProvider:
         return _reference_plan(build_placement_decision(**inputs))
 
 
+def _b64u_decode(value: str, expected_bytes: int) -> bytes:
+    if not isinstance(value, str) or not value:
+        raise PlacementProviderError("placement signature/public key encoding is empty")
+    if any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for ch in value):
+        raise PlacementProviderError("placement signature/public key is not base64url")
+    padded = value + "=" * ((4 - len(value) % 4) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(padded.encode("ascii"))
+    except (binascii.Error, ValueError) as exc:
+        raise PlacementProviderError("placement signature/public key is malformed") from exc
+    if len(raw) != expected_bytes:
+        raise PlacementProviderError("placement signature/public key has unexpected length")
+    return raw
+
+
+def _canonical_unsigned_envelope(value: dict[str, Any]) -> bytes:
+    unsigned = dict(value)
+    unsigned.pop("signature", None)
+    return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _verify_envelope(
+    value: dict[str, Any], *, verification_key_b64u: str, expected_key_id: str
+) -> None:
+    signature = value.get("signature")
+    if not isinstance(signature, dict):
+        raise PlacementProviderError("private placement response is unsigned")
+    if signature.get("algorithm") != "Ed25519" or signature.get("key_id") != expected_key_id:
+        raise PlacementProviderError("private placement response uses an unexpected signing key")
+    raw_key = _b64u_decode(verification_key_b64u, 32)
+    raw_signature = _b64u_decode(signature.get("value"), 64)
+    try:
+        Ed25519PublicKey.from_public_bytes(raw_key).verify(
+            raw_signature, _canonical_unsigned_envelope(value)
+        )
+    except (InvalidSignature, ValueError) as exc:
+        raise PlacementProviderError("private placement signature verification failed") from exc
+
+    try:
+        issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
+    except (KeyError, ValueError) as exc:
+        raise PlacementProviderError("private placement timestamps are invalid") from exc
+    if issued.tzinfo is None or expires.tzinfo is None:
+        raise PlacementProviderError("private placement timestamps must be timezone-aware")
+    now = datetime.now(timezone.utc)
+    if expires.astimezone(timezone.utc) <= now:
+        raise PlacementProviderError("private placement decision has expired")
+    if issued.astimezone(timezone.utc) > now.replace(microsecond=0):
+        # Fail closed on future-issued decisions; clock skew can be added explicitly later.
+        raise PlacementProviderError("private placement decision is issued in the future")
+
+
 def _external_plan(value: dict[str, Any]) -> PlacementPlan:
     if value.get("schema_version") != 1 or value.get("decision_type") != "placement":
         raise PlacementProviderError("private placement response has an unsupported envelope")
@@ -140,15 +199,12 @@ def _external_plan(value: dict[str, Any]) -> PlacementPlan:
 
 @dataclass(frozen=True)
 class RemotePlacementProvider:
-    """Thin client for the private production control plane.
-
-    Only the minimal execution plan crosses this boundary. Candidate scores,
-    rejected nodes, model features, reputation data, pricing state and optimizer
-    diagnostics remain private.
-    """
+    """Thin fail-closed client for the private production control plane."""
 
     endpoint: str
     bearer_token: str
+    verification_key_b64u: str
+    expected_key_id: str
     timeout_seconds: float = 10.0
 
     def __post_init__(self) -> None:
@@ -156,6 +212,9 @@ class RemotePlacementProvider:
             raise ValueError("production placement endpoint must use HTTPS")
         if not self.bearer_token:
             raise ValueError("placement bearer token must be non-empty")
+        _b64u_decode(self.verification_key_b64u, 32)
+        if not self.expected_key_id:
+            raise ValueError("placement signing key id must be non-empty")
         if not 0 < self.timeout_seconds <= 60:
             raise ValueError("timeout_seconds must be within (0,60]")
 
@@ -184,4 +243,9 @@ class RemotePlacementProvider:
             raise PlacementProviderError("private placement service returned invalid JSON") from exc
         if not isinstance(value, dict):
             raise PlacementProviderError("private placement response must be an object")
+        _verify_envelope(
+            value,
+            verification_key_b64u=self.verification_key_b64u,
+            expected_key_id=self.expected_key_id,
+        )
         return _external_plan(value)
