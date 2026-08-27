@@ -40,6 +40,7 @@ class PortalQuotesHandler:
         prompt_micro = tokens_m * 0.75 * tier.prompt_micro_per_million
         completion_micro = tokens_m * 0.25 * tier.completion_micro_per_million
         total_micro = prompt_micro + completion_micro
+        illustrative_total = round(total_micro / 1_000_000, 2)
 
         return (
             {
@@ -49,7 +50,10 @@ class PortalQuotesHandler:
                 "tokens_million": tokens_m,
                 "model_tier": model_tier,
                 "reference_rate_per_million_usd": round(tier.blended_usd_per_million, 4),
-                "illustrative_total_usd": round(total_micro / 1_000_000, 2),
+                "illustrative_total_usd": illustrative_total,
+                # Backwards-compatible field name. Its meaning is explicitly governed by
+                # kind=binding=false and the disclaimer; it is not a contractual quote.
+                "total_cost_usd": illustrative_total,
                 "disclaimer": (
                     "Engineering estimate only; not a binding price, saving, SLA, capacity promise or provider-income guarantee."
                 ),
