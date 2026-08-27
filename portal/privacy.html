@@ -1,75 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — ComputeMesh</title>
-  <meta name="description" content="Privacy Policy for ComputeMesh users, developers, and hardware providers.">
-  <meta name="robots" content="index,follow">
-  <link rel="canonical" href="https://computemesh.inetconnector.com/privacy">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="portal.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="container nav-wrap">
-      <a href="/" class="brand">
-        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">Privacy</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="/" data-i18n="nav_home">Home</a></li>
-        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
-      </ul>
-      <div class="nav-actions">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
-    <h1 style="font-size: 2.4rem; margin-bottom: 1.5rem;" data-i18n="privacy_title">Privacy Policy & Data Security Standards</h1>
-    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.5rem;">
-      <div style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;" data-i18n="privacy_sec1_title">1. Strict Zero Prompt Logging & Ephemeral Volatile Processing</h3>
-        <p data-i18n="privacy_sec1_text">ComputeMesh operates under a strict Zero-Log architecture. User prompts and generated model responses are not written to persistent disks, not stored in databases, and not used for model training. Inference activations exist in volatile GPU VRAM during real-time streaming and are discarded upon request completion.</p>
-      </div>
-      
-      <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-emerald); margin-bottom: 0.5rem;" data-i18n="privacy_sec2_title">2. End-to-End Encryption in Transit (TLS 1.3 & mTLS)</h3>
-        <p data-i18n="privacy_sec2_text">All communications between client applications and our edge gateways are strictly encrypted via TLS 1.3 with Perfect Forward Secrecy (PFS). Internal communications across distributed provider nodes use mutual TLS (mTLS) with cryptographically authenticated Root CA certificates and node identity gating, preventing eavesdropping, tampering, or man-in-the-middle attacks.</p>
-      </div>
-      
-      <div style="background: rgba(99, 102, 241, 0.04); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-md); padding: 1.25rem;">
-        <h3 style="color: var(--accent-indigo); margin-bottom: 0.5rem;" data-i18n="privacy_sec3_title">3. Data-at-Rest Security (AES-256-GCM / Encrypted Host Volumes)</h3>
-        <p data-i18n="privacy_sec3_text">Identity vaults and credential stores are encrypted using industry-standard AES-256-GCM / PBKDF2. Persistent ledger state and service configurations operate on secure encrypted host volumes. Cryptographic keys and administrative tokens are isolated in protected server environments.</p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="privacy_sec4_title">4. Provider Private Key Isolation & Hardware Security</h3>
-        <p data-i18n="privacy_sec4_text">Hardware provider nodes generate their asymmetric Ed25519 keypairs locally upon first boot. The private key NEVER leaves the local machine, is never transmitted to ComputeMesh servers, and is never accessible to consumers or outside network peers.</p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="privacy_sec5_title">5. PCI-DSS Certified Payment & Escrow Security</h3>
-        <p data-i18n="privacy_sec5_text">All real customer payment processing is handled through Stripe, Inc., certified under PCI-DSS Level 1. ComputeMesh never sees, stores, or handles unencrypted payment card details or banking credentials. Crypto wallet addresses are stored solely as public provider payout destination keys and are not used to charge customers.</p>
-      </div>
-      
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="privacy_sec6_title">6. GDPR / DSGVO Compliance & Data Subject Rights</h3>
-        <p data-i18n="privacy_sec6_text">Users maintain full rights under the EU General Data Protection Regulation (GDPR / DSGVO). You may request full data export, correction, or permanent account deletion at any time by contacting our data protection officer at privacy@inetconnector.com.</p>
-      </div>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-bottom" style="border: none;">
-      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
-    </div>
-  </footer>
-  <script src="portal.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy Policy — ComputeMesh</title><meta name="description" content="Privacy information for ComputeMesh under the GDPR."><link rel="stylesheet" href="portal.css"></head><body>
+<header class="site-header"><div class="container nav-wrap"><a href="/" class="brand"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span><span class="brand-badge">Privacy</span></a><ul class="nav-links"><li><a href="/">Home</a></li><li><a href="/terms">Terms</a></li><li><a href="/impressum">Impressum</a></li></ul></div></header>
+<main class="container" style="padding:4rem 1.5rem;max-width:950px"><h1>Privacy Policy / Datenschutzhinweise</h1><p style="color:var(--text-muted)">Effective: 27 August 2026 · This notice describes the intended ComputeMesh processing framework. Actual production configuration and processor contracts must remain aligned with this notice.</p><div class="feature-card" style="line-height:1.75;color:var(--text-muted);display:flex;flex-direction:column;gap:1.4rem">
+<section><h3>1. Controller</h3><p>Controller (Verantwortlicher): Herbert Daniel Frede, InetConnector.com, Bismarckstraße 6, 97209 Veitshöchheim, Germany. Email: privacy@inetconnector.com. Further contact details are available in the <a href="/impressum">Impressum</a>. This address is the privacy contact; it is not represented as a formally appointed Data Protection Officer unless such an appointment is separately published.</p></section>
+<section><h3>2. Categories of data</h3><p>Depending on how you use the Service, we may process account and contact data; authentication and security data; API/request routing metadata; IP addresses, timestamps and technical logs; billing, invoice and transaction metadata; provider node identifiers, hardware/telemetry and payout destination information; support communications; and content you submit for inference together with generated responses to the extent technically necessary to perform the request.</p></section>
+<section><h3>3. Purposes and legal bases</h3><p>We process data to provide and administer the Service and accounts, route and meter workloads, bill customers and settle providers, provide support, secure and prevent abuse of the network, comply with legal obligations, and establish or defend legal claims. Depending on the processing, the legal basis is Art. 6(1)(b) GDPR (contract/pre-contract measures), Art. 6(1)(c) GDPR (legal obligation), Art. 6(1)(f) GDPR (legitimate interests in secure, reliable and economically operated services, fraud prevention and legal defense), or Art. 6(1)(a) GDPR where consent is required. Where we process data solely on behalf of a business customer, the allocation of controller/processor roles may instead be governed by an Art. 28 GDPR data-processing agreement.</p></section>
+<section><h3>4. AI prompts and outputs</h3><p>ComputeMesh is designed to minimize persistent storage of prompt and output content in the inference path. However, we do not promise an absolute "zero log" condition across every component, third-party dependency, error condition or customer-selected configuration. Content may be transiently processed in memory and transmitted to the compute resources required to perform the request. Security, abuse handling, debugging or legal obligations may require limited processing of metadata and, only where necessary and configured, content. Customers must not submit personal data, special-category data, secrets or confidential information unless they have determined that the selected configuration, legal basis and contractual safeguards are appropriate.</p></section>
+<section><h3>5. Recipients and independent providers</h3><p>Data may be disclosed where necessary to hosting/infrastructure providers, payment providers, communications/support providers, professional advisers and public authorities where legally required. Distributed compute providers may technically process workload data required for assigned jobs. Provider access is intended to be technically restricted, but no distributed system can be represented as eliminating every security risk. Business customers are responsible for selecting appropriate deployment/data-residency options for their use case.</p></section>
+<section><h3>6. Payments</h3><p>Payment transactions may be processed by Stripe or another payment provider shown at checkout. Payment providers process payment and anti-fraud data under their own terms and privacy information and/or as processors depending on the activity. ComputeMesh should not receive full raw payment-card credentials where hosted payment interfaces are used. Billing and transaction records may be retained as required by tax, commercial and accounting law.</p></section>
+<section><h3>7. Provider identity, telemetry and payouts</h3><p>For hardware providers we may process node identity, public cryptographic identifiers, IP/network data, hardware characteristics, availability, job/verification telemetry, earnings, settlement records, tax/accounting information and payout destination data. Private cryptographic keys are intended to remain on the provider device; users remain responsible for safeguarding keys under their control.</p></section>
+<section><h3>8. Server logs and security</h3><p>Web and API infrastructure may generate security and access logs, including IP address, timestamp, request path, response status, user agent and security events. Such logs are processed for operational security, troubleshooting, abuse prevention and legal defense. Retention is limited to what is necessary for those purposes, subject to longer retention where an incident, legal claim or statutory duty requires it.</p></section>
+<section><h3>9. Retention</h3><p>We retain personal data only as long as necessary for the relevant purpose and thereafter where statutory retention periods or legal-claim periods apply. Account data is generally retained for the contractual relationship; billing/accounting records for applicable statutory periods; security records for a proportionate security period; and support/legal records as necessary to resolve the matter. Data is deleted or anonymized when no longer required, unless continued retention is legally permitted or required.</p></section>
+<section><h3>10. International transfers</h3><p>Some service providers may process data outside the European Economic Area. Where GDPR Chapter V requires safeguards, transfers must rely on an applicable adequacy decision, approved standard contractual clauses or another lawful transfer mechanism, together with supplementary measures where required. The exact mechanism depends on the provider and production configuration.</p></section>
+<section><h3>11. Cookies, local storage and external resources</h3><p>The legal pages are designed not to require external web-font requests. The wider portal may use technically necessary browser storage for session, security or preference functions. Non-essential analytics, advertising or similar tracking must not be enabled for users requiring consent unless an appropriate consent mechanism and corresponding disclosure are in place. Production deployments must keep this section synchronized with the actual cookie/storage inventory.</p></section>
+<section><h3>12. Security</h3><p>We use technical and organizational measures appropriate to the risk, which may include transport encryption, authentication, access controls, key isolation, logging, network restrictions and encrypted storage. No Internet or distributed-compute system is completely secure; therefore absolute security, confidentiality or uninterrupted availability cannot be guaranteed.</p></section>
+<section><h3>13. Your GDPR rights</h3><p>Subject to the statutory requirements, data subjects may have rights of access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction (Art. 18), data portability (Art. 20), objection (Art. 21), and withdrawal of consent with future effect (Art. 7(3)). You also have the right to lodge a complaint with a competent data-protection supervisory authority. Requests may be sent to privacy@inetconnector.com. Identity verification may be required where necessary to protect account data.</p></section>
+<section><h3>14. Automated decision-making</h3><p>ComputeMesh inference produces automated outputs, but the Operator does not intend account administration itself to make decisions based solely on automated processing that produce legal effects or similarly significantly affect individuals within Art. 22 GDPR, unless separately disclosed and lawfully implemented. Customers using AI outputs in their own decision processes are responsible for assessing their own Art. 22 and AI-regulatory obligations.</p></section>
+<section><h3>15. Changes</h3><p>This notice may be updated when processing, providers, law or production architecture changes. Material changes will be published in an appropriate manner. The production system, records of processing activities, processor agreements and this notice should be reviewed together before commercial launch and after material architectural changes.</p></section>
+</div></main><footer class="site-footer"><div class="container footer-bottom"><div>&copy; 2026 ComputeMesh · InetConnector.com</div><div><a href="/">Back to Home</a></div></div></footer></body></html>
