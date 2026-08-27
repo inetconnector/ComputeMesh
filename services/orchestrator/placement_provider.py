@@ -1,10 +1,10 @@
-"""Public boundary between ComputeMesh runtime and placement policy."""
+"""Public boundary between ComputeMesh execution and private placement policy."""
 from __future__ import annotations
 
 import base64
 import binascii
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 from typing import Any, Protocol
 from urllib import error as urlerror
@@ -22,7 +22,7 @@ class PlacementProviderError(RuntimeError):
 
 @dataclass(frozen=True)
 class PlacementPlan:
-    """Minimal execution data allowed to cross the placement-policy boundary."""
+    """Minimal execution data allowed to cross the private-policy boundary."""
 
     decision_id: str
     model_id: str
@@ -41,12 +41,10 @@ class PlacementPlan:
             raise ValueError("placement identifiers must be non-empty")
         if self.artifact_size_bytes < 1 or self.layer_count < 2:
             raise ValueError("placement model metadata is invalid")
-        if not self.coordinator_node_id or not self.worker_node_id:
-            raise ValueError("placement node ids must be non-empty")
-        if self.coordinator_node_id == self.worker_node_id:
+        if not self.coordinator_node_id or not self.worker_node_id or self.coordinator_node_id == self.worker_node_id:
             raise ValueError("placement requires distinct coordinator and worker")
         if len(self.layer_ranges) != 2 or len(self.tensor_split) != 2:
-            raise ValueError("current live runtime requires exactly two placement stages")
+            raise ValueError("current live executor requires exactly two placement stages")
         if any(value <= 0 for value in self.tensor_split):
             raise ValueError("tensor split entries must be positive")
         ordered = sorted(self.layer_ranges, key=lambda item: item[1])
@@ -83,10 +81,7 @@ def _reference_plan(decision: dict[str, Any]) -> PlacementPlan:
         coordinator_kind=str(coordinator["kind"]),
         coordinator_name=str(coordinator["name"]),
         worker_node_id=str(worker["node_id"]),
-        layer_ranges=tuple(
-            (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
-            for item in candidate["layer_ranges"]
-        ),
+        layer_ranges=tuple((str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"])) for item in candidate["layer_ranges"]),
         tensor_split=tuple(float(value) for value in candidate["tensor_split"]),
     )
 
@@ -139,43 +134,51 @@ def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expec
         raise PlacementProviderError("private placement timestamps are invalid") from exc
     if issued.tzinfo is None or expires.tzinfo is None:
         raise PlacementProviderError("private placement timestamps must be timezone-aware")
-    now = datetime.now(timezone.utc)
-    if expires.astimezone(timezone.utc) <= now:
+    now = datetime.now(UTC)
+    if expires.astimezone(UTC) <= now:
         raise PlacementProviderError("private placement decision has expired")
-    if issued.astimezone(timezone.utc) > now + timedelta(seconds=30):
+    if issued.astimezone(UTC) > now + timedelta(seconds=30):
         raise PlacementProviderError("private placement decision exceeds allowed clock skew")
 
 
 def _external_plan(value: dict[str, Any]) -> PlacementPlan:
-    if value.get("schema_version") != 1 or value.get("decision_type") != "placement":
+    if value.get("schema_version") != 2 or value.get("decision_type") != "execution_plan":
         raise PlacementProviderError("private placement response has an unsupported envelope")
     payload = value.get("payload")
     if not isinstance(payload, dict):
         raise PlacementProviderError("private placement response lacks payload")
     model, execution = payload.get("model"), payload.get("execution")
-    if not isinstance(model, dict) or not isinstance(execution, dict):
-        raise PlacementProviderError("private placement response lacks model/execution data")
-    coordinator, worker = execution.get("coordinator"), execution.get("worker")
-    ranges, split = execution.get("layer_ranges"), execution.get("tensor_split")
-    if not isinstance(coordinator, dict) or not isinstance(worker, dict) or not isinstance(ranges, list) or not isinstance(split, list):
-        raise PlacementProviderError("private placement execution payload is malformed")
+    if not isinstance(model, dict) or not isinstance(execution, dict) or execution.get("executor_version") != 1:
+        raise PlacementProviderError("private placement response lacks supported execution data")
+    coordinator = execution.get("coordinator")
+    stages = execution.get("stages")
+    if not isinstance(coordinator, dict) or not isinstance(stages, list) or len(stages) != 2:
+        raise PlacementProviderError("current public executor requires exactly two signed stages")
     try:
+        ranges = tuple((str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"])) for item in stages)
+        split = tuple(float(item["tensor_weight"]) for item in stages)
+        coordinator_id = str(coordinator["node_id"])
+        worker_id = next(item[0] for item in ranges if item[0] != coordinator_id)
         return PlacementPlan(
             decision_id=str(value["decision_id"]),
-            model_id=str(model["model_id"]), artifact_digest=str(model["artifact_digest"]),
-            artifact_size_bytes=int(model["artifact_size_bytes"]), layer_count=int(model["layer_count"]),
-            coordinator_node_id=str(coordinator["node_id"]), coordinator_kind=str(coordinator["kind"]),
-            coordinator_name=str(coordinator["name"]), worker_node_id=str(worker["node_id"]),
-            layer_ranges=tuple((str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"])) for item in ranges),
-            tensor_split=tuple(float(item) for item in split),
+            model_id=str(model["model_id"]),
+            artifact_digest=str(model["artifact_digest"]),
+            artifact_size_bytes=int(model["artifact_size_bytes"]),
+            layer_count=int(model["layer_count"]),
+            coordinator_node_id=coordinator_id,
+            coordinator_kind=str(coordinator["kind"]),
+            coordinator_name=str(coordinator["name"]),
+            worker_node_id=worker_id,
+            layer_ranges=ranges,
+            tensor_split=split,
         )
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, StopIteration, TypeError, ValueError) as exc:
         raise PlacementProviderError("private placement payload contains invalid execution data") from exc
 
 
 @dataclass(frozen=True)
 class RemotePlacementProvider:
-    """Thin fail-closed HTTPS client for the private production control plane."""
+    """Fail-closed HTTPS client for the private global production scheduler."""
 
     endpoint: str
     bearer_token: str
@@ -195,6 +198,9 @@ class RemotePlacementProvider:
             raise ValueError("timeout_seconds must be within (0,60]")
 
     def decide(self, **inputs: Any) -> PlacementPlan:
+        allowed = {"model_manifest", "candidates", "network_edges", "constraints"}
+        if set(inputs) != allowed:
+            raise PlacementProviderError("production placement requires one global candidate-pool request")
         req = urlrequest.Request(
             self.endpoint,
             data=json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode("utf-8"),

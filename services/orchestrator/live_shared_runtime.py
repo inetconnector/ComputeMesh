@@ -1,14 +1,13 @@
-"""Live control-plane inputs for gateway shared inference.
+"""Live execution inputs for public ComputeMesh shared inference.
 
-The registry is intentionally in-memory: node sessions, profiles, benchmarks and
-control-channel clients are runtime state. A fresh placement is built for each
-request from the configured PlacementProvider. Production policy remains behind
-the private control-plane boundary.
+Production selection is global and private: the public registry supplies a bounded
+snapshot of currently usable nodes and measured network edges, verifies the signed
+result, then executes it. The disclosed reference planner remains research-only.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 import threading
 from typing import Any
@@ -17,10 +16,7 @@ from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_trial import TrialPlan
 from services.gateway.placement_selection import PlacementSelection
-from services.orchestrator.authenticated_attestation_transport import (
-    ATTESTATION_CAPABILITY,
-    NodeControlClient,
-)
+from services.orchestrator.authenticated_attestation_transport import ATTESTATION_CAPABILITY, NodeControlClient
 from services.orchestrator.placement_provider import (
     PlacementPlan,
     PlacementProvider,
@@ -70,16 +66,12 @@ def _selection_from_plan(plan: PlacementPlan) -> PlacementSelection:
 
 
 class LiveSharedRuntimeRegistry:
-    """Thread-safe source of current scheduler and authenticated-session inputs."""
-
     def __init__(self, *, placement_provider: PlacementProvider | None = None) -> None:
         self._lock = threading.RLock()
         self._nodes: dict[str, LiveNodeState] = {}
         self._models: dict[str, LiveModelState] = {}
         self._network: dict[tuple[str, str], dict[str, Any]] = {}
         self._control_client: NodeControlClient | None = None
-        # Reference planner preserves disclosed M1 behavior. Production startup must
-        # explicitly inject RemotePlacementProvider; private policy never lives here.
         self._placement_provider: PlacementProvider = placement_provider or ReferencePlacementProvider()
 
     def set_placement_provider(self, provider: PlacementProvider) -> None:
@@ -127,11 +119,11 @@ class LiveSharedRuntimeRegistry:
 
     @staticmethod
     def _session_ready(session: SessionSnapshot, *, now: datetime | None = None) -> bool:
-        current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        current = (now or datetime.now(UTC)).astimezone(UTC)
         return (
             session.state in {NodeSessionState.CAPABILITIES_NEGOTIATED, NodeSessionState.PROFILE_SYNCED, NodeSessionState.READY}
             and session.credential_expires_at is not None
-            and session.credential_expires_at.astimezone(timezone.utc) > current
+            and session.credential_expires_at.astimezone(UTC) > current
             and ATTESTATION_CAPABILITY in session.negotiated_capabilities
         )
 
@@ -139,9 +131,7 @@ class LiveSharedRuntimeRegistry:
         with self._lock:
             state = self._nodes.get(node_id)
             client = self._control_client
-        if state is None or not self._session_ready(state.session):
-            return False
-        if client is None:
+        if state is None or not self._session_ready(state.session) or client is None:
             return False
         probe = getattr(client, "is_connected", None)
         if not callable(probe):
@@ -151,40 +141,42 @@ class LiveSharedRuntimeRegistry:
         except Exception:
             return False
 
-    def build_execution_plan(self, model_id: str, *, allow_experimental: bool) -> LiveExecutionPlan:
-        with self._lock:
-            model = self._models.get(model_id)
-            if model is None:
-                raise LiveSharedRuntimeError(f"model {model_id!r} is not registered in live runtime")
-            states = list(self._nodes.values())
-            networks = dict(self._network)
-            placement_provider = self._placement_provider
-        nodes = [state for state in states if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))]
-        nodes.sort(key=lambda item: str(item.session.node_id))
-        if len(nodes) < 2:
-            raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
+    @staticmethod
+    def _trial_from_plan(plan: PlacementPlan, model: LiveModelState, coordinator: LiveNodeState) -> TrialPlan:
+        ranges = tuple(
+            {"node_id": node, "start_layer": start, "end_layer_exclusive": end}
+            for node, start, end in plan.layer_ranges
+        )
+        return TrialPlan(
+            bundle_id="live:" + plan.decision_id,
+            placement_decision_id=plan.decision_id,
+            coordinator_node_id=plan.coordinator_node_id,
+            worker_node_id=plan.worker_node_id,
+            coordinator_kind=plan.coordinator_kind,
+            coordinator_name=plan.coordinator_name,
+            llama_build_commit=coordinator.llama_build_commit,
+            llama_build_number=coordinator.llama_build_number,
+            model_basename=model.model_path.name,
+            model_size_bytes=plan.artifact_size_bytes,
+            model_sha256=plan.artifact_digest.removeprefix("sha256:"),
+            tensor_split=plan.tensor_split,
+            layer_ranges=(ranges[0], ranges[1]),
+        )
 
-        # The disclosed reference planner remains explicitly experimental. A private
-        # provider is production policy and does not expose the old M1 recommendation
-        # flags across the API boundary.
-        if isinstance(placement_provider, ReferencePlacementProvider) and not allow_experimental:
-            raise LiveSharedRuntimeError("reference M1 placement requires explicit experimental opt-in")
-
+    def _reference_plan(self, model: LiveModelState, nodes: list[LiveNodeState], networks: dict[tuple[str, str], dict[str, Any]], provider: PlacementProvider) -> PlacementPlan:
         failures: list[str] = []
         for coordinator in nodes:
             for worker in nodes:
                 if coordinator is worker:
                     continue
-                coord_id = str(coordinator.session.node_id)
-                worker_id = str(worker.session.node_id)
+                coord_id, worker_id = str(coordinator.session.node_id), str(worker.session.node_id)
                 network = networks.get((coord_id, worker_id))
                 if network is None:
                     continue
                 if coordinator.llama_build_number != worker.llama_build_number or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower():
-                    failures.append(f"{coord_id}->{worker_id}: runtime build mismatch")
                     continue
                 try:
-                    plan = placement_provider.decide(
+                    return provider.decide(
                         coordinator_profile=coordinator.profile,
                         worker_profile=worker.profile,
                         model_manifest=model.manifest,
@@ -196,43 +188,75 @@ class LiveSharedRuntimeRegistry:
                     )
                 except (PlacementProviderError, ValueError, KeyError) as exc:
                     failures.append(f"{coord_id}->{worker_id}: {exc}")
-                    continue
-
-                if plan.model_id != model_id:
-                    failures.append(f"{coord_id}->{worker_id}: placement model mismatch")
-                    continue
-                if plan.coordinator_node_id != coord_id or plan.worker_node_id != worker_id:
-                    failures.append(f"{coord_id}->{worker_id}: placement selected different nodes")
-                    continue
-
-                placement = _selection_from_plan(plan)
-                ranges = tuple(
-                    {"node_id": node, "start_layer": start, "end_layer_exclusive": end}
-                    for node, start, end in plan.layer_ranges
-                )
-                trial = TrialPlan(
-                    bundle_id="live:" + plan.decision_id,
-                    placement_decision_id=plan.decision_id,
-                    coordinator_node_id=coord_id,
-                    worker_node_id=worker_id,
-                    coordinator_kind=plan.coordinator_kind,
-                    coordinator_name=plan.coordinator_name,
-                    llama_build_commit=coordinator.llama_build_commit,
-                    llama_build_number=coordinator.llama_build_number,
-                    model_basename=model.model_path.name,
-                    model_size_bytes=plan.artifact_size_bytes,
-                    model_sha256=plan.artifact_digest.removeprefix("sha256:"),
-                    tensor_split=plan.tensor_split,
-                    layer_ranges=(ranges[0], ranges[1]),
-                )
-                return LiveExecutionPlan(
-                    placement=placement,
-                    trial_plan=trial,
-                    model_path=model.model_path,
-                    worker_rpc=worker.rpc_endpoint,
-                )
         detail = "; ".join(failures[:4])
-        raise LiveSharedRuntimeError("no live two-node shared placement is currently feasible" + (f": {detail}" if detail else ""))
+        raise LiveSharedRuntimeError("no reference two-node placement is feasible" + (f": {detail}" if detail else ""))
+
+    def build_execution_plan(self, model_id: str, *, allow_experimental: bool) -> LiveExecutionPlan:
+        with self._lock:
+            model = self._models.get(model_id)
+            if model is None:
+                raise LiveSharedRuntimeError(f"model {model_id!r} is not registered in live runtime")
+            states = list(self._nodes.values())
+            networks = dict(self._network)
+            provider = self._placement_provider
+
+        nodes = [state for state in states if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))]
+        nodes.sort(key=lambda item: str(item.session.node_id))
+        if len(nodes) < 2:
+            raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
+
+        if isinstance(provider, ReferencePlacementProvider):
+            if not allow_experimental:
+                raise LiveSharedRuntimeError("reference M1 placement requires explicit experimental opt-in")
+            plan = self._reference_plan(model, nodes, networks, provider)
+        else:
+            candidates = [
+                {
+                    "node_id": str(state.session.node_id),
+                    "profile": state.profile,
+                    "prefill": state.prefill,
+                    "decode": state.decode,
+                    "runtime": {
+                        "llama_build_number": state.llama_build_number,
+                        "llama_build_commit": state.llama_build_commit,
+                    },
+                    "capacity": {"control_healthy": True},
+                }
+                for state in nodes
+            ]
+            network_edges = [
+                {"source_node_id": source, "target_node_id": target, "result": result}
+                for (source, target), result in sorted(networks.items())
+                if source in {item["node_id"] for item in candidates} and target in {item["node_id"] for item in candidates}
+            ]
+            try:
+                plan = provider.decide(
+                    model_manifest=model.manifest,
+                    candidates=candidates,
+                    network_edges=network_edges,
+                    constraints={"topology": "shared_contiguous_layers", "executor_max_stages": 2},
+                )
+            except (PlacementProviderError, ValueError, KeyError) as exc:
+                raise LiveSharedRuntimeError(f"private global placement failed: {exc}") from exc
+
+        by_id = {str(state.session.node_id): state for state in nodes}
+        coordinator = by_id.get(plan.coordinator_node_id)
+        worker = by_id.get(plan.worker_node_id)
+        if coordinator is None or worker is None:
+            raise LiveSharedRuntimeError("signed placement selected a node outside the submitted live snapshot")
+        if (plan.coordinator_node_id, plan.worker_node_id) not in networks:
+            raise LiveSharedRuntimeError("signed placement selected an unmeasured network path")
+        if coordinator.llama_build_number != worker.llama_build_number or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower():
+            raise LiveSharedRuntimeError("signed placement selected runtime-incompatible nodes")
+        if plan.model_id != model_id:
+            raise LiveSharedRuntimeError("signed placement model mismatch")
+
+        return LiveExecutionPlan(
+            placement=_selection_from_plan(plan),
+            trial_plan=self._trial_from_plan(plan, model, coordinator),
+            model_path=model.model_path,
+            worker_rpc=worker.rpc_endpoint,
+        )
 
 
 LIVE_SHARED_RUNTIME = LiveSharedRuntimeRegistry()
