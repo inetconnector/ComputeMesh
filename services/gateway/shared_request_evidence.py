@@ -30,6 +30,11 @@ class VerifiedSharedRequestEvidence:
     output_sha256: str
     provider_shares: tuple[tuple[str, float], ...]
     captured_at: datetime
+    request_ms: float
+    prefill_ms: float | None = None
+    prefill_tps: float | None = None
+    decode_ms: float | None = None
+    decode_tps: float | None = None
 
 
 def _canonical(value: Any) -> bytes:
@@ -123,6 +128,7 @@ def verify_shared_request_evidence(
         raise SharedRequestEvidenceError("evidence predates current execution")
     if captured > current + timedelta(minutes=5):
         raise SharedRequestEvidenceError("evidence timestamp is implausibly in the future")
+    performance = doc.get("performance")
     return VerifiedSharedRequestEvidence(
         evidence_id=doc["evidence_id"],
         document_sha256="sha256:" + hashlib.sha256(raw).hexdigest(),
@@ -132,4 +138,9 @@ def verify_shared_request_evidence(
         output_sha256=output_sha,
         provider_shares=_shares(actual_ranges),
         captured_at=captured,
+        request_ms=float(doc["request"]["request_ms"]),
+        prefill_ms=None if not isinstance(performance, dict) else float(performance["prefill_ms"]),
+        prefill_tps=None if not isinstance(performance, dict) else float(performance["prefill_tokens_per_second"]),
+        decode_ms=None if not isinstance(performance, dict) else float(performance["decode_ms"]),
+        decode_tps=None if not isinstance(performance, dict) else float(performance["decode_tokens_per_second"]),
     )

@@ -86,10 +86,26 @@ def build_shared_request_evidence(
         raise ValueError("job_id must be 1..256 characters")
     if not isinstance(content, str):
         raise ValueError("content must be text")
-    required_timings = {"prompt_n", "predicted_n", "request_ms"}
+    required_timings = {
+        "prompt_n",
+        "predicted_n",
+        "request_ms",
+        "prompt_ms",
+        "prompt_per_second",
+        "predicted_ms",
+        "predicted_per_second",
+    }
     if not required_timings <= timings.keys():
         raise SharedRequestError("shared request timings are incomplete")
     runtime = {"name": "llama.cpp", "version": runtime_version_text}
+    performance = {
+        "prefill_ms": float(timings["prompt_ms"]),
+        "prefill_tokens_per_second": float(timings["prompt_per_second"]),
+        "decode_ms": float(timings["predicted_ms"]),
+        "decode_tokens_per_second": float(timings["predicted_per_second"]),
+    }
+    if "model_ready_ms" in timings:
+        performance["model_ready_ms"] = float(timings["model_ready_ms"])
     evidence = {
         "schema_version": 1,
         "captured_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -114,6 +130,7 @@ def build_shared_request_evidence(
             "completion_tokens": int(timings["predicted_n"]),
             "request_ms": float(timings["request_ms"]),
         },
+        "performance": performance,
         "network": {
             "coordinator_to_worker_bytes": int(relay_metrics["client_to_target_bytes"]),
             "worker_to_coordinator_bytes": int(relay_metrics["target_to_client_bytes"]),

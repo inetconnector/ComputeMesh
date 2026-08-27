@@ -7,11 +7,12 @@ import threading
 from typing import Any
 
 from runtime.llama.shared_request_live import run_live_shared_request
-from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.gateway.execution_attestation import VerificationKeyResolver
+from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.orchestrator.authenticated_attestation_transport import SessionAuthenticatedAttestationTransport
 from services.orchestrator.live_shared_runtime import LiveExecutionPlan, LiveSharedRuntimeRegistry, LiveSharedRuntimeError
 from services.orchestrator.persistence import SQLiteStateStore
+from services.orchestrator.private_feedback import PrivateFeedbackError, PrivateOutcomeFeedback
 from services.orchestrator.shared_request_backend import SharedRequestOrchestratedBackend
 
 
@@ -27,6 +28,7 @@ class LiveSharedInferenceBackend:
         llama_server: Path,
         work_root: Path,
         allow_experimental: bool,
+        outcome_feedback: PrivateOutcomeFeedback | None = None,
         lease_seconds: int = 600,
         max_attempts: int = 2,
         startup_timeout: float = 300.0,
@@ -47,6 +49,7 @@ class LiveSharedInferenceBackend:
         self.llama_server = Path(llama_server)
         self.work_root = Path(work_root)
         self.allow_experimental = allow_experimental
+        self.outcome_feedback = outcome_feedback
         self.lease_seconds = lease_seconds
         self.max_attempts = max_attempts
         self.startup_timeout = startup_timeout
@@ -97,6 +100,20 @@ class LiveSharedInferenceBackend:
                 **kwargs,
             )
 
+        def verified_hook(_evidence_path: Path, verified) -> None:
+            if self.outcome_feedback is None:
+                return
+            outcome_id = self.outcome_feedback.enqueue_verified_success(
+                model_id=live.placement.model_id,
+                coordinator_node_id=live.trial_plan.coordinator_node_id,
+                worker_node_id=live.trial_plan.worker_node_id,
+                network_result=live.network_result,
+                verified=verified,
+            )
+            # Network delivery is best-effort after durable enqueue. A timeout cannot
+            # lose or duplicate the observation; startup/replay will try it again.
+            self.outcome_feedback.deliver(outcome_id)
+
         return SharedRequestOrchestratedBackend(
             store=self.store,
             placement=live.placement,
@@ -110,6 +127,7 @@ class LiveSharedInferenceBackend:
             lease_seconds=self.lease_seconds,
             id_factory=lambda: attempt_job_id,
             runner=runner,
+            verified_execution_hook=verified_hook,
         )
 
     def cancel(self, request_id: str) -> bool:
@@ -168,6 +186,31 @@ class LiveSharedInferenceBackend:
         thread.start()
         return thread
 
+    def _record_failed_attempt(self, *, live: LiveExecutionPlan, attempt_job_id: str) -> None:
+        if self.outcome_feedback is None:
+            return
+        disconnected = tuple(
+            node_id
+            for node_id in live.placement.provider_node_ids
+            if not self.registry.is_node_control_healthy(node_id)
+        )
+        try:
+            outcome_id = self.outcome_feedback.enqueue_execution_failure(
+                attempt_job_id=attempt_job_id,
+                decision_id=live.placement.decision_id,
+                model_id=live.placement.model_id,
+                coordinator_node_id=live.trial_plan.coordinator_node_id,
+                worker_node_id=live.trial_plan.worker_node_id,
+                network_result=live.network_result,
+                disconnected_node_ids=disconnected,
+            )
+            self.outcome_feedback.deliver(outcome_id)
+        except PrivateFeedbackError:
+            # Preserve the original runtime failure. Successful execution uses the
+            # stricter verified hook, where failure to durably enqueue prevents the
+            # job from being marked COMPLETED.
+            return
+
     def _complete(
         self,
         *,
@@ -212,6 +255,7 @@ class LiveSharedInferenceBackend:
                 return backend.complete(model_id=model_id, messages=messages)
             except InferenceBackendError as exc:
                 last_error = exc
+                self._record_failed_attempt(live=live, attempt_job_id=attempt_job_id)
                 if cancel_event.is_set():
                     raise InferenceBackendError("shared request was cancelled") from exc
                 if attempt >= self.max_attempts:

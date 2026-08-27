@@ -14,7 +14,11 @@ from runtime.llama.shared_request_live import SharedRequestCancelled
 from services.gateway.execution_attestation import VerificationKeyResolver, verify_execution_attestations
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
 from services.gateway.placement_selection import PlacementSelection
-from services.gateway.shared_request_evidence import SharedRequestEvidenceError, verify_shared_request_evidence
+from services.gateway.shared_request_evidence import (
+    SharedRequestEvidenceError,
+    VerifiedSharedRequestEvidence,
+    verify_shared_request_evidence,
+)
 from services.orchestrator.attestation_collection import NodeAttestationTransport, collect_execution_attestations
 from services.orchestrator.evidence_store import ExecutionEvidenceStore
 from services.orchestrator.persistence import SQLiteStateStore
@@ -88,6 +92,7 @@ class SharedRequestOrchestratedBackend:
         id_factory: Callable[[], str] | None = None,
         runner: Callable[..., SharedRequestResult] = run_shared_request,
         prompt_renderer: Callable[[list[dict[str, Any]]], str] = _render_messages,
+        verified_execution_hook: Callable[[Path, VerifiedSharedRequestEvidence], None] | None = None,
     ) -> None:
         if len(placement.provider_node_ids) < 2:
             raise ValueError("shared request orchestration requires at least two providers")
@@ -106,6 +111,7 @@ class SharedRequestOrchestratedBackend:
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
         self.runner = runner
         self.prompt_renderer = prompt_renderer
+        self.verified_execution_hook = verified_execution_hook
         self.evidence_store = ExecutionEvidenceStore(store)
 
     def close(self) -> None:
@@ -265,6 +271,8 @@ class SharedRequestOrchestratedBackend:
                 output_sha256=verified.output_sha256,
                 provider_shares=verified.provider_shares,
             )
+            if self.verified_execution_hook is not None:
+                self.verified_execution_hook(runtime_result.evidence_path, verified)
             self._advance(job_id, JobState.COMPLETED)
             return BackendResult(
                 runtime_result.text,

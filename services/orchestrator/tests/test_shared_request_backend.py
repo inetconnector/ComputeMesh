@@ -108,7 +108,16 @@ class SharedRequestBackendTests(unittest.TestCase):
             runtime_version_text="llama.cpp build 123 abcdef0",
             prompt=kwargs["prompt"],
             content=text,
-            timings={"prompt_n": 12, "predicted_n": 6, "request_ms": 50.0},
+            timings={
+                "prompt_n": 12,
+                "predicted_n": 6,
+                "request_ms": 50.0,
+                "prompt_ms": 10.0,
+                "prompt_per_second": 1200.0,
+                "predicted_ms": 40.0,
+                "predicted_per_second": 150.0,
+                "model_ready_ms": 25.0,
+            },
             relay_metrics={"client_to_target_bytes": 100, "target_to_client_bytes": 200},
         )
         path = output_dir / "shared_request_evidence.json"
