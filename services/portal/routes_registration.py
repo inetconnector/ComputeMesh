@@ -1,6 +1,9 @@
-"""ComputeMesh Public Portal Registration Routes Handler.
+"""ComputeMesh public portal registration routes.
 
-Handles /api/v1/register for consumers and providers with AES-256-GCM vault encryption.
+Registration is deliberately fail-closed for the current B2B terms: credentials are
+issued only after explicit acceptance of the published terms version and confirmation
+that the registrant acts as a business user. The accepted version and timestamp are
+stored with the account/API-key record so contract incorporation is auditable.
 """
 from __future__ import annotations
 
@@ -19,7 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.identity.vault import DEFAULT_VAULT
 
-# In-memory customer & billing store with AES-256-GCM encrypted fields
+CURRENT_TERMS_VERSION = "2.1"
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}
 
 
@@ -59,7 +62,7 @@ def _persist_api_key_record(path: Path | None, record: dict[str, Any]) -> None:
 
 
 class PortalRegistrationHandler:
-    """Handles consumer and provider registration with encrypted vaults."""
+    """Handle B2B consumer/provider registration with auditable clickwrap acceptance."""
 
     def __init__(self, store: dict[str, dict[str, Any]] | None = None) -> None:
         self.store = REGISTERED_ACCOUNTS if store is None else store
@@ -68,17 +71,27 @@ class PortalRegistrationHandler:
         email = str(body.get("email", "")).strip().lower()
         role = str(body.get("role", "consumer")).strip().lower()
         wallet = str(body.get("wallet", "")).strip()
+        terms_version = str(body.get("terms_version", "")).strip()
+        accepted_terms = body.get("accepted_terms") is True
+        privacy_acknowledged = body.get("privacy_acknowledged") is True
+        business_user = body.get("business_user") is True
 
         if not email or "@" not in email:
             return (None, "Valid email address is required", HTTPStatus.BAD_REQUEST)
-
         if role not in ("consumer", "provider"):
             return (None, "role must be either consumer or provider", HTTPStatus.BAD_REQUEST)
+        if terms_version != CURRENT_TERMS_VERSION or not accepted_terms:
+            return (None, f"Acceptance of Terms version {CURRENT_TERMS_VERSION} is required", HTTPStatus.BAD_REQUEST)
+        if not privacy_acknowledged:
+            return (None, "Privacy notice acknowledgement is required", HTTPStatus.BAD_REQUEST)
+        if not business_user:
+            return (None, "ComputeMesh account registration is currently restricted to business users", HTTPStatus.FORBIDDEN)
 
         prefix = "cm_live_" if role == "consumer" else "cm_provider_"
         token = prefix + secrets.token_hex(16)
         account_id = f"acc_{secrets.token_hex(8)}"
         created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        accepted_at = created_at
 
         encrypted_wallet = DEFAULT_VAULT.encrypt(wallet) if wallet else None
         encrypted_email = DEFAULT_VAULT.encrypt(email)
@@ -90,24 +103,41 @@ class PortalRegistrationHandler:
             "role": role,
             "wallet_encrypted": encrypted_wallet,
             "wallet_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
-            "balance_micro_credits": 10000000 if role == "consumer" else 0,  # $10 free credit
+            "balance_micro_credits": 10000000 if role == "consumer" else 0,
             "created_at": created_at,
+            "terms_version": CURRENT_TERMS_VERSION,
+            "terms_accepted_at": accepted_at,
+            "privacy_acknowledged_at": accepted_at,
+            "business_user_confirmed": True,
         }
 
-        _persist_api_key_record(_api_key_store_path(), {
-            "api_key": token,
-            "account_id": account_id,
-            "role": role,
-            "email_masked": DEFAULT_VAULT.mask_sensitive(email),
-            "created_at": created_at,
-        })
+        _persist_api_key_record(
+            _api_key_store_path(),
+            {
+                "api_key": token,
+                "account_id": account_id,
+                "role": role,
+                "email_masked": DEFAULT_VAULT.mask_sensitive(email),
+                "created_at": created_at,
+                "terms_version": CURRENT_TERMS_VERSION,
+                "terms_accepted_at": accepted_at,
+                "privacy_acknowledged_at": accepted_at,
+                "business_user_confirmed": True,
+            },
+        )
 
-        return ({
-            "status": "success",
-            "account_id": account_id,
-            "api_key": token,
-            "role": role,
-            "payout_target_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
-            "encryption": "AES-256-GCM",
-            "free_credit_granted_usd": 10.0 if role == "consumer" else 0.0,
-        }, None, HTTPStatus.CREATED)
+        return (
+            {
+                "status": "success",
+                "account_id": account_id,
+                "api_key": token,
+                "role": role,
+                "payout_target_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
+                "encryption": "AES-256-GCM",
+                "free_credit_granted_usd": 10.0 if role == "consumer" else 0.0,
+                "terms_version": CURRENT_TERMS_VERSION,
+                "terms_accepted_at": accepted_at,
+            },
+            None,
+            HTTPStatus.CREATED,
+        )
