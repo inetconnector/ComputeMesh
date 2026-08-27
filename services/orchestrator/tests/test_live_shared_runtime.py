@@ -10,7 +10,8 @@ from services.orchestrator.live_shared_runtime import (
     LiveSharedRuntimeError,
     LiveSharedRuntimeRegistry,
 )
-from services.scheduler.tests.test_placement import bench, manifest, profile
+from services.orchestrator.placement_provider import PlacementPlan
+from services.scheduler.tests.test_placement import DIGEST, bench, manifest, profile
 
 
 class _ControlClient:
@@ -22,6 +23,30 @@ class _ControlClient:
 
     def request(self, **kwargs):
         raise NotImplementedError
+
+
+class _GlobalProvider:
+    def __init__(self):
+        self.calls = []
+
+    def decide(self, **inputs):
+        self.calls.append(inputs)
+        ids = [item["node_id"] for item in inputs["candidates"]]
+        assert ids == sorted(ids)
+        assert len(ids) >= 3
+        return PlacementPlan(
+            decision_id="private-global-1",
+            model_id="test-model",
+            artifact_digest=DIGEST,
+            artifact_size_bytes=8_000_000_000,
+            layer_count=32,
+            coordinator_node_id="node-b",
+            coordinator_kind="gpu",
+            coordinator_name="Test GPU",
+            worker_node_id="node-c",
+            layer_ranges=(("node-b", 0, 18), ("node-c", 18, 32)),
+            tensor_split=(18.0, 14.0),
+        )
 
 
 def session(node_id: str, *, expires_in: timedelta = timedelta(minutes=10)) -> SessionSnapshot:
@@ -55,8 +80,8 @@ def live_node(node_id: str, gpu_memory: int, rpc_port: int, *, session_override=
     )
 
 
-def configured_registry(*, control=None) -> LiveSharedRuntimeRegistry:
-    registry = LiveSharedRuntimeRegistry()
+def configured_registry(*, control=None, provider=None) -> LiveSharedRuntimeRegistry:
+    registry = LiveSharedRuntimeRegistry(placement_provider=provider)
     registry.set_control_client(control or _ControlClient())
     return registry
 
@@ -75,19 +100,32 @@ class LiveSharedRuntimeTests(unittest.TestCase):
             peer_binding="computemesh_ed25519_session_v1",
         )
         registry.register_network_result("node-a", "node-b", network)
-        registry.register_model(
-            LiveModelState(
-                model_id="test-model",
-                manifest=manifest(layer_count=32),
-                model_path=Path("/models/model.gguf"),
-            )
-        )
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
         live = registry.build_execution_plan("test-model", allow_experimental=True)
         self.assertEqual(live.placement.model_id, "test-model")
         self.assertEqual(live.placement.provider_node_ids, ("node-a", "node-b"))
         self.assertEqual(live.trial_plan.llama_build_number, 999)
         self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50052")
         self.assertTrue(live.trial_plan.bundle_id.startswith("live:"))
+
+    def test_production_provider_receives_full_pool_once_and_selects_pair_privately(self):
+        provider = _GlobalProvider()
+        registry = configured_registry(control=_ControlClient(("node-a", "node-b", "node-c")), provider=provider)
+        registry.register_node(live_node("node-a", 10_000_000_000, 50051))
+        registry.register_node(live_node("node-b", 10_000_000_000, 50052))
+        registry.register_node(live_node("node-c", 8_000_000_000, 50053))
+        for source, target in (("node-a", "node-b"), ("node-b", "node-c"), ("node-c", "node-b")):
+            registry.register_network_result(
+                source,
+                target,
+                bench("tcp_network_path", f"{source}-{target}", 3, local_node_id=source, peer_node_id=target),
+            )
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
+        live = registry.build_execution_plan("test-model", allow_experimental=False)
+        self.assertEqual(len(provider.calls), 1)
+        self.assertEqual(len(provider.calls[0]["candidates"]), 3)
+        self.assertEqual(live.placement.provider_node_ids, ("node-b", "node-c"))
+        self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50053")
 
     def test_disconnected_node_is_excluded_before_scheduling(self):
         registry = configured_registry(control=_ControlClient(("node-a",)))
