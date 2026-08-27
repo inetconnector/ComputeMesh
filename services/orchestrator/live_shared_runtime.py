@@ -1,9 +1,9 @@
 """Live control-plane inputs for gateway shared inference.
 
 The registry is intentionally in-memory: node sessions, profiles, benchmarks and
-control-channel clients are runtime state, not pre-positioned settlement files.
-A fresh placement is built for each request from the current registered state.
-Production placement policy is accessed only through PlacementProvider.
+control-channel clients are runtime state. A fresh placement is built for each
+request from the configured PlacementProvider. Production policy remains behind
+the private control-plane boundary.
 """
 from __future__ import annotations
 
@@ -13,17 +13,16 @@ from pathlib import Path
 import threading
 from typing import Any
 
-from jsonschema import Draft202012Validator, FormatChecker
-
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_trial import TrialPlan
-from services.gateway.placement_selection import PlacementSelection, PlacementSelectionError
+from services.gateway.placement_selection import PlacementSelection
 from services.orchestrator.authenticated_attestation_transport import (
     ATTESTATION_CAPABILITY,
     NodeControlClient,
 )
 from services.orchestrator.placement_provider import (
+    PlacementPlan,
     PlacementProvider,
     PlacementProviderError,
     ReferencePlacementProvider,
@@ -60,55 +59,13 @@ class LiveExecutionPlan:
     worker_rpc: RpcEndpoint
 
 
-def _selection_from_decision(decision: dict[str, Any], *, allow_experimental: bool) -> PlacementSelection:
-    from pathlib import Path as _Path
-    import json
-
-    schema_path = _Path(__file__).resolve().parents[1] / "scheduler" / "placement_decision.schema.json"
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    errors = sorted(
-        Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(decision),
-        key=lambda item: list(item.absolute_path),
-    )
-    if errors:
-        first = errors[0]
-        where = ".".join(str(part) for part in first.absolute_path) or "$"
-        raise PlacementSelectionError(f"live placement invalid at {where}: {first.message}")
-    recommendation = decision["recommendation"]
-    if recommendation["production_scheduling"] is not False:
-        raise PlacementSelectionError("unexpected production_scheduling contract")
-    if not allow_experimental:
-        raise PlacementSelectionError("live M1 shared placement requires explicit experimental opt-in")
-    if recommendation["mode"] != "shared_experiment":
-        raise PlacementSelectionError("scheduler did not recommend a shared experiment")
-    if not all(bool(item["passed"]) for item in decision["hard_constraints"]):
-        raise PlacementSelectionError("placement hard constraints are not all satisfied")
-    matches = [c for c in decision["candidates"] if c["mode"] == "shared_contiguous_layers"]
-    if len(matches) != 1 or not matches[0]["feasible"]:
-        raise PlacementSelectionError("no unique feasible shared placement")
-    ranges = matches[0]["layer_ranges"]
-    if len(ranges) != 2:
-        raise PlacementSelectionError("live serving currently requires exactly two layer ranges")
-    layer_ranges = tuple(
-        (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
-        for item in ranges
-    )
-    ordered = tuple(sorted(layer_ranges, key=lambda item: item[1]))
-    if ordered[0][1] != 0 or ordered[0][2] != ordered[1][1] or ordered[-1][2] != int(decision["model"]["layer_count"]):
-        raise PlacementSelectionError("live placement layer ranges are not contiguous/full")
-    nodes = tuple(item[0] for item in layer_ranges)
-    expected = {
-        str(decision["nodes"]["coordinator"]["node_id"]),
-        str(decision["nodes"]["worker"]["node_id"]),
-    }
-    if set(nodes) != expected or len(set(nodes)) != 2:
-        raise PlacementSelectionError("live placement nodes do not match scheduler decision")
+def _selection_from_plan(plan: PlacementPlan) -> PlacementSelection:
     return PlacementSelection(
-        decision_id=str(decision["decision_id"]),
-        model_id=str(decision["model"]["model_id"]),
-        artifact_digest=str(decision["model"]["artifact_digest"]),
-        provider_node_ids=nodes,
-        layer_ranges=layer_ranges,
+        decision_id=plan.decision_id,
+        model_id=plan.model_id,
+        artifact_digest=plan.artifact_digest,
+        provider_node_ids=tuple(item[0] for item in plan.layer_ranges),
+        layer_ranges=plan.layer_ranges,
     )
 
 
@@ -207,6 +164,12 @@ class LiveSharedRuntimeRegistry:
         if len(nodes) < 2:
             raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
 
+        # The disclosed reference planner remains explicitly experimental. A private
+        # provider is production policy and does not expose the old M1 recommendation
+        # flags across the API boundary.
+        if isinstance(placement_provider, ReferencePlacementProvider) and not allow_experimental:
+            raise LiveSharedRuntimeError("reference M1 placement requires explicit experimental opt-in")
+
         failures: list[str] = []
         for coordinator in nodes:
             for worker in nodes:
@@ -221,7 +184,7 @@ class LiveSharedRuntimeRegistry:
                     failures.append(f"{coord_id}->{worker_id}: runtime build mismatch")
                     continue
                 try:
-                    decision = placement_provider.decide(
+                    plan = placement_provider.decide(
                         coordinator_profile=coordinator.profile,
                         worker_profile=worker.profile,
                         model_manifest=model.manifest,
@@ -231,32 +194,43 @@ class LiveSharedRuntimeRegistry:
                         worker_decode=worker.decode,
                         network_result=network,
                     )
-                    placement = _selection_from_decision(decision, allow_experimental=allow_experimental)
-                except (PlacementProviderError, PlacementSelectionError, ValueError, KeyError) as exc:
+                except (PlacementProviderError, ValueError, KeyError) as exc:
                     failures.append(f"{coord_id}->{worker_id}: {exc}")
                     continue
 
-                shared = next(c for c in decision["candidates"] if c["mode"] == "shared_contiguous_layers")
-                ranges = tuple(dict(item) for item in shared["layer_ranges"])
-                artifact_digest = placement.artifact_digest.removeprefix("sha256:")
-                model_record = decision["model"]
-                coordinator_record = decision["nodes"]["coordinator"]
+                if plan.model_id != model_id:
+                    failures.append(f"{coord_id}->{worker_id}: placement model mismatch")
+                    continue
+                if plan.coordinator_node_id != coord_id or plan.worker_node_id != worker_id:
+                    failures.append(f"{coord_id}->{worker_id}: placement selected different nodes")
+                    continue
+
+                placement = _selection_from_plan(plan)
+                ranges = tuple(
+                    {"node_id": node, "start_layer": start, "end_layer_exclusive": end}
+                    for node, start, end in plan.layer_ranges
+                )
                 trial = TrialPlan(
-                    bundle_id="live:" + placement.decision_id,
-                    placement_decision_id=placement.decision_id,
+                    bundle_id="live:" + plan.decision_id,
+                    placement_decision_id=plan.decision_id,
                     coordinator_node_id=coord_id,
                     worker_node_id=worker_id,
-                    coordinator_kind=str(coordinator_record["kind"]),
-                    coordinator_name=str(coordinator_record["name"]),
+                    coordinator_kind=plan.coordinator_kind,
+                    coordinator_name=plan.coordinator_name,
                     llama_build_commit=coordinator.llama_build_commit,
                     llama_build_number=coordinator.llama_build_number,
                     model_basename=model.model_path.name,
-                    model_size_bytes=int(model_record["artifact_size_bytes"]),
-                    model_sha256=artifact_digest,
-                    tensor_split=(float(shared["tensor_split"][0]), float(shared["tensor_split"][1])),
+                    model_size_bytes=plan.artifact_size_bytes,
+                    model_sha256=plan.artifact_digest.removeprefix("sha256:"),
+                    tensor_split=plan.tensor_split,
                     layer_ranges=(ranges[0], ranges[1]),
                 )
-                return LiveExecutionPlan(placement=placement, trial_plan=trial, model_path=model.model_path, worker_rpc=worker.rpc_endpoint)
+                return LiveExecutionPlan(
+                    placement=placement,
+                    trial_plan=trial,
+                    model_path=model.model_path,
+                    worker_rpc=worker.rpc_endpoint,
+                )
         detail = "; ".join(failures[:4])
         raise LiveSharedRuntimeError("no live two-node shared placement is currently feasible" + (f": {detail}" if detail else ""))
 
