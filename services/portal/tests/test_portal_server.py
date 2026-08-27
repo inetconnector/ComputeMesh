@@ -1,7 +1,6 @@
 """Unit tests for ComputeMesh Public Web Portal & Registration Server."""
 from http.server import ThreadingHTTPServer
 import json
-from pathlib import Path
 import threading
 import time
 import unittest
@@ -10,6 +9,20 @@ import urllib.request
 
 from services.portal.server import PortalHandler
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
+from services.portal.routes_registration import CURRENT_TERMS_VERSION
+
+
+def accepted_registration_payload(**overrides):
+    body = {
+        "email": "developer@ai-corp.com",
+        "role": "consumer",
+        "accepted_terms": True,
+        "privacy_acknowledged": True,
+        "business_user": True,
+        "terms_version": CURRENT_TERMS_VERSION,
+    }
+    body.update(overrides)
+    return body
 
 
 class TestPortalServer(unittest.TestCase):
@@ -31,6 +44,8 @@ class TestPortalServer(unittest.TestCase):
             content = resp.read().decode("utf-8")
             self.assertIn("ComputeMesh", content)
             self.assertIn("data-i18n", content)
+            self.assertIn("Terms of Service v2.1", content)
+            self.assertIn("business-user-confirm", content)
 
     def test_serve_subpages(self) -> None:
         subpages = ["/docs", "/status", "/benchmarks", "/terms", "/privacy", "/impressum", "/contact"]
@@ -50,7 +65,6 @@ class TestPortalServer(unittest.TestCase):
             robots = resp.read().decode("utf-8")
             self.assertIn("User-agent: *", robots)
             self.assertIn("Sitemap: https://computemesh.inetconnector.com/sitemap.xml", robots)
-
         with urllib.request.urlopen("http://127.0.0.1:13000/sitemap.xml") as resp:
             self.assertEqual(resp.status, 200)
             self.assertEqual(resp.headers.get_content_type(), "application/xml")
@@ -61,8 +75,7 @@ class TestPortalServer(unittest.TestCase):
     def test_serve_portal_css(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:13000/portal.css") as resp:
             self.assertEqual(resp.status, 200)
-            css = resp.read().decode("utf-8")
-            self.assertIn("--accent-cyan", css)
+            self.assertIn("--accent-cyan", resp.read().decode("utf-8"))
 
     def test_serve_portal_js(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:13000/portal.js") as resp:
@@ -76,8 +89,6 @@ class TestPortalServer(unittest.TestCase):
         with urllib.request.urlopen("http://127.0.0.1:13000/api/v1/mesh/stats") as resp:
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
-            self.assertIn("active_gpus", data)
-            self.assertIn("total_vram_gb", data)
             self.assertEqual(data["source"], "not_configured")
             self.assertEqual(data["active_gpus"], 0)
             self.assertEqual(data["total_vram_gb"], 0)
@@ -96,11 +107,9 @@ class TestPortalServer(unittest.TestCase):
         )
         with urllib.request.urlopen(heartbeat) as resp:
             self.assertEqual(resp.status, 200)
-
         with self.assertRaises(urllib.error.HTTPError) as missing_ctx:
             urllib.request.urlopen("http://127.0.0.1:13000/api/v1/node/node-secure-01/status")
         self.assertEqual(missing_ctx.exception.code, 401)
-
         with urllib.request.urlopen(
             "http://127.0.0.1:13000/api/v1/node/node-secure-01/status?auth=cm_tunnel_0123456789abcdef0123456789abcdef"
         ) as resp:
@@ -108,11 +117,20 @@ class TestPortalServer(unittest.TestCase):
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["node_id"], "node-secure-01")
 
-    def test_register_consumer_api(self) -> None:
-        req_data = json.dumps({"email": "developer@ai-corp.com", "role": "consumer"}).encode("utf-8")
+    def test_registration_fails_without_clickwrap(self) -> None:
         req = urllib.request.Request(
             "http://127.0.0.1:13000/api/v1/register",
-            data=req_data,
+            data=json.dumps({"email": "developer@ai-corp.com", "role": "consumer"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+
+    def test_register_consumer_api(self) -> None:
+        req = urllib.request.Request(
+            "http://127.0.0.1:13000/api/v1/register",
+            data=json.dumps(accepted_registration_payload()).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req) as resp:
@@ -121,17 +139,17 @@ class TestPortalServer(unittest.TestCase):
             self.assertEqual(data["status"], "success")
             self.assertTrue(data["api_key"].startswith("cm_live_"))
             self.assertEqual(data["free_credit_granted_usd"], 10.0)
+            self.assertEqual(data["terms_version"], CURRENT_TERMS_VERSION)
 
     def test_register_provider_api_encrypted_storage(self) -> None:
         wallet = "0x71a99C8D2F8b3A15b81a84511d7e26d0De42B12F"
-        req_data = json.dumps({
-            "email": "provider@mining-farm.io",
-            "role": "provider",
-            "wallet": wallet,
-        }).encode("utf-8")
         req = urllib.request.Request(
             "http://127.0.0.1:13000/api/v1/register",
-            data=req_data,
+            data=json.dumps(accepted_registration_payload(
+                email="provider@mining-farm.io",
+                role="provider",
+                wallet=wallet,
+            )).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req) as resp:
