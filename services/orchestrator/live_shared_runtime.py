@@ -3,6 +3,7 @@
 The registry is intentionally in-memory: node sessions, profiles, benchmarks and
 control-channel clients are runtime state, not pre-positioned settlement files.
 A fresh placement is built for each request from the current registered state.
+Production placement policy is accessed only through PlacementProvider.
 """
 from __future__ import annotations
 
@@ -22,7 +23,11 @@ from services.orchestrator.authenticated_attestation_transport import (
     ATTESTATION_CAPABILITY,
     NodeControlClient,
 )
-from services.scheduler.placement import PlacementInputError, build_placement_decision
+from services.orchestrator.placement_provider import (
+    PlacementProvider,
+    PlacementProviderError,
+    ReferencePlacementProvider,
+)
 
 
 class LiveSharedRuntimeError(RuntimeError):
@@ -110,12 +115,19 @@ def _selection_from_decision(decision: dict[str, Any], *, allow_experimental: bo
 class LiveSharedRuntimeRegistry:
     """Thread-safe source of current scheduler and authenticated-session inputs."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, placement_provider: PlacementProvider | None = None) -> None:
         self._lock = threading.RLock()
         self._nodes: dict[str, LiveNodeState] = {}
         self._models: dict[str, LiveModelState] = {}
         self._network: dict[tuple[str, str], dict[str, Any]] = {}
         self._control_client: NodeControlClient | None = None
+        # Reference planner preserves disclosed M1 behavior. Production startup must
+        # explicitly inject RemotePlacementProvider; private policy never lives here.
+        self._placement_provider: PlacementProvider = placement_provider or ReferencePlacementProvider()
+
+    def set_placement_provider(self, provider: PlacementProvider) -> None:
+        with self._lock:
+            self._placement_provider = provider
 
     def register_node(self, state: LiveNodeState) -> None:
         node_id = state.session.node_id
@@ -167,7 +179,6 @@ class LiveSharedRuntimeRegistry:
         )
 
     def is_node_control_healthy(self, node_id: str) -> bool:
-        """Require both a current authenticated session and a live control channel."""
         with self._lock:
             state = self._nodes.get(node_id)
             client = self._control_client
@@ -177,7 +188,6 @@ class LiveSharedRuntimeRegistry:
             return False
         probe = getattr(client, "is_connected", None)
         if not callable(probe):
-            # Live serving must not infer liveness from a stale SessionSnapshot.
             return False
         try:
             return bool(probe(node_id))
@@ -191,11 +201,8 @@ class LiveSharedRuntimeRegistry:
                 raise LiveSharedRuntimeError(f"model {model_id!r} is not registered in live runtime")
             states = list(self._nodes.values())
             networks = dict(self._network)
-        nodes = [
-            state
-            for state in states
-            if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))
-        ]
+            placement_provider = self._placement_provider
+        nodes = [state for state in states if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))]
         nodes.sort(key=lambda item: str(item.session.node_id))
         if len(nodes) < 2:
             raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
@@ -210,14 +217,11 @@ class LiveSharedRuntimeRegistry:
                 network = networks.get((coord_id, worker_id))
                 if network is None:
                     continue
-                if (
-                    coordinator.llama_build_number != worker.llama_build_number
-                    or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower()
-                ):
+                if coordinator.llama_build_number != worker.llama_build_number or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower():
                     failures.append(f"{coord_id}->{worker_id}: runtime build mismatch")
                     continue
                 try:
-                    decision = build_placement_decision(
+                    decision = placement_provider.decide(
                         coordinator_profile=coordinator.profile,
                         worker_profile=worker.profile,
                         model_manifest=model.manifest,
@@ -228,7 +232,7 @@ class LiveSharedRuntimeRegistry:
                         network_result=network,
                     )
                     placement = _selection_from_decision(decision, allow_experimental=allow_experimental)
-                except (PlacementInputError, PlacementSelectionError) as exc:
+                except (PlacementProviderError, PlacementSelectionError, ValueError, KeyError) as exc:
                     failures.append(f"{coord_id}->{worker_id}: {exc}")
                     continue
 
@@ -252,12 +256,7 @@ class LiveSharedRuntimeRegistry:
                     tensor_split=(float(shared["tensor_split"][0]), float(shared["tensor_split"][1])),
                     layer_ranges=(ranges[0], ranges[1]),
                 )
-                return LiveExecutionPlan(
-                    placement=placement,
-                    trial_plan=trial,
-                    model_path=model.model_path,
-                    worker_rpc=worker.rpc_endpoint,
-                )
+                return LiveExecutionPlan(placement=placement, trial_plan=trial, model_path=model.model_path, worker_rpc=worker.rpc_endpoint)
         detail = "; ".join(failures[:4])
         raise LiveSharedRuntimeError("no live two-node shared placement is currently feasible" + (f": {detail}" if detail else ""))
 
