@@ -4,7 +4,6 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import threading
-import time
 import unittest
 from unittest.mock import patch
 
@@ -17,11 +16,19 @@ class _Registry:
     def __init__(self, plans, *, healthy=None):
         self.plans = list(plans)
         self.calls = 0
+        self.avoid_calls = []
         self.control_client = object()
         self.healthy = set(healthy or {"node-a", "node-b", "node-c", "node-d"})
 
-    def build_execution_plan(self, model_id: str, *, allow_experimental: bool):
+    def build_execution_plan(
+        self,
+        model_id: str,
+        *,
+        allow_experimental: bool,
+        avoid_provider_sets=(),
+    ):
         self.calls += 1
+        self.avoid_calls.append(tuple(avoid_provider_sets))
         if not self.plans:
             raise AssertionError("unexpected plan request")
         return self.plans.pop(0)
@@ -78,13 +85,18 @@ class LiveSharedRecoveryTests(unittest.TestCase):
         )
 
     @patch("services.orchestrator.live_shared_backend.SharedRequestOrchestratedBackend", _FakeAttemptBackend)
-    def test_failed_attempt_can_replan_to_different_provider_set(self):
+    def test_failed_attempt_hands_provider_set_to_private_recovery_policy(self):
         registry = _Registry([_plan("node-a", "node-b"), _plan("node-c", "node-d")])
         expected = BackendResult("ok", 2, 3, execution_job_id="final")
         _FakeAttemptBackend.outcomes = [InferenceBackendError("first failed"), expected]
-        result = self._backend(registry).complete(model_id="model", messages=[{"role": "user", "content": "x"}])
+        result = self._backend(registry).complete(
+            model_id="model",
+            messages=[{"role": "user", "content": "x"}],
+        )
         self.assertIs(result, expected)
         self.assertEqual(registry.calls, 2)
+        self.assertEqual(registry.avoid_calls[0], ())
+        self.assertIn(frozenset({"node-a", "node-b"}), registry.avoid_calls[1])
         self.assertEqual(len(_FakeAttemptBackend.jobs), 2)
         prefix1, suffix1 = _FakeAttemptBackend.jobs[0].rsplit("-a", 1)
         prefix2, suffix2 = _FakeAttemptBackend.jobs[1].rsplit("-a", 1)
@@ -92,12 +104,16 @@ class LiveSharedRecoveryTests(unittest.TestCase):
         self.assertEqual((suffix1, suffix2), ("1", "2"))
 
     @patch("services.orchestrator.live_shared_backend.SharedRequestOrchestratedBackend", _FakeAttemptBackend)
-    def test_retry_refuses_same_failed_provider_set(self):
+    def test_defensive_check_rejects_private_policy_returning_failed_provider_set(self):
         registry = _Registry([_plan("node-a", "node-b"), _plan("node-b", "node-a")])
         _FakeAttemptBackend.outcomes = [InferenceBackendError("first failed")]
-        with self.assertRaisesRegex(InferenceBackendError, "failed provider set again"):
-            self._backend(registry).complete(model_id="model", messages=[{"role": "user", "content": "x"}])
+        with self.assertRaisesRegex(InferenceBackendError, "previously failed provider set"):
+            self._backend(registry).complete(
+                model_id="model",
+                messages=[{"role": "user", "content": "x"}],
+            )
         self.assertEqual(len(_FakeAttemptBackend.jobs), 1)
+        self.assertIn(frozenset({"node-a", "node-b"}), registry.avoid_calls[1])
 
     @patch("services.orchestrator.live_shared_backend.SharedRequestOrchestratedBackend", _FakeAttemptBackend)
     def test_max_attempts_one_never_retries(self):
@@ -134,7 +150,15 @@ class LiveSharedRecoveryTests(unittest.TestCase):
                 live = registry.build_execution_plan("model", allow_experimental=True)
                 attempt = backend._backend_for_attempt(live=live, attempt_job_id="job-a1")
                 run.return_value = object()
-                attempt.runner(job_id="job-a1", bundle_path=Path("ignored"), llama_server=Path("x"), model_path=Path("y"), worker_rpc=object(), output_dir=Path("z"), prompt="p")
+                attempt.runner(
+                    job_id="job-a1",
+                    bundle_path=Path("ignored"),
+                    llama_server=Path("x"),
+                    model_path=Path("y"),
+                    worker_rpc=object(),
+                    output_dir=Path("z"),
+                    prompt="p",
+                )
                 self.assertEqual(run.call_args.kwargs["startup_timeout"], 12.0)
                 self.assertEqual(run.call_args.kwargs["request_timeout"], 34.0)
                 self.assertIn("abort_event", run.call_args.kwargs)
