@@ -6,6 +6,7 @@ import binascii
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import json
+import ssl
 from typing import Any, Protocol
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -185,6 +186,7 @@ class RemotePlacementProvider:
     verification_key_b64u: str
     expected_key_id: str
     timeout_seconds: float = 10.0
+    ca_file: str | None = None
 
     def __post_init__(self) -> None:
         if not self.endpoint.startswith("https://"):
@@ -207,10 +209,11 @@ class RemotePlacementProvider:
             method="POST",
             headers={"Authorization": f"Bearer {self.bearer_token}", "Content-Type": "application/json", "Accept": "application/json"},
         )
+        context = ssl.create_default_context(cafile=self.ca_file) if self.ca_file else ssl.create_default_context()
         try:
-            with urlrequest.urlopen(req, timeout=self.timeout_seconds) as response:
+            with urlrequest.urlopen(req, timeout=self.timeout_seconds, context=context) as response:
                 raw = response.read(512 * 1024 + 1)
-        except (urlerror.URLError, TimeoutError) as exc:
+        except (urlerror.URLError, TimeoutError, ssl.SSLError) as exc:
             raise PlacementProviderError("private placement service is unavailable") from exc
         if len(raw) > 512 * 1024:
             raise PlacementProviderError("private placement response exceeded 512 KiB")
