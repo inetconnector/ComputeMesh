@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-CURRENT_PROVIDER_TERMS_VERSION = "1.0"
+CURRENT_PROVIDER_TERMS_VERSION = "2.1"
 
 EEA_COUNTRY_CODES = frozenset({
     "AT", "BE", "BG", "HR", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HU",
@@ -151,5 +151,9 @@ def require_production_model_attribution(manifest: dict[str, Any]) -> None:
         if not isinstance(upstream.get(key), str) or not upstream[key].strip():
             raise ProductionComplianceError(f"production model upstream.{key} is required")
     license_record = manifest.get("license")
-    if not isinstance(license_record, dict) or not str(license_record.get("id", "")).strip() or not str(license_record.get("source", "")).strip():
+    if (
+        not isinstance(license_record, dict)
+        or not str(license_record.get("id", "")).strip()
+        or not str(license_record.get("source", "")).strip()
+    ):
         raise ProductionComplianceError("production model requires explicit license id and source")
