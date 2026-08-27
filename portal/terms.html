@@ -1,88 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terms of Service & Platform Monetization Rules — ComputeMesh</title>
-  <meta name="description" content="Terms of Service, Platform Fee, Provider Settlement Rules, and Billing Policy for the ComputeMesh decentralized AI inference network operated by inetconnector.">
-  <meta name="robots" content="index,follow">
-  <link rel="canonical" href="https://computemesh.inetconnector.com/terms">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="portal.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="container nav-wrap">
-      <a href="/" class="brand">
-        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">Legal</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="/" data-i18n="nav_home">Home</a></li>
-        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
-        <li><a href="/status" data-i18n="nav_status">Network Status</a></li>
-      </ul>
-      <div class="nav-actions">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container" style="padding: 4rem 1.5rem; max-width: 900px;">
-    <h1 style="font-size: 2.4rem; margin-bottom: 0.75rem;" data-i18n="terms_title">Terms of Service, Platform Fee & Provider Settlement Rules</h1>
-    <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="terms_subtitle">Operated by inetconnector • Effective Date: August 2026 • Version 1.2</p>
-
-    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.75rem;">
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec1_title">1. Scope of Agreement & Platform Operator Role (inetconnector)</h3>
-        <p data-i18n="terms_sec1_text">By accessing, registering on, or utilizing the ComputeMesh platform, API gateways, desktop provider clients, or NodeOS appliance images, you enter into a binding agreement with inetconnector (the "Platform Operator"). inetconnector provides the decentralized orchestration architecture, low-latency API proxy gateways, authentication layers, cryptographically metered accounting ledgers, and automated payment settlement pipelines connecting compute consumers with independent GPU hardware providers.</p>
-      </div>
-      
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec2_title">2. API Consumers, Prepaid Credit Packages & Fair-Use Metering</h3>
-        <p data-i18n="terms_sec2_text">Developers, businesses, and enterprise clients purchase prepaid compute credits exclusively through Stripe-supported payment methods, such as card, SEPA, Link, Apple Pay, Google Pay, or other Stripe-enabled methods shown at checkout. MetaMask and other EVM wallets are not used to buy compute credits. API consumption is strictly metered per 1,000 prompt and completion tokens at published model price tiers. Tokens are streamed directly via OpenAI-compatible endpoints with zero persistent prompt storage on edge nodes. Usage requires an active prepaid credit balance or an approved enterprise SLA subscription.</p>
-      </div>
-
-      <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
-        <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;" data-i18n="terms_sec4_title">3. Platform Fee, Monetization & Automated Revenue Splitting</h3>
-        <p data-i18n="terms_sec4_text">To finance the global high-availability gateway infrastructure, low-latency tensor coordination routing, DDoS mitigation, continuous software engineering, and multi-vendor driver maintenance, inetconnector retains a platform service commission of 25% (2,500 basis points) on all consumer-billed inference volume. The remaining 75% of metered token revenue is credited directly in real-time to the fulfilling GPU provider nodes through the atomic double-entry ledger.</p>
-      </div>
-
-      <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
-        <h3 style="color: var(--accent-emerald); margin-bottom: 0.5rem;" data-i18n="terms_sec5_title">4. Fully-Backed Revenue Principle & Non-Custodial Provider Settlements ($25.00 Threshold)</h3>
-        <p data-i18n="terms_sec5_text">Provider revenue entitlements operate strictly under the fully-backed revenue principle: withdrawals are funded exclusively from cleared, non-reversible customer payments actually received and settled through Stripe on the platform's merchant accounts. The Platform Operator maintains zero pre-financing liabilities for uncollected customer debts. Provider payouts trigger once accumulated earnings reach or exceed the minimum threshold of $25.00 USD or EUR equivalent. Provider wallet addresses collected through MetaMask or manual 0x entry are used only as payout destination addresses for earnings from provided compute power; they are not used to collect customer payments or to charge users. Bank payouts are processed through Stripe Connect where available.</p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec3_title">5. Hardware Provider Responsibilities, SLAs & Anti-Cheating</h3>
-        <p data-i18n="terms_sec3_text">Hardware providers supply GPU compute capacity using authentic ComputeMesh software. Providers are strictly prohibited from spoofing telemetry, tampering with model weights, returning fraudulent non-deterministic activation layers, or altering VRAM reporting. Violations lead to immediate node blacklisting and permanent forfeiture of unpaid balances. ComputeMesh nodes execute jobs in an isolated sandbox with no access to consumer prompt identities.</p>
-      </div>
-
-      <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-md); padding: 1.5rem;">
-        <h3 style="color: var(--accent-amber); margin-bottom: 0.5rem;" data-i18n="terms_sec6_title">6. B2B Taxation, Reverse-Charge & Accounting Vouchers</h3>
-        <p data-i18n="terms_sec6_text">Hardware providers and enterprise customers act as independent economic operators. For EU-based business entities, standard Reverse-Charge rules (Art. 196 EU VAT Directive) apply. Hardware providers receive automated digital settlement vouchers (Gutschriften) for all completed payout cycles and are solely responsible for declaring their respective income, trade taxes, and local sales tax obligations.</p>
-      </div>
-      
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec7_title">7. Enterprise Subscriptions, Dedicated Node Pools & Priority SLAs</h3>
-        <p data-i18n="terms_sec7_text">Enterprise clients may contract dedicated GPU clusters, private geographic mesh zones (e.g. EU-only data residency), and guaranteed sub-second time-to-first-token (TTFT) SLAs under customized monthly subscription agreements ($99 to $4,999/month). Enterprise subscription fees are billed in advance and are non-refundable.</p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="terms_sec8_title">8. Limitation of Liability & Best-Effort Delivery</h3>
-        <p data-i18n="terms_sec8_text">ComputeMesh and inetconnector provide decentralized coordination software on an 'as-is' and 'as-available' basis. While our multi-node layer redundancy and automatic health failover provide high resilience, the Platform Operator does not warrant uninterrupted availability during upstream ISP outages or third-party electrical interruptions.</p>
-      </div>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-bottom" style="border: none;">
-      <div>&copy; 2026 ComputeMesh • Operated by inetconnector. <span data-i18n="footer_rights">All rights reserved.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
-    </div>
-  </footer>
-  <script src="portal.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terms of Service — ComputeMesh</title><meta name="description" content="ComputeMesh B2B Terms of Service and AI-specific risk allocation."><link rel="canonical" href="https://computemesh.inetconnector.com/terms"><link rel="stylesheet" href="portal.css"></head><body>
+<header class="site-header"><div class="container nav-wrap"><a href="/" class="brand"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span><span class="brand-badge">Legal</span></a><ul class="nav-links"><li><a href="/">Home</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/impressum">Impressum</a></li></ul></div></header>
+<main class="container" style="padding:4rem 1.5rem;max-width:950px"><h1>Terms of Service — Business Users</h1><p style="color:var(--text-muted)">Effective: 27 August 2026 · Version 2.1 · Current contract text for portal account registration</p><div class="feature-card" style="line-height:1.75;color:var(--text-muted);display:flex;flex-direction:column;gap:1.4rem">
+<section><h3>1. Operator, scope and B2B restriction</h3><p>ComputeMesh is operated by Herbert Daniel Frede, trading as InetConnector.com ("Operator"). Commercial account registration, paid API services and provider participation are currently offered only to entrepreneurs/business users (Unternehmer), not consumers (Verbraucher). By registering, you confirm business-user status and authority to bind the represented entity.</p></section>
+<section><h3>2. Contract formation and versioned acceptance</h3><p>Portal credentials are issued only after explicit electronic acceptance of these Terms, acknowledgement of the Privacy Policy and confirmation of business-user status. The Service records the accepted Terms version and acceptance timestamp with the account/API-key record. Version 2.1 is required by the current registration endpoint. Material changes to continuing paid terms will be handled in a legally sufficient manner.</p></section>
+<section><h3>3. Nature of the Service and AI-output risk</h3><p>ComputeMesh is an orchestration and compute-infrastructure layer. Inference can be performed by third-party software, models, runtime endpoints and independent compute providers. AI output is probabilistic and may be inaccurate, incomplete, fabricated (hallucinated), biased, offensive, insecure, obsolete, inconsistent or otherwise unsuitable. No output is warranted to be true, complete, lawful, unique, non-infringing, reproducible or fit for a particular purpose. The Service does not provide medical, legal, financial, tax, safety, engineering or other professional advice.</p></section>
+<section><h3>4. Human verification and regulated use</h3><p>You are responsible for prompts, inputs, configuration, model selection, review, interpretation and downstream use. You must independently verify output before relying on it. Unverified output must not be the sole basis for decisions affecting life, health, physical safety, legal rights, credit, employment, education, essential services or similarly high-impact matters. Production-critical, regulated or safety-critical use requires appropriate legal/technical assessment and, where necessary, a separate written agreement. You remain responsible for your own duties under the EU AI Act, GDPR and sector-specific law; mandatory duties imposed directly on the Operator remain unaffected.</p></section>
+<section><h3>5. Availability, failures and distributed infrastructure</h3><p>Unless an individually agreed written SLA states otherwise, there is no guarantee of uptime, latency, throughput, token rate, TTFT, model or hardware availability, capacity, successful completion, recovery, compatibility or uninterrupted operation. Jobs may fail, time out, be cancelled, retried, reassigned or produce no usable result. Provider machines, networks, drivers, GPUs, model runtimes, hosting, power, DNS, certificates and payment processors may fail or change. Preview, alpha, beta, research or experimental features may be changed or withdrawn.</p></section>
+<section><h3>6. Accounts, credentials and acceptable use</h3><p>You must protect API/provider keys and systems under your control and report compromise. You may not bypass security, metering, rate limits, identity checks, attestations, fraud controls or capacity controls. Unlawful activity, malware, unauthorized access, rights infringement, deceptive impersonation, prohibited AI practices, illegal surveillance, sanctions/export-control evasion and processing without required rights or legal bases are prohibited. The Operator may suspend or refuse workloads for security, abuse, compliance, sanctions or non-payment reasons.</p></section>
+<section><h3>7. Customer content, confidentiality and data processing</h3><p>You retain rights you hold in inputs and grant the Operator the limited rights necessary to transmit, process, route, meter, secure and troubleshoot inputs and outputs. Full prompts/messages may be transmitted to the configured inference runtime and, in distributed execution, workload data or derived execution data may be processed by participating compute resources. You warrant that you possess all necessary rights and lawful bases. Do not submit trade secrets, personal data, special-category data, professional secrets or other highly confidential data unless the deployment, contracts and safeguards are suitable. Where the Operator acts as processor for a business customer, a separate Art. 28 GDPR data-processing agreement may be required.</p></section>
+<section><h3>8. Independent hardware providers</h3><p>Providers are independent economic operators, not employees or agents. They are responsible for lawful hardware operation, energy, connectivity, taxes, licenses and security. They must not falsify identity, hardware, telemetry, benchmarks, availability, evidence or output, extract customer data, interfere with jobs or circumvent metering/verification. Provider eligibility, workload allocation and earnings are never guaranteed.</p></section>
+<section><h3>9. Provider balances and payouts</h3><p>Provider payable balances arise only from jobs accepted by applicable metering, verification and settlement rules. A displayed balance is an accounting record, not a bank deposit, e-money account or investment. Payout can be delayed or withheld while fraud, duplicate execution, disputes, chargebacks, sanctions, KYC, payment-provider restrictions or reversals are investigated. Payout is subject to cleared customer funds, current thresholds, supported currency, configured payout services, provider eligibility and law. No minimum utilization, income or payout date is guaranteed.</p></section>
+<section><h3>10. Free and promotional credits</h3><p>Free, test, promotional or development credits, including registration credits, are non-cash service allocations. Unless expressly agreed otherwise, they are non-transferable, non-interest-bearing and not redeemable for cash. They may be limited, corrected or withdrawn if issued in error, abused, duplicated, required for security/compliance or when the relevant preview program ends. Promotional customer credits do not by themselves create provider cash-payout obligations.</p></section>
+<section><h3>11. Fees, Stripe and taxes</h3><p>Actual prices, platform fees, revenue shares and thresholds are those presented by the applicable live quote/order/checkout or individually agreed terms. Website calculators and research comparisons are not binding quotes or income guarantees. Payments may use Stripe Checkout and provider onboarding/payouts may use Stripe Connect, subject to Stripe's KYC, fraud, sanctions, reserve, currency and eligibility rules. Each party remains responsible for its own tax obligations.</p></section>
+<section><h3>12. No warranties</h3><p>Except for individually agreed characteristics and to the maximum extent permitted by law, the Operator gives no warranty or guarantee concerning AI-output accuracy or quality, fitness for purpose, non-infringement, uninterrupted availability, economic results, security against every attack, provider conduct, third-party services or continuing compatibility with hardware, drivers, SDKs, models or upstream projects.</p></section>
+<section><h3>13. Limitation of liability</h3><p>Nothing excludes or limits liability where prohibited by law. Liability remains unlimited for intent, gross negligence, culpable injury to life/body/health, mandatory product-liability law, fraudulently concealed defects and expressly assumed guarantees.</p><p>For ordinary negligence, the Operator is liable only for breach of a material contractual obligation (Kardinalpflicht), and then only for foreseeable damage typical for this type of contract. To the extent legally permissible in B2B transactions, aggregate liability for ordinary negligence is limited to the net fees paid by the affected customer for the affected Service during the twelve months preceding the event.</p><p>Subject to those mandatory carve-outs, the Operator is not liable for indirect or consequential loss, lost profit, revenue, business opportunity, anticipated savings, goodwill or data, nor for losses caused by reliance on unverified AI output, customer prompts/configuration, independent-provider misconduct, third-party models/services, external networks, power failure, force majeure or unauthorized use outside the Operator's reasonable control.</p></section>
+<section><h3>14. Business-user indemnification</h3><p>To the extent permitted by law, a business user shall indemnify the Operator against third-party claims and reasonable legal-defense costs arising from the user's unlawful input/use, infringement of third-party rights, privacy/AI-regulatory violations attributable to the user, or deployment/publication of output, except to the extent caused by the Operator's own legally attributable breach. Mandatory duties imposed directly on the Operator are not shifted by this clause.</p></section>
+<section><h3>15. Open source, suspension and changes</h3><p>Open-source components remain subject to their licenses. Public source availability grants no rights in private control-plane code, confidential data or trademarks beyond applicable licenses. The Operator may suspend access for security, abuse prevention, compliance, sanctions, maintenance or non-payment. Accrued rights and mandatory retention/accounting duties survive where applicable.</p></section>
+<section><h3>16. Governing law, venue and severability</h3><p>German law applies, excluding the CISG, to the extent legally effective. For merchants, legal persons under public law and special funds under public law, the Operator's place of business is the agreed venue where permitted. Mandatory venues remain unaffected. Individually negotiated terms prevail over these Terms. If a provision is invalid, statutory rules apply in its place.</p></section>
+<section><h3>17. Evidence and contact</h3><p>Electronic records of Terms version, acceptance time, account identifiers, payment/settlement records and security events may be retained to evidence contract formation, performance, abuse prevention and legal claims in accordance with the Privacy Policy and applicable law. Contact details are in the <a href="/impressum">Impressum</a>; privacy information is in the <a href="/privacy">Privacy Policy</a>.</p></section>
+</div></main><footer class="site-footer"><div class="container footer-bottom"><div>&copy; 2026 ComputeMesh · InetConnector.com</div><div><a href="/">Back to Home</a></div></div></footer></body></html>
