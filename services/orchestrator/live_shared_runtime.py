@@ -53,6 +53,7 @@ class LiveExecutionPlan:
     trial_plan: TrialPlan
     model_path: Path
     worker_rpc: RpcEndpoint
+    network_result: dict[str, Any]
 
 
 def _selection_from_plan(plan: PlacementPlan) -> PlacementSelection:
@@ -258,7 +259,8 @@ class LiveSharedRuntimeRegistry:
         worker = by_id.get(plan.worker_node_id)
         if coordinator is None or worker is None:
             raise LiveSharedRuntimeError("signed placement selected a node outside the submitted live snapshot")
-        if (plan.coordinator_node_id, plan.worker_node_id) not in networks:
+        network_result = networks.get((plan.coordinator_node_id, plan.worker_node_id))
+        if network_result is None:
             raise LiveSharedRuntimeError("signed placement selected an unmeasured network path")
         if coordinator.llama_build_number != worker.llama_build_number or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower():
             raise LiveSharedRuntimeError("signed placement selected runtime-incompatible nodes")
@@ -272,6 +274,7 @@ class LiveSharedRuntimeRegistry:
             trial_plan=self._trial_from_plan(plan, model, coordinator),
             model_path=model.model_path,
             worker_rpc=worker.rpc_endpoint,
+            network_result=dict(network_result),
         )
 
 
