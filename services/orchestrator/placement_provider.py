@@ -1,16 +1,10 @@
-"""Placement boundary between public ComputeMesh runtime code and placement policy.
-
-The public repository owns the interoperability contract, not the production
-placement implementation. Production deployments use a remote provider backed
-by the private ComputeMesh control plane. The local provider exists only for the
-disclosed M1/reference scheduler and reproducible research.
-"""
+"""Public boundary between ComputeMesh runtime and placement policy."""
 from __future__ import annotations
 
 import base64
 import binascii
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from typing import Any, Protocol
 from urllib import error as urlerror
@@ -63,8 +57,7 @@ class PlacementPlan:
 
 
 class PlacementProvider(Protocol):
-    def decide(self, **inputs: Any) -> PlacementPlan:
-        ...
+    def decide(self, **inputs: Any) -> PlacementPlan: ...
 
 
 def _reference_plan(decision: dict[str, Any]) -> PlacementPlan:
@@ -77,13 +70,9 @@ def _reference_plan(decision: dict[str, Any]) -> PlacementPlan:
     if len(shared) != 1:
         raise PlacementProviderError("reference scheduler did not return one feasible shared placement")
     candidate = shared[0]
-    ranges = tuple(
-        (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
-        for item in candidate["layer_ranges"]
-    )
+    model = decision["model"]
     coordinator = decision["nodes"]["coordinator"]
     worker = decision["nodes"]["worker"]
-    model = decision["model"]
     return PlacementPlan(
         decision_id=str(decision["decision_id"]),
         model_id=str(model["model_id"]),
@@ -94,14 +83,17 @@ def _reference_plan(decision: dict[str, Any]) -> PlacementPlan:
         coordinator_kind=str(coordinator["kind"]),
         coordinator_name=str(coordinator["name"]),
         worker_node_id=str(worker["node_id"]),
-        layer_ranges=ranges,
+        layer_ranges=tuple(
+            (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
+            for item in candidate["layer_ranges"]
+        ),
         tensor_split=tuple(float(value) for value in candidate["tensor_split"]),
     )
 
 
 @dataclass(frozen=True)
 class ReferencePlacementProvider:
-    """Disclosed reference/M1 planner; not the production ComputeMesh scheduler."""
+    """Disclosed M1 planner for research/reproducibility, never production policy."""
 
     def decide(self, **inputs: Any) -> PlacementPlan:
         return _reference_plan(build_placement_decision(**inputs))
@@ -128,23 +120,18 @@ def _canonical_unsigned_envelope(value: dict[str, Any]) -> bytes:
     return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
-def _verify_envelope(
-    value: dict[str, Any], *, verification_key_b64u: str, expected_key_id: str
-) -> None:
+def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expected_key_id: str) -> None:
     signature = value.get("signature")
     if not isinstance(signature, dict):
         raise PlacementProviderError("private placement response is unsigned")
     if signature.get("algorithm") != "Ed25519" or signature.get("key_id") != expected_key_id:
         raise PlacementProviderError("private placement response uses an unexpected signing key")
-    raw_key = _b64u_decode(verification_key_b64u, 32)
-    raw_signature = _b64u_decode(signature.get("value"), 64)
     try:
-        Ed25519PublicKey.from_public_bytes(raw_key).verify(
-            raw_signature, _canonical_unsigned_envelope(value)
+        Ed25519PublicKey.from_public_bytes(_b64u_decode(verification_key_b64u, 32)).verify(
+            _b64u_decode(signature.get("value"), 64), _canonical_unsigned_envelope(value)
         )
     except (InvalidSignature, ValueError) as exc:
         raise PlacementProviderError("private placement signature verification failed") from exc
-
     try:
         issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00"))
         expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
@@ -155,9 +142,8 @@ def _verify_envelope(
     now = datetime.now(timezone.utc)
     if expires.astimezone(timezone.utc) <= now:
         raise PlacementProviderError("private placement decision has expired")
-    if issued.astimezone(timezone.utc) > now.replace(microsecond=0):
-        # Fail closed on future-issued decisions; clock skew can be added explicitly later.
-        raise PlacementProviderError("private placement decision is issued in the future")
+    if issued.astimezone(timezone.utc) > now + timedelta(seconds=30):
+        raise PlacementProviderError("private placement decision exceeds allowed clock skew")
 
 
 def _external_plan(value: dict[str, Any]) -> PlacementPlan:
@@ -166,31 +152,21 @@ def _external_plan(value: dict[str, Any]) -> PlacementPlan:
     payload = value.get("payload")
     if not isinstance(payload, dict):
         raise PlacementProviderError("private placement response lacks payload")
-    model = payload.get("model")
-    execution = payload.get("execution")
+    model, execution = payload.get("model"), payload.get("execution")
     if not isinstance(model, dict) or not isinstance(execution, dict):
         raise PlacementProviderError("private placement response lacks model/execution data")
-    coordinator = execution.get("coordinator")
-    worker = execution.get("worker")
-    ranges = execution.get("layer_ranges")
-    split = execution.get("tensor_split")
+    coordinator, worker = execution.get("coordinator"), execution.get("worker")
+    ranges, split = execution.get("layer_ranges"), execution.get("tensor_split")
     if not isinstance(coordinator, dict) or not isinstance(worker, dict) or not isinstance(ranges, list) or not isinstance(split, list):
         raise PlacementProviderError("private placement execution payload is malformed")
     try:
         return PlacementPlan(
             decision_id=str(value["decision_id"]),
-            model_id=str(model["model_id"]),
-            artifact_digest=str(model["artifact_digest"]),
-            artifact_size_bytes=int(model["artifact_size_bytes"]),
-            layer_count=int(model["layer_count"]),
-            coordinator_node_id=str(coordinator["node_id"]),
-            coordinator_kind=str(coordinator["kind"]),
-            coordinator_name=str(coordinator["name"]),
-            worker_node_id=str(worker["node_id"]),
-            layer_ranges=tuple(
-                (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
-                for item in ranges
-            ),
+            model_id=str(model["model_id"]), artifact_digest=str(model["artifact_digest"]),
+            artifact_size_bytes=int(model["artifact_size_bytes"]), layer_count=int(model["layer_count"]),
+            coordinator_node_id=str(coordinator["node_id"]), coordinator_kind=str(coordinator["kind"]),
+            coordinator_name=str(coordinator["name"]), worker_node_id=str(worker["node_id"]),
+            layer_ranges=tuple((str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"])) for item in ranges),
             tensor_split=tuple(float(item) for item in split),
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -199,7 +175,7 @@ def _external_plan(value: dict[str, Any]) -> PlacementPlan:
 
 @dataclass(frozen=True)
 class RemotePlacementProvider:
-    """Thin fail-closed client for the private production control plane."""
+    """Thin fail-closed HTTPS client for the private production control plane."""
 
     endpoint: str
     bearer_token: str
@@ -219,16 +195,11 @@ class RemotePlacementProvider:
             raise ValueError("timeout_seconds must be within (0,60]")
 
     def decide(self, **inputs: Any) -> PlacementPlan:
-        body = json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode("utf-8")
         req = urlrequest.Request(
             self.endpoint,
-            data=body,
+            data=json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode("utf-8"),
             method="POST",
-            headers={
-                "Authorization": f"Bearer {self.bearer_token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
+            headers={"Authorization": f"Bearer {self.bearer_token}", "Content-Type": "application/json", "Accept": "application/json"},
         )
         try:
             with urlrequest.urlopen(req, timeout=self.timeout_seconds) as response:
@@ -243,9 +214,5 @@ class RemotePlacementProvider:
             raise PlacementProviderError("private placement service returned invalid JSON") from exc
         if not isinstance(value, dict):
             raise PlacementProviderError("private placement response must be an object")
-        _verify_envelope(
-            value,
-            verification_key_b64u=self.verification_key_b64u,
-            expected_key_id=self.expected_key_id,
-        )
+        _verify_envelope(value, verification_key_b64u=self.verification_key_b64u, expected_key_id=self.expected_key_id)
         return _external_plan(value)
