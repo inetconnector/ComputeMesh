@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.example/schemas/control_plane_api.schema.json",
+  "title": "ComputeMesh Control Plane Decision Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_type",
+    "decision_id",
+    "issued_at",
+    "expires_at",
+    "payload",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "decision_type": {
+      "type": "string",
+      "enum": ["placement", "quote", "eligibility", "settlement"]
+    },
+    "decision_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "payload": {
+      "type": "object",
+      "description": "Minimal externally required decision data. Internal scores, model features and network-wide state must not be serialized here."
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": {"const": "Ed25519"},
+        "key_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "value": {"type": "string", "minLength": 1, "maxLength": 1024}
+      }
+    }
+  }
+}
