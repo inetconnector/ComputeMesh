@@ -1,18 +1,16 @@
-"""ComputeMesh Public Portal Enterprise Quotes & Savings Calculator Handler.
+"""Non-binding public ComputeMesh pricing estimator.
 
-Handles /api/v1/billing/quote for token pricing and hyperscaler cost comparisons.
+This endpoint is an engineering/UI estimator only. It deliberately does not publish
+hyperscaler comparisons, savings percentages, SLAs or a binding production quote.
+Binding commercial pricing must come from the approved private quote/order path.
 """
 from __future__ import annotations
 
 from http import HTTPStatus
 from typing import Any
 
-from services.common.pricing import (
-    DEFAULT_PRICE_TIERS,
-    get_price_tier,
-)
+from services.common.pricing import get_price_tier
 
-# Canonical reference map from model tier tag to canonical model ID
 TIER_MAP: dict[str, str] = {
     "8b": "meta-llama/llama-3.1-8b-instruct",
     "7b": "qwen/qwen2.5-7b-instruct",
@@ -26,35 +24,40 @@ TIER_MAP: dict[str, str] = {
 
 
 class PortalQuotesHandler:
-    """Calculates enterprise token quotes and cloud savings using canonical pricing."""
+    """Return a clearly labelled, non-binding engineering estimate."""
 
     def handle_quote(self, body: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
         try:
             tokens_m = float(body.get("tokens_million", 10.0))
         except (ValueError, TypeError):
             return (None, "Invalid tokens_million format", HTTPStatus.BAD_REQUEST)
-
         if tokens_m <= 0:
             return (None, "tokens_million must be positive", HTTPStatus.BAD_REQUEST)
 
         model_tier = str(body.get("model_tier", "8b")).lower()
         canonical_id = TIER_MAP.get(model_tier, TIER_MAP["default"])
         tier = get_price_tier(canonical_id)
-
-        # Integer micro-unit exact math: 75% prompt + 25% completion blended standard
         prompt_micro = tokens_m * 0.75 * tier.prompt_micro_per_million
         completion_micro = tokens_m * 0.25 * tier.completion_micro_per_million
         total_micro = prompt_micro + completion_micro
+        illustrative_total = round(total_micro / 1_000_000, 2)
 
-        cost_usd = round(total_micro / 1_000_000, 2)
-        cloud_cost_usd = round(tokens_m * tier.cloud_reference_usd_per_million, 2)
-        savings = round(((cloud_cost_usd - cost_usd) / cloud_cost_usd) * 100, 1) if cloud_cost_usd > 0 else 0.0
-
-        return ({
-            "tokens_million": tokens_m,
-            "model_tier": model_tier,
-            "rate_per_million_usd": round(tier.blended_usd_per_million, 4),
-            "total_cost_usd": cost_usd,
-            "cloud_equivalent_usd": cloud_cost_usd,
-            "savings_percent": savings,
-        }, None, HTTPStatus.OK)
+        return (
+            {
+                "kind": "illustrative_estimate",
+                "binding": False,
+                "currency": "USD",
+                "tokens_million": tokens_m,
+                "model_tier": model_tier,
+                "reference_rate_per_million_usd": round(tier.blended_usd_per_million, 4),
+                "illustrative_total_usd": illustrative_total,
+                # Backwards-compatible field name. Its meaning is explicitly governed by
+                # kind=binding=false and the disclaimer; it is not a contractual quote.
+                "total_cost_usd": illustrative_total,
+                "disclaimer": (
+                    "Engineering estimate only; not a binding price, saving, SLA, capacity promise or provider-income guarantee."
+                ),
+            },
+            None,
+            HTTPStatus.OK,
+        )

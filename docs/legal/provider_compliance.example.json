@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "node_id": "replace-with-enrolled-ed25519-node-id",
+      "country_code": "DE",
+      "business_verified": true,
+      "status": "active",
+      "provider_terms_version": "2.1",
+      "provider_terms_accepted": true,
+      "data_processing_terms_accepted": true,
+      "no_prompt_logging_attested": true,
+      "payment_processor": "stripe_connect"
+    }
+  ]
+}

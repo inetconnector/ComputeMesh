@@ -101,9 +101,14 @@ class TestPortalServer(unittest.TestCase):
     def test_serve_portal_js(self) -> None:
         with urllib.request.urlopen("http://127.0.0.1:13000/portal.js") as resp:
             self.assertEqual(resp.status, 200)
-            js = resp.read().decode("utf-8")
-            self.assertIn("switchLanguage", js)
-            self.assertIn("translations", js)
+            wrapper = resp.read().decode("utf-8")
+            self.assertIn("portal-core.js", wrapper)
+            self.assertIn("compliantRegistration", wrapper)
+        with urllib.request.urlopen("http://127.0.0.1:13000/portal-core.js") as resp:
+            self.assertEqual(resp.status, 200)
+            core = resp.read().decode("utf-8")
+            self.assertIn("switchLanguage", core)
+            self.assertIn("translations", core)
 
     def test_mesh_stats_api(self) -> None:
         NODE_TELEMETRY_REGISTRY.clear()
@@ -170,6 +175,9 @@ class TestPortalServer(unittest.TestCase):
                 email="provider@mining-farm.io",
                 role="provider",
                 wallet=wallet,
+                country_code="DE",
+                provider_data_processing_terms_accepted=True,
+                no_prompt_logging_attested=True,
             )).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
@@ -180,6 +188,7 @@ class TestPortalServer(unittest.TestCase):
             self.assertTrue(data["api_key"].startswith("cm_provider_"))
             self.assertEqual(data["encryption"], "AES-256-GCM")
             self.assertEqual(data["payout_target_masked"], "0x71a9...B12F")
+            self.assertFalse(data["production_node_eligible"])
 
 
 if __name__ == "__main__":

@@ -9,12 +9,14 @@ from typing import Any, Mapping
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.node_session import SessionSnapshot
 from protocol.session_wire import BenchmarkAcceptanceDecision
+from services.compliance.policy import load_provider_compliance_registry_from_env
 from services.orchestrator.live_provider_registration import (
     LiveProviderRegistration,
     accept_live_authenticated_provider,
 )
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 from services.orchestrator.persistent_control_channel import PersistentNodeControlClient
+from services.orchestrator.provider_compliance import ComplianceAwareLiveProviderRegistration
 
 
 class LiveBenchmarkAcceptancePolicy:
@@ -55,7 +57,15 @@ class IntegratedLiveControlPlane:
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self.stale_after_seconds = stale_after_seconds
         self.control_client = PersistentNodeControlClient()
-        self.registration = LiveProviderRegistration(registry)
+        compliance_registry = load_provider_compliance_registry_from_env()
+        self.registration: LiveProviderRegistration
+        if compliance_registry is None:
+            self.registration = LiveProviderRegistration(registry)
+        else:
+            self.registration = ComplianceAwareLiveProviderRegistration(
+                registry,
+                compliance_registry=compliance_registry,
+            )
         self.benchmark_policy = LiveBenchmarkAcceptancePolicy()
         self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self._context.minimum_version = ssl.TLSVersion.TLSv1_2

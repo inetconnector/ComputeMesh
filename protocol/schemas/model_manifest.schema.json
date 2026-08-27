@@ -11,6 +11,16 @@
     "model_version": {"type": "string", "minLength": 1, "maxLength": 256},
     "architecture": {"type": "string", "minLength": 1},
     "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000},
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publisher", "model_name", "source"],
+      "properties": {
+        "publisher": {"type": "string", "minLength": 1, "maxLength": 256},
+        "model_name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "source": {"type": "string", "minLength": 1, "maxLength": 2048}
+      }
+    },
     "license": {
       "type": "object",
       "additionalProperties": false,

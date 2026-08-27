@@ -28,5 +28,10 @@
       "runtime": "llama.cpp"
     }
   ],
-  "schema_version": 1
+  "schema_version": 1,
+  "upstream": {
+    "model_name": "Qwen2.5-0.5B-Instruct",
+    "publisher": "Qwen",
+    "source": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct"
+  }
 }

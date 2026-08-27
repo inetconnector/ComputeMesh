@@ -8,6 +8,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from services.compliance.policy import require_production_model_attribution
 from services.orchestrator.live_shared_runtime import LiveModelState, LiveSharedRuntimeError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +51,7 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
         raise LiveModelCatalogError("model manifest does not permit contiguous layer partitioning")
     if not isinstance(manifest.get("layer_count"), int):
         raise LiveModelCatalogError("live shared serving requires manifest layer_count")
+    require_production_model_attribution(manifest)
 
 
 def _artifact_record(manifest: dict[str, Any]) -> dict[str, Any]:
