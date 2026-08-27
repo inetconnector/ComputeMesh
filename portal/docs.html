@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation — ComputeMesh Decentralized AI</title>
-  <meta name="description" content="Technical documentation for ComputeMesh API integration, decentralized layer sharding, and hardware provider node setup.">
+  <title>Developer Documentation — ComputeMesh</title>
+  <meta name="description" content="Developer-preview documentation for the implemented ComputeMesh gateway, provider and distributed-inference engineering paths.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/docs">
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh Documentation">
-  <meta property="og:description" content="Technical documentation for ComputeMesh API integration, decentralized layer sharding, and hardware provider node setup.">
+  <meta property="og:title" content="ComputeMesh Developer Documentation">
+  <meta property="og:description" content="Developer-preview documentation for the implemented ComputeMesh gateway, provider and distributed-inference engineering paths.">
   <meta property="og:url" content="https://computemesh.inetconnector.com/docs">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,33 +40,34 @@
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
-    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2.5rem;">
-      <span class="section-tag" data-i18n="docs_tag">Technical Documentation</span>
-      <h1 data-i18n="docs_title">ComputeMesh Architecture & Integration Guide</h1>
-      <p data-i18n="docs_sub">Comprehensive developer references, OpenAI API compatibility specifications, and hardware node deployment manuals.</p>
+    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
+      <span class="section-tag">Developer Preview Documentation</span>
+      <h1>ComputeMesh Architecture & Integration Guide</h1>
+      <p>Documentation for the currently implemented gateway/provider foundations and the validated research/live development path. ComputeMesh is still pre-production; examples are deployment-dependent and do not imply universal model, hardware, latency or availability support.</p>
+    </div>
+
+    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2.5rem; color: var(--text-muted); line-height: 1.6;">
+      <strong style="color: var(--text-main);">Readiness boundary:</strong> a narrow physical two-machine shared-runtime proof and substantial control/gateway foundations exist, but broad LAN/WAN validation, production data-plane security, provider-enforced leases and production key/session hardening remain open. Upstream llama.cpp RPC must not be exposed directly to an untrusted/public network.
     </div>
 
     <div style="display: grid; grid-template-columns: 280px 1fr; gap: 2.5rem; align-items: start;">
-      <!-- Sidebar Navigation -->
       <aside style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; position: sticky; top: 90px;">
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 1rem;" data-i18n="docs_toc">Contents</h4>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 1rem;">Contents</h4>
         <ul class="footer-links" style="gap: 0.75rem;">
-          <li><a href="#quickstart" style="color: var(--text-main); font-weight: 600;">1. Quickstart & API</a></li>
-          <li><a href="#architecture">2. Decentralized Mesh</a></li>
-          <li><a href="#layer-sharding">3. Pipeline Layer Sharding</a></li>
-          <li><a href="#providers">4. Provider Node Setup</a></li>
+          <li><a href="#quickstart" style="color: var(--text-main); font-weight: 600;">1. Gateway/API quickstart</a></li>
+          <li><a href="#architecture">2. Distributed architecture</a></li>
+          <li><a href="#layer-sharding">3. Layer-sharding research</a></li>
+          <li><a href="#providers">4. Provider node setup</a></li>
           <li><a href="#mining-rigs">5. Mining Rig NodeOS</a></li>
-          <li><a href="#billing">6. Ledger & Billing Model</a></li>
+          <li><a href="#billing">6. Ledger & billing foundations</a></li>
         </ul>
       </aside>
 
-      <!-- Main Docs Content -->
       <div style="display: flex; flex-direction: column; gap: 3rem;">
-        <!-- Quickstart -->
         <section id="quickstart" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec1_title">1. OpenAI API Drop-in Quickstart</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1.5rem;" data-i18n="docs_sec1_desc">
-            ComputeMesh implements full drop-in compatibility with the standard OpenAI SDK and REST specification. You only need to set your <code>base_url</code> and pass your ComputeMesh API key.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">1. OpenAI-compatible gateway quickstart</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;">
+            The gateway implements an OpenAI-compatible surface for supported endpoints such as chat completions and model listing. It is not a claim of 100% compatibility with every OpenAI API endpoint or SDK behavior. Configure <code>base_url</code>, use a registered ComputeMesh API key, and select a model that the active deployment actually exposes.
           </p>
           <div class="code-window">
             <div class="code-header">
@@ -81,8 +82,8 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen/qwen2.5-7b-instruct",
-    messages=[{"role": "user", "content": "How does ComputeMesh layer sharding work?"}],
+    model="&lt;model-id-from-/v1/models&gt;",
+    messages=[{"role": "user", "content": "Explain the current ComputeMesh runtime."}],
     stream=True
 )
 
@@ -90,85 +91,81 @@ for chunk in response:
     print(chunk.choices[0].delta.content or "", end="")</code></pre>
           </div>
 
-          <!-- Live Interactive Web API Playground -->
           <div style="margin-top: 2rem; background: rgba(17, 24, 39, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <h3 style="font-size: 1.2rem; color: var(--primary);" data-i18n="playground_title">⚡ Live In-Browser API Playground</h3>
-              <span class="badge badge-emerald" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-emerald);"></span> Connected to Live Gateway</span>
+              <h3 style="font-size: 1.2rem; color: var(--primary);">⚡ In-browser gateway playground</h3>
+              <span class="badge badge-emerald" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">Availability depends on the deployed gateway/catalog</span>
             </div>
-            
+
             <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
               <select id="playground-model" class="form-control">
-                <option value="qwen/qwen2.5-7b-instruct">qwen/qwen2.5-7b-instruct (Fast • 4K Context)</option>
-                <option value="qwen/qwen2.5-14b-instruct">qwen/qwen2.5-14b-instruct (Balanced)</option>
-                <option value="qwen/qwen2.5-32b-instruct">qwen/qwen2.5-32b-instruct (High Reasoning)</option>
-                <option value="llama/llama-3.1-70b-instruct">llama/llama-3.1-70b-instruct (Expert Deep)</option>
+                <option value="qwen/qwen2.5-7b-instruct">Example: qwen/qwen2.5-7b-instruct</option>
+                <option value="qwen/qwen2.5-14b-instruct">Example: qwen/qwen2.5-14b-instruct</option>
+                <option value="qwen/qwen2.5-32b-instruct">Example: qwen/qwen2.5-32b-instruct</option>
+                <option value="llama/llama-3.1-70b-instruct">Example: llama/llama-3.1-70b-instruct</option>
               </select>
               <button id="playground-btn" class="btn btn-primary" onclick="runPlaygroundPrompt()" data-i18n="playground_send">▶ Run Inference</button>
             </div>
 
-            <textarea id="playground-input" class="form-control" rows="2" style="width: 100%; margin-bottom: 1rem; font-family: var(--font-sans);" placeholder="Enter your prompt here...">How does ComputeMesh achieve low latency on PCIe 1x mining risers?</textarea>
+            <textarea id="playground-input" class="form-control" rows="2" style="width: 100%; margin-bottom: 1rem; font-family: var(--font-sans);" placeholder="Enter your prompt here...">What parts of ComputeMesh are validated today?</textarea>
 
             <div class="code-window" style="margin-top: 0.5rem;">
               <div class="code-header" style="display: flex; justify-content: space-between;">
-                <span>Live Response Terminal</span>
+                <span>Gateway Response Terminal</span>
                 <span id="playground-stats" style="font-size: 0.75rem; color: var(--accent-emerald);">Ready</span>
               </div>
-              <pre style="max-height: 240px; overflow-y: auto; background: #080c14; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; color: #f3f4f6; white-space: pre-wrap;"><code id="playground-output">Click "Run Inference" above to stream tokens in real-time directly through the decentralized mesh.</code></pre>
+              <pre style="max-height: 240px; overflow-y: auto; background: #080c14; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; color: #f3f4f6; white-space: pre-wrap;"><code id="playground-output">If the configured gateway/model is available, click "Run Inference" to send the request.</code></pre>
             </div>
           </div>
         </section>
 
-        <!-- Architecture -->
         <section id="architecture" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec2_title">2. Decentralized Mesh Architecture</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec2_desc">
-            ComputeMesh connects consumer GPUs, professional cloud accelerators, and multi-GPU mining rigs through a low-latency, peer-to-peer execution topology. The scheduler evaluates node proximity, memory bandwidth, and thermal stability to dynamically allocate neural network layers.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">2. Distributed mesh architecture</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;">
+            ComputeMesh is designed to select feasible execution placements across heterogeneous providers. The current live development path uses an authenticated provider-control channel, a private production placement service, a public executor and a two-node llama.cpp shared-runtime path. It does not yet imply arbitrary peer-to-peer execution across every registered GPU.
           </p>
           <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.8;">
-            Client Request ➔ ComputeMesh Edge Gateway ➔ Placement Scheduler<br>
-            &nbsp;&nbsp;├── Node A (RTX 3080 16GB) : Layers 0–12 (Embeddings & Attention Blocks)<br>
-            &nbsp;&nbsp;└── Node B (5x 8GB Rig 40GB) : Layers 13–32 (Deep Blocks & LM-Head) ➔ Streamed Tokens
+            Client Request ➔ Public Gateway / Orchestrator<br>
+            &nbsp;&nbsp;➔ Private Placement Decision (signed)<br>
+            &nbsp;&nbsp;➔ Public Executor verifies plan<br>
+            &nbsp;&nbsp;➔ Coordinator + selected RPC worker (current two-node path)<br>
+            &nbsp;&nbsp;➔ Evidence + Provider Attestations ➔ Verified private feedback
           </div>
         </section>
 
-        <!-- Layer Sharding & PCIe -->
         <section id="layer-sharding" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec3_title">3. Pipeline Layer Sharding & PCIe 1x Physics</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec3_desc">
-            Unlike training workloads that require high-bandwidth all-reduce operations, autoregressive inference at batch size 1 only transmits the activation tensor of a single token (e.g. 8.2 KB for a 32B model). Across a 500 MB/s PCIe 1x mining riser, this transfer takes only <strong>0.016 milliseconds</strong>, introducing zero human-perceivable token latency.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">3. Pipeline layer-sharding research</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;">
+            Contiguous layer splitting can reduce per-device model-memory requirements, but end-to-end performance depends on the exact model, quantization, runtime build, split, GPU pair and network path. ComputeMesh therefore records real baseline/shared measurements and network byte/timing evidence instead of treating a theoretical activation-size calculation as a universal latency result. Any PCIe or WAN performance number must be tied to a named measured configuration.
           </p>
         </section>
 
-        <!-- Hardware Providers -->
         <section id="providers" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec4_title">4. Hardware Provider Node Setup</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec4_desc">
-            Anyone with a modern GPU (NVIDIA, AMD, or Intel) can run a ComputeMesh provider agent. Nodes authenticate using asymmetric Ed25519 cryptography without exposing private keys.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">4. Hardware provider node setup</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;">
+            A runnable public provider agent and Ed25519 enrollment/session path exist. Actual runtime support is hardware-, driver-, backend-, model- and llama.cpp-build-dependent; ComputeMesh does not claim that every modern NVIDIA, AMD or Intel GPU is production-supported. Provider private keys are generated/retained on the provider in the current SSH operator path, while production OS-protected key storage remains a hardening item.
           </p>
           <div class="dl-code-box">curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash</div>
+          <p style="color: var(--text-muted); margin-top: 0.8rem; font-size: 0.85rem;">Only use a published installer after verifying that it corresponds to the documented release/deployment path for your system.</p>
         </section>
 
-        <!-- Mining Rigs -->
         <section id="mining-rigs" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec5_title">5. Mining Rig NodeOS Appliance</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec5_desc">
-            NodeOS is a headless appliance image based on Debian 13 that boots directly from a USB stick. It features native dual-stack driver detection for both AMD (Polaris, Vega, RDNA) and NVIDIA (Pascal, Turing, Ampere) cards with an embedded real-time dashboard on port <code>8080</code>.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">5. Mining Rig NodeOS appliance</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;">
+            NodeOS/appliance tooling exists for headless provider experiments, including hardware/backend detection and a local dashboard. Exact AMD/NVIDIA generations, driver combinations and multi-GPU topologies require per-target validation; the appliance is not evidence that every mining-rig configuration is production-ready.
           </p>
         </section>
 
-        <!-- Ledger & Settlement Rules -->
         <section id="billing" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec6_title">6. Verifiable Ledger, Accounting & 2-Tier Settlement Rules</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="docs_sec6_desc">
-            ComputeMesh operates an auditable, append-only double-entry financial ledger. For every token generated by a hardware node, micro-units are credited directly to the provider's balance after the 25% platform fee. Customer payments for compute credits are processed through Stripe. MetaMask is used only to select a provider payout destination address for earned compute revenue, never to buy compute credits.
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;">6. Ledger & billing foundations</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;">
+            The public code contains an auditable double-entry ledger foundation plus fail-closed Stripe Checkout/Webhook and provider-settlement integration paths when configured. Production quote, marketplace, margin/take-rate and settlement-hold policy belong to the private control plane and are not defined by a universal percentage on this documentation page. MetaMask/EVM addresses, where used by the current provider UI, are payout-destination metadata rather than a mechanism for buying compute credits.
           </p>
         </section>
       </div>
     </div>
   </main>
 
-  <!-- Interactive Registration Modal -->
   <div id="register-modal" class="modal-backdrop">
     <div class="modal-box">
       <button class="modal-close" onclick="closeModal()">&times;</button>
@@ -189,7 +186,7 @@ for chunk in response:
         <div class="form-group">
           <label data-i18n="modal_wallet_lbl">Provider Payout Wallet (Optional)</label>
           <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum / Polygon / Arbitrum)">
-          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers only: enter the 0x address that should receive earnings from contributed compute power. MetaMask is only an address picker here. Buying compute credits and all customer payments are handled through Stripe.</small>
+          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">For GPU providers only: enter the 0x address that should receive earnings from contributed compute power. MetaMask is only an address picker here. Buying compute credits and customer payments are handled through the configured payment path.</small>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">Generate Credentials</button>
       </form>
