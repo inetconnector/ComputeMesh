@@ -1,9 +1,9 @@
 """Placement boundary between public ComputeMesh runtime code and placement policy.
 
 The public repository owns the interoperability contract, not the production
-placement implementation. Production deployments should use a remote provider
-backed by the private ComputeMesh control plane. The local provider exists only
-for the disclosed M1/reference scheduler and reproducible research.
+placement implementation. Production deployments use a remote provider backed
+by the private ComputeMesh control plane. The local provider exists only for the
+disclosed M1/reference scheduler and reproducible research.
 """
 from __future__ import annotations
 
@@ -20,26 +20,131 @@ class PlacementProviderError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class PlacementPlan:
+    """Minimal execution data allowed to cross the placement-policy boundary."""
+
+    decision_id: str
+    model_id: str
+    artifact_digest: str
+    artifact_size_bytes: int
+    layer_count: int
+    coordinator_node_id: str
+    coordinator_kind: str
+    coordinator_name: str
+    worker_node_id: str
+    layer_ranges: tuple[tuple[str, int, int], ...]
+    tensor_split: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if not self.decision_id or not self.model_id or not self.artifact_digest:
+            raise ValueError("placement identifiers must be non-empty")
+        if self.artifact_size_bytes < 1 or self.layer_count < 2:
+            raise ValueError("placement model metadata is invalid")
+        if not self.coordinator_node_id or not self.worker_node_id:
+            raise ValueError("placement node ids must be non-empty")
+        if self.coordinator_node_id == self.worker_node_id:
+            raise ValueError("placement requires distinct coordinator and worker")
+        if len(self.layer_ranges) != 2 or len(self.tensor_split) != 2:
+            raise ValueError("current live runtime requires exactly two placement stages")
+        if any(value <= 0 for value in self.tensor_split):
+            raise ValueError("tensor split entries must be positive")
+        ordered = sorted(self.layer_ranges, key=lambda item: item[1])
+        if ordered[0][1] != 0 or ordered[0][2] != ordered[1][1] or ordered[-1][2] != self.layer_count:
+            raise ValueError("placement layer ranges must be contiguous and cover the model")
+        if {item[0] for item in self.layer_ranges} != {self.coordinator_node_id, self.worker_node_id}:
+            raise ValueError("placement layer ranges do not match selected nodes")
+
+
 class PlacementProvider(Protocol):
-    def decide(self, **inputs: Any) -> dict[str, Any]:
+    def decide(self, **inputs: Any) -> PlacementPlan:
         ...
+
+
+def _reference_plan(decision: dict[str, Any]) -> PlacementPlan:
+    recommendation = decision["recommendation"]
+    if recommendation["production_scheduling"] is not False or recommendation["mode"] != "shared_experiment":
+        raise PlacementProviderError("reference scheduler did not return a shared experimental placement")
+    if not all(bool(item["passed"]) for item in decision["hard_constraints"]):
+        raise PlacementProviderError("reference placement hard constraints are not all satisfied")
+    shared = [c for c in decision["candidates"] if c["mode"] == "shared_contiguous_layers" and c["feasible"]]
+    if len(shared) != 1:
+        raise PlacementProviderError("reference scheduler did not return one feasible shared placement")
+    candidate = shared[0]
+    ranges = tuple(
+        (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
+        for item in candidate["layer_ranges"]
+    )
+    coordinator = decision["nodes"]["coordinator"]
+    worker = decision["nodes"]["worker"]
+    model = decision["model"]
+    return PlacementPlan(
+        decision_id=str(decision["decision_id"]),
+        model_id=str(model["model_id"]),
+        artifact_digest=str(model["artifact_digest"]),
+        artifact_size_bytes=int(model["artifact_size_bytes"]),
+        layer_count=int(model["layer_count"]),
+        coordinator_node_id=str(coordinator["node_id"]),
+        coordinator_kind=str(coordinator["kind"]),
+        coordinator_name=str(coordinator["name"]),
+        worker_node_id=str(worker["node_id"]),
+        layer_ranges=ranges,
+        tensor_split=tuple(float(value) for value in candidate["tensor_split"]),
+    )
 
 
 @dataclass(frozen=True)
 class ReferencePlacementProvider:
     """Disclosed reference/M1 planner; not the production ComputeMesh scheduler."""
 
-    def decide(self, **inputs: Any) -> dict[str, Any]:
-        return build_placement_decision(**inputs)
+    def decide(self, **inputs: Any) -> PlacementPlan:
+        return _reference_plan(build_placement_decision(**inputs))
+
+
+def _external_plan(value: dict[str, Any]) -> PlacementPlan:
+    if value.get("schema_version") != 1 or value.get("decision_type") != "placement":
+        raise PlacementProviderError("private placement response has an unsupported envelope")
+    payload = value.get("payload")
+    if not isinstance(payload, dict):
+        raise PlacementProviderError("private placement response lacks payload")
+    model = payload.get("model")
+    execution = payload.get("execution")
+    if not isinstance(model, dict) or not isinstance(execution, dict):
+        raise PlacementProviderError("private placement response lacks model/execution data")
+    coordinator = execution.get("coordinator")
+    worker = execution.get("worker")
+    ranges = execution.get("layer_ranges")
+    split = execution.get("tensor_split")
+    if not isinstance(coordinator, dict) or not isinstance(worker, dict) or not isinstance(ranges, list) or not isinstance(split, list):
+        raise PlacementProviderError("private placement execution payload is malformed")
+    try:
+        return PlacementPlan(
+            decision_id=str(value["decision_id"]),
+            model_id=str(model["model_id"]),
+            artifact_digest=str(model["artifact_digest"]),
+            artifact_size_bytes=int(model["artifact_size_bytes"]),
+            layer_count=int(model["layer_count"]),
+            coordinator_node_id=str(coordinator["node_id"]),
+            coordinator_kind=str(coordinator["kind"]),
+            coordinator_name=str(coordinator["name"]),
+            worker_node_id=str(worker["node_id"]),
+            layer_ranges=tuple(
+                (str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"]))
+                for item in ranges
+            ),
+            tensor_split=tuple(float(item) for item in split),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PlacementProviderError("private placement payload contains invalid execution data") from exc
 
 
 @dataclass(frozen=True)
 class RemotePlacementProvider:
     """Thin client for the private production control plane.
 
-    The API returns only the externally required placement decision. Internal
-    scores, candidate rankings, model features and pricing/reputation state are
-    intentionally unavailable to this client.
+    Only the minimal execution plan crosses this boundary. Candidate scores,
+    rejected nodes, model features, reputation data, pricing state and optimizer
+    diagnostics remain private.
     """
 
     endpoint: str
@@ -54,7 +159,7 @@ class RemotePlacementProvider:
         if not 0 < self.timeout_seconds <= 60:
             raise ValueError("timeout_seconds must be within (0,60]")
 
-    def decide(self, **inputs: Any) -> dict[str, Any]:
+    def decide(self, **inputs: Any) -> PlacementPlan:
         body = json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode("utf-8")
         req = urlrequest.Request(
             self.endpoint,
@@ -68,15 +173,15 @@ class RemotePlacementProvider:
         )
         try:
             with urlrequest.urlopen(req, timeout=self.timeout_seconds) as response:
-                raw = response.read(2 * 1024 * 1024 + 1)
+                raw = response.read(512 * 1024 + 1)
         except (urlerror.URLError, TimeoutError) as exc:
             raise PlacementProviderError("private placement service is unavailable") from exc
-        if len(raw) > 2 * 1024 * 1024:
-            raise PlacementProviderError("private placement response exceeded 2 MiB")
+        if len(raw) > 512 * 1024:
+            raise PlacementProviderError("private placement response exceeded 512 KiB")
         try:
             value = json.loads(raw.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise PlacementProviderError("private placement service returned invalid JSON") from exc
         if not isinstance(value, dict):
             raise PlacementProviderError("private placement response must be an object")
-        return value
+        return _external_plan(value)
