@@ -55,11 +55,17 @@ class LiveSharedInferenceBackend:
         self._active_lock = threading.RLock()
         self._active_cancels: dict[str, threading.Event] = {}
 
-    def _plan(self, model_id: str) -> LiveExecutionPlan:
+    def _plan(
+        self,
+        model_id: str,
+        *,
+        avoid_provider_sets: tuple[frozenset[str], ...] = (),
+    ) -> LiveExecutionPlan:
         try:
             return self.registry.build_execution_plan(
                 model_id,
                 allow_experimental=self.allow_experimental,
+                avoid_provider_sets=avoid_provider_sets,
             )
         except LiveSharedRuntimeError as exc:
             raise InferenceBackendError("live shared runtime is not dispatchable") from exc
@@ -176,14 +182,17 @@ class LiveSharedInferenceBackend:
         for attempt in range(1, self.max_attempts + 1):
             if cancel_event.is_set():
                 raise InferenceBackendError("shared request was cancelled")
-            live = self._plan(model_id)
+            live = self._plan(
+                model_id,
+                avoid_provider_sets=tuple(previous_provider_sets),
+            )
             provider_set = frozenset(live.placement.provider_node_ids)
             if provider_set in previous_provider_sets:
                 if last_error is not None:
                     raise InferenceBackendError(
-                        "live shared retry refused because scheduler selected the failed provider set again"
+                        "private recovery policy returned a previously failed provider set"
                     ) from last_error
-                raise InferenceBackendError("live shared placement repeated within one recovery group")
+                raise InferenceBackendError("private recovery policy repeated a provider set")
             previous_provider_sets.add(provider_set)
             attempt_job_id = f"{request_id}-a{attempt}"
             abort_event = threading.Event()
