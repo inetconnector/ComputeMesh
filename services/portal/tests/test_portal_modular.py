@@ -29,6 +29,18 @@ def accepted_registration(**overrides):
     return body
 
 
+def accepted_provider(**overrides):
+    body = accepted_registration(
+        email="provider@computemesh.test",
+        role="provider",
+        country_code="DE",
+        provider_data_processing_terms_accepted=True,
+        no_prompt_logging_attested=True,
+    )
+    body.update(overrides)
+    return body
+
+
 class TestPortalModular(unittest.TestCase):
     def setUp(self) -> None:
         self.store: dict = {}
@@ -59,25 +71,36 @@ class TestPortalModular(unittest.TestCase):
         self.assertTrue(res["api_key"].startswith("cm_live_"))
         self.assertEqual(res["free_credit_granted_usd"], 10.0)
         self.assertEqual(res["terms_version"], CURRENT_TERMS_VERSION)
-
         stored = self.store[res["api_key"]]
         self.assertEqual(DEFAULT_VAULT.decrypt(stored["email_encrypted"]), "consumer@computemesh.test")
         self.assertTrue(stored["business_user_confirmed"])
         self.assertEqual(stored["terms_version"], CURRENT_TERMS_VERSION)
 
-    def test_provider_registration_with_wallet(self) -> None:
-        res, err, status = self.reg_handler.handle_register(accepted_registration(
-            email="provider@computemesh.test",
-            role="provider",
-            wallet="0x1234567890abcdef1234567890abcdef12345678",
-        ))
+    def test_provider_registration_requires_eea_and_data_obligations(self) -> None:
+        res, err, status = self.reg_handler.handle_register(accepted_provider(country_code="US"))
+        self.assertIsNone(res)
+        self.assertEqual(status, HTTPStatus.FORBIDDEN)
+        self.assertIn("EEA", err or "")
+
+        res, err, status = self.reg_handler.handle_register(
+            accepted_provider(provider_data_processing_terms_accepted=False)
+        )
+        self.assertIsNone(res)
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertIn("data-processing", err or "")
+
+    def test_provider_registration_is_not_node_admission(self) -> None:
+        res, err, status = self.reg_handler.handle_register(accepted_provider())
         self.assertIsNone(err)
         self.assertEqual(status, HTTPStatus.CREATED)
         self.assertIsNotNone(res)
         self.assertTrue(res["api_key"].startswith("cm_provider_"))
-
+        self.assertFalse(res["production_node_eligible"])
         stored = self.store[res["api_key"]]
-        self.assertEqual(DEFAULT_VAULT.decrypt(stored["wallet_encrypted"]), "0x1234567890abcdef1234567890abcdef12345678")
+        self.assertEqual(stored["country_code"], "DE")
+        self.assertFalse(stored["production_node_eligible"])
+        self.assertTrue(stored["provider_data_processing_terms_accepted_at"].endswith("Z"))
+        self.assertTrue(stored["no_prompt_logging_attested_at"].endswith("Z"))
 
     def test_registration_persists_terms_acceptance_with_gateway_api_key_store(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -100,26 +123,19 @@ class TestPortalModular(unittest.TestCase):
             self.assertTrue(stored["business_user_confirmed"])
             self.assertTrue(stored["terms_accepted_at"].endswith("Z"))
 
-    def test_quotes_calculation_and_savings(self) -> None:
-        res_70b, err, status = self.quotes_handler.handle_quote({
+    def test_public_quote_is_explicitly_non_binding(self) -> None:
+        res, err, status = self.quotes_handler.handle_quote({
             "tokens_million": 100.0,
             "model_tier": "70b",
         })
         self.assertIsNone(err)
         self.assertEqual(status, HTTPStatus.OK)
-        self.assertIsNotNone(res_70b)
-        self.assertEqual(res_70b["total_cost_usd"], 120.0)
-        self.assertEqual(res_70b["cloud_equivalent_usd"], 350.0)
-        self.assertGreaterEqual(res_70b["savings_percent"], 60.0)
-
-        res_8b, err, status = self.quotes_handler.handle_quote({
-            "tokens_million": 100.0,
-            "model_tier": "8b",
-        })
-        self.assertIsNone(err)
-        self.assertEqual(status, HTTPStatus.OK)
-        self.assertIsNotNone(res_8b)
-        self.assertEqual(res_8b["total_cost_usd"], 17.50)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["kind"], "illustrative_estimate")
+        self.assertFalse(res["binding"])
+        self.assertIn("illustrative_total_usd", res)
+        self.assertNotIn("savings_percent", res)
+        self.assertNotIn("cloud_equivalent_usd", res)
 
 
 if __name__ == "__main__":
