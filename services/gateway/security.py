@@ -1,9 +1,9 @@
-"""ComputeMesh Hardened Gateway Security, Rate Limiting & Data Sanitization Module.
+"""ComputeMesh hardened gateway security, rate limiting and data sanitization.
 
 Provides:
-- In-memory Token-Bucket rate limiter with sliding window burst protection
-- Standardized OWASP HTTP Security Headers
-- Zero-Trace AI prompt memory scrubbing & error sanitization
+- In-memory token-bucket rate limiting with stale-bucket cleanup
+- Standardized browser security headers
+- Sensitive prompt-buffer clearing and error sanitization helpers
 - Request body payload size limits
 """
 from __future__ import annotations
@@ -19,18 +19,18 @@ from typing import Any
 
 logger = logging.getLogger("computemesh.security")
 
-# OWASP Recommended Security Headers
+# Browser-facing security headers. Portal assets are intentionally first-party only:
+# no external font, analytics, advertising or CDN origin is permitted by the CSP.
 SECURITY_HEADERS: dict[str, str] = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(self), usb=()",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://computemesh.inetconnector.com wss: https:; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';",
     "Server": "ComputeMesh-Gateway/1.2",
 }
 
-# Maximum Request Body Payload (10 MB)
 MAX_REQUEST_PAYLOAD_BYTES: int = 10 * 1024 * 1024
 
 
@@ -43,7 +43,7 @@ class TokenBucket:
 
 
 class RateLimiter:
-    """Thread-safe Token Bucket Rate Limiter with automatic bucket expiration."""
+    """Thread-safe token bucket rate limiter with automatic bucket expiration."""
 
     def __init__(
         self,
@@ -57,17 +57,16 @@ class RateLimiter:
         self._last_cleanup = time.time()
 
     def is_allowed(self, identifier: str, is_authenticated: bool = False) -> tuple[bool, float]:
-        """Checks if a request is allowed. Returns (allowed: bool, retry_after_sec: float)."""
+        """Check whether a request is allowed and return (allowed, retry_after_seconds)."""
         if os.environ.get("COMPUTEMESH_DISABLE_RATE_LIMIT") == "1":
             return (True, 0.0)
 
-        # Loopback and internal testing are never throttled
         if "127.0.0.1" in identifier or "::1" in identifier or "localhost" in identifier or "loopback" in identifier:
             return (True, 0.0)
 
         now = time.time()
         refill_rate = self.auth_rate_per_sec if is_authenticated else self.default_rate_per_sec
-        capacity = refill_rate * 5.0  # allow 5s burst
+        capacity = refill_rate * 5.0
 
         with self._lock:
             if now - self._last_cleanup > 300.0:
@@ -83,7 +82,6 @@ class RateLimiter:
                 )
                 return (True, 0.0)
 
-            # Refill tokens based on elapsed time
             elapsed = max(0.0, now - bucket.last_update)
             bucket.tokens = min(bucket.capacity, bucket.tokens + elapsed * bucket.refill_rate_per_sec)
             bucket.last_update = now
@@ -92,7 +90,6 @@ class RateLimiter:
                 bucket.tokens -= 1.0
                 return (True, 0.0)
 
-            # Rate limit exceeded
             deficit = 1.0 - bucket.tokens
             retry_after = max(0.1, deficit / bucket.refill_rate_per_sec)
             return (False, round(retry_after, 2))
@@ -104,22 +101,19 @@ class RateLimiter:
         self._last_cleanup = now
 
 
-# Global Singleton Rate Limiter
 GLOBAL_RATE_LIMITER = RateLimiter()
 
 
 def sanitize_error_message(error: Exception | str) -> str:
-    """Masks internal stack traces, filesystem paths, and private keys from caller error strings."""
+    """Mask internal filesystem paths and credential-like secrets in caller-visible errors."""
     msg = str(error)
-    # Mask file system paths
     msg = re.sub(r"([A-Za-z]:\\[^ \n]+|/(?:root|home|etc|var|opt)/[^ \n]+)", "[internal_path]", msg)
-    # Mask API keys and secrets
     msg = re.sub(r"(cm_[a-zA-Z0-9_]{16,}|sk_[a-zA-Z0-9_]{16,}|whsec_[a-zA-Z0-9_]{16,})", "[REDACTED_SECRET]", msg)
     return msg
 
 
 def zero_memory_bytes(buf: bytearray | memoryview) -> None:
-    """Zero-fills memory buffers holding sensitive prompt data."""
+    """Best-effort zero-fill of mutable buffers holding sensitive request data."""
     try:
         for i in range(len(buf)):
             buf[i] = 0
