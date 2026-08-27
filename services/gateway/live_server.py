@@ -11,6 +11,7 @@ from typing import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
+from services.compliance.policy import assert_production_launch_gate
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.live_bootstrap import install_live_shared_gateway
 from services.gateway.live_handler import LiveGatewayHandler
@@ -105,9 +106,6 @@ def _synchronize_live_ledger() -> SynchronizedLedgerProxy:
 def _install_cancellable_live_gateway():
     ledger = _synchronize_live_ledger()
     backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
-    # Replay exact frozen billing intents first. This closes the crash window after
-    # verified execution but before the ledger append. Legacy COMPLETED rows without
-    # an outbox record are then reconciled against already-persisted ledger events.
     replay_billing_outbox(backend.store, ledger)
     reconcile_completed_settlements(backend.store, ledger)
     LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
@@ -146,6 +144,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     control_plane: IntegratedLiveControlPlane | None = None
     try:
+        # In production this is deliberately first: no model, provider listener or
+        # customer gateway comes up before the legal/DSGVO/payment gate is complete.
+        assert_production_launch_gate()
         _load_models_from_env(LIVE_SHARED_RUNTIME)
         configure_live_runtime_from_module(args.control_module)
         control_plane = _start_integrated_control_plane(
