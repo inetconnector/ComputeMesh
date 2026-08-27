@@ -2,8 +2,10 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Stage:** M0 foundation, one verified M1 trusted-lab shared-runtime proof, and M2 foundation components for portal, gateway, billing, updater, desktop/provider apps and telemetry.
-> **Important:** ComputeMesh is **not yet a production distributed-inference product**. The Windows/Linux setup prepares the lab/benchmark workflow that actually exists today; it is not a public provider-node installer.
+> **Stage:** active pre-production engineering: verified M1 trusted-lab shared-runtime evidence plus implemented live gateway/provider-control/orchestration foundations and a private production-policy control-plane boundary.
+> **Important:** ComputeMesh is **not yet a generally production-ready distributed-inference product**. Broad physical LAN/WAN validation, provider-enforced resource leases, production data-plane security and key/session hardening remain gates.
+
+For the current public-safe status read **[docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md)** first. `state.md` remains the detailed public engineering/evidence history; proprietary current production-policy state belongs in the private `ComputeMesh-ControlPlane/STATE.md`.
 
 ComputeMesh explores whether heterogeneous computers can cooperate as one model-aware AI inference fabric. The long-term goal is simple: choose a model and policy, while ComputeMesh handles feasibility, placement, preparation, execution, failures, verification, and auditable accounting.
 
@@ -34,16 +36,27 @@ Implemented foundations now include:
 - strict transport-neutral control envelopes and durable initial handlers;
 - authentication-gated node-session semantics and strict initial wire binding;
 - M1 reference node identity `computemesh-ed25519-v1` with enrollment/key-rotation/revocation reference state;
+- an authenticated persistent provider-control path plus a runnable public provider agent that proves its enrolled Ed25519 identity, publishes measured profile/runtime/benchmark evidence, reconnects, and signs bounded execution attestations;
 - an authenticated OpenAI-compatible and Ollama-compatible gateway surface for the current cluster model catalog;
+- an integrated live shared-serving path with durable recovery/cancellation, private remote-first global placement, Ed25519 verification of signed execution plans, execution evidence/attestation and durable measured-outcome feedback;
 - a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
 - a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
 - a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
+- a real shared-runtime network-sensitivity matrix runner for controlled delay/jitter points without fabricating packet-loss/bandwidth evidence;
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
 - a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
 - an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver;
 - fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them;
 - registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags;
 - a web playground teaser path with 20 free requests per configurable four-hour client window and an optional private OpenAI/Ollama-compatible demo upstream for real model answers when configured.
+
+### Public/private production boundary
+
+`services/scheduler/placement.py` remains the disclosed deterministic **research/reference** feasibility planner described below. It is not the production ranking engine.
+
+Production placement feasibility/ranking, empirical performance state, reputation/fraud eligibility, private recovery selection, pricing/marketplace policy and settlement policy live in the separate private `inetconnector/ComputeMesh-ControlPlane` repository. The public orchestrator sends a bounded live candidate/network snapshot, accepts only a signed/unexpired execution plan, verifies it fail-closed and executes the minimum placement result without receiving private candidate scores or policy internals.
+
+Verified public execution outcomes can be durably delivered to the private feedback path, where private performance/reliability inputs evolve without being serialized back into public placement responses.
 
 ## M1 two-node placement and evidence bundle
 
@@ -67,7 +80,7 @@ It can emit:
 
 The output includes deterministic `decision_id`, contiguous layer ranges, relative `tensor_split` weights, hard-constraint explanations and the measured individual compute/network evidence.
 
-Critically, before a correct measured shared-runtime run exists it always leaves:
+Critically, the public research planner does not invent shared-runtime predictions when it lacks calibrated evidence:
 
 ```text
 predicted_shared_request_ms = null
@@ -112,7 +125,7 @@ Current llama.cpp split metadata is also recognized. A primary shard with `split
 
 The first experiment keeps coordinator HTTP on `127.0.0.1`, restricts RPC to literal loopback/RFC1918 IPv4, uses `--offline`, disables automatic fitting and cache surfaces, and treats upstream RPC only as a trusted-lab implementation detail. The automated runner currently requires an accelerator-backed coordinator rather than inventing local-CPU split semantics. See [runtime/llama/README.md](runtime/llama/README.md).
 
-ADR 0002 has one recorded trusted-lab physical proof in `state.md`, but the harness remains an experiment path. It is not a production runtime or security boundary, and any new topology/model/runtime build needs fresh evidence.
+ADR 0002 has one recorded trusted-lab physical proof in `state.md`, but the harness remains an experiment path. It is not by itself a production runtime or security boundary, and any new topology/model/runtime build needs fresh evidence.
 
 ## Runtime network measurement relay
 
@@ -122,7 +135,7 @@ The relay does not parse RPC frames: byte totals include framing/control/data an
 
 ## Verified real-target evidence
 
-Existing physical-target evidence from 2026-08-21 includes:
+Historical physical-target evidence from 2026-08-21 includes:
 
 - Windows target: RTX 3080 Laptop GPU, 16 GiB VRAM, 31.7 GiB RAM;
 - Linux target: Debian 13 server, 4 logical CPU cores, 7.8 GiB RAM, CPU-only;
@@ -130,75 +143,86 @@ Existing physical-target evidence from 2026-08-21 includes:
 - Windows CUDA llama.cpp 7B-Q4 benchmark: prefill `2866.127 tok/s`, decode `76.210 tok/s`;
 - Linux CPU llama.cpp 0.5B-Q4 smoke: prefill `12.382 tok/s`, decode `0.201 tok/s`.
 
-The two historical llama.cpp runs used different GGUFs, so they cannot be combined into the current evidence bundle. The internet network result is not a trusted-private-LAN A/B proof and is not distributed shared inference. The relay, evidence-transfer/binding path, GGUF manifest helper, experiment-bundle builder and placement planner currently have cross-platform software evidence, not real two-machine shared-runtime evidence.
+Those two historical llama.cpp benchmark runs used different GGUFs, so they cannot be combined into the current evidence bundle. The internet network result is not a trusted-private-LAN A/B proof. Later engineering recorded a narrow physical two-machine shared-runtime proof separately in `state.md`; neither set of evidence is a blanket production claim for other hardware/models/topologies.
 
 ## Identity and runtime security boundary
 
-ADR 0005 is accepted **only for the narrow M1 reference implementation**. Missing before public network exposure include provider/user authentication around identity APIs, OS-protected node private-key storage, active-session revocation fan-out, authenticated/encrypted transport, authorization/rate/resource limits, and production service/database operation.
+ADR 0005 remains the narrow M1 reference identity decision. The live provider-control path now authenticates enrolled Ed25519 node identities and collects authenticated execution attestations, but production hardening is still incomplete.
+
+Missing before untrusted public-network provider operation include OS-protected node private-key storage, active-session revocation fan-out, complete service authorization/rate/resource controls, hardened production database/HA operation and a production-safe authenticated/encrypted data plane.
 
 The TCP benchmark's `unauthenticated_server_report_v1` Lab ID is not the ADR-0005 identity proof. The benchmark still has no application authentication/encryption and remains trusted-private-LAN-only.
 
-Upstream llama.cpp RPC remains **trusted-lab-only**. Current ComputeMesh identity/session authentication does not authenticate the upstream RPC socket; neither the local relay, evidence transfer/bundle nor feasibility planner changes that. Never expose the RPC worker to the public internet or an untrusted network.
+Upstream llama.cpp RPC remains **trusted-network-only**. ComputeMesh provider/session authentication does not make the upstream RPC socket safe for public exposure. Development/operator tooling can contain that socket behind loopback/private networking/SSH tunnels, but RPC itself is not the ComputeMesh production security boundary. Never expose the RPC worker directly to the public internet or an untrusted network.
 
 `confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
 
-## Not implemented yet
+## Remaining product-readiness work
 
-There is still no production distributed runtime, no calibrated/production scheduler ranking, no production identity network service, no automatic authenticated evidence transfer/attestation between machines, no complete artifact/runtime/failure wire path, no production runtime transport, no packet-level loss/reordering experiment, no schema-v1 multi-shard GGUF artifact identity/order contract, and no fully production-hardened billing/verification/telemetry product stack.
+The production **policy boundary** now exists privately, but broad production distributed inference is not yet validated. Remaining gates include:
+
+- run the complete current gateway → private placement → real provider execution → evidence/attestation → private feedback path repeatedly on representative physical GPU pairs;
+- controlled LAN delay/jitter/bandwidth/disconnect measurements and real two-site WAN validation;
+- calibrate the private production predictor/optimizer from verified measurements rather than assumptions;
+- enforce resource reservations/leases at the provider, not only in control-plane state;
+- replace/contain the experimental upstream RPC path with a production-safe authenticated/encrypted data plane;
+- production node-key storage, revocation/session fan-out and service authorization/resource controls;
+- broader adversarial/system/fuzz/failure testing;
+- complete production artifact lifecycle including stronger multi-shard identity/order semantics;
+- true upstream token streaming/TTFT measurement where required;
+- final HA/operations hardening for billing, verification, telemetry and private control-plane persistence.
 
 Payment boundary: the intended real-money purchase path for compute credits is Stripe. The gateway now has a fail-closed Stripe Checkout/Webhook integration path that calls the official Stripe SDK when configured with `STRIPE_API_KEY` and a durable `COMPUTEMESH_STRIPE_SESSION_STORE`; signed webhook crediting additionally requires `STRIPE_WEBHOOK_SECRET`. Checkout metadata/session-store values define the purchased compute-credit amount, so tax-inclusive Stripe totals are not credited as extra compute balance. Provider payout operations now have a Stripe Connect Accounts v2 / Express recipient onboarding path with durable provider accounts, onboarding links, settlement records, transfer idempotency, configurable transfer currency through `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, and internal ledger payable clearing. Without Stripe configuration it will not issue fake live Checkout or Connect URLs. Real Stripe Connect onboarding still requires the provider/operator's legal entity and KYC details; a German UG cannot be truthfully completed in Stripe until it is founded and registered. MetaMask/EVM wallet handling in the current provider UI is only for selecting a provider payout destination address for earnings from contributed compute power; wallets are not used to buy compute credits or to charge customers.
 
 ## Immediate path
 
 ```text
-same complete GGUF + fresh profiles/llama-bench from one matching llama.cpp build on both nodes
+current private umbrella checkout + pinned public runtime
         ↓
-bound trusted-LAN coordinator→worker path evidence
+real enrolled coordinator/worker providers + one matching llama.cpp build/model
         ↓
-artifact-derived single-GGUF model manifest
+full authenticated gateway/private-placement/shared-runtime request
         ↓
-worker evidence ZIP → verified coordinator import
+signed placement verification + real execution evidence + provider attestations
         ↓
-fail-closed current two-node experiment bundle
+durable verified outcome → new private performance observation
         ↓
-embedded conservative placement candidate
+repeatable controlled LAN delay/jitter/bandwidth/disconnect matrix
         ↓
-local deterministic llama-server baseline
+real WAN/two-site validation
         ↓
-explicit local + RPC layer split
+calibrate private prediction/ranking from measured evidence
         ↓
-correctness + timing comparison
+provider-enforced leases + production data-plane/key/session hardening
         ↓
-opaque RPC byte accounting + delay/jitter/disconnect experiments
-        ↓
-first reproducible correct shared two-node inference
-        ↓
-calibrate placement prediction/ranking from measured shared evidence
+widen production scheduling only when gates are met
 ```
 
 ## Repository map
 
 ```text
 ComputeMesh/
-├─ SETUP.cmd / setup.sh   # simple Windows/Linux lab entry points
+├─ SETUP.cmd / setup.sh   # Windows/Linux public lab entry points
 ├─ setup/                 # lab orchestration + bounded evidence transfer
+├─ apps/node/             # runnable public provider agent + node surface
 ├─ tools/benchmark/       # inventory, TCP, llama-bench and GGUF-manifest tools
-├─ services/orchestrator/ # durable M0 state/control foundation
-├─ services/identity/     # M1 reference enrollment/key registry
-├─ services/scheduler/    # M1 evidence bundling + two-node feasibility planning
+├─ services/gateway/      # authenticated public API/live gateway
+├─ services/orchestrator/ # durable state + live execution/recovery/feedback plumbing
+├─ services/identity/     # reference enrollment/key registry + live identity backing
+├─ services/scheduler/    # public M1 evidence/reference feasibility planning
 ├─ protocol/              # contracts, session wire binding, Ed25519 verifier
-├─ runtime/llama/         # controlled llama.cpp M1 research spike
-├─ runtime/network/       # bounded M1 TCP measurement relay
+├─ runtime/llama/         # controlled llama.cpp shared-runtime research path
+├─ runtime/network/       # bounded network measurement/fault instrumentation
 ├─ portal/                # public web portal, sitemap and robots policy
-├─ docs/                  # specifications and ADRs
-└─ state.md               # canonical engineering handoff
+├─ docs/                  # current status, specifications, audits and ADRs
+└─ state.md               # public historical engineering/evidence handoff
 ```
 
-For engineering details, read `state.md` first, then `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md`, [docs/SEARCH_INDEXING.md](docs/SEARCH_INDEXING.md), and the ADRs.
+For current public status read [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md) first, then the nearest component README. Use `state.md` for detailed engineering chronology/evidence and `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `THREAT_MODEL.md` and the ADRs for target/history context.
 
 ## Language synchronization rule
 
-`README.md` and `README.de.md` are synchronized project entry points and must be updated together for every public-facing change.
+`README.md` and `README.de.md` are synchronized project entry points and must be updated together for every public-facing change. Current status additionally has synchronized `docs/CURRENT_STATUS.md` and `docs/CURRENT_STATUS.de.md`.
 
 ## License
 
