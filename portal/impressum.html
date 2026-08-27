@@ -1,97 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Impressum / Legal Notice — ComputeMesh</title>
-  <meta name="description" content="Impressum and legal notice for ComputeMesh and InetConnector.com.">
-  <meta name="robots" content="index,follow">
-  <link rel="canonical" href="https://computemesh.inetconnector.com/impressum">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="portal.css">
-</head>
-<body>
-  <header class="site-header">
-    <div class="container nav-wrap">
-      <a href="/" class="brand">
-        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">Impressum</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="/" data-i18n="nav_home">Home</a></li>
-        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
-        <li><a href="/status" data-i18n="nav_status">Network Status</a></li>
-      </ul>
-      <div class="nav-actions">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container" style="padding: 4rem 1.5rem; max-width: 850px;">
-    <h1 style="font-size: 2.4rem; margin-bottom: 0.5rem;" data-i18n="impressum_title">Impressum</h1>
-    <p style="color: var(--text-dim); font-size: 0.95rem; margin-bottom: 2rem;" data-i18n="impressum_meta">Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz) und § 18 Abs. 2 MStV</p>
-
-    <div class="feature-card" style="line-height: 1.8; color: var(--text-muted); display: flex; flex-direction: column; gap: 1.5rem;">
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_provider_hdr">Diensteanbieter &amp; Anschrift</h3>
-        <p>
-          <strong style="color: var(--accent-cyan);">InetConnector.com</strong><br>
-          Herbert Daniel Frede<br>
-          Bismarckstraße 6<br>
-          97209 Veitshöchheim<br>
-          Deutschland
-        </p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_contact_hdr">Kontakt</h3>
-        <p>
-          E-Mail: <a href="mailto:kontakt@inetconnector.com" style="color: var(--accent-cyan); text-decoration: none;">kontakt@inetconnector.com</a><br>
-          Support: <a href="mailto:support@inetconnector.com" style="color: var(--accent-cyan); text-decoration: none;">support@inetconnector.com</a><br>
-          Telefon: <a href="tel:+499312078432" style="color: var(--accent-cyan); text-decoration: none;">+49 (0) 931 2078432</a>
-        </p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_responsible_hdr">Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h3>
-        <p>
-          Herbert Daniel Frede<br>
-          Bismarckstraße 6, 97209 Veitshöchheim
-        </p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_liability_content_hdr">Haftung für Inhalte</h3>
-        <p data-i18n="impressum_liability_content_text">
-          Als Diensteanbieter sind wir gemäß den allgemeinen Gesetzen für eigene Inhalte auf diesen Seiten verantwortlich. Wir sind jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen. Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt.
-        </p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_liability_links_hdr">Haftung für Links</h3>
-        <p data-i18n="impressum_liability_links_text">
-          Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.
-        </p>
-      </div>
-
-      <div>
-        <h3 style="color: var(--text-main); margin-bottom: 0.5rem;" data-i18n="impressum_copyright_hdr">Urheberrecht</h3>
-        <p data-i18n="impressum_copyright_text">
-          Die durch die Seitenbetreiber erstellten Inhalte, Quellcodes und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.
-        </p>
-      </div>
-    </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-bottom" style="border: none;">
-      <div>&copy; 2026 ComputeMesh • InetConnector.com. <span data-i18n="footer_rights">All rights reserved.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
-    </div>
-  </footer>
-  <script src="portal.js"></script>
-</body>
-</html>
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Impressum — ComputeMesh</title><meta name="description" content="Anbieterkennzeichnung für ComputeMesh und InetConnector.com."><link rel="stylesheet" href="portal.css"></head><body>
+<header class="site-header"><div class="container nav-wrap"><a href="/" class="brand"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span><span class="brand-badge">Impressum</span></a><ul class="nav-links"><li><a href="/">Home</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Datenschutz</a></li></ul></div></header>
+<main class="container" style="padding:4rem 1.5rem;max-width:900px"><h1>Impressum / Anbieterkennzeichnung</h1><p style="color:var(--text-muted)">Angaben nach § 5 DDG. Angaben nach dem MStV gelten zusätzlich nur, soweit der Dienst journalistisch-redaktionelle Angebote enthält und die gesetzlichen Voraussetzungen erfüllt sind.</p><div class="feature-card" style="line-height:1.75;color:var(--text-muted);display:flex;flex-direction:column;gap:1.4rem">
+<section><h3>Diensteanbieter</h3><p><strong>InetConnector.com</strong><br>Herbert Daniel Frede<br>Bismarckstraße 6<br>97209 Veitshöchheim<br>Deutschland</p></section>
+<section><h3>Kontakt</h3><p>E-Mail: <a href="mailto:kontakt@inetconnector.com">kontakt@inetconnector.com</a><br>Support: <a href="mailto:support@inetconnector.com">support@inetconnector.com</a><br>Telefon: <a href="tel:+499312078432">+49 (0) 931 2078432</a></p></section>
+<section><h3>Register-, Umsatzsteuer- und Aufsichtsangaben</h3><p>Soweit eine Registereintragung, Umsatzsteuer-Identifikationsnummer, Wirtschafts-Identifikationsnummer oder behördliche Zulassung/Aufsicht für den angebotenen Dienst besteht oder gesetzlich anzugeben ist, muss die entsprechende konkrete Angabe hier vor kommerziellem Einsatz ergänzt werden. Es werden bewusst keine Nummern oder Behörden erfunden.</p></section>
+<section><h3>Verantwortlichkeit für eigene Inhalte</h3><p>Der Diensteanbieter ist für eigene Inhalte nach den allgemeinen Gesetzen verantwortlich. Gesetzliche Haftungsprivilegien und Pflichten für fremde bzw. nutzergenerierte Inhalte richten sich nach dem jeweils anwendbaren Recht, insbesondere dem Digital Services Act und dem DDG. Dieses Impressum begründet keinen weitergehenden freiwilligen Haftungsausschluss.</p></section>
+<section><h3>Externe Links</h3><p>Links können zu Angeboten unabhängiger Dritter führen. Der jeweilige Drittanbieter ist für sein Angebot verantwortlich. Eine Haftung des Diensteanbieters richtet sich nach den gesetzlichen Vorschriften; ein pauschaler Ausschluss zwingender gesetzlicher Verantwortlichkeit ist nicht beabsichtigt.</p></section>
+<section><h3>KI-Ausgaben</h3><p>ComputeMesh kann den technischen Zugang zu KI-/Modellausgaben vermitteln oder Rechenleistung orchestrieren. KI-Ausgaben können falsch, erfunden, unvollständig, veraltet, rechtswidrig oder für einen konkreten Zweck ungeeignet sein. Nutzer müssen Ausgaben eigenständig prüfen. Die vertragliche Risikoverteilung und die rechtlich zulässigen Haftungsbeschränkungen ergeben sich aus den <a href="/terms">Nutzungsbedingungen</a>; zwingende gesetzliche Haftung bleibt unberührt.</p></section>
+<section><h3>Urheberrecht und Kennzeichen</h3><p>Eigene Inhalte und Software unterliegen dem jeweils anwendbaren Urheber- und Lizenzrecht. Open-Source-Bestandteile unterliegen ihren jeweiligen Lizenzen. Die Bezeichnung ComputeMesh und sonstige Kennzeichen dürfen nicht so verwendet werden, dass eine nicht bestehende geschäftliche Verbindung, Autorisierung oder Herkunft suggeriert wird.</p></section>
+<section><h3>Datenschutz</h3><p>Informationen zur Verarbeitung personenbezogener Daten stehen in der <a href="/privacy">Datenschutzerklärung</a>.</p></section>
+</div></main><footer class="site-footer"><div class="container footer-bottom"><div>&copy; 2026 ComputeMesh · InetConnector.com</div><div><a href="/">Zurück zur Startseite</a></div></div></footer></body></html>
