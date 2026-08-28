@@ -58,6 +58,7 @@ try:
 except ImportError:
     HAS_WINREG = False
 
+from config import CONFIG
 from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
 from services.updater.auto_updater import AutoUpdater, UpdateInfo
 from tools.appliance.appliance_config import load_appliance_config
@@ -220,7 +221,7 @@ class ComputeMeshProviderApp:
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.root.minsize(860, 520)
 
-        self.version = "1.2.11"
+        self.version = CONFIG.appliance_version
         self.dashboard_port = 8080
         self.updater = AutoUpdater(current_version=self.version)
 

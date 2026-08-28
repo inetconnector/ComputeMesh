@@ -98,7 +98,7 @@ header.site-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-wrap: nowrap;
 }
 
@@ -127,7 +127,7 @@ header.site-header {
 
 .nav-links {
   display: flex;
-  gap: 1.5rem;
+  gap: clamp(0.75rem, 1vw, 1.2rem);
   align-items: center;
   list-style: none;
   margin: 0;
@@ -560,11 +560,18 @@ section.downloads-sec {
 .dot.green { background: #10b981; }
 
 pre {
+  max-width: 100%;
   padding: 1.5rem;
   font-family: var(--font-mono);
   font-size: 0.9rem;
   color: #e2e8f0;
   overflow-x: auto;
+}
+
+pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Modal Window */
@@ -1089,6 +1096,7 @@ footer.site-footer {
 }
 
 .pg-ollama-config pre {
+  max-width: 100%;
   overflow-x: auto;
   padding: 0.85rem;
   background: #020617;
@@ -1102,6 +1110,8 @@ footer.site-footer {
 
 .pg-ollama-config code {
   font-family: var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .pg-ollama-config p {
@@ -1198,6 +1208,12 @@ footer.site-footer {
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .conv-options-grid { grid-template-columns: 1fr; }
   .pg-toolbar { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 1280px) {
+  .nav-links {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1397,7 +1413,7 @@ footer.site-footer {
   }
 
   pre code {
-    white-space: pre;
+    white-space: pre-wrap;
   }
 
   main.container {

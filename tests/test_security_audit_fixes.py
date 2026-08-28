@@ -589,7 +589,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"
         self.assertTrue(manifest_file.exists())
         data = json.loads(manifest_file.read_text(encoding="utf-8"))
-        self.assertEqual(data.get("version"), "1.2.17")
+        self.assertEqual(data.get("version"), "1.2.18")
 
         for platform, info in data.get("platforms", {}).items():
             fn = info.get("filename")

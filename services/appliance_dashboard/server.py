@@ -345,7 +345,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 u_info = updater.check_for_updates()
                 if u_info:
                     pkg = updater.download_and_verify(u_info)
-                    updater.apply_linux_update(pkg)
+                    if sys.platform == "win32":
+                        updater.apply_windows_update(pkg)
+                    else:
+                        updater.apply_linux_update(pkg)
                     resp = json.dumps({"status": "ok", "message": f"Updated to v{u_info.version}"}).encode("utf-8")
                 else:
                     resp = json.dumps({"status": "ok", "message": "Already up to date"}).encode("utf-8")

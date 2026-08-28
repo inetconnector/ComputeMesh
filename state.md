@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-27 00:05 CEST
-**Release Version:** `v1.2.17`
-**Test Suite Status:** `406/406 PASSED (100% OK in 17.03s)` across all 9 categories
-**Git Baseline:** Branch `main` at `v1.2.17` Canonical Release (Security Re-Audit & Hardened Settlement Recovery)
+**Last updated:** 2026-08-28 09:00 CEST
+**Release Version:** `v1.2.18`
+**Test Suite Status:** `412/412 PASSED (100% OK in 16.13s)` across all 9 categories
+**Git Baseline:** Branch `codex/german-portal-mobile` at `v1.2.18` signed client/web release
 
 ---
 
@@ -12,13 +12,13 @@
 ```yaml
 system:
   name: ComputeMesh
-  version: "1.2.17"
+  version: "1.2.18"
   status: "Experimental Distributed Inference Prototype / Lab Mesh"
   maturity_rating:
     architecture_concept: "8/10"
     orchestrator_state_machine: "8/10"
     evidence_attestation_model: "8/10"
-    test_framework_quality: "9/10 (406 unified unit/integration tests)"
+    test_framework_quality: "9/10 (412 unified unit/integration tests)"
     scheduler_maturity: "4/10 (Feasibility planner, contiguous 2-node split)"
     wan_internet_mesh: "4/10 (mTLS zero-config TCP tunnels, trusted CA)"
     gateway_security: "8/10 (Hardened with rate limiting, token auth, XSS escaping, trusted proxies, atomic holds)"
@@ -56,7 +56,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- current signed app/update release: `v1.2.17` live in `portal/updates/version.json`
+- current signed app/update release: `v1.2.18` live in `portal/updates/version.json`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -64,12 +64,12 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-27:
+Verified on 2026-08-28:
 
-- pushed `main` contains the `v1.2.17` release commit;
-- current signed client/update release tag: `v1.2.17` with valid Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
-- local branches: `main` only;
-- remote heads: `origin/main` only (`git ls-remote --heads origin`);
+- branch `codex/german-portal-mobile` contains the German-default portal/mobile work and the signed `v1.2.18` client/web release;
+- current signed client/update release: `v1.2.18` with valid Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
+- local branches include `main` and `codex/german-portal-mobile`;
+- remote heads include `origin/main` and `origin/codex/german-portal-mobile`;
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
 - GitHub Actions/workflow files: `.github/workflows/ci.yml` is present in `HEAD` running the full unified 406-test test harness and individual recovery suites;
 - canonical walkthrough documentation: `docs/walkthrough.md` committed in repository;
@@ -1971,4 +1971,41 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 
 ### 5. Remaining notes
 - English remains available through the existing toggle and explicit `?lang=en` preference path.
-- The local public submodule remains intentionally modified and uncommitted after this hot deploy; the private umbrella repository continues to see `ComputeMesh` as modified.
+- This hot deploy was later committed and pushed on branch `codex/german-portal-mobile`; see section 66 for the follow-up client/web release.
+
+## 66. Signed Client/Web Release v1.2.18 & Live Client Audit (2026-08-28 09:00 CEST)
+
+### 1. Client release fixes
+- Bumped the signed update channel from `v1.2.17` to `v1.2.18` in `config.py`, updater defaults, release signing defaults and the web playground client header.
+- Fixed the Windows tray version source so `tools/appliance/windows_tray_app.py` uses `CONFIG.appliance_version` instead of a stale hardcoded version, and imports `CONFIG` explicitly.
+- Fixed dashboard update application on Windows by dispatching to `apply_windows_update(...)` on `sys.platform == "win32"` and keeping Linux on `apply_linux_update(...)`.
+
+### 2. Release artifacts and live deployment
+- Rebuilt `portal/downloads/ComputeMesh-Setup-x64.exe`, rebuilt `portal/downloads/computemesh-linux-x86_64.tar.gz` without embedded download artifacts, and re-signed `portal/updates/version.json` as `1.2.18`.
+- Final live SHA-256 checks against `https://computemesh.inetconnector.com/`:
+  - `updates/version.json`: `23431b2517c032a69ee6bc693cacc94f640de586975e48fbed76929a1cec5dd6`
+  - `downloads/ComputeMesh-Setup-x64.exe`: `70d8afd8c1115921ae26efaf6e73d63b5a01cd86b4ee5cc40c81ea9b32e7ac75`
+  - `downloads/computemesh-linux-x86_64.tar.gz`: `be55327c48877c811f35c3cc1459d2da1709b16f124357fea33a48bfe6932e69`
+  - `portal.css`: `094351607f7580e6124370e2bb057f89d6ace7662eb24cfdf6916095b8f1ed49`
+- Webserver backups were created under `/root/computemesh-portal-backups/` before each live overwrite; final deployment target remained `/var/www/vhosts/inetconnector.com/site2/`.
+
+### 3. Running client audit
+- Local Windows client at `127.0.0.1:8080` was manually updated from the signed `1.2.18` Windows build, restarted, and verified:
+  - `/api/status` reports `software.current_version = "1.2.18"`.
+  - `/api/action/check_update` reports `update_available = false`, `version = "1.2.18"`.
+- Production server `supersrv-trixie` services are active: `computemesh-gateway.service`, `computemesh-node.service`, and `computemesh-autoupdate.service`.
+- Server release/version checks:
+  - `/root/ComputeMesh` reports `CONFIG.appliance_version = "1.2.18"`.
+  - `/opt/computemesh` reports `CONFIG.appliance_version = "1.2.18"`.
+  - `computemesh-autoupdate.service` override now runs `services/updater/auto_updater.py --daemon --interval 300 --version 1.2.18`, preventing the previous same-release update loop.
+- LAN client `192.168.1.27:8080` timed out from this machine during the audit, so no running client could be verified or updated at that address.
+
+### 4. Web verification
+- Live homepage HTML still defaults to German (`lang="de"`), contains the simple German hero (`KI soll nicht nur in riesigen Rechenzentren laufen.` / `ComputeMesh verbindet freie Grafikkarten.`), and no longer contains the old `Heterogene Rechenleistung bündeln` headline.
+- Live Playwright checks against the production homepage confirmed `overflow = 0`, `lang = "de"`, and the simple German hero at 320 px, 390 px, 768 px and 1280 px viewport widths.
+
+### 5. Verification
+- `python -m py_compile config.py services\appliance_dashboard\server.py services\updater\auto_updater.py tools\appliance\windows_tray_app.py tools\appliance\linux_tray_app.py tools\security\release_signer.py` passed.
+- `python -m PyInstaller --clean --noconfirm ComputeMesh-Setup-x64.spec` rebuilt the Windows release executable successfully.
+- `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.portal.tests.test_portal_server deploy.windows.tests.test_build_installer -v` passed 15/15 tests before final release signing.
+- `python run_all_tests.py` passed 412/412 tests in 16.13s after the final CSS/package deployment.
