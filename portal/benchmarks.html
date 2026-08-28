@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Measured Benchmarks — ComputeMesh</title>
-  <meta name="description" content="Recorded ComputeMesh engineering benchmark evidence with explicit hardware/runtime scope and measurement limitations.">
+  <title>Gemessene Benchmarks — ComputeMesh</title>
+  <meta name="description" content="Aufgezeichnete ComputeMesh-Engineering-Benchmark-Evidenz mit explizitem Hardware-/Runtime-Umfang und Messgrenzen.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/benchmarks">
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh Measured Benchmarks">
-  <meta property="og:description" content="Recorded ComputeMesh engineering benchmark evidence with explicit hardware/runtime scope and measurement limitations.">
+  <meta property="og:title" content="ComputeMesh gemessene Benchmarks">
+  <meta property="og:description" content="Aufgezeichnete ComputeMesh-Engineering-Benchmark-Evidenz mit explizitem Hardware-/Runtime-Umfang und Messgrenzen.">
   <meta property="og:url" content="https://computemesh.inetconnector.com/benchmarks">
   <link rel="stylesheet" href="portal.css">
 </head>
@@ -22,36 +22,36 @@
         <span class="brand-badge">Benchmarks</span>
       </a>
       <ul class="nav-links">
-        <li><a href="/" data-i18n="nav_home">Home</a></li>
-        <li><a href="/docs" data-i18n="nav_docs">API Docs</a></li>
+        <li><a href="/" data-i18n="nav_home">Startseite</a></li>
+        <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
         <li><a href="/benchmarks" class="gradient-text">Benchmarks</a></li>
         <li><a href="/status" data-i18n="nav_status">Status</a></li>
       </ul>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Register / API Key</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Registrieren / API-Key</button>
       </div>
     </div>
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
     <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <span class="section-tag">Measured Engineering Evidence</span>
-      <h1>Recorded ComputeMesh Benchmarks</h1>
-      <p>Only measurements recorded in the engineering evidence are shown as measured facts. Results are specific to their model, hardware, runtime build and topology and must not be generalized to other configurations.</p>
+      <span class="section-tag">Gemessene Engineering-Evidenz</span>
+      <h1>Aufgezeichnete ComputeMesh-Benchmarks</h1>
+      <p>Nur Messungen, die in der Engineering-Evidenz aufgezeichnet wurden, werden als gemessene Fakten gezeigt. Ergebnisse sind spezifisch für Modell, Hardware, Runtime-Build und Topologie und dürfen nicht auf andere Konfigurationen verallgemeinert werden.</p>
     </div>
 
     <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2.5rem; color: var(--text-muted); line-height: 1.6;">
-      <strong style="color: var(--text-main);">TTFT note:</strong> the current non-streaming measured-feedback path records prefill, decode and end-to-end request duration but does not directly measure true time-to-first-token. This page therefore does not publish invented TTFT values.
+      <strong style="color: var(--text-main);">TTFT-Hinweis:</strong> Der aktuelle nicht-streamende Measured-Feedback-Pfad zeichnet Prefill, Decode und End-to-End-Anfragedauer auf, misst aber nicht direkt echte Time-to-First-Token. Diese Seite veröffentlicht deshalb keine erfundenen TTFT-Werte.
     </div>
 
     <div class="calc-box" style="overflow-x: auto; margin-bottom: 3rem;">
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
         <thead>
           <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--accent-cyan);">
-            <th style="padding: 1rem 0.5rem;">Evidence</th>
-            <th style="padding: 1rem 0.5rem;">Hardware / topology</th>
-            <th style="padding: 1rem 0.5rem;">Model scope</th>
+            <th style="padding: 1rem 0.5rem;">Evidenz</th>
+            <th style="padding: 1rem 0.5rem;">Hardware / Topologie</th>
+            <th style="padding: 1rem 0.5rem;">Modellumfang</th>
             <th style="padding: 1rem 0.5rem;">Prefill</th>
             <th style="padding: 1rem 0.5rem;">Decode</th>
             <th style="padding: 1rem 0.5rem;">Interpretation</th>
@@ -59,48 +59,48 @@
         </thead>
         <tbody style="color: var(--text-muted);">
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Local llama.cpp benchmark</td>
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Lokaler llama.cpp-Benchmark</td>
             <td style="padding: 1rem 0.5rem;">Windows / RTX 3080 Laptop GPU, CUDA</td>
-            <td style="padding: 1rem 0.5rem;">7B Q4 benchmark artifact recorded 2026-08-21</td>
+            <td style="padding: 1rem 0.5rem;">7B-Q4-Benchmark-Artefakt aufgezeichnet am 21. August 2026</td>
             <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">2866.127 tok/s</td>
             <td style="padding: 1rem 0.5rem; font-family: var(--font-mono); color: var(--accent-emerald);">76.210 tok/s</td>
-            <td style="padding: 1rem 0.5rem;">Local single-host evidence only</td>
+            <td style="padding: 1rem 0.5rem;">Nur lokale Single-Host-Evidenz</td>
           </tr>
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Local llama.cpp smoke benchmark</td>
-            <td style="padding: 1rem 0.5rem;">Debian 13 / CPU-only server</td>
-            <td style="padding: 1rem 0.5rem;">0.5B Q4 smoke artifact recorded 2026-08-21</td>
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Lokaler llama.cpp-Smoke-Benchmark</td>
+            <td style="padding: 1rem 0.5rem;">Debian 13 / CPU-only-Server</td>
+            <td style="padding: 1rem 0.5rem;">0.5B-Q4-Smoke-Artefakt aufgezeichnet am 21. August 2026</td>
             <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">12.382 tok/s</td>
             <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">0.201 tok/s</td>
-            <td style="padding: 1rem 0.5rem;">Different model from the RTX run; do not combine into one distributed result</td>
+            <td style="padding: 1rem 0.5rem;">Anderes Modell als der RTX-Lauf; nicht zu einem verteilten Ergebnis kombinieren</td>
           </tr>
           <tr>
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Physical shared-runtime proof</td>
-            <td style="padding: 1rem 0.5rem;">Two-machine trusted-lab topology</td>
-            <td style="padding: 1rem 0.5rem;">Exact model/runtime/topology bound in repository evidence</td>
-            <td style="padding: 1rem 0.5rem;">See bound proof artifact</td>
-            <td style="padding: 1rem 0.5rem;">See bound proof artifact</td>
-            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald);">Exact output/token correctness was verified for that narrow proof; not a universal throughput claim</td>
+            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;">Physischer Shared-Runtime-Beleg</td>
+            <td style="padding: 1rem 0.5rem;">Zwei-Maschinen-Topologie im vertrauenswürdigen Labor</td>
+            <td style="padding: 1rem 0.5rem;">Exaktes Modell/Runtime/Topologie in Repository-Evidenz gebunden</td>
+            <td style="padding: 1rem 0.5rem;">Siehe gebundenes Beleg-Artefakt</td>
+            <td style="padding: 1rem 0.5rem;">Siehe gebundenes Beleg-Artefakt</td>
+            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald);">Exakte Ausgabe-/Token-Korrektheit wurde für diesen engen Beleg verifiziert; keine universelle Durchsatzbehauptung</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <div class="feature-card" style="margin-bottom: 3rem;">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">Network evidence</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;">A historical Windows-to-Linux engineering TCP measurement recorded RTT p50 11.884 ms, p95 13.369 ms, upload p50 42.276 Mbit/s and download p50 226.597 Mbit/s. That internet-path measurement is not itself a shared-inference benchmark. The current matrix tooling can perform real controlled delay/jitter shared-runtime experiments; broader bandwidth, packet-loss/reordering and WAN result matrices remain readiness work until recorded.</p>
+      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">Netzwerk-Evidenz</h3>
+      <p style="color: var(--text-muted); line-height: 1.7;">Eine historische Windows-zu-Linux Engineering-TCP-Messung zeichnete RTT p50 11.884 ms, p95 13.369 ms, Upload p50 42.276 Mbit/s und Download p50 226.597 Mbit/s auf. Diese Internetpfad-Messung ist selbst kein Shared-Inference-Benchmark. Die aktuelle Matrix-Tooling kann echte kontrollierte Delay/Jitter-Shared-Runtime-Experimente ausführen; breitere Bandbreiten-, Paketverlust/Reordering- und WAN-Ergebnismatrizen bleiben Reifearbeit, bis sie aufgezeichnet sind.</p>
     </div>
 
     <div class="feature-card">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">Reproducibility rule</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;">A benchmark is meaningful only with the exact model digest/size, llama.cpp build identity, hardware/profile revision, topology, split and network evidence. Marketing estimates and hypothetical hardware combinations are not benchmark results.</p>
+      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">Reproduzierbarkeitsregel</h3>
+      <p style="color: var(--text-muted); line-height: 1.7;">Ein Benchmark ist nur mit exaktem Modell-Digest/-Größe, llama.cpp-Build-Identität, Hardware/Profil-Revision, Topologie, Split und Netzwerk-Evidenz aussagekräftig. Marketing-Schätzungen und hypothetische Hardwarekombinationen sind keine Benchmark-Ergebnisse.</p>
     </div>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-bottom" style="border: none;">
-      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">All rights reserved.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Back to Home</a></div>
+      <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten.</span></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Zurück zur Startseite</a></div>
     </div>
   </footer>
 

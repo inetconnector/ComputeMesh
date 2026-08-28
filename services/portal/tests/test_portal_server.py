@@ -56,7 +56,7 @@ class TestPortalServer(unittest.TestCase):
             content = resp.read().decode("utf-8")
             self.assertIn("ComputeMesh", content)
             self.assertIn("data-i18n", content)
-            self.assertIn("Terms of Service v2.1", content)
+            self.assertIn("Nutzungsbedingungen v2.1", content)
             self.assertIn("business-user-confirm", content)
 
     def test_serve_subpages(self) -> None:

@@ -1887,5 +1887,88 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   - Configuration & Performance: 36/36
 - Release `v1.2.17` gepackt (`portal/downloads/computemesh-linux-x86_64.tar.gz`) und kryptographisch signiert (`portal/updates/version.json` -> `[VALID]`).
 
+---
 
+## 64. German-Default Portal Localization Completion & SSH Deploy (2026-08-27 22:10 CEST)
 
+### 1. Portal localization fix
+- Repaired the broken duplicate `switchLanguage()` / `toggleLanguage()` block in `portal/portal-core.js`; the previous dirty working copy had stray duplicated code after the first language-function export and would have made the portal JavaScript invalid.
+- Changed portal language initialization to default to German (`de`) and to choose German for German browser languages, `Europe/Berlin` timezone, `.de` hosts, and any first visit without an explicit saved preference. `?lang=de` / `?lang=en` remains supported and persists the explicit user choice.
+- Exposed `window.portalTranslations` and synchronized `window.currentLang` so the compliance wrapper in `portal/portal.js` and the core portal runtime share the same language state.
+- Added `playground_send` alias coverage and a static page-language synchronizer for legacy hardcoded HTML text, placeholders, titles/tooltips, textarea defaults, playground output text, legal/privacy sections, and page metadata.
+- Updated the German copy to match the cautious current English pre-production positioning: no revived claims of universal 80% savings, arbitrary GPU support, guaranteed live mesh capacity, 100% OpenAI API parity, guaranteed provider earnings, or generally production-ready distributed inference.
+- Set public portal HTML pages to `lang="de"` and German titles/descriptions by default: `index.html`, `docs.html`, `status.html`, `benchmarks.html`, `contact.html`, `terms.html`, and `privacy.html`.
+
+### 2. Verification
+- JavaScript parser check via Node `vm.Script` passed for `portal/portal-core.js` and `portal/portal.js`.
+- i18n key audit passed: all 32 `data-i18n` / placeholder/title keys used by portal HTML exist in the translation table.
+- `python run_all_tests.py` via the project virtualenv ran 412/412 tests successfully in 19.08s.
+- `git diff --check -- portal/portal-core.js portal/portal.js portal/index.html portal/docs.html portal/status.html portal/benchmarks.html portal/contact.html portal/terms.html portal/privacy.html` exited successfully; Git reported only line-ending normalization warnings for portal files.
+
+### 3. Deployment
+- Created server backup before publishing: `/root/computemesh-portal-backups/portal-i18n-20260827221022.tgz` on `supersrv-trixie`.
+- Deployed updated portal files over SSH/SCP to `/var/www/vhosts/inetconnector.com/site2/` and reset ownership to `inetconnector:psaserv` with mode `0644`.
+- Live HTTPS checks with cache-busting confirmed `200 OK`, `lang="de"`, and German titles for `/`, `/docs`, `/status`, `/benchmarks`, `/contact`, `/terms`, and `/privacy`.
+- Local and remote SHA-256 hashes matched for all deployed changed files:
+  - `portal-core.js`: `348c3b7dcea86a4308341ab47194a954554e956e015ebdc03df65eb9f24d1287`
+  - `portal.js`: `b4c3560254cd66e1a928d3bb7753aadb99488d4eb38779aba497c0d31323beb0`
+  - `index.html`: `1c930118ac533424289e316dae71455c92e90ce4b189a6b7b6eb9daa171beb35`
+  - `docs.html`: `0e923fb141021086179a473dc6bd35ccc01997974884c4bfd35916eff38524a5`
+  - `status.html`: `bfdd335708b1cbefdbd2c972236819d910de4138b7890b5bb2d463fd43cacf31`
+  - `benchmarks.html`: `66557848837990d4747bac5afe1c4b00ab95fe5080265ca3ee8f1a87fc5078ec`
+  - `contact.html`: `45c920d0b53fc09d23c114467fa2f662a82787779241b3c26c5f405f8e9cecaa`
+  - `terms.html`: `7953adfe743607125c85085d4e0d7f97ac01074c11d3a3317d68c7ef754e2913`
+  - `privacy.html`: `7424d2713b30b5b7e45c3fa1c55013e620bd0dc858616bd4d40a2d8ceadc55ae`
+
+### 4. Remaining notes
+- The portal still keeps English as an explicit user-selectable language through the existing toggle and persisted `cm_portal_lang` preference.
+- The local public submodule working tree is intentionally modified and uncommitted after this hot deploy; the private umbrella repository sees `ComputeMesh` as modified.
+
+## 65. Plain-German Hero, Raw HTML Localization Completion & Mobile Hot Deploy (2026-08-28 06:14 CEST)
+
+### 1. Portal copy and localization
+- Replaced the overly technical German homepage hero with plain public-facing wording:
+  - `KI soll nicht nur in riesigen Rechenzentren laufen.`
+  - `ComputeMesh verbindet freie Grafikkarten.`
+  - Supporting text now explains the request -> hardware selection -> execution -> honest measurement flow in simple German, while retaining the pre-production availability/cost/speed caveat.
+- Updated the English hero equivalent so the language toggle remains semantically aligned.
+- Converted the remaining static/raw portal HTML fallbacks to German by default across `portal/index.html`, `portal/docs.html`, `portal/status.html`, `portal/benchmarks.html`, `portal/contact.html`, `portal/terms.html`, `portal/privacy.html`, and `portal/impressum.html`.
+- Fixed accidental function-name translations introduced during the raw HTML localization pass:
+  - `handleKontaktSubmit(event)` restored to `handleContactSubmit(event)`.
+  - `sendPlaygroundNachricht()` restored to `sendPlaygroundMessage()`.
+- Added `runPlaygroundPrompt()` compatibility support for the older Docs-page browser playground.
+- Updated `services/portal/tests/test_portal_server.py` to assert the German default AGB text (`Nutzungsbedingungen v2.1`) instead of the previous English fallback.
+
+### 2. Mobile layout hardening
+- Added mobile CSS for the public portal header, hero, CTA buttons, telemetry tiles, feature/download grids, calculator tabs, playground controls, quick prompts and fixed Docs-page two-column layout.
+- Verified with Playwright at 320, 360, 390 and 430 px viewport widths: homepage `lang="de"`, new German hero text present, and `overflow = 0`.
+- Verified all public pages at 390 px mobile viewport with Playwright: `/`, `/docs`, `/status`, `/benchmarks`, `/contact`, `/terms`, `/privacy`, and `/impressum` all returned `lang="de"` and `overflow = 0` with no page JavaScript errors.
+
+### 3. Verification
+- i18n key parity audit passed: English and German `portal-core.js` tables both contain 228 keys; no missing keys in either direction.
+- Event-handler audit passed: 42 inline handlers found, 0 missing referenced functions.
+- Old hero/corrupted-handler scan passed: no remaining `Heterogene Rechenleistung`, `Rechenleistung bündeln`, `Messen, was tatsächlich`, `handleKontaktSubmit`, `sendPlaygroundNachricht`, or old English modal fallback strings in portal HTML.
+- `git diff --check -- portal/index.html portal/docs.html portal/status.html portal/benchmarks.html portal/contact.html portal/terms.html portal/privacy.html portal/impressum.html portal/portal.js portal/portal-core.js portal/portal.css services/portal/tests/test_portal_server.py` exited successfully; Git reported only line-ending normalization warnings for portal files.
+- `python run_all_tests.py` passed 412/412 tests in 16.95s.
+
+### 4. Deployment
+- Created server backup before publishing: `/root/computemesh-portal-backups/portal-mobile-i18n-20260828061405.tgz` on `supersrv-trixie`.
+- Deployed updated portal files over SSH/SCP to `/var/www/vhosts/inetconnector.com/site2/` and reset ownership to `inetconnector:psaserv` with mode `0644`.
+- Live HTTPS checks with cache-busting confirmed `200 OK`, `lang="de"`, German titles, and the new simple German hero for `/`, `/docs`, `/status`, `/benchmarks`, `/contact`, `/terms`, `/privacy`, and `/impressum`.
+- Live Playwright checks against `https://computemesh.inetconnector.com/` at 320 px and 390 px confirmed `overflow = 0`, `lang="de"`, and the new German hero text.
+- Local and remote SHA-256 hashes matched for all deployed changed files:
+  - `index.html`: `515db142fb83831e5e78ef470827827030901b92d53b6e1c4645a22ff8d74e02`
+  - `docs.html`: `440aa11fc71792bb3fd597ae0f23806fe91629ce188c485a5b956c50eb05a291`
+  - `status.html`: `3a823523ad5d7e47d231d8dd3c79225e5dc437678fb3a2035d2fa06e8436f780`
+  - `benchmarks.html`: `9a78bc69bfc90bc19383596b78c2da7a7d274b844d7696e526384094da5ab521`
+  - `contact.html`: `1144026863ed2b7f02f910aca2a374782df40d93615e626d7659159f5f10ee82`
+  - `terms.html`: `f98be03c05e661be408a4baeedffadc838b89427047cc3130b5c514b9a71ba13`
+  - `privacy.html`: `066baf72ba63b26235ba9edf6bfb7d3a7ad2d6e276002b8e23e12b31bb03c20b`
+  - `impressum.html`: `9b453876475e6fa211cb0b5d85ec4ddf48e4cc7c2abf890e7eef7889e14f8ec5`
+  - `portal.js`: `f1a174f63e25bc60b38e224be2b193e8f6d25d198b279dcb34cfca6a476bff56`
+  - `portal-core.js`: `b4aefa6990a31b6d253f97765547ebdba6388ea4744aedfd1d584379acfa2bcd`
+  - `portal.css`: `b0a7c48fac6b8b83723ab5057e93764e1f1b6c8a27f011ec8709decd21c772de`
+
+### 5. Remaining notes
+- English remains available through the existing toggle and explicit `?lang=en` preference path.
+- The local public submodule remains intentionally modified and uncommitted after this hot deploy; the private umbrella repository continues to see `ComputeMesh` as modified.

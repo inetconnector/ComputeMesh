@@ -4,6 +4,7 @@
 
 const translations = {
   en: {
+    // Navigation & Common
     nav_home: "Home",
     nav_features: "Features",
     nav_pricing: "Pricing",
@@ -12,159 +13,236 @@ const translations = {
     nav_benchmarks: "Benchmarks",
     nav_status: "Status",
     nav_register: "API Key",
-    
-    hero_tagline: "Decentralized AI Compute Network",
-    hero_title: "Run Big AI Models 80% Cheaper <br><span class=\"gradient-text\">on Pooled GPU Compute</span>",
-    hero_sub: "Execute open-source AI models (Llama, DeepSeek & more) at a fraction of cloud costs or earn revenue by sharing your idle graphics cards and mining rigs.",
-    btn_start_inferencing: "Run AI Models (API)",
-    btn_provide_compute: "Provide GPU & Earn",
-    
-    ticker_vram: "Total Usable VRAM Pool",
-    ticker_gpus: "Active GPUs (AMD & NVIDIA)",
-    ticker_tokens: "Two-Node Proof (ADR-0002)",
-    ticker_uptime: "vs. Cloud Hyperscalers",
+    nav_topup: "💳 Top Up",
+    nav_playground: "⚡ Playground",
+    nav_legal: "Legal",
+    nav_privacy: "Privacy",
+    nav_terms: "Terms",
+    nav_impressum: "Impressum",
+    nav_support: "Support",
+    back_to_home: "← Back to Home",
+    footer_brand_desc: "Pre-production distributed-inference engineering with public provider/runtime interoperability and private production policy.",
+    footer_col_platform: "Platform",
+    footer_col_resources: "Resources",
+    footer_col_legal: "Legal & Company",
+    footer_rights: "All rights reserved. Decentralized AI Mesh Architecture.",
+    footer_tech_status: "Technical status: pre-production engineering",
 
-    features_tag: "Decentralized Architecture",
-    features_title: "Engineered for Ultra-Fast, Low-Cost Inference",
-    features_sub: "ComputeMesh solves the high cost of centralized AI by pooling consumer GPUs, datacenter accelerators, and multi-GPU mining rigs.",
-    
-    feat1_title: "Pipeline Layer Sharding",
-    feat1_desc: "Models are seamlessly split across distributed GPUs. Activation tensors transmit in microseconds, unlocking massive 32B+ models across 8GB cards.",
-    
-    feat2_title: "Native AMD & NVIDIA Dual-Stack",
-    feat2_desc: "Full native support for NVIDIA CUDA, AMD ROCm, and universal Vulkan backends. Mix arbitrary GPUs in one rig with zero friction.",
-    
-    feat3_title: "80% Cost Reduction",
-    feat3_desc: "Prepaid micro-credit billing and decentralized hardware yield drastic savings compared to traditional centralized hyperscalers.",
-    
-    feat4_title: "OpenAI-Compatible Gateway",
-    feat4_desc: "Drop-in replacement for OpenAI SDKs and cURL. Simply switch your baseURL to start serving low-latency tokens immediately.",
+    // Hero Section
+    hero_tagline: "⚡ Many graphics cards. One AI network.",
+    hero_title: "AI should not only run in huge data centers.<br><span class=\"gradient-text\">ComputeMesh connects idle graphics cards.</span>",
+    hero_sub: "The idea is simple: send an AI request to ComputeMesh, let the system find suitable hardware, run the work and measure honestly what already works today. Developers can test AI through one gateway, and hardware owners can register their machines as providers. Still pre-production: available models, speed and cost depend on the real setup.",
+    btn_start_inferencing: "⚡ Try the playground",
+    btn_provide_compute: "Offer hardware",
+    ticker_vram: "Authenticated live VRAM total",
+    ticker_gpus: "Authenticated live GPU count",
+    ticker_tokens: "Narrow two-node trusted-lab evidence",
+    ticker_uptime: "Broad LAN/WAN validation still open",
+    ticker_proof_val: "Bound proof",
+    ticker_preprod_val: "Pre-production",
 
-    feat5_title: "Mining Rig NodeOS",
-    feat5_desc: "Flashable USB appliance image turning 4–12 GPU Ethereum mining rigs into autonomous provider nodes in under 2 minutes.",
+    // Playground Section
+    pg_tag: "Gateway playground",
+    pg_title: "Test the <span class=\"gradient-text\">configured gateway</span>",
+    pg_sub: "The playground works only when its backend and selected model are actually configured. It is not evidence that a public distributed mesh or every listed model is currently available.",
+    pg_model_lbl: "Model:",
+    pg_quota_pill: "Demo quota",
+    pg_cluster_pending: "Gateway status pending",
+    pg_ai_author: "ComputeMesh AI",
+    pg_ai_badge: "GATEWAY",
+    pg_ai_welcome: "If the configured demo backend is available, requests sent here use that gateway path. Check the engineering status and benchmark pages for what has actually been validated.",
+    pg_status_lbl: "Status:",
+    pg_status_ready: "Ready",
+    pg_speed_lbl: "Speed:",
+    pg_latency_lbl: "Latency:",
+    pg_tokens_lbl: "Tokens:",
+    qp_explain_mesh: "⚡ What is ComputeMesh?",
+    qp_python_fastapi: "🐍 Write a FastAPI endpoint",
+    qp_gpu_sharding: "🧩 Explain Pipeline Sharding",
+    qp_compare_costs: "💰 Explain cost variables",
+    pg_prompt_placeholder: "Ask anything... (Enter to send, Shift+Enter for newline)",
+    pg_send_btn: "Send Prompt",
+    pg_ollama_title: "Ollama-compatible endpoint",
+    pg_ollama_badge: "Deployment-dependent demo",
+    pg_ollama_desc: "Gateway operators may configure a private Ollama-compatible demo upstream. A configured demo backend is distinct from evidence of distributed execution.",
 
-    feat6_title: "Verifiable Double-Entry Ledger",
-    feat6_desc: "Every token computed is cryptographically metered and settled to an auditable append-only ledger for instant provider payouts.",
+    // Features Section
+    features_tag: "Current architecture",
+    features_title: "Implemented foundations with explicit readiness limits",
+    features_sub: "ComputeMesh separates public execution/protocol/provider code from private production placement/data/policy.",
+    feat1_title: "Measured layer splitting",
+    feat1_desc: "Contiguous two-node layer splits are researched and validated per exact model/runtime/hardware/network evidence. No universal speedup is assumed.",
+    feat2_title: "Heterogeneous provider foundations",
+    feat2_desc: "Hardware inventory and CUDA/ROCm/Vulkan-related tooling exist, but production support is validated per actual target rather than claimed for arbitrary GPU mixes.",
+    feat3_title: "Private production placement",
+    feat3_desc: "The public runtime receives a signed execution plan; production ranking, empirical performance, reputation/fraud and economics remain private.",
+    feat4_title: "OpenAI-compatible gateway",
+    feat4_desc: "Supported OpenAI-style endpoints are implemented. This is not a claim of compatibility with every OpenAI API or SDK behavior.",
+    feat5_title: "Provider/NodeOS tooling",
+    feat5_desc: "Windows/Linux/provider and appliance tooling exists for supported engineering targets. Exact driver/GPU combinations still require validation.",
+    feat6_title: "Evidence & accounting foundations",
+    feat6_desc: "Execution evidence, provider attestations, durable feedback and double-entry ledger foundations exist. Settlement/payout policy is deployment- and private-policy-dependent.",
 
-    calc_tag: "ROI & Economics",
-    calc_title: "Calculate Your Savings or Earnings",
-    calc_sub: "Transparent pay-as-you-go pricing for developers and high-yield passive revenue for hardware providers.",
-    
-    tab_developer: "Developer Cost Calculator",
-    tab_provider: "Hardware Provider Earnings",
-    
-    lbl_monthly_tokens: "Monthly Inference Volume (Million Tokens)",
-    lbl_model_tier: "Model Size Tier",
-    lbl_computemesh_cost: "ComputeMesh Cost",
-    lbl_cloud_cost: "Traditional Cloud Cost",
-    lbl_your_savings: "Estimated Savings: ~80%",
-    
-    lbl_gpu_setup: "Your Hardware Setup",
-    lbl_hours_online: "Uptime per Day (Hours)",
-    lbl_est_earnings: "Earned Compute Credits & Monthly Payout",
-    lbl_payout_note: "Canonical Unit: 1 CM Credit = 1 Micro-Unit ($0.000001 USD) • 1,000,000 CM = $1.00 USD (75% Provider Pool) • Stripe payouts from $25",
-    lbl_provider_threshold_info: "💡 <strong>Credits & Settlement:</strong> Earned Compute Credits (CM) represent verified micro-units ($0.000001 USD) in the double-entry ledger. Hardware providers receive 75% of model-dependent customer revenue (e.g. ~$0.13125 / 1M tokens on 8B up to ~$0.90 / 1M tokens on 70B). Payouts are executed via Stripe Connect from $25.00.",
+    // Pricing / Calculator Section
+    calc_tag: "Illustrative economics UI",
+    calc_title: "Explore variables — not a production price quote",
+    calc_sub: "The existing calculator remains available as an interface experiment. Its computed values are illustrative and must not be treated as a live quote, guaranteed saving or guaranteed provider income. Production pricing/settlement policy is private and deployment-dependent.",
+    tab_developer: "Illustrative developer estimate",
+    tab_provider: "Illustrative provider estimate",
+    lbl_monthly_tokens: "Monthly inference volume (million tokens)",
+    lbl_model_tier: "Illustrative model tier",
+    lbl_computemesh_cost: "Illustrative computed value",
+    lbl_cloud_cost: "Comparison input:",
+    lbl_your_savings: "Not a production quote or guaranteed saving.",
+    lbl_gpu_setup: "Illustrative hardware profile",
+    lbl_hours_online: "Uptime assumption",
+    lbl_est_earnings: "Illustrative computed value",
+    lbl_payout_note: "Real earnings require paid customer demand, verified execution, current private pricing/settlement policy and successful provider payout eligibility.",
+    lbl_provider_threshold_info: "💡 <strong>Credits & Settlement:</strong> Earned Compute Credits (CM) represent verified micro-units ($0.000001 USD) in the double-entry ledger. Hardware providers receive 75% of model-dependent customer revenue. Payouts are executed via Stripe Connect from $25.00.",
+    commercial_plans_title: "Commercial plans",
+    commercial_plans_desc: "No public SLA, fixed discount, dedicated-cluster guarantee, model entitlement or provider revenue percentage is established by this engineering page. Contact the operator for an actual offer; technical capabilities remain subject to the current status and measured deployment.",
+    btn_contact_sales: "Contact",
 
-    dl_tag: "One-Click Deploy",
-    dl_title: "Download Node Installers & NodeOS Images",
-    dl_sub: "Get started in seconds on Windows, Linux, or dedicated multi-GPU mining rigs.",
-    
+    // Downloads Section
+    dl_tag: "Provider tooling",
+    dl_title: "Installers & appliance artifacts",
+    dl_sub: "Use only artifacts appropriate to your target and verify the published/current deployment instructions. Installer availability does not imply that every GPU/driver topology is production-supported.",
     dl_win_title: "Windows Provider Agent",
-    dl_win_desc: "GUI tray app with automatic NVIDIA CUDA acceleration and background inference daemon.",
+    dl_win_desc: "Windows provider/installer path for supported engineering targets with tray GUI and background daemon.",
     dl_win_btn: "Download for Windows (.exe)",
-
     dl_linux_title: "Linux Headless Agent",
-    dl_linux_desc: "One-command terminal installer for Ubuntu 22.04/24.04 and Debian 12/13 servers.",
+    dl_linux_desc: "Headless provider setup path. Review the current repository setup/provider documentation before use.",
     dl_linux_btn: "Copy Install Command",
-
     dl_rig_title: "Mining Rig Appliance (NodeOS)",
-    dl_rig_desc: "Flashable USB disk image for 4–12 GPU mining rigs with native AMD & NVIDIA dual-stack auto-detection.",
+    dl_rig_desc: "Experimental appliance artifacts for 4–12 GPU rigs with AMD & NVIDIA auto-detection.",
     dl_rig_iso_btn: "Download Bootable ISO (.iso)",
     dl_rig_btn: "Download Flash Image (.img.xz)",
 
+    // API Section
     api_tag: "Integration",
-    api_title: "100% OpenAI API Compatible",
-    api_sub: "Change one line of code in Python, TypeScript, or cURL to start routing requests through ComputeMesh.",
+    api_title: "OpenAI-compatible supported surface",
+    api_sub: "Point a compatible client at the deployment's `/v1` base URL, use a registered API key and choose an actually exposed model. Check `/v1/models` and current API documentation rather than assuming every OpenAI endpoint exists.",
 
+    // Modals
     modal_title: "Get Started with ComputeMesh",
-    modal_sub: "Create an account to generate your API key or register your hardware node.",
+    modal_sub: "Current account registration is B2B-only. Provider availability and earnings are not guaranteed.",
     modal_role_lbl: "I want to:",
-    role_consumer: "Use AI Models (Developer API)",
-    role_provider: "Provide GPUs (Earn Revenue)",
+    role_consumer: "Use the Developer API",
+    role_provider: "Register provider hardware",
     modal_email_lbl: "Email Address",
-    modal_wallet_lbl: "Provider Payout Wallet (Optional)",
+    modal_wallet_lbl: "Provider payout wallet (optional metadata)",
     modal_wallet_placeholder: "0x... (EVM / Ethereum / Polygon / Arbitrum)",
-    modal_wallet_help: "For GPU providers only: enter the 0x address that should receive earnings from contributed compute power. MetaMask is only an address picker here. Buying compute credits and all customer payments are handled through Stripe.",
+    modal_wallet_help: "Where enabled, this is payout-destination metadata only; it is not a customer payment method.",
     modal_submit_btn: "Generate Credentials",
     modal_key_result_lbl: "Your Generated Key:",
     modal_copy_btn: "Copy Key",
+    topup_modal_title: "💳 Top Up Compute Credits",
+    topup_modal_sub: "When Stripe Checkout is configured, this form can request a checkout session. Displayed deposit amounts do not promise a specific token count or model price.",
+    topup_key_lbl: "Your API Key:",
+    topup_select_amount_lbl: "Select deposit amount:",
+    btn_topup_proceed: "Proceed to configured Checkout →",
+    conv_tag: "Gateway options",
+    conv_title: "Continue with an API key or register a provider",
+    conv_sub: "Availability, prices and provider revenue depend on the configured deployment and verified workload.",
+    conv_opt1_badge: "Developer",
+    conv_opt1_title: "🔑 API credentials",
+    conv_opt1_desc: "Use the supported gateway surface with a registered key and active model catalog.",
+    conv_opt1_btn: "Generate API Key →",
+    conv_opt2_badge: "Provider",
+    conv_opt2_title: "⚡ Register hardware",
+    conv_opt2_desc: "Provider eligibility and earnings require compatible measured hardware/runtime, successful enrollment and paid demand.",
+    conv_opt2_btn: "Register Node",
+    conv_opt2_dl: "Downloads",
 
-    docs_tag: "Technical Documentation",
-    docs_title: "ComputeMesh Architecture & Integration Guide",
-    docs_sub: "Comprehensive developer references, OpenAI API compatibility specifications, and hardware node deployment manuals.",
-    docs_toc: "Contents",
-    docs_sec1_title: "1. OpenAI API Drop-in Quickstart",
-    docs_sec1_desc: "ComputeMesh implements full drop-in compatibility with the standard OpenAI SDK and REST specification. You only need to set your base_url and pass your ComputeMesh API key.",
-    docs_sec2_title: "2. Decentralized Mesh Architecture",
-    docs_sec2_desc: "ComputeMesh connects consumer GPUs, professional cloud accelerators, and multi-GPU mining rigs through a low-latency, peer-to-peer execution topology.",
-    docs_sec3_title: "3. Pipeline Layer Sharding & PCIe 1x Physics",
-    docs_sec3_desc: "Unlike training workloads that require high-bandwidth all-reduce operations, autoregressive inference at batch size 1 only transmits the activation tensor of a single token (e.g. 8.2 KB for a 32B model). Across a 500 MB/s PCIe 1x mining riser, this transfer takes only 0.016 milliseconds.",
-    docs_sec4_title: "4. Hardware Provider Node Setup",
-    docs_sec4_desc: "Anyone with a modern GPU (NVIDIA, AMD, or Intel) can run a ComputeMesh provider agent. Nodes authenticate using asymmetric Ed25519 cryptography without exposing private keys.",
-    docs_sec5_title: "5. Mining Rig NodeOS Appliance",
-    docs_sec5_desc: "NodeOS is a headless appliance image based on Debian 13 that boots directly from a USB stick with native dual-stack driver detection and embedded dashboard.",
-    docs_sec6_title: "6. Verifiable Ledger, Accounting & 2-Tier Settlement Rules",
-    docs_sec6_desc: "ComputeMesh operates an auditable, append-only double-entry financial ledger. For every token generated by a hardware node, micro-units are credited directly to the provider's balance after the 25% platform fee. Customer payments for compute credits are processed through Stripe. MetaMask is used only to select a provider payout destination address for earned compute revenue, never to buy compute credits.",
+    // Documentation Page (docs.html)
+    docs_page_tag: "Developer Preview Documentation",
+    docs_main_title: "ComputeMesh Architecture & Integration Guide",
+    docs_main_sub: "Documentation for the currently implemented gateway/provider foundations and the validated research/live development path. ComputeMesh is still pre-production; examples are deployment-dependent and do not imply universal model, hardware, latency or availability support.",
+    docs_readiness_alert: "<strong style=\"color: var(--text-main);\">Readiness boundary:</strong> a narrow physical two-machine shared-runtime proof and substantial control/gateway foundations exist, but broad LAN/WAN validation, production data-plane security, provider-enforced leases and production key/session hardening remain open. Upstream llama.cpp RPC must not be exposed directly to an untrusted/public network.",
+    docs_toc_title: "Contents",
+    docs_toc_1: "1. Gateway/API quickstart",
+    docs_toc_2: "2. Distributed architecture",
+    docs_toc_3: "3. Layer-sharding research",
+    docs_toc_4: "4. Provider node setup",
+    docs_toc_5: "5. Mining Rig NodeOS",
+    docs_toc_6: "6. Ledger & billing foundations",
+    docs_sec1_h2: "1. OpenAI-compatible gateway quickstart",
+    docs_sec1_p: "The gateway implements an OpenAI-compatible surface for supported endpoints such as chat completions and model listing. It is not a claim of 100% compatibility with every OpenAI API endpoint or SDK behavior. Configure <code>base_url</code>, use a registered ComputeMesh API key, and select a model that the active deployment actually exposes.",
+    docs_playground_h3: "⚡ In-browser gateway playground",
+    docs_playground_badge: "Availability depends on the deployed gateway/catalog",
+    docs_playground_send: "▶ Run Inference",
+    playground_send: "▶ Run Inference",
+    docs_playground_ph: "Enter your prompt here...",
+    docs_terminal_title: "Gateway Response Terminal",
+    docs_terminal_ready: "Ready",
+    docs_terminal_init: "If the configured gateway/model is available, click \"Run Inference\" to send the request.",
+    docs_sec2_h2: "2. Distributed mesh architecture",
+    docs_sec2_p: "ComputeMesh is designed to select feasible execution placements across heterogeneous providers. The current live development path uses an authenticated provider-control channel, a private production placement service, a public executor and a two-node llama.cpp shared-runtime path. It does not yet imply arbitrary peer-to-peer execution across every registered GPU.",
+    docs_sec3_h2: "3. Pipeline layer-sharding research",
+    docs_sec3_p: "Contiguous layer splitting can reduce per-device model-memory requirements, but end-to-end performance depends on the exact model, quantization, runtime build, split, GPU pair and network path. ComputeMesh therefore records real baseline/shared measurements and network byte/timing evidence instead of treating a theoretical activation-size calculation as a universal latency result. Any PCIe or WAN performance number must be tied to a named measured configuration.",
+    docs_sec4_h2: "4. Hardware provider node setup",
+    docs_sec4_p: "A runnable public provider agent and Ed25519 enrollment/session path exist. Actual runtime support is hardware-, driver-, backend-, model- and llama.cpp-build-dependent; ComputeMesh does not claim that every modern NVIDIA, AMD or Intel GPU is production-supported. Provider private keys are generated/retained on the provider in the current SSH operator path, while production OS-protected key storage remains a hardening item.",
+    docs_sec4_note: "Only use a published installer after verifying that it corresponds to the documented release/deployment path for your system.",
+    docs_sec5_h2: "5. Mining Rig NodeOS appliance",
+    docs_sec5_p: "NodeOS/appliance tooling exists for headless provider experiments, including hardware/backend detection and a local dashboard. Exact AMD/NVIDIA generations, driver combinations and multi-GPU topologies require per-target validation; the appliance is not evidence that every mining-rig configuration is production-ready.",
+    docs_sec6_h2: "6. Ledger & billing foundations",
+    docs_sec6_p: "The public code contains an auditable double-entry ledger foundation plus fail-closed Stripe Checkout/Webhook and provider-settlement integration paths when configured. Production quote, marketplace, margin/take-rate and settlement-hold policy belong to the private control plane and are not defined by a universal percentage on this documentation page. MetaMask/EVM addresses, where used by the current provider UI, are payout-destination metadata rather than a mechanism for buying compute credits.",
 
-    status_all_systems: "Genesis Network & Public Alpha Active",
-    status_uptime_desc: "ComputeMesh Genesis Bootstrap Phase is live. Developer testnet API and provider node onboarding open.",
-    status_avg_latency: "EU-Central Gateway Latency",
-    status_regional_title: "Operational Gateways & Verified Clusters",
+    // Status Page (status.html)
+    status_main_h2: "Pre-production engineering & validation",
+    status_main_p: "ComputeMesh has implemented gateway, provider-control, provider-agent, orchestration, private placement and measured-evidence foundations. It is not yet presented as a generally production-ready public distributed-inference network.",
+    status_reviewed_date: "Documentation status reviewed 2026-08-27 UTC",
+    status_tick1_val: "Implemented",
+    status_tick1_lbl: "Authenticated provider-control foundation",
+    status_tick2_val: "Verified narrow proof",
+    status_tick2_lbl: "Two-machine trusted-lab shared runtime",
+    status_tick3_val: "Live Cluster",
+    status_tick3_lbl: "Authenticated live global capacity metric",
+    status_tick4_val: "Open gate",
+    status_tick4_lbl: "Broad LAN/WAN production validation",
+    status_boundaries_h3: "Validated and remaining boundaries",
+    status_card1_h4: "✅ Software foundations",
+    status_card1_p: "Authenticated gateway/provider-control paths, runnable public provider agent, durable orchestration/recovery mechanics, signed private placement decisions, execution evidence/attestations and measured-outcome feedback are implemented foundations.",
+    status_card2_h4: "🔬 Physical evidence",
+    status_card2_p: "A narrow trusted-lab two-machine llama.cpp shared-runtime proof is recorded for its exact hardware/model/runtime/topology. It is not a universal performance or production-readiness claim.",
+    status_card3_h4: "🔒 Runtime security boundary",
+    status_card3_p: "Upstream llama.cpp RPC remains experimental and is not a public ComputeMesh security boundary. Current development bring-up contains it behind trusted/private networking or SSH tunnels.",
+    status_card4_h4: "🧪 Remaining readiness gates",
+    status_card4_p: "Representative LAN/WAN measurement matrices, provider-enforced resource leases, production data-plane and key/session hardening, adversarial/system testing, calibrated private performance prediction and production operations/HA remain open.",
+    status_metrics_h3: "About status metrics",
+    status_metrics_p: "This page deliberately does not display placeholder global VRAM, GPU count, uptime or gateway-latency numbers as though they were live. Such metrics appear only when sourced from an authenticated current registry/telemetry path in real time.",
 
-    benchmarks_tag: "Performance Metrics",
-    benchmarks_title: "Decentralized Model Inference Benchmarks",
-    benchmarks_sub: "Empirical tokens/second throughput and time-to-first-token (TTFT) across multi-GPU mining rigs and distributed coordinator-worker pairs.",
+    // Benchmarks Page (benchmarks.html)
+    bench_page_tag: "Measured Engineering Evidence",
+    bench_main_h1: "Recorded ComputeMesh Benchmarks",
+    bench_main_p: "Only measurements recorded in the engineering evidence are shown as measured facts. Results are specific to their model, hardware, runtime build and topology and must not be generalized to other configurations.",
+    bench_ttft_alert: "<strong style=\"color: var(--text-main);\">TTFT note:</strong> the current non-streaming measured-feedback path records prefill, decode and end-to-end request duration but does not directly measure true time-to-first-token. This page therefore does not publish invented TTFT values.",
+    bench_th_evidence: "Evidence",
+    bench_th_hw: "Hardware / topology",
+    bench_th_model: "Model scope",
+    bench_th_prefill: "Prefill",
+    bench_th_decode: "Decode",
+    bench_th_interp: "Interpretation",
+    bench_row1_title: "Local llama.cpp benchmark",
+    bench_row1_hw: "Windows / RTX 3080 Laptop GPU, CUDA",
+    bench_row1_model: "7B Q4 benchmark artifact recorded 2026-08-21",
+    bench_row1_interp: "Local single-host evidence only",
+    bench_row2_title: "Local llama.cpp smoke benchmark",
+    bench_row2_hw: "Debian 13 / CPU-only server",
+    bench_row2_model: "0.5B Q4 smoke artifact recorded 2026-08-21",
+    bench_row2_interp: "Different model from the RTX run; do not combine into one distributed result",
+    bench_row3_title: "Physical shared-runtime proof",
+    bench_row3_hw: "Two-machine trusted-lab topology",
+    bench_row3_model: "Exact model/runtime/topology bound in repository evidence",
+    bench_row3_prefill: "See bound proof artifact",
+    bench_row3_decode: "See bound proof artifact",
+    bench_row3_interp: "Exact output/token correctness was verified for that narrow proof; not a universal throughput claim",
+    bench_net_h3: "Network evidence",
+    bench_net_p: "A historical Windows-to-Linux engineering TCP measurement recorded RTT p50 11.884 ms, p95 13.369 ms, upload p50 42.276 Mbit/s and download p50 226.597 Mbit/s. That internet-path measurement is not itself a shared-inference benchmark. The current matrix tooling can perform real controlled delay/jitter shared-runtime experiments; broader bandwidth, packet-loss/reordering and WAN result matrices remain readiness work until recorded.",
+    bench_repro_h3: "Reproducibility rule",
+    bench_repro_p: "A benchmark is meaningful only with the exact model digest/size, llama.cpp build identity, hardware/profile revision, topology, split and network evidence. Marketing estimates and hypothetical hardware combinations are not benchmark results.",
 
-    terms_title: "Terms of Service & Provider Settlement Rules",
-    terms_sec1_title: "1. Acceptance of Terms",
-    terms_sec1_text: "By accessing or using the ComputeMesh decentralized compute platform, API gateway, or provider node software, you agree to be bound by these Terms of Service.",
-    terms_sec2_title: "2. API Usage & Compute Credits (Consumers)",
-    terms_sec2_text: "Developers and enterprise customers purchase prepaid compute credits through Stripe-supported payment methods. Wallets such as MetaMask are not used to buy compute credits. Consumption is billed strictly per processed token metered by our verifiable double-entry ledger.",
-    terms_sec3_title: "3. Hardware Provider Obligations",
-    terms_sec3_text: "Hardware providers supply GPU compute capacity using official ComputeMesh binaries. Providers are responsible for maintaining stable connectivity and truthful node telemetry during active sessions.",
-    terms_sec4_title: "4. Provider Earnings, Real-Time Accounting, Fully-Backed Settlement & 2-Tier Payout System ($25.00 Threshold)",
-    terms_sec4_text: "For each successfully served inference token, a revenue share of 75% of the metered token price is credited in micro-units to the provider's ledger account in real time. Payout entitlements operate strictly under the fully-backed revenue principle: withdrawals are disbursed exclusively from cleared, non-reversible consumer payments actually received and settled through Stripe. A registered 0x... EVM wallet, selected manually or through MetaMask, is only a provider payout destination and is never charged for compute-credit purchases.",
-    terms_sec5_title: "5. Network Bootstrap Phase, Alpha Testing & Promotional Test Credits",
-    terms_sec5_text: "During the initial bootstrap and growth phase of ComputeMesh, compute workload is dynamically routed according to organic model demand. Free promotional credits, trial balances, and testnet tokens granted to consumers for testing purposes constitute non-monetary test allocations and explicitly do not generate cash withdrawal liabilities against the platform operator. Earnings derived from paid customer usage never expire and remain permanently ledger-recorded until the $25.00 threshold is reached.",
-    terms_sec6_title: "6. Payment Service Providers, Stripe Express & Escrow Management",
-    terms_sec6_text: "All real customer payments for compute credits are processed through Stripe, Inc. (and Stripe Payments Europe, Ltd.) using Stripe-supported payment methods. Provider bank payouts are planned through Stripe Connect where available. Crypto wallets are stored only as public payout destination addresses for provider earnings and are not used to collect or pull customer payments.",
-    terms_sec7_title: "7. Limitation of Liability & Disclaimers",
-    terms_sec7_text: "ComputeMesh provides decentralized orchestration software on an 'as-is' and 'as-available' basis without warranties of uninterrupted uptime or constant node utilization.",
-    privacy_title: "Privacy Policy & Data Security Standards",
-    privacy_sec1_title: "1. Zero Prompt Storage & Ephemeral Processing",
-    privacy_sec1_text: "ComputeMesh operates under a strict Zero-Prompt-Storage policy: User prompts and generated model responses are processed ephemerally in volatile GPU VRAM and are not retained on disk or used for model training.",
-    privacy_sec2_title: "2. Encryption in Transit (TLS 1.3 & mTLS)",
-    privacy_sec2_text: "All communications between client applications and our edge gateways use TLS 1.3 with Perfect Forward Secrecy. Node-to-gateway telemetry and control planes authenticate with mutual TLS (mTLS) and Ed25519 node identities.",
-    privacy_sec3_title: "3. Encrypted Host Storage & Identity Vaults (AES-256-GCM)",
-    privacy_sec3_text: "Persistent metadata, ledger journals, and API records reside on encrypted host storage volumes with AES-256-GCM identity vaults.",
-    privacy_sec4_title: "4. Provider Private Key Isolation & Hardware Security",
-    privacy_sec4_text: "Hardware provider nodes generate their asymmetric Ed25519 keypairs locally upon first boot. The private key NEVER leaves the local machine, is never transmitted to ComputeMesh servers, and is never accessible to consumers or outside network peers.",
-    privacy_sec5_title: "5. PCI-DSS Certified Payment & Escrow Security",
-    privacy_sec5_text: "All real customer payment processing is handled through Stripe, Inc., certified under PCI-DSS Level 1. ComputeMesh never sees, stores, or handles unencrypted payment card details or banking credentials. Crypto wallet addresses are stored solely as public provider payout destination keys and are not used to charge customers.",
-    privacy_sec6_title: "6. GDPR / DSGVO Compliance & Data Subject Rights",
-    privacy_sec6_text: "Users maintain full rights under the EU General Data Protection Regulation (GDPR / DSGVO). You may request full data export, correction, or permanent account deletion at any time by contacting our data protection officer at privacy@inetconnector.com.",
-    impressum_title: "Impressum / Legal Notice",
-    impressum_meta: "Information pursuant to § 5 DDG (Digital Services Act) and § 18 Abs. 2 MStV",
-    impressum_provider_hdr: "Service Provider & Address",
-    impressum_contact_hdr: "Contact",
-    impressum_responsible_hdr: "Responsible for content pursuant to § 18 Abs. 2 MStV",
-    impressum_liability_content_hdr: "Liability for Contents",
-    impressum_liability_content_text: "As a service provider, we are responsible for our own content on these pages under general law. However, we are not obligated to monitor transmitted or stored third-party information or to investigate circumstances that indicate illegal activity.",
-    impressum_liability_links_hdr: "Liability for Links",
-    impressum_liability_links_text: "Our offer may contain links to external third-party websites over whose content we have no influence. Therefore, we cannot assume any liability for these external contents.",
-    impressum_copyright_hdr: "Copyright",
-    impressum_copyright_text: "The contents, source codes, and works created by the site operators on these pages are subject to German copyright law. Duplication, editing, distribution, and any kind of exploitation outside the limits of copyright law require written consent.",
-
+    // Contact Page (contact.html)
     contact_tag: "Get in Touch",
     contact_title: "Support & Community Helpdesk",
     contact_sub: "Have questions about running a provider mining rig, integrating our OpenAI API, or purchasing enterprise compute credits?",
@@ -172,356 +250,320 @@ const translations = {
     contact_topic_lbl: "Topic",
     contact_msg_lbl: "Message",
     contact_send_btn: "Send Message",
-    contact_success: "✓ Your message has been sent successfully! Our engineering team will respond within 24 hours.",
-    nav_topup: "💳 Top Up",
-    topup_modal_title: "💳 Top Up Compute Credits",
-    topup_modal_sub: "Purchase prepaid micro-credits through Stripe Checkout. Wallets are not charged by ComputeMesh.",
-    topup_key_lbl: "Your API Key:",
-    terms_title: "Terms of Service, Platform Fee & Provider Settlement Rules",
-    terms_subtitle: "Operated by inetconnector • Effective Date: August 2026 • Version 1.2",
-    terms_sec1_title: "1. Scope of Agreement & Platform Operator Role (inetconnector)",
-    terms_sec1_text: "By accessing, registering on, or utilizing the ComputeMesh platform, API gateways, desktop provider clients, or NodeOS appliance images, you enter into a binding agreement with inetconnector (the 'Platform Operator'). inetconnector provides the decentralized orchestration architecture, low-latency API proxy gateways, authentication layers, cryptographically metered accounting ledgers, and automated payment settlement pipelines connecting compute consumers with independent GPU hardware providers.",
-    terms_sec2_title: "2. API Consumers, Prepaid Credit Packages & Fair-Use Metering",
-    terms_sec2_text: "Developers, businesses, and enterprise clients purchase prepaid compute credits exclusively through Stripe-supported payment methods, such as card, SEPA, Link, Apple Pay, Google Pay, or other Stripe-enabled methods shown at checkout. MetaMask and other EVM wallets are not used to buy compute credits. API consumption is strictly metered per 1,000 prompt and completion tokens at published model price tiers. Tokens are streamed directly via OpenAI-compatible endpoints with zero persistent prompt storage on edge nodes. Usage requires an active prepaid credit balance or an approved enterprise SLA subscription.",
-    terms_sec4_title: "3. Platform Fee, Monetization & Automated Revenue Splitting",
-    terms_sec4_text: "To finance the global high-availability gateway infrastructure, low-latency tensor coordination routing, DDoS mitigation, continuous software engineering, and multi-vendor driver maintenance, inetconnector retains a platform service commission of 25% (2,500 basis points) on all consumer-billed inference volume. The remaining 75% of metered token revenue is credited directly in real-time to the fulfilling GPU provider nodes through the atomic double-entry ledger.",
-    terms_sec5_title: "4. Fully-Backed Revenue Principle & Non-Custodial Provider Settlements ($25.00 Threshold)",
-    terms_sec5_text: "Provider revenue entitlements operate strictly under the fully-backed revenue principle: withdrawals are funded exclusively from cleared, non-reversible customer payments actually received and settled through Stripe on the platform's merchant accounts. The Platform Operator maintains zero pre-financing liabilities for uncollected customer debts. Provider payouts trigger once accumulated earnings reach or exceed the minimum threshold of $25.00 USD or EUR equivalent. Provider wallet addresses collected through MetaMask or manual 0x entry are used only as payout destination addresses for earnings from provided compute power; they are not used to collect customer payments or to charge users. Bank payouts are processed through Stripe Connect where available.",
-    terms_sec3_title: "5. Hardware Provider Responsibilities, SLAs & Anti-Cheating",
-    terms_sec3_text: "Hardware providers supply GPU compute capacity using authentic ComputeMesh software. Providers are strictly prohibited from spoofing telemetry, tampering with model weights, returning fraudulent non-deterministic activation layers, or altering VRAM reporting. Violations lead to immediate node blacklisting and permanent forfeiture of unpaid balances. ComputeMesh nodes execute jobs in an isolated sandbox with no access to consumer prompt identities.",
-    terms_sec6_title: "6. B2B Taxation, Reverse-Charge & Accounting Vouchers",
-    terms_sec6_text: "Hardware providers and enterprise customers act as independent economic operators. For EU-based business entities, standard Reverse-Charge rules (Art. 196 EU VAT Directive) apply. Hardware providers receive automated digital settlement vouchers (Gutschriften) for all completed payout cycles and are solely responsible for declaring their respective income, trade taxes, and local sales tax obligations.",
-    terms_sec7_title: "7. Enterprise Subscriptions, Dedicated Node Pools & Priority SLAs",
-    terms_sec7_text: "Enterprise clients may contract dedicated GPU clusters, private geographic mesh zones (e.g. EU-only data residency), and guaranteed sub-second time-to-first-token (TTFT) SLAs under customized monthly subscription agreements ($99 to $4,999/month). Enterprise subscription fees are billed in advance and are non-refundable.",
-    terms_sec8_title: "8. Limitation of Liability & Best-Effort Delivery",
-    plans_tag: "Transparent B2B & Developer Tiers",
-    plans_title: "Pay-As-You-Go Tokens or Enterprise Subscriptions",
-    plans_sub: "No surprise monthly bills. 100% verifiably metered by our double-entry ledger with instant prepaid top-up.",
-    plan1_badge: "Developer Self-Service",
-    plan1_title: "Pay-As-You-Go",
-    plan1_btn: "💳 Top Up Credits",
-    plan2_badge: "High-Throughput Apps",
-    plan2_title: "Pro Mesh SLA",
-    plan2_btn: "🚀 Start Pro Mesh",
-    plan3_badge: "Custom Clusters",
-    plan3_title: "Enterprise Dedicated",
-    plan3_btn: "🏢 Contact Sales",
-
-    nav_playground: "⚡ Playground",
-    btn_try_playground: "⚡ Try Live Teaser (Free)",
-    pg_tag: "Live Teaser Demo • No Signup Required",
-    pg_title: "Test Decentralized Inference <span class=\"gradient-text\">Live in Your Browser</span>",
-    pg_sub: "Ask the live demo through the ComputeMesh gateway. 20 free requests refresh automatically every 4 hours per client.",
-    pg_model_lbl: "Model:",
-    pg_mesh_active: "Mesh Active (8–64 GB VRAM Pool)",
-    pg_quota_badge: "20 Free Requests Left",
-    pg_badge_live: "LIVE MESH",
-    pg_welcome_msg: "Welcome to ComputeMesh! You can test the live gateway directly here with 20 free requests per 4-hour window. Ask a coding question, summarize text, or benchmark token throughput.",
-    pg_status_lbl: "Status:",
-    pg_status_ready: "Ready",
-    pg_tps_lbl: "Speed:",
-    pg_latency_lbl: "Latency:",
-    pg_tokens_lbl: "Tokens:",
-    qp_explain: "⚡ What is ComputeMesh?",
-    qp_code: "🐍 Write a FastAPI endpoint",
-    qp_sharding: "🧩 Explain Pipeline Sharding",
-    qp_roi: "💰 ComputeMesh vs AWS/OpenAI costs",
-    pg_input_placeholder: "Ask anything... (Press Enter to send, Shift+Enter for newline)",
-    pg_btn_send: "Send Prompt",
-    pg_ollama_title: "Ollama-compatible endpoint",
-    pg_ollama_badge: "Free demo window",
-    pg_ollama_note: "Gateway operators can back the demo with Ollama using COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS, and COMPUTEMESH_INFERENCE_SYSTEM_PROMPT.",
-    conv_tag: "⚡ Free Teaser Limit Reached",
-    conv_title: "Unlock Unlimited High-Speed Inference",
-    conv_sub: "You've explored the decentralized cluster! Join the ecosystem as an API Consumer or Hardware Provider to continue without limits.",
-    conv_opt1_badge: "Option A: Developer",
-    conv_opt1_title: "🔑 Get Your Live API Key",
-    conv_opt1_desc: "Instant OpenAI-compatible access. 80% cheaper tokens with pre-paid Stripe top-up and double-entry accounting.",
-    conv_opt1_btn: "Generate API Key →",
-    conv_opt2_badge: "Option B: Provider (0% Fee)",
-    conv_opt2_title: "⚡ Share GPU & Earn Credits",
-    conv_opt2_desc: "Connect your idle PC or mining rig. Earn passive revenue and get 0% platform fees when running your own models.",
-    conv_opt2_btn: "Register Node",
-    conv_opt2_dl: "Download App",
-
-    footer_rights: "All rights reserved. Decentralized AI Mesh Architecture.",
+    contact_opt_provider: "Mining Rig & Hardware Provider Support",
+    contact_opt_developer: "Developer API & Integration",
+    contact_opt_billing: "Billing & Credit Top-up",
+    contact_opt_enterprise: "Custom Enterprise Deployment",
+    contact_success: "✓ Your message has been sent successfully! Our engineering team will respond within 24 hours."
   },
-  
+
   de: {
+    // Navigation & Allgemein
     nav_home: "Startseite",
     nav_features: "Funktionen",
-    nav_pricing: "Preise",
+    nav_pricing: "Preise & Rechner",
     nav_downloads: "Downloads",
     nav_docs: "API-Docs",
     nav_benchmarks: "Benchmarks",
-    nav_status: "Status",
+    nav_status: "Systemstatus",
     nav_register: "API-Key",
-    
-    hero_tagline: "Dezentrales KI-Rechennetzwerk",
-    hero_title: "Große KI-Modelle 80% günstiger berechnen <br><span class=\"gradient-text\">auf geteilter GPU-Power</span>",
-    hero_sub: "Nutze Open-Source-KI (Llama, DeepSeek & Co.) zu einem Bruchteil der Cloud-Kosten oder verdiene Geld, indem du deine ungenutzten Grafikkarten & Mining-Rigs vermietest.",
-    btn_start_inferencing: "KI-Modelle nutzen (API)",
-    btn_provide_compute: "GPU vermieten & verdienen",
-    
-    ticker_vram: "Gesamter nutzbarer VRAM-Pool",
-    ticker_gpus: "Aktive GPUs (AMD & NVIDIA)",
-    ticker_tokens: "Zwei-Knoten-Proof (ADR-0002)",
-    ticker_uptime: "ggü. Cloud-Hyperscalern",
+    nav_topup: "💳 Guthaben",
+    nav_playground: "⚡ Playground",
+    nav_legal: "Rechtliches",
+    nav_privacy: "Datenschutz",
+    nav_terms: "AGB",
+    nav_impressum: "Impressum",
+    nav_support: "Support",
+    back_to_home: "← Zurück zur Startseite",
+    footer_brand_desc: "Pre-Production Distributed-Inference Engineering mit öffentlicher Provider/Runtime-Interoperabilität und privater Produktionsrichtlinie.",
+    footer_col_platform: "Plattform",
+    footer_col_resources: "Ressourcen",
+    footer_col_legal: "Rechtliches & Unternehmen",
+    footer_rights: "Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.",
+    footer_tech_status: "Technischer Status: Pre-Production Engineering",
 
-    features_tag: "Dezentrale Architektur",
-    features_title: "Entwickelt für ultraschnelle, bezahlbare KI",
-    features_sub: "ComputeMesh löst die hohen Kosten zentraler Anbieter durch das Bündeln von Consumer-GPUs, Server-Beschleunigern und Multi-GPU-Mining-Rigs.",
-    
-    feat1_title: "Pipeline Layer-Sharding",
-    feat1_desc: "Modelle werden nahtlos über mehrere GPUs verteilt. Aktivierungstensoren werden in Mikrosekunden übertragen – 32B+ Modelle laufen auf 8GB-Karten.",
-    
-    feat2_title: "Natives AMD & NVIDIA Dual-Stack",
-    feat2_desc: "Vollständige Unterstützung für NVIDIA CUDA, AMD ROCm und universelles Vulkan. Mische beliebige Karten in einem Rig völlig reibungslos.",
-    
-    feat3_title: "80% Kostenersparnis",
-    feat3_desc: "Prepaid-Abrechnung in Mikro-Credits und dezentrale Hardware senken die Kosten gegenüber herkömmlichen Cloud-Hyperscalern drastisch.",
-    
+    // Hero Section
+    hero_tagline: "⚡ Viele Grafikkarten. Ein KI-Netzwerk.",
+    hero_title: "KI soll nicht nur in riesigen Rechenzentren laufen.<br><span class=\"gradient-text\">ComputeMesh verbindet freie Grafikkarten.</span>",
+    hero_sub: "Die Idee ist einfach: Du schickst eine KI-Anfrage an ComputeMesh. Das System sucht passende Hardware, führt die Arbeit aus und misst ehrlich, was heute schon funktioniert. Entwickler können KI über ein Gateway testen, und Hardware-Besitzer können ihre Rechner als Provider registrieren. Noch Pre-Production: verfügbare Modelle, Tempo und Kosten hängen vom echten Setup ab.",
+    btn_start_inferencing: "⚡ Playground testen",
+    btn_provide_compute: "Hardware anbieten",
+    ticker_vram: "Authentifizierte Live-VRAM-Summe",
+    ticker_gpus: "Authentifizierte Live-GPU-Anzahl",
+    ticker_tokens: "Eng begrenzter Zwei-Knoten-Laborbeleg",
+    ticker_uptime: "Breite LAN/WAN-Validierung noch offen",
+    ticker_proof_val: "Gebundener Beleg",
+    ticker_preprod_val: "Pre-Production",
+
+    // Playground Section
+    pg_tag: "Gateway-Playground",
+    pg_title: "Das <span class=\"gradient-text\">konfigurierte Gateway</span> testen",
+    pg_sub: "Der Playground funktioniert nur, wenn Backend und ausgewähltes Modell tatsächlich konfiguriert sind. Er ist kein Beleg dafür, dass ein öffentliches verteiltes Mesh oder jedes gelistete Modell aktuell verfügbar ist.",
+    pg_model_lbl: "Modell:",
+    pg_quota_pill: "Demo-Kontingent",
+    pg_cluster_pending: "Gateway-Status ausstehend",
+    pg_ai_author: "ComputeMesh KI",
+    pg_ai_badge: "GATEWAY",
+    pg_ai_welcome: "Wenn das konfigurierte Demo-Backend verfügbar ist, laufen Anfragen von hier über diesen Gateway-Pfad. Prüfe Status- und Benchmark-Seiten, um zu sehen, was tatsächlich validiert wurde.",
+    pg_status_lbl: "Status:",
+    pg_status_ready: "Bereit",
+    pg_speed_lbl: "Geschwindigkeit:",
+    pg_latency_lbl: "Latenz:",
+    pg_tokens_lbl: "Tokens:",
+    qp_explain_mesh: "⚡ Was ist ComputeMesh?",
+    qp_python_fastapi: "🐍 Schreibe einen FastAPI-Endpunkt",
+    qp_gpu_sharding: "🧩 Erkläre Pipeline-Sharding",
+    qp_compare_costs: "💰 Erkläre Kostenfaktoren",
+    pg_prompt_placeholder: "Stelle eine Frage... (Enter zum Senden, Shift+Enter für neue Zeile)",
+    pg_send_btn: "Prompt senden",
+    pg_ollama_title: "Ollama-kompatibler Endpunkt",
+    pg_ollama_badge: "Deployment-abhängige Demo",
+    pg_ollama_desc: "Gateway-Betreiber können ein privates Ollama-kompatibles Demo-Upstream konfigurieren. Ein konfiguriertes Demo-Backend ist kein Beleg für verteilte Ausführung.",
+
+    // Features Section
+    features_tag: "Aktuelle Architektur",
+    features_title: "Implementierte Grundlagen mit expliziten Reifegrenzen",
+    features_sub: "ComputeMesh trennt öffentlichen Execution/Protocol/Provider-Code von privatem Produktions-Placement, privaten Daten und privaten Richtlinien.",
+    feat1_title: "Gemessenes Layer-Splitting",
+    feat1_desc: "Kontinuierliche Zwei-Knoten-Layer-Splits werden pro konkretem Modell, Runtime, Hardware und Netzwerkpfad erforscht und validiert. Es wird kein universeller Speedup angenommen.",
+    feat2_title: "Grundlagen für heterogene Provider",
+    feat2_desc: "Hardware-Inventar und CUDA/ROCm/Vulkan-nahe Werkzeuge existieren; Produktionsunterstützung wird aber pro konkretem Ziel validiert und nicht für beliebige GPU-Mischungen behauptet.",
+    feat3_title: "Privates Produktions-Placement",
+    feat3_desc: "Die öffentliche Runtime erhält einen signierten Ausführungsplan; Produktions-Ranking, empirische Performance, Reputation/Fraud und Wirtschaftlichkeit bleiben privat.",
     feat4_title: "OpenAI-kompatibles Gateway",
-    feat4_desc: "Direkter Ersatz für OpenAI SDKs und cURL. Ändere einfach die baseURL, um sofort kostengünstige Tokens zu generieren.",
+    feat4_desc: "Unterstützte OpenAI-artige Endpunkte sind implementiert. Das ist keine Behauptung vollständiger Kompatibilität mit jedem OpenAI-API- oder SDK-Verhalten.",
+    feat5_title: "Provider/NodeOS-Werkzeuge",
+    feat5_desc: "Windows-, Linux-, Provider- und Appliance-Werkzeuge existieren für unterstützte Engineering-Ziele. Konkrete Treiber/GPU-Kombinationen benötigen weiterhin Validierung.",
+    feat6_title: "Grundlagen für Evidenz & Accounting",
+    feat6_desc: "Ausführungsevidenz, Provider-Attestierungen, dauerhaftes Feedback und Double-Entry-Ledger-Grundlagen existieren. Settlement- und Auszahlungspolitik sind deployment- und private-policy-abhängig.",
 
-    feat5_title: "Mining-Rig NodeOS",
-    feat5_desc: "Flashbares USB-Betriebssystem-Image, das 4–12 GPU Ethereum-Mining-Rigs in unter 2 Minuten in autonome Provider-Knoten verwandelt.",
+    // Pricing / Calculator Section
+    calc_tag: "Illustrative Wirtschaftsoberfläche",
+    calc_title: "Variablen erkunden - kein Produktionspreisangebot",
+    calc_sub: "Der bestehende Rechner bleibt als Interface-Experiment verfügbar. Berechnete Werte sind illustrativ und dürfen nicht als Live-Angebot, garantierte Ersparnis oder garantierte Provider-Einnahmen verstanden werden. Produktionspreise und Settlement-Policy sind privat und deployment-abhängig.",
+    tab_developer: "Illustrative Entwickler-Schätzung",
+    tab_provider: "Illustrative Provider-Schätzung",
+    lbl_monthly_tokens: "Monatliches Inferenzvolumen (Millionen Tokens)",
+    lbl_model_tier: "Illustrative Modellklasse",
+    lbl_computemesh_cost: "Illustrativer berechneter Wert",
+    lbl_cloud_cost: "Vergleichseingabe:",
+    lbl_your_savings: "Kein Produktionsangebot und keine garantierte Ersparnis.",
+    lbl_gpu_setup: "Illustratives Hardwareprofil",
+    lbl_hours_online: "Uptime-Annahme",
+    lbl_est_earnings: "Illustrativer berechneter Wert",
+    lbl_payout_note: "Reale Einnahmen erfordern bezahlte Kundennachfrage, verifizierte Ausführung, aktuelle private Preis-/Settlement-Policy und erfolgreiche Provider-Auszahlungsberechtigung.",
+    lbl_provider_threshold_info: "💡 <strong>Credits & Settlement:</strong> Verdiente Compute Credits (CM) stehen für verifizierte Micro-Units ($0.000001 USD) im Double-Entry-Ledger. Hardware-Provider erhalten 75% des modellabhängigen Kundenumsatzes. Auszahlungen laufen ab $25.00 über Stripe Connect.",
+    commercial_plans_title: "Gewerbliche Pläne",
+    commercial_plans_desc: "Diese Engineering-Seite begründet kein öffentliches SLA, keinen festen Rabatt, keine Garantie für dedizierte Cluster, keinen Modellanspruch und keinen Provider-Umsatzanteil. Für ein tatsächliches Angebot den Betreiber kontaktieren; technische Fähigkeiten bleiben vom aktuellen Status und gemessenen Deployment abhängig.",
+    btn_contact_sales: "Kontakt",
 
-    feat6_title: "Verifizierbares Hauptbuch (Ledger)",
-    feat6_desc: "Jedes berechnete Token wird kryptografisch erfasst und unveränderlich in einem Buchungssystem verbucht – für automatische Auszahlungen.",
-
-    calc_tag: "Wirtschaftlichkeit & Ertrag",
-    calc_title: "Berechne deine Ersparnis oder Einnahmen",
-    calc_sub: "Transparente Pay-As-You-Go-Preise für Entwickler und lukrative passive Einnahmen für Hardware-Betreiber.",
-    
-    tab_developer: "Entwickler-Kostenrechner",
-    tab_provider: "Hardware-Ertragsrechner",
-    
-    lbl_monthly_tokens: "Monatliches Token-Volumen (Millionen Tokens)",
-    lbl_model_tier: "Modellgröße",
-    lbl_computemesh_cost: "ComputeMesh Kosten",
-    lbl_cloud_cost: "Herkömmliche Cloud Kosten",
-    lbl_your_savings: "Geschätzte Ersparnis: ~80%",
-    
-    lbl_gpu_setup: "Deine Hardware-Ausstattung",
-    lbl_hours_online: "Laufzeit pro Tag (Stunden)",
-    lbl_est_earnings: "Vergütete Credits & Monatsauszahlung",
-    lbl_payout_note: "Kanonischer Kurs: 1 CM Credit = 1 Micro-Unit ($0.000001 USD) • 1.000.000 CM = $1.00 USD (75% Provider-Anteil) • Stripe-Auszahlungen ab 25 $",
-    lbl_provider_threshold_info: "💡 <strong>Credits & Abrechnung:</strong> Deine verdienten Compute Credits (CM) entsprechen 1:1 realen Micro-Units ($0,000001 USD) im Double-Entry-Ledger. Provider erhalten standardmäßig 75 % der modellabhängigen Kundeneinnahmen (z. B. ~$0,13125 / 1M Tokens bei 8B bis ~$0,90 / 1M Tokens bei 70B). Auszahlungen erfolgen automatisiert ab 25,00 $ via Stripe Connect.",
-
-    dl_tag: "1-Klick-Installation",
-    dl_title: "Node-Installer & NodeOS-Images herunterladen",
-    dl_sub: "Starte in Sekunden auf Windows, Linux oder dedizierten Multi-GPU-Mining-Rigs.",
-    
+    // Downloads Section
+    dl_tag: "Provider-Werkzeuge",
+    dl_title: "Installer & Appliance-Artefakte",
+    dl_sub: "Nutze nur Artefakte, die zu deinem Zielsystem passen, und prüfe die veröffentlichten/aktuellen Deployment-Anleitungen. Installer-Verfügbarkeit bedeutet nicht, dass jede GPU/Treiber-Topologie produktionsunterstützt ist.",
     dl_win_title: "Windows Provider Agent",
-    dl_win_desc: "Desktop-App im System-Tray mit automatischer NVIDIA CUDA-Erkennung und Hintergrunddienst.",
+    dl_win_desc: "Windows-Provider/Installer-Pfad für unterstützte Engineering-Ziele mit Tray-GUI und Hintergrunddienst.",
     dl_win_btn: "Für Windows herunterladen (.exe)",
-
     dl_linux_title: "Linux Headless Agent",
-    dl_linux_desc: "1-Befehl Terminal-Installer für Ubuntu 22.04/24.04 und Debian 12/13 Server.",
+    dl_linux_desc: "Headless-Provider-Setup-Pfad. Prüfe vor der Nutzung die aktuelle Repository-Setup-/Provider-Dokumentation.",
     dl_linux_btn: "Installationsbefehl kopieren",
-
     dl_rig_title: "Mining-Rig Appliance (NodeOS)",
-    dl_rig_desc: "Flashbares USB-Disk-Image für 4–12 GPU Mining-Rigs mit nativer AMD & NVIDIA Auto-Erkennung.",
+    dl_rig_desc: "Experimentelle Appliance-Artefakte für 4-12-GPU-Rigs mit AMD- & NVIDIA-Autoerkennung.",
     dl_rig_iso_btn: "Bootfähiges ISO herunterladen (.iso)",
     dl_rig_btn: "Flash-Image herunterladen (.img.xz)",
 
+    // API Section
     api_tag: "Integration",
-    api_title: "100% OpenAI API-kompatibel",
-    api_sub: "Ändere eine einzige Zeile Code in Python, TypeScript oder cURL, um Anfragen über ComputeMesh zu leiten.",
+    api_title: "OpenAI-kompatible unterstützte Oberfläche",
+    api_sub: "Richte einen kompatiblen Client auf die `/v1`-Base-URL des Deployments, nutze einen registrierten API-Key und wähle ein tatsächlich exponiertes Modell. Prüfe `/v1/models` und die aktuelle API-Dokumentation, statt anzunehmen, dass jeder OpenAI-Endpunkt existiert.",
 
-    modal_title: "Jetzt bei ComputeMesh starten",
-    modal_sub: "Erstelle ein Konto, um deinen API-Schlüssel zu generieren oder deinen Hardware-Knoten zu registrieren.",
+    // Modals
+    modal_title: "Mit ComputeMesh starten",
+    modal_sub: "Aktuelle Kontoregistrierung ist nur für B2B. Provider-Verfügbarkeit und Einnahmen sind nicht garantiert.",
     modal_role_lbl: "Ich möchte:",
-    role_consumer: "KI-Modelle nutzen (Entwickler-API)",
-    role_provider: "Grafikkarten vermieten (Geld verdienen)",
+    role_consumer: "Developer API nutzen",
+    role_provider: "Provider-Hardware registrieren",
     modal_email_lbl: "E-Mail-Adresse",
-    modal_wallet_lbl: "Provider-Auszahlungswallet (Optional)",
+    modal_wallet_lbl: "Provider-Auszahlungswallet (optionale Metadaten)",
     modal_wallet_placeholder: "0x... (EVM / Ethereum / Polygon / Arbitrum)",
-    modal_wallet_help: "Nur für GPU-Provider: Gib die 0x-Adresse ein, an die Einnahmen aus bereitgestellter Rechenleistung ausgezahlt werden sollen. MetaMask dient hier nur zur Adressauswahl. Rechenguthaben und alle Kundenzahlungen laufen über Stripe.",
+    modal_wallet_help: "Wo aktiviert, ist dies nur Auszahlungsziel-Metadatum; es ist keine Kundenzahlungsmethode.",
     modal_submit_btn: "Zugangsdaten generieren",
     modal_key_result_lbl: "Dein generierter Schlüssel:",
     modal_copy_btn: "Schlüssel kopieren",
+    topup_modal_title: "💳 Rechenguthaben aufladen",
+    topup_modal_sub: "Wenn Stripe Checkout konfiguriert ist, kann dieses Formular eine Checkout-Session anfordern. Angezeigte Einzahlungsbeträge versprechen keine bestimmte Token-Anzahl oder Modellpreise.",
+    topup_key_lbl: "Dein API-Schlüssel:",
+    topup_select_amount_lbl: "Aufladebetrag auswählen:",
+    btn_topup_proceed: "Weiter zum konfigurierten Checkout →",
+    conv_tag: "Gateway-Optionen",
+    conv_title: "Mit API-Key fortfahren oder Provider registrieren",
+    conv_sub: "Verfügbarkeit, Preise und Provider-Einnahmen hängen vom konfigurierten Deployment und verifizierten Workload ab.",
+    conv_opt1_badge: "Entwickler",
+    conv_opt1_title: "🔑 API-Zugangsdaten",
+    conv_opt1_desc: "Nutze die unterstützte Gateway-Oberfläche mit registriertem Key und aktivem Modellkatalog.",
+    conv_opt1_btn: "API-Key generieren →",
+    conv_opt2_badge: "Provider",
+    conv_opt2_title: "⚡ Hardware registrieren",
+    conv_opt2_desc: "Provider-Eignung und Einnahmen erfordern kompatible gemessene Hardware/Runtime, erfolgreiche Registrierung und bezahlte Nachfrage.",
+    conv_opt2_btn: "Node registrieren",
+    conv_opt2_dl: "Downloads",
 
-    docs_tag: "Technische Dokumentation",
-    docs_title: "ComputeMesh Architektur- & Integrationshandbuch",
-    docs_sub: "Umfassende Entwickler-Referenzen, OpenAI-API-Spezifikationen und Installationsanleitungen für Hardware-Knoten.",
-    docs_toc: "Inhalt",
-    docs_sec1_title: "1. OpenAI-API Schnellstart (Drop-in)",
-    docs_sec1_desc: "ComputeMesh bietet vollständige Kompatibilität mit dem offiziellen OpenAI SDK. Es genügt die baseURL anzupassen und deinen ComputeMesh API-Key zu übergeben.",
-    docs_sec2_title: "2. Dezentrale Mesh-Architektur",
-    docs_sec2_desc: "ComputeMesh verbindet Consumer-Grafikkarten, Cloud-Server und Mining-Rigs über eine latenzoptimierte Peer-to-Peer-Struktur.",
-    docs_sec3_title: "3. Pipeline Layer-Sharding & PCIe-1x Physik",
-    docs_sec3_desc: "Im Gegensatz zum Modelltraining überträgt die Textgenerierung (Inferenz) bei Batch-Größe 1 lediglich den Aktivierungs-Vektor eines einzelnen Tokens (z. B. 8.2 KB bei 32B-Modellen). Über einen 500 MB/s PCIe-1x-Riser dauert diese Übertragung nur 0,016 Millisekunden.",
-    docs_sec4_title: "4. Provider-Node einrichten",
-    docs_sec4_desc: "Jeder mit einer modernen Grafikkarte (NVIDIA, AMD oder Intel) kann einen Provider-Agenten betreiben. Die Knoten authentifizieren sich kryptografisch mit Ed25519.",
-    docs_sec5_title: "5. Mining-Rig NodeOS Appliance",
-    docs_sec5_desc: "NodeOS ist ein USB-Betriebssystem-Image auf Debian 13-Basis mit automatischer AMD- und NVIDIA-Treibererkennung und integriertem Dashboard.",
-    docs_sec6_title: "6. Verifizierbares Ledger, Abrechnung & 2-Stufen-Auszahlungsregeln",
-    docs_sec6_desc: "ComputeMesh betreibt ein manipulationssicheres Doppelbuchhaltungs-Ledger. Für jedes generierte Token werden Mikro-Einheiten nach der 25% Plattformgebühr dem Provider-Konto gutgeschrieben. Kundenzahlungen für Rechenguthaben laufen über Stripe. MetaMask dient ausschließlich dazu, eine Provider-Auszahlungsadresse für verdiente Rechenleistung festzulegen.",
+    // Documentation Page (docs.html)
+    docs_page_tag: "Developer-Preview-Dokumentation",
+    docs_main_title: "ComputeMesh Architektur- & Integrationshandbuch",
+    docs_main_sub: "Dokumentation der aktuell implementierten Gateway/Provider-Grundlagen und des validierten Forschungs-/Live-Entwicklungspfads. ComputeMesh ist weiterhin Pre-Production; Beispiele sind deployment-abhängig und bedeuten keine universelle Modell-, Hardware-, Latenz- oder Verfügbarkeitsunterstützung.",
+    docs_readiness_alert: "<strong style=\"color: var(--text-main);\">Reifegrenze:</strong> Ein eng begrenzter physischer Zwei-Maschinen-Shared-Runtime-Beleg und substanzielle Control/Gateway-Grundlagen existieren; breite LAN/WAN-Validierung, Produktions-Dataplane-Sicherheit, provider-erzwungene Leases und Produktions-Key/Session-Härtung bleiben offen. Upstream llama.cpp RPC darf nicht direkt in einem nicht vertrauenswürdigen/öffentlichen Netzwerk exponiert werden.",
+    docs_toc_title: "Inhalt",
+    docs_toc_1: "1. Gateway/API-Schnellstart",
+    docs_toc_2: "2. Verteilte Architektur",
+    docs_toc_3: "3. Layer-Sharding-Forschung",
+    docs_toc_4: "4. Provider-Node-Setup",
+    docs_toc_5: "5. Mining-Rig NodeOS",
+    docs_toc_6: "6. Ledger- & Billing-Grundlagen",
+    docs_sec1_h2: "1. OpenAI-kompatibler Gateway-Schnellstart",
+    docs_sec1_p: "Das Gateway implementiert eine OpenAI-kompatible Oberfläche für unterstützte Endpunkte wie Chat Completions und Modellauflistung. Das ist keine Behauptung von 100% Kompatibilität mit jedem OpenAI-API-Endpunkt oder SDK-Verhalten. Konfiguriere <code>base_url</code>, nutze einen registrierten ComputeMesh API-Key und wähle ein Modell, das das aktive Deployment tatsächlich exponiert.",
+    docs_playground_h3: "⚡ Gateway-Playground im Browser",
+    docs_playground_badge: "Verfügbarkeit hängt vom deployten Gateway/Katalog ab",
+    docs_playground_send: "▶ Inferenz starten",
+    playground_send: "▶ Inferenz starten",
+    docs_playground_ph: "Prompt hier eingeben...",
+    docs_terminal_title: "Gateway Antwort-Terminal",
+    docs_terminal_ready: "Bereit",
+    docs_terminal_init: "Wenn Gateway/Modell konfiguriert verfügbar sind, klicke auf \"Inferenz starten\", um die Anfrage zu senden.",
+    docs_sec2_h2: "2. Verteilte Mesh-Architektur",
+    docs_sec2_p: "ComputeMesh ist darauf ausgelegt, machbare Ausführungsplacements über heterogene Provider zu wählen. Der aktuelle Live-Entwicklungspfad nutzt einen authentifizierten Provider-Control-Kanal, einen privaten Produktions-Placement-Service, einen öffentlichen Executor und einen Zwei-Knoten llama.cpp Shared-Runtime-Pfad. Das bedeutet noch keine beliebige Peer-to-Peer-Ausführung über jede registrierte GPU.",
+    docs_sec3_h2: "3. Pipeline-Layer-Sharding-Forschung",
+    docs_sec3_p: "Kontinuierliches Layer-Splitting kann den Modell-Speicherbedarf pro Gerät senken, aber End-to-End-Performance hängt von exaktem Modell, Quantisierung, Runtime-Build, Split, GPU-Paar und Netzwerkpfad ab. ComputeMesh zeichnet deshalb reale Baseline-/Shared-Messungen und Netzwerk-Byte/Timing-Evidenz auf, statt eine theoretische Aktivierungsgröße als universelles Latenzergebnis zu behandeln. Jede PCIe- oder WAN-Performancezahl muss an eine benannte gemessene Konfiguration gebunden sein.",
+    docs_sec4_h2: "4. Provider-Node einrichten",
+    docs_sec4_p: "Ein ausführbarer öffentlicher Provider-Agent und ein Ed25519-Enrollment/Session-Pfad existieren. Tatsächliche Runtime-Unterstützung ist hardware-, treiber-, backend-, modell- und llama.cpp-build-abhängig; ComputeMesh behauptet nicht, dass jede moderne NVIDIA-, AMD- oder Intel-GPU produktionsunterstützt ist. Provider-Private-Keys werden im aktuellen SSH-Operator-Pfad beim Provider erzeugt/aufbewahrt; OS-geschützter Produktions-Key-Speicher bleibt ein Härtungspunkt.",
+    docs_sec4_note: "Nutze veröffentlichte Installer nur, nachdem du geprüft hast, dass sie zum dokumentierten Release-/Deployment-Pfad für dein System passen.",
+    docs_sec5_h2: "5. Mining-Rig NodeOS Appliance",
+    docs_sec5_p: "NodeOS/Appliance-Werkzeuge existieren für Headless-Provider-Experimente, inklusive Hardware-/Backend-Erkennung und lokalem Dashboard. Exakte AMD/NVIDIA-Generationen, Treiberkombinationen und Multi-GPU-Topologien benötigen Zielsystem-Validierung; die Appliance ist kein Beleg dafür, dass jede Mining-Rig-Konfiguration produktionsreif ist.",
+    docs_sec6_h2: "6. Ledger- & Billing-Grundlagen",
+    docs_sec6_p: "Der öffentliche Code enthält eine auditierbare Double-Entry-Ledger-Grundlage sowie fail-closed Stripe Checkout/Webhook- und Provider-Settlement-Integrationspfade, wenn konfiguriert. Produktionsangebot, Marketplace, Margin/Take-Rate und Settlement-Hold-Policy gehören zur privaten Control Plane und werden auf dieser Dokumentationsseite nicht durch einen universellen Prozentsatz definiert. MetaMask/EVM-Adressen sind, wo sie in der aktuellen Provider-UI verwendet werden, Auszahlungsziel-Metadaten und kein Mechanismus zum Kauf von Rechenguthaben.",
 
-    status_all_systems: "Genesis-Netzwerk & Public Alpha aktiv",
-    status_uptime_desc: "ComputeMesh Genesis Bootstrap-Phase ist live. Entwickler-Testnetzwerk-API und Provider-Node-Onboarding geöffnet.",
-    status_avg_latency: "EU-Central Gateway Latenz",
-    status_regional_title: "Aktive Gateways & Verifizierte Cluster",
+    // Status Page (status.html)
+    status_main_h2: "Pre-Production Engineering & Validierung",
+    status_main_p: "ComputeMesh hat Gateway-, Provider-Control-, Provider-Agent-, Orchestrierungs-, Private-Placement- und gemessene Evidenz-Grundlagen implementiert. Es wird noch nicht als allgemein produktionsreifes öffentliches Distributed-Inference-Netzwerk dargestellt.",
+    status_reviewed_date: "Dokumentationsstatus geprüft am 27. August 2026 UTC",
+    status_tick1_val: "Implementiert",
+    status_tick1_lbl: "Authentifizierte Provider-Control-Grundlage",
+    status_tick2_val: "Eng begrenzter Beleg verifiziert",
+    status_tick2_lbl: "Zwei-Maschinen-Shared-Runtime im vertrauenswürdigen Labor",
+    status_tick3_val: "Live Cluster",
+    status_tick3_lbl: "Authentifizierte Live-Metrik globaler Kapazität",
+    status_tick4_val: "Offenes Gate",
+    status_tick4_lbl: "Breite LAN/WAN-Produktionsvalidierung",
+    status_boundaries_h3: "Validierte und verbleibende Grenzen",
+    status_card1_h4: "✅ Software-Grundlagen",
+    status_card1_p: "Authentifizierte Gateway/Provider-Control-Pfade, ausführbarer öffentlicher Provider-Agent, dauerhafte Orchestrierungs-/Recovery-Mechaniken, signierte private Placement-Entscheidungen, Ausführungsevidenz/Attestierungen und gemessenes Outcome-Feedback sind implementierte Grundlagen.",
+    status_card2_h4: "🔬 Physische Messungen",
+    status_card2_p: "Ein eng begrenzter Zwei-Maschinen llama.cpp Shared-Runtime-Beleg im vertrauenswürdigen Labor ist für seine exakte Hardware-, Modell-, Runtime- und Topologiebindung aufgezeichnet. Das ist keine universelle Performance- oder Produktionsreife-Behauptung.",
+    status_card3_h4: "🔒 Runtime-Sicherheitsgrenze",
+    status_card3_p: "Upstream llama.cpp RPC bleibt experimentell und ist keine öffentliche ComputeMesh-Sicherheitsgrenze. Aktueller Entwicklungs-Bring-up hält ihn hinter vertrauenswürdigen/privaten Netzwerken oder SSH-Tunneln.",
+    status_card4_h4: "🧪 Verbleibende Reife-Gates",
+    status_card4_p: "Repräsentative LAN/WAN-Messmatrizen, provider-erzwungene Ressourcen-Leases, Produktions-Dataplane- und Key/Session-Härtung, adversariales/System-Testing, kalibrierte private Performance-Prognose und Produktionsbetrieb/HA bleiben offen.",
+    status_metrics_h3: "Über Statusmetriken",
+    status_metrics_p: "Diese Seite zeigt bewusst keine Platzhalter für globale VRAM-, GPU-, Uptime- oder Gateway-Latenzwerte als wären sie live. Solche Metriken erscheinen nur, wenn sie in Echtzeit aus einem authentifizierten aktuellen Registry-/Telemetriepfad stammen.",
 
-    benchmarks_tag: "Leistungskennzahlen",
-    benchmarks_title: "Dezentrale Modell-Inferenz Benchmarks",
-    benchmarks_sub: "Gemessene Token/Sekunde-Durchsätze und Latenzen über Multi-GPU-Mining-Rigs und verteilte Knoten.",
+    // Benchmarks Page (benchmarks.html)
+    bench_page_tag: "Gemessene Engineering-Evidenz",
+    bench_main_h1: "Aufgezeichnete ComputeMesh-Benchmarks",
+    bench_main_p: "Nur Messungen, die in der Engineering-Evidenz aufgezeichnet wurden, werden als gemessene Fakten gezeigt. Ergebnisse sind spezifisch für Modell, Hardware, Runtime-Build und Topologie und dürfen nicht auf andere Konfigurationen verallgemeinert werden.",
+    bench_ttft_alert: "<strong style=\"color: var(--text-main);\">TTFT-Hinweis:</strong> Der aktuelle nicht-streamende Measured-Feedback-Pfad zeichnet Prefill, Decode und End-to-End-Anfragedauer auf, misst aber nicht direkt echte Time-to-First-Token. Diese Seite veröffentlicht deshalb keine erfundenen TTFT-Werte.",
+    bench_th_evidence: "Evidenz",
+    bench_th_hw: "Hardware / Topologie",
+    bench_th_model: "Modellumfang",
+    bench_th_prefill: "Prefill",
+    bench_th_decode: "Decode",
+    bench_th_interp: "Interpretation",
+    bench_row1_title: "Lokaler llama.cpp-Benchmark",
+    bench_row1_hw: "Windows / RTX 3080 Laptop GPU, CUDA",
+    bench_row1_model: "7B-Q4-Benchmark-Artefakt aufgezeichnet am 21. August 2026",
+    bench_row1_interp: "Nur lokale Single-Host-Evidenz",
+    bench_row2_title: "Lokaler llama.cpp-Smoke-Benchmark",
+    bench_row2_hw: "Debian 13 / CPU-only-Server",
+    bench_row2_model: "0.5B-Q4-Smoke-Artefakt aufgezeichnet am 21. August 2026",
+    bench_row2_interp: "Anderes Modell als der RTX-Lauf; nicht zu einem verteilten Ergebnis kombinieren",
+    bench_row3_title: "Physischer Shared-Runtime-Beleg",
+    bench_row3_hw: "Zwei-Maschinen-Topologie im vertrauenswürdigen Labor",
+    bench_row3_model: "Exaktes Modell/Runtime/Topologie in Repository-Evidenz gebunden",
+    bench_row3_prefill: "Siehe gebundenes Beleg-Artefakt",
+    bench_row3_decode: "Siehe gebundenes Beleg-Artefakt",
+    bench_row3_interp: "Exakte Ausgabe-/Token-Korrektheit wurde für diesen engen Beleg verifiziert; keine universelle Durchsatzbehauptung",
+    bench_net_h3: "Netzwerk-Evidenz",
+    bench_net_p: "Eine historische Windows-zu-Linux Engineering-TCP-Messung zeichnete RTT p50 11.884 ms, p95 13.369 ms, Upload p50 42.276 Mbit/s und Download p50 226.597 Mbit/s auf. Diese Internetpfad-Messung ist selbst kein Shared-Inference-Benchmark. Die aktuelle Matrix-Tooling kann echte kontrollierte Delay/Jitter-Shared-Runtime-Experimente ausführen; breitere Bandbreiten-, Paketverlust/Reordering- und WAN-Ergebnismatrizen bleiben Reifearbeit, bis sie aufgezeichnet sind.",
+    bench_repro_h3: "Reproduzierbarkeitsregel",
+    bench_repro_p: "Ein Benchmark ist nur mit exaktem Modell-Digest/-Größe, llama.cpp-Build-Identität, Hardware/Profil-Revision, Topologie, Split und Netzwerk-Evidenz aussagekräftig. Marketing-Schätzungen und hypothetische Hardwarekombinationen sind keine Benchmark-Ergebnisse.",
 
-    terms_title: "Allgemeine Geschäfts- und Nutzungsbedingungen (AGB)",
-    terms_sec1_title: "1. Geltungsbereich und Vertragspartner",
-    terms_sec1_text: "Durch den Zugriff auf oder die Nutzung der dezentralen ComputeMesh-Plattform, des API-Gateways oder der Provider-Node-Software erklärst du dich mit diesen Nutzungsbedingungen einverstanden.",
-    terms_sec2_title: "2. API-Nutzung und Rechenguthaben (Consumer)",
-    terms_sec2_text: "Entwickler und Unternehmenskunden erwerben Prepaid-Rechenguthaben ausschließlich über von Stripe unterstützte Zahlungsmethoden. Wallets wie MetaMask werden nicht zum Kauf von Rechenguthaben verwendet. Die Abrechnung erfolgt nutzungsbasiert pro verarbeitetem Token über unser manipulationssicheres Doppelbuchhaltungs-Ledger.",
-    terms_sec3_title: "3. Pflichten der Hardware-Provider",
-    terms_sec3_text: "Hardware-Provider stellen GPU-Rechenleistung über die offizielle ComputeMesh-Software bereit. Provider sind dafür verantwortlich, dass ihre Knoten eine stabile Netzwerkverbindung aufweisen und korrekte Telemetrie- und Leistungswerte übermitteln.",
-    terms_sec4_title: "4. Vergütung, Ertragsverbuchung, Deckungsprinzip & 2-Stufen-Auszahlungssystem (25,00 $ Mindestguthaben)",
-    terms_sec4_text: "Für jede erfolgreich bereitgestellte Recheneinheit (Inferenz-Token) wird dem internen Provider-Konto in Echtzeit ein Vergütungsanteil von 75 % des abgerechneten Tokenpreises in Mikro-Einheiten gutgeschrieben. Auszahlungsansprüche entstehen streng nach dem Deckungsprinzip: Auszahlungen an Provider erfolgen ausschließlich aus realen, über Stripe nachweislich und unwiderruflich eingezahlten Umsätzen. Eine registrierte 0x... EVM-Wallet, manuell eingegeben oder per MetaMask ausgewählt, ist nur ein Auszahlungsziel für Provider und wird niemals für den Kauf von Rechenguthaben belastet.",
-    terms_sec5_title: "5. Besonderheiten der Anlaufphase, Alpha-Betrieb & Testguthaben",
-    terms_sec5_text: "In der frühen Wachstums- und Aufbauphase des ComputeMesh-Netzwerks wird das Auftragsvolumen dynamisch anhand der realen Kundenanfragen auf aktive Knoten verteilt. Kostenlose Startguthaben, Marketing-Gutscheine oder Testnet-Credits, die Kunden zu Erprobungszwecken gewährt werden, stellen ein virtuelles Promotionskontingent dar und begründen ausdrücklich keinen Anspruch auf Barauszahlung gegenüber dem Plattformbetreiber. Erwirtschaftete Ansprüche aus real bezahlter Kundennutzung verfallen nicht und bleiben unveränderlich im Ledger verbucht, bis das Auszahlungslimit von 25,00 $ erreicht ist.",
-    terms_sec6_title: "6. Zahlungsdienstleister, Stripe Express & Geldverwaltung",
-    terms_sec6_text: "Alle echten Kundenzahlungen für Rechenguthaben werden über Stripe, Inc. (bzw. Stripe Payments Europe, Ltd.) und die im Checkout angebotenen Stripe-Zahlungsmethoden abgewickelt. Provider-Bankauszahlungen sind über Stripe Connect vorgesehen, soweit verfügbar. Krypto-Wallets werden ausschließlich als öffentliche Auszahlungsadressen für Provider-Earnings gespeichert und nicht zum Einziehen oder Auslösen von Kundenzahlungen verwendet.",
-    terms_sec7_title: "7. Haftungsbeschränkung und Verfügbarkeit",
-    terms_sec7_text: "ComputeMesh stellt die dezentrale Koordinations- und Vermittlungsplattform 'wie besehen' ('as-is') und vorbehaltlich technischer Verfügbarkeit bereit. Eine ununterbrochene Verfügbarkeit oder ein bestimmter Mindestdurchsatz kann bei dezentral verteilten Knotenstrukturen nicht garantiert werden.",
-    privacy_title: "Datenschutzerklärung & Datensicherheitsstandards",
-    privacy_sec1_title: "1. Zero Prompt Storage & Flüchtige Verarbeitung",
-    privacy_sec1_text: "ComputeMesh garantiert eine strikte Zero-Prompt-Storage-Richtlinie: Weder Nutzereingaben (Prompts) noch generierte KI-Antworten werden auf Festplatten gespeichert oder für Modelltrainings verwendet. Die Aktivierungsdaten existieren während des Streamings ausschließlich flüchtig im GPU-VRAM und werden nach Abschluss der Anfrage aus dem Speicher gelöscht.",
-    privacy_sec2_title: "2. Transportverschlüsselung (TLS 1.3 & mTLS)",
-    privacy_sec2_text: "Jeglicher Datenverkehr zwischen Anwendungen und unseren Edge-Gateways ist mit modernem TLS 1.3 und Perfect Forward Secrecy (PFS) verschlüsselt. Die interne Kommunikation zwischen Provider-Knoten erfolgt über gegenseitig authentifiziertes mutual TLS (mTLS) mit Ed25519-Identitäten.",
-    privacy_sec3_title: "3. Verschlüsselte Host-Speicher & Identitäts-Vaults (AES-256-GCM)",
-    privacy_sec3_text: "Persistente Kontodaten, Ledger-Journale und API-Zugangsschlüssel werden im Ruhezustand auf verschlüsselten Host-Speichern mit AES-256-GCM Identitäts-Vaults verwahrt.",
-    privacy_sec4_title: "4. Vollständige Isolierung privater Node-Schlüssel",
-    privacy_sec4_text: "Hardware-Provider-Knoten erzeugen ihre asymmetrischen Ed25519-Schlüsselpaare lokal auf ihrer eigenen Hardware. Der private Schlüssel verlässt den lokalen Rechner zu keinem Zeitpunkt, wird niemals über das Netzwerk übertragen und ist für Außenstehende unzugänglich.",
-    privacy_sec5_title: "5. PCI-DSS-zertifizierte Zahlungs- und Treuhandsicherheit",
-    privacy_sec5_text: "Sämtliche echten Kundenzahlungen werden über die PCI-DSS Level 1 zertifizierte Infrastruktur von Stripe, Inc. verarbeitet. ComputeMesh speichert zu keinem Zeitpunkt vertrauliche Zahlungs- oder Bankdaten. Krypto-Wallet-Adressen werden rein als öffentliche Provider-Auszahlungsadressen hinterlegt und nicht für Kundenzahlungen belastet.",
-    privacy_sec6_title: "6. DSGVO-Konformität & Betroffenenrechte",
-    privacy_sec6_text: "Nutzer genießen die vollen Rechte gemäß der europäischen Datenschutz-Grundverordnung (DSGVO). Du kannst jederzeit Auskunft über deine gespeicherten Stammdaten verlangen oder die vollständige und dauerhafte Löschung deines Kontos unter privacy@inetconnector.com beantragen.",
-    privacy_sec4_title: "4. Vollständige Isolierung privater Node-Schlüssel",
-    privacy_sec4_text: "Hardware-Provider-Knoten erzeugen ihre asymmetrischen Ed25519-Schlüsselpaare lokal auf ihrer eigenen Hardware. Der private Schlüssel verlässt den lokalen Rechner zu keinem Zeitpunkt, wird niemals über das Netzwerk übertragen und ist für Außenstehende unzugänglich.",
-    privacy_sec5_title: "5. PCI-DSS-zertifizierte Zahlungs- und Treuhandsicherheit",
-    privacy_sec5_text: "Sämtliche echten Kundenzahlungen werden über die PCI-DSS Level 1 zertifizierte Infrastruktur von Stripe, Inc. verarbeitet. ComputeMesh speichert zu keinem Zeitpunkt vertrauliche Zahlungs- oder Bankdaten. Krypto-Wallet-Adressen werden rein als öffentliche Provider-Auszahlungsadressen hinterlegt und nicht für Kundenzahlungen belastet.",
-    privacy_sec6_title: "6. DSGVO-Konformität & Betroffenenrechte",
-    privacy_sec6_text: "Nutzer genießen die vollen Rechte gemäß der europäischen Datenschutz-Grundverordnung (DSGVO). Du kannst jederzeit Auskunft über deine gespeicherten Stammdaten verlangen oder die vollständige und dauerhafte Löschung deines Kontos unter privacy@inetconnector.com beantragen.",
-    impressum_title: "Impressum",
-    impressum_meta: "Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz) und § 18 Abs. 2 MStV",
-    impressum_provider_hdr: "Diensteanbieter & Anschrift",
-    impressum_contact_hdr: "Kontakt",
-    impressum_responsible_hdr: "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV",
-    impressum_liability_content_hdr: "Haftung für Inhalte",
-    impressum_liability_content_text: "Als Diensteanbieter sind wir gemäß den allgemeinen Gesetzen für eigene Inhalte auf diesen Seiten verantwortlich. Wir sind jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen. Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt.",
-    impressum_liability_links_hdr: "Haftung für Links",
-    impressum_liability_links_text: "Unser Angebot enthält ggf. Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.",
-    impressum_copyright_hdr: "Urheberrecht",
-    impressum_copyright_text: "Die durch die Seitenbetreiber erstellten Inhalte, Quellcodes und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.",
-
-    contact_tag: "Kontakt & Hilfe",
+    // Contact Page (contact.html)
+    contact_tag: "Kontakt aufnehmen",
     contact_title: "Support & Community Helpdesk",
-    contact_sub: "Hast du Fragen zum Betrieb eines Mining-Rigs, zur API-Integration oder zum Erwerb von Rechenguthaben?",
+    contact_sub: "Fragen zum Betrieb eines Provider-Mining-Rigs, zur Integration der OpenAI-API oder zum Erwerb von Enterprise-Rechenguthaben?",
     contact_name_lbl: "Dein Name",
     contact_topic_lbl: "Thema",
     contact_msg_lbl: "Nachricht",
     contact_send_btn: "Nachricht absenden",
-    nav_topup: "💳 Guthaben",
-    topup_modal_title: "💳 Rechenguthaben aufladen",
-    topup_modal_sub: "Prepaid-Mikro-Credits über Stripe Checkout aufladen. Wallets werden von ComputeMesh nicht belastet.",
-    topup_key_lbl: "Dein API-Schlüssel:",
-    terms_title: "Allgemeine Geschäftsbedingungen, Plattformgebühr & Abrechnungsregeln",
-    terms_subtitle: "Bereitgestellt durch inetconnector • Gültig ab: August 2026 • Version 1.2",
-    terms_sec1_title: "1. Geltungsbereich & Rolle des Plattformbetreibers (inetconnector)",
-    terms_sec1_text: "Mit dem Zugriff auf, der Registrierung bei oder der Nutzung der ComputeMesh-Plattform, der API-Gateways, der Desktop-Provider-Clients oder der NodeOS-Appliance-Images schließen Sie eine rechtsverbindliche Vereinbarung mit inetconnector (dem „Plattformbetreiber“). inetconnector stellt die dezentrale Orchestrierungsarchitektur, latenzoptimierte API-Proxy-Gateways, Authentifizierungsschichten, kryptografisch verifizierte Buchungs-Ledger und automatisierte Auszahlungs-Pipelines bereit, die KI-Nutzer mit unabhängigen GPU-Hardware-Providern verbinden.",
-    terms_sec2_title: "2. API-Kunden, Prepaid-Guthaben & Fair-Use-Abrechnung",
-    terms_sec2_text: "Entwickler, Unternehmen und Enterprise-Kunden erwerben vorausbezahltes Rechenguthaben ausschließlich über von Stripe unterstützte Zahlungsmethoden wie Karte, SEPA, Link, Apple Pay, Google Pay oder andere im Checkout angebotene Stripe-Zahlarten. MetaMask und andere EVM-Wallets werden nicht zum Kauf von Rechenguthaben verwendet. Der API-Verbrauch wird strikt pro 1.000 Prompt- und Completion-Tokens nach den veröffentlichten Modell-Tarifen abgerechnet. Tokens werden direkt über OpenAI-kompatible Schnittstellen ohne dauerhafte Prompt-Speicherung auf Edge-Knoten gestreamt. Die Nutzung erfordert ein aktives Guthaben oder ein genehmigtes Enterprise-SLA-Abonnement.",
-    terms_sec4_title: "3. Plattformgebühr, Monetarisierung & automatischer Revenue-Split",
-    terms_sec4_text: "Zur Finanzierung der hochverfügbaren globalen Gateway-Infrastruktur, des Latenz-Routings für Tensoren, des DDoS-Schutzes, der kontinuierlichen Software-Entwicklung und der Multi-Vendor-Treiberpflege behält inetconnector eine Plattform-Serviceprovision von 25 % (2.500 Basispunkte) auf jedes vom Kunden abgerechnete Inferenzvolumen ein. Die verbleibenden 75 % der Token-Erlöse werden den ausführenden GPU-Providern in Echtzeit atomar über das Double-Entry-Hauptbuch gutgeschrieben.",
-    terms_sec5_title: "4. Fully-Backed-Revenue-Prinzip & Treuhand-Auszahlungen (25,00 $ Schwelle)",
-    terms_sec5_text: "Auszahlungsansprüche der Provider unterliegen strikt dem Fully-Backed-Revenue-Prinzip: Auszahlungen werden ausschließlich aus tatsächlich vereinnahmten, unwiderruflichen Kundenzahlungen bedient, die über Stripe auf den Händlerkonten der Plattform eingegangen sind. Der Plattformbetreiber haftet nicht für uneinbringliche Kundenforderungen. Auszahlungen werden ab einem Guthaben von 25,00 $ oder EUR-Äquivalent ausgelöst. Provider-Wallet-Adressen, die über MetaMask oder manuelle 0x-Eingabe hinterlegt werden, dienen ausschließlich als Auszahlungsziel für Einnahmen aus bereitgestellter Rechenleistung; sie werden nicht zum Einziehen von Kundenzahlungen verwendet. Bankauszahlungen werden soweit verfügbar über Stripe Connect abgewickelt.",
-    terms_sec3_title: "5. Pflichten der Hardware-Provider, SLAs & Betrugsschutz",
-    terms_sec3_text: "Hardware-Provider stellen GPU-Rechenkapazität ausschließlich über offizielle ComputeMesh-Software bereit. Es ist streng untersagt, Telemetriedaten zu fälschen, Modellgewichte zu manipulieren, fehlerhafte/nicht-deterministische Aktivierungsschichten zurückzuliefern oder VRAM-Angaben zu verfälschen. Verstöße führen zum sofortigen Ausschluss (Blacklisting) und zum dauerhaften Verfall unrechtmäßiger Guthaben.",
-    terms_sec6_title: "6. B2B-Besteuerung, Reverse-Charge & Abrechnungsgutschriften",
-    terms_sec6_text: "Hardware-Provider und Unternehmenskunden handeln als selbstständige Wirtschaftsteilnehmer. Für EU-Geschäftskunden gilt das Reverse-Charge-Verfahren (Art. 196 EU-MwSt-Systemrichtlinie). Hardware-Provider erhalten für jeden abgeschlossenen Auszahlungszyklus automatisierte digitale Abrechnungsgutschriften und sind für die ordnungsgemäße Versteuerung ihrer Einnahmen (Einkommensteuer, Gewerbesteuer, USt) selbst verantwortlich.",
-    terms_sec7_title: "7. Enterprise-Abonnements, dedizierte Node-Pools & Prioritäts-SLAs",
-    terms_sec7_text: "Enterprise-Kunden können dedizierte GPU-Cluster, geografisch isolierte Mesh-Zonen (z. B. reine EU-Datenresidenz) und garantierte Latenz-SLAs (Time-To-First-Token) im Rahmen monatlicher Service-Abonnements (99 $ bis 4.999 $/Monat) vereinbaren. Enterprise-Abonnementgebühren werden im Voraus berechnet und sind nicht erstattungsfähig.",
-    terms_sec8_title: "8. Haftungsbeschränkung & Best-Effort-Bereitstellung",
-    plans_tag: "Transparente B2B- & Entwicklertarife",
-    plans_title: "Pay-As-You-Go Tokens oder Enterprise-Abonnements",
-    plans_sub: "Keine überraschenden Monatsrechnungen. 100 % transparent im Buchungsledger erfasst mit sofortiger Prepaid-Aufladung.",
-    plan1_badge: "Entwickler Self-Service",
-    plan1_title: "Pay-As-You-Go",
-    plan1_btn: "💳 Guthaben aufladen",
-    plan2_badge: "Für Apps mit hohem Durchsatz",
-    plan2_title: "Pro Mesh SLA",
-    plan2_btn: "🚀 Pro Mesh starten",
-    plan3_badge: "Dedizierte Cluster",
-    plan3_title: "Enterprise Dedicated",
-    plan3_btn: "🏢 Vertrieb kontaktieren",
-
-    nav_playground: "⚡ Playground",
-    btn_try_playground: "⚡ Live-Teaser testen (Gratis)",
-    pg_tag: "Live-Teaser-Demo • Keine Registrierung nötig",
-    pg_title: "Dezentrale KI-Inferenz <span class=\"gradient-text\">live im Browser testen</span>",
-    pg_sub: "Stelle eine echte Demo-Anfrage über das ComputeMesh-Gateway. 20 kostenlose Anfragen werden pro Client alle 4 Stunden automatisch erneuert.",
-    pg_model_lbl: "Modell:",
-    pg_mesh_active: "Mesh Aktiv (8–64 GB VRAM-Pool)",
-    pg_quota_badge: "20 Gratis-Anfragen übrig",
-    pg_badge_live: "LIVE MESH",
-    pg_welcome_msg: "Willkommen bei ComputeMesh! Du kannst das Live-Gateway direkt hier mit 20 kostenlosen Anfragen pro 4-Stunden-Fenster ausprobieren. Stelle Programmierfragen, fasse Texte zusammen oder teste den Token-Durchsatz.",
-    pg_status_lbl: "Status:",
-    pg_status_ready: "Bereit",
-    pg_tps_lbl: "Geschwindigkeit:",
-    pg_latency_lbl: "Latenz:",
-    pg_tokens_lbl: "Tokens:",
-    qp_explain: "⚡ Was ist ComputeMesh?",
-    qp_code: "🐍 Schreibe einen FastAPI-Endpunkt",
-    qp_sharding: "🧩 Erkläre Pipeline-Sharding",
-    qp_roi: "💰 ComputeMesh vs. AWS/OpenAI Kosten",
-    pg_input_placeholder: "Stelle eine Frage... (Enter zum Senden, Shift+Enter für neue Zeile)",
-    pg_btn_send: "Prompt senden",
-    pg_ollama_title: "Ollama-kompatibler Endpunkt",
-    pg_ollama_badge: "Gratis-Demofenster",
-    pg_ollama_note: "Gateway-Betreiber können die Demo mit Ollama über COMPUTEMESH_INFERENCE_BACKEND=ollama, COMPUTEMESH_INFERENCE_MODEL, COMPUTEMESH_INFERENCE_CONTEXT_TOKENS, COMPUTEMESH_INFERENCE_THREADS und COMPUTEMESH_INFERENCE_SYSTEM_PROMPT betreiben.",
-    conv_tag: "⚡ Kostenloses Teaser-Limit erreicht",
-    conv_title: "Unbegrenzte High-Speed-Inferenz freischalten",
-    conv_sub: "Du hast das dezentrale Mesh erfolgreich getestet! Werde Teil des Netzwerks als API-Nutzer oder GPU-Provider, um ohne Limits weiterzumachen.",
-    conv_opt1_badge: "Option A: Entwickler",
-    conv_opt1_title: "🔑 Echten API-Key erstellen",
-    conv_opt1_desc: "Sofortiger OpenAI-kompatibler Zugriff. 80% günstigere Tokens mit sicherem Stripe-Guthaben und transparenter Buchhaltung.",
-    conv_opt1_btn: "API-Key generieren →",
-    conv_opt2_badge: "Option B: Provider (0% Gebühr)",
-    conv_opt2_title: "⚡ Eigene GPU teilen & Credits verdienen",
-    conv_opt2_desc: "Binde deinen PC oder dein Mining-Rig an. Verdiene passive Erlöse und nutze eigene Modelle mit 0% Plattformgebühr (Self-Compute).",
-    conv_opt2_btn: "Node registrieren",
-    conv_opt2_dl: "App herunterladen",
-
-    footer_rights: "Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.",
+    contact_opt_provider: "Mining-Rig & Hardware-Provider Support",
+    contact_opt_developer: "Entwickler-API & Integration",
+    contact_opt_billing: "Abrechnung & Guthabenaufladung",
+    contact_opt_enterprise: "Individuelles Enterprise-Deployment",
+    contact_success: "✓ Deine Nachricht wurde erfolgreich gesendet. Unser Engineering-Team antwortet innerhalb von 24 Stunden."
   }
 };
+window.portalTranslations = translations;
 
-let currentLang = 'en';
+let currentLang = 'de';
 
 function detectInitialLanguage() {
-  const saved = localStorage.getItem('cm_portal_lang');
-  if (saved && (saved === 'de' || saved === 'en')) {
-    return saved;
-  }
-  const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
-  if (browserLang.startsWith('de')) {
+  try {
+    const urlLang = new URLSearchParams(window.location.search).get('lang');
+    if (urlLang === 'de' || urlLang === 'en') {
+      localStorage.setItem('cm_portal_lang', urlLang);
+      return urlLang;
+    }
+    const saved = localStorage.getItem('cm_portal_lang');
+    if (saved === 'de' || saved === 'en') {
+      return saved;
+    }
+  } catch (e) {}
+
+  const browserLangs = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    navigator.language,
+    navigator.userLanguage
+  ].filter(Boolean).map(lang => String(lang).toLowerCase());
+
+  let timeZone = '';
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch (e) {}
+
+  if (browserLangs.some(lang => lang.startsWith('de')) || timeZone === 'Europe/Berlin' || location.hostname.endsWith('.de')) {
     return 'de';
   }
-  return 'en';
+
+  return 'de';
 }
 
 function switchLanguage(lang) {
   if (!lang || (lang !== 'de' && lang !== 'en')) {
-    lang = 'en';
+    lang = 'de';
   }
   currentLang = lang;
+  window.currentLang = lang;
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    if (translations[lang] && translations[lang][key]) {
-      if (el.tagName === 'INPUT' && el.getAttribute('placeholder')) {
-        el.setAttribute('placeholder', translations[lang][key]);
+    if (translations[lang] && translations[lang][key] !== undefined) {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        if (el.getAttribute('placeholder')) {
+          el.setAttribute('placeholder', translations[lang][key]);
+        } else {
+          el.value = translations[lang][key];
+        }
+      } else if (el.tagName === 'OPTION') {
+        el.textContent = translations[lang][key];
       } else {
         el.innerHTML = translations[lang][key];
       }
@@ -529,8 +571,14 @@ function switchLanguage(lang) {
   });
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     const key = el.getAttribute('data-i18n-ph');
-    if (translations[lang] && translations[lang][key]) {
+    if (translations[lang] && translations[lang][key] !== undefined) {
       el.setAttribute('placeholder', translations[lang][key]);
+    }
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (translations[lang] && translations[lang][key] !== undefined) {
+      el.setAttribute('title', translations[lang][key]);
     }
   });
   const btn = document.getElementById('lang-toggle-btn');
@@ -543,6 +591,9 @@ function switchLanguage(lang) {
   updateCalculators();
   if (typeof window.syncComplianceLanguage === 'function') {
     window.syncComplianceLanguage(lang);
+  }
+  if (typeof window.syncPortalStaticLanguage === 'function') {
+    window.syncPortalStaticLanguage(lang);
   }
 }
 
@@ -929,6 +980,53 @@ function handlePlaygroundKey(e) {
     sendPlaygroundMessage();
   }
 }
+
+async function runPlaygroundPrompt() {
+  const modelEl = document.getElementById('playground-model');
+  const inputEl = document.getElementById('playground-input');
+  const outputEl = document.getElementById('playground-output');
+  const statsEl = document.getElementById('playground-stats');
+  const btnEl = document.getElementById('playground-btn');
+
+  if (!modelEl || !inputEl || !outputEl) return;
+
+  const promptText = inputEl.value.trim();
+  if (!promptText) return;
+
+  const lang = currentLang === 'de' ? 'de' : 'en';
+  if (btnEl) btnEl.disabled = true;
+  if (statsEl) statsEl.textContent = lang === 'de' ? 'Anfrage läuft...' : 'Running request...';
+  outputEl.textContent = lang === 'de' ? 'Gateway wird angefragt...' : 'Contacting gateway...';
+
+  try {
+    const started = performance.now();
+    const response = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modelEl.value,
+        messages: [{ role: 'user', content: promptText }],
+        stream: false
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error?.message || data.error || response.statusText);
+
+    const answer = data.choices?.[0]?.message?.content || data.message?.content || '';
+    const elapsedMs = Math.round(performance.now() - started);
+    outputEl.textContent = answer || (lang === 'de' ? 'Keine Antwort erhalten.' : 'No response received.');
+    if (statsEl) statsEl.textContent = `${elapsedMs} ms`;
+  } catch (error) {
+    outputEl.textContent = lang === 'de'
+      ? `Gateway-Anfrage fehlgeschlagen: ${error.message || 'unbekannter Fehler'}`
+      : `Gateway request failed: ${error.message || 'unknown error'}`;
+    if (statsEl) statsEl.textContent = lang === 'de' ? 'Fehlgeschlagen' : 'Failed';
+  } finally {
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
+window.runPlaygroundPrompt = runPlaygroundPrompt;
 
 async function sendPlaygroundMessage() {
   if (isPlaygroundInferencing) return;

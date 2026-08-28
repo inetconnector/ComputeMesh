@@ -67,7 +67,7 @@ body {
 h1, h2, h3, h4, .brand-logo {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* Gradient Text */
@@ -258,7 +258,8 @@ section.hero {
   max-width: 1000px;
   margin-left: auto;
   margin-right: auto;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .hero p.hero-sub {
@@ -1200,6 +1201,224 @@ footer.site-footer {
 }
 
 @media (max-width: 600px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  header.site-header {
+    padding: 0.65rem 0;
+  }
+
+  .nav-wrap {
+    justify-content: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    width: 100%;
+    justify-content: center;
+    min-width: 0;
+    gap: 0.55rem;
+    font-size: 1.18rem;
+  }
+
+  .brand-badge {
+    max-width: min(48vw, 11rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.62rem;
+    padding: 0.18rem 0.5rem;
+  }
+
   .nav-links { display: none; }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .lang-toggle,
+  .nav-actions .btn {
+    min-width: 0;
+    padding: 0.48rem 0.62rem;
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+  }
+
+  section.hero {
+    padding: 2.25rem 0 2.75rem;
+  }
+
+  .hero-tagline {
+    max-width: 100%;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    padding: 0.45rem 0.75rem;
+    white-space: normal;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 12vw, 2.65rem);
+    line-height: 1.12;
+    margin-bottom: 1.15rem;
+  }
+
+  .hero p.hero-sub {
+    font-size: 1rem;
+    line-height: 1.58;
+    margin-bottom: 1.75rem;
+  }
+
+  .hero-cta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .hero-cta .btn,
+  .hero-cta button {
+    width: 100%;
+  }
+
+  .telemetry-ticker {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+  }
+
+  .ticker-val {
+    font-size: 1.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  .section-header h2 {
+    font-size: 1.85rem;
+    overflow-wrap: anywhere;
+  }
+
+  .features-grid,
+  .download-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feature-card,
+  .download-card,
+  .calc-box,
+  .playground-studio,
+  .code-window {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .feature-card,
+  .download-card {
+    padding: 1.2rem;
+  }
+
+  .calc-box {
+    padding: 1.2rem;
+  }
+
+  .calc-tabs {
+    gap: 0.5rem;
+    overflow-x: auto;
+  }
+
+  .calc-tab {
+    flex: 0 0 auto;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .pg-toolbar {
+    padding: 0.85rem 1rem;
+  }
+
+  .pg-toolbar-left,
+  .pg-toolbar-right,
+  .pg-control-group {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pg-control-group {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pg-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pg-cluster-badge,
+  .pg-quota-pill {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .pg-quick-prompts {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overscroll-behavior-inline: contain;
+  }
+
+  .pg-input-container {
+    flex-direction: column;
+    align-items: stretch;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .pg-send-btn {
+    width: 100%;
+  }
+
+  pre,
+  .dl-code-box,
+  .chat-body pre {
+    max-width: 100%;
+  }
+
+  pre code {
+    white-space: pre;
+  }
+
+  main.container {
+    overflow-wrap: anywhere;
+  }
+
+  main.container > div[style*="grid-template-columns: 280px 1fr"] {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 1.25rem !important;
+  }
+
+  main.container > div[style*="grid-template-columns: 280px 1fr"] > aside {
+    position: static !important;
+    top: auto !important;
+  }
+
+  main.container > div[style*="grid-template-columns: 280px 1fr"] > div {
+    min-width: 0;
+    width: 100%;
+  }
+
   .footer-grid { grid-template-columns: 1fr; }
 }

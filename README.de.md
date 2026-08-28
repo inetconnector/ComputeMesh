@@ -44,7 +44,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;
 - einen echten Shared-Runtime-Network-Sensitivity-Matrix-Runner für kontrollierte Delay-/Jitter-Messpunkte, ohne Packet-Loss-/Bandwidth-Evidenz zu erfinden;
 - einen deterministischen M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
-- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
+- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, standardmäßig deutscher DE/EN-Lokalisierung, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
 - ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können;
 - fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert;
 - registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist;
