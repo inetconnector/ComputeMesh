@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/confidential_attestation.schema.json",
+  "title": "ComputeMesh Confidential Attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "technology", "measurement", "runtime_digest", "ephemeral_public_key", "nonce", "issued_at", "expires_at", "debug_disabled"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "technology": {"type": "string", "minLength": 1},
+    "measurement": {"type": "string", "minLength": 1},
+    "runtime_digest": {"type": "string", "pattern": "^sha256:"},
+    "ephemeral_public_key": {"type": "string", "minLength": 1},
+    "nonce": {"type": "string", "minLength": 1},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "debug_disabled": {"const": true},
+    "verification_result": {"enum": ["verified", "rejected", "not_verified"]}
+  }
+}
