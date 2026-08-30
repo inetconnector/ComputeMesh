@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-30 20:35 CEST
+**Last updated:** 2026-08-30 20:51 CEST
 **Release Version:** `v1.2.19`
-**Test Suite Status:** `412/412 PASSED (100% OK in 17.57s)` across all 9 categories
-**Git Baseline:** Branch `codex/german-portal-mobile` after merging `origin/main` confidential global mesh policy work and releasing `v1.2.19`
+**Test Suite Status:** `412/412 PASSED (100% OK in 16.31s)` across all 9 categories
+**Git Baseline:** Branch `codex/german-portal-mobile` after simplifying the public README entry text for mobile/GitHub readers
 
 ---
 
@@ -2090,3 +2090,18 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - `python -m unittest runtime.confidential.tests.test_key_release services.attestation.tests.test_confidential_verifier services.compliance.tests.test_mesh_policy -v` passed 13/13 tests.
 - `git diff --check` passed.
 - `python run_all_tests.py` passed 412/412 tests in 17.19s.
+
+## 69. Public README Plain-Language Mobile Rewrite (2026-08-30 20:51 CEST)
+
+### 1. Reason
+- GitHub mobile screenshots of `README.de.md` showed that the first visible pages opened with dense engineering language (`Pre-Production`, `Control-Plane`, `Inference-Fabric`, long lab-tool explanations). This was not suitable for normal public readers.
+
+### 2. README change
+- Rewrote the top of `README.de.md` into plain German sections: `Kurz gesagt`, `Warum das spannend ist`, `Was schon funktioniert`, `Was noch nicht versprochen wird`, `Schnell ausprobieren`, and `Technischer Überblick`.
+- Kept the factual boundaries: ComputeMesh is still lab/pre-production, `v1.2.19` remains the current signed update channel, Germany defaults to German on the public website, protected jobs must not fall back to unsafe machines, and `CONFIDENTIAL` stays blocked until real TEE/GPU attestation exists.
+- Simplified the technical overview from a long implementation inventory into reader-friendly bullets about measuring machines, using providers, routing requests, recording evidence, signed updates and fail-closed confidential jobs.
+- Updated `README.md` in parallel to keep the English and German public entry points synchronized.
+
+### 3. Verification
+- `git diff --check` passed.
+- `python run_all_tests.py` passed 412/412 tests in 16.31s.

@@ -2,56 +2,72 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-> **Phase:** aktive Pre-Production-Entwicklung: verifizierte M1-Shared-Runtime-Evidenz im Trusted Lab plus implementierte Live-Gateway-/Provider-Control-/Orchestrator-Grundlagen und eine private Produktions-Policy-Control-Plane-Grenze.
-> **Wichtig:** ComputeMesh ist **noch kein allgemein produktionsreifes verteiltes Inferenzprodukt**. Breite physische LAN-/WAN-Validierung, providerseitig erzwungene Resource-Leases, Produktions-Data-Plane-Sicherheit sowie Key-/Session-Härtung bleiben Gates.
+## Kurz gesagt
 
-Für den aktuellen öffentlich vertretbaren Status zuerst **[docs/CURRENT_STATUS.de.md](docs/CURRENT_STATUS.de.md)** lesen. `state.md` bleibt die detaillierte öffentliche Engineering-/Evidenzhistorie; proprietärer aktueller Produktions-Policy-Status gehört in `ComputeMesh-ControlPlane/STATE.md` des privaten Repositories.
+ComputeMesh soll viele normale Computer zu einem gemeinsamen KI-Rechner verbinden.
 
-ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
+Die Idee ist einfach:
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.19` ist live unter `https://computemesh.inetconnector.com/updates/version.json`, mit standardmäßig deutscher Portal-Kopie, gemergtem aktuellem GitHub-`main`-Mesh-Policy-Stand und bestandenen Responsive-Checks auf Handy-, Tablet- und Desktopbreiten.
+- Wer freie Grafikkarten-Leistung hat, kann sie bereitstellen.
+- Wer KI nutzen will, bekommt passende Rechenleistung aus dem Netzwerk.
+- ComputeMesh entscheidet, welcher Rechner für eine Anfrage geeignet ist.
+- Jede Ausführung soll messbar, überprüfbar und fair abrechenbar sein.
 
-## Einfachster Einstieg in die Lab-Werkzeuge
+Man kann es sich wie ein Stromnetz für KI-Rechenleistung vorstellen: Nicht ein einzelnes riesiges Rechenzentrum macht alles, sondern viele passende Rechner arbeiten zusammen.
+
+## Warum das spannend ist
+
+KI braucht sehr viel Rechenleistung. Gleichzeitig stehen überall Grafikkarten ungenutzt herum: in Gaming-PCs, Workstations, kleinen Servern und Büros. ComputeMesh baut die Technik, um diese Leistung später sicher und nachvollziehbar nutzbar zu machen.
+
+Das Ziel: KI-Rechenleistung soll nicht nur wenigen großen Anbietern gehören. Mehr Menschen und Firmen sollen Rechenleistung anbieten, nutzen und dafür bezahlt werden können.
+
+## Was schon funktioniert
+
+ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
+
+- eine öffentliche Webseite, die in Deutschland standardmäßig Deutsch zeigt;
+- signierte Windows- und Linux-Clients mit Update-Prüfung;
+- ein Gateway, über das KI-Anfragen angenommen werden können;
+- eine Provider-App, mit der ein Rechner seine verfügbare Leistung melden kann;
+- erste echte Zwei-Rechner-Experimente mit llama.cpp;
+- Messungen für Rechnerleistung, Netzwerkverbindung und Ausführung;
+- Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
+- klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
+
+Aktueller signierter Client-/Update-Kanal: `v1.2.19` ist live unter `https://computemesh.inetconnector.com/updates/version.json`.
+
+## Was noch nicht versprochen wird
+
+ComputeMesh ist noch kein fertiges Produkt für beliebige öffentliche KI-Aufträge. Dafür fehlen noch mehr echte Tests mit verschiedenen Grafikkarten, Netzwerken und Standorten.
+
+Auch vertrauliche KI-Ausführung wird noch nicht als fertige Hardware-Sicherheitsgarantie behauptet. Dafür braucht es eine konkrete TEE-/GPU-Attestation-Technologie mit echtem Prüfer. Bis dahin wird `CONFIDENTIAL` bewusst blockiert, statt unsicher freigegeben zu werden.
+
+## Schnell ausprobieren
 
 Repository klonen/herunterladen und den Starter für das Betriebssystem verwenden:
 
 **Windows:** `SETUP.cmd` doppelklicken  
 **Linux:** `./setup.sh` ausführen (oder `bash setup.sh`, falls das Ausführungsbit verloren ging).
 
-Beide Starter bieten dasselbe einfache Menü für Rechnerprofil, vertrauenswürdige LAN-RTT-/Durchsatzmessung, lokales llama.cpp-Benchmarking und die aktuell vollständige lokale Testsuite. Neue Netzwerkmessungen tragen zusätzlich die lokale Lab-Setup-Node-ID und – wenn die Gegenseite den aktuellen Benchmark-Server verwendet – dessen selbst gemeldete Lab-Setup-Node-ID. Modellgewichte werden niemals automatisch heruntergeladen.
+Das Menü kann den Rechner prüfen, die Netzwerkverbindung messen, lokale Modellgeschwindigkeit testen und die Tests starten. Modellgewichte werden niemals automatisch heruntergeladen.
 
-Für die aktuelle M1-Evidenzübergabe zwischen zwei Rechnern kann der Worker unter Windows mit `setup\EVIDENCE-EXPORT.cmd` oder unter Linux mit `bash setup/EVIDENCE-EXPORT.sh` eine begrenzte Evidenz-ZIP erzeugen. Der Coordinator kann diese ZIP prüfen/importieren und mit `setup\BUILD-BUNDLE.cmd` bzw. `bash setup/BUILD-BUNDLE.sh` das aktuelle Experiment-Bundle bauen. Sobald das Bundle `shared_experiment` empfiehlt, wird der Trusted-LAN-RPC-Worker mit `setup\SHARED-WORKER.cmd` / `bash setup/SHARED-WORKER.sh` gestartet und der gebundene Baseline→Relay→Shared→Compare→Proof-Ablauf mit `setup\SHARED-PROOF.cmd` / `bash setup/SHARED-PROOF.sh` ausgeführt. Die ZIP enthält keine GGUF-Gewichte und keine llama.cpp-Binaries.
+Die genaue Zwei-Rechner-Anleitung für Entwickler steht in [setup/README.de.md](setup/README.de.md). Der aktuelle öffentliche Status steht in [docs/CURRENT_STATUS.de.md](docs/CURRENT_STATUS.de.md). `state.md` ist das ausführliche technische Projektlog.
 
-Die genaue Zwei-Rechner-Anleitung steht in [setup/README.de.md](setup/README.de.md).
+## Technischer Überblick
 
-## Aktuell implementiert
+Für Entwickler heißt das konkret:
 
-Zu den vorhandenen Grundlagen gehören inzwischen:
+- Rechner können ihre Hardware und Modellgeschwindigkeit messen.
+- Zwei Rechner können in einem kontrollierten Labortest gemeinsam an einer Modell-Ausführung arbeiten.
+- Der Gateway kann Anfragen annehmen und an passende Provider weitergeben.
+- Provider müssen sich anmelden und ihre Identität nachweisen.
+- Ergebnisse, Messwerte und Ausführungsnachweise werden nachvollziehbar gespeichert.
+- Der Scheduler darf geschützte Jobs nicht heimlich auf eine unsichere Stufe herabsetzen.
+- Öffentliche Jobs können später weltweit passende GPU-Leistung nutzen, wenn die Regeln erfüllt sind.
+- Vertrauliche Jobs bleiben blockiert, bis echte Hardware-Attestation eingebaut ist.
+- Die Webseite, Downloads und Update-Dateien sind versioniert und signiert.
 
-- plattformübergreifendes Windows-/Linux-Lab-Setup;
-- Inventory-, TCP-Netzwerk- und llama.cpp-`llama-bench`-Messwerkzeuge;
-- begrenzte GGUF-v3-Inspektion und konservative Modellmanifest-Erzeugung mit aus dem Artefakt abgeleiteter Architektur, Layerzahl, SHA-256 und Dateigröße;
-- ein begrenzter Standardbibliothek-Lab-Evidenzexport/-import mit Datei-/Anzahllimits, SHA-256-Prüfung, Traversal-/Symlink-Ablehnung und atomarem Peer-Import;
-- ein fail-closed M1-Experiment-Bundle-Builder, der einen konsistenten aktuellen Zwei-Node-Evidenzsatz auswählt und die daraus erzeugte Placement-Entscheidung mit Dokument-Digests bündelt;
-- maschinenlesbare Draft-2020-12-State-/Control-Verträge;
-- deterministische Job-/Reservation-Semantik und transaktionale SQLite-Referenzpersistenz;
-- strikte transportneutrale Control-Envelopes und dauerhafte erste Handler;
-- authentifizierungspflichtige Node-Session-Semantik und strikte erste Wire-Bindung;
-- M1-Referenz-Node-Identity `computemesh-ed25519-v1` mit Enrollment-/Key-Rotation-/Revocation-Referenzzustand;
-- einen authentifizierten persistenten Provider-Control-Pfad plus einen ausführbaren öffentlichen Provider-Agenten, der seine enrollte Ed25519-Identität nachweist, gemessene Profil-/Runtime-/Benchmark-Evidenz meldet, Reconnect unterstützt und begrenzte Execution Attestations signiert;
-- eine authentifizierte OpenAI-kompatible und Ollama-kompatible Gateway-Oberfläche für den aktuellen Cluster-Modellkatalog;
-- einen integrierten Live-Shared-Serving-Pfad mit dauerhafter Recovery/Cancellation, privatem remote-first globalem Placement, Ed25519-Prüfung signierter Execution Plans, Execution Evidence/Attestation und dauerhaftem gemessenem Outcome-Feedback;
-- ein kontrollierter llama.cpp-RPC-**Research-Harness** für das erste gemeinsame M1-Runtime-Experiment;
-- ein fail-closed One-Command-**Physical-Shared-Trial-Runner**, der Bundle/Modell/Geräte erneut prüft, den Planer-Split über das Relay ausführt, Korrektheit prüft und das gebundene Proof-Artefakt erzeugt;
-- ein loopback-only TCP-**Mess-Relay** für opake RPC-Bytezählung, deterministische Userspace-Latenz/Jitter und kontrollierte Disconnects;
-- einen echten Shared-Runtime-Network-Sensitivity-Matrix-Runner für kontrollierte Delay-/Jitter-Messpunkte, ohne Packet-Loss-/Bandwidth-Evidenz zu erfinden;
-- einen deterministischen M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
-- ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, standardmäßig deutscher DE/EN-Lokalisierung, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
-- ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können;
-- globale Mesh-Policy-Verträge aus PR #55: Provider-Trust-Tiers (`OPEN`, `VERIFIED`, `RESTRICTED`), getrennte Execution-Privacy-Klassen (`PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`), eigenständige Regionen-Policy, fail-closed Scheduler-Filter und Attestation-/Key-Release-Vertragsgrundlagen;
-- fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert;
-- registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist;
-- einen Web-Playground-Teaser mit 20 kostenlosen Anfragen pro konfigurierbarem Vier-Stunden-Clientfenster und optionalem privaten OpenAI-/Ollama-kompatiblem Demo-Upstream für echte Modellantworten, wenn er konfiguriert ist.
+Ab hier wird es technischer. Die folgenden Abschnitte erklären die Grenzen, Sicherheitsregeln und Experimentpfade für Entwickler und Betreiber.
 
 ### Öffentliche/private Produktionsgrenze
 

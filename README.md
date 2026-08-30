@@ -2,56 +2,72 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-> **Stage:** active pre-production engineering: verified M1 trusted-lab shared-runtime evidence plus implemented live gateway/provider-control/orchestration foundations and a private production-policy control-plane boundary.
-> **Important:** ComputeMesh is **not yet a generally production-ready distributed-inference product**. Broad physical LAN/WAN validation, provider-enforced resource leases, production data-plane security and key/session hardening remain gates.
+## In Plain Words
 
-For the current public-safe status read **[docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md)** first. `state.md` remains the detailed public engineering/evidence history; proprietary current production-policy state belongs in the private `ComputeMesh-ControlPlane/STATE.md`.
+ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 
-ComputeMesh explores whether heterogeneous computers can cooperate as one model-aware AI inference fabric. The long-term goal is simple: choose a model and policy, while ComputeMesh handles feasibility, placement, preparation, execution, failures, verification, and auditable accounting.
+The idea is simple:
 
-Current signed client/update channel: `v1.2.19` is live at `https://computemesh.inetconnector.com/updates/version.json`, with German-default public portal copy, the latest public GitHub `main` mesh-policy work merged, and responsive checks passing on phone, tablet and desktop widths.
+- People with spare GPU power can offer it.
+- People who need AI compute can get suitable power from the network.
+- ComputeMesh decides which machine is a good fit for a request.
+- Every run should be measured, verifiable and fairly accounted for.
 
-## Fastest way to try the lab tooling
+Think of it like a power grid for AI compute: not one giant data center doing everything, but many suitable machines working together.
+
+## Why It Matters
+
+AI needs a lot of compute. At the same time, many GPUs sit unused in gaming PCs, workstations, small servers and offices. ComputeMesh is building the technology to make that power usable later in a secure and measurable way.
+
+The goal: AI compute should not belong only to a few large providers. More people and companies should be able to offer compute, use compute and get paid for it.
+
+## What Works Today
+
+ComputeMesh is currently a lab and pre-production system. It already includes:
+
+- a public website that defaults to German in Germany;
+- signed Windows and Linux clients with update checks;
+- a gateway that can receive AI requests;
+- a provider app that lets a machine report available compute;
+- early real two-machine llama.cpp experiments;
+- measurements for machine performance, network connection and execution;
+- security rules so protected jobs do not silently fall back to unsafe machines;
+- clear boundaries for what is still research and what is not yet a product promise.
+
+Current signed client/update channel: `v1.2.19` is live at `https://computemesh.inetconnector.com/updates/version.json`.
+
+## What Is Not Promised Yet
+
+ComputeMesh is not yet a finished product for arbitrary public AI workloads. It still needs broader real-world validation across different GPUs, networks and locations.
+
+Confidential AI execution is also not claimed as a finished hardware security guarantee yet. That requires a concrete TEE/GPU-attestation technology with a real verifier. Until then, `CONFIDENTIAL` intentionally fails closed instead of being enabled unsafely.
+
+## Try It Quickly
 
 Clone/download the repository and use the launcher for your OS:
 
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
 
-Both launchers expose the same simple menu for profile capture, trusted-LAN RTT/throughput measurement, local llama.cpp benchmarking, and the current complete local test set. New network measurements also carry the local Lab Setup node ID and, when the peer uses the current benchmark server, its self-reported Lab Setup node ID. Model weights are never downloaded automatically.
+The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 
-For the current two-machine M1 evidence handoff, the worker can create a bounded evidence ZIP with `setup\EVIDENCE-EXPORT.cmd` on Windows or `bash setup/EVIDENCE-EXPORT.sh` on Linux. The coordinator can validate/import that ZIP and build the current experiment bundle with `setup\BUILD-BUNDLE.cmd` or `bash setup/BUILD-BUNDLE.sh`. Once that bundle recommends `shared_experiment`, start the trusted-LAN RPC worker with `setup\SHARED-WORKER.cmd` / `bash setup/SHARED-WORKER.sh` and run the bound baseline→relay→shared→compare→proof flow with `setup\SHARED-PROOF.cmd` / `bash setup/SHARED-PROOF.sh`. The ZIP does not contain GGUF weights or llama.cpp binaries.
+The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.
 
-The detailed two-computer walkthrough is in [setup/README.md](setup/README.md).
+## Technical Overview
 
-## Current implementation
+For developers, this means:
 
-Implemented foundations now include:
+- Machines can measure their hardware and local model speed.
+- Two machines can run a controlled lab test together on one model execution.
+- The gateway can receive requests and send them to suitable providers.
+- Providers must enroll and prove their identity.
+- Results, measurements and execution evidence are recorded.
+- The scheduler must not silently lower the safety level of protected jobs.
+- Public jobs can later use matching GPU power globally when the rules allow it.
+- Confidential jobs stay blocked until real hardware attestation is implemented.
+- The website, downloads and update files are versioned and signed.
 
-- cross-platform Windows/Linux Lab Setup;
-- inventory, TCP network, and llama.cpp `llama-bench` measurement tooling;
-- bounded GGUF-v3 inspection and conservative model-manifest generation with artifact-derived architecture, layer count, SHA-256 and size;
-- a bounded standard-library Lab evidence export/import path with file-size/count limits, SHA-256 verification, traversal/symlink rejection and atomic peer import;
-- a fail-closed M1 experiment-bundle builder that selects one coherent current two-node evidence set and embeds the resulting placement decision with source-document digests;
-- Draft-2020-12 machine-readable state/control contracts;
-- deterministic Job/Reservation semantics and transactional SQLite reference persistence;
-- strict transport-neutral control envelopes and durable initial handlers;
-- authentication-gated node-session semantics and strict initial wire binding;
-- M1 reference node identity `computemesh-ed25519-v1` with enrollment/key-rotation/revocation reference state;
-- an authenticated persistent provider-control path plus a runnable public provider agent that proves its enrolled Ed25519 identity, publishes measured profile/runtime/benchmark evidence, reconnects, and signs bounded execution attestations;
-- an authenticated OpenAI-compatible and Ollama-compatible gateway surface for the current cluster model catalog;
-- an integrated live shared-serving path with durable recovery/cancellation, private remote-first global placement, Ed25519 verification of signed execution plans, execution evidence/attestation and durable measured-outcome feedback;
-- a controlled llama.cpp RPC **research harness** for the first M1 shared-runtime experiment;
-- a fail-closed one-command **physical shared-trial runner** that revalidates the bundle/model/devices, executes the planner-selected split through the relay, checks correctness, and emits the bound proof artifact;
-- a loopback-only TCP **measurement relay** for opaque RPC byte accounting, deterministic userspace delay/jitter, and controlled disconnect experiments;
-- a real shared-runtime network-sensitivity matrix runner for controlled delay/jitter points without fabricating packet-loss/bandwidth evidence;
-- a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
-- a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, German-default DE/EN localization, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
-- an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver;
-- global mesh policy contracts from PR #55: provider trust tiers (`OPEN`, `VERIFIED`, `RESTRICTED`), execution privacy classes (`PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`), region policy separation, fail-closed scheduler filtering and attestation/key-release contract foundations;
-- fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them;
-- registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags;
-- a web playground teaser path with 20 free requests per configurable four-hour client window and an optional private OpenAI/Ollama-compatible demo upstream for real model answers when configured.
+The sections below are more technical. They describe the boundaries, security rules and experiment paths for developers and operators.
 
 ### Public/private production boundary
 
