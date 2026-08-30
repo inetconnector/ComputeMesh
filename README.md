@@ -48,6 +48,7 @@ Implemented foundations now include:
 - a deterministic M1 **two-node placement planner** that generates explainable local/shared feasibility candidates from current profiles, model manifest, llama-bench evidence and network measurements without inventing distributed-performance numbers;
 - a public portal crawl package for `computemesh.inetconnector.com`, including canonical metadata, German-default DE/EN localization, `robots.txt`, `sitemap.xml`, local server routes and a Search Console runbook;
 - an Ed25519-signed update manifest and visible update controls in the NodeOS web dashboard and Windows/Linux provider apps so nodes can install the newest signed package published on the webserver;
+- global mesh policy contracts from PR #55: provider trust tiers (`OPEN`, `VERIFIED`, `RESTRICTED`), execution privacy classes (`PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`), region policy separation, fail-closed scheduler filtering and attestation/key-release contract foundations;
 - fail-closed provider capacity reporting: local provider inventories count only measured healthy dedicated GPU VRAM, and public/dashboard global mesh capacity cards do not show VRAM/TFLOPS totals until an authenticated node registry supplies them;
 - registered-key gateway authentication with no built-in admin credential: `cm_live_...` and `cm_provider_...` tokens must be registered through the configured key store or static operator configuration, while old dynamic-token behavior is limited to explicit lab flags;
 - a web playground teaser path with 20 free requests per configurable four-hour client window and an optional private OpenAI/Ollama-compatible demo upstream for real model answers when configured.
@@ -59,6 +60,20 @@ Implemented foundations now include:
 Production placement feasibility/ranking, empirical performance state, reputation/fraud eligibility, private recovery selection, pricing/marketplace policy and settlement policy live in the separate private `inetconnector/ComputeMesh-ControlPlane` repository. The public orchestrator sends a bounded live candidate/network snapshot, accepts only a signed/unexpired execution plan, verifies it fail-closed and executes the minimum placement result without receiving private candidate scores or policy internals.
 
 Verified public execution outcomes can be durably delivered to the private feedback path, where private performance/reliability inputs evolve without being serialized back into public placement responses.
+
+### Global mesh trust/privacy policy
+
+PR #55 (`feat(mesh): integrate confidential global mesh policy`, merged as `e410b1d2adb417cf0e79689279b22899258ba13c`) added the public policy layer for global routing without weakening the existing conservative production gate.
+
+- Provider trust is modelled as `OPEN`, `VERIFIED` and `RESTRICTED`.
+- Execution privacy is modelled separately as `PUBLIC`, `CONFIDENTIAL` and `CRYPTO_PRIVATE`.
+- `PUBLIC` jobs may use a global heterogeneous GPU pool when technical admission, model/runtime/hardware fit, network requirements and job policy all match.
+- Region/EEA and customer/contract restrictions remain independent policy predicates.
+- The scheduler must not silently downgrade privacy: protected jobs never fall back to `PUBLIC`, never run on `OPEN`, and never run on plaintext-logging nodes.
+- `CONFIDENTIAL` and `CRYPTO_PRIVATE` default OFF. Confidential execution requires a concrete technology-specific attestation verifier; TLS, containers, VMs and sharding are explicitly not accepted as confidential computing by themselves.
+- Confidential attestation is bound to node identity, nonce, runtime measurement/digest and attested ephemeral public key. Content keys must not enter ordinary gateway/control-plane code; any key-release target must match the attested node, nonce and ephemeral key exchange.
+
+The repository therefore contains policy contracts, schemas, filters and fail-closed tests, but it still does **not** claim real production-ready confidential-inference hardware. A concrete TEE/GPU-attestation technology and verifier must be implemented and enabled before `CONFIDENTIAL` can pass.
 
 ## M1 two-node placement and evidence bundle
 
@@ -157,7 +172,7 @@ The TCP benchmark's `unauthenticated_server_report_v1` Lab ID is not the ADR-000
 
 Upstream llama.cpp RPC remains **trusted-network-only**. ComputeMesh provider/session authentication does not make the upstream RPC socket safe for public exposure. Development/operator tooling can contain that socket behind loopback/private networking/SSH tunnels, but RPC itself is not the ComputeMesh production security boundary. Never expose the RPC worker directly to the public internet or an untrusted network.
 
-`confidential_compute` is not a valid guarantee until a concrete trusted-execution/attestation design exists.
+`confidential_compute` is not a valid product guarantee until a concrete trusted-execution/GPU-attestation technology and verifier exist. The current `CONFIDENTIAL` policy class is intentionally fail-closed by default.
 
 ## Remaining product-readiness work
 

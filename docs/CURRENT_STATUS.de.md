@@ -1,6 +1,6 @@
 # ComputeMesh – aktueller öffentlicher Status
 
-**Stand:** 27. August 2026
+**Stand:** 30. August 2026
 
 Dieses Dokument ist die öffentliche, aktuelle Statuszusammenfassung. Es ist bewusst getrennt von `ComputeMesh-ControlPlane/STATE.md`, das private Control-Plane- und Betriebsdetails enthält.
 
@@ -16,6 +16,7 @@ ComputeMesh ist nicht mehr nur ein M0/M1-Grundgerüst. Das öffentliche Reposito
 - einen realen llama.cpp-Shared-Runtime-Forschungspfad mit mindestens einem physischen Trusted-Lab-Proof, deterministischem Baseline/Shared-Vergleich und gebundenen Proof-Artefakten;
 - kontrollierte Delay-/Jitter-/Disconnect-Instrumentierung und einen Network-Sensitivity-Runner für reale Shared-Inference-Messpunkte;
 - persistente Feedback-Hooks, die verifizierte öffentliche Execution-Outcomes an den privaten Performance-Pfad liefern;
+- globale Mesh-Routing-Policy-Verträge aus PR #55, einschließlich `OPEN` / `VERIFIED` / `RESTRICTED` Provider-Trust-Tiers, `PUBLIC` / `CONFIDENTIAL` / `CRYPTO_PRIVATE` Privacy-Klassen, expliziter Regionen-Policy, fail-closed Scheduler-Filter und Confidential-Attestation-/Key-Release-Binding-Grundlagen;
 - Windows-/Linux-Lab-Setup, Evidence-Transfer, GGUF-Manifest-Werkzeuge, Installer-/Appliance-Arbeit, Portal- und Updater-Komponenten.
 
 ## Öffentliche/private Produktionsgrenze
@@ -39,13 +40,31 @@ Der praktische Zwei-Node-Pfad verwendet derzeit:
 
 Der upstream llama.cpp RPC-Socket ist weiterhin experimentell/unsicher und darf nicht als öffentliche Node-Sicherheitsgrenze behandelt werden. Der Entwicklungs-Bring-up kann RPC über SSH/private Netze führen; ein gehärteter Produktions-Data-Plane bleibt erforderlich.
 
+## Globale Mesh-Privacy-/Trust-Policy
+
+PR #55, [`feat(mesh): integrate confidential global mesh policy`](https://github.com/inetconnector/ComputeMesh/pull/55), wurde mit 19 geänderten Dateien und 545 Additions nach `main` gemergt. Merge-Commit: `e410b1d2adb417cf0e79689279b22899258ba13c`. Die gezielten lokalen Policy-/Security-Tests waren 13/13 grün; GitHub-CI-Run `33160647026` lief erfolgreich durch.
+
+Die Implementierung trennt Provider-Trust von Execution-Privacy:
+
+- Trust-Tiers: `OPEN`, `VERIFIED`, `RESTRICTED`;
+- Privacy-Klassen: `PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`;
+- ein globaler heterogener GPU-Pool ist nur für `PUBLIC`-Workloads erlaubt, deren technische und Policy-Anforderungen passen;
+- Region/EWR sowie Kunden-/Vertragsrestriktionen bleiben eigenständige Constraints;
+- Protected Jobs werden nie stillschweigend downgraded, nie auf `OPEN` und nie auf Nodes mit Plaintext-Logging geroutet;
+- `CONFIDENTIAL` und `CRYPTO_PRIVATE` sind standardmäßig deaktiviert und schlagen fail-closed fehl;
+- Confidential Execution verlangt eine konkrete Attestation-Technologie samt Verifier, gebunden an Node, Nonce, Runtime-Messung/-Digest und attestierten ephemeren Key;
+- TLS, Container, VMs und gewöhnliches Sharding zählen nicht als Confidential Computing;
+- Content Keys dürfen nicht in gewöhnlichen Gateway-/Control-Plane-Code gelangen, und jedes künftige Key Release muss an den attestierten Node, Nonce und ephemeren Key-Austausch gebunden sein.
+
+Der bestehende EWR/B2B-Production-Gate bleibt der konservative Default. Das Repository behauptet weiterhin keine real produktionsfähige Confidential-Inference-Hardware, solange keine konkrete TEE-/GPU-Attestation-Technologie mit echtem Verifier implementiert und aktiviert ist.
+
 ## Was validiert ist – und was noch nicht
 
 Software/CI-validiert sind u. a. Verträge, Identity/Session-/Persistenz-Grundlagen, Gateway-/Orchestrator-Mechanik, Placement-Grenzverifikation, Provider-Agent-Protokollpfad, Evidence/Attestation, Feedback-Lieferung, Research-Runtime-Harnesses und kontrollierte Netzwerk-Instrumentierung.
 
 Physisch validiert ist mindestens ein enger Trusted-Lab-Zwei-Maschinen-Shared-llama.cpp-Proof, dokumentiert in `state.md`, für genau seine Hardware-/Modell-/Runtime-/Topologie-Kombination.
 
-Noch keine allgemeine Produktionsaussage: breite heterogene Zwei-GPU-Validierung, kontrollierte LAN-/WAN-Matrizen über repräsentative Hardware/Modelle, Runtime-Transport über untrusted Netze, providerseitig erzwungene Leases, produktive Key-Aufbewahrung/Revocation-Fanout, kalibrierte Performance Prediction, große Multi-Node-Scheduling-Pfade und vollständige HA-/Operations-Reife.
+Noch keine allgemeine Produktionsaussage: breite heterogene Zwei-GPU-Validierung, kontrollierte LAN-/WAN-Matrizen über repräsentative Hardware/Modelle, Runtime-Transport über untrusted Netze, providerseitig erzwungene Leases, produktive Key-Aufbewahrung/Revocation-Fanout, kalibrierte Performance Prediction, echte produktive Confidential-Inference-Hardware/-Attestation, große Multi-Node-Scheduling-Pfade und vollständige HA-/Operations-Reife.
 
 ## Primäre Engineering-Dokumente
 
@@ -53,6 +72,7 @@ Noch keine allgemeine Produktionsaussage: breite heterogene Zwei-GPU-Validierung
 - `state.md` — historischer öffentlicher Engineering-Handoff/Log;
 - `ARCHITECTURE.md` — öffentliche Zielarchitektur und Invarianten;
 - `docs/PRIVATE_CONTROL_PLANE_SPLIT.md` / `docs/PUBLIC_PRIVATE_CLASSIFICATION.md` — Disclosure-Grenze;
+- `docs/CONFIDENTIAL_GLOBAL_MESH.md`, `docs/GLOBAL_MESH_POLICY_MATRIX.md` und `docs/adr/0008-confidential-global-mesh.md` — Provider-Trust, Execution-Privacy, globales PUBLIC-Routing und fail-closed Confidential-Gates;
 - `services/orchestrator/README.md` — Live-Orchestrierung/Control;
 - `services/gateway/README.md` — API/Gateway;
 - `apps/node/README.md` — Provider-Agent/Node;

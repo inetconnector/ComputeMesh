@@ -59,7 +59,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 - current signed app/update release: `v1.2.19` live in `portal/updates/version.json`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
-- `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
+- `confidential_compute` remains unavailable as a product guarantee without a concrete TEE/GPU-attestation technology and verifier; the current `CONFIDENTIAL` policy class remains fail-closed by default
 - no arbitrary provider code is executed in V1
 
 ### Current branch / PR topology at this handoff
@@ -67,7 +67,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 Verified on 2026-08-30:
 
 - branch `codex/german-portal-mobile` contains the German-default portal/mobile work, signed client/web release line, and `origin/main` confidential global mesh policy work;
-- current signed client/update release target: `v1.2.19` with Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
+- current signed client/update release: `v1.2.19` with Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
 - local branches include `main` and `codex/german-portal-mobile`;
 - remote heads include `origin/main` and `origin/codex/german-portal-mobile`;
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
@@ -2061,3 +2061,32 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   - `ComputeMesh verbindet freie Grafikkarten.`
 - `python -m py_compile config.py services\appliance_dashboard\server.py services\updater\auto_updater.py tools\appliance\windows_tray_app.py tools\appliance\linux_tray_app.py tools\security\release_signer.py runtime\confidential\key_release.py services\attestation\confidential_verifier.py services\compliance\mesh_policy.py services\scheduler\privacy_placement.py` passed.
 - `python run_all_tests.py` passed 412/412 tests in 17.57s after the merge and `v1.2.19` release build.
+
+## 68. PR #55 Confidential Global Mesh Policy Documentation Sync (2026-08-30)
+
+### 1. Verified upstream PR details
+- GitHub PR #55 (`feat(mesh): integrate confidential global mesh policy`) is merged: https://github.com/inetconnector/ComputeMesh/pull/55
+- Merge commit: `e410b1d2adb417cf0e79689279b22899258ba13c`.
+- GitHub metadata verified with `gh pr view 55`: 19 changed files, 545 additions, state `MERGED`, merged at `2026-08-28T09:45:05Z`.
+- GitHub Actions run `33160647026` for that merge commit completed successfully (`CI` workflow, `test` job). The PR summary recorded targeted local policy/security tests passing 13/13.
+
+### 2. Policy semantics now called out in public entry docs
+- Updated `README.md`, `README.de.md`, `docs/CURRENT_STATUS.md`, and `docs/CURRENT_STATUS.de.md` so the high-level docs now explicitly call out:
+  - Provider trust tiers: `OPEN`, `VERIFIED`, `RESTRICTED`.
+  - Privacy classes: `PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`.
+  - Global heterogeneous GPU pool is only for matching `PUBLIC` jobs.
+  - Region/EEA/customer/contract policy remains independent.
+  - No silent privacy downgrade; protected jobs never route to `OPEN` or plaintext-logging nodes.
+  - `CONFIDENTIAL` and `CRYPTO_PRIVATE` default disabled/fail closed.
+  - Concrete attestation technology/verifier is required; TLS, containers, VMs and ordinary sharding are not confidential computing.
+  - Attestation/key release is bound to node identity, nonce, runtime measurement/digest and attested ephemeral public key.
+  - Content keys must not enter ordinary gateway/control-plane code.
+
+### 3. Remaining boundary
+- The repo contains policy contracts, schemas, filters and fail-closed tests, but does not claim real production-ready confidential-inference hardware. A concrete TEE/GPU-attestation technology with a real verifier must be implemented and explicitly enabled before `CONFIDENTIAL` can pass.
+
+### 4. Verification after this documentation sync
+- `python -m py_compile runtime\confidential\key_release.py services\attestation\confidential_verifier.py services\compliance\mesh_policy.py services\scheduler\privacy_placement.py` passed.
+- `python -m unittest runtime.confidential.tests.test_key_release services.attestation.tests.test_confidential_verifier services.compliance.tests.test_mesh_policy -v` passed 13/13 tests.
+- `git diff --check` passed.
+- `python run_all_tests.py` passed 412/412 tests in 17.19s.

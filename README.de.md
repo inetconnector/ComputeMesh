@@ -9,6 +9,8 @@ Für den aktuellen öffentlich vertretbaren Status zuerst **[docs/CURRENT_STATUS
 
 ComputeMesh untersucht, ob heterogene Rechner als gemeinsames modellbewusstes KI-Inferenz-Fabric arbeiten können. Langfristig soll der Nutzer nur Modell und Richtlinie wählen; ComputeMesh übernimmt Machbarkeit, Platzierung, Vorbereitung, Ausführung, Fehlerbehandlung, Verifikation und nachvollziehbare Abrechnung.
 
+Aktueller signierter Client-/Update-Kanal: `v1.2.19` ist live unter `https://computemesh.inetconnector.com/updates/version.json`, mit standardmäßig deutscher Portal-Kopie, gemergtem aktuellem GitHub-`main`-Mesh-Policy-Stand und bestandenen Responsive-Checks auf Handy-, Tablet- und Desktopbreiten.
+
 ## Einfachster Einstieg in die Lab-Werkzeuge
 
 Repository klonen/herunterladen und den Starter für das Betriebssystem verwenden:
@@ -46,6 +48,7 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 - einen deterministischen M1-**Zwei-Node-Placement-Planer**, der aus aktuellen Profilen, Modellmanifest, llama-bench-Evidenz und Netzwerkdaten nachvollziehbare Local-/Shared-Machbarkeitskandidaten erzeugt, ohne Distributed-Performance zu erfinden;
 - ein Public-Portal-Crawl-Paket für `computemesh.inetconnector.com` mit Canonical-Metadaten, standardmäßig deutscher DE/EN-Lokalisierung, `robots.txt`, `sitemap.xml`, lokalen Server-Routen und Search-Console-Runbook;
 - ein Ed25519-signiertes Update-Manifest und sichtbare Update-Bedienelemente im NodeOS-Webdashboard sowie in den Windows-/Linux-Provider-Apps, damit Nodes das neueste signierte Paket vom Webserver installieren können;
+- globale Mesh-Policy-Verträge aus PR #55: Provider-Trust-Tiers (`OPEN`, `VERIFIED`, `RESTRICTED`), getrennte Execution-Privacy-Klassen (`PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`), eigenständige Regionen-Policy, fail-closed Scheduler-Filter und Attestation-/Key-Release-Vertragsgrundlagen;
 - fail-closed Provider-Kapazitätsmeldungen: lokale Provider-Inventare zählen nur gemessenen, gesunden dedizierten GPU-VRAM, und öffentliche/Dashboard-Global-Mesh-Karten zeigen keine VRAM-/TFLOPS-Gesamtwerte, solange keine authentifizierte Node-Registry diese liefert;
 - registrierte Gateway-Key-Authentifizierung ohne eingebauten Admin-Zugang: `cm_live_...`- und `cm_provider_...`-Tokens müssen über den konfigurierten Key-Store oder statische Operator-Konfiguration registriert sein, während altes dynamisches Token-Verhalten nur über explizite Lab-Flags verfügbar ist;
 - einen Web-Playground-Teaser mit 20 kostenlosen Anfragen pro konfigurierbarem Vier-Stunden-Clientfenster und optionalem privaten OpenAI-/Ollama-kompatiblem Demo-Upstream für echte Modellantworten, wenn er konfiguriert ist.
@@ -57,6 +60,20 @@ Zu den vorhandenen Grundlagen gehören inzwischen:
 Produktive Placement-Machbarkeit/-Bewertung/-Auswahl, empirischer Performance-Zustand, Reputation/Fraud-Eligibility, private Recovery-Auswahl, Pricing/Marketplace-Policy und Settlement-Policy liegen im separaten privaten Repository `inetconnector/ComputeMesh-ControlPlane`. Der öffentliche Orchestrator übermittelt einen begrenzten Live-Candidate-/Network-Snapshot, akzeptiert nur einen signierten und nicht abgelaufenen Execution Plan, prüft diesen fail-closed und führt nur das minimale Placement-Ergebnis aus, ohne private Candidate-Scores oder Policy-Interna zu erhalten.
 
 Verifizierte öffentliche Execution-Outcomes können dauerhaft an den privaten Feedback-Pfad geliefert werden. Dort entwickeln sich private Performance-/Reliability-Eingaben weiter, ohne in öffentlichen Placement-Antworten serialisiert zu werden.
+
+### Globale Mesh-Trust-/Privacy-Policy
+
+PR #55 (`feat(mesh): integrate confidential global mesh policy`, gemergt als `e410b1d2adb417cf0e79689279b22899258ba13c`) ergänzt die öffentliche Policy-Schicht für globales Routing, ohne den bestehenden konservativen Production-Gate zu schwächen.
+
+- Provider-Trust wird als `OPEN`, `VERIFIED` und `RESTRICTED` modelliert.
+- Execution-Privacy wird davon getrennt als `PUBLIC`, `CONFIDENTIAL` und `CRYPTO_PRIVATE` modelliert.
+- `PUBLIC`-Jobs können einen globalen heterogenen GPU-Pool nutzen, wenn technische Zulassung, Modell-/Runtime-/Hardware-Fit, Netzwerkbedingungen und Job-Policy zusammenpassen.
+- Region/EWR sowie Kunden-/Vertragsrestriktionen bleiben eigenständige Policy-Prädikate.
+- Der Scheduler darf Privacy nie stillschweigend downgraden: Protected Jobs fallen nie auf `PUBLIC` zurück, laufen nie auf `OPEN` und nie auf Nodes mit Plaintext-Logging.
+- `CONFIDENTIAL` und `CRYPTO_PRIVATE` sind standardmäßig aus. Confidential Execution verlangt einen konkreten technologie-spezifischen Attestation-Verifier; TLS, Container, VMs und Sharding werden ausdrücklich nicht als Confidential Computing akzeptiert.
+- Confidential Attestation ist an Node-Identität, Nonce, Runtime-Messung/-Digest und attestierten ephemeren Public Key gebunden. Content Keys dürfen nicht in gewöhnlichen Gateway-/Control-Plane-Code gelangen; jedes Key-Release-Ziel muss zum attestierten Node, Nonce und ephemeren Key-Austausch passen.
+
+Das Repository enthält damit Policy-Verträge, Schemas, Filter und fail-closed Tests, behauptet aber weiterhin **keine** real produktionsfähige Confidential-Inference-Hardware. Dafür muss erst eine konkrete TEE-/GPU-Attestation-Technologie samt Verifier implementiert und aktiviert werden.
 
 ## M1-Zwei-Node-Placement und Evidenzbundle
 
@@ -155,7 +172,7 @@ Die Lab-ID `unauthenticated_server_report_v1` des TCP-Benchmarks ist **nicht** d
 
 Upstream-llama.cpp-RPC bleibt **nur für vertrauenswürdige Netze**. ComputeMesh-Provider-/Session-Authentifizierung macht den Upstream-RPC-Socket nicht sicher für öffentliche Exposition. Entwicklungs-/Operator-Werkzeuge können diesen Socket hinter Loopback, privaten Netzen oder SSH-Tunneln einschließen; RPC selbst ist aber nicht die ComputeMesh-Produktions-Sicherheitsgrenze. Niemals den RPC-Worker direkt öffentlich oder in einem nicht vertrauenswürdigen Netz exponieren.
 
-`confidential_compute` ist keine zulässige Garantie, solange kein konkretes Trusted-Execution-/Attestation-Design existiert.
+`confidential_compute` ist keine zulässige Produktgarantie, solange keine konkrete Trusted-Execution-/GPU-Attestation-Technologie samt Verifier existiert. Die aktuelle `CONFIDENTIAL`-Policy-Klasse schlägt standardmäßig bewusst fail-closed fehl.
 
 ## Verbleibende Product-Readiness-Arbeit
 
