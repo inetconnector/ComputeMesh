@@ -2025,6 +2025,7 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   - `services/attestation/confidential_verifier.py`
   - `services/compliance/mesh_policy.py`
   - `services/scheduler/privacy_placement.py`
+- Published the merged `v1.2.19` state back to GitHub `origin/main` and `origin/codex/german-portal-mobile`, with Git tag `v1.2.19` and a GitHub Release carrying the Windows and Linux client artifacts.
 
 ### 2. Release build and signing
 - Bumped the current signed update channel to `v1.2.19` in `config.py`, updater defaults, release-signing defaults, release manifest tests and the web playground `X-ComputeMesh-Client` header.
