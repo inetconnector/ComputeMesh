@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-30 20:51 CEST
+**Last updated:** 2026-08-30 21:07 CEST
 **Release Version:** `v1.2.19`
 **Test Suite Status:** `412/412 PASSED (100% OK in 16.31s)` across all 9 categories
-**Git Baseline:** Branch `codex/german-portal-mobile` after simplifying the public README entry text for mobile/GitHub readers
+**Git Baseline:** Branch `main` after simplifying the public README entry text and cleaning merged remote branches/failed Actions runs
 
 ---
 
@@ -66,12 +66,12 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 Verified on 2026-08-30:
 
-- branch `codex/german-portal-mobile` contains the German-default portal/mobile work, signed client/web release line, and `origin/main` confidential global mesh policy work;
+- branch `main` contains the German-default portal/mobile work, signed client/web release line, confidential global mesh policy work, PR #55 documentation sync and simplified public README entry text;
 - current signed client/update release: `v1.2.19` with Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
-- local branches include `main` and `codex/german-portal-mobile`;
-- remote heads include `origin/main` and `origin/codex/german-portal-mobile`;
+- local branches include `main`;
+- remote heads include `origin/main` only after merged-branch cleanup;
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
-- GitHub Actions/workflow files: `.github/workflows/ci.yml` is present in `HEAD` running the full unified 406-test test harness and individual recovery suites;
+- GitHub Actions/workflow files: `.github/workflows/ci.yml` is present in `HEAD` running the full unified 412-test test harness and individual recovery suites;
 - canonical walkthrough documentation: `docs/walkthrough.md` committed in repository;
 - historical Draft PR #14 (`test/real-llama-rpc-loopback`) is closed and its branch is gone. If a temporary loopback workflow/result artifact reappears, keep it out of durable merges unless explicitly reworked as normal feature code.
 
@@ -2105,3 +2105,34 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 ### 3. Verification
 - `git diff --check` passed.
 - `python run_all_tests.py` passed 412/412 tests in 16.31s.
+
+## 70. Repository Hygiene Cleanup (2026-08-30 21:07 CEST)
+
+### 1. Branch cleanup
+- Switched the public checkout from `codex/german-portal-mobile` to `main` and fast-forwarded `main` to the already pushed simplified README commit `c08af7d`.
+- Deleted all non-`main` public remote branches that were either Git-ancestor merged into `origin/main` or belonged to already merged PRs:
+  - `chore/hardening-cleanup`
+  - `codex/german-portal-mobile`
+  - `compliance/eu-b2b-hardening`
+  - `docs/full-audit-2026-08`
+  - `docs/portal-claims-normalization`
+  - `docs/sync-live-orchestrator`
+  - `feat/control-plane-startup-wiring`
+  - `feat/global-private-placement`
+  - `feat/private-recovery-policy`
+  - `feature/confidential-global-mesh`
+  - `fix/readme-state-sync-20260827`
+  - `hardening/private-control-plane-split`
+  - `legal/2026-comprehensive-terms`
+  - `privacy/block-external-fonts`
+  - `readiness/full-system-fix`
+  - `readiness/live-provider-agent`
+  - `readiness/network-matrix`
+  - `readiness/system-proof-feedback`
+- Deleted the local public branch `codex/german-portal-mobile` after switching to `main`.
+- Verified through `gh api repos/inetconnector/ComputeMesh/branches --paginate --jq '.[].name'` that the public repo now has only `main`.
+
+### 2. Actions cleanup
+- Deleted 36 completed failed GitHub Actions runs from `inetconnector/ComputeMesh`.
+- Verified the current listed Actions history has 0 completed failed runs.
+- Successful CI runs were intentionally preserved as release/merge evidence.
