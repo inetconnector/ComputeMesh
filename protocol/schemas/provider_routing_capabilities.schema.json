@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/provider_routing_capabilities.schema.json",
+  "title": "ComputeMesh Provider Routing Capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_id", "trust_tier", "region", "production_eligible", "technically_compatible", "confidential_execution_supported", "crypto_private_capabilities"],
+  "properties": {
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "trust_tier": {"enum": ["OPEN", "VERIFIED", "RESTRICTED"]},
+    "region": {"type": "string", "minLength": 1},
+    "production_eligible": {"type": "boolean"},
+    "technically_compatible": {"type": "boolean"},
+    "compute_backend": {"type": ["string", "null"]},
+    "gpu_vendor": {"type": ["string", "null"]},
+    "gpu_model": {"type": ["string", "null"]},
+    "vram_bytes": {"type": ["integer", "null"], "minimum": 0},
+    "plaintext_logging_enabled": {"type": "boolean"},
+    "confidential_technology": {"type": ["string", "null"]},
+    "attestation_version": {"type": ["string", "null"]},
+    "confidential_execution_supported": {"type": "boolean"},
+    "crypto_private_capabilities": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/mesh_routing_policy.schema.json",
+  "title": "ComputeMesh Mesh Routing Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["privacy_class", "minimum_trust_tier", "allow_privacy_downgrade"],
+  "properties": {
+    "privacy_class": {"enum": ["PUBLIC", "CONFIDENTIAL", "CRYPTO_PRIVATE"]},
+    "minimum_trust_tier": {"enum": ["OPEN", "VERIFIED", "RESTRICTED"]},
+    "allowed_regions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "required_crypto_capabilities": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "allow_privacy_downgrade": {"const": false}
+  }
+}
