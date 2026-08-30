@@ -9,7 +9,7 @@ For the current public-safe status read **[docs/CURRENT_STATUS.md](docs/CURRENT_
 
 ComputeMesh explores whether heterogeneous computers can cooperate as one model-aware AI inference fabric. The long-term goal is simple: choose a model and policy, while ComputeMesh handles feasibility, placement, preparation, execution, failures, verification, and auditable accounting.
 
-Current signed client/update channel: `v1.2.18` is live at `https://computemesh.inetconnector.com/updates/version.json`, with German-default public portal copy and responsive checks passing on phone, tablet and desktop widths.
+Current signed client/update channel: `v1.2.19` is live at `https://computemesh.inetconnector.com/updates/version.json`, with German-default public portal copy, the latest public GitHub `main` mesh-policy work merged, and responsive checks passing on phone, tablet and desktop widths.
 
 ## Fastest way to try the lab tooling
 

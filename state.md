@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-28 09:00 CEST
-**Release Version:** `v1.2.18`
-**Test Suite Status:** `412/412 PASSED (100% OK in 16.13s)` across all 9 categories
-**Git Baseline:** Branch `codex/german-portal-mobile` at `v1.2.18` signed client/web release
+**Last updated:** 2026-08-30 20:35 CEST
+**Release Version:** `v1.2.19`
+**Test Suite Status:** `412/412 PASSED (100% OK in 17.57s)` across all 9 categories
+**Git Baseline:** Branch `codex/german-portal-mobile` after merging `origin/main` confidential global mesh policy work and releasing `v1.2.19`
 
 ---
 
@@ -12,7 +12,7 @@
 ```yaml
 system:
   name: ComputeMesh
-  version: "1.2.18"
+  version: "1.2.19"
   status: "Experimental Distributed Inference Prototype / Lab Mesh"
   maturity_rating:
     architecture_concept: "8/10"
@@ -56,7 +56,7 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 - repository: `inetconnector/ComputeMesh`
 - canonical/default branch: `main`
-- current signed app/update release: `v1.2.18` live in `portal/updates/version.json`
+- current signed app/update release: `v1.2.19` live in `portal/updates/version.json`
 - ADR 0002 has achieved verified empirical evidence on physical two-machine network
 - upstream llama.cpp RPC remains a **trusted-lab implementation detail**, not the ComputeMesh public protocol/security boundary
 - `confidential_compute` remains an invalid claim without a concrete TEE/attestation design
@@ -64,10 +64,10 @@ This file is the **canonical context-free engineering handoff**. A new AI model 
 
 ### Current branch / PR topology at this handoff
 
-Verified on 2026-08-28:
+Verified on 2026-08-30:
 
-- branch `codex/german-portal-mobile` contains the German-default portal/mobile work and the signed `v1.2.18` client/web release;
-- current signed client/update release: `v1.2.18` with valid Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
+- branch `codex/german-portal-mobile` contains the German-default portal/mobile work, signed client/web release line, and `origin/main` confidential global mesh policy work;
+- current signed client/update release target: `v1.2.19` with Ed25519 signature and SHA-256 release gate in `portal/updates/version.json`;
 - local branches include `main` and `codex/german-portal-mobile`;
 - remote heads include `origin/main` and `origin/codex/german-portal-mobile`;
 - open pull requests: none (`gh pr list --state open --json ...` returned `[]`);
@@ -2009,3 +2009,54 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - `python -m PyInstaller --clean --noconfirm ComputeMesh-Setup-x64.spec` rebuilt the Windows release executable successfully.
 - `python -m unittest services.updater.tests.test_auto_updater services.appliance_dashboard.tests.test_dashboard_server services.portal.tests.test_portal_server deploy.windows.tests.test_build_installer -v` passed 15/15 tests before final release signing.
 - `python run_all_tests.py` passed 412/412 tests in 16.13s after the final CSS/package deployment.
+
+## 67. GitHub Main Sync & Signed Client/Web Release v1.2.19 (2026-08-30 20:35 CEST)
+
+### 1. GitHub synchronization
+- Fetched GitHub and confirmed `origin/main` had advanced to `e410b1d` (`feat(mesh): integrate confidential global mesh policy`) while the signed client/web release branch had `v1.2.18`.
+- Merged `origin/main` into `codex/german-portal-mobile` without conflicts, preserving the German-default portal/mobile fixes and adding the confidential/global mesh policy contract work:
+  - `docs/CONFIDENTIAL_GLOBAL_MESH.md`
+  - `docs/GLOBAL_MESH_POLICY_MATRIX.md`
+  - `docs/adr/0008-confidential-global-mesh.md`
+  - `protocol/schemas/confidential_attestation.schema.json`
+  - `protocol/schemas/mesh_routing_policy.schema.json`
+  - `protocol/schemas/provider_routing_capabilities.schema.json`
+  - `runtime/confidential/key_release.py`
+  - `services/attestation/confidential_verifier.py`
+  - `services/compliance/mesh_policy.py`
+  - `services/scheduler/privacy_placement.py`
+
+### 2. Release build and signing
+- Bumped the current signed update channel to `v1.2.19` in `config.py`, updater defaults, release-signing defaults, release manifest tests and the web playground `X-ComputeMesh-Client` header.
+- Rebuilt the Windows executable with `python -m PyInstaller --clean --noconfirm ComputeMesh-Setup-x64.spec`.
+- Rebuilt the Linux release tarball from the merged public tree while excluding embedded `portal/downloads` artifacts.
+- Re-signed `portal/updates/version.json` as `1.2.19`; `tools.security.release_signer.verify_manifest(...)` returned `True`.
+
+### 3. Live web/update deployment
+- Created server backup `/root/computemesh-portal-backups/client-release-1.2.19-20260830202805.tgz` before overwriting production webroot files.
+- Deployed `portal.css`, `portal-core.js`, `downloads/ComputeMesh-Setup-x64.exe`, `downloads/computemesh-linux-x86_64.tar.gz`, and `updates/version.json` to `/var/www/vhosts/inetconnector.com/site2/` via SSH/SCP, then reset ownership to `inetconnector:psaserv` and mode `0644`.
+- Final live SHA-256 checks against `https://computemesh.inetconnector.com/`:
+  - `updates/version.json`: `ac4f3270a3dd8f25b856b8bea1b626a0d8d293ac1fd0ded8937e55f48eaa3f0e`
+  - `downloads/ComputeMesh-Setup-x64.exe`: `d785547a21a0bfd7a07cec8cf1ba13e9367c00bea63be4cb23bd3689cddb3b0d`
+  - `downloads/computemesh-linux-x86_64.tar.gz`: `84dc0aa2cf0dddb05656667781093549982c2df2df5a8abc220037e5523ce59a`
+  - `portal.css`: `094351607f7580e6124370e2bb057f89d6ace7662eb24cfdf6916095b8f1ed49`
+  - `portal-core.js`: `bbe3d59a26acb11daf3544cbeb87a3b5c79fa8ed1795c159d89318fae7447a8e`
+
+### 4. Running client/server audit
+- Production server update from `1.2.18` to `1.2.19` via the signed autoupdater completed successfully.
+- `computemesh-gateway.service`, `computemesh-node.service`, and `computemesh-autoupdate.service` are active on `supersrv-trixie`.
+- `computemesh-autoupdate.service` now starts with `--version 1.2.19`.
+- `/root/ComputeMesh` and `/opt/computemesh` both report `CONFIG.appliance_version = "1.2.19"`.
+- Server `127.0.0.1:8000/api/version` reports `0.5.7-computemesh-1.2.19`.
+- Server `127.0.0.1:8081/api/status` reports `software.current_version = "1.2.19"`.
+- Local Windows client was manually updated from the signed `1.2.19` executable, restarted, and verified via `127.0.0.1:8080`:
+  - `/api/status` reports `software.current_version = "1.2.19"`.
+  - `/api/action/check_update` reports `update_available = false`, `version = "1.2.19"`.
+- LAN client `192.168.1.27:8080` still timed out from this machine and could not be verified or updated.
+
+### 5. Web and QA verification
+- Live Playwright checks against the production homepage at 320 px, 390 px, 768 px and 1280 px confirmed `overflow = 0`, `lang = "de"`, and the simple German hero:
+  - `KI soll nicht nur in riesigen Rechenzentren laufen.`
+  - `ComputeMesh verbindet freie Grafikkarten.`
+- `python -m py_compile config.py services\appliance_dashboard\server.py services\updater\auto_updater.py tools\appliance\windows_tray_app.py tools\appliance\linux_tray_app.py tools\security\release_signer.py runtime\confidential\key_release.py services\attestation\confidential_verifier.py services\compliance\mesh_policy.py services\scheduler\privacy_placement.py` passed.
+- `python run_all_tests.py` passed 412/412 tests in 17.57s after the merge and `v1.2.19` release build.
