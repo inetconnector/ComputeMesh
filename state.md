@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-30 21:07 CEST
+**Last updated:** 2026-08-30 21:09 CEST
 **Release Version:** `v1.2.19`
 **Test Suite Status:** `412/412 PASSED (100% OK in 16.31s)` across all 9 categories
-**Git Baseline:** Branch `main` after simplifying the public README entry text and cleaning merged remote branches/failed Actions runs
+**Git Baseline:** Branch `main` after simplifying the public README entry text, cleaning merged remote branches/failed Actions runs and updating CI actions to Node-24-compatible major versions
 
 ---
 
@@ -2136,3 +2136,4 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - Deleted 36 completed failed GitHub Actions runs from `inetconnector/ComputeMesh`.
 - Verified the current listed Actions history has 0 completed failed runs.
 - Successful CI runs were intentionally preserved as release/merge evidence.
+- Updated `.github/workflows/ci.yml` from `actions/checkout@v4` to `actions/checkout@v5` and from `actions/setup-python@v5` to `actions/setup-python@v6` after GitHub Actions reported Node.js 20 deprecation warnings. The workflow logic and test commands were not otherwise changed.
