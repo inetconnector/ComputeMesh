@@ -166,26 +166,53 @@ for chunk in response:
   <div id="register-modal" class="modal-backdrop">
     <div class="modal-box">
       <button class="modal-close" onclick="closeModal()">&times;</button>
-      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="modal_sub">Erstelle ein Konto, um deinen API-Key zu generieren oder deine Hardware-Node zu registrieren.</p>
-      <form onsubmit="handleRegistration(event)">
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
+      <form id="registration-form" onsubmit="handleRegistration(event)">
         <div class="form-group">
-          <label data-i18n="modal_role_lbl">Ich möchte:</label>
+          <label data-i18n="modal_role_lbl">Konto-Typ:</label>
           <select id="modal-role" class="form-control">
-            <option value="consumer" data-i18n="role_consumer">Entwickler-API nutzen</option>
-            <option value="provider" data-i18n="role_provider">Provider-Hardware registrieren</option>
+            <option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option>
+            <option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option>
           </select>
         </div>
         <div class="form-group">
-          <label data-i18n="modal_email_lbl">E-Mail-Adresse</label>
-          <input type="email" class="form-control" required placeholder="developer@company.com">
+          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com">
         </div>
-        <div class="form-group">
-          <label data-i18n="modal_wallet_lbl">Provider-Auszahlungswallet (optionale Metadaten)</label>
-          <input type="text" class="form-control" data-i18n="modal_wallet_placeholder" placeholder="0x... (EVM / Ethereum / Polygon / Arbitrum)">
-          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.35rem; display: block; line-height: 1.4;" data-i18n="modal_wallet_help">Für automatisierte Auszahlungen deiner Provider-Einnahmen via Stripe oder Krypto.</small>
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="" data-i18n="modal_country_select">Land auswählen…</option>
+              <option value="DE">Deutschland (DE)</option>
+              <option value="AT">Österreich (AT)</option>
+              <option value="CH">Schweiz (CH)</option>
+              <option value="FR">Frankreich (FR)</option>
+              <option value="NL">Niederlande (NL)</option>
+              <option value="SE">Schweden (SE)</option>
+              <option value="NO">Norwegen (NO)</option>
+              <option value="FI">Finnland (FI)</option>
+              <option value="DK">Dänemark (DK)</option>
+              <option value="PL">Polen (PL)</option>
+              <option value="IT">Italien (IT)</option>
+              <option value="ES">Spanien (ES)</option>
+              <option value="IE">Irland (IE)</option>
+              <option value="BE">Belgien (BE)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)">
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">API-Key generieren</button>
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;">
+            <input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> 
+            <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> & <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span>
+          </label>
+        </div>
+        <button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button>
       </form>
       <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
         <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
