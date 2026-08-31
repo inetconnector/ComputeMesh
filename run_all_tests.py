@@ -82,6 +82,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.orchestrator.tests.test_threaded_live_sqlite",
         "services.orchestrator.tests.test_billing_outbox",
         "services.orchestrator.tests.test_contracts",
+        "services.orchestrator.tests.test_adversarial_fault_injection",
     ],
     "Runtime & Mesh Network": [
         "runtime.network.tests.test_tcp_relay",
