@@ -104,36 +104,38 @@ def global_excepthook(exc_type, exc_value, exc_traceback):
 _SINGLE_INSTANCE_MUTEX = None
 
 def _acquire_single_instance_lock() -> bool:
-    """Enforce strict single-instance execution on Windows using a system-wide named Mutex.
-    If another instance is already running, activate its window and return False to exit silently.
-    """
-    global _SINGLE_INSTANCE_MUTEX
+    """Enforce strict single-instance execution while allowing PyInstaller bootloader child processes."""
     if sys.platform == "win32":
         try:
-            import ctypes
-            
-            kernel32 = ctypes.windll.kernel32
-            mutex_name = "Global\\ComputeMesh_Windows_Desktop_App_SingleInstance_Mutex"
-            
-            # Create or open named mutex
-            _SINGLE_INSTANCE_MUTEX = kernel32.CreateMutexW(None, False, mutex_name)
-            last_error = kernel32.GetLastError()
-            
-            # ERROR_ALREADY_EXISTS = 183
-            if last_error == 183:
-                # Another instance is already running! Bring existing window to foreground and exit silently
+            lock_path = Path.home() / ".computemesh" / "app.pid"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            if lock_path.exists():
                 try:
-                    user32 = ctypes.windll.user32
-                    hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
-                    if hwnd:
-                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                        user32.SetForegroundWindow(hwnd)
+                    old_pid = int(lock_path.read_text(encoding="utf-8").strip())
+                    cur_pid = os.getpid()
+                    cur_ppid = getattr(os, "getppid", lambda: -1)()
+                    if old_pid not in (cur_pid, cur_ppid) and old_pid > 0:
+                        import ctypes
+                        kernel32 = ctypes.windll.kernel32
+                        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                        h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, old_pid)
+                        if h_proc:
+                            kernel32.CloseHandle(h_proc)
+                            try:
+                                user32 = ctypes.windll.user32
+                                hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
+                                if hwnd:
+                                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                                    user32.SetForegroundWindow(hwnd)
+                            except Exception:
+                                pass
+                            return False
                 except Exception:
                     pass
-                return False
+            lock_path.write_text(str(os.getpid()), encoding="utf-8")
             return True
         except Exception as e:
-            _log_crash(f"Single instance mutex check exception: {e}")
+            _log_crash(f"Single instance lock check exception: {e}")
             return True
     else:
         try:
@@ -425,14 +427,14 @@ class ComputeMeshProviderApp:
         time.sleep(15)  # Initial grace period after launch
         while True:
             try:
-                if self.autoupdate_var.get():
+                if self._load_autoupdate_setting():
                     update_info = self.updater.check_for_updates()
                     if update_info and update_info.is_newer:
-                        print(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
+                        _log_crash(f"[AutoUpdater] Newer version {update_info.version} found! Downloading and applying...")
                         downloaded = self.updater.download_and_verify(update_info)
                         self.updater.apply_windows_update(downloaded)
             except Exception as e:
-                print(f"[AutoUpdater] Background check error: {e}")
+                _log_crash(f"[AutoUpdater] Background check error: {e}")
             time.sleep(600)  # Check every 10 minutes
 
     def _manual_update_check(self, *args) -> None:
@@ -929,15 +931,20 @@ class ComputeMeshProviderApp:
             current_saved_wallet = self._load_saved_wallet()
             if current_saved_wallet and current_saved_wallet != last_synced_wallet:
                 last_synced_wallet = current_saved_wallet
+                def _update_wallet(w=current_saved_wallet):
+                    try:
+                        current_input = self.ent_wallet.get().strip()
+                        if current_input != w:
+                            self.ent_wallet.delete(0, tk.END)
+                            self.ent_wallet.insert(0, w)
+                            self.lbl_wallet_status.config(
+                                text=f"✓ Wallet synchronisiert: {w[:6]}...{w[-4:]}",
+                                foreground="#10b981"
+                            )
+                    except Exception:
+                        pass
                 try:
-                    current_input = self.ent_wallet.get().strip()
-                    if current_input != current_saved_wallet:
-                        self.ent_wallet.delete(0, tk.END)
-                        self.ent_wallet.insert(0, current_saved_wallet)
-                        self.lbl_wallet_status.config(
-                            text=f"✓ Wallet synchronisiert: {current_saved_wallet[:6]}...{current_saved_wallet[-4:]}",
-                            foreground="#10b981"
-                        )
+                    self.root.after(0, _update_wallet)
                 except Exception:
                     pass
 
@@ -945,9 +952,14 @@ class ComputeMeshProviderApp:
                 # Calculate tokens, credits and net payout based on real customer price ($1.00/1M tokens) & 75% provider share ($0.75/1M tokens)
                 self.total_tokens_served += 45
                 self.total_earnings_usd += (45 * 0.00000075)  # $0.75 Netto per 1M tokens / credits
+                def _update_stats(toks=self.total_tokens_served, earn=self.total_earnings_usd):
+                    try:
+                        self.lbl_tokens.config(text=f"{toks:,}")
+                        self.lbl_earnings.config(text=f"{toks:,} CM (${earn:.4f})")
+                    except Exception:
+                        pass
                 try:
-                    self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
-                    self.lbl_earnings.config(text=f"{self.total_tokens_served:,} CM (${self.total_earnings_usd:.4f})")
+                    self.root.after(0, _update_stats)
                 except Exception:
                     pass
 
@@ -970,10 +982,18 @@ class ComputeMeshProviderApp:
                     nodes_cnt = m_stats.get("total_nodes_online", 2)
                     vram_pool = m_stats.get("total_vram_gb", 24.0)
                     tf_pool = m_stats.get("total_compute_tflops", 48.6)
-                    self.lbl_mesh_stats.config(
-                        text=f"🟢 {nodes_cnt}/{nodes_cnt} Cluster-Nodes Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
-                        foreground="#10b981"
-                    )
+                    def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool):
+                        try:
+                            self.lbl_mesh_stats.config(
+                                text=f"🟢 {n}/{n} Cluster-Nodes Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
+                                foreground="#10b981"
+                            )
+                        except Exception:
+                            pass
+                    try:
+                        self.root.after(0, _update_cluster)
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
