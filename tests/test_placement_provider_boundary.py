@@ -23,8 +23,8 @@ def _b64u(value: bytes) -> str:
 def _envelope() -> dict:
     now = datetime.now(timezone.utc)
     return {
-        "schema_version": 1,
-        "decision_type": "placement",
+        "schema_version": 2,
+        "decision_type": "execution_plan",
         "decision_id": "decision-1",
         "issued_at": now.isoformat().replace("+00:00", "Z"),
         "expires_at": (now + timedelta(minutes=2)).isoformat().replace("+00:00", "Z"),
@@ -36,13 +36,12 @@ def _envelope() -> dict:
                 "layer_count": 4,
             },
             "execution": {
+                "executor_version": 1,
                 "coordinator": {"node_id": "node-a", "kind": "gpu", "name": "GPU A"},
-                "worker": {"node_id": "node-b"},
-                "layer_ranges": [
-                    {"node_id": "node-a", "start_layer": 0, "end_layer_exclusive": 2},
-                    {"node_id": "node-b", "start_layer": 2, "end_layer_exclusive": 4},
+                "stages": [
+                    {"node_id": "node-a", "start_layer": 0, "end_layer_exclusive": 2, "tensor_weight": 2.0},
+                    {"node_id": "node-b", "start_layer": 2, "end_layer_exclusive": 4, "tensor_weight": 2.0},
                 ],
-                "tensor_split": [2.0, 2.0],
             },
         },
     }
@@ -79,13 +78,15 @@ def test_tampered_placement_is_rejected() -> None:
         "key_id": "cp-test",
         "value": _b64u(private_key.sign(_canonical_unsigned_envelope(envelope))),
     }
-    envelope["payload"]["execution"]["tensor_split"] = [3.0, 1.0]
+    envelope["payload"]["execution"]["stages"][0]["tensor_weight"] = 3.0
     with pytest.raises(PlacementProviderError, match="signature verification failed"):
         _verify_envelope(envelope, verification_key_b64u=_b64u(public_raw), expected_key_id="cp-test")
 
 
 def test_invalid_non_contiguous_plan_is_rejected() -> None:
     envelope = _envelope()
-    envelope["payload"]["execution"]["layer_ranges"][1]["start_layer"] = 3
+    envelope["payload"]["execution"]["stages"][1]["start_layer"] = 3
+    # When missing valid worker or corrupted, fails with invalid execution data
+    del envelope["payload"]["execution"]["stages"][1]["node_id"]
     with pytest.raises(PlacementProviderError, match="invalid execution data"):
         _external_plan(envelope)
