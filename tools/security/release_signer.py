@@ -219,7 +219,7 @@ def verify_manifest(manifest_path: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="ComputeMesh Cryptographic Release Signer")
-    parser.add_argument("--version", default="1.2.19", help="Release version string")
+    parser.add_argument("--version", default="1.2.20", help="Release version string")
     parser.add_argument("--downloads-dir", default="portal/downloads", help="Directory containing release binaries")
     parser.add_argument("--output", default="portal/updates/version.json", help="Output path for signed manifest")
     args = parser.parse_args()
