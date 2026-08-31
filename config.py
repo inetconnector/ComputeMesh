@@ -97,7 +97,7 @@ class ComputeMeshConfig:
             endpoints=MeshEndpoints(),
             ports=PortConfig(),
             teaser=TeaserConfig(),
-            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.20"),
+            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.21"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),
             default_gateway_port=int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000")),
         )
