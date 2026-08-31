@@ -18,7 +18,7 @@
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);">🛡️ Sicherheit & DSGVO</span>
+        <span class="brand-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);" data-i18n="nav_security">🛡️ Sicherheit & DSGVO</span>
       </a>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
@@ -44,11 +44,11 @@
   <main class="container" style="padding: 4rem 1.5rem; max-width: 1050px;">
     <!-- Page Header -->
     <div class="section-header" style="text-align: left; margin-bottom: 3rem;">
-      <span class="section-tag" style="background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">ENTERPRISE COMPLIANCE & KRYPTOGRAFIE</span>
-      <h1 style="font-size: 2.6rem; margin: 0.75rem 0 1rem;">
+      <span class="section-tag" style="background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);" data-i18n="sec_page_tag">ENTERPRISE COMPLIANCE & KRYPTOGRAFIE</span>
+      <h1 style="font-size: 2.6rem; margin: 0.75rem 0 1rem;" data-i18n="sec_main_title">
         Sicherheits- & <span class="gradient-emerald">DSGVO-Architektur</span>
       </h1>
-      <p style="color: var(--text-muted); font-size: 1.1rem; max-width: 820px; line-height: 1.6;">
+      <p style="color: var(--text-muted); font-size: 1.1rem; max-width: 820px; line-height: 1.6;" data-i18n="sec_main_sub">
         ComputeMesh wurde nach dem strikten Prinzip des <strong>flüchtigen Zero-Knowledge-Streamings (Privacy-by-Design nach Art. 25 DSGVO)</strong> entwickelt. Eingegebene Prompts und generierte Antworten sind auf dem Transportweg mathematisch abhörsicher und werden niemals auf Festplatten gespeichert.
       </p>
     </div>
@@ -57,24 +57,24 @@
     <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 4rem;">
       <div class="feature-card" style="border-top: 3px solid var(--accent-emerald);">
         <div class="feature-icon">🛡️</div>
-        <h3 style="color: var(--accent-emerald);">100% Abhörsicher</h3>
-        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;">
+        <h3 style="color: var(--accent-emerald);" data-i18n="sec_pill_1_title">100% Abhörsicher</h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;" data-i18n="sec_pill_1_desc">
           End-to-End-Verschlüsselung via <strong>TLS 1.3 mit Perfect Forward Secrecy (PFS)</strong>. Für jede Inferenz-Sitzung wird ein Einmalschlüssel erzeugt. Ein nachträgliches Mitschneiden oder Entschlüsseln ist mathematisch unmöglich.
         </p>
       </div>
 
       <div class="feature-card" style="border-top: 3px solid var(--accent-cyan);">
         <div class="feature-icon">⚡</div>
-        <h3 style="color: var(--accent-cyan);">Zero-Disk-Retention</h3>
-        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;">
+        <h3 style="color: var(--accent-cyan);" data-i18n="sec_pill_2_title">Zero-Disk-Retention</h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;" data-i18n="sec_pill_2_desc">
           Prompts existieren <strong>ausschließlich im flüchtigen Arbeitsspeicher (RAM)</strong> für die Dauer der Token-Generierung. Server-Logs protokollieren niemals Anfrage-Texte. Sofortige Speicherbereinigung nach Übertragung.
         </p>
       </div>
 
       <div class="feature-card" style="border-top: 3px solid var(--accent-indigo);">
         <div class="feature-icon">🚫</div>
-        <h3 style="color: var(--accent-indigo);">Kein Modell-Training</h3>
-        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;">
+        <h3 style="color: var(--accent-indigo);" data-i18n="sec_pill_3_title">Kein Modell-Training</h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;" data-i18n="sec_pill_3_desc">
           Weder deine Prompts noch die KI-Antworten werden jemals zum Trainieren, Nachtrainieren oder Feintunen von Modellen genutzt. Deine Daten und dein IP bleiben zu 100% dein Eigentum.
         </p>
       </div>
@@ -85,26 +85,26 @@
       
       <!-- Section 1: Ingress & Eavesdropping Immunity -->
       <div class="feature-card" style="line-height: 1.75;">
-        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec1_title">
           <span>🔒</span> 1. Schutz vor Datenabfangen & Mitlesen (Transportverschlüsselung)
         </h2>
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="sec_sec1_intro">
           Jede Verbindung zwischen deinen Anwendungen (OpenAI SDK, LangChain, Python, Browser) und unserem Gateway wird über hochsichere kryptografische Cipher-Suites abgewickelt:
         </p>
         <ul style="color: var(--text-muted); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li><strong>TLS 1.3 & Elliptische Kurven:</strong> Schlüsselaustausch über X25519 mit AES-256-GCM und ChaCha20-Poly1305.</li>
-          <li><strong>Perfect Forward Secrecy (PFS):</strong> Selbst bei einer theoretischen Kompromittierung des Hauptzertifikats in der Zukunft kann vergangener Datenverkehr niemals entschlüsselt werden.</li>
-          <li><strong>HSTS Preload:</strong> Erzwingt HTTPS über alle Subdomains (2 Jahre Cache) und verhindert jegliche Downgrade-Angriffe.</li>
-          <li><strong>RAM-Only Proxy-Streaming:</strong> Die Nginx-Direktive <code>proxy_max_temp_file_size 0;</code> garantiert, dass keine Request-Bodies auf Festplatten-Puffer ausgelagert werden.</li>
+          <li data-i18n="sec_sec1_li1"><strong>TLS 1.3 & Elliptische Kurven:</strong> Schlüsselaustausch über X25519 mit AES-256-GCM und ChaCha20-Poly1305.</li>
+          <li data-i18n="sec_sec1_li2"><strong>Perfect Forward Secrecy (PFS):</strong> Selbst bei einer theoretischen Kompromittierung des Hauptzertifikats in der Zukunft kann vergangener Datenverkehr niemals entschlüsselt werden.</li>
+          <li data-i18n="sec_sec1_li3"><strong>HSTS Preload:</strong> Erzwingt HTTPS über alle Subdomains (2 Jahre Cache) und verhindert jegliche Downgrade-Angriffe.</li>
+          <li data-i18n="sec_sec1_li4"><strong>RAM-Only Proxy-Streaming:</strong> Die Nginx-Direktive <code>proxy_max_temp_file_size 0;</code> garantiert, dass keine Request-Bodies auf Festplatten-Puffer ausgelagert werden.</li>
         </ul>
       </div>
 
       <!-- Section 2: Zero-Disk Logging & In-Memory Lifecycle -->
       <div class="feature-card" style="line-height: 1.75;">
-        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec2_title">
           <span>⚡</span> 2. Flüchtige RAM-Verarbeitung & Speicherbegrenzung (Art. 5 DSGVO)
         </h2>
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="sec_sec2_intro">
           Unsere Gateway-Architektur (<code>computemesh-gateway</code>) ist im Quellcode so programmiert, dass sie keine Protokolle über Prompt-Inhalte führt:
         </p>
         <div style="background: #020617; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: 1rem; font-family: var(--font-mono); font-size: 0.84rem; color: #a7f3d0; margin-bottom: 1rem;">
@@ -115,70 +115,70 @@
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pass
         </div>
         <ul style="color: var(--text-muted); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li><strong>Keine Datenbank-Speicherung:</strong> Die Abrechnungsdatenbank erfasst ausschließlich anonymisierte Zählerwerte (z. B. <code>Prompt: 45 Tokens</code>, <code>Antwort: 128 Tokens</code>, <code>Kosten: $0.0001</code>) — niemals deinen Text.</li>
-          <li><strong>Sofortige Freigabe:</strong> Sobald der letzte Token-Chunk per Server-Sent Events (SSE) an deinen Client übermittelt wurde (<code>data: [DONE]</code>), wird der belegte Arbeitsspeicher sofort freigegeben.</li>
+          <li data-i18n="sec_sec2_li1"><strong>Keine Datenbank-Speicherung:</strong> Die Abrechnungsdatenbank erfasst ausschließlich anonymisierte Zählerwerte (z. B. <code>Prompt: 45 Tokens</code>, <code>Antwort: 128 Tokens</code>, <code>Kosten: $0.0001</code>) — niemals deinen Text.</li>
+          <li data-i18n="sec_sec2_li2"><strong>Sofortige Freigabe:</strong> Sobald der letzte Token-Chunk per Server-Sent Events (SSE) an deinen Client übermittelt wurde (<code>data: [DONE]</code>), wird der belegte Arbeitsspeicher sofort freigegeben.</li>
         </ul>
       </div>
 
       <!-- Section 3: Inter-Node Mesh Security -->
       <div class="feature-card" style="line-height: 1.75;">
-        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec3_title">
           <span>🧩</span> 3. Cluster-Sicherheit, mTLS & Hardware-Attestierung
         </h2>
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="sec_sec3_intro">
           Die Kommunikation zwischen Orchestrator und den verteilten GPU-Knoten ist durch gegenseitiges mTLS und kryptografische Node-Schlüssel (Ed25519) isoliert:
         </p>
         <ul style="color: var(--text-muted); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li><strong>Gegenseitige Authentifizierung (mTLS):</strong> Nur registrierte, validierte Hardware-Nodes dürfen Berechnungs-Shards empfangen. Gefälschte oder unautorisierte Knoten werden auf Netzwerkebene abgewiesen.</li>
-          <li><strong>Confidential Computing (TEE):</strong> Für vertrauliche Unternehmensanfragen unterstützt ComputeMesh Hardware-Attestierung (AMD SEV-SNP / Intel TDX), wodurch Berechnungen in hardware-verschlüsselten Enklaven ausgeführt werden.</li>
-          <li><strong>Fail-Closed Routing:</strong> Vertrauliche Anfragen werden niemals heimlich auf ungesicherte Knoten umgeleitet.</li>
+          <li data-i18n="sec_sec3_li1"><strong>Gegenseitige Authentifizierung (mTLS):</strong> Nur registrierte, validierte Hardware-Nodes dürfen Berechnungs-Shards empfangen. Gefälschte oder unautorisierte Knoten werden auf Netzwerkebene abgewiesen.</li>
+          <li data-i18n="sec_sec3_li2"><strong>Confidential Computing (TEE):</strong> Für vertrauliche Unternehmensanfragen unterstützt ComputeMesh Hardware-Attestierung (AMD SEV-SNP / Intel TDX), wodurch Berechnungen in hardware-verschlüsselten Enklaven ausgeführt werden.</li>
+          <li data-i18n="sec_sec3_li3"><strong>Fail-Closed Routing:</strong> Vertrauliche Anfragen werden niemals heimlich auf ungesicherte Knoten umgeleitet.</li>
         </ul>
       </div>
 
       <!-- Section 4: GDPR Compliance Matrix Table -->
       <div class="feature-card" style="line-height: 1.75;">
-        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec4_title">
           <span>📋</span> 4. EU-DSGVO Konformitätsmatrix
         </h2>
         <div style="overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.15); color: var(--text-main);">
-                <th style="padding: 0.75rem 0.5rem;">DSGVO-Artikel</th>
-                <th style="padding: 0.75rem 0.5rem;">Gesetzliche Anforderung</th>
-                <th style="padding: 0.75rem 0.5rem;">Technische Umsetzung bei ComputeMesh</th>
+                <th style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_col1">DSGVO-Artikel</th>
+                <th style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_col2">Gesetzliche Anforderung</th>
+                <th style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_col3">Technische Umsetzung bei ComputeMesh</th>
               </tr>
             </thead>
             <tbody style="color: var(--text-muted);">
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 5 Abs. 1 lit. c</td>
-                <td style="padding: 0.75rem 0.5rem;">Datenminimierung</td>
-                <td style="padding: 0.75rem 0.5rem;">Keine Werbe-Tracker, keine Cookies, keine dauerhafte Speicherung von Nutzdaten.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r1_req">Datenminimierung</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r1_impl">Keine Werbe-Tracker, keine Cookies, keine dauerhafte Speicherung von Nutzdaten.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 5 Abs. 1 lit. e</td>
-                <td style="padding: 0.75rem 0.5rem;">Speicherbegrenzung</td>
-                <td style="padding: 0.75rem 0.5rem;">Zero-Disk-Retention: Prompts existieren nur für Millisekunden im flüchtigen RAM.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r2_req">Speicherbegrenzung</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r2_impl">Zero-Disk-Retention: Prompts existieren nur für Millisekunden im flüchtigen RAM.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 5 Abs. 1 lit. f</td>
-                <td style="padding: 0.75rem 0.5rem;">Integrität & Vertraulichkeit</td>
-                <td style="padding: 0.75rem 0.5rem;">TLS 1.3 mit PFS, mTLS-Knotenbindung, AES-256-GCM Vault, Systemd-Sandbox.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r3_req">Integrität & Vertraulichkeit</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r3_impl">TLS 1.3 mit PFS, mTLS-Knotenbindung, AES-256-GCM Vault, Systemd-Sandbox.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 25</td>
-                <td style="padding: 0.75rem 0.5rem;">Privacy by Design</td>
-                <td style="padding: 0.75rem 0.5rem;">Architektonische Trennung von Abrechnung und Inhalten; Fail-Closed-Sicherheitslogik.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r4_req">Privacy by Design</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r4_impl">Architektonische Trennung von Abrechnung und Inhalten; Fail-Closed-Sicherheitslogik.</td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 28</td>
-                <td style="padding: 0.75rem 0.5rem;">Auftragsverarbeitung (AVV)</td>
-                <td style="padding: 0.75rem 0.5rem;">Vertrag zur Auftragsverarbeitung (DPA) für B2B-Kunden verfügbar.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r5_req">Auftragsverarbeitung (AVV)</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r5_impl">Vertrag zur Auftragsverarbeitung (DPA) für B2B-Kunden verfügbar.</td>
               </tr>
               <tr>
                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--accent-cyan);">Art. 32</td>
-                <td style="padding: 0.75rem 0.5rem;">Sicherheit der Verarbeitung</td>
-                <td style="padding: 0.75rem 0.5rem;">Mehrstufige technische und organisatorische Maßnahmen (TOMs) nach aktuellem Stand der Technik.</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r6_req">Sicherheit der Verarbeitung</td>
+                <td style="padding: 0.75rem 0.5rem;" data-i18n="sec_tbl_r6_impl">Mehrstufige technische und organisatorische Maßnahmen (TOMs) nach aktuellem Stand der Technik.</td>
               </tr>
             </tbody>
           </table>
@@ -187,13 +187,13 @@
 
       <!-- Section 5: Host Hardening & Vault -->
       <div class="feature-card" style="line-height: 1.75;">
-        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
+        <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec5_title">
           <span>🏰</span> 5. Server-Sandboxing & Zahlungsdaten-Isolierung
         </h2>
         <ul style="color: var(--text-muted); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li><strong>Linux-Systemd-Sandboxing:</strong> Der Gateway-Dienst läuft unter Debian 13 mit strikten Kernel-Restriktionen (<code>ProtectSystem=strict</code>, <code>PrivateTmp=true</code>, <code>NoNewPrivileges=true</code>).</li>
-          <li><strong>Stripe PCI-DSS Level 1:</strong> Zahlungen und Kreditkartendaten werden niemals über ComputeMesh-Server geleitet, sondern direkt durch Stripe verarbeitet.</li>
-          <li><strong>AES-256-GCM Vault:</strong> Alle internen Secrets sind im kryptografischen Vault abgesichert.</li>
+          <li data-i18n="sec_sec5_li1"><strong>Linux-Systemd-Sandboxing:</strong> Der Gateway-Dienst läuft unter Debian 13 mit strikten Kernel-Restriktionen (<code>ProtectSystem=strict</code>, <code>PrivateTmp=true</code>, <code>NoNewPrivileges=true</code>).</li>
+          <li data-i18n="sec_sec5_li2"><strong>Stripe PCI-DSS Level 1:</strong> Zahlungen und Kreditkartendaten werden niemals über ComputeMesh-Server geleitet, sondern direkt durch Stripe verarbeitet.</li>
+          <li data-i18n="sec_sec5_li3"><strong>AES-256-GCM Vault:</strong> Alle internen Secrets sind im kryptografischen Vault abgesichert.</li>
         </ul>
       </div>
 
@@ -201,11 +201,11 @@
 
     <!-- Bottom CTA -->
     <div style="margin-top: 3.5rem; text-align: center; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(0, 240, 255, 0.05)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 2.5rem;">
-      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Bereit für maximale Sicherheit und höchste Performance?</h3>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Nutze unsere OpenAI-kompatible High-Speed-API mit vollem Datenschutz.</p>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="sec_cta_title">Bereit für maximale Sicherheit und höchste Performance?</h3>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem;" data-i18n="sec_cta_sub">Nutze unsere OpenAI-kompatible High-Speed-API mit vollem Datenschutz.</p>
       <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-        <a href="/#playground" class="btn btn-primary">⚡ Live-Playground testen</a>
-        <button class="btn btn-emerald" onclick="openModal('consumer')">🚀 API-Key erstellen</button>
+        <a href="/#playground" class="btn btn-primary" data-i18n="sec_cta_playground_btn">⚡ Live-Playground testen</a>
+        <button class="btn btn-emerald" onclick="openModal('consumer')" data-i18n="sec_cta_register_btn">🚀 API-Key erstellen</button>
       </div>
     </div>
   </main>
