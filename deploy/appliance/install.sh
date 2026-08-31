@@ -101,7 +101,7 @@ if [ -d "./tools/appliance" ]; then
     cp -rf ./* "${INSTALL_DIR}/"
 else
     if [ ! -d "${INSTALL_DIR}/.git" ]; then
-        git clone https://github.com/computemesh/ComputeMesh.git "${INSTALL_DIR}"
+        git clone https://github.com/inetconnector/ComputeMesh.git "${INSTALL_DIR}"
     else
         git -C "${INSTALL_DIR}" pull
     fi

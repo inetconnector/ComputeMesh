@@ -1,27 +1,39 @@
 {
-  "version": "1.2.20",
-  "release_date": "2026-08-31T16:06:04.054031+00:00",
+  "version": "1.2.21",
+  "release_date": "2026-08-31T19:18:48.395021+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
       "url": "https://computemesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "cacfc9feb9181e3dbe5a46e07c32bc4c98b4e4500072d152bcc7bb3057a9cfd1",
-      "size_bytes": 26378984
+      "sha256": "f41010a3ae0571266dd1b3cbf17f9c8160e5555a07a75f21f743f9b8f7dc9ec9",
+      "size_bytes": 26659495
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
       "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "b64aa63435bcbc7108fb9dd84520a44993dc73060bb6704bc585d95426298bfa",
-      "size_bytes": 1005809
+      "sha256": "3910d47b3a79c74f94335aad4af55910d47235d7fb3136b8cd958a9075ee6db6",
+      "size_bytes": 503427
+    },
+    "nodeos-iso": {
+      "filename": "computemesh-nodeos-x86_64.iso",
+      "url": "https://computemesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.iso",
+      "sha256": "34d3b949bc1d9830bdb1a9a42336b724b4d4c1857bc72f1254356b0061e25a60",
+      "size_bytes": 68157440
+    },
+    "nodeos-img": {
+      "filename": "computemesh-nodeos-x86_64.img.xz",
+      "url": "https://computemesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.img.xz",
+      "sha256": "a7066f7432da966a535a4d933672af7bdc0a7071f44fac8e3e21c1d973ce607f",
+      "size_bytes": 2463456
     },
     "installer-script": {
       "filename": "install.sh",
       "url": "https://computemesh.inetconnector.com/downloads/install.sh",
-      "sha256": "da40c753915808e51a23f6079b402f557c4aefce7c18b445f36f11db09bb5acf",
-      "size_bytes": 6649
+      "sha256": "721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2",
+      "size_bytes": 6651
     }
   },
-  "signature": "43fb4cfa57ed0564d159640be60aabb71ee9695fdfcd420e36002d3082644b7cf32f4b6a8f1f6685993b3fcca534406e78083ac5700ad690da15da16d8ff190a"
+  "signature": "79d2445d53b0492f09570e6c8bb79da30f7c4aaf55ea76448218fd69307e5ccc7cef1cdda60305248cb273ffb4d91e0b88733a87f98e1ab9930ad4ede7bb330f"
 }

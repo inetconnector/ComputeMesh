@@ -117,7 +117,9 @@ const translations = {
     dl_rig_title: "Mining Rig Appliance (NodeOS)",
     dl_rig_desc: "Dedicated bootable bare-metal OS for multi-GPU mining rigs (4–12 GPUs) with zero-configuration setup.",
     dl_rig_iso_btn: "Download Bootable ISO (.iso)",
-    dl_rig_btn: "Download Flash Image (.img.xz)",
+    dl_rig_img_btn: "Download Flash Image (.img.xz)",
+    dl_rig_tar_btn: "Download Linux Package (.tar.gz)",
+    dl_rig_guide_btn: "NodeOS Setup Guide",
 
     // API Section
     api_tag: "DEVELOPER INTEGRATION",
@@ -424,8 +426,10 @@ const translations = {
     dl_linux_btn: "Installationsbefehl kopieren",
     dl_rig_title: "Mining-Rig Appliance (NodeOS)",
     dl_rig_desc: "Eigenständiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4–12 GPUs) mit Zero-Touch-Konfiguration.",
-    dl_rig_iso_btn: "Bootfähiges ISO herunterladen (.iso)",
-    dl_rig_btn: "Flash-Image herunterladen (.img.xz)",
+    dl_rig_iso_btn: "Bootfähige ISO herunterladen (.iso)",
+    dl_rig_img_btn: "Flash-Image herunterladen (.img.xz)",
+    dl_rig_tar_btn: "Linux-Paket herunterladen (.tar.gz)",
+    dl_rig_guide_btn: "NodeOS Setup Guide",
 
     // API Section
     api_tag: "ENTWICKLER-SCHNITTSTELLE",
