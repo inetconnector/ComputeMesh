@@ -38,6 +38,7 @@ from services.orchestrator.persistent_control_channel import (
     send_frame,
     tls_client_connector,
 )
+from tools.security.node_key_storage import load_node_private_key
 
 CAPABILITIES = ("execution_attestation_v1", "live_runtime_registration_v1")
 
@@ -62,12 +63,10 @@ def _load_private_key(path: Path) -> Ed25519PrivateKey:
     if path.is_symlink() or not path.is_file():
         raise ProviderAgentError("node private key must be an existing non-symlink file")
     try:
-        key = serialization.load_pem_private_key(path.read_bytes(), password=None)
-    except (OSError, ValueError, TypeError) as exc:
-        raise ProviderAgentError("node private key is not a readable unencrypted PEM key") from exc
-    if not isinstance(key, Ed25519PrivateKey):
-        raise ProviderAgentError("node private key must be Ed25519")
-    return key
+        return load_node_private_key(path)
+    except Exception as exc:
+        raise ProviderAgentError(f"node private key could not be loaded: {exc}") from exc
+
 
 
 def _envelope(

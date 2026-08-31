@@ -21,6 +21,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from protocol.node_identity import key_id_from_public_key
 from services.gateway.execution_attestation import AttestationClaims, create_execution_attestation
+from tools.security.node_key_storage import load_node_private_key
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_SCHEMA = ROOT / "runtime" / "llama" / "shared_run_evidence.schema.json"
@@ -93,27 +94,11 @@ def write_attestation_request(*, job_id: str, evidence_path: Path, output_path: 
 def _load_private_key(path: Path) -> Ed25519PrivateKey:
     if path.is_symlink() or not path.is_file() or not (0 < path.stat().st_size <= MAX_KEY_BYTES):
         raise JobAttestationError("private key must be a bounded regular file")
-    raw = path.read_bytes()
     try:
-        if len(raw) == 32:
-            return Ed25519PrivateKey.from_private_bytes(raw)
-        if raw.startswith(b"-----BEGIN"):
-            key = serialization.load_pem_private_key(raw, password=None)
-            if not isinstance(key, Ed25519PrivateKey):
-                raise JobAttestationError("private key is not Ed25519")
-            return key
-        stripped = raw.strip()
-        try:
-            decoded = base64.b64decode(stripped, validate=True)
-        except Exception:
-            decoded = stripped
-        if len(decoded) != 32:
-            raise JobAttestationError("raw/base64 Ed25519 private key must contain 32 bytes")
-        return Ed25519PrivateKey.from_private_bytes(decoded)
-    except JobAttestationError:
-        raise
+        return load_node_private_key(path)
     except Exception as exc:
-        raise JobAttestationError("private key could not be loaded") from exc
+        raise JobAttestationError(f"private key could not be loaded: {exc}") from exc
+
 
 
 def sign_attestation_request(

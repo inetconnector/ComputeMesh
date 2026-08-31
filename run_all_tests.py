@@ -48,6 +48,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.identity.tests.test_vault",
         "services.identity.tests.test_store",
         "services.identity.tests.test_integration",
+        "tools.security.tests.test_node_key_storage",
     ],
     "Appliance & Hardware Daemon": [
         "tools.appliance.tests.test_appliance_config",
