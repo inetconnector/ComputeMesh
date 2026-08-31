@@ -78,6 +78,10 @@
       const data = await response.json();
       if (!response.ok || !data.api_key) throw new Error(data.error || 'registration_failed');
       if (keyInput) keyInput.value = data.api_key;
+      try { localStorage.setItem('cm_api_key', data.api_key); } catch (e) {}
+      if (typeof window.updateCodeSnippetsWithKey === 'function') {
+        window.updateCodeSnippetsWithKey(data.api_key);
+      }
     } catch (error) {
       const prefix = lang === 'de' ? 'Registrierung fehlgeschlagen: ' : 'Registration failed: ';
       if (keyInput) keyInput.value = `${prefix}${String(error.message || error).slice(0, 160)}`;

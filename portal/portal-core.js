@@ -63,6 +63,8 @@ const translations = {
     pg_ollama_title: "Ollama & OpenAI Compatible Endpoint",
     pg_ollama_badge: "Instant Drop-in",
     pg_ollama_desc: "Use ComputeMesh with any existing OpenAI client library, LangChain, LlamaIndex, or Ollama CLI by simply pointing your base URL to our gateway.",
+    pg_copy_cmd_btn: "📋 Copy Command",
+    pg_copy_code_btn: "📋 Copy Code",
 
     // Features Section
     features_tag: "ENTERPRISE ARCHITECTURE",
@@ -318,6 +320,8 @@ const translations = {
     pg_ollama_title: "Ollama & OpenAI-kompatibler Endpunkt",
     pg_ollama_badge: "Sofort einsatzbereit",
     pg_ollama_desc: "Nutze ComputeMesh mit jedem bestehenden OpenAI SDK, LangChain, LlamaIndex oder dem Ollama CLI – passe einfach deine Base-URL an.",
+    pg_copy_cmd_btn: "📋 Befehl kopieren",
+    pg_copy_code_btn: "📋 Code kopieren",
 
     // Features Section
     features_tag: "ENTERPRISE-ARCHITEKTUR",
@@ -747,18 +751,128 @@ async function handleRegistration(e) {
   }
 }
 
-function copyKey() {
-  const keyInput = document.getElementById('generated-key-val');
-  if (keyInput) {
-    navigator.clipboard.writeText(keyInput.value);
-    alert(currentLang === 'de' ? 'Schlüssel in Zwischenablage kopiert!' : 'Key copied to clipboard!');
+function updateCodeSnippetsWithKey(apiKey) {
+  if (!apiKey || apiKey.startsWith('Bitte') || apiKey.startsWith('Please') || apiKey.startsWith('Reg')) return;
+  try {
+    localStorage.setItem('cm_api_key', apiKey);
+  } catch (e) {}
+
+  const ollamaCode = document.getElementById('pg-ollama-code-content');
+  if (ollamaCode) {
+    ollamaCode.textContent = `export OLLAMA_HOST=https://computemesh.inetconnector.com
+curl https://computemesh.inetconnector.com/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":true}'`;
+  }
+
+  const pythonCode = document.getElementById('python-sdk-code-content');
+  if (pythonCode) {
+    pythonCode.textContent = `from openai import OpenAI
+
+# 100% drop-in replacement for OpenAI SDK
+client = OpenAI(
+    base_url="https://computemesh.inetconnector.com/v1",
+    api_key="${apiKey}"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[{"role": "user", "content": "Explain decentralized AI in 3 sentences."}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="")`;
   }
 }
+window.updateCodeSnippetsWithKey = updateCodeSnippetsWithKey;
+
+function copyKey() {
+  const keyInput = document.getElementById('generated-key-val');
+  const copyBtn = document.querySelector('button[onclick="copyKey()"]');
+  if (keyInput && keyInput.value) {
+    const key = keyInput.value;
+    navigator.clipboard.writeText(key).catch(() => {});
+    updateCodeSnippetsWithKey(key);
+    if (copyBtn) {
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = (window.currentLang === 'de' ? '✓ Kopiert!' : '✓ Copied!');
+      copyBtn.style.borderColor = 'var(--accent-emerald)';
+      copyBtn.style.color = 'var(--accent-emerald)';
+      setTimeout(() => {
+        copyBtn.textContent = orig;
+        copyBtn.style.borderColor = '';
+        copyBtn.style.color = '';
+      }, 2000);
+    }
+  }
+}
+window.copyKey = copyKey;
+
+function copyPlaygroundCommand() {
+  const codeEl = document.getElementById('pg-ollama-code-content');
+  const btn = document.getElementById('copy-playground-cmd-btn');
+  if (!codeEl) return;
+  const text = codeEl.textContent || codeEl.innerText;
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = (window.currentLang === 'de' ? '✓ Befehl kopiert!' : '✓ Command copied!');
+    btn.style.color = 'var(--accent-emerald)';
+    btn.style.borderColor = 'var(--accent-emerald)';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  }
+}
+window.copyPlaygroundCommand = copyPlaygroundCommand;
+
+function copyPythonCode() {
+  const codeEl = document.getElementById('python-sdk-code-content');
+  const btn = document.getElementById('copy-python-code-btn');
+  if (!codeEl) return;
+  const text = codeEl.textContent || codeEl.innerText;
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = (window.currentLang === 'de' ? '✓ Code kopiert!' : '✓ Code copied!');
+    btn.style.color = 'var(--accent-emerald)';
+    btn.style.borderColor = 'var(--accent-emerald)';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  }
+}
+window.copyPythonCode = copyPythonCode;
 
 function copyLinuxCommand() {
   const cmd = "curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash";
   navigator.clipboard.writeText(cmd);
-  alert(currentLang === 'de' ? 'Befehl kopiert!' : 'Command copied!');
+  const btn = document.querySelector('button[onclick="copyLinuxCommand()"]');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = (window.currentLang === 'de' ? '✓ Kopiert!' : '✓ Copied!');
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }
 }
 
 function openDepositModal() {
@@ -1339,6 +1453,11 @@ function initPortal() {
   loadCanonicalPricing();
   fetchMeshTelemetry();
   setInterval(fetchMeshTelemetry, 15000);
+
+  try {
+    const savedKey = localStorage.getItem('cm_api_key');
+    if (savedKey) updateCodeSnippetsWithKey(savedKey);
+  } catch (e) {}
 }
 
 if (document.readyState === 'loading') {
