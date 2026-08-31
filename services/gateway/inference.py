@@ -19,6 +19,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
+from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
+from services.gateway.blind_inference import BlindedPipelineEngine
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
     DEFAULT_PRICE_TIERS,
@@ -51,6 +53,7 @@ class InferenceEngine:
         self.metrics = metrics
         self.teaser_manager = teaser_manager
         self.backend = backend if backend is not None else build_inference_backend_from_env()
+        self.blind_engine = BlindedPipelineEngine()
 
     def create_metered_completion(
         self,
@@ -87,23 +90,29 @@ class InferenceEngine:
                         f"Account '{account_id}' has insufficient balance ({bal} µ$) for completion (min hold {max_required_hold} µ$)"
                     )
 
+        prompt_raw = json.dumps(messages)
+        secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
-            # Billing must never precede execution. A failed or malformed runtime response
-            # is not a billable job and therefore cannot credit a provider.
             try:
-                backend_result = self.backend.complete(
-                    model_id=canonical_model_id,
-                    messages=messages,
-                    max_tokens=requested_max,
-                )
-            except TypeError:
-                backend_result = self.backend.complete(
-                    model_id=canonical_model_id,
-                    messages=messages,
-                )
-            completion_text = backend_result.text
-            tokens_prompt = backend_result.prompt_tokens
-            tokens_completion = backend_result.completion_tokens
+                # Billing must never precede execution. A failed or malformed runtime response
+                # is not a billable job and therefore cannot credit a provider.
+                with secure_buf.open_plaintext():
+                    try:
+                        backend_result = self.backend.complete(
+                            model_id=canonical_model_id,
+                            messages=messages,
+                            max_tokens=requested_max,
+                        )
+                    except TypeError:
+                        backend_result = self.backend.complete(
+                            model_id=canonical_model_id,
+                            messages=messages,
+                        )
+                completion_text = backend_result.text
+                tokens_prompt = backend_result.prompt_tokens
+                tokens_completion = backend_result.completion_tokens
+            finally:
+                secure_buf.zeroize()
 
             chat_id = f"chatcmpl-{secrets.token_hex(12)}"
             created_timestamp = int(time.time())

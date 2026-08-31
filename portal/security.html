@@ -65,9 +65,9 @@
 
       <div class="feature-card" style="border-top: 3px solid var(--accent-cyan);">
         <div class="feature-icon">⚡</div>
-        <h3 style="color: var(--accent-cyan);" data-i18n="sec_pill_2_title">Zero-Disk-Retention</h3>
+        <h3 style="color: var(--accent-cyan);" data-i18n="sec_pill_2_title">Verschlüsselter RAM & Zero-Retention</h3>
         <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6;" data-i18n="sec_pill_2_desc">
-          Prompts existieren <strong>ausschließlich im flüchtigen Arbeitsspeicher (RAM)</strong> für die Dauer der Token-Generierung. Server-Logs protokollieren niemals Anfrage-Texte. Sofortige Speicherbereinigung nach Übertragung.
+          Prompts existieren ausschließlich im flüchtigen RAM in <strong>ephemeren AES-256-GCM Umschlägen</strong> mit OS-Speichersperren (<code>mlock</code> Anti-Swap) und sofortigem <code>SecureZeroMemory</code> Überschreiben.
         </p>
       </div>
 
@@ -123,13 +123,13 @@
       <!-- Section 3: Inter-Node Mesh Security -->
       <div class="feature-card" style="line-height: 1.75;">
         <h2 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;" data-i18n="sec_sec3_title">
-          <span>🧩</span> 3. Cluster-Sicherheit, mTLS & Hardware-Attestierung
+          <span>🧩</span> 3. Blinded Split-Inference, mTLS & Hardware-Attestierung
         </h2>
         <p style="color: var(--text-muted); margin-bottom: 1rem;" data-i18n="sec_sec3_intro">
-          Die Kommunikation zwischen Orchestrator und den verteilten GPU-Knoten ist durch gegenseitiges mTLS und kryptografische Node-Schlüssel (Ed25519) isoliert:
+          Die Kommunikation zwischen Orchestrator und verteilten GPU-Knoten ist durch mTLS, Ed25519-Signaturen und orthogonale Tensor-Verschleierung isoliert:
         </p>
         <ul style="color: var(--text-muted); padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li data-i18n="sec_sec3_li1"><strong>Gegenseitige Authentifizierung (mTLS):</strong> Nur registrierte, validierte Hardware-Nodes dürfen Berechnungs-Shards empfangen. Gefälschte oder unautorisierte Knoten werden auf Netzwerkebene abgewiesen.</li>
+          <li data-i18n="sec_sec3_li1"><strong>Blinded Split-Inference:</strong> Layer-0 Embeddings werden mathematisch rotiert ($h' = h \cdot R$), bevor Shards an Nodes gesendet werden. Externe Nodes rechnen rein numerisch ohne Vokabular- oder Text-Zugriff.</li>
           <li data-i18n="sec_sec3_li2"><strong>Confidential Computing (TEE):</strong> Für vertrauliche Unternehmensanfragen unterstützt ComputeMesh Hardware-Attestierung (AMD SEV-SNP / Intel TDX), wodurch Berechnungen in hardware-verschlüsselten Enklaven ausgeführt werden.</li>
           <li data-i18n="sec_sec3_li3"><strong>Fail-Closed Routing:</strong> Vertrauliche Anfragen werden niemals heimlich auf ungesicherte Knoten umgeleitet.</li>
         </ul>

@@ -25,6 +25,7 @@ from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
     verify_shared_execution_evidence,
 )
+from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.placement_selection import (
     PlacementSelection,
     PlacementSelectionError,

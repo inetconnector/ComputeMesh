@@ -103,9 +103,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
 - Raw prompts, conversation messages, model answers, and user tokens are **never written to log files**.
 
 ### 3.2 Ephemeral Lifecycle & Immediate Memory Deallocation
-1. **Intake:** The gateway receives the JSON payload into an ephemeral in-memory dictionary.
+1. **Intake:** The gateway receives the JSON payload into an ephemeral in-memory dictionary wrapped in a hardware-locked memory buffer.
 2. **Inference Streaming:** Tokens are streamed directly from the inference engine backend to the client via Server-Sent Events (SSE).
-3. **Purge:** As soon as the final chunk (`data: [DONE]`) is transmitted, references to the input messages and generated tokens are released, allowing immediate garbage collection by the runtime memory manager.
+3. **Purge:** As soon as the final chunk (`data: [DONE]`) is transmitted, references to the input messages and generated tokens are scrubbed with `SecureZeroMemory` and released, allowing immediate garbage collection by the runtime memory manager.
 4. **No Database Persistence:** The platform database and accounting store record solely:
    - Account ID / Hashed API Key ID
    - Timestamp of completion
@@ -114,17 +114,30 @@ class GatewayHandler(BaseHTTPRequestHandler):
    - Completion Token Count (e.g. `128 tokens`)
    - Cost in micro-units ($\mu$)
 
+### 3.3 Cryptographic In-Memory RAM Envelope & Page Locking (`mlock`)
+In addition to zero-disk logging, ComputeMesh implements active in-memory cryptographic defenses (`services/common/secure_memory.py`):
+1. **OS Page Locking (`mlock` / `VirtualLock`):** Sensitive prompt buffers and activation matrices are pinned to physical RAM to prevent operating system kernels from ever writing memory pages to unencrypted swap space or pagefiles on disk.
+2. **Ephemeral AES-256-GCM RAM Envelopes:** Prompts and intermediate activation arrays are encrypted in volatile RAM using transient 256-bit session keys. The key is generated in CPU registers for the active duration of the forward pass and immediately destroyed thereafter.
+3. **Cryptographic Memory Zeroization (`SecureZeroMemory`):** Temporary buffer byte arrays are overwritten with CSPRNG random entropy and then zeroed out completely before deallocation, preventing any dead-store elimination by compilers and neutralizing memory scraping forensics.
+
 ---
 
-## 4. Layer 3: Inter-Node Mesh Cryptography & Confidential Computing
+## 4. Layer 3: Inter-Node Mesh Cryptography, Blinded Split-Inference & Confidential Computing
 
-### 4.1 Mutual TLS (mTLS) with Certificate Pinning
+### 4.1 Blinded Split-Inference & Latent Tensor Obfuscation
+To protect prompt privacy in distributed compute clusters with untrusted third-party GPU nodes, ComputeMesh deploys **Blinded Split-Inference** (`services/gateway/blind_inference.py`):
+- **Decoupled Layer 0 & Layer N:** The token dictionary (Tokenizer) and the output classification layer (LM Head) reside exclusively inside the trusted Gateway boundary.
+- **Orthogonal Tensor Blinding ($h' = h \cdot R$):** Before embedding vectors are transmitted across the network to distributed worker nodes, an ephemeral orthogonal rotation matrix $R \in \mathrm{SO}(d)$ is applied.
+- **Zero Plaintext Visibility on Nodes:** The external worker nodes (llama.cpp / Ollama) receive only abstract numerical tensors and execute pure matrix multiplications across intermediate Transformer layers ($L_1 \dots L_{N-1}$). The worker node **never sees human-readable text, token strings, or vocabulary IDs**.
+- **Inverse Unblinding ($h = h' \cdot R^T$):** The returned hidden-state tensors are unblinded on the trusted Gateway using the transpose matrix $R^T$ and passed to the LM Head to decode the final response.
+
+### 4.2 Mutual TLS (mTLS) with Certificate Pinning
 All internal communication across cluster nodes, orchestrators, and gateway components is secured via **mTLS**:
 - Each node possesses a unique X.509 certificate and Ed25519 cryptographic key pair.
 - The control plane validates node identities against an authorized node registry.
 - Unauthorized nodes or rogue network listeners cannot inject malicious payloads, sniff tensor data, or intercept distributed shards.
 
-### 4.2 Orthogonal Trust & Privacy Policy Matrix
+### 4.3 Orthogonal Trust & Privacy Policy Matrix
 The ComputeMesh orchestrator models **Provider Trust** and **Execution Privacy** as strictly orthogonal, fail-closed policy dimensions (`services/compliance/mesh_policy.py`):
 
 | Privacy Tier | Description | Requirements |
