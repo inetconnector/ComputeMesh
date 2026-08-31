@@ -29,6 +29,7 @@ from protocol.node_identity import (
 )
 from protocol.node_session import NodeHelloInfo, NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
+from runtime.capacity_guard import LocalCapacityGuard
 from runtime.llama.node_attestation_service import NodeAttestationService
 from services.orchestrator.persistent_control_channel import (
     ProviderPersistentClient,
@@ -142,6 +143,7 @@ class ProviderAgent:
         decode: dict[str, Any],
         runtime_advertisement: dict[str, Any],
         network_reports: Sequence[dict[str, Any]] = (),
+        capacity_guard: LocalCapacityGuard | None = None,
     ) -> None:
         if not node_id or len(node_id) > 128:
             raise ValueError("invalid node_id")
@@ -153,6 +155,7 @@ class ProviderAgent:
         self.decode = dict(decode)
         self.runtime_advertisement = dict(runtime_advertisement)
         self.network_reports = tuple(dict(item) for item in network_reports)
+        self.capacity_guard = capacity_guard or LocalCapacityGuard(node_id=node_id)
         if self.profile.get("node_id") != node_id:
             raise ProviderAgentError("profile node_id does not match configured node identity")
         revision = self.profile.get("profile_revision")

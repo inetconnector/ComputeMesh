@@ -99,3 +99,31 @@ def test_provider_agent_binds_profile_benchmarks_runtime_and_key(tmp_path: Path)
     )
     assert agent.key_id.startswith("ed25519:")
     assert agent.profile["node_id"] == "node-a"
+    assert agent.capacity_guard.node_id == "node-a"
+    assert agent.capacity_guard.get_status()["available_slots"] == 1
+
+
+def test_provider_agent_accepts_custom_capacity_guard(tmp_path: Path) -> None:
+    from runtime.capacity_guard import LocalCapacityGuard
+    key_path = tmp_path / "node.pem"
+    _write_key(key_path)
+    custom_guard = LocalCapacityGuard(node_id="node-a", max_concurrent_jobs=4, total_memory_mb=32768)
+    agent = ProviderAgent(
+        node_id="node-a",
+        private_key_path=key_path,
+        profile=_profile("node-a"),
+        prefill=_benchmark("llama_cpp_prefill"),
+        decode=_benchmark("llama_cpp_decode"),
+        runtime_advertisement=_runtime_document(
+            node_id="node-a",
+            profile_revision=3,
+            rpc_host="10.0.0.2",
+            rpc_port=50052,
+            build_number=123,
+            build_commit="abcdef1",
+        ),
+        capacity_guard=custom_guard,
+    )
+    assert agent.capacity_guard is custom_guard
+    assert agent.capacity_guard.get_status()["max_concurrent_jobs"] == 4
+

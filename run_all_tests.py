@@ -54,6 +54,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.appliance_dashboard.tests.test_dashboard_server",
         "tools.appliance.tests.test_hardware_detector",
         "tools.appliance.tests.test_multi_gpu_launcher",
+        "apps.node.test_provider_agent",
     ],
     "Scheduler & Orchestrator": [
         "services.scheduler.tests.test_placement",
@@ -84,6 +85,7 @@ CATEGORIES: dict[str, list[str]] = {
     "Runtime & Mesh Network": [
         "runtime.network.tests.test_tcp_relay",
         "runtime.network.tests.test_mesh_transport",
+        "runtime.tests.test_capacity_guard",
         "runtime.llama.tests.test_shared_trial",
         "runtime.llama.tests.test_shared_run_evidence",
         "runtime.llama.tests.test_rpc_spike",
