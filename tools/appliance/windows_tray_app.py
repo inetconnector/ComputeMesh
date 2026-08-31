@@ -68,20 +68,22 @@ REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_APP_NAME = "ComputeMesh"
 
 
-def _create_computemesh_icon_image() -> Image.Image:
-    """Generates a branded high-res ComputeMesh cyan mesh icon image with PIL."""
-    size = (64, 64)
-    img = Image.new("RGBA", size, (0, 0, 0, 0))
+def _create_computemesh_icon_image(size: tuple[int, int] = (32, 32)) -> Image.Image:
+    """Generates a crisp branded cyan mesh icon for Windows taskbar & tray."""
+    w, h = size
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    # Background circle
-    draw.ellipse((4, 4, 60, 60), fill=(11, 15, 25, 255), outline=(0, 242, 254, 255), width=3)
-    # Center core
-    draw.ellipse((26, 26, 38, 38), fill=(0, 242, 254, 255))
-    # Nodes
-    nodes = [(32, 12), (50, 22), (50, 42), (32, 52), (14, 42), (14, 22)]
+    pad = max(1, w // 16)
+    draw.ellipse((pad, pad, w - pad, h - pad), fill=(15, 23, 42, 255), outline=(0, 242, 254, 255), width=max(1, w // 16))
+    cw, ch = w // 2, h // 2
+    cr = max(2, w // 6)
+    draw.ellipse((cw - cr, ch - cr, cw + cr, ch + cr), fill=(0, 242, 254, 255))
+    r_node = max(1, w // 12)
+    dist = w // 3
+    nodes = [(cw, ch - dist), (cw + dist, ch), (cw, ch + dist), (cw - dist, ch)]
     for nx, ny in nodes:
-        draw.line([(32, 32), (nx, ny)], fill=(59, 130, 246, 220), width=2)
-        draw.ellipse((nx - 4, ny - 4, nx + 4, ny + 4), fill=(0, 242, 254, 255))
+        draw.line([(cw, ch), (nx, ny)], fill=(59, 130, 246, 255), width=max(1, w // 16))
+        draw.ellipse((nx - r_node, ny - r_node, nx + r_node, ny + r_node), fill=(0, 242, 254, 255))
     return img
 
 
@@ -287,11 +289,7 @@ class ComputeMeshProviderApp:
                 except Exception:
                     pass
 
-            raw_img = self.icon_image if hasattr(self, "icon_image") else _create_computemesh_icon_image()
-            if hasattr(raw_img, "resize"):
-                tray_image = raw_img.resize((64, 64), Image.Resampling.LANCZOS).convert("RGBA")
-            else:
-                tray_image = _create_computemesh_icon_image()
+            tray_image = _create_computemesh_icon_image(size=(32, 32))
 
             menu = pystray.Menu(
                 pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
@@ -1004,10 +1002,14 @@ def main() -> int:
         sys.exit(0)
 
     root = tk.Tk()
-    root.withdraw()
     app = ComputeMeshProviderApp(root)
-    if "--tray" not in sys.argv:
+    if "--tray" in sys.argv:
+        root.withdraw()
+    else:
         root.deiconify()
+        root.state("normal")
+        root.lift()
+        root.focus_force()
     root.mainloop()
     return 0
 
