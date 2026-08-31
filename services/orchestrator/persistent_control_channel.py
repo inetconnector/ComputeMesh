@@ -246,6 +246,40 @@ class PersistentNodeControlClient:
                 self.unregister(node_id, connection)
         return tuple(stale)
 
+    def revoke_session(self, node_id: str, reason: str = "credential_revoked") -> bool:
+        """Immediately terminate and unregister an active node session upon revocation."""
+        with self._lock:
+            connection = self._connections.pop(node_id, None)
+        if connection is not None:
+            connection.close()
+            return True
+        return False
+
+    def revoke_all(self, reason: str = "cluster_shutdown") -> tuple[str, ...]:
+        """Terminate all active node sessions immediately."""
+        with self._lock:
+            items = list(self._connections.items())
+            self._connections.clear()
+        for _, connection in items:
+            connection.close()
+        return tuple(node_id for node_id, _ in items)
+
+    def handle_revocation_event(self, target_type: str, target_id: str) -> None:
+        """Handle revocation callback from IdentityStore: fan out session termination."""
+        if target_type == "node":
+            self.revoke_session(target_id, reason="node_identity_revoked")
+        elif target_type == "key":
+            # Check all live connections
+            with self._lock:
+                matching_nodes = [
+                    node_id
+                    for node_id, conn in self._connections.items()
+                    if getattr(conn.session, "key_id", None) == target_id
+                ]
+            for node_id in matching_nodes:
+                self.revoke_session(node_id, reason="node_key_revoked")
+
+
 
 @dataclass(frozen=True)
 class AcceptedProviderSession:

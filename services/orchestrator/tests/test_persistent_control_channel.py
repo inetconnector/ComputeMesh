@@ -105,6 +105,39 @@ class PersistentControlChannelTests(unittest.TestCase):
         a_provider.close()
         b_provider.close()
 
+    def test_revoke_session_fan_out(self):
+        server_sock, provider_sock = socket.socketpair()
+        session = ready_session("node-revoked")
+        connection = PersistentNodeConnection(sock=server_sock, session=session, control_plane_id="cp-1")
+        client = PersistentNodeControlClient()
+        client.register(connection)
+        self.assertTrue(client.is_connected("node-revoked"))
+
+        # Revoke via event
+        client.handle_revocation_event("node", "node-revoked")
+        self.assertFalse(client.is_connected("node-revoked"))
+        self.assertFalse(connection.alive)
+        provider_sock.close()
+
+    def test_revoke_all_sessions(self):
+        s1, p1 = socket.socketpair()
+        s2, p2 = socket.socketpair()
+        client = PersistentNodeControlClient()
+        c1 = PersistentNodeConnection(sock=s1, session=ready_session("node-1"), control_plane_id="cp-1")
+        c2 = PersistentNodeConnection(sock=s2, session=ready_session("node-2"), control_plane_id="cp-1")
+        client.register(c1)
+        client.register(c2)
+        self.assertEqual(len(client.live_node_ids()), 2)
+
+        revoked = client.revoke_all()
+        self.assertEqual(sorted(revoked), ["node-1", "node-2"])
+        self.assertEqual(client.live_node_ids(), ())
+        self.assertFalse(c1.alive)
+        self.assertFalse(c2.alive)
+        p1.close()
+        p2.close()
+
 
 if __name__ == "__main__":
     unittest.main()
+

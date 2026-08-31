@@ -95,7 +95,20 @@ class SQLiteIdentityStore:
         self._db.execute("PRAGMA busy_timeout = 5000")
         if self.path != ":memory:":
             self._db.execute("PRAGMA journal_mode = WAL")
+        self._revocation_listeners: list[Callable[[str, str], None]] = []
         self._migrate()
+
+    def register_revocation_listener(self, listener: Callable[[str, str], None]) -> None:
+        """Register a callback for revocation events (target_type: 'node'|'key', target_id: str)."""
+        if listener not in self._revocation_listeners:
+            self._revocation_listeners.append(listener)
+
+    def _notify_revocation(self, target_type: str, target_id: str) -> None:
+        for listener in list(self._revocation_listeners):
+            try:
+                listener(target_type, target_id)
+            except Exception:
+                pass
 
     def close(self) -> None:
         self._db.close()
@@ -291,13 +304,23 @@ class SQLiteIdentityStore:
                 )
             elif existing["status"] == "revoked":
                 raise EnrollmentConflict("a revoked key cannot be reactivated")
+            old_keys = []
             if revoke_previous:
+                old_keys = [
+                    r["key_id"]
+                    for r in self._db.execute(
+                        "SELECT key_id FROM node_key WHERE node_id=? AND key_id<>? AND status='active'",
+                        (node_id, key_id),
+                    ).fetchall()
+                ]
                 self._db.execute(
                     "UPDATE node_key SET status='revoked', revoked_at=? "
                     "WHERE node_id=? AND key_id<>? AND status='active'",
                     (now_text, node_id, key_id),
                 )
             self._db.execute("COMMIT")
+            for old_k in old_keys:
+                self._notify_revocation("key", old_k)
         except Exception:
             if self._db.in_transaction:
                 self._db.execute("ROLLBACK")
@@ -324,6 +347,7 @@ class SQLiteIdentityStore:
                 "UPDATE node_key SET status='revoked', revoked_at=? WHERE key_id=?",
                 (_utc_text(now_utc), key_id),
             )
+            self._notify_revocation("key", key_id)
         return self.get_key_state(node_id, key_id)
 
     def revoke_node(
@@ -348,6 +372,7 @@ class SQLiteIdentityStore:
                 (now_text, node_id),
             )
             self._db.execute("COMMIT")
+            self._notify_revocation("node", node_id)
         except Exception:
             if self._db.in_transaction:
                 self._db.execute("ROLLBACK")

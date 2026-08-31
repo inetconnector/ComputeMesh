@@ -160,6 +160,15 @@ class IdentityStoreTests(unittest.TestCase):
                 now=self.now,
             )
 
+    def test_revocation_listener_invoked_on_revocation(self):
+        events = []
+        self.store.register_revocation_listener(lambda t, id_: events.append((t, id_)))
+
+        enrolled = self.store.enroll(self.token(), pubkey(), now=self.now)
+        # 1. Revoke key
+        self.store.revoke_key(enrolled.node_id, "provider-1", enrolled.key_id, now=self.now)
+        self.assertEqual(events, [("key", enrolled.key_id)])
+
     def test_state_survives_restart(self):
         enrolled = self.store.enroll(self.token(), pubkey(), now=self.now)
         self.store.close()
@@ -170,3 +179,4 @@ class IdentityStoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
