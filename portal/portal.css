@@ -103,11 +103,12 @@ header.site-header {
 }
 
 .nav-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.65rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 0.65rem 1.5rem !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 .nav-sub-row {
@@ -189,11 +190,12 @@ header.site-header {
 }
 
 .nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  white-space: nowrap;
-  flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  margin-left: auto !important;
+  gap: 0.75rem !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 /* Language Toggle Button */
