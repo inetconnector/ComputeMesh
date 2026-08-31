@@ -851,13 +851,6 @@ let teaserRequestsRemaining = 20;
 let teaserResetAtMs = 0;
 let isPlaygroundInferencing = false;
 
-const QUICK_PROMPTS = {
-  explain_mesh: "In 2 concise sentences, what is ComputeMesh and how does it achieve 80% lower inference costs?",
-  python_fastapi: "Write a high-performance Python FastAPI server endpoint that forwards requests to an OpenAI-compatible /v1/chat/completions gateway with streaming.",
-  gpu_sharding: "Explain how pipeline layer sharding works across multiple consumer GPUs connected via PCIe 1x mining risers.",
-  compare_costs: "Provide a quick comparison table: ComputeMesh decentralized inference vs AWS Bedrock vs OpenAI API on 10M tokens."
-};
-
 function formatChatMarkdown(text) {
   if (!text) return "";
   // Escape basic HTML

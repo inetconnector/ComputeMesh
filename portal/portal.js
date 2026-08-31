@@ -105,6 +105,35 @@
     syncProviderControls();
   }
 
+  const QUICK_PROMPTS_FALLBACK = {
+    de: {
+      explain_mesh: "Was macht ComputeMesh einzigartig und wie funktioniert die dezentrale GPU-Inferenz?",
+      python_fastapi: "Schreibe einen performanten Python-FastAPI-Endpunkt, der Requests an das OpenAI-kompatible /v1/chat/completions Gateway mit Streaming weiterleitet.",
+      gpu_sharding: "Erkläre wie Pipeline-Layer-Sharding große KI-Modelle effizient über mehrere GPUs aufteilt.",
+      compare_costs: "Wie viel Geld kann ich mit ComputeMesh im Vergleich zu AWS oder Azure sparen?"
+    },
+    en: {
+      explain_mesh: "What makes ComputeMesh unique and how does decentralized GPU inference work?",
+      python_fastapi: "Write a high-performance Python FastAPI streaming endpoint using the OpenAI-compatible /v1/chat/completions gateway.",
+      gpu_sharding: "Explain how pipeline layer sharding efficiently distributes large AI models across multiple GPUs.",
+      compare_costs: "How much money can I save with ComputeMesh compared to AWS or Azure?"
+    }
+  };
+
+  window.applyQuickPrompt = function (promptKey) {
+    const lang = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de'))) ? 'de' : 'en';
+    const dict = (window.QUICK_PROMPTS && typeof window.QUICK_PROMPTS === 'object') ? window.QUICK_PROMPTS : QUICK_PROMPTS_FALLBACK;
+    const prompt = (dict[lang] && dict[lang][promptKey]) || (dict.en && dict.en[promptKey]) || '';
+    const inputEl = document.getElementById('playground-prompt-input');
+    if (prompt && inputEl) {
+      inputEl.value = prompt;
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(Math.max(inputEl.scrollHeight, 60), 140) + 'px';
+      inputEl.focus();
+      inputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
+
   const core = document.createElement('script');
   core.src = 'portal-core.js';
   core.async = false;
