@@ -77,6 +77,14 @@ h1, h2, h3, h4, .brand-logo {
   -webkit-text-fill-color: transparent;
 }
 
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-indigo));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .gradient-emerald {
   background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
   -webkit-background-clip: text;
@@ -88,10 +96,35 @@ header.site-header {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: rgba(7, 9, 14, 0.9);
+  background: rgba(7, 9, 14, 0.95);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 0.85rem 0;
+  padding: 0;
+}
+
+.nav-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav-sub-row {
+  background: rgba(2, 6, 23, 0.65);
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.nav-sub-container {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-sub-container::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-wrap {
@@ -99,6 +132,7 @@ header.site-header {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  padding: 0.65rem 1.5rem;
   flex-wrap: nowrap;
 }
 
@@ -108,7 +142,7 @@ header.site-header {
   gap: 0.75rem;
   text-decoration: none;
   color: var(--text-main);
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   flex-shrink: 0;
 }
 
@@ -127,26 +161,31 @@ header.site-header {
 
 .nav-links {
   display: flex;
-  gap: clamp(0.75rem, 1vw, 1.2rem);
+  gap: 1.25rem;
   align-items: center;
   list-style: none;
   margin: 0;
   padding: 0;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .nav-links a {
   color: var(--text-muted);
   text-decoration: none;
   font-weight: 500;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   white-space: nowrap;
-  transition: color 0.2s ease;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .nav-links a:hover {
   color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-actions {

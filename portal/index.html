@@ -19,7 +19,32 @@
   <link rel="stylesheet" href="portal.css">
 </head>
 <body>
-  <header class="site-header"><div class="container nav-wrap"><a href="#" class="brand"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span><span class="brand-badge">LIVE MESH</span></a><ul class="nav-links"><li><a href="#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li><li><a href="#features" data-i18n="nav_features">Funktionen</a></li><li><a href="#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li><li><a href="#downloads" data-i18n="nav_downloads">Downloads</a></li><li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li><li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li><li><a href="/status" data-i18n="nav_status">Systemstatus</a></li></ul><div class="nav-actions"><button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button><button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button><button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button></div></div></header>
+  <header class="site-header">
+    <div class="container nav-top-row">
+      <a href="#" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">LIVE MESH</span>
+      </a>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+      </div>
+    </div>
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li><a href="#features" data-i18n="nav_features">Funktionen</a></li>
+          <li><a href="#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
+          <li><a href="#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
 
   <section class="hero"><div class="container"><div class="hero-tagline"><span>⚡</span><span data-i18n="hero_tagline">Verteilte GPU-Power. Unendliche KI-Skalierung.</span></div><h1 data-i18n="hero_title">High-Performance KI-Inferenz.<br><span class="gradient-text">Dezentral. Skalierbar. 80% günstiger.</span></h1><p class="hero-sub" data-i18n="hero_sub">ComputeMesh bündelt verteilte GPU-Rechenleistung zu einem nahtlosen, extrem schnellen Inferenz-Netzwerk. Nutze modernste Open-Source-LLMs über unsere OpenAI-kompatible High-Speed-API zu einem Bruchteil herkömmlicher Cloud-Preise oder verdiene attraktive Erträge mit deinen eigenen Grafikkarten.</p><div class="hero-cta"><a href="#playground" class="btn btn-primary" data-i18n="btn_start_inferencing">⚡ Live-Playground testen</a><button class="btn btn-emerald" onclick="openModal('provider')" data-i18n="btn_provide_compute">🖥️ Hardware anbieten</button></div><div class="telemetry-ticker"><div class="ticker-item emerald"><div class="ticker-val" id="portal-ticker-vram">24.0 GB</div><div class="ticker-lbl" data-i18n="ticker_vram">Aktiver Mesh-VRAM</div></div><div class="ticker-item"><div class="ticker-val" id="portal-ticker-gpus">2 GPUs online</div><div class="ticker-lbl" data-i18n="ticker_gpus">Verbundene GPUs online</div></div><div class="ticker-item indigo"><div class="ticker-val" id="portal-ticker-tflops">48.6 TFLOPS</div><div class="ticker-lbl" data-i18n="ticker_tflops">Mesh-Rechenleistung</div></div><div class="ticker-item amber"><div class="ticker-val" id="portal-ticker-nodes">3 Nodes aktiv</div><div class="ticker-lbl" data-i18n="ticker_nodes">Verteilte Cluster-Knoten</div></div></div></div></section>
 

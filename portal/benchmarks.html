@@ -16,22 +16,30 @@
 </head>
 <body>
   <header class="site-header">
-    <div class="container nav-wrap">
+    <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
         <span class="brand-badge">Benchmarks</span>
       </a>
-      <ul class="nav-links">
-        <li><a href="/" data-i18n="nav_home">Startseite</a></li>
-        <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
-        <li><a href="/benchmarks" class="gradient-text" data-i18n="nav_benchmarks">Benchmarks</a></li>
-        <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-      </ul>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
         <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
       </div>
     </div>
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li><a href="/#features" data-i18n="nav_features">Funktionen</a></li>
+          <li><a href="/#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
+          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+        </ul>
+      </div>
+    </nav>
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
