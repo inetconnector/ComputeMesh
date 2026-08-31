@@ -1,5 +1,6 @@
 """Unit tests for ComputeMesh Public Web Portal & Registration Server."""
 from http.server import ThreadingHTTPServer
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import threading
@@ -118,6 +119,38 @@ class TestPortalServer(unittest.TestCase):
             self.assertEqual(data["source"], "not_configured")
             self.assertEqual(data["active_gpus"], 0)
             self.assertEqual(data["total_vram_gb"], 0)
+
+    def test_mesh_stats_api_counts_only_fresh_heartbeats(self) -> None:
+        NODE_TELEMETRY_REGISTRY.clear()
+        now = datetime.now(timezone.utc)
+        NODE_TELEMETRY_REGISTRY.update({
+            "fresh-node": {
+                "node_id": "fresh-node",
+                "inventory": {
+                    "gpus": [{"vram_bytes": 8 * 1024 * 1024 * 1024}],
+                },
+                "telemetry": {"local_compute_tflops": 24.0, "tokens_processed": 100},
+                "updated_at": now.isoformat().replace("+00:00", "Z"),
+            },
+            "stale-node": {
+                "node_id": "stale-node",
+                "inventory": {
+                    "gpus": [{"vram_bytes": 16 * 1024 * 1024 * 1024}],
+                },
+                "telemetry": {"local_compute_tflops": 48.0, "tokens_processed": 200},
+                "updated_at": (now - timedelta(minutes=10)).isoformat().replace("+00:00", "Z"),
+            },
+        })
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:13000/api/v1/mesh/stats") as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data["source"], "authenticated_cluster")
+                self.assertEqual(data["active_gpus"], 1)
+                self.assertEqual(data["total_nodes"], 1)
+                self.assertEqual(data["total_vram_gb"], 8.0)
+        finally:
+            NODE_TELEMETRY_REGISTRY.clear()
 
     def test_node_heartbeat_and_status_require_node_token(self) -> None:
         NODE_TELEMETRY_REGISTRY.clear()

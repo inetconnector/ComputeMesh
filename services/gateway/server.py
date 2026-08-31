@@ -40,6 +40,7 @@ from services.gateway.auth import GatewayAuthManager, extract_bearer_token, reso
 from services.gateway.catalog import AVAILABLE_MODELS, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
+    fresh_node_telemetry_entries,
     render_node_remote_dashboard_html,
     save_node_telemetry_registry,
 )
@@ -311,7 +312,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/mesh/stats", "/api/v1/mesh/stats"):
-            if not NODE_TELEMETRY_REGISTRY:
+            live_nodes = fresh_node_telemetry_entries()
+            if not live_nodes:
                 payload = {
                     "source": "not_configured",
                     "active_gpus": 0,
@@ -327,14 +329,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             else:
                 total_vram = sum(
                     sum(g.get("vram_bytes", 0) for g in n.get("inventory", {}).get("gpus", []))
-                    for n in NODE_TELEMETRY_REGISTRY.values()
+                    for n in live_nodes
                 ) / (1024**3)
-                total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in NODE_TELEMETRY_REGISTRY.values())
-                total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in NODE_TELEMETRY_REGISTRY.values())
-                tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in NODE_TELEMETRY_REGISTRY.values())
+                total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in live_nodes)
+                total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in live_nodes)
+                tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in live_nodes)
                 latencies = [
                     float(n.get("telemetry", {}).get("ping_latency_ms", 0.0))
-                    for n in NODE_TELEMETRY_REGISTRY.values()
+                    for n in live_nodes
                     if n.get("telemetry", {}).get("ping_latency_ms") is not None
                 ]
                 avg_lat = round(sum(latencies) / len(latencies), 1) if latencies else None
@@ -342,7 +344,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "source": "authenticated_cluster",
                     "active_gpus": total_gpus,
                     "total_vram_gb": round(total_vram, 1),
-                    "total_nodes": len(NODE_TELEMETRY_REGISTRY),
+                    "total_nodes": len(live_nodes),
                     "total_tflops": round(total_tflops, 1),
                     "tokens_served_today": tokens,
                     "average_latency_ms": avg_lat,

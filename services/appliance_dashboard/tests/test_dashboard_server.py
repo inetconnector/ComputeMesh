@@ -80,6 +80,51 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_placeholder_test_node_name_does_not_override_runtime_node_id(self) -> None:
+        mock_config = ApplianceConfig(
+            rig_name="test-node-custom",
+            provider_account_id="cm_0xabc",
+            payout_address="",
+            coordinator_url="https://coord.test",
+            network_mode="dhcp",
+            static_ip=None,
+            gateway=None,
+            dns=None,
+            enable_web_dashboard=True,
+            dashboard_port=8998,
+            allow_ssh=True,
+            ssh_authorized_keys=None,
+        )
+        mock_inventory = RigInventory(
+            schema_version=1,
+            captured_at="2026-08-22T12:00:00Z",
+            host_architecture="linux",
+            total_gpus=0,
+            total_vram_bytes=0,
+            gpus=[],
+            pcie_riser_warning=False,
+        )
+
+        from http.server import ThreadingHTTPServer
+        DashboardHandler.config = mock_config
+        DashboardHandler.inventory = mock_inventory
+        DashboardHandler.node_id = "supersrv-trixie"
+
+        server = ThreadingHTTPServer(("127.0.0.1", 18998), DashboardHandler)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        time.sleep(0.1)
+
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:18998/api/status") as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data["node_id"], "supersrv-trixie")
+                self.assertEqual(data["network"]["interfaces"][0]["url"], "https://computemesh.inetconnector.com/node/supersrv-trixie?auth=[REDACTED]")
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

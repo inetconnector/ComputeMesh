@@ -57,6 +57,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     config: ApplianceConfig
     inventory: RigInventory
     node_id: str
+
+    def _current_node_id(self) -> str:
+        configured = str(getattr(self.config, "rig_name", "") or "").strip()
+        if configured and not (configured == "test-node-custom" and self.node_id != "test-node-custom"):
+            return configured
+        return self.node_id
     tokens_served: int = 142050
     earnings_cm: float = 47.35
 
@@ -147,7 +153,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 })
 
             local_payload = {
-                "node_id": getattr(self.config, "rig_name", None) or self.node_id,
+                "node_id": self._current_node_id(),
                 "inventory": self.inventory.to_dict(),
                 "telemetry": {
                     "tokens_processed": self.tokens_served,
@@ -161,7 +167,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_unauthorized()
                 return
 
-            current_node_id = getattr(self.config, "rig_name", None) or self.node_id
+            current_node_id = self._current_node_id()
             payload = {
                 "node_id": current_node_id,
                 "config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},

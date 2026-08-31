@@ -109,6 +109,14 @@ X-GNOME-Autostart-enabled=true
         return False
 
 
+def resolve_headless_node_id(cfg: object) -> str:
+    configured = str(getattr(cfg, "rig_name", "") or "").strip()
+    if configured and configured != "test-node-custom":
+        return configured
+    from services.appliance_dashboard.tunnel_relay import get_default_node_id
+    return get_default_node_id()
+
+
 class LinuxComputeMeshProviderApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -716,7 +724,7 @@ def main() -> int:
         print("[ComputeMesh] Running in Headless Server Daemon Mode...")
         cfg = load_appliance_config()
         inv = scan_rig_hardware()
-        node_id = getattr(cfg, "rig_name", None) or "supersrv-trixie"
+        node_id = resolve_headless_node_id(cfg)
         from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
         relay = CloudTunnelRelay(node_id=node_id)
         run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)
@@ -733,7 +741,7 @@ def main() -> int:
         print(f"[ComputeMesh] GUI initialization skipped ({e}), falling back to headless server daemon...")
         cfg = load_appliance_config()
         inv = scan_rig_hardware()
-        node_id = getattr(cfg, "rig_name", None) or "supersrv-trixie"
+        node_id = resolve_headless_node_id(cfg)
         from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
         relay = CloudTunnelRelay(node_id=node_id)
         run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)

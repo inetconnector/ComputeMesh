@@ -4,6 +4,7 @@ Provides authenticated web-based remote telemetry viewing for edge nodes and clu
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import html
 import json
 import os
@@ -46,6 +47,23 @@ def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
 
 # Persistent registry for dynamic node heartbeats and telemetry
 NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
+
+
+def fresh_node_telemetry_entries(max_age_seconds: int = 120) -> list[dict[str, Any]]:
+    """Return only recently refreshed node telemetry entries for live capacity views."""
+    now = datetime.now(timezone.utc)
+    entries: list[dict[str, Any]] = []
+    for node_data in NODE_TELEMETRY_REGISTRY.values():
+        updated_at = str(node_data.get("updated_at", "")).strip()
+        if not updated_at:
+            continue
+        try:
+            timestamp = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if (now - timestamp).total_seconds() <= max_age_seconds:
+            entries.append(node_data)
+    return entries
 
 
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:

@@ -26,6 +26,7 @@ The goal: AI compute should not belong only to a few large providers. More peopl
 ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
+- public live capacity counters based only on fresh authenticated node heartbeats;
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - a provider app that lets a machine report available compute;

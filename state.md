@@ -2137,3 +2137,31 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - Verified the current listed Actions history has 0 completed failed runs.
 - Successful CI runs were intentionally preserved as release/merge evidence.
 - Updated `.github/workflows/ci.yml` from `actions/checkout@v4` to `actions/checkout@v5` and from `actions/setup-python@v5` to `actions/setup-python@v6` after GitHub Actions reported Node.js 20 deprecation warnings. The workflow logic and test commands were not otherwise changed.
+
+## 71. Live Portal Capacity Display and Node-ID Collision Fix (2026-08-31 16:59 CEST)
+
+### 1. Problem found
+- The public homepage displayed `Nicht verfügbar` for the live VRAM/GPU counters even though the live API at `https://computemesh.inetconnector.com/api/v1/mesh/stats` was reachable.
+- Root cause in `portal/portal-core.js`: the homepage still queried `/api/status` first, while the public deployment exposes the aggregate through `/api/v1/mesh/stats`; the old fallback also only recognized English placeholder strings.
+- A second operational issue made the registry confusing: the Linux webserver node was still using the stored placeholder `test-node-custom` rig name from `/root/.computemesh/provider_config.json`, which collided with the real Windows laptop node ID.
+
+### 2. Implemented changes
+- `portal/portal-core.js` now reads `/api/v1/mesh/stats` first, supports the older local `/api/status` schema only as fallback, and displays clear German/English no-live-data states instead of fabricated capacity values.
+- `portal/index.html` and `portal/status.html` now use plain German ticker text: `Live-VRAM verbundener GPUs`, `Live-GPUs online`, `Laborbeleg`, and `Noch im Aufbau`.
+- `services/gateway/dashboard.py` now exposes `fresh_node_telemetry_entries(max_age_seconds=120)`.
+- `services/gateway/server.py` and `services/portal/server_core.py` now aggregate live mesh stats only from fresh node heartbeats, so stale registry entries no longer inflate or block the public live capacity display.
+- `tools/appliance/linux_tray_app.py` now resolves Linux headless `test-node-custom` to the runtime/default node ID instead of sending the Windows/laptop placeholder name.
+- `services/appliance_dashboard/server.py` now reports the runtime node ID when the saved config still contains `test-node-custom` but the running process has a distinct node ID.
+
+### 3. Live deployment and verification
+- Deployed updated portal files to `/var/www/vhosts/inetconnector.com/site2/` on `supersrv-trixie` and copied matching source files into `/root/ComputeMesh` and `/opt/computemesh`.
+- Restarted `computemesh-gateway.service` and `computemesh-node.service`; `computemesh-gateway.service`, `computemesh-node.service`, and `computemesh-autoupdate.service` were verified active.
+- Live API verification after deploy: `https://computemesh.inetconnector.com/api/v1/mesh/stats` returned `active_gpus = 2`, `total_vram_gb = 24.0`, `total_nodes = 3`, `total_tflops = 48.6`.
+- The three live nodes were the AMD MI25 miner (`cm-inference-node-01`, 8 GB), the Windows RTX 3080 laptop (`test-node-custom`, 16 GB), and the GPU-less webserver node (`cm-node-v2202606372671474589`, 0 GB).
+- Authenticated laptop remote view at `https://computemesh.inetconnector.com/node/test-node-custom?auth=...` returned the RTX 3080 Laptop GPU with 16.0 GB VRAM.
+- Headless Chrome DOM checks against the live homepage and `/status` at `390x844` showed `24 GB` and `2 GPUs online`; `Nicht verfügbar` was not present in the live homepage HTML.
+
+### 4. Verification commands
+- `python -m py_compile services\gateway\dashboard.py services\gateway\server.py services\portal\server_core.py services\appliance_dashboard\server.py tools\appliance\linux_tray_app.py` passed locally.
+- `python -m unittest services.portal.tests.test_portal_server services.appliance_dashboard.tests.test_dashboard_server -v` passed 14/14 tests locally.
+- Debian server compile checks for `/root/ComputeMesh/services/gateway/{dashboard.py,server.py}`, `/root/ComputeMesh/services/portal/server_core.py`, `/opt/computemesh/services/appliance_dashboard/server.py`, and `/opt/computemesh/tools/appliance/linux_tray_app.py` passed before service restarts.

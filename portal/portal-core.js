@@ -34,12 +34,12 @@ const translations = {
     hero_sub: "The idea is simple: send an AI request to ComputeMesh, let the system find suitable hardware, run the work and measure honestly what already works today. Developers can test AI through one gateway, and hardware owners can register their machines as providers. Still pre-production: available models, speed and cost depend on the real setup.",
     btn_start_inferencing: "⚡ Try the playground",
     btn_provide_compute: "Offer hardware",
-    ticker_vram: "Authenticated live VRAM total",
-    ticker_gpus: "Authenticated live GPU count",
-    ticker_tokens: "Narrow two-node trusted-lab evidence",
-    ticker_uptime: "Broad LAN/WAN validation still open",
-    ticker_proof_val: "Bound proof",
-    ticker_preprod_val: "Pre-production",
+    ticker_vram: "Live VRAM from connected GPUs",
+    ticker_gpus: "Live GPUs online",
+    ticker_tokens: "Two machines tested together",
+    ticker_uptime: "More LAN/WAN tests still missing",
+    ticker_proof_val: "Lab proof",
+    ticker_preprod_val: "Still being built",
 
     // Playground Section
     pg_tag: "Gateway playground",
@@ -288,12 +288,12 @@ const translations = {
     hero_sub: "Die Idee ist einfach: Du schickst eine KI-Anfrage an ComputeMesh. Das System sucht passende Hardware, führt die Arbeit aus und misst ehrlich, was heute schon funktioniert. Entwickler können KI über ein Gateway testen, und Hardware-Besitzer können ihre Rechner als Provider registrieren. Noch Pre-Production: verfügbare Modelle, Tempo und Kosten hängen vom echten Setup ab.",
     btn_start_inferencing: "⚡ Playground testen",
     btn_provide_compute: "Hardware anbieten",
-    ticker_vram: "Authentifizierte Live-VRAM-Summe",
-    ticker_gpus: "Authentifizierte Live-GPU-Anzahl",
-    ticker_tokens: "Eng begrenzter Zwei-Knoten-Laborbeleg",
-    ticker_uptime: "Breite LAN/WAN-Validierung noch offen",
-    ticker_proof_val: "Gebundener Beleg",
-    ticker_preprod_val: "Pre-Production",
+    ticker_vram: "Live-VRAM verbundener GPUs",
+    ticker_gpus: "Live-GPUs online",
+    ticker_tokens: "Zwei Rechner gemeinsam getestet",
+    ticker_uptime: "Mehr LAN/WAN-Tests fehlen noch",
+    ticker_proof_val: "Laborbeleg",
+    ticker_preprod_val: "Noch im Aufbau",
 
     // Playground Section
     pg_tag: "Gateway-Playground",
@@ -678,7 +678,7 @@ function updateCalculators() {
   const hoursVal = document.getElementById('hours-val');
   
   if (earnEl) earnEl.innerHTML = `${(earnedCredits / 1000000).toFixed(2)}M CM <span style="font-size: 1.1rem; color: var(--accent-emerald); font-weight: 600;">($${estEarnings} / Mo)</span>`;
-  if (hoursVal) hoursVal.textContent = `${hours} h/day`;
+  if (hoursVal) hoursVal.textContent = currentLang === 'de' ? `${hours} h/Tag` : `${hours} h/day`;
 }
 
 function showTab(tabName) {
@@ -1229,26 +1229,67 @@ async function sendPlaygroundMessage() {
   }
 }
 
+function parseMeshTelemetryPayload(data) {
+  if (!data || typeof data !== 'object') return null;
+
+  if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
+    return {
+      source: data.global_mesh.source,
+      totalVramGb: Number(data.global_mesh.total_vram_gb || 0),
+      activeGpus: Number(data.global_mesh.total_gpus_active || 0),
+      totalNodes: Number(data.global_mesh.total_nodes_online || 0)
+    };
+  }
+
+  return {
+    source: data.source,
+    totalVramGb: Number(data.total_vram_gb || 0),
+    activeGpus: Number(data.active_gpus || 0),
+    totalNodes: Number(data.total_nodes || 0)
+  };
+}
+
+function updateMeshTelemetryTicker(stats) {
+  const vramEl = document.getElementById('portal-ticker-vram');
+  const gpusEl = document.getElementById('portal-ticker-gpus');
+  const hasLiveCapacity = stats
+    && stats.source
+    && stats.source !== 'not_configured'
+    && (stats.totalVramGb > 0 || stats.activeGpus > 0);
+
+  if (!hasLiveCapacity) {
+    if (vramEl) vramEl.textContent = currentLang === 'de' ? 'Keine Live-Daten' : 'No live data';
+    if (gpusEl) gpusEl.textContent = currentLang === 'de' ? 'Keine GPU online' : 'No GPU online';
+    return;
+  }
+
+  const locale = currentLang === 'de' ? 'de-DE' : 'en-US';
+  const gpuWord = stats.activeGpus === 1 ? 'GPU' : 'GPUs';
+  if (vramEl) {
+    vramEl.textContent = `${stats.totalVramGb.toLocaleString(locale, { maximumFractionDigits: 1 })} GB`;
+  }
+  if (gpusEl) {
+    gpusEl.textContent = currentLang === 'de'
+      ? `${stats.activeGpus} ${gpuWord} online`
+      : `${stats.activeGpus} ${gpuWord} online`;
+  }
+}
+
 async function fetchMeshTelemetry() {
+  const endpoints = ['/api/v1/mesh/stats', '/mesh/stats', '/api/status'];
   try {
-    const res = await fetch('/api/status', { cache: 'no-store' });
-    if (!res.ok) throw new Error('API offline');
-    const data = await res.json();
-    if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
-      const vramEl = document.getElementById('portal-ticker-vram');
-      const gpusEl = document.getElementById('portal-ticker-gpus');
-      if (vramEl) vramEl.textContent = `${Number(data.global_mesh.total_vram_gb || 8).toLocaleString()} GB`;
-      if (gpusEl) gpusEl.textContent = `${data.global_mesh.total_gpus_active || 1} GPU Online`;
+    for (const endpoint of endpoints) {
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const stats = parseMeshTelemetryPayload(await res.json());
+      if (stats) {
+        updateMeshTelemetryTicker(stats);
+        return;
+      }
     }
+    updateMeshTelemetryTicker(null);
   } catch (e) {
-    const vramEl = document.getElementById('portal-ticker-vram');
-    const gpusEl = document.getElementById('portal-ticker-gpus');
-    if (vramEl && (vramEl.textContent.includes('Not available') || !vramEl.textContent)) {
-      vramEl.textContent = '8 GB';
-    }
-    if (gpusEl && (gpusEl.textContent.includes('Registry offline') || !gpusEl.textContent)) {
-      gpusEl.textContent = '1 GPU Online';
-    }
+    updateMeshTelemetryTicker(null);
   }
 }
 

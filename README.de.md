@@ -26,6 +26,7 @@ Das Ziel: KI-Rechenleistung soll nicht nur wenigen großen Anbietern gehören. M
 ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 
 - eine öffentliche Webseite, die in Deutschland standardmäßig Deutsch zeigt;
+- Live-Zähler für öffentliche Kapazität, die nur frische authentifizierte Node-Heartbeats zählen;
 - signierte Windows- und Linux-Clients mit Update-Prüfung;
 - ein Gateway, über das KI-Anfragen angenommen werden können;
 - eine Provider-App, mit der ein Rechner seine verfügbare Leistung melden kann;
