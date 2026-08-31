@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kontakt & Support — ComputeMesh</title>
-  <meta name="description" content="ComputeMesh-Support für Entwickler-API-Integration, Abrechnung, Enterprise-Compute und Hardware-Provider-Onboarding kontaktieren.">
+  <title>Kontakt & Enterprise-Support — ComputeMesh</title>
+  <meta name="description" content="ComputeMesh-Support für Entwickler-API-Integration, Abrechnung, Enterprise-Compute und Hardware-Provider-Onboarding.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/contact">
   <link rel="stylesheet" href="portal.css">
@@ -29,38 +29,38 @@
 
   <main class="container" style="padding: 4rem 1.5rem; max-width: 750px;">
     <div class="section-header" style="text-align: left; margin-bottom: 2rem;">
-      <span class="section-tag" data-i18n="contact_tag">Kontakt aufnehmen</span>
-      <h1 data-i18n="contact_title">Support & Community Helpdesk</h1>
-      <p data-i18n="contact_sub">Fragen zum Betrieb eines Provider-Mining-Rigs, zur Integration der OpenAI-API oder zum Erwerb von Enterprise-Rechenguthaben?</p>
+      <span class="section-tag" data-i18n="contact_tag">KONTAKT AUFNEHMEN</span>
+      <h1 data-i18n="contact_title">Support & Enterprise-Beratung</h1>
+      <p data-i18n="contact_sub">Hast du Fragen zur API-Integration, zum Betrieb eines Provider-Mining-Rigs oder zu dedizierten Enterprise-Clustern?</p>
     </div>
 
     <div class="calc-box">
       <form onsubmit="handleContactSubmit(event)">
         <div class="form-group">
-          <label data-i18n="contact_name_lbl">Dein Name</label>
-          <input type="text" class="form-control" required placeholder="Alexander Müller">
+          <label data-i18n="contact_name_lbl">Dein Name / Unternehmen</label>
+          <input type="text" class="form-control" required placeholder="Alexander Müller (Tech Corp)">
         </div>
         <div class="form-group">
-          <label data-i18n="modal_email_lbl">E-Mail-Adresse</label>
+          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
           <input type="email" class="form-control" required placeholder="alex@company.de">
         </div>
         <div class="form-group">
           <label data-i18n="contact_topic_lbl">Thema</label>
           <select class="form-control">
-            <option value="provider">Mining-Rig & Hardware-Provider Support</option>
-            <option value="developer">Entwickler-API & Integration</option>
-            <option value="billing">Abrechnung & Guthabenaufladung</option>
-            <option value="enterprise">Individuelles Enterprise-Deployment</option>
+            <option value="provider" data-i18n="contact_opt_provider">Hardware-Provider & Mining-Rig Setup</option>
+            <option value="developer" data-i18n="contact_opt_developer">Entwickler-API & Plattform-Integration</option>
+            <option value="billing" data-i18n="contact_opt_billing">Abrechnung & Guthabenaufladung</option>
+            <option value="enterprise" data-i18n="contact_opt_enterprise">Individuelle Enterprise-GPU-Cluster & SLAs</option>
           </select>
         </div>
         <div class="form-group">
           <label data-i18n="contact_msg_lbl">Nachricht</label>
-          <textarea class="form-control" rows="5" required placeholder="Beschreibe deine Frage oder Hardware-Konfiguration..."></textarea>
+          <textarea class="form-control" rows="5" required placeholder="Beschreibe deine Frage oder gewünschte GPU-Konfiguration..."></textarea>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="contact_send_btn">Nachricht absenden</button>
       </form>
       <div id="contact-success-msg" style="display: none; margin-top: 1.5rem; color: var(--accent-emerald); font-weight: 600; text-align: center;" data-i18n="contact_success">
-        ✓ Deine Nachricht wurde erfolgreich gesendet. Unser Engineering-Team antwortet innerhalb von 24 Stunden.
+        ✓ Vielen Dank! Deine Nachricht wurde empfangen. Unser Engineering-Team antwortet innerhalb von 24 Stunden.
       </div>
     </div>
   </main>
@@ -68,7 +68,7 @@
   <footer class="site-footer">
     <div class="container footer-bottom" style="border: none;">
       <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Zurück zur Startseite</a></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;" data-i18n="back_to_home">&larr; Zurück zur Startseite</a></div>
     </div>
   </footer>
   <script src="portal.js"></script>

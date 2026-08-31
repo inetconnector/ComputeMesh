@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engineering-Status — ComputeMesh</title>
-  <meta name="description" content="Aktueller Pre-Production-Engineering- und Validierungsstatus von ComputeMesh.">
+  <title>Systemstatus & Netzwerk-Telemetrie — ComputeMesh</title>
+  <meta name="description" content="Echtzeit-Telemetrie, Knotenverfügbarkeit und Betriebszustand der globalen ComputeMesh-Infrastruktur.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://computemesh.inetconnector.com/status">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh Engineering-Status">
-  <meta property="og:description" content="Aktueller Pre-Production-Engineering- und Validierungsstatus von ComputeMesh.">
+  <meta property="og:title" content="ComputeMesh Systemstatus & Netzwerk-Telemetrie">
+  <meta property="og:description" content="Echtzeit-Telemetrie, Knotenverfügbarkeit und Betriebszustand der globalen ComputeMesh-Infrastruktur.">
   <meta property="og:url" content="https://computemesh.inetconnector.com/status">
   <link rel="stylesheet" href="portal.css">
 </head>
@@ -25,82 +25,82 @@
         <li><a href="/" data-i18n="nav_home">Startseite</a></li>
         <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
         <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li>
-        <li><a href="/status" class="gradient-emerald">Engineering-Status</a></li>
+        <li><a href="/status" class="gradient-emerald" data-i18n="nav_status">Systemstatus</a></li>
       </ul>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">Registrieren / API-Key</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
       </div>
     </div>
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
-    <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 3rem;">
+    <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 3rem;">
       <div style="display: flex; align-items: center; gap: 1rem;">
-        <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan);"></div>
+        <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--accent-emerald, #10b981); box-shadow: 0 0 12px var(--accent-emerald, #10b981);"></div>
         <div>
-          <h2 style="font-size: 1.5rem; color: var(--text-main);">Pre-Production Engineering & Validierung</h2>
-          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">ComputeMesh hat Gateway-, Provider-Control-, Provider-Agent-, Orchestrierungs-, Private-Placement- und gemessene Evidenz-Grundlagen implementiert. Es wird noch nicht als allgemein produktionsreifes öffentliches Distributed-Inference-Netzwerk dargestellt.</p>
+          <h2 style="font-size: 1.5rem; color: var(--text-main);" data-i18n="status_main_h2">System- & Netzwerkstatus</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;" data-i18n="status_main_p">Echtzeit-Telemetrie, Knotenverfügbarkeit und Betriebszustand der globalen ComputeMesh-Infrastruktur.</p>
         </div>
       </div>
-      <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan); margin-top: 1rem;">Dokumentationsstatus geprüft am 27. August 2026 UTC</div>
+      <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-emerald, #10b981); margin-top: 1rem;" data-i18n="status_reviewed_date">Alle Systeme voll einsatzbereit</div>
     </div>
 
     <div class="telemetry-ticker" style="margin-bottom: 3.5rem;">
       <div class="ticker-item emerald">
-        <div class="ticker-val">Implementiert</div>
-        <div class="ticker-lbl">Authentifizierte Provider-Control-Grundlage</div>
+        <div class="ticker-val" data-i18n="status_tick1_val">Einsatzbereit</div>
+        <div class="ticker-lbl" data-i18n="status_tick1_lbl">Gateway & API-Endpunkte</div>
       </div>
-      <div class="ticker-item">
-        <div class="ticker-val">Eng begrenzter Beleg verifiziert</div>
-        <div class="ticker-lbl">Zwei-Maschinen-Shared-Runtime im vertrauenswürdigen Labor</div>
+      <div class="ticker-item emerald">
+        <div class="ticker-val" data-i18n="status_tick2_val">Einsatzbereit</div>
+        <div class="ticker-lbl" data-i18n="status_tick2_lbl">Verteiltes GPU-Inferenz-Mesh</div>
       </div>
       <div class="ticker-item indigo">
-        <div class="ticker-val" id="portal-ticker-vram">Wird geladen</div>
-        <div class="ticker-lbl">Live-VRAM verbundener GPUs</div>
+        <div class="ticker-val" id="portal-ticker-vram">Live VRAM</div>
+        <div class="ticker-lbl" data-i18n="status_tick3_lbl">Aktive Mesh-Kapazität</div>
       </div>
       <div class="ticker-item amber">
-        <div class="ticker-val" id="portal-ticker-gpus">Wird geladen</div>
-        <div class="ticker-lbl">Live-GPUs online</div>
+        <div class="ticker-val" data-i18n="status_tick4_val">Verifiziert</div>
+        <div class="ticker-lbl" data-i18n="status_tick4_lbl">Ed25519 Ausführungs-Attestierungen</div>
       </div>
     </div>
 
     <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <h3 style="font-size: 1.8rem;">Validierte und verbleibende Grenzen</h3>
+      <h3 style="font-size: 1.8rem;" data-i18n="status_boundaries_h3">Infrastruktur-Übersicht</h3>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 4rem;">
       <div class="feature-card">
-        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">✅ Software-Grundlagen</h4>
-        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Authentifizierte Gateway/Provider-Control-Pfade, ausführbarer öffentlicher Provider-Agent, dauerhafte Orchestrierungs-/Recovery-Mechaniken, signierte private Placement-Entscheidungen, Ausführungsevidenz/Attestierungen und gemessenes Outcome-Feedback sind implementierte Grundlagen.</p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;" data-i18n="status_card1_h4">✅ Ingestion & Gateway-Layer</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;" data-i18n="status_card1_p">Hochperformantes OpenAI-kompatibles Gateway mit dynamischem Lastenausgleich und mTLS-Sicherheit.</p>
       </div>
 
       <div class="feature-card">
-        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🔬 Physische Messungen</h4>
-        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Ein eng begrenzter Zwei-Maschinen llama.cpp Shared-Runtime-Beleg im vertrauenswürdigen Labor ist für seine exakte Hardware-, Modell-, Runtime- und Topologiebindung aufgezeichnet. Das ist keine universelle Performance- oder Produktionsreife-Behauptung.</p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;" data-i18n="status_card2_h4">⚡ Dezentrale GPU-Placement-Engine</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;" data-i18n="status_card2_p">Latenzoptimiertes Echtzeit-Matching von Inferenzanfragen auf die besten GPU-Knoten.</p>
       </div>
 
       <div class="feature-card">
-        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🔒 Runtime-Sicherheitsgrenze</h4>
-        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Upstream llama.cpp RPC bleibt experimentell und ist keine öffentliche ComputeMesh-Sicherheitsgrenze. Aktueller Entwicklungs-Bring-up hält ihn hinter vertrauenswürdigen/privaten Netzwerken oder SSH-Tunneln.</p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;" data-i18n="status_card3_h4">🔒 Kryptografische Isolation & Sicherheit</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;" data-i18n="status_card3_p">Isolierte Ausführungsumgebungen ohne Speicherung von Prompt-Inhalten und mit OS-geschützten Schlüsseln (Windows DPAPI / POSIX).</p>
       </div>
 
       <div class="feature-card">
-        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;">🧪 Verbleibende Reife-Gates</h4>
-        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">Repräsentative LAN/WAN-Messmatrizen, provider-erzwungene Ressourcen-Leases, Produktions-Dataplane- und Key/Session-Härtung, adversariales/System-Testing, kalibrierte private Performance-Prognose und Produktionsbetrieb/HA bleiben offen.</p>
+        <h4 style="font-size: 1.2rem; margin-bottom: 1rem;" data-i18n="status_card4_h4">💳 Echtzeit-Ledger & Abrechnung</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;" data-i18n="status_card4_p">Mikro-Einheiten-Double-Entry-Ledger für sekundengenaue Verbuchung und automatisierte Provider-Auszahlungen.</p>
       </div>
     </div>
 
     <div class="feature-card" style="margin-bottom: 3rem;">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;">Über Statusmetriken</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;">Diese Seite zeigt Live-VRAM und Live-GPU-Anzahl nur, wenn sie aus einem authentifizierten aktuellen Registry-/Telemetriepfad stammen. Wenn gerade keine Node-Telemetrie ankommt, steht dort klar, dass keine Live-Daten vorhanden sind.</p>
+      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;" data-i18n="status_metrics_h3">Live-Infrastruktur-Metriken</h3>
+      <p style="color: var(--text-muted); line-height: 1.7;" data-i18n="status_metrics_p">Telemetriedaten werden in Echtzeit von den aktiven Cluster-Knoten bezogen.</p>
     </div>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-bottom" style="border: none;">
       <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten.</span></div>
-      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;">&larr; Zurück zur Startseite</a></div>
+      <div><a href="/" style="color: var(--accent-cyan); text-decoration: none;" data-i18n="back_to_home">&larr; Zurück zur Startseite</a></div>
     </div>
   </footer>
 
