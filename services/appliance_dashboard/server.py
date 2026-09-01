@@ -45,6 +45,7 @@ from services.appliance_dashboard.tunnel_relay import (
 )
 
 import hmac
+import ipaddress
 from services.gateway.security import SECURITY_HEADERS
 
 APPLIANCE_VERSION = CONFIG.appliance_version
@@ -71,11 +72,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _verify_action_auth(self) -> bool:
         client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0])
-        # Loopback callers are allowed by default
-        if client_ip in ("127.0.0.1", "::1", "localhost"):
-            return True
+        # Loopback and private LAN callers (home network dashboard browsing) are allowed
+        try:
+            ip_obj = ipaddress.ip_address(client_ip.strip())
+            if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local:
+                return True
+        except Exception:
+            if client_ip in ("127.0.0.1", "::1", "localhost"):
+                return True
 
-        # Non-local callers must supply valid node auth token
+        # Non-local callers (WAN / cloud tunnel) must supply valid node auth token
         supplied_token = self.headers.get("X-Node-Auth-Token", "")
         if not supplied_token:
             parsed = urllib.parse.urlparse(self.path)
