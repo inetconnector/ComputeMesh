@@ -238,7 +238,7 @@ def main() -> int:
     parser.add_argument("--check-and-apply", action="store_true", help="Check and apply update if available")
     parser.add_argument("--daemon", action="store_true", help="Run continuously in background checking periodically")
     parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (default 300s)")
-    parser.add_argument("--version", default="1.2.21", help="Current running version")
+    parser.add_argument("--version", default=CONFIG.appliance_version, help="Current running version")
     args = parser.parse_args()
 
     updater = AutoUpdater(current_version=args.version)

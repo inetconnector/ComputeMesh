@@ -585,11 +585,12 @@ class TestSecurityAuditFixes(unittest.TestCase):
     # 17. Release Manifest SHA-256 Binary Integrity & Ed25519 Signature Verification
     def test_release_manifest_sha256_binary_integrity(self) -> None:
         import hashlib
+        from config import CONFIG
         from tools.security.ed25519_verify import verify_ed25519_signature
         manifest_file = REPO_ROOT / "portal" / "updates" / "version.json"
         self.assertTrue(manifest_file.exists())
         data = json.loads(manifest_file.read_text(encoding="utf-8"))
-        self.assertEqual(data.get("version"), "1.2.21")
+        self.assertEqual(data.get("version"), CONFIG.appliance_version)
 
         for platform, info in data.get("platforms", {}).items():
             fn = info.get("filename")

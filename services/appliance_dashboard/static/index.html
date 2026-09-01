@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>ComputeMesh NodeOS — AI Inference Appliance</title>
+  <!-- ComputeMesh NodeOS / Windows Provider Dashboard -->
+  <title id="page-title">ComputeMesh Dashboard — AI Inference Provider</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -652,7 +653,7 @@
     <div class="header-top-row">
       <div class="logo">
         <span>ComputeMesh</span>
-        <span class="logo-badge">NodeOS</span>
+        <span class="logo-badge" id="logo-badge">Node</span>
       </div>
       <div class="status-pill">
         <div class="status-dot"></div>
@@ -852,7 +853,7 @@
             </select>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="group-kiosk">
             <label class="form-label">Physical Monitor Display Mode</label>
             <select id="cfg-kiosk" class="form-select">
               <option value="true" selected>Fullscreen Web Kiosk (Chromium 1080p/4K)</option>
@@ -869,7 +870,7 @@
             <span class="form-desc" id="update-status">Checking signed release status...</span>
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="group-auto-system-upgrade">
             <label class="form-label">Automatic Operating System Security Upgrades</label>
             <select id="cfg-auto-system-upgrade" class="form-select">
               <option value="true" selected>Enabled (Automated Debian Kernel & Security Package Upgrades)</option>
@@ -881,20 +882,52 @@
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
           <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check Signed Update</button>
-          <button class="btn btn-secondary" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
-          <button class="btn btn-secondary" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
-          <button class="btn btn-danger" onclick="rebootNode()">⚡ Reboot Node</button>
+          <button class="btn btn-secondary" id="btn-os-upgrade" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
+          <button class="btn btn-secondary" id="btn-restart-daemon" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
+          <button class="btn btn-danger" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
       </div>
     </div>
   </main>
 
   <footer>
-    <div id="footer-node-id">ComputeMesh NodeOS Appliance</div>
+    <div id="footer-node-id">ComputeMesh Provider Node</div>
   </footer>
 
   <script>
     let nodeState = null;
+
+    function applyPlatformView(isWindows, platformName) {
+      const badgeEl = document.getElementById('logo-badge');
+      const groupKiosk = document.getElementById('group-kiosk');
+      const groupSysUpgrade = document.getElementById('group-auto-system-upgrade');
+      const btnOsUpgrade = document.getElementById('btn-os-upgrade');
+      const btnReboot = document.getElementById('btn-reboot-node');
+      const pageTitle = document.getElementById('page-title') || document.querySelector('title');
+
+      if (isWindows) {
+        if (badgeEl) badgeEl.textContent = 'Windows';
+        if (pageTitle) document.title = 'ComputeMesh Provider Node — AI Inference';
+        if (groupKiosk) groupKiosk.style.display = 'none';
+        if (groupSysUpgrade) groupSysUpgrade.style.display = 'none';
+        if (btnOsUpgrade) btnOsUpgrade.style.display = 'none';
+        if (btnReboot) btnReboot.style.display = 'none';
+      } else {
+        if (badgeEl) badgeEl.textContent = (platformName && platformName.includes('NodeOS')) ? 'NodeOS' : 'Linux';
+        if (pageTitle) document.title = 'ComputeMesh NodeOS — AI Inference Appliance';
+        if (groupKiosk) groupKiosk.style.display = '';
+        if (groupSysUpgrade) groupSysUpgrade.style.display = '';
+        if (btnOsUpgrade) btnOsUpgrade.style.display = '';
+        if (btnReboot) btnReboot.style.display = '';
+      }
+    }
+
+    try {
+      const initialIsWin = (typeof navigator !== 'undefined' && (/Win/i.test(navigator.platform || '') || /Windows/i.test(navigator.userAgent || '')));
+      if (initialIsWin) {
+        applyPlatformView(true, 'Windows');
+      }
+    } catch (e) {}
 
     function switchTab(tabId, btnEl) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -1096,8 +1129,14 @@
           const payoutUsd = rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : rawCredits * 0.75;
           elEarnings.textContent = `${rawCredits >= 1000 ? rawCredits.toLocaleString() : rawCredits.toFixed(2)} CM ($${(rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : (rawCredits * 0.75)).toFixed(4)})`;
         }
+        const isWindows = Boolean(data.is_windows || data.os === 'windows' || (data.inventory && data.inventory.host_architecture === 'win32'));
+        applyPlatformView(isWindows, data.platform_name || (isWindows ? 'Windows' : 'NodeOS'));
+
         const elFooter = document.getElementById('footer-node-id');
-        if (elFooter) elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
+        if (elFooter) {
+          const platformStr = isWindows ? 'Windows' : (data.is_appliance ? 'NodeOS Appliance' : 'Linux Node');
+          elFooter.textContent = 'Node: ' + (data.node_id || 'Node') + ' • Platform: ' + platformStr + ' • Version: ' + ((data.software && data.software.current_version) || 'unknown') + ' • Payout: ' + ((data.config && data.config.payout_address) || 'Not Set');
+        }
 
         // Populate Global Mesh Network Stats from authenticated live cluster aggregator
         if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
@@ -1278,9 +1317,9 @@
       const vramReserve = parseInt(document.getElementById('cfg-vram-reserve').value, 10) || 512;
       const maxTemp = parseInt(document.getElementById('cfg-max-temp').value, 10) || 80;
       const powerMode = document.getElementById('cfg-power-mode').value;
-      const enableKiosk = document.getElementById('cfg-kiosk').value === 'true';
-      const autoUpdate = document.getElementById('cfg-auto-update').value === 'true';
-      const autoSystemUpgrade = document.getElementById('cfg-auto-system-upgrade').value === 'true';
+      const enableKiosk = document.getElementById('cfg-kiosk') ? document.getElementById('cfg-kiosk').value === 'true' : false;
+      const autoUpdate = document.getElementById('cfg-auto-update') ? document.getElementById('cfg-auto-update').value === 'true' : true;
+      const autoSystemUpgrade = document.getElementById('cfg-auto-system-upgrade') ? document.getElementById('cfg-auto-system-upgrade').value === 'true' : false;
 
       const disabledGpus = [];
       nodeState.inventory.gpus.forEach(gpu => {

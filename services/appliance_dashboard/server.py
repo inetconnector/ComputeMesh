@@ -174,8 +174,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
 
             current_node_id = self._current_node_id()
+            is_win = sys.platform == "win32"
+            is_lin = sys.platform.startswith("linux")
+            is_appl = is_lin and Path("/opt/computemesh").exists()
             payload = {
                 "node_id": current_node_id,
+                "os": "windows" if is_win else ("linux" if is_lin else sys.platform),
+                "is_windows": is_win,
+                "is_linux": is_lin,
+                "is_appliance": is_appl,
+                "platform_name": "Windows" if is_win else ("Linux (NodeOS)" if is_appl else "Linux"),
                 "config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
                 "inventory": self.inventory.to_dict(),
                 "network": {
@@ -304,9 +312,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if req_path == "/api/action/reboot":
             if sys.platform == "win32":
-                subprocess.Popen(["shutdown", "/r", "/t", "5"], stderr=subprocess.DEVNULL, creationflags=0x08000000)
-            else:
-                subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
+                err_resp = json.dumps({"status": "error", "message": "Reboot is not supported on Windows."}).encode("utf-8")
+                self.send_response(HTTPStatus.BAD_REQUEST)
+                self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(err_resp)))
+                self.end_headers()
+                self.wfile.write(err_resp)
+                return
+
+            subprocess.Popen(["systemctl", "reboot"], stderr=subprocess.DEVNULL)
             resp = json.dumps({"status": "ok", "message": "Rebooting system"}).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
@@ -319,6 +336,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if req_path == "/api/action/os_upgrade":
+            if sys.platform == "win32":
+                err_resp = json.dumps({"status": "error", "message": "OS upgrades are not supported on Windows."}).encode("utf-8")
+                self.send_response(HTTPStatus.BAD_REQUEST)
+                self.send_header("Content-Type", "application/json")
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(err_resp)))
+                self.end_headers()
+                self.wfile.write(err_resp)
+                return
+
             try:
                 subprocess.Popen(
                     ["apt-get", "update", "-qq"],

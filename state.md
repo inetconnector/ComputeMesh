@@ -2165,3 +2165,22 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - `python -m py_compile services\gateway\dashboard.py services\gateway\server.py services\portal\server_core.py services\appliance_dashboard\server.py tools\appliance\linux_tray_app.py` passed locally.
 - `python -m unittest services.portal.tests.test_portal_server services.appliance_dashboard.tests.test_dashboard_server -v` passed 14/14 tests locally.
 - Debian server compile checks for `/root/ComputeMesh/services/gateway/{dashboard.py,server.py}`, `/root/ComputeMesh/services/portal/server_core.py`, `/opt/computemesh/services/appliance_dashboard/server.py`, and `/opt/computemesh/tools/appliance/linux_tray_app.py` passed before service restarts.
+
+## 72. Windows Client Dashboard Platform View & v1.2.22 Live Release (2026-09-01 22:50 CEST)
+
+1. **Windows Platform View in Appliance Dashboard (`services/appliance_dashboard/static/index.html`):**
+   - Hides Debian-specific OS update controls (`group-auto-system-upgrade`, `btn-os-upgrade`) and physical console/kiosk monitor mode (`group-kiosk`) when running on Windows desktop systems.
+   - Hides the `⚡ Reboot Node` button on Windows to prevent accidental host reboot commands.
+   - Dynamic branding updates title and badge to `Windows` / `ComputeMesh Provider Node — AI Inference`.
+   - Footer dynamically displays `Platform: Windows` vs. `Platform: NodeOS Appliance` / `Linux Node`.
+
+2. **Backend Platform Telemetry & Request Safety (`services/appliance_dashboard/server.py`):**
+   - `/api/status` exposes `is_windows`, `os`, and `platform_name`.
+   - `/api/action/reboot` and `/api/action/os_upgrade` return `400 Bad Request` with an explanatory error message when invoked on Windows systems.
+
+3. **Release Build & Verification (v1.2.22):**
+   - Rebuilt `portal/downloads/ComputeMesh-Setup-x64.exe` (39,170,645 bytes, SHA-256: `f402532b...`).
+   - Rebuilt `portal/downloads/computemesh-linux-x86_64.tar.gz` (505,188 bytes, SHA-256: `548eb3d1...`).
+   - Cryptographically signed `portal/updates/version.json` with Master Ed25519 key (`[VALID OK]`).
+   - Unified test harness (`python run_all_tests.py`): **444/444 tests passed in 19.36s (100% OK)**.
+   - Deployed and live-verified on `supersrv-trixie` (`computemesh-gateway.service`, `computemesh-node.service`, `computemesh-autoupdate.service` all active).
