@@ -96,11 +96,11 @@ class CloudTunnelRelay:
                     "status": "online",
                     "inventory": inv.to_dict(),
                     "telemetry": {
-                        "tokens_processed": 142050,
-                        "earnings_cm": 0.0016,
+                        "tokens_processed": 0,
+                        "earnings_cm": 0.0,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
-                        "is_simulated": True,
+                        "is_simulated": False,
                     },
                 }
                 gm = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
@@ -116,11 +116,11 @@ class CloudTunnelRelay:
                     "auth_token": self.auth_token,
                     "inventory": inv.to_dict(),
                     "telemetry": {
-                        "tokens_processed": 142050,
-                        "earnings_cm": 0.0016,
+                        "tokens_processed": 0,
+                        "earnings_cm": 0.0,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
-                        "is_simulated": True,
+                        "is_simulated": False,
                     },
                     "global_mesh": gm,
                 }

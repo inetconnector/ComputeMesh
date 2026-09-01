@@ -111,6 +111,8 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
             src = repo_src / subdir
             if src.exists():
                 shutil.copytree(src, cm_target / subdir, dirs_exist_ok=True)
+        if (repo_src / "config.py").exists():
+            shutil.copy(repo_src / "config.py", cm_target / "config.py")
 
         # Install launcher script
         bin_dir = cm_target / "bin"
@@ -215,13 +217,16 @@ WantedBy=multi-user.target
         tty1_banner = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-console.service"
         tty1_banner.write_text(
             """[Unit]
-Description=ComputeMesh Physical Console Status Display
+Description=ComputeMesh Graphical Fullscreen Kiosk Dashboard
 After=computemesh-appliance.service
 Wants=computemesh-appliance.service
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'while true; do clear; echo "======================================================================"; echo "      ComputeMesh NodeOS Live Appliance (v1.1.2) [Fullscreen Kiosk Enabled]"; echo "======================================================================"; echo "  Node Status:   ONLINE & ACTIVE"; echo "  Dashboard URL: http://$(hostname -I | awk \"{print \\$1}\"):8080/"; echo "  SSH Access:    root@$(hostname -I | awk \"{print \\$1}\") (pw: computemesh)"; echo "======================================================================"; echo ""; /usr/bin/python3 -c "import sys; sys.path.insert(0, \\"/opt/computemesh\\"); from tools.appliance.hardware_detector import scan_rig_hardware; r = scan_rig_hardware(); print(f\\"  Detected GPUs: {len(r.gpus)}\\"); [print(f\\"    [{g.index}] {g.model_name} ({g.driver_backend.upper()}) - {g.vram_mb} MB VRAM - {g.temperature_c}°C\\") for g in r.gpus]"; echo ""; echo "======================================================================"; sleep 5; done'
+User=root
+ExecStart=/usr/bin/python3 /opt/computemesh/tools/appliance/console_monitor.py
+Restart=always
+RestartSec=5
 StandardInput=tty
 StandardOutput=tty
 TTYPath=/dev/tty1
@@ -234,7 +239,7 @@ WantedBy=multi-user.target
             encoding="utf-8",
         )
 
-        # Enable services
+        # Enable services in chroot
         chroot_exec("systemctl enable computemesh-appliance.service")
         chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")
@@ -292,9 +297,9 @@ WantedBy=multi-user.target
     # Default USB config template on root of ISO
     (ISO_DIR / "computemesh.env").write_text(
         """# ComputeMesh NodeOS USB Boot Configuration
-NODE_NAME=mining-rig-01
-WALLET_PAYOUT_ADDRESS=0x0000000000000000000000000000000000000000
-API_KEY=cm_node_default_key
+NODE_NAME=cm-node-provider
+WALLET_PAYOUT_ADDRESS=
+API_KEY=
 COORDINATOR_URL=https://mesh.inetconnector.com
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512

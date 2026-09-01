@@ -744,28 +744,28 @@
             <span>🌐 Heterogenes ComputeMesh-Netzwerk (Aktiver Cluster-Verbund)</span>
           </div>
           <span id="mesh-registry-status" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-emerald); font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">
-            🟢 2/2 Cluster-Nodes Verbunden
+            🟢 Live-Registry Aktiv
           </span>
         </div>
         <div class="stats-grid" style="margin-bottom: 0.85rem;">
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0, 240, 255, 0.2); padding: 0.85rem;">
             <div class="stat-label" style="color: var(--accent-cyan); font-weight: 600;">Totaler Mesh VRAM Pool</div>
-            <div class="stat-value" id="mesh-vram" style="color: #00f0ff; font-size: 1.45rem;">24.0 GB Pool</div>
-            <div class="stat-sub" style="color: var(--text-dim);">16 GB (Laptop) + 8 GB (Miner)</div>
+            <div class="stat-value" id="mesh-vram" style="color: #00f0ff; font-size: 1.45rem;">-- GB Pool</div>
+            <div class="stat-sub" style="color: var(--text-dim);">Echte dedizierte GPU-Kapazität</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); padding: 0.85rem;">
             <div class="stat-label">Totale Mesh-Rechenleistung</div>
-            <div class="stat-value" id="mesh-tflops" style="color: var(--accent-cyan); font-size: 1.45rem;">48.6 TFLOPS</div>
+            <div class="stat-value" id="mesh-tflops" style="color: var(--accent-cyan); font-size: 1.45rem;">-- TFLOPS</div>
             <div class="stat-sub">Heterogene FP16/FP32 Compute</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); padding: 0.85rem;">
             <div class="stat-label">Verbundene Cluster-Nodes</div>
-            <div class="stat-value" id="mesh-nodes" style="color: #fff; font-size: 1.45rem;">2 Nodes Online</div>
-            <div class="stat-sub" id="mesh-gpus" style="color: var(--accent-emerald);">2 dedizierte GPUs aktiv</div>
+            <div class="stat-value" id="mesh-nodes" style="color: #fff; font-size: 1.45rem;">-- Nodes Online</div>
+            <div class="stat-sub" id="mesh-gpus" style="color: var(--accent-emerald);">-- GPUs aktiv</div>
           </div>
           <div class="stat-card" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); padding: 0.85rem;">
             <div class="stat-label">Global Verarbeitete Tokens</div>
-            <div class="stat-value" id="mesh-tokens" style="color: var(--accent-emerald); font-size: 1.45rem;">284,100+</div>
+            <div class="stat-value" id="mesh-tokens" style="color: var(--accent-emerald); font-size: 1.45rem;">0</div>
             <div class="stat-sub">Cluster-Inferenz verifiziert</div>
           </div>
         </div>
@@ -776,14 +776,7 @@
             📡 Verbundene Mesh-Teilnehmer (Live Nodes)
           </div>
           <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;" id="mesh-nodes-list">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0.5rem; background: rgba(255, 255, 255, 0.03); border-radius: 6px;">
-              <div><span style="color: var(--accent-emerald); font-weight: 700;">🟢 Local Node (Windows)</span> <span style="color: var(--text-dim);">• NVIDIA GeForce RTX 3080 (16.0 GB VRAM, CUDA)</span></div>
-              <div style="color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono);">24.0 TFLOPS</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0.5rem; background: rgba(255, 255, 255, 0.03); border-radius: 6px;">
-              <div><span style="color: var(--accent-emerald); font-weight: 700;">🟢 LAN Miner Node (192.168.1.27)</span> <span style="color: var(--text-dim);">• AMD Vega 10 / MI25 (8.0 GB VRAM, ROCm)</span></div>
-              <div style="color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono);">24.6 TFLOPS</div>
-            </div>
+            <div style="color: var(--text-dim); padding: 0.35rem 0.5rem;">Ermittle aktive Cluster-Teilnehmer...</div>
           </div>
         </div>
       </div>

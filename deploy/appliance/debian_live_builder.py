@@ -109,9 +109,9 @@ WantedBy=multi-user.target
         env_file.parent.mkdir(parents=True, exist_ok=True)
         env_file.write_text(
             """# ComputeMesh NodeOS USB Boot Configuration
-NODE_NAME=mining-rig-01
-WALLET_PAYOUT_ADDRESS=0x0000000000000000000000000000000000000000
-API_KEY=cm_node_default_key
+NODE_NAME=cm-node-provider
+WALLET_PAYOUT_ADDRESS=
+API_KEY=
 COORDINATOR_URL=https://mesh.inetconnector.com
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512

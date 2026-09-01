@@ -63,8 +63,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if configured and not (configured == "test-node-custom" and self.node_id != "test-node-custom"):
             return configured
         return self.node_id
-    tokens_served: int = 142050
-    earnings_cm: float = 47.35
+    tokens_served: int = 0
+    earnings_cm: float = 0.0
 
     def log_message(self, format: str, *args: Any) -> None:
         pass

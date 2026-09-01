@@ -685,8 +685,6 @@ class LinuxComputeMeshProviderApp:
                     pass
 
             if self.is_running:
-                self.total_tokens_served += 45
-                self.total_earnings_usd += (45 * 0.00000075)
                 try:
                     self.lbl_tokens.config(text=f"{self.total_tokens_served:,}")
                     self.lbl_earnings.config(text=f"{self.total_tokens_served:,} CM (${self.total_earnings_usd:.4f})")
@@ -708,11 +706,11 @@ class LinuxComputeMeshProviderApp:
                 }
                 m_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
                 if m_stats:
-                    nodes_cnt = m_stats.get("total_nodes_online", 2)
-                    vram_pool = m_stats.get("total_vram_gb", 24.0)
-                    tf_pool = m_stats.get("total_compute_tflops", 48.6)
+                    nodes_cnt = m_stats.get("total_nodes_online", 1)
+                    vram_pool = m_stats.get("total_vram_gb", 0.0)
+                    tf_pool = m_stats.get("total_compute_tflops", 0.0)
                     self.lbl_mesh_stats.config(
-                        text=f"🟢 {nodes_cnt}/{nodes_cnt} Cluster-Nodes Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
+                        text=f"🟢 {nodes_cnt} Cluster-Nodes Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
                         foreground="#10b981"
                     )
             except Exception:

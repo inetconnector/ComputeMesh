@@ -947,9 +947,6 @@ class ComputeMeshProviderApp:
                     pass
 
             if self.is_running:
-                # Calculate tokens, credits and net payout based on real customer price ($1.00/1M tokens) & 75% provider share ($0.75/1M tokens)
-                self.total_tokens_served += 45
-                self.total_earnings_usd += (45 * 0.00000075)  # $0.75 Netto per 1M tokens / credits
                 def _update_stats(toks=self.total_tokens_served, earn=self.total_earnings_usd):
                     try:
                         self.lbl_tokens.config(text=f"{toks:,}")
@@ -977,13 +974,13 @@ class ComputeMeshProviderApp:
                 }
                 m_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
                 if m_stats:
-                    nodes_cnt = m_stats.get("total_nodes_online", 2)
-                    vram_pool = m_stats.get("total_vram_gb", 24.0)
-                    tf_pool = m_stats.get("total_compute_tflops", 48.6)
+                    nodes_cnt = m_stats.get("total_nodes_online", 1)
+                    vram_pool = m_stats.get("total_vram_gb", 0.0)
+                    tf_pool = m_stats.get("total_compute_tflops", 0.0)
                     def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool):
                         try:
                             self.lbl_mesh_stats.config(
-                                text=f"🟢 {n}/{n} Cluster-Nodes Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
+                                text=f"🟢 {n} Cluster-Nodes Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
                                 foreground="#10b981"
                             )
                         except Exception:

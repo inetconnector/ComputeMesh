@@ -52,12 +52,14 @@ LABEL computemesh
     for subdir in ["tools", "services", "runtime", "protocol", "deploy"]:
         if (repo_src / subdir).exists():
             shutil.copytree(repo_src / subdir, cm_dir / subdir, dirs_exist_ok=True)
+    if (repo_src / "config.py").exists():
+        shutil.copy(repo_src / "config.py", cm_dir / "config.py")
 
     # FAT32 USB default config
     (iso_root / "computemesh.env").write_text("""# ComputeMesh NodeOS USB Boot Configuration
-NODE_NAME=mining-rig-01
-WALLET_PAYOUT_ADDRESS=0x0000000000000000000000000000000000000000
-API_KEY=cm_node_default_key
+NODE_NAME=cm-node-provider
+WALLET_PAYOUT_ADDRESS=
+API_KEY=
 COORDINATOR_URL=https://mesh.inetconnector.com
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512

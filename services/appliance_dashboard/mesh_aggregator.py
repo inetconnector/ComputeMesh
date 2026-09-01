@@ -74,7 +74,7 @@ class MeshRegistryAggregator:
                         "node_id": "windows-laptop",
                         "status": "online",
                         "inventory": inv.to_dict(),
-                        "telemetry": {"tokens_processed": 142050, "local_compute_tflops": 24.0},
+                        "telemetry": {"tokens_processed": 0, "local_compute_tflops": 0.0},
                     })
                 except Exception:
                     pass
