@@ -58,7 +58,7 @@ LABEL computemesh
 NODE_NAME=mining-rig-01
 WALLET_PAYOUT_ADDRESS=0x0000000000000000000000000000000000000000
 API_KEY=cm_node_default_key
-COORDINATOR_URL=https://computemesh.inetconnector.com
+COORDINATOR_URL=https://mesh.inetconnector.com
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512
 ENABLE_DASHBOARD=true

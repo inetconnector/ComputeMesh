@@ -336,7 +336,7 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     </main>
 
     <footer class="footer">
-        ComputeMesh Decentralized AI &copy; 2026 &middot; computemesh.inetconnector.com &middot; Audited &amp; Hardened
+        ComputeMesh Decentralized AI &copy; 2026 &middot; mesh.inetconnector.com &middot; Audited &amp; Hardened
     </footer>
 </body>
 </html>"""

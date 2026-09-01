@@ -23,12 +23,12 @@ def main() -> int:
         "downloads/install.sh",
     ]
     print("=" * 70)
-    print("AUDITING LIVE SERVER (https://computemesh.inetconnector.com)")
+    print("AUDITING LIVE SERVER (https://mesh.inetconnector.com)")
     print("=" * 70)
     failed = 0
     for ep in endpoints:
         url = f"https://89.58.11.237/{ep}"
-        req = urllib.request.Request(url, headers={"Host": "computemesh.inetconnector.com"})
+        req = urllib.request.Request(url, headers={"Host": "mesh.inetconnector.com"})
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
                 status = resp.status

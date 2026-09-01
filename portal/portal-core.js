@@ -865,8 +865,8 @@ function updateCodeSnippetsWithKey(apiKey) {
 
   const ollamaCode = document.getElementById('pg-ollama-code-content');
   if (ollamaCode) {
-    ollamaCode.textContent = `export OLLAMA_HOST=https://computemesh.inetconnector.com
-curl https://computemesh.inetconnector.com/v1/chat/completions \\
+    ollamaCode.textContent = `export OLLAMA_HOST=https://mesh.inetconnector.com
+curl https://mesh.inetconnector.com/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${apiKey}" \\
   -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":true}'`;
@@ -878,7 +878,7 @@ curl https://computemesh.inetconnector.com/v1/chat/completions \\
 
 # 100% drop-in replacement for OpenAI SDK
 client = OpenAI(
-    base_url="https://computemesh.inetconnector.com/v1",
+    base_url="https://mesh.inetconnector.com/v1",
     api_key="${apiKey}"
 )
 
@@ -971,7 +971,7 @@ function copyPythonCode() {
 window.copyPythonCode = copyPythonCode;
 
 function copyLinuxCommand() {
-  const cmd = "curl -fsSL https://computemesh.inetconnector.com/downloads/install.sh | sudo bash";
+  const cmd = "curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash";
   navigator.clipboard.writeText(cmd);
   const btn = document.querySelector('button[onclick="copyLinuxCommand()"]');
   if (btn) {

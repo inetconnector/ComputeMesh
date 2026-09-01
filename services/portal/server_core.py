@@ -1,6 +1,6 @@
 """ComputeMesh Public Web Portal & Customer Billing Gateway Server.
 
-Serves the official bilingual public portal (computemesh.inetconnector.com)
+Serves the official bilingual public portal (mesh.inetconnector.com)
 with clean URL routing for docs, status, benchmarks, legal pages, registration, and quotes.
 """
 from __future__ import annotations

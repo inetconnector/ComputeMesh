@@ -55,7 +55,7 @@ def build_windows_standalone_bundle(
         "platform": "windows-x64",
         "entrypoint": "__main__.py",
         "author": "ComputeMesh Network Foundation",
-        "default_coordinator": "https://computemesh.inetconnector.com",
+        "default_coordinator": "https://mesh.inetconnector.com",
     }
     (staging_dir / "computemesh_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 

@@ -301,8 +301,8 @@ class StripePaymentService:
         *,
         customer_account_id: str,
         amount_usd: float,
-        success_url: str = "https://computemesh.inetconnector.com/docs?status=success",
-        cancel_url: str = "https://computemesh.inetconnector.com/pricing?status=cancelled",
+        success_url: str = "https://mesh.inetconnector.com/docs?status=success",
+        cancel_url: str = "https://mesh.inetconnector.com/pricing?status=cancelled",
         currency: str = "usd",
     ) -> CheckoutSessionResult:
         self._require_live_configuration()

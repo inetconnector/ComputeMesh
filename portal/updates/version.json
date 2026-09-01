@@ -1,39 +1,39 @@
 {
   "version": "1.2.21",
-  "release_date": "2026-08-31T21:52:21.800065+00:00",
+  "release_date": "2026-09-01T09:08:17.412334+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
-      "url": "https://computemesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "444369c7f812b5ee6a6895bd11a8c329d269b033da82ae1419c75555dd2bc895",
-      "size_bytes": 26662662
+      "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
+      "sha256": "e41849f8d49d1ddccf93c4cac18bdf0c2a3665365da65712985c58066b3f031f",
+      "size_bytes": 26664906
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
-      "url": "https://computemesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "0df545c006036ed210102de020ad91c8e6e96acea0ba18dee124f6a74ded095f",
-      "size_bytes": 503493
+      "url": "https://mesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
+      "sha256": "7f6480ead7887d37cdd904252a5a9c485e3ddd992878a9001eeb394d2e7075db",
+      "size_bytes": 504364
     },
     "nodeos-iso": {
       "filename": "computemesh-nodeos-x86_64.iso",
-      "url": "https://computemesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.iso",
+      "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.iso",
       "sha256": "34d3b949bc1d9830bdb1a9a42336b724b4d4c1857bc72f1254356b0061e25a60",
       "size_bytes": 68157440
     },
     "nodeos-img": {
       "filename": "computemesh-nodeos-x86_64.img.xz",
-      "url": "https://computemesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.img.xz",
+      "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.img.xz",
       "sha256": "a7066f7432da966a535a4d933672af7bdc0a7071f44fac8e3e21c1d973ce607f",
       "size_bytes": 2463456
     },
     "installer-script": {
       "filename": "install.sh",
-      "url": "https://computemesh.inetconnector.com/downloads/install.sh",
+      "url": "https://mesh.inetconnector.com/downloads/install.sh",
       "sha256": "721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2",
       "size_bytes": 6651
     }
   },
-  "signature": "00a9edc45ba3f5b63df71cff2eb5a28f46aa32e55e4980c16ebe1cfdbebca7db8bbffeb8c92c3bcc44ca21f02d15a34991abe03f065c38809e8fc3063151170b"
+  "signature": "96a14efba5abd663a3744d0594438f2444f1d48315a875bc58fca8eb28f3352c4245d86733d93ece3474a1b045f83da7caf2687dec7e2dfb3edfaea7691dc10d"
 }

@@ -15,7 +15,7 @@ from typing import Any
 class MeshEndpoints:
     """Core domain and public endpoint configurations."""
     # Main domain (changeable in one place, or overridden via COMPUTEMESH_DOMAIN env var)
-    domain: str = os.environ.get("COMPUTEMESH_DOMAIN", "computemesh.inetconnector.com")
+    domain: str = os.environ.get("COMPUTEMESH_DOMAIN", "mesh.inetconnector.com")
     scheme: str = os.environ.get("COMPUTEMESH_SCHEME", "https")
 
     @property
