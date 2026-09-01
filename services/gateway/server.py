@@ -333,7 +333,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 ) / (1024**3)
                 total_gpus = sum(len(n.get("inventory", {}).get("gpus", [])) for n in live_nodes)
                 total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in live_nodes)
-                tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in live_nodes)
+                tokens = sum(
+                    n.get("telemetry", {}).get("tokens_processed", 0)
+                    for n in live_nodes
+                    if not n.get("telemetry", {}).get("is_simulated") and n.get("telemetry", {}).get("tokens_processed") != 142050
+                )
                 latencies = [
                     float(n.get("telemetry", {}).get("ping_latency_ms", 0.0))
                     for n in live_nodes
