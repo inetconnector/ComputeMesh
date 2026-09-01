@@ -400,13 +400,14 @@ def create_dashboard_server(
     if inventory is None:
         inventory = scan_rig_hardware()
 
+    effective_node_id = config.rig_name or node_id or "cm-node"
     DashboardHandler.config = config
     DashboardHandler.inventory = inventory
-    DashboardHandler.node_id = node_id
+    DashboardHandler.node_id = effective_node_id
 
     try:
         from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
-        start_cloud_tunnel_relay(node_id=node_id)
+        start_cloud_tunnel_relay(node_id=effective_node_id)
     except Exception:
         pass
 
