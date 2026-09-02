@@ -7,13 +7,24 @@ from services.gateway.gpu_promo_dispatch_client import (
     GpuPromoDispatchClient,
     GpuPromoDispatchClientError,
 )
-from services.orchestrator.authenticated_gpu_promo_transport import GpuPromoTransportResult
+from services.orchestrator.authenticated_gpu_promo_transport import (
+    AuthenticatedGpuPromoTransportError,
+    GpuPromoTransportResult,
+)
 from services.orchestrator.gpu_promo_dispatch import create_gpu_promo_dispatch_server
 
 
 class _Transport:
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.identity_calls: list[str] = []
+        self.available = True
+
+    def authenticated_key_id(self, node_id: str) -> str:
+        self.identity_calls.append(node_id)
+        if not self.available:
+            raise AuthenticatedGpuPromoTransportError("no live session")
+        return "ed25519:key-a"
 
     def request_gpu_promo_challenge(
         self,
@@ -82,6 +93,12 @@ class TestGpuPromoDispatch(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=5)
 
+    def test_real_http_session_identity_returns_authenticated_key_only(self) -> None:
+        key_id = self.client.authenticated_key_id(node_id="node-a")
+        self.assertEqual(key_id, "ed25519:key-a")
+        self.assertEqual(self.transport.identity_calls, ["node-a"])
+        self.assertEqual(self.transport.calls, [])
+
     def test_real_http_dispatch_returns_only_proof_and_server_observation(self) -> None:
         result = self.client.dispatch(node_id="node-a", challenge=self.challenge)
         self.assertEqual(set(result), {"proof", "gpu_observation"})
@@ -91,6 +108,12 @@ class TestGpuPromoDispatch(unittest.TestCase):
         self.assertEqual(self.transport.calls[0]["node_id"], "node-a")
         self.assertEqual(self.transport.calls[0]["challenge"], self.challenge)
 
+    def test_missing_live_session_fails_closed_for_identity_lookup(self) -> None:
+        self.transport.available = False
+        with self.assertRaises(GpuPromoDispatchClientError) as caught:
+            self.client.authenticated_key_id(node_id="node-a")
+        self.assertEqual(caught.exception.status_code, 503)
+
     def test_wrong_dispatch_token_fails_closed(self) -> None:
         client = GpuPromoDispatchClient(
             base_url=f"http://127.0.0.1:{self.server.server_address[1]}",
@@ -98,8 +121,9 @@ class TestGpuPromoDispatch(unittest.TestCase):
             timeout_seconds=5.0,
         )
         with self.assertRaises(GpuPromoDispatchClientError) as caught:
-            client.dispatch(node_id="node-a", challenge=self.challenge)
+            client.authenticated_key_id(node_id="node-a")
         self.assertEqual(caught.exception.status_code, 401)
+        self.assertEqual(self.transport.identity_calls, [])
         self.assertEqual(self.transport.calls, [])
 
     def test_dispatch_client_rejects_non_loopback_plaintext(self) -> None:
