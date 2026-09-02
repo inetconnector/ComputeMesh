@@ -99,16 +99,43 @@ class MeshRegistryAggregator:
         total_tokens = 0
         node_details = []
 
+        from tools.appliance.hardware_detector import is_integrated_display_adapter
+
         for n in nodes:
             inv = n.get("inventory", {})
             tel = n.get("telemetry", {})
             gpus = inv.get("gpus", [])
-            healthy_gpus = [g for g in gpus if g.get("healthy", True)]
+            healthy_gpus = [
+                g for g in gpus
+                if g.get("healthy", True) and not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+            ]
+            node_vram_bytes = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+            if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0 and not is_integrated_display_adapter("unknown", inv.get("host_architecture", "")):
+                node_vram_bytes = inv.get("total_vram_bytes", 0)
+
             total_gpus += len(healthy_gpus)
-            total_vram_bytes += inv.get("total_vram_bytes", 0)
-            tf = tel.get("local_compute_tflops", 0.0)
-            if not tf and healthy_gpus:
-                tf = len(healthy_gpus) * 12.5
+            total_vram_bytes += node_vram_bytes
+
+            # Calculate accurate TFLOPS per discrete GPU
+            tf = 0.0
+            for g in healthy_gpus:
+                m_lower = str(g.get("model_name", "")).lower()
+                if "4090" in m_lower:
+                    tf += 82.6
+                elif "3080" in m_lower or "3090" in m_lower:
+                    tf += 24.0
+                elif "mi25" in m_lower or "vega" in m_lower:
+                    tf += 24.6
+                elif "6800" in m_lower or "6900" in m_lower or "7900" in m_lower:
+                    tf += 32.0
+                elif "intel" in m_lower:
+                    tf += 1.0
+                else:
+                    tf += round(max(1.0, (g.get("vram_bytes", 0) / (1024**3)) * 1.5), 1)
+
+            if tf == 0.0:
+                tf = tel.get("local_compute_tflops", 0.0) or (len(healthy_gpus) * 12.5)
+
             total_tflops += tf
             total_tokens += tel.get("tokens_processed", 0)
 
@@ -124,7 +151,7 @@ class MeshRegistryAggregator:
                 "is_local": is_local,
                 "gpus_count": len(healthy_gpus),
                 "gpu_summary": gpu_summary,
-                "vram_gb": round(inv.get("total_vram_bytes", 0) / (1024**3), 1),
+                "vram_gb": round(node_vram_bytes / (1024**3), 1),
                 "tflops": round(tf, 1),
                 "tokens": tel.get("tokens_processed", 0),
             })

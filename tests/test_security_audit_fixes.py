@@ -102,15 +102,16 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         def echo_worker():
             try:
-                conn, _ = echo_sock.accept()
-                data = conn.recv(1024)
-                if data:
-                    conn.sendall(b"ECHO:" + data)
-                try:
-                    conn.recv(1024)
-                except Exception:
-                    pass
-                conn.close()
+                echo_sock.settimeout(4.0)
+                while True:
+                    try:
+                        conn, _ = echo_sock.accept()
+                        data = conn.recv(1024)
+                        if data:
+                            conn.sendall(b"ECHO:" + data)
+                        conn.close()
+                    except (socket.timeout, OSError):
+                        break
             except Exception:
                 pass
             finally:
