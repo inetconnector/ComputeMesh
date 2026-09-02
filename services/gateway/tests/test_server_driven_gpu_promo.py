@@ -110,6 +110,11 @@ class _PrivatePromo:
 class _Dispatcher:
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.identity_calls: list[str] = []
+
+    def authenticated_key_id(self, *, node_id: str) -> str:
+        self.identity_calls.append(node_id)
+        return "ed25519:node-key-a"
 
     def dispatch(self, *, node_id: str, challenge: dict) -> dict:
         self.calls.append({"node_id": node_id, "challenge": challenge})
@@ -183,7 +188,6 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
     def _body(node_id: str = "rig-alice") -> dict:
         return {
             "node_id": node_id,
-            "key_id": "ed25519:node-key-a",
             "hardware_evidence": {
                 "board_uuid": "board-a",
                 "cpu_fingerprint": "cpu-a",
@@ -191,7 +195,7 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
             },
         }
 
-    def test_server_driven_gpu_flow_uses_private_work_and_server_observation(self) -> None:
+    def test_server_driven_gpu_flow_uses_session_key_private_work_and_server_observation(self) -> None:
         payload, error, status = self.routes.handle_gpu_onboard(self.headers, self._body())
         self.assertIsNone(error)
         self.assertEqual(int(status), 200)
@@ -200,7 +204,12 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
         self.assertEqual(payload["claim_class"], PROMO_GPU)
         self.assertEqual(payload["promo_balance_micro_units"], 25_000_000)
 
+        self.assertEqual(self.dispatcher.identity_calls, ["rig-alice"])
         self.assertEqual(len(self.private.challenge_requests), 1)
+        self.assertEqual(
+            self.private.challenge_requests[0]["key_id"],
+            "ed25519:node-key-a",
+        )
         self.assertEqual(len(self.private.gpu_work_requests), 1)
         self.assertEqual(len(self.dispatcher.calls), 1)
         self.assertEqual(len(self.private.verify_requests), 1)
@@ -220,6 +229,17 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
             "ComputeMesh private GPU work vector",
         )
 
+    def test_client_cannot_supply_gpu_signing_key(self) -> None:
+        payload, error, status = self.routes.handle_gpu_onboard(
+            self.headers,
+            {**self._body(), "key_id": "ed25519:attacker-selected"},
+        )
+        self.assertIsNone(payload)
+        self.assertEqual(int(status), 400)
+        self.assertIn("Invalid GPU promo", error or "")
+        self.assertEqual(self.dispatcher.identity_calls, [])
+        self.assertEqual(self.private.challenge_requests, [])
+
     def test_foreign_node_is_rejected_before_private_or_dispatch_calls(self) -> None:
         self.owner_store.ensure_owner("bob")
         self.owner_store.bind_provider_node("bob", "rig-bob")
@@ -231,6 +251,7 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
         self.assertEqual(int(status), 403)
         self.assertIn("not owned", error or "")
         self.assertEqual(self.private.challenge_requests, [])
+        self.assertEqual(self.dispatcher.identity_calls, [])
         self.assertEqual(self.dispatcher.calls, [])
 
     def test_server_driven_mode_rejects_client_supplied_gpu_proof(self) -> None:
@@ -259,7 +280,12 @@ class TestServerDrivenGpuPromo(unittest.TestCase):
     def test_server_driven_mode_rejects_legacy_gpu_challenge_endpoint(self) -> None:
         payload, error, status = self.routes.handle_challenge(
             self.headers,
-            {"claim_class": PROMO_GPU, **self._body()},
+            {
+                "claim_class": PROMO_GPU,
+                "node_id": "rig-alice",
+                "key_id": "ed25519:node-key-a",
+                "hardware_evidence": self._body()["hardware_evidence"],
+            },
         )
         self.assertIsNone(payload)
         self.assertEqual(int(status), 400)
