@@ -1,9 +1,8 @@
 """Owner-authenticated gateway bridge for hardware-bound onboarding promo.
 
-The caller supplies hardware evidence and the node-signed proof. The gateway derives
-all financial/ownership eligibility state itself, delegates private policy to the
-control plane, verifies the returned signed decision, and exposes only the resulting
-owner balance/status to the caller.
+The generic challenge/proof flow remains for device onboarding. When server-driven
+GPU onboarding is enabled, GPU work must use the dedicated authenticated provider
+session route; client-supplied GPU challenges/proofs are rejected at this boundary.
 """
 from __future__ import annotations
 
@@ -64,6 +63,15 @@ _ALLOWED_CLAIMS = {PROMO_DEVICE, PROMO_GPU}
 
 class OwnerPromoRouteError(ValueError):
     """Invalid local onboarding state or operator promo configuration."""
+
+
+def _server_driven_gpu_enabled() -> bool:
+    return os.environ.get("COMPUTEMESH_OWNER_PROMO_GPU_SERVER_DRIVEN", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _b64u_key(value: str) -> bytes:
@@ -186,8 +194,6 @@ class UnifiedOwnerPromoRoutes:
     def _cp_error(exc: PromoControlPlaneError) -> tuple[str, HTTPStatus]:
         if exc.status_code == 400:
             return ("Promo verification was rejected", HTTPStatus.BAD_REQUEST)
-        # Private auth failure, outage and server failures are operator-side. Never
-        # leak internal bearer/token details through the public route.
         return ("Promo verification service is unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
 
     def handle_challenge(
@@ -207,6 +213,12 @@ class UnifiedOwnerPromoRoutes:
         evidence = body.get("hardware_evidence")
         if claim_class not in _ALLOWED_CLAIMS or not node_id or not key_id:
             return (None, "Invalid promo challenge request", HTTPStatus.BAD_REQUEST)
+        if claim_class == PROMO_GPU and _server_driven_gpu_enabled():
+            return (
+                None,
+                "GPU promo requires the server-driven provider-session endpoint",
+                HTTPStatus.BAD_REQUEST,
+            )
         if not isinstance(evidence, dict):
             return (None, "hardware_evidence must be an object", HTTPStatus.BAD_REQUEST)
 
@@ -266,6 +278,12 @@ class UnifiedOwnerPromoRoutes:
         node_id = str(proof.get("node_id") or "").strip()
         if claim_class not in _ALLOWED_CLAIMS or proof_owner != owner_id or not node_id:
             return (None, "Promo proof does not match authenticated owner", HTTPStatus.FORBIDDEN)
+        if claim_class == PROMO_GPU and _server_driven_gpu_enabled():
+            return (
+                None,
+                "Client-supplied GPU promo proofs are disabled in server-driven mode",
+                HTTPStatus.BAD_REQUEST,
+            )
 
         existing = self._existing_result(owner_id, claim_class)
         if existing is not None:
@@ -288,8 +306,6 @@ class UnifiedOwnerPromoRoutes:
                     "proof": proof,
                     "eligibility": {
                         "owner_id": owner_id,
-                        # v1 private wire field name; value is deliberately the
-                        # cumulative durable grant sum, never remaining promo wallet.
                         "current_owner_promo_micro_units": lifetime_granted,
                         "already_claimed_classes": claimed_classes,
                         "provider_node_owner_id": provider_owner,
