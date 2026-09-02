@@ -68,8 +68,22 @@ def normalize_gpu_promo_backend(value: str) -> str:
     return backend
 
 
+def infer_gpu_promo_backend(device: str) -> str:
+    """Infer the normalized backend from llama.cpp's local device namespace."""
+    name = validate_local_llama_device(device).lower()
+    if name.startswith("cuda"):
+        return "cuda"
+    if name.startswith(("rocm", "hip")):
+        return "rocm"
+    if name.startswith("vulkan"):
+        return "vulkan"
+    raise ValueError(
+        "cannot infer promo GPU backend from device; expected a CUDA, ROCm/HIP or Vulkan device"
+    )
+
+
 def validate_local_llama_device(value: str) -> str:
-    """Validate a locally selected llama.cpp device identifier without vendor assumptions.
+    """Validate a locally selected llama.cpp device identifier without card assumptions.
 
     Device names are passed as one subprocess argument, never through a shell. The
     actual llama.cpp start with ``--device`` and ``--n-gpu-layers all`` is the final
@@ -89,7 +103,7 @@ class GpuPromoChallengeConfig:
     model: Path
     device: str
     accelerator_id: str
-    runtime_backend: str = "cuda"
+    runtime_backend: str = "auto"
     local_port: int = 18090
     context_size: int = 2048
     max_timeout_seconds: float = 300.0
@@ -99,8 +113,12 @@ class GpuPromoChallengeConfig:
             raise ValueError("promo llama-server must be a local non-symlink file")
         if not self.model.is_file() or self.model.is_symlink():
             raise ValueError("promo challenge model must be a local non-symlink file")
-        object.__setattr__(self, "device", validate_local_llama_device(self.device))
-        object.__setattr__(self, "runtime_backend", normalize_gpu_promo_backend(self.runtime_backend))
+        device = validate_local_llama_device(self.device)
+        object.__setattr__(self, "device", device)
+        backend = str(self.runtime_backend or "").strip().lower()
+        if backend == "auto":
+            backend = infer_gpu_promo_backend(device)
+        object.__setattr__(self, "runtime_backend", normalize_gpu_promo_backend(backend))
         accelerator = str(self.accelerator_id or "").strip()
         if not accelerator or len(accelerator) > 256:
             raise ValueError("accelerator_id must be 1..256 characters")
