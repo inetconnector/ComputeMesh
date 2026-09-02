@@ -1,8 +1,9 @@
 """Tests for the explicit fail-closed unified owner gateway entrypoint."""
-from pathlib import Path
+import base64
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from services.billing.accounting import AccountingStore
 from services.billing.owner_accounts import OwnerAccountStore
@@ -10,6 +11,7 @@ from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_settlement import OwnerSettlementExecutor, PayoutCapableOwnerLedger
 from services.gateway.auth import GatewayAuthManager
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
+from services.gateway.owner_promo_routes import UnifiedOwnerPromoRoutes
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
 from services.gateway.owner_server import build_unified_owner_handler
 from services.gateway.teaser import TeaserQuotaManager
@@ -23,6 +25,14 @@ _ENV_NAMES = (
     "COMPUTEMESH_INFERENCE_BACKEND",
     "COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE",
     "COMPUTEMESH_API_KEYS",
+    "COMPUTEMESH_OWNER_PROMO_ONBOARDING",
+    "COMPUTEMESH_PROMO_CONTROL_PLANE_URL",
+    "COMPUTEMESH_PROMO_CONTROL_PLANE_TOKEN",
+    "COMPUTEMESH_PROMO_CONTROL_PLANE_TIMEOUT",
+    "COMPUTEMESH_PROMO_CONTROL_PLANE_CA_FILE",
+    "COMPUTEMESH_PROMO_DECISION_TRUSTED_KEYS_JSON",
+    "COMPUTEMESH_PROMO_DECISION_KEY_ID",
+    "COMPUTEMESH_PROMO_DECISION_PUBLIC_KEY_B64U",
     "STRIPE_API_KEY",
     "STRIPE_WEBHOOK_SECRET",
 )
@@ -51,6 +61,17 @@ class TestUnifiedOwnerServer(unittest.TestCase):
         os.environ["COMPUTEMESH_ACCOUNTING_DB_PATH"] = str(self.root / "accounting.sqlite3")
         os.environ["COMPUTEMESH_INFERENCE_BACKEND"] = "synthetic"
         os.environ["COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE"] = "1"
+
+    def _configure_promo(self) -> None:
+        os.environ["COMPUTEMESH_OWNER_PROMO_ONBOARDING"] = "1"
+        os.environ["COMPUTEMESH_PROMO_CONTROL_PLANE_URL"] = "http://127.0.0.1:9999"
+        os.environ["COMPUTEMESH_PROMO_CONTROL_PLANE_TOKEN"] = (
+            "private-control-plane-promo-token-123456"
+        )
+        os.environ["COMPUTEMESH_PROMO_DECISION_KEY_ID"] = "promo-test-key"
+        os.environ["COMPUTEMESH_PROMO_DECISION_PUBLIC_KEY_B64U"] = (
+            base64.urlsafe_b64encode(b"k" * 32).rstrip(b"=").decode("ascii")
+        )
 
     def test_owner_server_requires_explicit_enable_flag(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "disabled"):
@@ -81,6 +102,17 @@ class TestUnifiedOwnerServer(unittest.TestCase):
         self.assertIsInstance(handler.inference_engine, UnifiedOwnerInferenceEngine)
         self.assertIsInstance(handler.settlement_executor, OwnerSettlementExecutor)
         self.assertIs(handler.provider_routes.settlement_executor, handler.settlement_executor)
+        self.assertIsNone(handler.promo_routes)
+
+    def test_promo_onboarding_requires_explicit_complete_operator_configuration(self) -> None:
+        self._configure()
+        os.environ["COMPUTEMESH_OWNER_PROMO_ONBOARDING"] = "1"
+        with self.assertRaisesRegex(RuntimeError, "CONTROL_PLANE_URL"):
+            build_unified_owner_handler()
+
+        self._configure_promo()
+        handler = build_unified_owner_handler()
+        self.assertIsInstance(handler.promo_routes, UnifiedOwnerPromoRoutes)
 
     def test_provider_registration_binds_node_to_authenticated_owner(self) -> None:
         ledger = GatewayOwnerCreditLedger(storage_path=self.root / "ledger.jsonl")
