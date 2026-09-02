@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -112,6 +111,15 @@ def _session(agent: ProviderAgent) -> SessionSnapshot:
     )
 
 
+def _assert_provider_error(fragment: str, call: object) -> None:
+    try:
+        call()  # type: ignore[operator]
+    except ProviderAgentError as exc:
+        assert fragment in str(exc)
+    else:
+        raise AssertionError(f"expected ProviderAgentError containing {fragment!r}")
+
+
 def test_runtime_advertisement_matches_public_contract() -> None:
     doc = _runtime_document(
         node_id="node-a",
@@ -215,8 +223,10 @@ def test_provider_agent_rejects_gpu_request_when_feature_not_configured(tmp_path
     session = SessionSnapshot(
         **{**session.__dict__, "negotiated_capabilities": frozenset({GPU_PROMO_CAPABILITY})}
     )
-    with pytest.raises(ProviderAgentError, match="not enabled"):
-        agent.handle_request("GpuPromoChallengeRequest", request, session)
+    _assert_provider_error(
+        "not enabled",
+        lambda: agent.handle_request("GpuPromoChallengeRequest", request, session),
+    )
 
 
 def test_provider_agent_rejects_gpu_request_for_another_key(tmp_path: Path) -> None:
@@ -225,5 +235,7 @@ def test_provider_agent_rejects_gpu_request_for_another_key(tmp_path: Path) -> N
     challenge = dict(request["challenge"])
     challenge["key_id"] = "ed25519:other-key"
     request["challenge"] = challenge
-    with pytest.raises(ProviderAgentError, match="another node key"):
-        agent.handle_request("GpuPromoChallengeRequest", request, _session(agent))
+    _assert_provider_error(
+        "another node key",
+        lambda: agent.handle_request("GpuPromoChallengeRequest", request, _session(agent)),
+    )
