@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from services.billing.accounting import AccountingStore
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_settlement import OwnerSettlementExecutor, PayoutCapableOwnerLedger
+from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
 from services.billing.stripe_connect import StripeConnectService
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
@@ -47,7 +48,7 @@ def _build_owner_settlement_executor(
     ledger: PayoutCapableOwnerLedger,
     account_store: AccountingStore,
 ) -> OwnerSettlementExecutor:
-    return OwnerSettlementExecutor(
+    return RobustOwnerSettlementExecutor(
         ledger=ledger,
         account_store=account_store,
         stripe_connect=StripeConnectService(
