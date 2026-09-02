@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/gpu_promo_challenge_response_payload.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_id", "session_revision", "node_id", "key_id", "proof"],
+  "properties": {
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "session_revision": {"type": "integer", "minimum": 0},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "key_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenge_id", "claim_class", "owner_id", "node_id", "key_id",
+        "hardware_claim_id", "evidence_digest", "nonce", "assurance_tier",
+        "public_key_b64u", "signature_b64u", "accelerator_id", "runtime_backend",
+        "runtime_build", "work_digest", "elapsed_ms"
+      ],
+      "properties": {
+        "challenge_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "claim_class": {"const": "gpu_onboarding"},
+        "owner_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "key_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "hardware_claim_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "evidence_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "nonce": {"type": "string", "minLength": 16, "maxLength": 256},
+        "assurance_tier": {"enum": ["MULTI_SIGNAL_VERIFIED", "HARDWARE_ATTESTED"]},
+        "public_key_b64u": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
+        "signature_b64u": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"},
+        "accelerator_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "runtime_backend": {"const": "cuda"},
+        "runtime_build": {"type": "string", "minLength": 1, "maxLength": 512},
+        "work_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "elapsed_ms": {"type": "number", "exclusiveMinimum": 0, "maximum": 300000}
+      }
+    }
+  }
+}
