@@ -2,14 +2,17 @@
 
 This module is intentionally narrow. The remote challenge may choose only bounded
 workload parameters (prompt/seed/token count) and expected identities. Executable,
-model path, CUDA device and accelerator identity are configured locally by the GPU
-operator and are never accepted from a remote request.
+model path, runtime backend, device and accelerator identity are configured locally
+by the GPU operator and are never accepted from a remote request.
 
-The v1 challenge is NVIDIA/CUDA-only. A successful response is evidence that the
-enrolled provider agent completed the configured llama.cpp workload under explicit
-full GPU offload; it is not hardware-rooted remote attestation and must still be
-combined with server-observed timing, durable anti-replay state and private fraud
-policy.
+The v1 challenge is vendor-neutral across the supported llama.cpp GPU backends.
+NVIDIA/CUDA and AMD through ROCm/HIP or Vulkan use the same proof contract. There is
+no GPU model allowlist: the configured local llama.cpp runtime is the capability
+probe. An unsupported device must fail closed rather than falling back to CPU.
+A successful response is evidence that the enrolled provider agent completed the
+configured llama.cpp workload under explicit full GPU offload; it is not
+hardware-rooted remote attestation and must still be combined with server-observed
+timing, durable anti-replay state and private fraud policy.
 """
 from __future__ import annotations
 
@@ -44,7 +47,8 @@ from runtime.llama.rpc_spike import (
 
 GPU_PROMO_CAPABILITY = "gpu_promo_challenge_v1"
 PROMO_PROOF_DOMAIN = b"ComputeMesh.PromoProof.v1\x00"
-_CUDA_DEVICE_RE = re.compile(r"^CUDA[0-9]+$")
+SUPPORTED_GPU_PROMO_BACKENDS = frozenset({"cuda", "rocm", "vulkan"})
+_DEVICE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
 
@@ -53,12 +57,39 @@ class GpuPromoChallengeError(RuntimeError):
     pass
 
 
+def normalize_gpu_promo_backend(value: str) -> str:
+    backend = str(value or "").strip().lower()
+    aliases = {"hip": "rocm", "amd": "rocm", "nvidia": "cuda"}
+    backend = aliases.get(backend, backend)
+    if backend not in SUPPORTED_GPU_PROMO_BACKENDS:
+        raise ValueError(
+            "runtime_backend must be one of: " + ", ".join(sorted(SUPPORTED_GPU_PROMO_BACKENDS))
+        )
+    return backend
+
+
+def validate_local_llama_device(value: str) -> str:
+    """Validate a locally selected llama.cpp device identifier without vendor assumptions.
+
+    Device names are passed as one subprocess argument, never through a shell. The
+    actual llama.cpp start with ``--device`` and ``--n-gpu-layers all`` is the final
+    capability check, so unknown/unsupported cards fail closed at runtime.
+    """
+    device = str(value or "").strip()
+    if _DEVICE_RE.fullmatch(device) is None:
+        raise ValueError("promo device must be a safe explicit llama.cpp GPU device identifier")
+    if device.upper().startswith("RPC") or device.upper() in {"CPU", "NONE"}:
+        raise ValueError("promo device must identify a local GPU accelerator")
+    return device
+
+
 @dataclass(frozen=True)
 class GpuPromoChallengeConfig:
     llama_server: Path
     model: Path
     device: str
     accelerator_id: str
+    runtime_backend: str = "cuda"
     local_port: int = 18090
     context_size: int = 2048
     max_timeout_seconds: float = 300.0
@@ -68,8 +99,8 @@ class GpuPromoChallengeConfig:
             raise ValueError("promo llama-server must be a local non-symlink file")
         if not self.model.is_file() or self.model.is_symlink():
             raise ValueError("promo challenge model must be a local non-symlink file")
-        if _CUDA_DEVICE_RE.fullmatch(self.device) is None:
-            raise ValueError("GPU promo v1 requires an explicit CUDA device such as CUDA0")
+        object.__setattr__(self, "device", validate_local_llama_device(self.device))
+        object.__setattr__(self, "runtime_backend", normalize_gpu_promo_backend(self.runtime_backend))
         accelerator = str(self.accelerator_id or "").strip()
         if not accelerator or len(accelerator) > 256:
             raise ValueError("accelerator_id must be 1..256 characters")
@@ -174,7 +205,7 @@ def build_signed_gpu_promo_proof(
 
 
 class GpuPromoChallengeRunner:
-    """Run one deterministic local llama.cpp workload with full CUDA offload."""
+    """Run one deterministic local llama.cpp workload with full GPU offload."""
 
     def __init__(self, config: GpuPromoChallengeConfig) -> None:
         self.config = config
@@ -245,8 +276,9 @@ class GpuPromoChallengeRunner:
                 seed=seed,
             )
             command = build_coordinator_command(plan)
-            # ``build_coordinator_command`` uses --device <CUDAx> and
-            # --n-gpu-layers all. No shell is involved and no remote path enters it.
+            # The selected device is local-only. ``build_coordinator_command`` passes
+            # it as one argv value and forces ``--n-gpu-layers all``. Unsupported GPU
+            # backends/devices therefore fail during real llama.cpp startup.
             overall_start = time.monotonic()
             deadline = overall_start + timeout_seconds
             process = subprocess.Popen(
@@ -289,11 +321,12 @@ class GpuPromoChallengeRunner:
                 raise GpuPromoChallengeError("llama.cpp challenge generated no tokens")
             runtime_build = (
                 f"llama.cpp:{build.build_number}:{build.commit};"
-                f"model_sha256:{local_model_sha};device:{self.config.device}"
+                f"model_sha256:{local_model_sha};backend:{self.config.runtime_backend};"
+                f"device:{self.config.device}"
             )
             return GpuPromoWorkResult(
                 accelerator_id=self.config.accelerator_id,
-                runtime_backend="cuda",
+                runtime_backend=self.config.runtime_backend,
                 runtime_build=runtime_build,
                 work_digest=work_digest,
                 elapsed_ms=request_ms,
