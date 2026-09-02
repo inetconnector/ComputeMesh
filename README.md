@@ -21,6 +21,21 @@ AI needs a lot of compute. At the same time, many GPUs sit unused in gaming PCs,
 
 The goal: AI compute should not belong only to a few large providers. More people and companies should be able to offer compute, use compute and get paid for it.
 
+## How the two repositories fit together
+
+ComputeMesh is intentionally split into a public execution repository and a private production-control repository:
+
+| Repository | Role |
+| --- | --- |
+| `inetconnector/ComputeMesh` **(this repository)** | **Public execution plane:** provider/node software, hardware and network measurement, gateway/API surfaces, protocol/identity contracts, execution evidence, llama.cpp integration and the runtime that carries out an approved plan. |
+| `inetconnector/ComputeMesh-ControlPlane` | **Private production control plane:** production placement/recovery decisions and the private operational intelligence used to decide how available compute should be assigned. |
+
+A simple way to think about it is: **the private Control Plane decides; the public ComputeMesh runtime executes.** The public side can provide a bounded snapshot of live hardware/runtime/network capability. The private side can return a signed execution plan containing only what the executor needs, while proprietary ranking inputs and operator data stay private.
+
+This separation also applies to the planned multi-model mesh: the private Control Plane can decide which verified model/quantization should run on the GPUs currently online, how GPUs should be grouped into one or more clusters, and when popular models need replicas or rebalancing. This public repository provides the portable runtime and provider-side mechanisms needed to execute those signed plans.
+
+The private repository pins this public repository as its `ComputeMesh/` Git submodule, making `ComputeMesh-ControlPlane` the umbrella checkout for operators who have access to both halves.
+
 ## What Works Today
 
 ComputeMesh is currently a lab and pre-production system. It already includes:
