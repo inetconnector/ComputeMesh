@@ -31,7 +31,7 @@
         "public_key_b64u": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
         "signature_b64u": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"},
         "accelerator_id": {"type": "string", "minLength": 1, "maxLength": 256},
-        "runtime_backend": {"const": "cuda"},
+        "runtime_backend": {"enum": ["cuda", "rocm", "vulkan"]},
         "runtime_build": {"type": "string", "minLength": 1, "maxLength": 512},
         "work_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "elapsed_ms": {"type": "number", "exclusiveMinimum": 0, "maximum": 300000}
