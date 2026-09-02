@@ -2,8 +2,9 @@
 
 The live gateway process owns the persistent Ed25519-authenticated provider control
 channels. Other local ComputeMesh services must not open a second provider channel;
-they may ask this narrow bridge to dispatch one already-private-policy-selected GPU
-work document to an existing live node session.
+they may use this narrow bearer-authenticated bridge to read the enrolled key id
+proven by the live session and to dispatch one already-private-policy-selected GPU
+work document to that same session.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from services.orchestrator.authenticated_gpu_promo_transport import (
 )
 
 _DISPATCH_PATH = "/internal/v1/promo/gpu-dispatch"
+_SESSION_PATH = "/internal/v1/promo/gpu-session"
 _MAX_REQUEST_BYTES = 256 * 1024
 
 
@@ -44,6 +46,32 @@ class GpuPromoDispatchService:
         ):
             raise GpuPromoDispatchError("unauthorized")
 
+    @staticmethod
+    def _node_id(body: dict[str, Any]) -> str:
+        node_id = body.get("node_id")
+        if not isinstance(node_id, str) or not 1 <= len(node_id) <= 128:
+            raise GpuPromoDispatchError("invalid GPU promo node id")
+        return node_id
+
+    def session_identity(
+        self,
+        *,
+        body: dict[str, Any],
+        authorization: str,
+    ) -> dict[str, Any]:
+        """Return only the node/key binding proven by the authenticated live session."""
+        self._authorize(authorization)
+        if set(body) != {"node_id"}:
+            raise GpuPromoDispatchError("invalid GPU promo session contract")
+        node_id = self._node_id(body)
+        try:
+            key_id = self.transport.authenticated_key_id(node_id)
+        except AuthenticatedGpuPromoTransportError as exc:
+            raise GpuPromoDispatchError("GPU promo provider dispatch failed") from exc
+        if not isinstance(key_id, str) or not 1 <= len(key_id) <= 128:
+            raise GpuPromoDispatchError("GPU promo provider dispatch failed")
+        return {"node_id": node_id, "key_id": key_id}
+
     def dispatch(
         self,
         *,
@@ -53,10 +81,8 @@ class GpuPromoDispatchService:
         self._authorize(authorization)
         if set(body) != {"node_id", "challenge"}:
             raise GpuPromoDispatchError("invalid GPU promo dispatch contract")
-        node_id = body.get("node_id")
+        node_id = self._node_id(body)
         challenge = body.get("challenge")
-        if not isinstance(node_id, str) or not 1 <= len(node_id) <= 128:
-            raise GpuPromoDispatchError("invalid GPU promo node id")
         if not isinstance(challenge, dict) or challenge.get("node_id") != node_id:
             raise GpuPromoDispatchError("GPU promo challenge node binding mismatch")
         timeout_ms = challenge.get("timeout_ms")
@@ -106,7 +132,7 @@ class _GpuPromoDispatchHandler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not_found"})
 
     def do_POST(self) -> None:
-        if self.path != _DISPATCH_PATH:
+        if self.path not in {_DISPATCH_PATH, _SESSION_PATH}:
             self._json(404, {"error": "not_found"})
             return
         try:
@@ -117,10 +143,16 @@ class _GpuPromoDispatchHandler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(body, dict):
                 raise ValueError("request root must be an object")
-            result = self.service.dispatch(
-                body=body,
-                authorization=self.headers.get("Authorization", ""),
-            )
+            if self.path == _SESSION_PATH:
+                result = self.service.session_identity(
+                    body=body,
+                    authorization=self.headers.get("Authorization", ""),
+                )
+            else:
+                result = self.service.dispatch(
+                    body=body,
+                    authorization=self.headers.get("Authorization", ""),
+                )
         except GpuPromoDispatchError as exc:
             if str(exc) == "unauthorized":
                 self._json(401, {"error": "unauthorized"})
