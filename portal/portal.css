@@ -1139,6 +1139,41 @@ footer.site-footer {
   white-space: nowrap;
 }
 
+.pg-snippet-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.pg-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.pg-tab-btn:hover {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.35);
+  color: var(--text-main);
+}
+
+.pg-tab-btn.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--accent-cyan);
+  color: #00f0ff;
+  font-weight: 700;
+}
+
 .pg-ollama-config pre {
   max-width: 100%;
   overflow-x: auto;

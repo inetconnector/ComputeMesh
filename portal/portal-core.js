@@ -857,20 +857,67 @@ async function handleRegistration(e) {
   }
 }
 
+let currentPlaygroundTab = 'curl_bash';
+
+function renderPlaygroundSnippet() {
+  const apiKey = localStorage.getItem('cm_api_key') || 'cm_live_your_key';
+  const ollamaCode = document.getElementById('pg-ollama-code-content');
+  if (!ollamaCode) return;
+
+  if (currentPlaygroundTab === 'curl_bash') {
+    ollamaCode.textContent = `# Linux / macOS (cURL / Bash)
+export OLLAMA_HOST=https://mesh.inetconnector.com
+curl https://mesh.inetconnector.com/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":true}'`;
+  } else if (currentPlaygroundTab === 'curl_win') {
+    ollamaCode.textContent = `REM Windows Eingabeaufforderung (CMD - Einzeiler)
+curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer ${apiKey}" -d "{\\"model\\":\\"qwen2.5:7b\\",\\"messages\\":[{\\"role\\":\\"user\\",\\"content\\":\\"What is ComputeMesh?\\"}],\\"stream\\":false}"`;
+  } else if (currentPlaygroundTab === 'powershell') {
+    ollamaCode.textContent = `# Windows PowerShell (Native REST-Abfrage)
+$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer ${apiKey}" }
+$body = @{ model = "qwen2.5:7b"; messages = @(@{ role = "user"; content = "What is ComputeMesh?" }); stream = $false } | ConvertTo-Json
+Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body`;
+  } else if (currentPlaygroundTab === 'python') {
+    ollamaCode.textContent = `# Python 3 (OpenAI SDK oder urllib mit SSE Streaming)
+import urllib.request, json
+
+req = urllib.request.Request(
+    "https://mesh.inetconnector.com/v1/chat/completions",
+    data=json.dumps({"model": "qwen2.5:7b", "messages": [{"role": "user", "content": "What is ComputeMesh?"}], "stream": True}).encode("utf-8"),
+    headers={"Content-Type": "application/json", "Authorization": "Bearer ${apiKey}"}
+)
+with urllib.request.urlopen(req) as resp:
+    for line in resp:
+        txt = line.decode("utf-8").strip()
+        if txt.startswith("data: ") and not txt.endswith("[DONE]"):
+            print(json.loads(txt[6:])["choices"][0]["delta"].get("content", ""), end="", flush=True)
+print()`;
+  } else if (currentPlaygroundTab === 'ollama') {
+    ollamaCode.textContent = `# Offizielle Ollama CLI (Linux/macOS: export, Windows CMD: set, PowerShell: $env:OLLAMA_HOST)
+export OLLAMA_HOST=https://mesh.inetconnector.com
+ollama run qwen2.5:7b "What is ComputeMesh?"`;
+  }
+}
+window.renderPlaygroundSnippet = renderPlaygroundSnippet;
+
+function switchPlaygroundCodeTab(tab) {
+  currentPlaygroundTab = tab;
+  document.querySelectorAll('.pg-tab-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById(`tab-btn-${tab.replace('_', '-')}`);
+  if (activeBtn) activeBtn.classList.add('active');
+  renderPlaygroundSnippet();
+}
+window.switchPlaygroundCodeTab = switchPlaygroundCodeTab;
+
 function updateCodeSnippetsWithKey(apiKey) {
   if (!apiKey || apiKey.startsWith('Bitte') || apiKey.startsWith('Please') || apiKey.startsWith('Reg')) return;
   try {
     localStorage.setItem('cm_api_key', apiKey);
   } catch (e) {}
 
-  const ollamaCode = document.getElementById('pg-ollama-code-content');
-  if (ollamaCode) {
-    ollamaCode.textContent = `export OLLAMA_HOST=https://mesh.inetconnector.com
-curl https://mesh.inetconnector.com/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":true}'`;
-  }
+  renderPlaygroundSnippet();
 
   const pythonCode = document.getElementById('python-sdk-code-content');
   if (pythonCode) {
@@ -1563,7 +1610,10 @@ function initPortal() {
   try {
     const savedKey = localStorage.getItem('cm_api_key');
     if (savedKey) updateCodeSnippetsWithKey(savedKey);
-  } catch (e) {}
+    else renderPlaygroundSnippet();
+  } catch (e) {
+    renderPlaygroundSnippet();
+  }
 }
 
 if (document.readyState === 'loading') {
