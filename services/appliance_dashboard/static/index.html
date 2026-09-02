@@ -27,6 +27,13 @@
       --font-heading: 'Outfit', sans-serif;
     }
     *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
+    html.is-windows .linux-only,
+    html.is-windows #group-kiosk,
+    html.is-windows #group-auto-system-upgrade,
+    html.is-windows #btn-os-upgrade,
+    html.is-windows #btn-reboot-node {
+      display: none !important;
+    }
     html, body {
       background-color: var(--bg-base);
       color: var(--text-main);
@@ -853,7 +860,7 @@
             </select>
           </div>
 
-          <div class="form-group" id="group-kiosk">
+          <div class="form-group linux-only" id="group-kiosk">
             <label class="form-label">Physical Monitor Display Mode</label>
             <select id="cfg-kiosk" class="form-select">
               <option value="true" selected>Fullscreen Web Kiosk (Chromium 1080p/4K)</option>
@@ -870,7 +877,7 @@
             <span class="form-desc" id="update-status">Checking signed release status...</span>
           </div>
 
-          <div class="form-group" id="group-auto-system-upgrade">
+          <div class="form-group linux-only" id="group-auto-system-upgrade">
             <label class="form-label">Automatic Operating System Security Upgrades</label>
             <select id="cfg-auto-system-upgrade" class="form-select">
               <option value="true" selected>Enabled (Automated Debian Kernel & Security Package Upgrades)</option>
@@ -882,9 +889,9 @@
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
           <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check Signed Update</button>
-          <button class="btn btn-secondary" id="btn-os-upgrade" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
+          <button class="btn btn-secondary linux-only" id="btn-os-upgrade" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
           <button class="btn btn-secondary" id="btn-restart-daemon" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
-          <button class="btn btn-danger" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
+          <button class="btn btn-danger linux-only" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
       </div>
     </div>
@@ -906,6 +913,8 @@
       const pageTitle = document.getElementById('page-title') || document.querySelector('title');
 
       if (isWindows) {
+        document.documentElement.classList.add('is-windows');
+        document.documentElement.classList.remove('is-linux');
         if (badgeEl) badgeEl.textContent = 'Windows';
         if (pageTitle) document.title = 'ComputeMesh Provider Node — AI Inference';
         if (groupKiosk) groupKiosk.style.display = 'none';
@@ -913,6 +922,8 @@
         if (btnOsUpgrade) btnOsUpgrade.style.display = 'none';
         if (btnReboot) btnReboot.style.display = 'none';
       } else {
+        document.documentElement.classList.remove('is-windows');
+        document.documentElement.classList.add('is-linux');
         if (badgeEl) badgeEl.textContent = (platformName && platformName.includes('NodeOS')) ? 'NodeOS' : 'Linux';
         if (pageTitle) document.title = 'ComputeMesh NodeOS — AI Inference Appliance';
         if (groupKiosk) groupKiosk.style.display = '';

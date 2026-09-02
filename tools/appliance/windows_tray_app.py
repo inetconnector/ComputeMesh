@@ -122,16 +122,27 @@ def _acquire_single_instance_lock() -> bool:
                         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
                         h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, old_pid)
                         if h_proc:
-                            kernel32.CloseHandle(h_proc)
+                            is_cm = False
                             try:
-                                user32 = ctypes.windll.user32
-                                hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
-                                if hwnd:
-                                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                                    user32.SetForegroundWindow(hwnd)
+                                buf = ctypes.create_unicode_buffer(1024)
+                                size = ctypes.c_uint32(1024)
+                                if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
+                                    proc_name = buf.value.lower()
+                                    if "computemesh" in proc_name or "python" in proc_name:
+                                        is_cm = True
                             except Exception:
-                                pass
-                            return False
+                                is_cm = True
+                            kernel32.CloseHandle(h_proc)
+                            if is_cm:
+                                try:
+                                    user32 = ctypes.windll.user32
+                                    hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
+                                    if hwnd:
+                                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                                        user32.SetForegroundWindow(hwnd)
+                                except Exception:
+                                    pass
+                                return False
                 except Exception:
                     pass
             lock_path.write_text(str(os.getpid()), encoding="utf-8")
