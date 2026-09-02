@@ -7,12 +7,12 @@ owner-scoped Stripe Connect settlement only for withdrawable ``earned`` credits.
 from __future__ import annotations
 
 import argparse
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import sys
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlparse
 
 from services.billing.accounting import AccountingStore
@@ -26,10 +26,21 @@ from services.gateway.inference_backend import build_inference_backend_from_env
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
+from services.gateway.promo_internal import (
+    PromoInternalError,
+    PromoInternalService,
+    build_promo_internal_service_from_env,
+)
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
 from services.gateway.teaser import TeaserQuotaManager
+
+_PROMO_INTERNAL_PATHS = {
+    "/internal/v1/promo/eligibility",
+    "/internal/v1/promo/apply",
+}
+_WITHDRAW_PATHS = {"/v1/providers/withdraw", "/api/v1/providers/withdraw"}
 
 
 def _env_truthy(name: str) -> bool:
@@ -107,49 +118,99 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
         teaser_manager=teaser_manager,
         backend=build_inference_backend_from_env(),
     )
+    promo_internal_service = build_promo_internal_service_from_env(
+        owner_store=owner_account_store,
+        ledger=ledger,
+    )
 
     class UnifiedOwnerGatewayHandler(GatewayHandler):
         """Gateway handler bound to unified owner accounting and settlement."""
 
-        def do_POST(self) -> None:
-            clean_path = urlparse(self.path).path.rstrip("/")
-            if clean_path not in {"/v1/providers/withdraw", "/api/v1/providers/withdraw"}:
-                return super().do_POST()
-            if not self._check_rate_limit():
-                return
+        promo_internal_service: PromoInternalService | None
 
+        def _owner_json_body(self) -> dict:
             content_length_hdr = self.headers.get("Content-Length")
             if not content_length_hdr:
+                raise ValueError("Content-Length header required")
+            try:
+                content_length = int(content_length_hdr)
+            except ValueError as exc:
+                raise ValueError("Invalid Content-Length header") from exc
+            if content_length < 0:
+                raise ValueError("Invalid Content-Length header")
+            if content_length > MAX_REQUEST_PAYLOAD_BYTES:
+                raise OverflowError(
+                    f"Payload exceeds maximum allowed size ({MAX_REQUEST_PAYLOAD_BYTES} bytes)"
+                )
+            try:
+                raw_body = self.rfile.read(content_length)
+                body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise ValueError("Malformed JSON request body") from exc
+            if not isinstance(body, dict):
+                raise ValueError("request body must be a JSON object")
+            return body
+
+        def _promo_internal(self, clean_path: str) -> None:
+            service = self.promo_internal_service
+            if service is None:
                 self._send_error_response(
-                    "Content-Length header required",
-                    "invalid_request_error",
-                    HTTPStatus.BAD_REQUEST,
+                    "Not found",
+                    "not_found",
+                    HTTPStatus.NOT_FOUND,
+                )
+                return
+            if not service.authenticate(self.headers.get("Authorization", "")):
+                self._send_error_response(
+                    "Unauthorized",
+                    "authentication_error",
+                    HTTPStatus.UNAUTHORIZED,
                 )
                 return
             try:
-                content_length = int(content_length_hdr)
-            except ValueError:
+                body = self._owner_json_body()
+                if clean_path == "/internal/v1/promo/eligibility":
+                    result = service.eligibility(body).to_dict()
+                else:
+                    result = service.apply(body)
+            except OverflowError as exc:
                 self._send_error_response(
-                    "Invalid Content-Length header",
-                    "invalid_request_error",
-                    HTTPStatus.BAD_REQUEST,
-                )
-                return
-            if content_length > MAX_REQUEST_PAYLOAD_BYTES:
-                self._send_error_response(
-                    f"Payload exceeds maximum allowed size ({MAX_REQUEST_PAYLOAD_BYTES} bytes)",
+                    str(exc),
                     "payload_too_large",
                     HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                 )
                 return
-            try:
-                raw_body = self.rfile.read(content_length)
-                body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
-                if not isinstance(body, dict):
-                    raise ValueError("request body must be a JSON object")
-            except Exception:
+            except (PromoInternalError, ValueError) as exc:
                 self._send_error_response(
-                    "Malformed JSON request body",
+                    str(exc),
+                    "invalid_promo_request",
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            self._send_json(result, HTTPStatus.OK)
+
+        def do_POST(self) -> None:
+            clean_path = urlparse(self.path).path.rstrip("/")
+            if clean_path in _PROMO_INTERNAL_PATHS:
+                self._promo_internal(clean_path)
+                return
+            if clean_path not in _WITHDRAW_PATHS:
+                return super().do_POST()
+            if not self._check_rate_limit():
+                return
+
+            try:
+                body = self._owner_json_body()
+            except OverflowError as exc:
+                self._send_error_response(
+                    str(exc),
+                    "payload_too_large",
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                )
+                return
+            except ValueError as exc:
+                self._send_error_response(
+                    str(exc),
                     "invalid_request_error",
                     HTTPStatus.BAD_REQUEST,
                 )
@@ -172,6 +233,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
     UnifiedOwnerGatewayHandler.billing_routes = billing_routes
     UnifiedOwnerGatewayHandler.provider_routes = provider_routes
     UnifiedOwnerGatewayHandler.inference_engine = inference_engine
+    UnifiedOwnerGatewayHandler.promo_internal_service = promo_internal_service
 
     @classmethod
     def sync_subsystems(cls) -> None:
@@ -205,6 +267,10 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
             metrics=cls.metrics,
             teaser_manager=cls.teaser_manager,
             backend=backend,
+        )
+        cls.promo_internal_service = build_promo_internal_service_from_env(
+            owner_store=cls.owner_account_store,
+            ledger=cls.ledger,
         )
 
     UnifiedOwnerGatewayHandler.sync_subsystems = sync_subsystems
