@@ -4,7 +4,9 @@
 The agent connects to the public provider-control listener over verified TLS,
 proves the enrolled Ed25519 node identity, publishes an already measured profile,
 runtime advertisement and benchmark evidence, then serves authenticated execution-
-attestation requests. Private scheduler/pricing/reputation logic never runs here.
+attestation requests. Optional GPU-promo work is executed only from locally pinned
+llama.cpp/model/device configuration. Private scheduler/pricing/reputation logic
+never runs here.
 """
 from __future__ import annotations
 
@@ -30,6 +32,12 @@ from protocol.node_identity import (
 from protocol.node_session import NodeHelloInfo, NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
 from runtime.capacity_guard import LocalCapacityGuard
+from runtime.llama.gpu_promo_challenge import (
+    GPU_PROMO_CAPABILITY,
+    GpuPromoChallengeConfig,
+    GpuPromoChallengeRunner,
+    build_signed_gpu_promo_proof,
+)
 from runtime.llama.node_attestation_service import NodeAttestationService
 from services.orchestrator.persistent_control_channel import (
     ProviderPersistentClient,
@@ -40,7 +48,7 @@ from services.orchestrator.persistent_control_channel import (
 )
 from tools.security.node_key_storage import load_node_private_key
 
-CAPABILITIES = ("execution_attestation_v1", "live_runtime_registration_v1")
+BASE_CAPABILITIES = ("execution_attestation_v1", "live_runtime_registration_v1")
 
 
 class ProviderAgentError(RuntimeError):
@@ -143,6 +151,7 @@ class ProviderAgent:
         runtime_advertisement: dict[str, Any],
         network_reports: Sequence[dict[str, Any]] = (),
         capacity_guard: LocalCapacityGuard | None = None,
+        gpu_promo_runner: GpuPromoChallengeRunner | None = None,
     ) -> None:
         if not node_id or len(node_id) > 128:
             raise ValueError("invalid node_id")
@@ -155,6 +164,8 @@ class ProviderAgent:
         self.runtime_advertisement = dict(runtime_advertisement)
         self.network_reports = tuple(dict(item) for item in network_reports)
         self.capacity_guard = capacity_guard or LocalCapacityGuard(node_id=node_id)
+        self.gpu_promo_runner = gpu_promo_runner
+        self.capabilities = BASE_CAPABILITIES + ((GPU_PROMO_CAPABILITY,) if gpu_promo_runner else ())
         if self.profile.get("node_id") != node_id:
             raise ProviderAgentError("profile node_id does not match configured node identity")
         revision = self.profile.get("profile_revision")
@@ -205,7 +216,7 @@ class ProviderAgent:
             "platform": f"{platform.system()}-{platform.machine()}",
             "node_id": self.node_id,
             "supported_auth_methods": [AUTH_METHOD],
-            "capabilities": list(CAPABILITIES),
+            "capabilities": list(self.capabilities),
         }
         revision, _ = _send_envelope_and_ack(
             sock,
@@ -248,7 +259,7 @@ class ProviderAgent:
             actor_id=self.node_id,
             target_id=control_plane_id,
             revision=revision,
-            payload={"accepted_capabilities": list(CAPABILITIES)},
+            payload={"accepted_capabilities": list(self.capabilities)},
             correlation_id=session_id,
         )
         revision, state = _send_envelope_and_ack(
@@ -298,11 +309,48 @@ class ProviderAgent:
             principal_id="provider-local",
             auth_method=AUTH_METHOD,
             credential_expires_at=datetime.now(UTC) + timedelta(minutes=15),
-            negotiated_capabilities=frozenset(CAPABILITIES),
+            negotiated_capabilities=frozenset(self.capabilities),
             profile_revision=int(self.profile["profile_revision"]),
             drain_reason=None,
             close_reason=None,
         )
+
+    def _handle_gpu_promo_request(
+        self,
+        payload: dict[str, Any],
+        session: SessionSnapshot,
+    ) -> dict[str, Any]:
+        if self.gpu_promo_runner is None or GPU_PROMO_CAPABILITY not in session.negotiated_capabilities:
+            raise ProviderAgentError("GPU promo challenge capability is not enabled")
+        contracts = SessionMessageContractValidator()
+        contracts.validate("GpuPromoChallengeRequest", payload)
+        if payload.get("session_id") != session.session_id:
+            raise ProviderAgentError("GPU promo request session id mismatch")
+        if payload.get("session_revision") != session.revision:
+            raise ProviderAgentError("GPU promo request session revision mismatch")
+        challenge = payload.get("challenge")
+        if not isinstance(challenge, dict):
+            raise ProviderAgentError("GPU promo challenge is missing")
+        if challenge.get("node_id") != self.node_id:
+            raise ProviderAgentError("GPU promo challenge targets another node")
+        if challenge.get("key_id") != self.key_id:
+            raise ProviderAgentError("GPU promo challenge targets another node key")
+
+        result = self.gpu_promo_runner.run(challenge)
+        proof = build_signed_gpu_promo_proof(
+            challenge=challenge,
+            result=result,
+            private_key=self.private_key,
+        )
+        response = {
+            "session_id": session.session_id,
+            "session_revision": session.revision,
+            "node_id": self.node_id,
+            "key_id": self.key_id,
+            "proof": proof,
+        }
+        contracts.validate("GpuPromoChallengeResponse", response)
+        return response
 
     def handle_request(
         self,
@@ -310,6 +358,8 @@ class ProviderAgent:
         payload: dict[str, Any],
         session: SessionSnapshot,
     ) -> dict[str, Any]:
+        if message_type == "GpuPromoChallengeRequest":
+            return self._handle_gpu_promo_request(payload, session)
         if message_type != "ExecutionAttestationRequest":
             raise ProviderAgentError(f"unsupported control-plane request: {message_type}")
         SessionMessageContractValidator().validate(message_type, payload)
@@ -346,6 +396,33 @@ def _runtime_document(
     }
 
 
+def _gpu_promo_runner_from_args(args: argparse.Namespace) -> GpuPromoChallengeRunner | None:
+    values = (
+        args.promo_llama_server,
+        args.promo_model,
+        args.promo_device,
+        args.promo_accelerator_id,
+    )
+    configured = tuple(value is not None for value in values)
+    if any(configured) and not all(configured):
+        raise ProviderAgentError(
+            "GPU promo requires --promo-llama-server, --promo-model, --promo-device and "
+            "--promo-accelerator-id together"
+        )
+    if not any(configured):
+        return None
+    config = GpuPromoChallengeConfig(
+        llama_server=args.promo_llama_server,
+        model=args.promo_model,
+        device=args.promo_device,
+        accelerator_id=args.promo_accelerator_id,
+        local_port=args.promo_port,
+        context_size=args.promo_ctx_size,
+        max_timeout_seconds=args.promo_max_timeout,
+    )
+    return GpuPromoChallengeRunner(config)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run a real ComputeMesh live provider agent")
     parser.add_argument("--control-host", required=True)
@@ -362,6 +439,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rpc-port", type=int, default=50052)
     parser.add_argument("--llama-build-number", type=int, required=True)
     parser.add_argument("--llama-build-commit", required=True)
+    parser.add_argument("--promo-llama-server", type=Path)
+    parser.add_argument("--promo-model", type=Path)
+    parser.add_argument("--promo-device")
+    parser.add_argument("--promo-accelerator-id")
+    parser.add_argument("--promo-port", type=int, default=18090)
+    parser.add_argument("--promo-ctx-size", type=int, default=2048)
+    parser.add_argument("--promo-max-timeout", type=float, default=300.0)
     args = parser.parse_args(argv)
 
     profile = _load_json(args.profile)
@@ -383,6 +467,7 @@ def main(argv: list[str] | None = None) -> int:
             build_commit=args.llama_build_commit,
         ),
         network_reports=tuple(_load_json(path) for path in args.network_report),
+        gpu_promo_runner=_gpu_promo_runner_from_args(args),
     )
     if not args.ca_file.is_file():
         raise ProviderAgentError("control-plane CA file does not exist")
