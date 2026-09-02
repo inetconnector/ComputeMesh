@@ -21,6 +21,8 @@ _SCHEMA_BY_MESSAGE = {
     "DrainRequest": "drain_request_payload.schema.json",
     "ExecutionAttestationRequest": "execution_attestation_request_payload.schema.json",
     "ExecutionAttestationResponse": "execution_attestation_response_payload.schema.json",
+    "GpuPromoChallengeRequest": "gpu_promo_challenge_request_payload.schema.json",
+    "GpuPromoChallengeResponse": "gpu_promo_challenge_response_payload.schema.json",
 }
 
 
