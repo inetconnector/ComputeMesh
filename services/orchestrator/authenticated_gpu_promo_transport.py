@@ -3,7 +3,7 @@
 GPU promo work is sent only across an existing Ed25519-authenticated persistent
 provider session. The transport records wall-clock round-trip duration on the
 control-plane side; provider-reported elapsed time is never treated as sufficient
-proof by itself.
+proof by itself. The verified session key id is authoritative for GPU promo work.
 """
 from __future__ import annotations
 
@@ -61,6 +61,10 @@ class SessionAuthenticatedGpuPromoTransport:
             or session.credential_expires_at <= datetime.now(timezone.utc)
         ):
             raise AuthenticatedGpuPromoTransportError(f"node {node_id} authentication has expired")
+        if not session.key_id:
+            raise AuthenticatedGpuPromoTransportError(
+                f"node {node_id} authenticated session has no enrolled key binding"
+            )
         if GPU_PROMO_CAPABILITY not in session.negotiated_capabilities:
             raise AuthenticatedGpuPromoTransportError(
                 f"node {node_id} did not negotiate {GPU_PROMO_CAPABILITY}"
@@ -70,6 +74,11 @@ class SessionAuthenticatedGpuPromoTransport:
                 f"node {node_id} has no live persistent control channel"
             )
         return session
+
+    def authenticated_key_id(self, node_id: str) -> str:
+        session = self._require_authenticated_session(node_id)
+        assert session.key_id is not None
+        return session.key_id
 
     def request_gpu_promo_challenge(
         self,
@@ -86,6 +95,10 @@ class SessionAuthenticatedGpuPromoTransport:
         session = self._require_authenticated_session(node_id)
         if challenge_document.get("node_id") != node_id:
             raise AuthenticatedGpuPromoTransportError("GPU promo challenge targets another node")
+        if challenge_document.get("key_id") != session.key_id:
+            raise AuthenticatedGpuPromoTransportError(
+                "GPU promo challenge key does not match authenticated session key"
+            )
 
         payload = {
             "session_id": session.session_id,
@@ -113,6 +126,8 @@ class SessionAuthenticatedGpuPromoTransport:
             raise AuthenticatedGpuPromoTransportError("GPU promo response session revision mismatch")
         if response.get("node_id") != node_id:
             raise AuthenticatedGpuPromoTransportError("GPU promo response node identity mismatch")
+        if response.get("key_id") != session.key_id:
+            raise AuthenticatedGpuPromoTransportError("GPU promo response key binding mismatch")
 
         proof = response.get("proof")
         assert isinstance(proof, dict)
@@ -120,10 +135,8 @@ class SessionAuthenticatedGpuPromoTransport:
             raise AuthenticatedGpuPromoTransportError("GPU promo proof node identity mismatch")
         if proof.get("challenge_id") != challenge_document.get("challenge_id"):
             raise AuthenticatedGpuPromoTransportError("GPU promo proof challenge id mismatch")
-        if proof.get("key_id") != challenge_document.get("key_id"):
+        if proof.get("key_id") != session.key_id:
             raise AuthenticatedGpuPromoTransportError("GPU promo proof key id mismatch")
-        if response.get("key_id") != proof.get("key_id"):
-            raise AuthenticatedGpuPromoTransportError("GPU promo response key binding mismatch")
 
         return GpuPromoTransportResult(
             proof=dict(proof),
