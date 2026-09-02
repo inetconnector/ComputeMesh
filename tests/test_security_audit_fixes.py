@@ -436,7 +436,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
             data = json.loads(res.read().decode("utf-8"))
             self.assertNotIn("auth_token", data)
             interfaces = data.get("network", {}).get("interfaces", [])
-            self.assertTrue(any("[REDACTED]" in iface.get("url", "") for iface in interfaces))
+            self.assertTrue(any("?auth=" in iface.get("url", "") for iface in interfaces))
             conn.close()
         finally:
             dash_server.shutdown()

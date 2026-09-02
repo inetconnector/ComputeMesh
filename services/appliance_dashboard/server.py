@@ -187,7 +187,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
                 "inventory": self.inventory.to_dict(),
                 "network": {
-                    "interfaces": get_network_interfaces(node_id=current_node_id, auth_token="[REDACTED]"),
+                    "interfaces": get_network_interfaces(node_id=current_node_id, auth_token=NODE_AUTH_TOKEN),
                 },
                 "global_mesh": mesh_stats,
                 "telemetry": {
