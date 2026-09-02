@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import sys
 
+from services.billing.accounting import AccountingStore
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.common.config import CONFIG
@@ -26,12 +27,7 @@ from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
 from services.gateway.routes_billing import BillingRoutesHandler
-from services.gateway.server import (
-    DEFAULT_PORT,
-    GatewayHandler,
-    _build_account_store_from_env,
-    _build_stripe_service,
-)
+from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
 from services.gateway.teaser import TeaserQuotaManager
 
 
@@ -55,13 +51,11 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
 
     ledger_path = _required_path("COMPUTEMESH_LEDGER_PATH")
     owner_db_path = _required_path("COMPUTEMESH_OWNER_ACCOUNT_DB_PATH")
-    _required_path("COMPUTEMESH_ACCOUNTING_DB_PATH")
+    accounting_db_path = _required_path("COMPUTEMESH_ACCOUNTING_DB_PATH")
 
     ledger = GatewayOwnerCreditLedger(storage_path=ledger_path)
     owner_account_store = OwnerAccountStore(owner_db_path)
-    account_store = _build_account_store_from_env()
-    if account_store is None:
-        raise RuntimeError("COMPUTEMESH_ACCOUNTING_DB_PATH did not produce an accounting store")
+    account_store = AccountingStore(accounting_db_path)
 
     stripe_svc = _build_stripe_service(ledger, account_store)
     metrics = MetricsRegistry()
