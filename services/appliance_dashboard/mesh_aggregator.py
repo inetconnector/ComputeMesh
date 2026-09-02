@@ -112,11 +112,21 @@ class MeshRegistryAggregator:
             total_tflops += tf
             total_tokens += tel.get("tokens_processed", 0)
 
+            local_nid = str((local_status or getattr(self, "_local_status", {})).get("node_id", ""))
+            current_nid = str(n.get("node_id", ""))
+            is_local = (current_nid == local_nid) if (local_nid and current_nid) else False
+
+            gpu_names = [f"{g.get('model_name', 'GPU')} ({round(g.get('vram_bytes', 0)/(1024**3), 1)} GB)" for g in healthy_gpus]
+            gpu_summary = ", ".join(gpu_names) if gpu_names else f"{len(healthy_gpus)} GPU(s)"
+
             node_details.append({
-                "node_id": n.get("node_id"),
+                "node_id": current_nid or "unnamed-node",
+                "is_local": is_local,
                 "gpus_count": len(healthy_gpus),
+                "gpu_summary": gpu_summary,
                 "vram_gb": round(inv.get("total_vram_bytes", 0) / (1024**3), 1),
                 "tflops": round(tf, 1),
+                "tokens": tel.get("tokens_processed", 0),
             })
 
         vram_gb = round(total_vram_bytes / (1024**3), 1)

@@ -1183,6 +1183,28 @@
             elMeshTokens.textContent = Number(data.global_mesh.total_tokens_processed || 0).toLocaleString();
             elMeshTokens.style.color = 'var(--accent-emerald)';
           }
+
+          // Populate live cluster participants roster
+          const elNodesList = document.getElementById('mesh-nodes-list');
+          if (elNodesList && Array.isArray(data.global_mesh.nodes) && data.global_mesh.nodes.length > 0) {
+            elNodesList.innerHTML = '';
+            data.global_mesh.nodes.forEach(n => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.65rem; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); gap: 0.5rem; flex-wrap: wrap;';
+              const nameLabel = n.is_local ? `🟢 ${n.node_id} (Dieser Rechner)` : `🟢 ${n.node_id}`;
+              const desc = n.gpu_summary || `${n.gpus_count} GPU(s) • ${n.vram_gb} GB VRAM`;
+              row.innerHTML = `
+                <div>
+                  <span style="color: var(--accent-emerald); font-weight: 700;">${nameLabel}</span>
+                  <span style="color: var(--text-dim); margin-left: 0.35rem;">• ${desc}</span>
+                </div>
+                <div style="color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap;">
+                  ${n.tflops} TFLOPS
+                </div>
+              `;
+              elNodesList.appendChild(row);
+            });
+          }
         }
 
         // Populate Remote IP Address Chips & QR Code
