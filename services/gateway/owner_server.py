@@ -5,6 +5,10 @@ This explicit migration target requires durable owner/billing storage and enable
 owner-scoped Stripe Connect settlement only for withdrawable ``earned`` credits.
 Hardware-bound onboarding promo is a second explicit opt-in and is delegated to the
 private control plane before any signed grant is accepted into the public ledger.
+
+GPU onboarding can be enabled as a third, stricter opt-in. In that mode the GPU work
+proof is obtained only from the existing authenticated provider control session;
+the browser never supplies the GPU proof itself.
 """
 from __future__ import annotations
 
@@ -36,7 +40,12 @@ from services.gateway.promo_control_plane import build_promo_control_plane_clien
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
+from services.gateway.server_driven_gpu_promo import ServerDrivenGpuPromoRoutes
 from services.gateway.teaser import TeaserQuotaManager
+from services.orchestrator.authenticated_gpu_promo_transport import (
+    SessionAuthenticatedGpuPromoTransport,
+)
+from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME
 
 
 def _env_truthy(name: str) -> bool:
@@ -80,6 +89,40 @@ def _build_owner_promo_routes(
         applier=build_signed_promo_applier_from_env(
             owner_store=owner_account_store,
             ledger=ledger,
+        ),
+    )
+
+
+def _build_server_driven_gpu_promo_routes(
+    *,
+    ledger: PayoutCapableOwnerLedger,
+    owner_account_store: OwnerAccountStore,
+    auth_manager: GatewayAuthManager,
+) -> ServerDrivenGpuPromoRoutes | None:
+    if not _env_truthy("COMPUTEMESH_OWNER_PROMO_GPU_SERVER_DRIVEN"):
+        return None
+    if not _env_truthy("COMPUTEMESH_OWNER_PROMO_ONBOARDING"):
+        raise RuntimeError(
+            "server-driven GPU promo requires COMPUTEMESH_OWNER_PROMO_ONBOARDING=1"
+        )
+    try:
+        control_client = LIVE_SHARED_RUNTIME.control_client
+    except Exception as exc:
+        raise RuntimeError(
+            "server-driven GPU promo requires an in-process authenticated provider control client"
+        ) from exc
+    return ServerDrivenGpuPromoRoutes(
+        owner_store=owner_account_store,
+        ledger=ledger,
+        auth_manager=auth_manager,
+        control_plane=build_promo_control_plane_client_from_env(),
+        applier=build_signed_promo_applier_from_env(
+            owner_store=owner_account_store,
+            ledger=ledger,
+        ),
+        gpu_transport=SessionAuthenticatedGpuPromoTransport(
+            sessions=LIVE_SHARED_RUNTIME,
+            client=control_client,
         ),
     )
 
@@ -128,6 +171,11 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
         ledger=ledger,
     )
     promo_routes = _build_owner_promo_routes(
+        ledger=ledger,
+        owner_account_store=owner_account_store,
+        auth_manager=auth_manager,
+    )
+    gpu_promo_routes = _build_server_driven_gpu_promo_routes(
         ledger=ledger,
         owner_account_store=owner_account_store,
         auth_manager=auth_manager,
@@ -193,7 +241,13 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                 "/v1/account/promo/verify",
                 "/api/v1/account/promo/verify",
             }
-            owner_paths = withdraw_paths | promo_challenge_paths | promo_verify_paths
+            gpu_promo_paths = {
+                "/v1/account/promo/gpu",
+                "/api/v1/account/promo/gpu",
+            }
+            owner_paths = (
+                withdraw_paths | promo_challenge_paths | promo_verify_paths | gpu_promo_paths
+            )
             if clean_path not in owner_paths:
                 return super().do_POST()
             if not self._check_rate_limit():
@@ -206,6 +260,19 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
             if clean_path in withdraw_paths:
                 res, err, status = self.provider_routes.handle_withdraw(self.headers, body)
                 error_type = "settlement_error"
+            elif clean_path in gpu_promo_paths:
+                if self.gpu_promo_routes is None:
+                    self._send_error_response(
+                        "Server-driven GPU promo onboarding is not enabled",
+                        "promo_unavailable",
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                    return
+                res, err, status = self.gpu_promo_routes.handle_gpu_onboarding(
+                    self.headers,
+                    body,
+                )
+                error_type = "promo_error"
             else:
                 if self.promo_routes is None:
                     self._send_error_response(
@@ -236,6 +303,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
     UnifiedOwnerGatewayHandler.billing_routes = billing_routes
     UnifiedOwnerGatewayHandler.provider_routes = provider_routes
     UnifiedOwnerGatewayHandler.promo_routes = promo_routes
+    UnifiedOwnerGatewayHandler.gpu_promo_routes = gpu_promo_routes
     UnifiedOwnerGatewayHandler.inference_engine = inference_engine
 
     @classmethod
@@ -265,6 +333,11 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
             ledger=cls.ledger,
         )
         cls.promo_routes = _build_owner_promo_routes(
+            ledger=cls.ledger,
+            owner_account_store=cls.owner_account_store,
+            auth_manager=cls.auth_manager,
+        )
+        cls.gpu_promo_routes = _build_server_driven_gpu_promo_routes(
             ledger=cls.ledger,
             owner_account_store=cls.owner_account_store,
             auth_manager=cls.auth_manager,
