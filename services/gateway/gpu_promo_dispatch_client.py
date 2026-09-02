@@ -35,14 +35,10 @@ class GpuPromoDispatchClient:
         if self.timeout_seconds <= 0 or self.timeout_seconds > 310:
             raise ValueError("GPU promo dispatch timeout must be in (0,310] seconds")
 
-    def dispatch(self, *, node_id: str, challenge: dict[str, Any]) -> dict[str, Any]:
-        raw = json.dumps(
-            {"node_id": node_id, "challenge": challenge},
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
+    def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        raw = json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
         request = urllib.request.Request(
-            self.base_url.rstrip("/") + "/internal/v1/promo/gpu-dispatch",
+            self.base_url.rstrip("/") + path,
             data=raw,
             headers={
                 "Authorization": f"Bearer {self.bearer_token}",
@@ -80,6 +76,21 @@ class GpuPromoDispatchClient:
         if not isinstance(value, dict):
             raise GpuPromoDispatchClientError("GPU promo dispatch response must be an object")
         return value
+
+    def authenticated_key_id(self, *, node_id: str) -> str:
+        value = self._post("/internal/v1/promo/gpu-session", {"node_id": node_id})
+        if set(value) != {"node_id", "key_id"} or value.get("node_id") != node_id:
+            raise GpuPromoDispatchClientError("GPU promo session identity response is invalid")
+        key_id = value.get("key_id")
+        if not isinstance(key_id, str) or not 1 <= len(key_id) <= 128:
+            raise GpuPromoDispatchClientError("GPU promo session key id is invalid")
+        return key_id
+
+    def dispatch(self, *, node_id: str, challenge: dict[str, Any]) -> dict[str, Any]:
+        return self._post(
+            "/internal/v1/promo/gpu-dispatch",
+            {"node_id": node_id, "challenge": challenge},
+        )
 
 
 def build_gpu_promo_dispatch_client_from_env() -> GpuPromoDispatchClient:
