@@ -146,6 +146,7 @@ class SessionSnapshot:
     profile_revision: int | None
     drain_reason: str | None
     close_reason: str | None
+    key_id: str | None = None
 
 
 @dataclass
@@ -165,6 +166,7 @@ class NodeSession:
     profile_revision: int | None = None
     drain_reason: str | None = None
     close_reason: str | None = None
+    key_id: str | None = None
 
     @classmethod
     def create(cls, session_id: str, *, challenge: str | None = None) -> "NodeSession":
@@ -190,6 +192,7 @@ class NodeSession:
             profile_revision=self.profile_revision,
             drain_reason=self.drain_reason,
             close_reason=self.close_reason,
+            key_id=self.key_id,
         )
 
     def _require(self, expected: NodeSessionState) -> None:
@@ -248,6 +251,7 @@ class NodeSession:
         self.principal_id = decision.principal_id
         self.auth_method = attempt.method
         self.credential_expires_at = expires_at
+        self.key_id = decision.key_id
         return self._advance(NodeSessionState.AUTHENTICATED)
 
     def ensure_auth_valid(self, *, now: datetime | None = None) -> None:
