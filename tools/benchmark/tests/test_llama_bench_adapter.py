@@ -32,6 +32,33 @@ class LlamaBenchAdapterTests(unittest.TestCase):
         self.assertEqual(command[:3], ["llama-bench", "-m", "model.gguf"])
         self.assertEqual(command[-2:], ["-o", "json"])
 
+    def test_build_command_binds_any_safe_gpu_device_and_full_offload(self):
+        for device in ("CUDA0", "ROCm0", "HIP0", "Vulkan0"):
+            command = adapter.build_command(
+                "llama-bench",
+                "model.gguf",
+                prompt_tokens=512,
+                generated_tokens=128,
+                repetitions=5,
+                device=device,
+            )
+            self.assertIn("--device", command)
+            self.assertEqual(command[command.index("--device") + 1], device)
+            self.assertIn("--n-gpu-layers", command)
+            self.assertEqual(command[command.index("--n-gpu-layers") + 1], "all")
+
+    def test_gpu_device_rejects_cpu_rpc_and_unsafe_values(self):
+        for device in ("CPU", "RPC0", "none", "Vulkan 0", "CUDA0;rm"):
+            with self.assertRaises(ValueError):
+                adapter.build_command(
+                    "llama-bench",
+                    "model.gguf",
+                    prompt_tokens=512,
+                    generated_tokens=128,
+                    repetitions=5,
+                    device=device,
+                )
+
     def test_convert_prefill_decode(self):
         results = adapter.convert_rows(self.rows, profile_revision=3, captured_at="2026-08-21T09:00:00Z")
         self.assertEqual([r["benchmark_name"] for r in results], ["llama_cpp_prefill", "llama_cpp_decode"])

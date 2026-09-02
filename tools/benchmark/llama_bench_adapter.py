@@ -7,12 +7,14 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import uuid
 from typing import Any, Iterable
 
 SCHEMA_VERSION = 1
+_GPU_DEVICE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
 
 
 def utc_now() -> str:
@@ -52,6 +54,17 @@ def parse_llama_bench_output(text: str) -> list[dict[str, Any]]:
     raise ValueError("llama-bench JSON must be an object, array of objects, or JSONL")
 
 
+def _gpu_args(device: str | None) -> list[str]:
+    if device is None:
+        return []
+    value = str(device).strip()
+    if _GPU_DEVICE_RE.fullmatch(value) is None:
+        raise ValueError("device must be a safe explicit llama.cpp GPU device identifier")
+    if value.upper().startswith("RPC") or value.upper() in {"CPU", "NONE"}:
+        raise ValueError("device must identify a local GPU accelerator")
+    return ["--device", value, "--n-gpu-layers", "all"]
+
+
 def build_command(
     executable: str,
     model_path: str,
@@ -59,6 +72,7 @@ def build_command(
     prompt_tokens: int,
     generated_tokens: int,
     repetitions: int,
+    device: str | None = None,
     extra_args: Iterable[str] = (),
 ) -> list[str]:
     if prompt_tokens < 1 or generated_tokens < 1 or repetitions < 1:
@@ -70,6 +84,7 @@ def build_command(
         "-n", str(generated_tokens),
         "-r", str(repetitions),
         "-o", "json",
+        *_gpu_args(device),
         *extra_args,
     ]
 
@@ -182,6 +197,7 @@ def run_llama_bench(
     prompt_tokens: int = 512,
     generated_tokens: int = 128,
     repetitions: int = 5,
+    device: str | None = None,
     extra_args: Iterable[str] = (),
     timeout: float = 900.0,
 ) -> list[dict[str, Any]]:
@@ -196,6 +212,7 @@ def run_llama_bench(
         prompt_tokens=prompt_tokens,
         generated_tokens=generated_tokens,
         repetitions=repetitions,
+        device=device,
         extra_args=extra_args,
     )
     completed = subprocess.run(
@@ -225,6 +242,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prompt-tokens", type=int, default=512)
     parser.add_argument("--generated-tokens", type=int, default=128)
     parser.add_argument("--repetitions", type=int, default=5)
+    parser.add_argument("--device", help="explicit local llama.cpp GPU device; forces full GPU offload")
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--extra-arg", action="append", default=[])
     parser.add_argument("--parse-file", help="Parse existing llama-bench JSON/JSONL instead of executing")
@@ -245,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
             prompt_tokens=args.prompt_tokens,
             generated_tokens=args.generated_tokens,
             repetitions=args.repetitions,
+            device=args.device,
             extra_args=args.extra_arg,
             timeout=args.timeout,
         )
