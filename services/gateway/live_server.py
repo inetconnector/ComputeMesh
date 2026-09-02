@@ -13,6 +13,10 @@ from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
 from services.compliance.policy import assert_production_launch_gate
 from services.gateway.cancellable_inference import CancellableInferenceEngine
+from services.gateway.gpu_promo_dispatch_runtime import (
+    RunningGpuPromoDispatch,
+    start_optional_gpu_promo_dispatch,
+)
 from services.gateway.live_bootstrap import install_live_shared_gateway
 from services.gateway.live_handler import LiveGatewayHandler
 from services.gateway.server import DEFAULT_PORT
@@ -143,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     control_plane: IntegratedLiveControlPlane | None = None
+    gpu_promo_dispatch: RunningGpuPromoDispatch | None = None
     try:
         # In production this is deliberately first: no model, provider listener or
         # customer gateway comes up before the legal/DSGVO/payment gate is complete.
@@ -157,8 +162,14 @@ def main(argv: list[str] | None = None) -> int:
             key_file=args.control_key,
             identity_path=os.environ.get("COMPUTEMESH_IDENTITY_STATE_PATH", "").strip(),
         )
+        gpu_promo_dispatch = start_optional_gpu_promo_dispatch(
+            control_plane=control_plane,
+            registry=LIVE_SHARED_RUNTIME,
+        )
         _install_cancellable_live_gateway()
     except Exception as exc:
+        if gpu_promo_dispatch is not None:
+            gpu_promo_dispatch.close()
         if control_plane is not None:
             control_plane.close()
         print(f"live gateway bootstrap failed: {type(exc).__name__}: {str(exc)[:1024]}", file=sys.stderr)
@@ -166,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         _run_live_gateway(host=args.host, port=args.port)
     finally:
+        if gpu_promo_dispatch is not None:
+            gpu_promo_dispatch.close()
         if control_plane is not None:
             control_plane.close()
     return 0

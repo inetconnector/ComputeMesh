@@ -32,6 +32,8 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_execution_evidence",
         "services.gateway.tests.test_verified_settlement",
         "services.gateway.tests.test_cancellable_inference",
+        "services.gateway.tests.test_owner_promo_routes",
+        "services.gateway.tests.test_server_driven_gpu_promo",
         "tests.test_security_audit_fixes",
     ],
     "Portal & Web Subsystem": [
@@ -69,6 +71,8 @@ CATEGORIES: dict[str, list[str]] = {
         "services.orchestrator.tests.test_persistence_v2",
         "services.orchestrator.tests.test_attestation_collection",
         "services.orchestrator.tests.test_authenticated_attestation_transport",
+        "services.orchestrator.tests.test_authenticated_gpu_promo_transport",
+        "services.orchestrator.tests.test_gpu_promo_dispatch",
         "services.orchestrator.tests.test_shared_request_backend",
         "services.orchestrator.tests.test_shared_request_cancellation",
         "services.orchestrator.tests.test_live_shared_runtime",

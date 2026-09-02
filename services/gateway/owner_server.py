@@ -24,6 +24,7 @@ from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecu
 from services.billing.stripe_connect import StripeConnectService
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
+from services.gateway.gpu_promo_dispatch_client import build_gpu_promo_dispatch_client_from_env
 from services.gateway.inference_backend import build_inference_backend_from_env
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
@@ -72,6 +73,9 @@ def _build_owner_promo_routes(
 ) -> UnifiedOwnerPromoRoutes | None:
     if not _env_truthy("COMPUTEMESH_OWNER_PROMO_ONBOARDING"):
         return None
+    gpu_dispatch = None
+    if _env_truthy("COMPUTEMESH_OWNER_GPU_PROMO_SERVER_DRIVEN"):
+        gpu_dispatch = build_gpu_promo_dispatch_client_from_env()
     return UnifiedOwnerPromoRoutes(
         owner_store=owner_account_store,
         ledger=ledger,
@@ -81,6 +85,7 @@ def _build_owner_promo_routes(
             owner_store=owner_account_store,
             ledger=ledger,
         ),
+        gpu_dispatch=gpu_dispatch,
     )
 
 
@@ -193,7 +198,16 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                 "/v1/account/promo/verify",
                 "/api/v1/account/promo/verify",
             }
-            owner_paths = withdraw_paths | promo_challenge_paths | promo_verify_paths
+            gpu_onboard_paths = {
+                "/v1/account/promo/gpu-onboard",
+                "/api/v1/account/promo/gpu-onboard",
+            }
+            owner_paths = (
+                withdraw_paths
+                | promo_challenge_paths
+                | promo_verify_paths
+                | gpu_onboard_paths
+            )
             if clean_path not in owner_paths:
                 return super().do_POST()
             if not self._check_rate_limit():
@@ -216,8 +230,10 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                     return
                 if clean_path in promo_challenge_paths:
                     res, err, status = self.promo_routes.handle_challenge(self.headers, body)
-                else:
+                elif clean_path in promo_verify_paths:
                     res, err, status = self.promo_routes.handle_verify(self.headers, body)
+                else:
+                    res, err, status = self.promo_routes.handle_gpu_onboard(self.headers, body)
                 error_type = "promo_error"
 
             if err:

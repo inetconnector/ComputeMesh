@@ -1,9 +1,10 @@
 """Owner-authenticated gateway bridge for hardware-bound onboarding promo.
 
-The caller supplies hardware evidence and the node-signed proof. The gateway derives
-all financial/ownership eligibility state itself, delegates private policy to the
-control plane, verifies the returned signed decision, and exposes only the resulting
-owner balance/status to the caller.
+Device onboarding may use the existing challenge/proof exchange. When a trusted GPU
+dispatch client is configured, GPU onboarding is server-driven end-to-end: the
+gateway obtains private work inputs, dispatches them through the live authenticated
+provider session, forwards only the server-observed result to private policy, and
+never accepts GPU work evidence from the browser/client.
 """
 from __future__ import annotations
 
@@ -23,12 +24,17 @@ from services.billing.signed_promo_grants import (
     SignedPromoGrantApplier,
 )
 from services.gateway.auth import GatewayAuthManager
+from services.gateway.gpu_promo_dispatch_client import (
+    GpuPromoDispatchClient,
+    GpuPromoDispatchClientError,
+)
 from services.gateway.promo_control_plane import (
     PromoControlPlaneClient,
     PromoControlPlaneError,
 )
 
 _CHALLENGE_REQUEST_FIELDS = {"claim_class", "node_id", "key_id", "hardware_evidence"}
+_GPU_ONBOARD_REQUEST_FIELDS = {"node_id", "key_id", "hardware_evidence"}
 _CHALLENGE_RESPONSE_FIELDS = {
     "challenge_id",
     "claim_class",
@@ -40,6 +46,24 @@ _CHALLENGE_RESPONSE_FIELDS = {
     "nonce",
     "issued_at",
     "expires_at",
+}
+_GPU_WORK_FIELDS = {
+    "schema_version",
+    "challenge_id",
+    "claim_class",
+    "owner_id",
+    "node_id",
+    "key_id",
+    "hardware_claim_id",
+    "evidence_digest",
+    "nonce",
+    "prompt",
+    "seed",
+    "n_predict",
+    "model_sha256",
+    "expected_llama_build_number",
+    "expected_llama_build_commit",
+    "timeout_ms",
 }
 _PROOF_FIELDS = {
     "challenge_id",
@@ -59,6 +83,7 @@ _PROOF_FIELDS = {
     "work_digest",
     "elapsed_ms",
 }
+_GPU_OBSERVATION_FIELDS = {"server_roundtrip_ms", "session_id", "session_revision"}
 _ALLOWED_CLAIMS = {PROMO_DEVICE, PROMO_GPU}
 
 
@@ -135,12 +160,14 @@ class UnifiedOwnerPromoRoutes:
         auth_manager: GatewayAuthManager,
         control_plane: PromoControlPlaneClient,
         applier: SignedPromoGrantApplier,
+        gpu_dispatch: GpuPromoDispatchClient | None = None,
     ) -> None:
         self.owner_store = owner_store
         self.ledger = ledger
         self.auth_manager = auth_manager
         self.control_plane = control_plane
         self.applier = applier
+        self.gpu_dispatch = gpu_dispatch
 
     def _owner(self, headers: Any) -> tuple[str | None, str | None, HTTPStatus]:
         auth = self.auth_manager.authenticate_request(headers, allow_teaser=False)
@@ -186,9 +213,170 @@ class UnifiedOwnerPromoRoutes:
     def _cp_error(exc: PromoControlPlaneError) -> tuple[str, HTTPStatus]:
         if exc.status_code == 400:
             return ("Promo verification was rejected", HTTPStatus.BAD_REQUEST)
-        # Private auth failure, outage and server failures are operator-side. Never
-        # leak internal bearer/token details through the public route.
         return ("Promo verification service is unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
+
+    @staticmethod
+    def _challenge_binding_ok(
+        challenge: dict[str, Any],
+        *,
+        owner_id: str,
+        claim_class: str,
+        node_id: str,
+        key_id: str,
+    ) -> bool:
+        return (
+            set(challenge) == _CHALLENGE_RESPONSE_FIELDS
+            and str(challenge.get("owner_id")) == owner_id
+            and str(challenge.get("claim_class")) == claim_class
+            and str(challenge.get("node_id")) == node_id
+            and str(challenge.get("key_id")) == key_id
+        )
+
+    def _apply_envelope(
+        self,
+        *,
+        owner_id: str,
+        envelope: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
+        try:
+            applied = self.applier.apply(envelope)
+        except PromoGrantDecisionError:
+            return (None, "Promo service decision was rejected", HTTPStatus.BAD_GATEWAY)
+        balances = self.ledger.get_owner_balances(owner_id)
+        return (
+            {
+                "status": "credited",
+                "owner_id": owner_id,
+                "claim_class": applied.claim_class,
+                "amount_micro_units": applied.amount_micro_units,
+                "promo_balance_micro_units": balances.promo_micro_units,
+                "ledger_status": applied.ledger_status,
+            },
+            None,
+            HTTPStatus.OK,
+        )
+
+    def handle_gpu_onboard(
+        self,
+        headers: Any,
+        body: dict[str, Any],
+    ) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
+        """Run the GPU promo proof entirely through trusted server-side components."""
+        owner_id, error, status = self._owner(headers)
+        if owner_id is None:
+            return (None, error, status)
+        if self.gpu_dispatch is None:
+            return (None, "Server-driven GPU promo is unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
+        if set(body) != _GPU_ONBOARD_REQUEST_FIELDS:
+            return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
+        node_id = str(body.get("node_id") or "").strip()
+        key_id = str(body.get("key_id") or "").strip()
+        evidence = body.get("hardware_evidence")
+        if not node_id or not key_id or not isinstance(evidence, dict):
+            return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
+
+        existing = self._existing_result(owner_id, PROMO_GPU)
+        if existing is not None:
+            return (existing, None, HTTPStatus.OK)
+        if self.owner_store.owner_for_provider_node(node_id) != owner_id:
+            return (
+                None,
+                "GPU promo node is not owned by the authenticated owner",
+                HTTPStatus.FORBIDDEN,
+            )
+
+        try:
+            challenge = self.control_plane.issue_challenge(
+                {
+                    "claim_class": PROMO_GPU,
+                    "owner_id": owner_id,
+                    "node_id": node_id,
+                    "key_id": key_id,
+                    "hardware_evidence": evidence,
+                }
+            )
+        except PromoControlPlaneError as exc:
+            message, cp_status = self._cp_error(exc)
+            return (None, message, cp_status)
+        if not self._challenge_binding_ok(
+            challenge,
+            owner_id=owner_id,
+            claim_class=PROMO_GPU,
+            node_id=node_id,
+            key_id=key_id,
+        ):
+            return (None, "Promo service response binding mismatch", HTTPStatus.BAD_GATEWAY)
+
+        try:
+            work = self.control_plane.gpu_work(
+                {
+                    "challenge_id": challenge["challenge_id"],
+                    "owner_id": owner_id,
+                    "node_id": node_id,
+                    "key_id": key_id,
+                }
+            )
+        except PromoControlPlaneError as exc:
+            message, cp_status = self._cp_error(exc)
+            return (None, message, cp_status)
+        if set(work) != _GPU_WORK_FIELDS:
+            return (None, "Invalid GPU promo work response", HTTPStatus.BAD_GATEWAY)
+        for field in (
+            "challenge_id",
+            "claim_class",
+            "owner_id",
+            "node_id",
+            "key_id",
+            "hardware_claim_id",
+            "evidence_digest",
+            "nonce",
+        ):
+            if work.get(field) != challenge.get(field):
+                return (None, "GPU promo work binding mismatch", HTTPStatus.BAD_GATEWAY)
+
+        try:
+            dispatched = self.gpu_dispatch.dispatch(node_id=node_id, challenge=work)
+        except GpuPromoDispatchClientError:
+            return (None, "GPU promo provider is unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
+        if set(dispatched) != {"proof", "gpu_observation"}:
+            return (None, "Invalid GPU promo dispatch response", HTTPStatus.BAD_GATEWAY)
+        proof = dispatched.get("proof")
+        observation = dispatched.get("gpu_observation")
+        if not isinstance(proof, dict) or set(proof) != _PROOF_FIELDS:
+            return (None, "Invalid GPU promo proof", HTTPStatus.BAD_GATEWAY)
+        if not isinstance(observation, dict) or set(observation) != _GPU_OBSERVATION_FIELDS:
+            return (None, "Invalid GPU promo observation", HTTPStatus.BAD_GATEWAY)
+        for field in (
+            "challenge_id",
+            "claim_class",
+            "owner_id",
+            "node_id",
+            "key_id",
+            "hardware_claim_id",
+            "evidence_digest",
+            "nonce",
+        ):
+            if proof.get(field) != challenge.get(field):
+                return (None, "GPU promo proof binding mismatch", HTTPStatus.BAD_GATEWAY)
+
+        claimed_classes, lifetime_granted = self._lifetime_claim_state(owner_id)
+        try:
+            envelope = self.control_plane.verify_and_issue(
+                {
+                    "proof": proof,
+                    "eligibility": {
+                        "owner_id": owner_id,
+                        "current_owner_promo_micro_units": lifetime_granted,
+                        "already_claimed_classes": claimed_classes,
+                        "provider_node_owner_id": owner_id,
+                    },
+                    "gpu_observation": observation,
+                }
+            )
+        except PromoControlPlaneError as exc:
+            message, cp_status = self._cp_error(exc)
+            return (None, message, cp_status)
+        return self._apply_envelope(owner_id=owner_id, envelope=envelope)
 
     def handle_challenge(
         self,
@@ -209,6 +397,12 @@ class UnifiedOwnerPromoRoutes:
             return (None, "Invalid promo challenge request", HTTPStatus.BAD_REQUEST)
         if not isinstance(evidence, dict):
             return (None, "hardware_evidence must be an object", HTTPStatus.BAD_REQUEST)
+        if claim_class == PROMO_GPU and self.gpu_dispatch is not None:
+            return (
+                None,
+                "GPU promo requires the server-driven onboarding endpoint",
+                HTTPStatus.BAD_REQUEST,
+            )
 
         existing = self._existing_result(owner_id, claim_class)
         if existing is not None:
@@ -266,6 +460,12 @@ class UnifiedOwnerPromoRoutes:
         node_id = str(proof.get("node_id") or "").strip()
         if claim_class not in _ALLOWED_CLAIMS or proof_owner != owner_id or not node_id:
             return (None, "Promo proof does not match authenticated owner", HTTPStatus.FORBIDDEN)
+        if claim_class == PROMO_GPU and self.gpu_dispatch is not None:
+            return (
+                None,
+                "Client-supplied GPU promo proofs are disabled",
+                HTTPStatus.BAD_REQUEST,
+            )
 
         existing = self._existing_result(owner_id, claim_class)
         if existing is not None:
@@ -288,8 +488,6 @@ class UnifiedOwnerPromoRoutes:
                     "proof": proof,
                     "eligibility": {
                         "owner_id": owner_id,
-                        # v1 private wire field name; value is deliberately the
-                        # cumulative durable grant sum, never remaining promo wallet.
                         "current_owner_promo_micro_units": lifetime_granted,
                         "already_claimed_classes": claimed_classes,
                         "provider_node_owner_id": provider_owner,
@@ -299,22 +497,4 @@ class UnifiedOwnerPromoRoutes:
         except PromoControlPlaneError as exc:
             message, cp_status = self._cp_error(exc)
             return (None, message, cp_status)
-
-        try:
-            applied = self.applier.apply(envelope)
-        except PromoGrantDecisionError:
-            return (None, "Promo service decision was rejected", HTTPStatus.BAD_GATEWAY)
-
-        balances = self.ledger.get_owner_balances(owner_id)
-        return (
-            {
-                "status": "credited",
-                "owner_id": owner_id,
-                "claim_class": applied.claim_class,
-                "amount_micro_units": applied.amount_micro_units,
-                "promo_balance_micro_units": balances.promo_micro_units,
-                "ledger_status": applied.ledger_status,
-            },
-            None,
-            HTTPStatus.OK,
-        )
+        return self._apply_envelope(owner_id=owner_id, envelope=envelope)

@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from protocol.node_identity import Ed25519ChallengeVerifier
 from protocol.node_session import SessionSnapshot
 from protocol.session_wire import BenchmarkAcceptanceDecision
+from runtime.llama.gpu_promo_challenge import GPU_PROMO_CAPABILITY
 from services.compliance.policy import load_provider_compliance_registry_from_env
 from services.orchestrator.live_provider_registration import (
     LiveProviderRegistration,
@@ -122,7 +123,11 @@ class IntegratedLiveControlPlane:
                 control_client=self.control_client,
                 registration=self.registration,
                 control_plane_id=self.control_plane_id,
-                control_plane_capabilities=("execution_attestation_v1", "live_runtime_registration_v1"),
+                control_plane_capabilities=(
+                    "execution_attestation_v1",
+                    "live_runtime_registration_v1",
+                    GPU_PROMO_CAPABILITY,
+                ),
             )
             transferred = True
         except Exception:
