@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import hmac
 from http import HTTPStatus
 import json
@@ -17,6 +18,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.ledger import Ledger
+from services.billing.owner_accounts import OwnerAccountStore
+from services.billing.owner_credits import OwnerCreditLedger
 from services.common.config import CONFIG
 from services.gateway.teaser import TeaserQuotaManager
 
@@ -27,6 +30,18 @@ ADMIN_KEY_MIN_LENGTH = 24
 
 def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def api_credential_id(token: str) -> str:
+    """Return a non-secret durable identifier for an API credential.
+
+    The owner store must never need the raw bearer token. A SHA-256 identifier is
+    sufficient to bind/revoke a credential without making the billing database a
+    second API-key secret store.
+    """
+    if not token:
+        raise ValueError("API token is required")
+    return "api_sha256:" + hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def _load_env_api_keys() -> dict[str, str]:
@@ -92,6 +107,7 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
 @dataclass(frozen=True)
 class AuthResult:
     account_id: str | None = None
+    owner_id: str | None = None
     is_teaser: bool = False
     is_provider_self_compute: bool = False
     is_quota_exceeded: bool = False
@@ -142,9 +158,11 @@ class GatewayAuthManager:
         teaser_manager: TeaserQuotaManager,
         api_keys: dict[str, str] | None = None,
         api_key_store_path: Path | None = None,
+        owner_account_store: OwnerAccountStore | None = None,
     ) -> None:
         self.ledger = ledger
         self.teaser_manager = teaser_manager
+        self.owner_account_store = owner_account_store
         self._initial_api_keys: dict[str, str] = api_keys.copy() if api_keys is not None else {}
         self._explicit_keys: dict[str, str] = {}
         self._api_keys: dict[str, str] = {}
@@ -161,6 +179,18 @@ class GatewayAuthManager:
     def api_keys(self) -> dict[str, str]:
         return self._api_keys
 
+    @property
+    def uses_owner_credits(self) -> bool:
+        return isinstance(self.ledger, OwnerCreditLedger)
+
+    def _bind_owner_credential(self, token: str, owner_id: str) -> None:
+        if self.owner_account_store is None:
+            if self.uses_owner_credits:
+                raise RuntimeError("unified owner credits require OwnerAccountStore")
+            return
+        self.owner_account_store.ensure_owner(owner_id)
+        self.owner_account_store.bind_api_credential(owner_id, api_credential_id(token))
+
     def set_api_key(self, token: str, account_id: str) -> None:
         if not API_KEY_REGEX.match(token):
             raise ValueError("invalid API key format")
@@ -169,6 +199,8 @@ class GatewayAuthManager:
         with self._lock:
             self._explicit_keys[token] = account_id.strip()
             self._api_keys[token] = account_id.strip()
+        if self.uses_owner_credits:
+            self._bind_owner_credential(token, account_id.strip())
 
     def refresh_registered_keys(self) -> None:
         with self._lock:
@@ -201,9 +233,21 @@ class GatewayAuthManager:
         token = extract_bearer_token(headers)
 
         if token:
-            # Check registered keys using constant-time comparison
+            # Check registered keys using constant-time comparison. In unified mode,
+            # the configured account_id is the durable owner_id. No automatic
+            # production credit is created merely by presenting a key.
             account_id = self._lookup_registered_key(token)
             if account_id:
+                if self.uses_owner_credits:
+                    self._bind_owner_credential(token, account_id)
+                    return AuthResult(
+                        account_id=account_id,
+                        owner_id=account_id,
+                        is_teaser=False,
+                        is_provider_self_compute=token.startswith("cm_provider_"),
+                        is_quota_exceeded=False,
+                    )
+
                 if not self.ledger.has_received_initial_grant(account_id) and self.ledger.get_balance(account_id) == 0:
                     self.ledger.deposit_customer_credits(
                         customer_account_id=account_id,
@@ -224,6 +268,15 @@ class GatewayAuthManager:
                     account_id = f"provider_self_{provider_node_id}"
                     with self._lock:
                         self._api_keys[token] = account_id
+                    if self.uses_owner_credits:
+                        self._bind_owner_credential(token, account_id)
+                        return AuthResult(
+                            account_id=account_id,
+                            owner_id=account_id,
+                            is_teaser=False,
+                            is_provider_self_compute=True,
+                            is_quota_exceeded=False,
+                        )
                     if self.ledger.get_balance(account_id) == 0:
                         self.ledger.deposit_customer_credits(
                             customer_account_id=account_id,
@@ -243,6 +296,15 @@ class GatewayAuthManager:
                     account_id = f"cust_{cust_suffix}"
                     with self._lock:
                         self._api_keys[token] = account_id
+                    if self.uses_owner_credits:
+                        self._bind_owner_credential(token, account_id)
+                        return AuthResult(
+                            account_id=account_id,
+                            owner_id=account_id,
+                            is_teaser=False,
+                            is_provider_self_compute=False,
+                            is_quota_exceeded=False,
+                        )
                     if self.ledger.get_balance(account_id) == 0:
                         self.ledger.deposit_customer_credits(
                             customer_account_id=account_id,
@@ -256,7 +318,9 @@ class GatewayAuthManager:
                         is_quota_exceeded=False,
                     )
 
-        # 3. No token provided: evaluate Free Teaser Playground Mode
+        # No token provided: evaluate Free Teaser Playground Mode. Teaser quota is
+        # deliberately separate from durable owner balances and remains legacy/demo
+        # accounting even when owner credits are enabled.
         if allow_teaser:
             client_ip = resolve_client_ip(headers, client_address)
             session = self.teaser_manager.get_or_create_session(client_ip)
@@ -268,7 +332,6 @@ class GatewayAuthManager:
                     is_quota_exceeded=True,
                 )
 
-            # Auto-provision temporary teaser ledger balance
             sanitized_ip = re.sub(r"[^a-zA-Z0-9_]", "_", client_ip)
             account_id = f"teaser_{sanitized_ip}"
             if self.ledger.get_balance(account_id) == 0:
@@ -313,7 +376,6 @@ class GatewayAuthManager:
         env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
         if len(env_admin) < ADMIN_KEY_MIN_LENGTH:
             return (False, "Admin key is not configured", HTTPStatus.SERVICE_UNAVAILABLE)
-        # Constant-time comparison against configured admin secret
         if hmac.compare_digest(token, env_admin):
             return (True, None, HTTPStatus.OK)
         return (False, "Invalid admin credentials", HTTPStatus.FORBIDDEN)
