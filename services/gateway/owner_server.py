@@ -3,16 +3,18 @@
 The legacy ``services.gateway.server`` remains unchanged and is still the default.
 This explicit migration target requires durable owner/billing storage and enables
 owner-scoped Stripe Connect settlement only for withdrawable ``earned`` credits.
+Hardware-bound onboarding promo is a second explicit opt-in and is delegated to the
+private control plane before any signed grant is accepted into the public ledger.
 """
 from __future__ import annotations
 
 import argparse
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import sys
+from http import HTTPStatus
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlparse
 
 from services.billing.accounting import AccountingStore
@@ -25,7 +27,12 @@ from services.gateway.auth import GatewayAuthManager
 from services.gateway.inference_backend import build_inference_backend_from_env
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
+from services.gateway.owner_promo_routes import (
+    UnifiedOwnerPromoRoutes,
+    build_signed_promo_applier_from_env,
+)
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
+from services.gateway.promo_control_plane import build_promo_control_plane_client_from_env
 from services.gateway.routes_billing import BillingRoutesHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 from services.gateway.server import DEFAULT_PORT, GatewayHandler, _build_stripe_service
@@ -53,6 +60,26 @@ def _build_owner_settlement_executor(
         account_store=account_store,
         stripe_connect=StripeConnectService(
             stripe_api_key=os.environ.get("STRIPE_API_KEY", "").strip()
+        ),
+    )
+
+
+def _build_owner_promo_routes(
+    *,
+    ledger: PayoutCapableOwnerLedger,
+    owner_account_store: OwnerAccountStore,
+    auth_manager: GatewayAuthManager,
+) -> UnifiedOwnerPromoRoutes | None:
+    if not _env_truthy("COMPUTEMESH_OWNER_PROMO_ONBOARDING"):
+        return None
+    return UnifiedOwnerPromoRoutes(
+        owner_store=owner_account_store,
+        ledger=ledger,
+        auth_manager=auth_manager,
+        control_plane=build_promo_control_plane_client_from_env(),
+        applier=build_signed_promo_applier_from_env(
+            owner_store=owner_account_store,
+            ledger=ledger,
         ),
     )
 
@@ -100,6 +127,11 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
         auth_manager=auth_manager,
         ledger=ledger,
     )
+    promo_routes = _build_owner_promo_routes(
+        ledger=ledger,
+        owner_account_store=owner_account_store,
+        auth_manager=auth_manager,
+    )
     inference_engine = UnifiedOwnerInferenceEngine(
         ledger=ledger,
         owner_account_store=owner_account_store,
@@ -111,13 +143,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
     class UnifiedOwnerGatewayHandler(GatewayHandler):
         """Gateway handler bound to unified owner accounting and settlement."""
 
-        def do_POST(self) -> None:
-            clean_path = urlparse(self.path).path.rstrip("/")
-            if clean_path not in {"/v1/providers/withdraw", "/api/v1/providers/withdraw"}:
-                return super().do_POST()
-            if not self._check_rate_limit():
-                return
-
+        def _read_owner_action_body(self) -> dict | None:
             content_length_hdr = self.headers.get("Content-Length")
             if not content_length_hdr:
                 self._send_error_response(
@@ -125,7 +151,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                     "invalid_request_error",
                     HTTPStatus.BAD_REQUEST,
                 )
-                return
+                return None
             try:
                 content_length = int(content_length_hdr)
             except ValueError:
@@ -134,14 +160,14 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                     "invalid_request_error",
                     HTTPStatus.BAD_REQUEST,
                 )
-                return
-            if content_length > MAX_REQUEST_PAYLOAD_BYTES:
+                return None
+            if content_length < 0 or content_length > MAX_REQUEST_PAYLOAD_BYTES:
                 self._send_error_response(
                     f"Payload exceeds maximum allowed size ({MAX_REQUEST_PAYLOAD_BYTES} bytes)",
                     "payload_too_large",
                     HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                 )
-                return
+                return None
             try:
                 raw_body = self.rfile.read(content_length)
                 body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
@@ -153,11 +179,49 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
                     "invalid_request_error",
                     HTTPStatus.BAD_REQUEST,
                 )
+                return None
+            return body
+
+        def do_POST(self) -> None:
+            clean_path = urlparse(self.path).path.rstrip("/")
+            withdraw_paths = {"/v1/providers/withdraw", "/api/v1/providers/withdraw"}
+            promo_challenge_paths = {
+                "/v1/account/promo/challenge",
+                "/api/v1/account/promo/challenge",
+            }
+            promo_verify_paths = {
+                "/v1/account/promo/verify",
+                "/api/v1/account/promo/verify",
+            }
+            owner_paths = withdraw_paths | promo_challenge_paths | promo_verify_paths
+            if clean_path not in owner_paths:
+                return super().do_POST()
+            if not self._check_rate_limit():
                 return
 
-            res, err, status = self.provider_routes.handle_withdraw(self.headers, body)
+            body = self._read_owner_action_body()
+            if body is None:
+                return
+
+            if clean_path in withdraw_paths:
+                res, err, status = self.provider_routes.handle_withdraw(self.headers, body)
+                error_type = "settlement_error"
+            else:
+                if self.promo_routes is None:
+                    self._send_error_response(
+                        "Owner promo onboarding is not enabled",
+                        "promo_unavailable",
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                    return
+                if clean_path in promo_challenge_paths:
+                    res, err, status = self.promo_routes.handle_challenge(self.headers, body)
+                else:
+                    res, err, status = self.promo_routes.handle_verify(self.headers, body)
+                error_type = "promo_error"
+
             if err:
-                self._send_error_response(err, "settlement_error", status)
+                self._send_error_response(err, error_type, status)
             else:
                 self._send_json(res or {}, status)
 
@@ -171,6 +235,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
     UnifiedOwnerGatewayHandler.auth_manager = auth_manager
     UnifiedOwnerGatewayHandler.billing_routes = billing_routes
     UnifiedOwnerGatewayHandler.provider_routes = provider_routes
+    UnifiedOwnerGatewayHandler.promo_routes = promo_routes
     UnifiedOwnerGatewayHandler.inference_engine = inference_engine
 
     @classmethod
@@ -198,6 +263,11 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
             settlement_executor=cls.settlement_executor,
             auth_manager=cls.auth_manager,
             ledger=cls.ledger,
+        )
+        cls.promo_routes = _build_owner_promo_routes(
+            ledger=cls.ledger,
+            owner_account_store=cls.owner_account_store,
+            auth_manager=cls.auth_manager,
         )
         cls.inference_engine = UnifiedOwnerInferenceEngine(
             ledger=cls.ledger,
