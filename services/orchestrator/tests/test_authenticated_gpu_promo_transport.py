@@ -47,7 +47,11 @@ class _Client:
         return self.response
 
 
-def _session(*, capabilities: frozenset[str] | None = None) -> SessionSnapshot:
+def _session(
+    *,
+    capabilities: frozenset[str] | None = None,
+    key_id: str | None = "ed25519:key-a",
+) -> SessionSnapshot:
     return SessionSnapshot(
         session_id="session-a",
         state=NodeSessionState.READY,
@@ -62,6 +66,7 @@ def _session(*, capabilities: frozenset[str] | None = None) -> SessionSnapshot:
         profile_revision=3,
         drain_reason=None,
         close_reason=None,
+        key_id=key_id,
     )
 
 
@@ -129,6 +134,7 @@ def test_gpu_promo_transport_binds_session_node_key_and_records_roundtrip() -> N
     client = _Client(_response())
     transport = SessionAuthenticatedGpuPromoTransport(_Sessions(_session()), client)
 
+    assert transport.authenticated_key_id("node-a") == "ed25519:key-a"
     result = transport.request_gpu_promo_challenge(
         node_id="node-a",
         challenge_document=_challenge(),
@@ -157,6 +163,31 @@ def test_gpu_promo_transport_fails_closed_without_negotiated_capability() -> Non
     )
 
 
+def test_gpu_promo_transport_fails_closed_without_authenticated_key_binding() -> None:
+    transport = SessionAuthenticatedGpuPromoTransport(
+        _Sessions(_session(key_id=None)),
+        _Client(_response()),
+    )
+    _assert_transport_error(
+        "no enrolled key binding",
+        lambda: transport.authenticated_key_id("node-a"),
+    )
+
+
+def test_gpu_promo_transport_rejects_challenge_for_another_key() -> None:
+    challenge = _challenge()
+    challenge["key_id"] = "ed25519:key-b"
+    transport = SessionAuthenticatedGpuPromoTransport(_Sessions(_session()), _Client(_response()))
+    _assert_transport_error(
+        "authenticated session key",
+        lambda: transport.request_gpu_promo_challenge(
+            node_id="node-a",
+            challenge_document=challenge,
+            timeout_seconds=30.0,
+        ),
+    )
+
+
 def test_gpu_promo_transport_rejects_response_for_another_key() -> None:
     response = _response()
     proof = dict(response["proof"])
@@ -165,7 +196,7 @@ def test_gpu_promo_transport_rejects_response_for_another_key() -> None:
     response["key_id"] = "ed25519:key-b"
     transport = SessionAuthenticatedGpuPromoTransport(_Sessions(_session()), _Client(response))
     _assert_transport_error(
-        "proof key id mismatch",
+        "response key binding mismatch",
         lambda: transport.request_gpu_promo_challenge(
             node_id="node-a",
             challenge_document=_challenge(),
