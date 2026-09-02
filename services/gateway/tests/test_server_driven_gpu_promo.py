@@ -41,11 +41,14 @@ class _Ledger:
 
 class _ControlPlane:
     def __init__(self) -> None:
+        self.issue_body = None
         self.verify_body = None
 
     def issue_challenge(self, body):
+        self.issue_body = body
         assert body["owner_id"] == "owner-a"
         assert body["node_id"] == "node-a"
+        assert body["key_id"] == "ed25519:key-a"
         return {
             "challenge_id": "promo_ch_a",
             "claim_class": "gpu_onboarding",
@@ -74,6 +77,10 @@ class _ControlPlane:
 class _Transport:
     def __init__(self) -> None:
         self.challenge = None
+
+    def authenticated_key_id(self, node_id):
+        assert node_id == "node-a"
+        return "ed25519:key-a"
 
     def request_gpu_promo_challenge(self, *, node_id, challenge_document, timeout_seconds):
         assert node_id == "node-a"
@@ -131,13 +138,12 @@ def _routes():
     return routes, cp, transport
 
 
-def test_gateway_obtains_gpu_proof_from_provider_session_not_request_body() -> None:
+def test_gateway_obtains_gpu_proof_and_key_from_provider_session_not_request_body() -> None:
     routes, cp, transport = _routes()
     result, error, status = routes.handle_gpu_onboarding(
         {},
         {
             "node_id": "node-a",
-            "key_id": "ed25519:key-a",
             "hardware_evidence": {
                 "platform": "linux",
                 "board_uuid": "board-a",
@@ -148,6 +154,7 @@ def test_gateway_obtains_gpu_proof_from_provider_session_not_request_body() -> N
     assert error is None
     assert status == HTTPStatus.OK
     assert result is not None and result["amount_micro_units"] == 25_000_000
+    assert cp.issue_body is not None and cp.issue_body["key_id"] == "ed25519:key-a"
     assert transport.challenge is not None
     assert "work_digest" not in transport.challenge
     assert cp.verify_body is not None
@@ -155,20 +162,21 @@ def test_gateway_obtains_gpu_proof_from_provider_session_not_request_body() -> N
     assert cp.verify_body["server_observation"]["server_roundtrip_ms"] == 325.0
 
 
-def test_client_cannot_smuggle_proof_into_server_driven_request() -> None:
+def test_client_cannot_smuggle_key_or_proof_into_server_driven_request() -> None:
     routes, _, _ = _routes()
-    result, error, status = routes.handle_gpu_onboarding(
-        {},
-        {
+    for extra in (
+        {"proof": {"work_digest": "fake"}},
+        {"key_id": "ed25519:attacker-selected"},
+    ):
+        body = {
             "node_id": "node-a",
-            "key_id": "ed25519:key-a",
             "hardware_evidence": {},
-            "proof": {"work_digest": "fake"},
-        },
-    )
-    assert result is None
-    assert status == HTTPStatus.BAD_REQUEST
-    assert error == "Invalid GPU promo onboarding request"
+            **extra,
+        }
+        result, error, status = routes.handle_gpu_onboarding({}, body)
+        assert result is None
+        assert status == HTTPStatus.BAD_REQUEST
+        assert error == "Invalid GPU promo onboarding request"
 
 
 def test_foreign_provider_node_is_rejected_before_private_challenge() -> None:
@@ -177,11 +185,11 @@ def test_foreign_provider_node_is_rejected_before_private_challenge() -> None:
         {},
         {
             "node_id": "node-b",
-            "key_id": "ed25519:key-b",
             "hardware_evidence": {},
         },
     )
     assert result is None
     assert status == HTTPStatus.FORBIDDEN
     assert "not owned" in str(error)
+    assert cp.issue_body is None
     assert cp.verify_body is None
