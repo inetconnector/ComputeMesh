@@ -7,6 +7,7 @@ import unittest
 from services.billing.accounting import AccountingStore
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
+from services.billing.owner_settlement import OwnerSettlementExecutor, PayoutCapableOwnerLedger
 from services.gateway.auth import GatewayAuthManager
 from services.gateway.owner_inference import UnifiedOwnerInferenceEngine
 from services.gateway.owner_provider_routes import UnifiedOwnerProviderRoutesHandler
@@ -72,14 +73,14 @@ class TestUnifiedOwnerServer(unittest.TestCase):
         self._configure()
         handler = build_unified_owner_handler()
 
-        self.assertIsInstance(handler.ledger, GatewayOwnerCreditLedger)
+        self.assertIsInstance(handler.ledger, PayoutCapableOwnerLedger)
         self.assertIsInstance(handler.owner_account_store, OwnerAccountStore)
         self.assertIsInstance(handler.account_store, AccountingStore)
         self.assertIsInstance(handler.auth_manager, GatewayAuthManager)
         self.assertIsInstance(handler.provider_routes, UnifiedOwnerProviderRoutesHandler)
         self.assertIsInstance(handler.inference_engine, UnifiedOwnerInferenceEngine)
-        self.assertIsNone(handler.settlement_executor)
-        self.assertIsNone(handler.provider_routes.settlement_executor)
+        self.assertIsInstance(handler.settlement_executor, OwnerSettlementExecutor)
+        self.assertIs(handler.provider_routes.settlement_executor, handler.settlement_executor)
 
     def test_provider_registration_binds_node_to_authenticated_owner(self) -> None:
         ledger = GatewayOwnerCreditLedger(storage_path=self.root / "ledger.jsonl")
