@@ -2,9 +2,10 @@
 
 Device onboarding may use the existing challenge/proof exchange. When a trusted GPU
 dispatch client is configured, GPU onboarding is server-driven end-to-end: the
-gateway obtains private work inputs, dispatches them through the live authenticated
-provider session, forwards only the server-observed result to private policy, and
-never accepts GPU work evidence from the browser/client.
+gateway obtains the enrolled signing key from the live authenticated provider
+session, obtains private work inputs, dispatches them through that same session,
+forwards only the server-observed result to private policy, and never accepts GPU
+work evidence or a GPU signing-key choice from the browser/client.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ from services.gateway.promo_control_plane import (
 )
 
 _CHALLENGE_REQUEST_FIELDS = {"claim_class", "node_id", "key_id", "hardware_evidence"}
-_GPU_ONBOARD_REQUEST_FIELDS = {"node_id", "key_id", "hardware_evidence"}
+_GPU_ONBOARD_REQUEST_FIELDS = {"node_id", "hardware_evidence"}
 _CHALLENGE_RESPONSE_FIELDS = {
     "challenge_id",
     "claim_class",
@@ -270,9 +271,8 @@ class UnifiedOwnerPromoRoutes:
         if set(body) != _GPU_ONBOARD_REQUEST_FIELDS:
             return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
         node_id = str(body.get("node_id") or "").strip()
-        key_id = str(body.get("key_id") or "").strip()
         evidence = body.get("hardware_evidence")
-        if not node_id or not key_id or not isinstance(evidence, dict):
+        if not node_id or not isinstance(evidence, dict):
             return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
 
         existing = self._existing_result(owner_id, PROMO_GPU)
@@ -284,6 +284,11 @@ class UnifiedOwnerPromoRoutes:
                 "GPU promo node is not owned by the authenticated owner",
                 HTTPStatus.FORBIDDEN,
             )
+
+        try:
+            key_id = self.gpu_dispatch.authenticated_key_id(node_id=node_id)
+        except GpuPromoDispatchClientError:
+            return (None, "GPU promo provider is unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
 
         try:
             challenge = self.control_plane.issue_challenge(
