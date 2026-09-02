@@ -98,6 +98,10 @@ class PromoControlPlaneClient:
     def issue_challenge(self, body: dict[str, Any]) -> dict[str, Any]:
         return self._post("/internal/v1/promo/challenge", body)
 
+    def gpu_work(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Fetch provider-executable GPU work inputs; private expected output stays remote."""
+        return self._post("/internal/v1/promo/gpu-work", body)
+
     def verify_and_issue(self, body: dict[str, Any]) -> dict[str, Any]:
         return self._post("/internal/v1/promo/verify", body)
 
