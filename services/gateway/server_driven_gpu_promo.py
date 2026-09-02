@@ -1,8 +1,9 @@
 """Owner-authenticated, server-driven GPU onboarding promo flow.
 
-The browser/client never submits a GPU work proof. It identifies the owned provider
-node and supplies bounded hardware evidence. The gateway asks the private control
-plane for a challenge, dispatches that challenge over the existing authenticated
+The browser/client never submits a GPU work proof or chooses the enrolled signing
+key. It identifies the owned provider node and supplies bounded hardware evidence.
+The gateway derives the key id from that node's authenticated live session, asks
+the private control plane for a challenge, dispatches it over the same persistent
 provider control session, records server-side round-trip timing, sends the resulting
 node-signed proof back to private policy, and only then applies the signed grant.
 """
@@ -22,7 +23,7 @@ from services.orchestrator.authenticated_gpu_promo_transport import (
     SessionAuthenticatedGpuPromoTransport,
 )
 
-_REQUEST_FIELDS = {"node_id", "key_id", "hardware_evidence"}
+_REQUEST_FIELDS = {"node_id", "hardware_evidence"}
 _GENERIC_CHALLENGE_FIELDS = {
     "challenge_id",
     "claim_class",
@@ -123,9 +124,8 @@ class ServerDrivenGpuPromoRoutes:
             return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
 
         node_id = str(body.get("node_id") or "").strip()
-        key_id = str(body.get("key_id") or "").strip()
         evidence = body.get("hardware_evidence")
-        if not node_id or len(node_id) > 128 or not key_id or len(key_id) > 128:
+        if not node_id or len(node_id) > 128:
             return (None, "Invalid GPU promo onboarding request", HTTPStatus.BAD_REQUEST)
         if not isinstance(evidence, dict):
             return (None, "hardware_evidence must be an object", HTTPStatus.BAD_REQUEST)
@@ -139,6 +139,15 @@ class ServerDrivenGpuPromoRoutes:
         existing = self._existing_result(owner_id)
         if existing is not None:
             return (existing, None, HTTPStatus.OK)
+
+        try:
+            key_id = self.gpu_transport.authenticated_key_id(node_id)
+        except AuthenticatedGpuPromoTransportError as exc:
+            return (
+                None,
+                f"Provider GPU verification failed: {str(exc)[:240]}",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
         try:
             challenge = self.control_plane.issue_challenge(
