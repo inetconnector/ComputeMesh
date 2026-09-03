@@ -28,6 +28,7 @@ class ConfidentialEnvelopeTests(unittest.TestCase):
             node_id="node-abc",
             attestation_nonce="att-nonce-1",
             runtime_digest="sha256:approved-runtime",
+            data_plane_tls_sha256="sha256:" + "a" * 64,
             privacy_class="CONFIDENTIAL",
             operation="chat_completion",
         )
@@ -153,6 +154,16 @@ class ConfidentialEnvelopeTests(unittest.TestCase):
                 expected_binding=wrong,
             )
 
+    def test_data_plane_certificate_binding_is_authenticated(self) -> None:
+        envelope = self._encrypted()
+        wrong = self._binding_with(data_plane_tls_sha256="sha256:" + "b" * 64)
+        with self.assertRaisesRegex(ConfidentialEnvelopeError, "binding mismatch"):
+            decrypt_in_attested_recipient(
+                envelope,
+                recipient_private_key=self.recipient_private,
+                expected_binding=wrong,
+            )
+
     def test_wrong_recipient_key_cannot_decrypt(self) -> None:
         envelope = self._encrypted()
         wrong_private, _ = generate_attested_recipient_keypair()
@@ -240,6 +251,10 @@ class ConfidentialEnvelopeTests(unittest.TestCase):
     def test_invalid_public_privacy_class_is_rejected(self) -> None:
         with self.assertRaisesRegex(ConfidentialEnvelopeError, "privacy_class"):
             self._binding_with(privacy_class="PUBLIC").validate()
+
+    def test_invalid_tls_fingerprint_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ConfidentialEnvelopeError, "data_plane_tls_sha256"):
+            self._binding_with(data_plane_tls_sha256="sha256:not-a-digest").validate()
 
 
 if __name__ == "__main__":
