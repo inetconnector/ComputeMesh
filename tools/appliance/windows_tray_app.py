@@ -218,23 +218,32 @@ class ComputeMeshProviderApp:
         else:
             self.icon_image = _create_computemesh_icon_image()
 
+        # On Windows, iconbitmap() (not iconphoto()) is what actually drives
+        # the title-bar/taskbar icon; set it first and do not let a failure
+        # here pass silently, since a swallowed exception here is exactly
+        # why the running window can end up with no visible icon at all.
+        if self.icon_path and self.icon_path.suffix.lower() == ".ico":
+            try:
+                self.root.iconbitmap(str(self.icon_path.resolve()))
+            except tk.TclError as e:
+                print(f"[icon] iconbitmap failed for {self.icon_path}: {e}")
         try:
             self._tk_icon = ImageTk.PhotoImage(self.icon_image)
             self.root.iconphoto(True, self._tk_icon)
-            if self.icon_path and self.icon_path.suffix.lower() == ".ico":
-                self.root.iconbitmap(default=str(self.icon_path))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[icon] iconphoto failed: {e}")
 
-        # Center window on screen (Wide layout for optimal dashboard overview)
-        width = 960
-        height = 580
+        # Start large and centered (not maximized) so the full dashboard is
+        # visible without the user having to resize the window by hand, on
+        # any screen resolution.
+        self.root.minsize(860, 520)
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
+        width = min(int(screen_w * 0.86), 1680)
+        height = min(int(screen_h * 0.86), 1080)
         pos_x = max(0, (screen_w - width) // 2)
         pos_y = max(0, (screen_h - height) // 2)
         self.root.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-        self.root.minsize(860, 520)
 
         self.version = CONFIG.appliance_version
         self.dashboard_port = 8080
