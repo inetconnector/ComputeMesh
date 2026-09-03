@@ -259,6 +259,13 @@ class ComputeMeshProviderApp:
         self.http_thread = threading.Thread(target=self._run_embedded_server, daemon=True)
         self.http_thread.start()
 
+        # Background cloud tunnel relay to stream live node telemetry & hardware to gateway
+        try:
+            from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
+            self.relay = CloudTunnelRelay()
+        except Exception:
+            self.relay = None
+
         # Background telemetry polling thread
         self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
         self.telemetry_thread.start()
@@ -534,7 +541,7 @@ class ComputeMeshProviderApp:
         
         self.lbl_mesh_stats = ttk.Label(
             mesh_frame,
-            text="🟢 2/2 Cluster-Nodes Verbunden  |  24.0 GB VRAM Pool  |  48.6 TFLOPS",
+            text="⏳ Cluster-Telemetrie wird ermittelt...",
             font=("JetBrains Mono", 8, "bold"),
             foreground="#10b981",
             background="#111827"
@@ -988,10 +995,11 @@ class ComputeMeshProviderApp:
                     nodes_cnt = m_stats.get("total_nodes_online", 1)
                     vram_pool = m_stats.get("total_vram_gb", 0.0)
                     tf_pool = m_stats.get("total_compute_tflops", 0.0)
-                    def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool):
+                    node_lbl = "Cluster-Node" if nodes_cnt == 1 else "Cluster-Nodes"
+                    def _update_cluster(n=nodes_cnt, v=vram_pool, t=tf_pool, l=node_lbl):
                         try:
                             self.lbl_mesh_stats.config(
-                                text=f"🟢 {n} Cluster-Nodes Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
+                                text=f"🟢 {n} {l} Verbunden  |  {v:.1f} GB VRAM Pool  |  {t:.1f} TFLOPS",
                                 foreground="#10b981"
                             )
                         except Exception:

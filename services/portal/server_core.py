@@ -263,39 +263,27 @@ class PortalHandler(BaseHTTPRequestHandler):
                     "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 }
             else:
-                best_gm = None
+                from tools.appliance.hardware_detector import is_integrated_display_adapter
+                total_vram_bytes = 0
+                total_gpus = 0
                 for n in live_nodes:
-                    gm = n.get("global_mesh", {})
-                    if gm and gm.get("total_vram_gb", 0) > 0:
-                        if not best_gm or gm.get("total_vram_gb", 0) > best_gm.get("total_vram_gb", 0):
-                            best_gm = gm
+                    inv = n.get("inventory", {})
+                    gpus = inv.get("gpus", [])
+                    healthy_gpus = [
+                        g for g in gpus
+                        if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+                    ]
+                    node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+                    if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0 and not is_integrated_display_adapter("unknown", inv.get("host_architecture", "")):
+                        node_vram = inv.get("total_vram_bytes", 0)
+                        healthy_gpus = [1]
+                    total_vram_bytes += node_vram
+                    total_gpus += len(healthy_gpus)
 
-                if best_gm:
-                    total_vram = float(best_gm.get("total_vram_gb", 0.0))
-                    total_gpus = int(best_gm.get("total_gpus_active", 0))
-                    total_nodes = int(best_gm.get("total_nodes_online", len(live_nodes)))
-                    total_tflops = float(best_gm.get("total_compute_tflops", 0.0))
-                    tokens = int(best_gm.get("total_tokens_processed", 0))
-                else:
-                    from tools.appliance.hardware_detector import is_integrated_display_adapter
-                    total_vram = sum(
-                        sum(
-                            g.get("vram_bytes", 0)
-                            for g in n.get("inventory", {}).get("gpus", [])
-                            if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
-                        )
-                        for n in live_nodes
-                    ) / (1024**3)
-                    total_gpus = sum(
-                        len([
-                            g for g in n.get("inventory", {}).get("gpus", [])
-                            if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
-                        ])
-                        for n in live_nodes
-                    )
-                    total_tflops = sum(n.get("telemetry", {}).get("local_compute_tflops", 0.0) for n in live_nodes)
-                    total_nodes = len(live_nodes)
-                    tokens = sum(n.get("telemetry", {}).get("tokens_processed", 0) for n in live_nodes)
+                total_vram = total_vram_bytes / (1024**3)
+                total_tflops = sum(float(n.get("telemetry", {}).get("local_compute_tflops", 0.0) or 0.0) for n in live_nodes)
+                total_nodes = len(live_nodes)
+                tokens = sum(int(n.get("telemetry", {}).get("tokens_processed", 0) or 0) for n in live_nodes)
 
                 payload = {
                     "source": "authenticated_cluster",

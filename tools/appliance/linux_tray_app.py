@@ -396,7 +396,7 @@ class LinuxComputeMeshProviderApp:
         
         self.lbl_mesh_stats = ttk.Label(
             mesh_frame,
-            text="🟢 2/2 Cluster-Nodes Verbunden  |  24.0 GB VRAM Pool  |  48.6 TFLOPS",
+            text="⏳ Cluster-Telemetrie wird ermittelt...",
             font=("JetBrains Mono", 8, "bold"),
             foreground="#10b981",
             background="#111827"
@@ -709,8 +709,9 @@ class LinuxComputeMeshProviderApp:
                     nodes_cnt = m_stats.get("total_nodes_online", 1)
                     vram_pool = m_stats.get("total_vram_gb", 0.0)
                     tf_pool = m_stats.get("total_compute_tflops", 0.0)
+                    node_lbl = "Cluster-Node" if nodes_cnt == 1 else "Cluster-Nodes"
                     self.lbl_mesh_stats.config(
-                        text=f"🟢 {nodes_cnt} Cluster-Nodes Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
+                        text=f"🟢 {nodes_cnt} {node_lbl} Verbunden  |  {vram_pool:.1f} GB VRAM Pool  |  {tf_pool:.1f} TFLOPS",
                         foreground="#10b981"
                     )
             except Exception:

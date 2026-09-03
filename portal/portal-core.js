@@ -1519,26 +1519,29 @@ async function sendPlaygroundMessage() {
 function parseMeshTelemetryPayload(data) {
   if (!data || typeof data !== 'object') return null;
 
-  if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
+  if (data.global_mesh && typeof data.global_mesh === 'object') {
+    const gm = data.global_mesh;
     return {
-      source: data.global_mesh.source,
-      totalVramGb: Number(data.global_mesh.total_vram_gb || 28.0),
-      activeGpus: Number(data.global_mesh.total_gpus_active || 3),
-      totalNodes: Number(data.global_mesh.total_nodes_online || 3),
-      totalTflops: Number(data.global_mesh.total_tflops || 58.4)
+      source: gm.source || data.source || 'authenticated_registry',
+      totalVramGb: Number(gm.total_vram_gb !== undefined ? gm.total_vram_gb : 0),
+      activeGpus: Number(gm.total_gpus_active !== undefined ? gm.total_gpus_active : (gm.active_gpus !== undefined ? gm.active_gpus : 0)),
+      totalNodes: Number(gm.total_nodes_online !== undefined ? gm.total_nodes_online : (gm.total_nodes !== undefined ? gm.total_nodes : 0)),
+      totalTflops: Number(gm.total_compute_tflops !== undefined ? gm.total_compute_tflops : (gm.total_tflops !== undefined ? gm.total_tflops : 0))
     };
   }
 
   return {
-    source: data.source,
-    totalVramGb: Number(data.total_vram_gb || 28.0),
-    activeGpus: Number(data.active_gpus || 3),
-    totalNodes: Number(data.total_nodes || 3),
-    totalTflops: Number(data.total_tflops || 58.4)
+    source: data.source || 'authenticated_cluster',
+    totalVramGb: Number(data.total_vram_gb !== undefined ? data.total_vram_gb : 0),
+    activeGpus: Number(data.active_gpus !== undefined ? data.active_gpus : (data.total_gpus_active !== undefined ? data.total_gpus_active : 0)),
+    totalNodes: Number(data.total_nodes !== undefined ? data.total_nodes : (data.total_nodes_online !== undefined ? data.total_nodes_online : 0)),
+    totalTflops: Number(data.total_tflops !== undefined ? data.total_tflops : (data.total_compute_tflops !== undefined ? data.total_compute_tflops : 0))
   };
 }
 
 function updateMeshTelemetryTicker(stats) {
+  if (!stats) return;
+
   const vramEl = document.getElementById('portal-ticker-vram');
   const gpusEl = document.getElementById('portal-ticker-gpus');
   const tflopsEl = document.getElementById('portal-ticker-tflops');
@@ -1547,23 +1550,24 @@ function updateMeshTelemetryTicker(stats) {
   const locale = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de') ? 'de-DE' : 'en-US';
   const isDe = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de')));
 
-  const vramVal = stats && stats.totalVramGb > 0 ? stats.totalVramGb : 28.0;
-  const gpusVal = stats && stats.activeGpus > 0 ? stats.activeGpus : 3;
-  const tflopsVal = stats && stats.totalTflops > 0 ? stats.totalTflops : 58.4;
-  const nodesVal = stats && stats.totalNodes > 0 ? stats.totalNodes : 3;
+  const vramVal = typeof stats.totalVramGb === 'number' ? stats.totalVramGb : 0;
+  const gpusVal = typeof stats.activeGpus === 'number' ? stats.activeGpus : 0;
+  const tflopsVal = typeof stats.totalTflops === 'number' ? stats.totalTflops : 0;
+  const nodesVal = typeof stats.totalNodes === 'number' ? stats.totalNodes : 0;
 
   const gpuWord = gpusVal === 1 ? 'GPU' : 'GPUs';
   const nodeWord = nodesVal === 1 ? 'Node' : 'Nodes';
   const activeWord = isDe ? 'aktiv' : 'active';
+  const onlineWord = isDe ? 'online' : 'online';
 
   if (vramEl) {
-    vramEl.textContent = `${vramVal.toLocaleString(locale, { maximumFractionDigits: 1 })} GB`;
+    vramEl.textContent = `${vramVal.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} GB`;
   }
   if (gpusEl) {
-    gpusEl.textContent = `${gpusVal} ${gpuWord} online`;
+    gpusEl.textContent = `${gpusVal} ${gpuWord} ${onlineWord}`;
   }
   if (tflopsEl) {
-    tflopsEl.textContent = `${tflopsVal.toLocaleString(locale, { maximumFractionDigits: 1 })} TFLOPS`;
+    tflopsEl.textContent = `${tflopsVal.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} TFLOPS`;
   }
   if (nodesEl) {
     nodesEl.textContent = `${nodesVal} ${nodeWord} ${activeWord}`;
@@ -1572,19 +1576,19 @@ function updateMeshTelemetryTicker(stats) {
 
 async function fetchMeshTelemetry() {
   const endpoints = ['/api/v1/mesh/stats', '/mesh/stats', '/api/status'];
-  try {
-    for (const endpoint of endpoints) {
+  for (const endpoint of endpoints) {
+    try {
       const res = await fetch(endpoint, { cache: 'no-store' });
       if (!res.ok) continue;
-      const stats = parseMeshTelemetryPayload(await res.json());
+      const json = await res.json();
+      const stats = parseMeshTelemetryPayload(json);
       if (stats) {
         updateMeshTelemetryTicker(stats);
         return;
       }
+    } catch (e) {
+      // try next endpoint
     }
-    updateMeshTelemetryTicker(null);
-  } catch (e) {
-    updateMeshTelemetryTicker(null);
   }
 }
 
