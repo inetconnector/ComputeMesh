@@ -488,6 +488,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
+            now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
@@ -495,8 +496,44 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "telemetry": body.get("telemetry", {}),
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
-                "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "updated_at": now_iso,
             }
+
+            # Register discovered cluster peers (e.g. LAN miners or secondary appliances)
+            gm = body.get("global_mesh", {})
+            for peer in gm.get("nodes", []):
+                p_id = str(peer.get("node_id", "")).strip()
+                if p_id and p_id != node_id and p_id not in ("windows-laptop", "unnamed-node"):
+                    p_vram_gb = float(peer.get("vram_gb", 0.0))
+                    p_vram_bytes = int(p_vram_gb * 1024 * 1024 * 1024)
+                    p_tflops = float(peer.get("tflops", 0.0))
+                    p_gpus_cnt = int(peer.get("gpus_count", 1))
+
+                    if p_id not in NODE_TELEMETRY_REGISTRY or NODE_TELEMETRY_REGISTRY[p_id].get("is_peer_relay", False):
+                        NODE_TELEMETRY_REGISTRY[p_id] = {
+                            "node_id": p_id,
+                            "auth_token": f"peer_relayed_{p_id}",
+                            "is_peer_relay": True,
+                            "inventory": {
+                                "total_vram_bytes": p_vram_bytes,
+                                "total_gpus": p_gpus_cnt,
+                                "gpus": [
+                                    {
+                                        "vendor": "amd" if "amd" in str(peer.get("gpu_summary", "")).lower() else "nvidia",
+                                        "model_name": str(peer.get("gpu_summary", "Cluster GPU Node")),
+                                        "vram_bytes": p_vram_bytes // max(1, p_gpus_cnt),
+                                        "healthy": True,
+                                    }
+                                ],
+                            },
+                            "telemetry": {
+                                "tokens_processed": peer.get("tokens", 0),
+                                "local_compute_tflops": p_tflops,
+                                "is_simulated": False,
+                            },
+                            "updated_at": now_iso,
+                        }
+
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id})
             return

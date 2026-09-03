@@ -172,5 +172,5 @@ class MeshRegistryAggregator:
 
 
 GLOBAL_MESH_AGGREGATOR = MeshRegistryAggregator(
-    autostart=os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "").strip().lower() in ("1", "true", "yes", "on")
+    autostart=os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "1").strip().lower() not in ("0", "false", "no", "off")
 )
