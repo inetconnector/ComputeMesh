@@ -1,8 +1,9 @@
-"""Durable, content-free confidential session admission state.
+"""Durable, content-free confidential session admission and metering state.
 
-A session is created before any customer prompt is sent. The private/production
-broker selects a suitable confidential runtime and returns only the chosen
-attested endpoint/evidence; public gateway code keeps no ranking inputs.
+A session is created before any customer prompt is sent. The production broker
+selects a suitable confidential runtime and returns only the chosen attested
+endpoint/evidence; public gateway code keeps no ranking inputs. After execution,
+only a signed content-free usage receipt is persisted before ledger capture.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping, Protocol
 
+from protocol.confidential_metering import ConfidentialUsageReceipt
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 
 
@@ -26,8 +28,6 @@ class ConfidentialSessionStateError(ConfidentialSessionError):
 
 @dataclass(frozen=True)
 class ConfidentialSessionProvision:
-    """Content-free runtime selection returned by a production broker."""
-
     job_id: str
     account_id: str
     model_id: str
@@ -75,7 +75,6 @@ class ConfidentialSessionProvision:
         _timestamp(self.expires_at)
 
     def public_descriptor(self) -> dict[str, Any]:
-        """Return client-visible data needed to verify/bind/encrypt, never private scores."""
         self.validate()
         return {
             "schema_version": 1,
@@ -131,6 +130,7 @@ class ConfidentialSessionRecord:
     expires_at: str
     state: str
     envelope_id: str | None
+    usage_receipt_json: str | None
     created_at: str
     updated_at: str
 
@@ -153,9 +153,18 @@ class ConfidentialSessionRecord:
             raise ConfidentialSessionError("stored confidential attestation is invalid")
         return value
 
+    @property
+    def usage_receipt(self) -> ConfidentialUsageReceipt | None:
+        if self.usage_receipt_json is None:
+            return None
+        value = json.loads(self.usage_receipt_json)
+        if not isinstance(value, dict):
+            raise ConfidentialSessionError("stored confidential usage receipt is invalid")
+        return ConfidentialUsageReceipt.from_dict(value)
+
 
 class SQLiteConfidentialSessionStore:
-    """Durable session/hold lifecycle; never stores prompt/output ciphertext or plaintext."""
+    """Durable lifecycle; never stores prompt/output plaintext or ciphertext."""
 
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
@@ -194,6 +203,7 @@ class SQLiteConfidentialSessionStore:
                     expires_at TEXT NOT NULL,
                     state TEXT NOT NULL,
                     envelope_id TEXT,
+                    usage_receipt_json TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 ) WITHOUT ROWID
@@ -205,7 +215,6 @@ class SQLiteConfidentialSessionStore:
         if not isinstance(hold_id, str) or not hold_id or len(hold_id) > 256:
             raise ConfidentialSessionError("invalid confidential session hold_id")
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        attestation_json = json.dumps(provision.attestation, sort_keys=True, separators=(",", ":"))
         record = ConfidentialSessionRecord(
             job_id=provision.job_id,
             account_id=provision.account_id,
@@ -222,10 +231,11 @@ class SQLiteConfidentialSessionStore:
             metering_public_key=provision.endpoint.metering_public_key,
             data_plane_tls_sha256=provision.endpoint.tls_certificate_sha256,
             endpoint_url=provision.endpoint.url,
-            attestation_json=attestation_json,
+            attestation_json=json.dumps(provision.attestation, sort_keys=True, separators=(",", ":")),
             expires_at=provision.expires_at,
             state="OPEN",
             envelope_id=None,
+            usage_receipt_json=None,
             created_at=now,
             updated_at=now,
         )
@@ -234,11 +244,7 @@ class SQLiteConfidentialSessionStore:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 connection.execute(
-                    """
-                    INSERT INTO confidential_sessions VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    )
-                    """,
+                    "INSERT INTO confidential_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     tuple(record.__dict__.values()),
                 )
             except sqlite3.IntegrityError as exc:
@@ -251,10 +257,7 @@ class SQLiteConfidentialSessionStore:
 
     def get(self, job_id: str) -> ConfidentialSessionRecord | None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT * FROM confidential_sessions WHERE job_id = ?",
-                (job_id,),
-            ).fetchone()
+            row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
         return ConfidentialSessionRecord(*row) if row else None
 
     def begin_dispatch(
@@ -295,16 +298,49 @@ class SQLiteConfidentialSessionStore:
                 (envelope_id, updated_at, job_id),
             )
             connection.execute("COMMIT")
-            updated = self.get(job_id)
-            if updated is None:
-                raise ConfidentialSessionStateError("confidential session disappeared")
-            return updated
         except Exception:
             if connection.in_transaction:
                 connection.execute("ROLLBACK")
             raise
         finally:
             connection.close()
+        updated = self.get(job_id)
+        if updated is None:
+            raise ConfidentialSessionStateError("confidential session disappeared")
+        return updated
+
+    def record_metering(self, *, job_id: str, receipt: ConfidentialUsageReceipt) -> ConfidentialSessionRecord:
+        receipt.validate()
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
+            if row is None:
+                connection.execute("ROLLBACK")
+                raise ConfidentialSessionStateError("confidential session not found")
+            record = ConfidentialSessionRecord(*row)
+            if record.state != "DISPATCHED" or record.envelope_id is None:
+                connection.execute("ROLLBACK")
+                raise ConfidentialSessionStateError("confidential session is not awaiting metering")
+            if receipt.job_id != record.job_id or receipt.request_envelope_id != record.envelope_id:
+                connection.execute("ROLLBACK")
+                raise ConfidentialSessionStateError("confidential metering receipt does not match session")
+            updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            connection.execute(
+                "UPDATE confidential_sessions SET state='METERED', usage_receipt_json=?, updated_at=? WHERE job_id=?",
+                (json.dumps(receipt.to_dict(), sort_keys=True, separators=(",", ":")), updated_at, job_id),
+            )
+            connection.execute("COMMIT")
+        except Exception:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+        updated = self.get(job_id)
+        if updated is None:
+            raise ConfidentialSessionStateError("confidential session disappeared")
+        return updated
 
     def finish(self, *, job_id: str, target: str) -> ConfidentialSessionRecord:
         if target not in {"COMPLETED", "FAILED"}:
@@ -313,14 +349,16 @@ class SQLiteConfidentialSessionStore:
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            cursor = connection.execute(
-                """
-                UPDATE confidential_sessions
-                SET state=?, updated_at=?
-                WHERE job_id=? AND state='DISPATCHED'
-                """,
-                (target, now, job_id),
-            )
+            if target == "COMPLETED":
+                cursor = connection.execute(
+                    "UPDATE confidential_sessions SET state='COMPLETED', updated_at=? WHERE job_id=? AND state='METERED'",
+                    (now, job_id),
+                )
+            else:
+                cursor = connection.execute(
+                    "UPDATE confidential_sessions SET state='FAILED', updated_at=? WHERE job_id=? AND state IN ('DISPATCHED','METERED')",
+                    (now, job_id),
+                )
             if cursor.rowcount != 1:
                 connection.execute("ROLLBACK")
                 raise ConfidentialSessionStateError("confidential session cannot enter terminal state")
@@ -331,6 +369,16 @@ class SQLiteConfidentialSessionStore:
         if record is None:
             raise ConfidentialSessionStateError("confidential session disappeared")
         return record
+
+    def list_metered(self, *, limit: int = 100) -> tuple[ConfidentialSessionRecord, ...]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("invalid confidential metering reconciliation limit")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM confidential_sessions WHERE state='METERED' ORDER BY updated_at ASC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return tuple(ConfidentialSessionRecord(*row) for row in rows)
 
 
 def _timestamp(value: str) -> datetime:
