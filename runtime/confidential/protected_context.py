@@ -26,6 +26,7 @@ class ProtectedRequestContext:
     attestation_nonce: str
     expected_runtime_digest: str
     ciphertext_recipient_public_key: str
+    metering_public_key: str
     data_plane_tls_sha256: str
 
     def validate(self) -> None:
@@ -35,6 +36,7 @@ class ProtectedRequestContext:
             ("attestation_nonce", self.attestation_nonce),
             ("expected_runtime_digest", self.expected_runtime_digest),
             ("ciphertext_recipient_public_key", self.ciphertext_recipient_public_key),
+            ("metering_public_key", self.metering_public_key),
             ("data_plane_tls_sha256", self.data_plane_tls_sha256),
         ):
             if not isinstance(value, str) or not value.strip():
@@ -60,12 +62,7 @@ def build_protected_execution_evidence(
     blinded_split_validated: bool,
     crypto_private_validated: bool = False,
 ) -> ProtectedExecutionEvidence:
-    """Verify one attestation/key-release chain and return gate evidence.
-
-    Technology-specific attestation cryptography remains inside the injected
-    verifier.  This function enforces the cross-artifact bindings that must hold
-    before content-key release and protected execution.
-    """
+    """Verify one attestation/key-release chain and return gate evidence."""
 
     context.validate()
     try:
@@ -80,14 +77,13 @@ def build_protected_execution_evidence(
     if not verification.verified:
         raise ProtectedContextError("confidential attestation was not verified")
 
-    runtime_digest = attestation.get("runtime_digest")
-    if runtime_digest != context.expected_runtime_digest:
+    if attestation.get("runtime_digest") != context.expected_runtime_digest:
         raise ProtectedContextError("attested runtime digest does not match requested runtime")
-    ephemeral_public_key = attestation.get("ephemeral_public_key")
-    if ephemeral_public_key != context.ciphertext_recipient_public_key:
+    if attestation.get("ephemeral_public_key") != context.ciphertext_recipient_public_key:
         raise ProtectedContextError("ciphertext recipient is not the attested ephemeral key")
-    attested_tls_fingerprint = attestation.get("data_plane_tls_sha256")
-    if attested_tls_fingerprint != context.data_plane_tls_sha256:
+    if attestation.get("metering_public_key") != context.metering_public_key:
+        raise ProtectedContextError("metering key is not bound to the attestation")
+    if attestation.get("data_plane_tls_sha256") != context.data_plane_tls_sha256:
         raise ProtectedContextError("data-plane TLS identity is not bound to the attestation")
 
     try:
