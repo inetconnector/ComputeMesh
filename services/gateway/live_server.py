@@ -1,4 +1,9 @@
-"""Run ComputeMesh live serving with verified models and cancellable requests."""
+"""Run the canonical ComputeMesh live gateway.
+
+The production entry point is one HTTP server combining OpenAI compatibility,
+unified-owner accounting, cancellation and internal ciphertext-only protected
+transport. It never starts a second user-facing confidential API.
+"""
 from __future__ import annotations
 
 import argparse
@@ -12,14 +17,14 @@ from typing import Callable
 from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
 from services.compliance.policy import assert_production_launch_gate
-from services.gateway.cancellable_inference import CancellableInferenceEngine
+from services.gateway.cancellable_owner_inference import CancellableUnifiedOwnerInferenceEngine
 from services.gateway.gpu_promo_dispatch_runtime import (
     RunningGpuPromoDispatch,
     start_optional_gpu_promo_dispatch,
 )
-from services.gateway.live_bootstrap import install_live_shared_gateway
-from services.gateway.live_handler import LiveGatewayHandler
+from services.gateway.live_bootstrap import build_live_shared_backend_from_env
 from services.gateway.server import DEFAULT_PORT
+from services.gateway.unified_live_handler import build_unified_live_protected_handler
 from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
@@ -93,37 +98,42 @@ def _start_integrated_control_plane(
     return plane
 
 
-def _synchronize_live_ledger() -> SynchronizedLedgerProxy:
-    current = LiveGatewayHandler.ledger
+def _synchronize_live_ledger(handler_cls):
+    current = handler_cls.ledger
     if isinstance(current, SynchronizedLedgerProxy):
         return current
     proxy = SynchronizedLedgerProxy(current)
-    LiveGatewayHandler.ledger = proxy
-    if getattr(LiveGatewayHandler, "stripe_svc", None) is not None:
-        LiveGatewayHandler.stripe_svc.ledger = proxy
-    executor = getattr(LiveGatewayHandler, "settlement_executor", None)
+    handler_cls.ledger = proxy
+    if getattr(handler_cls, "stripe_svc", None) is not None:
+        handler_cls.stripe_svc.ledger = proxy
+    executor = getattr(handler_cls, "settlement_executor", None)
     if executor is not None and hasattr(executor, "ledger"):
         executor.ledger = proxy
+    sync = getattr(handler_cls, "sync_subsystems", None)
+    if callable(sync):
+        sync()
     return proxy
 
 
-def _install_cancellable_live_gateway():
-    ledger = _synchronize_live_ledger()
-    backend = install_live_shared_gateway(handler_cls=LiveGatewayHandler)
+def _install_cancellable_live_gateway(handler_cls):
+    """Install the live backend without replacing unified-owner accounting."""
+    ledger = _synchronize_live_ledger(handler_cls)
+    backend = build_live_shared_backend_from_env(registry=LIVE_SHARED_RUNTIME)
     replay_billing_outbox(backend.store, ledger)
     reconcile_completed_settlements(backend.store, ledger)
-    LiveGatewayHandler.inference_engine = CancellableInferenceEngine(
+    handler_cls.inference_engine = CancellableUnifiedOwnerInferenceEngine(
         ledger=ledger,
-        metrics=LiveGatewayHandler.metrics,
-        teaser_manager=LiveGatewayHandler.teaser_manager,
+        owner_account_store=handler_cls.owner_account_store,
+        metrics=handler_cls.metrics,
+        teaser_manager=handler_cls.teaser_manager,
         backend=backend,
     )
     return backend
 
 
-def _run_live_gateway(*, host: str, port: int) -> None:
-    server = ThreadingHTTPServer((host, port), LiveGatewayHandler)
-    print(f"ComputeMesh Live Gateway listening on http://{host}:{port}")
+def _run_live_gateway(*, handler_cls, host: str, port: int) -> None:
+    server = ThreadingHTTPServer((host, port), handler_cls)
+    print(f"ComputeMesh Unified Live Gateway listening on http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -133,7 +143,7 @@ def _run_live_gateway(*, host: str, port: int) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="ComputeMesh live shared-inference gateway")
+    parser = argparse.ArgumentParser(description="ComputeMesh unified live shared-inference gateway")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--control-host", default=os.environ.get("COMPUTEMESH_CONTROL_HOST", "0.0.0.0"))
@@ -148,12 +158,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     control_plane: IntegratedLiveControlPlane | None = None
     gpu_promo_dispatch: RunningGpuPromoDispatch | None = None
+    handler_cls = None
     try:
-        # In production this is deliberately first: no model, provider listener or
-        # customer gateway comes up before the legal/DSGVO/payment gate is complete.
+        # Nothing customer-facing comes up before compliance, verified models and
+        # durable unified-owner accounting are configured.
         assert_production_launch_gate()
         _load_models_from_env(LIVE_SHARED_RUNTIME)
         configure_live_runtime_from_module(args.control_module)
+        handler_cls = build_unified_live_protected_handler()
         control_plane = _start_integrated_control_plane(
             registry=LIVE_SHARED_RUNTIME,
             host=args.control_host,
@@ -166,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
             control_plane=control_plane,
             registry=LIVE_SHARED_RUNTIME,
         )
-        _install_cancellable_live_gateway()
+        _install_cancellable_live_gateway(handler_cls)
     except Exception as exc:
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
@@ -175,7 +187,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"live gateway bootstrap failed: {type(exc).__name__}: {str(exc)[:1024]}", file=sys.stderr)
         return 2
     try:
-        _run_live_gateway(host=args.host, port=args.port)
+        assert handler_cls is not None
+        _run_live_gateway(handler_cls=handler_cls, host=args.host, port=args.port)
     finally:
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
