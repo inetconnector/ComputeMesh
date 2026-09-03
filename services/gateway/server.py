@@ -48,16 +48,18 @@ def _resolve_owner_account_store_path() -> Path:
 OWNER_ACCOUNT_STORE = OwnerAccountStore(_resolve_owner_account_store_path())
 
 
+DEFAULT_FLEET_OWNER_KEY = "inetconnector"
+
+
 def owner_id_for_key(owner_key: str) -> str | None:
     """Derive a stable owner_id from a shared fleet owner key.
 
     The raw key is never stored; only this derived id is persisted in
     OWNER_ACCOUNT_STORE, so recovering the original key from the database is
-    not possible.
+    not possible. Nodes/queries with no owner_key fall back to the shared
+    DEFAULT_FLEET_OWNER_KEY so every node belongs to a fleet by default.
     """
-    cleaned = str(owner_key or "").strip()
-    if not cleaned:
-        return None
+    cleaned = str(owner_key or "").strip() or DEFAULT_FLEET_OWNER_KEY
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
 
 
@@ -402,9 +404,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
             owner_key = query.get("owner_key", [""])[0].strip()
             owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_error_response("owner_key query parameter is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
-                return
 
             bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
             live_nodes = fresh_node_telemetry_entries()

@@ -35,7 +35,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.36` ist live unter `https://computemesh.inetconnector.com/updates/version.json`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.37` ist live unter `https://computemesh.inetconnector.com/updates/version.json`.
 
 ## Was noch nicht versprochen wird
 

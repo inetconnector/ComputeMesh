@@ -330,7 +330,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence live-media=removable-usb
 """,
         encoding="utf-8",
     )
@@ -342,7 +342,7 @@ LABEL computemesh
 set timeout=3
 search --set=root --file /boot/vmlinuz
 menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence
+    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media=removable-usb
     initrd /boot/initrd.img
 }
 """
@@ -400,6 +400,21 @@ menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
     # persistence.conf's "/ union" persists the *entire* root filesystem,
     # not just specific paths, so OS package upgrades are covered the same
     # way app updates and ~/.computemesh config are.
+    #
+    # `live-media=removable-usb` (also wired into both boot configs above)
+    # closes a second, subtler failure mode: without it, live-boot's medium
+    # scan has no notion of "the device we actually booted from" -- it just
+    # searches block devices for a live filesystem with a matching label,
+    # preferring removable devices but falling back to fixed disks the
+    # instant one answers first. On real hardware the USB stick (behind a
+    # hub, slower to enumerate) can lose that race to an internal SSD/HDD
+    # that happens to carry an old COMPUTEMESH-labeled image (e.g. from a
+    # prior USB->SSD clone) -- live-boot mounts that stale disk instead,
+    # finds no persistence partition on it, and silently falls back to the
+    # ephemeral RAM overlay, so updates appear to "vanish" on next reboot
+    # even though the USB stick's own persistence partition is fine.
+    # Restricting the scan to removable USB devices only removes the fixed
+    # disk from consideration entirely, so it can no longer win that race.
     print("\nGenerating flashable .img with an ext4 persistence partition...")
     mib = 1024 * 1024
     iso_size = out_iso.stat().st_size
