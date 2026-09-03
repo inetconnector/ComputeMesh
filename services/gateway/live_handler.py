@@ -1,21 +1,40 @@
-"""Live gateway handler with request-scoped cancellation support."""
+"""Live gateway handler with cancellation and P0 protected-execution gating."""
 from __future__ import annotations
 
 from contextlib import nullcontext
 from http import HTTPStatus
 import json
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
+from runtime.confidential.execution_gate import (
+    ProtectedExecutionEvidence,
+    ProtectedExecutionUnavailable,
+    require_protected_execution,
+)
+from services.compliance.mesh_policy import ExecutionPrivacyClass
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.server import GatewayHandler
 from services.gateway.security import MAX_REQUEST_PAYLOAD_BYTES
 
 
+ProtectedEvidenceResolver = Callable[
+    [ExecutionPrivacyClass, dict[str, Any]],
+    ProtectedExecutionEvidence,
+]
+
+
 class LiveGatewayHandler(GatewayHandler):
-    """Gateway extension for addressable, account-bound cancellation."""
+    """Live gateway with account-bound cancellation and protected privacy gates.
+
+    `protected_execution_evidence_resolver` must be installed by a real protected
+    runtime before `CONFIDENTIAL` or `CRYPTO_PRIVATE` traffic can execute.  Its
+    default is deliberately None, so merely requesting a protected class cannot
+    route plaintext through the ordinary live backend.
+    """
 
     inference_engine: CancellableInferenceEngine
+    protected_execution_evidence_resolver: ProtectedEvidenceResolver | None = None
 
     def _request_scope(self):
         request_id = self.headers.get("X-ComputeMesh-Request-ID", "").strip()
@@ -23,7 +42,61 @@ class LiveGatewayHandler(GatewayHandler):
             return nullcontext()
         return self.inference_engine.request_scope(request_id)
 
+    @staticmethod
+    def _requested_privacy_class(body: dict[str, Any]) -> ExecutionPrivacyClass:
+        value: Any = body.get("computemesh_privacy", ExecutionPrivacyClass.PUBLIC.value)
+        if isinstance(value, dict):
+            value = value.get("class", ExecutionPrivacyClass.PUBLIC.value)
+        if not isinstance(value, str):
+            raise ValueError("computemesh_privacy must be PUBLIC, CONFIDENTIAL or CRYPTO_PRIVATE")
+        try:
+            return ExecutionPrivacyClass(value.strip().upper())
+        except ValueError as exc:
+            raise ValueError(
+                "computemesh_privacy must be PUBLIC, CONFIDENTIAL or CRYPTO_PRIVATE"
+            ) from exc
+
+    def _enforce_protected_privacy(self, body: dict[str, Any]) -> bool:
+        try:
+            privacy_class = self._requested_privacy_class(body)
+        except ValueError as exc:
+            self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return False
+
+        if privacy_class is ExecutionPrivacyClass.PUBLIC:
+            return True
+
+        resolver = self.protected_execution_evidence_resolver
+        if resolver is None:
+            self._send_error_response(
+                "Protected execution is unavailable because the complete confidential runtime chain is not installed",
+                "confidential_execution_unavailable",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+            return False
+        try:
+            evidence = resolver(privacy_class, body)
+            require_protected_execution(privacy_class, evidence)
+        except ProtectedExecutionUnavailable as exc:
+            self._send_error_response(
+                str(exc),
+                "confidential_execution_unavailable",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+            return False
+        except Exception:
+            # Do not leak verifier/runtime details to an unauthenticated caller.
+            self._send_error_response(
+                "Protected execution evidence could not be verified",
+                "confidential_execution_unavailable",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+            return False
+        return True
+
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:
+        if not self._enforce_protected_privacy(body):
+            return
         try:
             scope = self._request_scope()
         except ValueError as exc:
@@ -33,6 +106,8 @@ class LiveGatewayHandler(GatewayHandler):
             super()._handle_chat_completions(body)
 
     def _handle_ollama_chat(self, body: dict[str, Any]) -> None:
+        if not self._enforce_protected_privacy(body):
+            return
         try:
             scope = self._request_scope()
         except ValueError as exc:
@@ -42,6 +117,8 @@ class LiveGatewayHandler(GatewayHandler):
             super()._handle_ollama_chat(body)
 
     def _handle_ollama_generate(self, body: dict[str, Any]) -> None:
+        if not self._enforce_protected_privacy(body):
+            return
         try:
             scope = self._request_scope()
         except ValueError as exc:
