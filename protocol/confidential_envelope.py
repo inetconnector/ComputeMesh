@@ -1,9 +1,10 @@
 """Attestation-bound bidirectional encrypted envelopes for protected ComputeMesh jobs.
 
 Protocol v2 cryptographically binds protected content to the authenticated account,
-job, selected node, attestation nonce, approved runtime, privacy class and operation.
-The ordinary gateway can validate and route these structures without possessing a
-content-decryption key or seeing prompt/output plaintext.
+job, selected node, attestation nonce, approved runtime, attested data-plane TLS
+identity, privacy class and operation.  The ordinary gateway can validate and
+route these structures without possessing a content-decryption key or seeing
+prompt/output plaintext.
 
 Attestation verification, replay state, protected-runtime key custody and TEE
 isolation are separate mandatory P0 controls.
@@ -48,6 +49,7 @@ class ConfidentialBinding:
     node_id: str
     attestation_nonce: str
     runtime_digest: str
+    data_plane_tls_sha256: str
     privacy_class: str
     operation: str
 
@@ -58,6 +60,7 @@ class ConfidentialBinding:
             ("node_id", self.node_id, 256),
             ("attestation_nonce", self.attestation_nonce, 512),
             ("runtime_digest", self.runtime_digest, 512),
+            ("data_plane_tls_sha256", self.data_plane_tls_sha256, 128),
             ("privacy_class", self.privacy_class, 64),
             ("operation", self.operation, 64),
         ):
@@ -67,6 +70,7 @@ class ConfidentialBinding:
             raise ConfidentialEnvelopeError("invalid protected privacy_class")
         if self.operation not in _ALLOWED_OPERATIONS:
             raise ConfidentialEnvelopeError("invalid confidential operation")
+        _validate_sha256_label(self.data_plane_tls_sha256, "data_plane_tls_sha256")
 
     def as_dict(self) -> dict[str, str]:
         self.validate()
@@ -76,6 +80,7 @@ class ConfidentialBinding:
             "node_id": self.node_id,
             "attestation_nonce": self.attestation_nonce,
             "runtime_digest": self.runtime_digest,
+            "data_plane_tls_sha256": self.data_plane_tls_sha256,
             "privacy_class": self.privacy_class,
             "operation": self.operation,
         }
@@ -88,6 +93,7 @@ class ConfidentialBinding:
             "node_id",
             "attestation_nonce",
             "runtime_digest",
+            "data_plane_tls_sha256",
             "privacy_class",
             "operation",
         }:
@@ -98,6 +104,7 @@ class ConfidentialBinding:
             node_id=value.get("node_id"),
             attestation_nonce=value.get("attestation_nonce"),
             runtime_digest=value.get("runtime_digest"),
+            data_plane_tls_sha256=value.get("data_plane_tls_sha256"),
             privacy_class=value.get("privacy_class"),
             operation=value.get("operation"),
         )
@@ -280,6 +287,14 @@ def _validate_hex_id(value: Any, label: str) -> None:
         bytes.fromhex(value)
     except ValueError as exc:
         raise ConfidentialEnvelopeError(f"invalid {label}") from exc
+
+
+def _validate_sha256_label(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.startswith("sha256:") or len(value) != 71:
+        raise ConfidentialEnvelopeError(f"invalid {label}")
+    digest = value.removeprefix("sha256:")
+    if any(ch not in "0123456789abcdef" for ch in digest):
+        raise ConfidentialEnvelopeError(f"invalid {label}")
 
 
 def _b64url(value: bytes | bytearray | memoryview) -> str:
