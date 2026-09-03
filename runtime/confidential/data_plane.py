@@ -1,10 +1,9 @@
 """Attestation-bound HTTPS data plane for opaque confidential envelopes.
 
-The gateway forwards request ciphertext only.  Server identity is authenticated by
-an exact TLS certificate SHA-256 fingerprint that must also be bound into the
-verified attestation and the envelope AAD.  The protected endpoint returns only a
-ConfidentialResponseEnvelope, so ordinary gateway code never handles prompt or
-completion plaintext.
+The gateway forwards request ciphertext only. Server identity is authenticated by
+an exact TLS certificate SHA-256 fingerprint bound into the verified attestation
+and envelope AAD. The protected endpoint returns encrypted output plus a signed,
+content-free usage receipt whose Ed25519 key is also attested.
 """
 from __future__ import annotations
 
@@ -17,13 +16,11 @@ import ssl
 from typing import Callable, Protocol
 from urllib.parse import urlparse
 
-from protocol.confidential_envelope import (
-    ConfidentialEnvelope,
-    ConfidentialResponseEnvelope,
-)
+from protocol.confidential_envelope import ConfidentialEnvelope, ConfidentialResponseEnvelope
+from protocol.confidential_metering import ConfidentialUsageReceipt
 
 
-MAX_DATA_PLANE_RESPONSE_BYTES = 8 * 1024 * 1024 + 256 * 1024
+MAX_DATA_PLANE_RESPONSE_BYTES = 8 * 1024 * 1024 + 512 * 1024
 
 
 class ConfidentialDataPlaneError(RuntimeError):
@@ -37,6 +34,7 @@ class AttestedConfidentialEndpoint:
     runtime_digest: str
     attestation_nonce: str
     recipient_public_key: str
+    metering_public_key: str
     tls_certificate_sha256: str
 
     def validate(self) -> None:
@@ -52,6 +50,7 @@ class AttestedConfidentialEndpoint:
             ("runtime_digest", self.runtime_digest, 512),
             ("attestation_nonce", self.attestation_nonce, 512),
             ("recipient_public_key", self.recipient_public_key, 1024),
+            ("metering_public_key", self.metering_public_key, 1024),
         ):
             if not isinstance(value, str) or not value.strip() or len(value) > limit:
                 raise ConfidentialDataPlaneError(f"invalid {name}")
@@ -71,14 +70,20 @@ class AttestedConfidentialEndpoint:
             raise ConfidentialDataPlaneError("confidential endpoint TLS binding mismatch")
 
 
+@dataclass(frozen=True)
+class ConfidentialDataPlaneResult:
+    response: ConfidentialResponseEnvelope
+    usage_receipt: ConfidentialUsageReceipt
+
+
 class ConfidentialDataPlane(Protocol):
     def execute(
         self,
         envelope: ConfidentialEnvelope,
         *,
         endpoint: AttestedConfidentialEndpoint,
-    ) -> ConfidentialResponseEnvelope:
-        """Forward one opaque protected request and return opaque protected output."""
+    ) -> ConfidentialDataPlaneResult:
+        """Forward opaque protected content and return opaque output + signed usage."""
 
 
 ConnectionFactory = Callable[[str, int, ssl.SSLContext, float], http.client.HTTPSConnection]
@@ -94,7 +99,7 @@ def _default_connection_factory(
 
 
 class PinnedHttpsConfidentialDataPlane:
-    """HTTPS transport with attestation-bound certificate pinning and strict framing."""
+    """TLS 1.3 transport with attestation-bound leaf pinning and strict framing."""
 
     def __init__(
         self,
@@ -109,9 +114,6 @@ class PinnedHttpsConfidentialDataPlane:
         if not 1024 <= max_response_bytes <= 16 * 1024 * 1024:
             raise ValueError("invalid confidential data-plane response limit")
         context = ssl_context or ssl.create_default_context()
-        # TLS 1.3 keeps the protected transport policy unambiguous. Deployments
-        # using a private attested certificate may inject a context with a pinned
-        # CA or CERT_NONE; the exact leaf fingerprint below remains mandatory.
         if context.minimum_version < ssl.TLSVersion.TLSv1_3:
             context.minimum_version = ssl.TLSVersion.TLSv1_3
         self.ssl_context = context
@@ -124,7 +126,7 @@ class PinnedHttpsConfidentialDataPlane:
         envelope: ConfidentialEnvelope,
         *,
         endpoint: AttestedConfidentialEndpoint,
-    ) -> ConfidentialResponseEnvelope:
+    ) -> ConfidentialDataPlaneResult:
         endpoint.assert_matches(envelope)
         parsed = urlparse(endpoint.url)
         host = parsed.hostname or ""
@@ -188,22 +190,29 @@ class PinnedHttpsConfidentialDataPlane:
             "schema_version",
             "confidential_protocol_version",
             "response",
+            "usage_receipt",
         }:
             raise ConfidentialDataPlaneError("confidential data-plane returned an invalid response contract")
         if value.get("schema_version") != 1 or value.get("confidential_protocol_version") != envelope.schema_version:
             raise ConfidentialDataPlaneError("confidential data-plane protocol version mismatch")
         response_value = value.get("response")
-        if not isinstance(response_value, dict):
-            raise ConfidentialDataPlaneError("confidential data-plane response envelope is missing")
+        receipt_value = value.get("usage_receipt")
+        if not isinstance(response_value, dict) or not isinstance(receipt_value, dict):
+            raise ConfidentialDataPlaneError("confidential data-plane output or usage receipt is missing")
         try:
             protected_response = ConfidentialResponseEnvelope.from_dict(response_value)
+            usage_receipt = ConfidentialUsageReceipt.from_dict(receipt_value)
         except ValueError as exc:
-            raise ConfidentialDataPlaneError("confidential data-plane response envelope is invalid") from exc
+            raise ConfidentialDataPlaneError("confidential data-plane returned invalid protected evidence") from exc
         if protected_response.request_envelope_id != envelope.envelope_id:
             raise ConfidentialDataPlaneError("confidential response is bound to another request")
         if protected_response.binding != envelope.binding:
             raise ConfidentialDataPlaneError("confidential response binding mismatch")
-        return protected_response
+        if usage_receipt.request_envelope_id != envelope.envelope_id:
+            raise ConfidentialDataPlaneError("confidential usage receipt is bound to another request")
+        if usage_receipt.response_id != protected_response.response_id:
+            raise ConfidentialDataPlaneError("confidential usage receipt is bound to another response")
+        return ConfidentialDataPlaneResult(response=protected_response, usage_receipt=usage_receipt)
 
 
 def _validate_sha256(value: str) -> None:
