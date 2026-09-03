@@ -198,7 +198,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 source_name = (info["source_disk"] or "").rsplit("/", 1)[-1] or None
                 payload = {
                     **info,
-                    "targets": list_clone_targets(source_name) if info["booted_from_usb"] else [],
+                    "targets": list_clone_targets(source_name, info["clone_bytes"]) if info["booted_from_usb"] else [],
                 }
             self._send_json(payload)
             return

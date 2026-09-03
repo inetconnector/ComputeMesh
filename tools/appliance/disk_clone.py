@@ -13,8 +13,13 @@ Safety model:
   trusted from a cached/client-supplied list;
 - start_clone() re-validates the requested target against that fresh list
   and requires an exact confirmation phrase before writing anything;
-- the clone is a plain whole-disk dd, so no partition/filesystem parsing of
-  attacker- or user-influenced input is ever needed to decide what to copy.
+- the clone copies device bytes with dd; the only "parsing" involved is
+  reading the partition start/size integers the kernel already exposes
+  under /sys/block/<disk>/<part>/{start,size} to find where real data
+  ends, so a mostly-empty USB stick isn't copied out to its full nominal
+  capacity -- this is reading kernel-computed sysfs integers, not parsing
+  raw partition-table bytes ourselves, and always falls back to a full
+  whole-disk copy if that can't be determined.
 """
 from __future__ import annotations
 
@@ -58,6 +63,39 @@ def _read_int(path: Path) -> int | None:
         return int(path.read_text().strip())
     except Exception:
         return None
+
+
+_SAFETY_MARGIN_BYTES = 64 * 1024 * 1024  # covers GPT backup header / alignment slack
+
+
+def _source_used_extent_bytes(disk_name: str) -> int | None:
+    """Byte offset where the last partition on disk_name ends, plus a safety
+    margin -- not the disk's full nominal capacity.
+
+    A USB stick Etcher wrote a ~500MB image onto is often 8-300GB; only the
+    space actually covered by a partition holds real data, the rest was
+    never written by Etcher at all. Cloning past the last partition's end
+    just copies untouched, meaningless bytes for hours. Returns None (caller
+    falls back to the full disk size) if no partitions are found or sysfs
+    can't be read, rather than risk guessing an extent that's too small.
+    """
+    base = Path(f"/sys/block/{disk_name}")
+    if not base.exists():
+        return None
+    max_end_sectors = 0
+    found_any = False
+    for entry in base.iterdir():
+        if not entry.name.startswith(disk_name) or entry.name == disk_name:
+            continue
+        start = _read_int(entry / "start")
+        size = _read_int(entry / "size")
+        if start is None or size is None:
+            continue
+        found_any = True
+        max_end_sectors = max(max_end_sectors, start + size)
+    if not found_any or max_end_sectors <= 0:
+        return None
+    return max_end_sectors * 512 + _SAFETY_MARGIN_BYTES
 
 
 def _block_disk_size_bytes(disk_name: str) -> int:
@@ -124,20 +162,33 @@ def _resolve_source_disk() -> str | None:
 def get_boot_source_info() -> dict[str, Any]:
     source_disk = _resolve_source_disk()
     booted_from_usb = bool(source_disk and _is_removable(source_disk))
+    full_size = _block_disk_size_bytes(source_disk) if source_disk else 0
+    used_extent = _source_used_extent_bytes(source_disk) if source_disk else None
+    clone_bytes = min(used_extent, full_size) if used_extent else full_size
     return {
         "booted_from_usb": booted_from_usb,
         "source_disk": f"/dev/{source_disk}" if source_disk else None,
-        "source_size_bytes": _block_disk_size_bytes(source_disk) if source_disk else 0,
+        "source_size_bytes": full_size,
+        # What actually needs to be copied (last partition's end + a safety
+        # margin), which is what target-size filtering and the dd count=
+        # should use -- not the source's full nominal capacity.
+        "clone_bytes": clone_bytes,
         "source_model": _disk_model(source_disk) if source_disk else "",
     }
 
 
-def list_clone_targets(source_disk_name: str | None) -> list[dict[str, Any]]:
+def list_clone_targets(source_disk_name: str | None, min_bytes: int | None = None) -> list[dict[str, Any]]:
+    """min_bytes: required target size. Defaults to the source's full nominal
+    size for backward compatibility, but callers should normally pass
+    get_boot_source_info()["clone_bytes"] so a target only needs to fit the
+    data actually being copied, not the source device's full capacity."""
     targets: list[dict[str, Any]] = []
     block_dir = Path("/sys/block")
     if not block_dir.exists():
         return targets
-    source_size = _block_disk_size_bytes(source_disk_name) if source_disk_name else 0
+    required_size = min_bytes if min_bytes is not None else (
+        _block_disk_size_bytes(source_disk_name) if source_disk_name else 0
+    )
     for entry in sorted(block_dir.iterdir()):
         name = entry.name
         if name.startswith(("loop", "ram", "sr", "dm-", "md", "zram")):
@@ -147,7 +198,7 @@ def list_clone_targets(source_disk_name: str | None) -> list[dict[str, Any]]:
         if _is_removable(name):
             continue
         size_bytes = _block_disk_size_bytes(name)
-        if size_bytes <= 0 or size_bytes < source_size:
+        if size_bytes <= 0 or size_bytes < required_size:
             continue
         targets.append({
             "device": f"/dev/{name}",
@@ -182,8 +233,14 @@ def get_clone_status() -> dict[str, Any]:
 
 def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
     global _status
+    block_bytes = block_size_mb * 1024 * 1024
+    # Round up so the copied extent is never smaller than total_bytes (which
+    # already includes the safety margin computed in
+    # _source_used_extent_bytes) -- truncating short would risk cutting off
+    # real partition data, not just empty trailing space.
+    count = -(-total_bytes // block_bytes)  # ceil division
     proc = subprocess.Popen(
-        ["dd", f"if={source_dev}", f"of={target_dev}", f"bs={block_size_mb}M", "status=progress", "conv=fsync"],
+        ["dd", f"if={source_dev}", f"of={target_dev}", f"bs={block_size_mb}M", f"count={count}", "status=progress", "conv=fsync"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,
@@ -255,24 +312,24 @@ def start_clone(target_device: str, confirm_phrase: str, block_size_mb: int = 4)
         return False, "This system is not currently booted from a removable (USB) disk"
 
     source_name = info["source_disk"].rsplit("/", 1)[-1]
-    valid_targets = {t["device"]: t for t in list_clone_targets(source_name)}
+    clone_bytes = info["clone_bytes"]
+    valid_targets = {t["device"]: t for t in list_clone_targets(source_name, clone_bytes)}
     if target_device not in valid_targets:
         return False, f"{target_device} is not a currently valid clone target"
 
-    total_bytes = info["source_size_bytes"]
     with _status_lock:
         _status = CloneStatus(
             running=True,
             source=info["source_disk"],
             target=target_device,
-            total_bytes=total_bytes,
+            total_bytes=clone_bytes,
             started_at=time.time(),
             block_size_mb=block_size_mb,
         )
 
     thread = threading.Thread(
         target=_run_clone,
-        args=(info["source_disk"], target_device, total_bytes, block_size_mb),
+        args=(info["source_disk"], target_device, clone_bytes, block_size_mb),
         daemon=True,
     )
     thread.start()

@@ -50,6 +50,7 @@ class TestDiskCloneSafety(unittest.TestCase):
             "booted_from_usb": True,
             "source_disk": "/dev/sda",
             "source_size_bytes": 16_000_000_000,
+            "clone_bytes": 16_000_000_000,
             "source_model": "USB Stick",
         }
         # Attacker/stale client asks for a device the fresh scan does not offer.
@@ -66,6 +67,7 @@ class TestDiskCloneSafety(unittest.TestCase):
             "booted_from_usb": True,
             "source_disk": "/dev/sda",
             "source_size_bytes": 16_000_000_000,
+            "clone_bytes": 16_000_000_000,
             "source_model": "USB Stick",
         }
         mock_targets.return_value = [{"device": "/dev/sdc", "name": "sdc", "size_bytes": 500_000_000_000, "model": "Real SSD"}]
@@ -84,6 +86,7 @@ class TestDiskCloneSafety(unittest.TestCase):
             "booted_from_usb": True,
             "source_disk": "/dev/sda",
             "source_size_bytes": 16_000_000_000,
+            "clone_bytes": 16_000_000_000,
             "source_model": "USB Stick",
         }
         mock_targets.return_value = [{"device": "/dev/sdc", "name": "sdc", "size_bytes": 500_000_000_000, "model": "Real SSD"}]

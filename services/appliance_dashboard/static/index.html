@@ -1522,7 +1522,8 @@
         }
         usbCloneTargets = data.targets;
         document.getElementById('usb-clone-source-desc').textContent =
-          `Aktuelles Bootmedium: ${data.source_model || data.source_disk} (${formatGB(data.source_size_bytes)}).`;
+          `Aktuelles Bootmedium: ${data.source_model || data.source_disk} (${formatGB(data.source_size_bytes)} Nennkapazität). ` +
+          `Tatsächlich kopiert werden nur ${formatGB(data.clone_bytes)} (belegte Partitionen + Sicherheitsabstand), nicht der leere Rest.`;
         const select = document.getElementById('usb-clone-target');
         select.innerHTML = usbCloneTargets.map(t =>
           `<option value="${t.device}">${t.device} — ${t.model} (${formatGB(t.size_bytes)})</option>`
