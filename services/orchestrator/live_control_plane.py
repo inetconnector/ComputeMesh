@@ -20,6 +20,9 @@ from services.orchestrator.persistent_control_channel import PersistentNodeContr
 from services.orchestrator.provider_compliance import ComplianceAwareLiveProviderRegistration
 
 
+CONFIDENTIAL_PROVISION_CAPABILITY = "confidential_session_provision_v1"
+
+
 class LiveBenchmarkAcceptancePolicy:
     """Accept only scheduler-relevant benchmark families bound by NodeSessionWireHandler."""
 
@@ -127,6 +130,7 @@ class IntegratedLiveControlPlane:
                     "execution_attestation_v1",
                     "live_runtime_registration_v1",
                     GPU_PROMO_CAPABILITY,
+                    CONFIDENTIAL_PROVISION_CAPABILITY,
                 ),
             )
             transferred = True
