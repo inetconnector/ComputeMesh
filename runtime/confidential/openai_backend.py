@@ -18,6 +18,7 @@ from runtime.confidential.protected_worker import ProtectedWorkerError
 
 MAX_BACKEND_BODY_BYTES = 8 * 1024 * 1024
 MAX_SSE_LINE_BYTES = 2 * 1024 * 1024
+MAX_BACKEND_MODELS = 10_000
 
 
 class _NoRedirect(urlrequest.HTTPRedirectHandler):
@@ -41,6 +42,41 @@ class LoopbackOpenAIBackend:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
         self._opener = urlrequest.build_opener(_NoRedirect())
+
+    def model_ids(self) -> frozenset[str]:
+        request = urlrequest.Request(
+            self.base_url + "/v1/models",
+            method="GET",
+            headers={"Accept": "application/json", "Connection": "close"},
+        )
+        try:
+            with self._opener.open(request, timeout=self.timeout_seconds) as response:
+                raw = response.read(MAX_BACKEND_BODY_BYTES + 1)
+        except (urlerror.URLError, urlerror.HTTPError, TimeoutError, OSError) as exc:
+            raise ProtectedWorkerError("protected OpenAI model catalog is unavailable") from exc
+        if len(raw) > MAX_BACKEND_BODY_BYTES:
+            raise ProtectedWorkerError("protected OpenAI model catalog exceeds size limit")
+        try:
+            value = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ProtectedWorkerError("protected OpenAI model catalog is malformed") from exc
+        if not isinstance(value, dict) or value.get("object") != "list":
+            raise ProtectedWorkerError("protected OpenAI model catalog contract is invalid")
+        data = value.get("data")
+        if not isinstance(data, list) or len(data) > MAX_BACKEND_MODELS:
+            raise ProtectedWorkerError("protected OpenAI model catalog is invalid")
+        models: set[str] = set()
+        for item in data:
+            if not isinstance(item, Mapping):
+                raise ProtectedWorkerError("protected OpenAI model catalog entry is invalid")
+            model_id = item.get("id")
+            if not isinstance(model_id, str) or not model_id or len(model_id.encode("utf-8")) > 512:
+                raise ProtectedWorkerError("protected OpenAI model id is invalid")
+            models.add(model_id)
+        return frozenset(models)
+
+    def supports_model(self, model_id: str) -> bool:
+        return model_id in self.model_ids()
 
     def complete(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
         body = dict(request)
@@ -147,6 +183,7 @@ def _is_loopback(host: str) -> bool:
     if normalized in {"localhost", "127.0.0.1", "::1"}:
         return True
     try:
-        return all(item[4][0] in {"127.0.0.1", "::1"} for item in socket.getaddrinfo(host, None))
+        values = socket.getaddrinfo(host, None)
+        return bool(values) and all(item[4][0] in {"127.0.0.1", "::1"} for item in values)
     except OSError:
         return False
