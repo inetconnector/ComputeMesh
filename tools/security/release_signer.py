@@ -25,7 +25,10 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 DISKSTATION_PATH = Path(r"\\diskstation\Dani\ComputeMesh")
-LOCAL_BACKUP_PATH = Path(__file__).resolve().parents[2] / "config" / "security"
+# Must never live inside a git working tree: a home-directory secrets folder
+# is not a project directory and cannot be swept up by a repo/project backup
+# (e.g. zipping the checkout) the way REPO_ROOT/config/security was.
+LOCAL_BACKUP_PATH = Path.home() / ".computemesh" / "secrets"
 SIGNING_KEYS_FILE = Path(__file__).resolve().parent / "signing_keys.py"
 
 
@@ -73,9 +76,17 @@ def get_or_create_keypair() -> tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519P
         except Exception as e:
             print(f"Warning: Could not write to DiskStation: {e}")
 
-    # Save to local backup
+    # Save to local backup (outside the repo tree; see LOCAL_BACKUP_PATH).
     LOCAL_BACKUP_PATH.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(LOCAL_BACKUP_PATH, 0o700)
+    except OSError:
+        pass
     local_private_key_file.write_bytes(priv_raw)
+    try:
+        os.chmod(local_private_key_file, 0o600)
+    except OSError:
+        pass
     (LOCAL_BACKUP_PATH / "computemesh_release_signing_public.key").write_text(pub_raw.hex() + "\n", encoding="utf-8")
 
     # Update signing_keys.py with new public key hex

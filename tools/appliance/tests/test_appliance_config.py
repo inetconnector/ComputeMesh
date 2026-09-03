@@ -19,7 +19,7 @@ class TestApplianceConfig(unittest.TestCase):
                 "RIG_NAME=miner-alpha\n"
                 "PROVIDER_ACCOUNT_ID=cm_0x123456789\n"
                 "WALLET_PAYOUT_ADDRESS=0x9876543210987654321098765432109876543210\n"
-                "COORDINATOR_URL=https://node.computemesh.net\n"
+                "COORDINATOR_URL=https://custom-coordinator.example.com\n"
                 "NETWORK_MODE=static\n"
                 "STATIC_IP=192.168.1.100/24\n"
                 "DASHBOARD_PORT=9090\n"
@@ -32,13 +32,27 @@ class TestApplianceConfig(unittest.TestCase):
             self.assertEqual(cfg.rig_name, "miner-alpha")
             self.assertEqual(cfg.provider_account_id, "cm_0x123456789")
             self.assertEqual(cfg.payout_address, "0x9876543210987654321098765432109876543210")
-            self.assertEqual(cfg.coordinator_url, "https://node.computemesh.net")
+            self.assertEqual(cfg.coordinator_url, "https://custom-coordinator.example.com")
             self.assertEqual(cfg.network_mode, "static")
             self.assertEqual(cfg.static_ip, "192.168.1.100/24")
             self.assertEqual(cfg.dashboard_port, 9090)
             self.assertEqual(cfg.disabled_gpus, [1, 3])
             self.assertEqual(cfg.power_mode, "eco")
             self.assertEqual(cfg.max_temp_c, 75)
+
+    def test_legacy_coordinator_domain_is_rewritten_to_production(self) -> None:
+        """A boot env pointing at an old placeholder domain must be forced onto
+        the real production coordinator (tools/appliance/appliance_config.py
+        squashes computemesh.net / test.computemesh / coord.test), not silently
+        trusted as a live coordinator that no longer exists."""
+        from config import CONFIG
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            boot_file = tmp_path / "computemesh.env"
+            boot_file.write_text("COORDINATOR_URL=https://node.computemesh.net\n", encoding="utf-8")
+            cfg = load_appliance_config(boot_path=boot_file, system_path=tmp_path / "none.json")
+            self.assertEqual(cfg.coordinator_url, CONFIG.endpoints.base_url)
 
     def test_save_and_reload_system_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

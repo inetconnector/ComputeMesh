@@ -1393,7 +1393,7 @@ async function sendPlaygroundMessage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-ComputeMesh-Client': 'web-playground-v1.2.21'
+        'X-ComputeMesh-Client': 'web-playground-v1.2.24'
       },
       body: JSON.stringify({
         model: model,
