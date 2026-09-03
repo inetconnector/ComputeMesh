@@ -31,6 +31,10 @@ from protocol.confidential_envelope import (
     create_confidential_request,
     decrypt_confidential_response,
 )
+from protocol.confidential_request_contract import (
+    ConfidentialRequestContractError,
+    verify_committed_attestation_nonce,
+)
 from services.attestation.confidential_verifier import (
     ConfidentialAttestationError,
     Verifier,
@@ -488,6 +492,17 @@ class ConfidentialOpenAIBridge:
             raise ConfidentialOpenAIError("Protected session prompt reservation mismatch")
         if session.get("max_completion_tokens") != prepared.max_completion_tokens:
             raise ConfidentialOpenAIError("Protected session completion reservation mismatch")
+        try:
+            verify_committed_attestation_nonce(
+                str(session.get("attestation_nonce", "")),
+                model_id=prepared.model,
+                max_prompt_tokens=prepared.max_prompt_tokens,
+                max_completion_tokens=prepared.max_completion_tokens,
+            )
+        except ConfidentialRequestContractError as exc:
+            raise ConfidentialOpenAIError(
+                "Protected session request contract is not attestation-bound"
+            ) from exc
 
         binding = ConfidentialBinding(
             account_id=account_id,
