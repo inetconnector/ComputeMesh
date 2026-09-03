@@ -101,7 +101,7 @@ def _build_account_store_from_env() -> AccountingStore | None:
     store_path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH")
     if not store_path_env:
         return None
-    return AccountingStore(sqlite_path=Path(store_path_env))
+    return AccountingStore(storage_path=Path(store_path_env))
 
 
 def _build_stripe_service(ledger: Ledger, account_store: AccountingStore | None = None) -> StripePaymentService:
