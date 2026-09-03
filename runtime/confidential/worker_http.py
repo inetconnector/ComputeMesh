@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import chain
 import json
 from pathlib import Path
 import ssl
@@ -79,13 +80,19 @@ class ProtectedWorkerHttpService:
                 try:
                     value = self._read_body()
                     stream, envelope = self._parse_contract(value)
-                    self._check_headers(envelope)
+                    self._check_headers(envelope, stream=stream)
                     if stream:
                         self._stream(envelope)
                     else:
                         self._complete(envelope)
-                except (ProtectedWorkerError, ConfidentialEnvelopeError, ValueError, TypeError):
-                    self._json(HTTPStatus.BAD_REQUEST, {"error": "protected_execution_rejected"})
+                except (ProtectedWorkerError, ProtectedWorkerHttpError, ConfidentialEnvelopeError, ValueError, TypeError):
+                    # If streaming headers were already emitted, the safest failure
+                    # behavior is connection termination without manufacturing a
+                    # false authenticated final frame.
+                    if not getattr(self, "_cm_stream_headers_sent", False):
+                        self._json(HTTPStatus.BAD_REQUEST, {"error": "protected_execution_rejected"})
+                    else:
+                        self.close_connection = True
 
             def _read_body(self) -> dict[str, Any]:
                 try:
@@ -123,7 +130,7 @@ class ProtectedWorkerHttpService:
                     raise ProtectedWorkerHttpError("protected worker envelope is missing")
                 return bool(stream), ConfidentialEnvelope.from_dict(envelope_value)
 
-            def _check_headers(self, envelope: ConfidentialEnvelope) -> None:
+            def _check_headers(self, envelope: ConfidentialEnvelope, *, stream: bool) -> None:
                 protocol = self.headers.get("X-ComputeMesh-Confidential-Protocol")
                 job = self.headers.get("X-ComputeMesh-Job-ID")
                 node = self.headers.get("X-ComputeMesh-Node-ID")
@@ -131,6 +138,11 @@ class ProtectedWorkerHttpService:
                     raise ProtectedWorkerHttpError("protected protocol header mismatch")
                 if job != envelope.binding.job_id or node != envelope.binding.node_id:
                     raise ProtectedWorkerHttpError("protected identity header mismatch")
+                stream_header = self.headers.get("X-ComputeMesh-Confidential-Stream")
+                if stream and stream_header != "1":
+                    raise ProtectedWorkerHttpError("protected stream header is missing")
+                if not stream and stream_header is not None:
+                    raise ProtectedWorkerHttpError("unexpected protected stream header")
 
             def _complete(self, envelope: ConfidentialEnvelope) -> None:
                 result = manager.execute(envelope)
@@ -158,18 +170,20 @@ class ProtectedWorkerHttpService:
                 self.send_header("Pragma", "no-cache")
                 self.send_header("Connection", "close")
                 self.end_headers()
+                self._cm_stream_headers_sent = True
                 done = False
-                for result in (first, *iterator):
+                for result in chain((first,), iterator):
                     is_done = result.usage_receipt is not None
                     if done:
                         raise ProtectedWorkerHttpError("protected stream produced data after final receipt")
-                    event = {
+                    event: dict[str, Any] = {
                         "schema_version": 1,
                         "confidential_protocol_version": envelope.schema_version,
                         "type": "done" if is_done else "chunk",
                         "response": result.response.to_dict(),
                     }
                     if is_done:
+                        assert result.usage_receipt is not None
                         event["usage_receipt"] = result.usage_receipt.to_dict()
                         done = True
                     raw = json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
