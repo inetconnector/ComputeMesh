@@ -18,6 +18,10 @@ from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
 from services.compliance.policy import assert_production_launch_gate
 from services.gateway.cancellable_owner_inference import CancellableUnifiedOwnerInferenceEngine
+from services.gateway.confidential_live_bootstrap import (
+    LiveConfidentialRuntime,
+    install_live_confidential_gateway,
+)
 from services.gateway.gpu_promo_dispatch_runtime import (
     RunningGpuPromoDispatch,
     start_optional_gpu_promo_dispatch,
@@ -133,7 +137,8 @@ def _install_cancellable_live_gateway(handler_cls):
 
 def _run_live_gateway(*, handler_cls, host: str, port: int) -> None:
     server = ThreadingHTTPServer((host, port), handler_cls)
-    print(f"ComputeMesh Unified Live Gateway listening on http://{host}:{port}")
+    protected = "enabled" if handler_cls.confidential_coordinator is not None else "disabled"
+    print(f"ComputeMesh Unified Live Gateway listening on http://{host}:{port} (confidential={protected})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -158,6 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     control_plane: IntegratedLiveControlPlane | None = None
     gpu_promo_dispatch: RunningGpuPromoDispatch | None = None
+    confidential_runtime: LiveConfidentialRuntime | None = None
     handler_cls = None
     try:
         # Nothing customer-facing comes up before compliance, verified models and
@@ -179,6 +185,12 @@ def main(argv: list[str] | None = None) -> int:
             registry=LIVE_SHARED_RUNTIME,
         )
         _install_cancellable_live_gateway(handler_cls)
+        # Protected mode is installed last and atomically. When explicitly enabled,
+        # missing broker/signing/state/TLS/accounting inputs fail the whole startup.
+        confidential_runtime = install_live_confidential_gateway(
+            handler_cls=handler_cls,
+            registry=LIVE_SHARED_RUNTIME,
+        )
     except Exception as exc:
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
@@ -190,6 +202,10 @@ def main(argv: list[str] | None = None) -> int:
         assert handler_cls is not None
         _run_live_gateway(handler_cls=handler_cls, host=args.host, port=args.port)
     finally:
+        # Confidential stores are short-lived-connection SQLite stores and require
+        # no process-level close hook. Provider control is closed last so no new
+        # protected admission can race shutdown.
+        _ = confidential_runtime
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
         if control_plane is not None:
