@@ -26,6 +26,7 @@ class ProtectedRequestContext:
     attestation_nonce: str
     expected_runtime_digest: str
     ciphertext_recipient_public_key: str
+    data_plane_tls_sha256: str
 
     def validate(self) -> None:
         for name, value in (
@@ -34,11 +35,17 @@ class ProtectedRequestContext:
             ("attestation_nonce", self.attestation_nonce),
             ("expected_runtime_digest", self.expected_runtime_digest),
             ("ciphertext_recipient_public_key", self.ciphertext_recipient_public_key),
+            ("data_plane_tls_sha256", self.data_plane_tls_sha256),
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ProtectedContextError(f"{name} must be non-empty")
         if self.privacy_class is ExecutionPrivacyClass.PUBLIC:
             raise ProtectedContextError("protected request context cannot be PUBLIC")
+        if not self.data_plane_tls_sha256.startswith("sha256:") or len(self.data_plane_tls_sha256) != 71:
+            raise ProtectedContextError("data_plane_tls_sha256 must be a sha256 fingerprint")
+        digest = self.data_plane_tls_sha256.removeprefix("sha256:")
+        if any(ch not in "0123456789abcdef" for ch in digest):
+            raise ProtectedContextError("data_plane_tls_sha256 must be lowercase hex")
 
 
 def build_protected_execution_evidence(
@@ -79,6 +86,9 @@ def build_protected_execution_evidence(
     ephemeral_public_key = attestation.get("ephemeral_public_key")
     if ephemeral_public_key != context.ciphertext_recipient_public_key:
         raise ProtectedContextError("ciphertext recipient is not the attested ephemeral key")
+    attested_tls_fingerprint = attestation.get("data_plane_tls_sha256")
+    if attested_tls_fingerprint != context.data_plane_tls_sha256:
+        raise ProtectedContextError("data-plane TLS identity is not bound to the attestation")
 
     try:
         if key_release.job_id != context.job_id:
