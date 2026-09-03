@@ -158,10 +158,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 except Exception as exc:
                     return {"cmd": cmd, "error": str(exc)}
 
+            def _file_probe(p: Path) -> dict[str, Any]:
+                info: dict[str, Any] = {"path": str(p), "exists": p.exists()}
+                if info["exists"]:
+                    try:
+                        st = p.stat()
+                        info["mtime"] = st.st_mtime
+                        info["size"] = st.st_size
+                        info["content"] = json.loads(p.read_text(encoding="utf-8"))
+                    except Exception as exc:
+                        info["read_error"] = str(exc)
+                return info
+
             diagnostics: dict[str, Any] = {
                 "platform": sys.platform,
                 "process_start_inventory": self.inventory.to_dict(),
                 "hardware_debug": collect_hardware_debug(),
+                "config_persistence": {
+                    "env_HOME": os.environ.get("HOME"),
+                    "resolved_home": str(Path.home()),
+                    "pid": os.getpid(),
+                    "system_config": _file_probe(Path("/etc/computemesh/config.json")),
+                    "user_config": _file_probe(Path.home() / ".computemesh" / "provider_config.json"),
+                },
             }
             if sys.platform != "win32":
                 # Fixed, read-only diagnostic allowlist -- never user-supplied
