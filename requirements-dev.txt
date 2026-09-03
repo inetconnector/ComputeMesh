@@ -1,2 +1,11 @@
 jsonschema>=4.23,<5
 cryptography>=46,<47
+
+# Windows release build toolchain (tools/build_all_releases.py). These were
+# previously installed ad hoc and undeclared, which let the build venv drift
+# to missing pywin32 and silently ship a Windows executable without a working
+# system tray icon (pystray's Win32 backend hard-requires win32gui/win32con/
+# win32api). Declared here so a fresh build environment fails loudly instead.
+pyinstaller>=6,<7
+pystray>=0.19,<1
+pywin32>=310; sys_platform == "win32"
