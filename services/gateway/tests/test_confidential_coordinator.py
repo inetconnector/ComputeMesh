@@ -16,6 +16,7 @@ from protocol.confidential_metering import (
     generate_attested_metering_keypair,
     sign_confidential_usage,
 )
+from protocol.confidential_request_contract import create_committed_attestation_nonce
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneResult,
@@ -53,7 +54,11 @@ class _Broker:
     ) -> ConfidentialSessionProvision:
         self.job_index += 1
         job_id = f"job-conf-{self.job_index}"
-        nonce = f"nonce-{self.job_index}"
+        nonce = create_committed_attestation_nonce(
+            model_id=model_id,
+            max_prompt_tokens=max_prompt_tokens,
+            max_completion_tokens=max_completion_tokens,
+        )
         runtime = "sha256:" + "b" * 64
         tls = "sha256:" + "c" * 64
         endpoint = AttestedConfidentialEndpoint(
@@ -302,6 +307,55 @@ class ConfidentialCoordinatorTests(unittest.TestCase):
         before = self.ledger.get_owner_balances(self.customer)
         with self.assertRaisesRegex(ConfidentialCoordinatorError, "unresolved"):
             self.coordinator.open_session(
+                account_id=self.customer,
+                model_id=self.model,
+                privacy_class="CONFIDENTIAL",
+                operation="chat_completion",
+                max_prompt_tokens=2_000,
+                max_completion_tokens=1_000,
+            )
+        after = self.ledger.get_owner_balances(self.customer)
+        self.assertEqual(after.total_spendable_micro_units, before.total_spendable_micro_units)
+
+    def test_unbound_broker_nonce_fails_before_reservation(self) -> None:
+        class BadBroker(_Broker):
+            def provision(self, **kwargs):
+                provision = super().provision(**kwargs)
+                wrong_nonce = create_committed_attestation_nonce(
+                    model_id="other-model",
+                    max_prompt_tokens=kwargs["max_prompt_tokens"],
+                    max_completion_tokens=kwargs["max_completion_tokens"],
+                )
+                endpoint = AttestedConfidentialEndpoint(
+                    url=provision.endpoint.url,
+                    node_id=provision.endpoint.node_id,
+                    runtime_digest=provision.endpoint.runtime_digest,
+                    attestation_nonce=wrong_nonce,
+                    recipient_public_key=provision.endpoint.recipient_public_key,
+                    metering_public_key=provision.endpoint.metering_public_key,
+                    tls_certificate_sha256=provision.endpoint.tls_certificate_sha256,
+                )
+                attestation = dict(provision.attestation)
+                attestation["nonce"] = wrong_nonce
+                return ConfidentialSessionProvision(
+                    **{
+                        **provision.__dict__,
+                        "endpoint": endpoint,
+                        "attestation": attestation,
+                    }
+                )
+
+        bad_broker = BadBroker(account_id=self.customer, model_id=self.model)
+        self.provider_owners[bad_broker.node_id] = self.provider_owner
+        coordinator = ConfidentialInferenceCoordinator(
+            ledger=self.ledger,
+            session_store=self.sessions,
+            broker=bad_broker,
+            provider_owner_resolver=lambda node_id: self.provider_owners.get(node_id, ""),
+        )
+        before = self.ledger.get_owner_balances(self.customer)
+        with self.assertRaisesRegex(ConfidentialCoordinatorError, "unbound request contract"):
+            coordinator.open_session(
                 account_id=self.customer,
                 model_id=self.model,
                 privacy_class="CONFIDENTIAL",
