@@ -31,6 +31,7 @@ class ConfidentialReplayStoreTests(unittest.TestCase):
             node_id="node-1",
             attestation_nonce="nonce-1",
             runtime_digest="sha256:runtime",
+            data_plane_tls_sha256="sha256:" + "a" * 64,
             privacy_class="CONFIDENTIAL",
             operation="chat_completion",
         )
