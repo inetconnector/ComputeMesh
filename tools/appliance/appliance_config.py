@@ -116,6 +116,8 @@ def load_appliance_config(
         or os.environ.get("COORDINATOR_URL")
         or CONFIG.endpoints.base_url
     )
+    if any(legacy in coordinator_url for legacy in ("computemesh.net", "test.computemesh", "coord.test")):
+        coordinator_url = CONFIG.endpoints.base_url
     network_mode = env_vars.get("NETWORK_MODE") or system_data.get("network_mode") or "dhcp"
     static_ip = env_vars.get("STATIC_IP") or system_data.get("static_ip")
     gateway = env_vars.get("GATEWAY") or system_data.get("gateway")
