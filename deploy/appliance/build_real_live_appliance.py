@@ -330,7 +330,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence
 """,
         encoding="utf-8",
     )
@@ -342,7 +342,7 @@ LABEL computemesh
 set timeout=3
 search --set=root --file /boot/vmlinuz
 menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1
+    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence
     initrd /boot/initrd.img
 }
 """
@@ -387,9 +387,54 @@ menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
         str(ISO_DIR),
     ])
 
-    # Generate raw flashable .img and .img.xz
-    print("\nGenerating compressed flash image (.img.xz)...")
+    # Generate raw flashable .img with an appended, ext4-formatted
+    # "persistence" partition. Only the .img gets this -- the .iso is left
+    # exactly as xorriso produced it (unmodified, for CD/DVD/VM use), so a
+    # mistake here can never affect ISO boots. Without this, every config
+    # change, ComputeMesh app update, and `apt-get upgrade` was silently
+    # discarded on the next physical reboot: this appliance boots from a
+    # read-only squashfs with a RAM-backed overlay by default, which
+    # live-boot's initramfs only replaces with something durable when it
+    # finds a partition/filesystem labeled "persistence" *and* the kernel
+    # was given the `persistence` boot parameter (both are wired in above).
+    # persistence.conf's "/ union" persists the *entire* root filesystem,
+    # not just specific paths, so OS package upgrades are covered the same
+    # way app updates and ~/.computemesh config are.
+    print("\nGenerating flashable .img with an ext4 persistence partition...")
+    mib = 1024 * 1024
+    iso_size = out_iso.stat().st_size
+    iso_size_aligned = -(-iso_size // mib) * mib  # round up to a MiB boundary
+    persistence_size_mib = 8192  # 8 GiB: OS upgrades + app updates over time
+    total_size = iso_size_aligned + persistence_size_mib * mib
+
     shutil.copyfile(out_iso, out_img)
+    with open(out_img, "ab") as f:
+        f.truncate(total_size)
+
+    # sfdisk --append only adds a new partition entry; unlike some higher-
+    # level tools it does not rewrite/renumber the existing hybrid MBR/GPT
+    # entries that make the ISO9660 content BIOS+UEFI bootable, which is
+    # the part that must not be disturbed.
+    sfdisk_input = f"{iso_size_aligned // 512},,L\n"  # start in 512B sectors, Linux type
+    subprocess.run(["sfdisk", "--append", "--no-reread", str(out_img)], input=sfdisk_input, text=True, check=True)
+    run(["partprobe", str(out_img)], check=False)
+
+    loop_dev = subprocess.run(
+        ["losetup", "--show", "-f", "-o", str(iso_size_aligned), "--sizelimit", str(persistence_size_mib * mib), str(out_img)],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    try:
+        run(["mkfs.ext4", "-F", "-L", "persistence", loop_dev])
+        mount_point = BUILD_DIR / "persistence_mount"
+        mount_point.mkdir(parents=True, exist_ok=True)
+        run(["mount", loop_dev, str(mount_point)])
+        try:
+            (mount_point / "persistence.conf").write_text("/ union\n", encoding="utf-8")
+        finally:
+            run(["umount", str(mount_point)])
+    finally:
+        run(["losetup", "-d", loop_dev])
+
     run(["xz", "-f", "-6", "-k", str(out_img)])
 
     # Fix permissions
