@@ -93,6 +93,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return True
         return False
 
+    def _send_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        resp = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
+
     def _send_unauthorized(self) -> None:
         body = json.dumps({"status": "error", "message": "Unauthorized. Valid X-Node-Auth-Token required."}).encode("utf-8")
         self.send_response(HTTPStatus.UNAUTHORIZED)
@@ -173,6 +184,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
+            return
+
+        if req_path == "/api/action/boot_source":
+            if not self._verify_action_auth():
+                self._send_unauthorized()
+                return
+            if sys.platform == "win32":
+                payload = {"booted_from_usb": False, "source_disk": None, "targets": []}
+            else:
+                from tools.appliance.disk_clone import get_boot_source_info, list_clone_targets
+                info = get_boot_source_info()
+                source_name = (info["source_disk"] or "").rsplit("/", 1)[-1] or None
+                payload = {
+                    **info,
+                    "targets": list_clone_targets(source_name) if info["booted_from_usb"] else [],
+                }
+            self._send_json(payload)
+            return
+
+        if req_path == "/api/action/clone_status":
+            if not self._verify_action_auth():
+                self._send_unauthorized()
+                return
+            if sys.platform == "win32":
+                self._send_json({"running": False, "done": False, "error": "not supported on Windows"})
+                return
+            from tools.appliance.disk_clone import get_clone_status
+            self._send_json(get_clone_status())
             return
 
         if req_path == "/api/status":
@@ -377,6 +416,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
             self.wfile.write(resp)
+            return
+
+        if req_path == "/api/action/clone_to_ssd":
+            if sys.platform == "win32":
+                self._send_json({"status": "error", "message": "Not supported on Windows"}, HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                data = json.loads(post_body.decode("utf-8"))
+            except Exception:
+                self._send_json({"status": "error", "message": "Malformed JSON body"}, HTTPStatus.BAD_REQUEST)
+                return
+            target_device = str(data.get("target_device", "")).strip()
+            confirm = str(data.get("confirm", "")).strip()
+            from tools.appliance.disk_clone import start_clone
+            accepted, message = start_clone(target_device, confirm)
+            self._send_json(
+                {"status": "ok" if accepted else "error", "message": message},
+                HTTPStatus.OK if accepted else HTTPStatus.BAD_REQUEST,
+            )
             return
 
         if req_path == "/api/action/os_upgrade":

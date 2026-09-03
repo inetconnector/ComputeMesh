@@ -899,6 +899,23 @@
           <button class="btn btn-secondary" id="btn-restart-daemon" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger linux-only" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
+
+        <div class="form-group linux-only" id="usb-clone-section" style="display:none; margin-top: 24px; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 16px; background: rgba(239, 68, 68, 0.06);">
+          <label class="form-label" style="color: var(--accent-red, #ef4444);">⚠️ Von USB gebootet: Auf interne SSD spiegeln</label>
+          <p class="form-desc" id="usb-clone-source-desc"></p>
+          <p class="form-desc" style="color: var(--accent-red, #ef4444); font-weight: 600;">
+            Das überschreibt ALLE Daten auf dem Zielgerät unwiderruflich. Nach dem Spiegeln musst du im BIOS/UEFI selbst von der SSD statt USB booten (das kann diese Software nicht automatisch umstellen).
+          </p>
+          <select id="usb-clone-target" class="form-select" style="margin-bottom: 8px;"></select>
+          <input type="text" id="usb-clone-confirm" class="form-input" placeholder="Zur Bestätigung eintippen: ERASE AND CLONE" style="margin-bottom: 8px;">
+          <button class="btn btn-danger" id="btn-usb-clone-start" onclick="startUsbClone()">🔥 Spiegeln starten (unwiderruflich)</button>
+          <div id="usb-clone-progress" style="display:none; margin-top: 12px;">
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; height: 20px;">
+              <div id="usb-clone-progress-bar" style="background: var(--accent-red, #ef4444); height: 100%; width: 0%; transition: width 0.5s;"></div>
+            </div>
+            <span id="usb-clone-progress-text" class="form-desc"></span>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -1439,6 +1456,87 @@
       }
     }
 
+    let usbCloneTargets = [];
+
+    function formatGB(bytes) {
+      return (bytes / (1024 ** 3)).toFixed(1) + ' GB';
+    }
+
+    async function checkUsbCloneAvailability() {
+      const section = document.getElementById('usb-clone-section');
+      if (!section) return;
+      try {
+        const res = await fetch('/api/action/boot_source');
+        const data = await res.json();
+        if (!data.booted_from_usb || !data.targets || data.targets.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+        usbCloneTargets = data.targets;
+        document.getElementById('usb-clone-source-desc').textContent =
+          `Aktuelles Bootmedium: ${data.source_model || data.source_disk} (${formatGB(data.source_size_bytes)}).`;
+        const select = document.getElementById('usb-clone-target');
+        select.innerHTML = usbCloneTargets.map(t =>
+          `<option value="${t.device}">${t.device} — ${t.model} (${formatGB(t.size_bytes)})</option>`
+        ).join('');
+        section.style.display = 'block';
+      } catch (e) {
+        section.style.display = 'none';
+      }
+    }
+
+    async function startUsbClone() {
+      const target = document.getElementById('usb-clone-target').value;
+      const confirmText = document.getElementById('usb-clone-confirm').value.trim();
+      const targetInfo = usbCloneTargets.find(t => t.device === target);
+      if (!confirm(
+        `Bist du absolut sicher?\n\nAlle Daten auf ${target}` +
+        (targetInfo ? ` (${targetInfo.model}, ${formatGB(targetInfo.size_bytes)})` : '') +
+        ` werden UNWIDERRUFLICH gelöscht und durch das USB-Bootmedium ersetzt.\n\nDies kann nicht rückgängig gemacht werden.`
+      )) return;
+      try {
+        const res = await fetch('/api/action/clone_to_ssd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_device: target, confirm: confirmText }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showToast('Spiegeln fehlgeschlagen: ' + data.message, false);
+          return;
+        }
+        showToast('Spiegeln gestartet...');
+        document.getElementById('usb-clone-progress').style.display = 'block';
+        document.getElementById('btn-usb-clone-start').disabled = true;
+        pollUsbCloneProgress();
+      } catch (e) {
+        showToast('Spiegeln fehlgeschlagen: ' + e, false);
+      }
+    }
+
+    async function pollUsbCloneProgress() {
+      try {
+        const res = await fetch('/api/action/clone_status');
+        const s = await res.json();
+        const bar = document.getElementById('usb-clone-progress-bar');
+        const text = document.getElementById('usb-clone-progress-text');
+        if (bar) bar.style.width = s.percent + '%';
+        if (text) text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}`;
+        if (s.running) {
+          setTimeout(pollUsbCloneProgress, 3000);
+        } else if (s.done) {
+          if (s.error) {
+            showToast('Spiegeln fehlgeschlagen: ' + s.error, false);
+          } else {
+            showToast('✓ Spiegeln abgeschlossen. Wechsle im BIOS/UEFI auf die interne SSD als Bootlaufwerk.', true);
+          }
+          document.getElementById('btn-usb-clone-start').disabled = false;
+        }
+      } catch (e) {
+        setTimeout(pollUsbCloneProgress, 5000);
+      }
+    }
+
     async function checkAndApplyOTAUpdate() {
       showToast('Prüfe auf kryptografisch signierte Updates via Ed25519...');
       try {
@@ -1522,11 +1620,13 @@
         handleInitialRouting();
         updateDashboard();
         refreshReleaseStatus();
+        checkUsbCloneAvailability();
       });
     } else {
       handleInitialRouting();
       updateDashboard();
       refreshReleaseStatus();
+      checkUsbCloneAvailability();
     }
 
     window.addEventListener('hashchange', handleInitialRouting);
