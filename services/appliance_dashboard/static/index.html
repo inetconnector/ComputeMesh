@@ -825,6 +825,12 @@
             <label class="form-label">ComputeMesh Coordinator Gateway</label>
             <input type="text" id="cfg-coordinator" class="form-input" placeholder="https://computemesh.inetconnector.com">
           </div>
+
+          <div class="form-group">
+            <label class="form-label">Owner Key (Fleet Grouping)</label>
+            <input type="text" id="cfg-owner-key" class="form-input" placeholder="Paste the same key on every machine you own">
+            <span class="form-desc">Enter the exact same key on every machine you own to group them into one fleet and enable cheaper self-compute pricing. Leave empty to keep this node standalone.</span>
+          </div>
         </div>
       </div>
 
@@ -1301,6 +1307,8 @@
           if (nodeNameInput) nodeNameInput.value = data.config.rig_name || '';
           const coordInput = document.getElementById('cfg-coordinator');
           if (coordInput) coordInput.value = data.config.coordinator_url || '';
+          const ownerKeyInput = document.getElementById('cfg-owner-key');
+          if (ownerKeyInput) ownerKeyInput.value = data.config.owner_key || '';
           const vramInput = document.getElementById('cfg-vram-reserve');
           if (vramInput) vramInput.value = data.config.vram_reserve_mb || 512;
           const tempInput = document.getElementById('cfg-max-temp');
@@ -1347,6 +1355,7 @@
       const wallet = document.getElementById('cfg-wallet').value.trim();
       const nodeName = document.getElementById('cfg-node-name').value.trim();
       const coordinator = document.getElementById('cfg-coordinator').value.trim();
+      const ownerKey = document.getElementById('cfg-owner-key') ? document.getElementById('cfg-owner-key').value.trim() : '';
       const vramReserve = parseInt(document.getElementById('cfg-vram-reserve').value, 10) || 512;
       const maxTemp = parseInt(document.getElementById('cfg-max-temp').value, 10) || 80;
       const powerMode = document.getElementById('cfg-power-mode').value;
@@ -1366,6 +1375,7 @@
         payout_address: wallet,
         rig_name: nodeName,
         coordinator_url: coordinator,
+        owner_key: ownerKey,
         vram_reserve_mb: vramReserve,
         max_temp_c: maxTemp,
         power_mode: powerMode,

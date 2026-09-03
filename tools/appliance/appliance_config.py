@@ -46,6 +46,11 @@ class ApplianceConfig:
     enable_kiosk: bool = True
     auto_update: bool = True
     auto_system_upgrade: bool = True
+    # Shared secret pasted into every machine in one person's fleet. The
+    # gateway binds each node's node_id to the same owner account under this
+    # key, so nodes only "belong together" once every machine sets the exact
+    # same value here. Empty means "not part of any fleet yet".
+    owner_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -144,6 +149,12 @@ def load_appliance_config(
     enable_kiosk = env_vars.get("ENABLE_KIOSK", "true").lower() in ("true", "1", "yes")
     auto_update = env_vars.get("AUTO_UPDATE", "true").lower() in ("true", "1", "yes") if "AUTO_UPDATE" in env_vars else system_data.get("auto_update", True)
     auto_sys_upgrade = env_vars.get("AUTO_SYSTEM_UPGRADE", "true").lower() in ("true", "1", "yes") if "AUTO_SYSTEM_UPGRADE" in env_vars else system_data.get("auto_system_upgrade", True)
+    owner_key = (
+        env_vars.get("OWNER_KEY")
+        or system_data.get("owner_key")
+        or os.environ.get("OWNER_KEY")
+        or ""
+    )
 
     return ApplianceConfig(
         rig_name=rig_name,
@@ -165,6 +176,7 @@ def load_appliance_config(
         enable_kiosk=enable_kiosk,
         auto_update=auto_update,
         auto_system_upgrade=auto_sys_upgrade,
+        owner_key=owner_key,
     )
 
 
@@ -192,6 +204,7 @@ def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONF
         user_data["vram_reserve_mb"] = config.vram_reserve_mb
         user_data["max_temp_c"] = config.max_temp_c
         user_data["disabled_gpus"] = config.disabled_gpus
+        user_data["owner_key"] = config.owner_key
         user_data["updated_at"] = datetime.now(timezone.utc).isoformat() if "datetime" in globals() else ""
         user_cfg.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
     except Exception:

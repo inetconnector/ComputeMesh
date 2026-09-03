@@ -85,8 +85,14 @@ class CloudTunnelRelay:
     def _worker(self) -> None:
         while self._running:
             try:
+                from tools.appliance.appliance_config import load_appliance_config
                 from tools.appliance.hardware_detector import scan_rig_hardware
                 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+
+                try:
+                    owner_key = load_appliance_config().owner_key
+                except Exception:
+                    owner_key = ""
 
                 inv = scan_rig_hardware()
                 tf = self._calculate_tflops(inv)
@@ -114,6 +120,7 @@ class CloudTunnelRelay:
                 payload = {
                     "node_id": self.node_id,
                     "auth_token": self.auth_token,
+                    "owner_key": owner_key,
                     "inventory": inv.to_dict(),
                     "telemetry": {
                         "tokens_processed": 0,

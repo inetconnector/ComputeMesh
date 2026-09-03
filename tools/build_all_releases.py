@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-VERSION = "1.2.25"
+VERSION = "1.2.26"
 DOWNLOADS_DIR = REPO_ROOT / "portal" / "downloads"
 UPDATES_DIR = REPO_ROOT / "portal" / "updates"
 

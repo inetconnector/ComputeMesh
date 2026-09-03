@@ -341,6 +341,70 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertEqual(auth2.account_id, account_id)
         self.assertEqual(self.ledger.get_balance(account_id), 0)
 
+    # Owner fleet binding: heartbeat owner_key binds node_id -> owner_id, and
+    # /api/v1/mesh/fleet returns only nodes bound to the requesting owner_key.
+    def test_heartbeat_owner_key_binds_fleet_and_fleet_endpoint_filters(self) -> None:
+        import services.gateway.server as gateway_server_module
+        from services.billing.owner_accounts import OwnerAccountStore
+
+        NODE_TELEMETRY_REGISTRY.clear()
+        original_store = gateway_server_module.OWNER_ACCOUNT_STORE
+        gateway_server_module.OWNER_ACCOUNT_STORE = OwnerAccountStore(self.work_dir / "owner_accounts_test.db")
+        try:
+            server, port = create_gateway_server("127.0.0.1", 0)
+            t = threading.Thread(target=server.serve_forever, daemon=True)
+            t.start()
+            time.sleep(0.2)
+
+            def heartbeat(node_id: str, auth_token: str, owner_key: str = "") -> int:
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                body = json.dumps({
+                    "node_id": node_id,
+                    "auth_token": auth_token,
+                    "owner_key": owner_key,
+                    "inventory": {"total_vram_bytes": 8 * 1024**3, "gpus": [{"model_name": "Test GPU"}]},
+                    "telemetry": {"local_compute_tflops": 12.0},
+                }).encode("utf-8")
+                conn.request("POST", "/api/v1/node/heartbeat", body=body, headers={"Content-Type": "application/json", "Content-Length": str(len(body))})
+                res = conn.getresponse()
+                res.read()
+                conn.close()
+                return res.status
+
+            def fleet(owner_key: str) -> dict:
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                conn.request("GET", f"/api/v1/mesh/fleet?owner_key={owner_key}")
+                res = conn.getresponse()
+                data = json.loads(res.read().decode("utf-8"))
+                conn.close()
+                return data
+
+            try:
+                # Two nodes share "my-fleet-secret"; a third uses a different key.
+                self.assertEqual(heartbeat("laptop-01", "tok_laptop", "my-fleet-secret"), HTTPStatus.OK)
+                self.assertEqual(heartbeat("miner-01", "tok_miner", "my-fleet-secret"), HTTPStatus.OK)
+                self.assertEqual(heartbeat("strangers-node", "tok_stranger", "someone-elses-secret"), HTTPStatus.OK)
+
+                mine = fleet("my-fleet-secret")
+                self.assertEqual(mine["total_nodes_bound"], 2)
+                self.assertEqual({n["node_id"] for n in mine["nodes"]}, {"laptop-01", "miner-01"})
+
+                theirs = fleet("someone-elses-secret")
+                self.assertEqual(theirs["total_nodes_bound"], 1)
+                self.assertEqual({n["node_id"] for n in theirs["nodes"]}, {"strangers-node"})
+
+                # A node already bound to one owner_key cannot be silently
+                # re-bound to a different owner_key by a later heartbeat.
+                status = heartbeat("laptop-01", "tok_laptop", "someone-elses-secret")
+                self.assertEqual(status, HTTPStatus.OK)  # heartbeat itself still succeeds
+                mine_after = fleet("my-fleet-secret")
+                self.assertIn("laptop-01", {n["node_id"] for n in mine_after["nodes"]})
+            finally:
+                server.shutdown()
+                server.server_close()
+        finally:
+            gateway_server_module.OWNER_ACCOUNT_STORE = original_store
+
     # 8. Thread-safe Atomic Registry Persistence
     def test_atomic_registry_persistence(self) -> None:
         registry_data = {

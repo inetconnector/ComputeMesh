@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,7 +27,38 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
+from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
+
+
+def _resolve_owner_account_store_path() -> Path:
+    env_path = os.environ.get("COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH")
+    if env_path:
+        return Path(env_path)
+    if sys.platform == "win32":
+        return Path.home() / ".computemesh" / "owner_accounts.db"
+    p = Path("/var/lib/computemesh/owner_accounts.db")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+    except Exception:
+        return Path("/tmp/computemesh_owner_accounts.db")
+
+
+OWNER_ACCOUNT_STORE = OwnerAccountStore(_resolve_owner_account_store_path())
+
+
+def owner_id_for_key(owner_key: str) -> str | None:
+    """Derive a stable owner_id from a shared fleet owner key.
+
+    The raw key is never stored; only this derived id is persisted in
+    OWNER_ACCOUNT_STORE, so recovering the original key from the database is
+    not possible.
+    """
+    cleaned = str(owner_key or "").strip()
+    if not cleaned:
+        return None
+    return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
 
 
 def _build_ledger_from_env() -> Ledger:
@@ -364,6 +396,46 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
+            owner_key = query.get("owner_key", [""])[0].strip()
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_error_response("owner_key query parameter is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+
+            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
+            live_nodes = fresh_node_telemetry_entries()
+            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+
+            nodes_out = []
+            total_vram_bytes = 0
+            total_tflops = 0.0
+            for n in fleet_nodes:
+                inv = n.get("inventory", {})
+                telem = n.get("telemetry", {})
+                node_vram = int(inv.get("total_vram_bytes", 0) or 0)
+                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
+                total_vram_bytes += node_vram
+                total_tflops += node_tflops
+                nodes_out.append({
+                    "node_id": n.get("node_id"),
+                    "vram_gb": round(node_vram / (1024**3), 1),
+                    "tflops": round(node_tflops, 1),
+                    "gpus": [g.get("model_name") for g in inv.get("gpus", [])],
+                    "updated_at": n.get("updated_at"),
+                })
+
+            self._send_json({
+                "owner_id": owner_id,
+                "total_nodes_bound": len(bound_node_ids),
+                "total_nodes_online": len(fleet_nodes),
+                "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
+                "total_tflops": round(total_tflops, 1),
+                "nodes": nodes_out,
+                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            })
+            return
+
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
             from services.common.pricing import DEFAULT_PRICE_TIERS, MICRO_UNITS_PER_USD
             tiers_data = {
@@ -488,10 +560,25 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
+            owner_key = str(body.get("owner_key", "")).strip()
+            owner_binding_error: str | None = None
+            owner_id = owner_id_for_key(owner_key)
+            if owner_id:
+                try:
+                    OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+                    OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
+                except OwnerAccountStoreError as exc:
+                    # Do not fail the heartbeat over a fleet-binding conflict
+                    # (e.g. this node_id already belongs to a different
+                    # owner_key) -- telemetry/pricing must keep working.
+                    owner_binding_error = str(exc)
+                    owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
+                "owner_id": owner_id,
                 "inventory": body.get("inventory", {}),
                 "telemetry": body.get("telemetry", {}),
                 "global_mesh": body.get("global_mesh", {}),
@@ -535,7 +622,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id})
+            resp = {"status": "ok", "message": "heartbeat registered", "node_id": node_id}
+            if owner_binding_error:
+                resp["owner_binding_error"] = owner_binding_error
+            self._send_json(resp)
             return
 
         if clean_path in ("/api/v1/billing/quote", "/v1/billing/quote"):
