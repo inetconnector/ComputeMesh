@@ -26,6 +26,11 @@ class TestDiskCloneSafety(unittest.TestCase):
         self.assertFalse(accepted)
         self.assertIn("Confirmation phrase", message)
 
+    def test_out_of_range_block_size_is_rejected(self) -> None:
+        accepted, message = disk_clone.start_clone("/dev/sdb", disk_clone.CONFIRM_PHRASE, block_size_mb=999)
+        self.assertFalse(accepted)
+        self.assertIn("block_size_mb", message)
+
     @patch("tools.appliance.disk_clone.get_boot_source_info")
     def test_refuses_when_not_booted_from_usb(self, mock_info) -> None:
         mock_info.return_value = {

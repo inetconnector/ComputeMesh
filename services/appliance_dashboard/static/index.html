@@ -934,6 +934,10 @@
           <select id="usb-clone-target" class="form-select"></select>
         </div>
         <div class="form-group">
+          <label class="form-label">Blockgröße (MB) — Standard 4, bei langsamem USB-Bridge-Chip anderen Wert probieren</label>
+          <input type="number" id="usb-clone-blocksize" class="form-input" value="4" min="1" max="64">
+        </div>
+        <div class="form-group">
           <label class="form-label">Zur Bestätigung eintippen: <code>ERASE AND CLONE</code></label>
           <input type="text" id="usb-clone-confirm" class="form-input" placeholder="ERASE AND CLONE">
         </div>
@@ -1532,6 +1536,7 @@
     async function startUsbClone() {
       const target = document.getElementById('usb-clone-target').value;
       const confirmText = document.getElementById('usb-clone-confirm').value.trim();
+      const blockSize = parseInt(document.getElementById('usb-clone-blocksize').value, 10) || 4;
       const targetInfo = usbCloneTargets.find(t => t.device === target);
       if (!confirm(
         `Bist du absolut sicher?\n\nAlle Daten auf ${target}` +
@@ -1542,7 +1547,7 @@
         const res = await fetch('/api/action/clone_to_ssd', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_device: target, confirm: confirmText }),
+          body: JSON.stringify({ target_device: target, confirm: confirmText, block_size_mb: blockSize }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -1587,7 +1592,18 @@
         if (s.running || s.done) {
           if (progressEl) progressEl.style.display = 'block';
           if (bar) bar.style.width = s.percent + '%';
-          if (text) text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}`;
+          if (text) {
+            let extra = '';
+            if (s.running) {
+              const mbps = (s.bytes_per_second / (1024 ** 2)).toFixed(1);
+              extra = ` — ${mbps} MB/s`;
+              if (s.eta_seconds !== null && s.eta_seconds !== undefined) {
+                const etaMin = Math.round(s.eta_seconds / 60);
+                extra += etaMin > 0 ? `, ETA ~${etaMin} min` : ', ETA < 1 min';
+              }
+            }
+            text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}${extra}`;
+          }
         }
         if (s.running) {
           cloneWasRunning = true;

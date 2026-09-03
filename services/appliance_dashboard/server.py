@@ -429,8 +429,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             target_device = str(data.get("target_device", "")).strip()
             confirm = str(data.get("confirm", "")).strip()
+            try:
+                block_size_mb = int(data.get("block_size_mb", 4))
+            except (TypeError, ValueError):
+                block_size_mb = 4
             from tools.appliance.disk_clone import start_clone
-            accepted, message = start_clone(target_device, confirm)
+            accepted, message = start_clone(target_device, confirm, block_size_mb)
             self._send_json(
                 {"status": "ok" if accepted else "error", "message": message},
                 HTTPStatus.OK if accepted else HTTPStatus.BAD_REQUEST,

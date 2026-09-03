@@ -18,7 +18,7 @@ Safety model:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import subprocess
@@ -40,6 +40,13 @@ class CloneStatus:
     copied_bytes: int = 0
     started_at: float = 0.0
     finished_at: float = 0.0
+    block_size_mb: int = 4
+    # Rolling short-window rate, not a lifetime average: a lifetime average
+    # reacts too slowly to actually diagnose a slow device/bridge while the
+    # clone is running (which is the whole point of exposing this).
+    bytes_per_second: float = 0.0
+    _last_sample_bytes: int = field(default=0, repr=False)
+    _last_sample_time: float = field(default=0.0, repr=False)
 
 
 _status = CloneStatus()
@@ -154,6 +161,8 @@ def list_clone_targets(source_disk_name: str | None) -> list[dict[str, Any]]:
 def get_clone_status() -> dict[str, Any]:
     with _status_lock:
         s = _status
+        remaining = max(0, s.total_bytes - s.copied_bytes)
+        eta_seconds = round(remaining / s.bytes_per_second) if s.running and s.bytes_per_second > 0 else None
         return {
             "running": s.running,
             "done": s.done,
@@ -163,15 +172,18 @@ def get_clone_status() -> dict[str, Any]:
             "total_bytes": s.total_bytes,
             "copied_bytes": s.copied_bytes,
             "percent": round(100 * s.copied_bytes / s.total_bytes, 1) if s.total_bytes else 0.0,
+            "bytes_per_second": round(s.bytes_per_second),
+            "eta_seconds": eta_seconds,
+            "block_size_mb": s.block_size_mb,
             "started_at": s.started_at,
             "finished_at": s.finished_at,
         }
 
 
-def _run_clone(source_dev: str, target_dev: str, total_bytes: int) -> None:
+def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
     global _status
     proc = subprocess.Popen(
-        ["dd", f"if={source_dev}", f"of={target_dev}", "bs=4M", "status=progress", "conv=fsync"],
+        ["dd", f"if={source_dev}", f"of={target_dev}", f"bs={block_size_mb}M", "status=progress", "conv=fsync"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,
@@ -182,8 +194,24 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int) -> None:
         for line in proc.stderr:
             m = progress_re.search(line)
             if m:
+                now = time.time()
+                new_bytes = int(m.group(1))
                 with _status_lock:
-                    _status.copied_bytes = int(m.group(1))
+                    # Short-window rate (>= 1s between samples) so it tracks
+                    # the device's *current* throughput -- a lifetime average
+                    # would mask exactly the kind of slow/failing transfer
+                    # this is meant to surface while it's still running.
+                    if _status._last_sample_time > 0:
+                        dt = now - _status._last_sample_time
+                        if dt >= 1.0:
+                            db = new_bytes - _status._last_sample_bytes
+                            _status.bytes_per_second = db / dt
+                            _status._last_sample_bytes = new_bytes
+                            _status._last_sample_time = now
+                    else:
+                        _status._last_sample_bytes = new_bytes
+                        _status._last_sample_time = now
+                    _status.copied_bytes = new_bytes
         proc.wait()
         with _status_lock:
             if proc.returncode == 0:
@@ -200,15 +228,23 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int) -> None:
             _status.finished_at = time.time()
 
 
-def start_clone(target_device: str, confirm_phrase: str) -> tuple[bool, str]:
+def start_clone(target_device: str, confirm_phrase: str, block_size_mb: int = 4) -> tuple[bool, str]:
     """Validate and start a whole-disk clone in a background thread.
 
     Returns (accepted, message). Re-derives the source disk and the target
     allowlist fresh on every call -- a caller cannot pin an earlier scan.
+
+    block_size_mb tunes dd's transfer chunk size: some USB-SATA/USB-IDE
+    bridge chips have sustained throughput that varies a lot with this
+    (the default 4 is a reasonable general-purpose value, not necessarily
+    optimal for every bridge chip -- there's no way to know without trying
+    on the actual hardware).
     """
     global _status
     if confirm_phrase != CONFIRM_PHRASE:
         return False, f"Confirmation phrase must be exactly: {CONFIRM_PHRASE}"
+    if not (1 <= block_size_mb <= 64):
+        return False, "block_size_mb must be between 1 and 64"
 
     with _status_lock:
         if _status.running:
@@ -231,8 +267,13 @@ def start_clone(target_device: str, confirm_phrase: str) -> tuple[bool, str]:
             target=target_device,
             total_bytes=total_bytes,
             started_at=time.time(),
+            block_size_mb=block_size_mb,
         )
 
-    thread = threading.Thread(target=_run_clone, args=(info["source_disk"], target_device, total_bytes), daemon=True)
+    thread = threading.Thread(
+        target=_run_clone,
+        args=(info["source_disk"], target_device, total_bytes, block_size_mb),
+        daemon=True,
+    )
     thread.start()
     return True, "Clone started"
