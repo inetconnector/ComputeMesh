@@ -88,7 +88,8 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         chroot_exec(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
             "linux-image-amd64 live-boot live-config systemd-timesyncd systemd-resolved openssh-server firmware-amd-graphics firmware-misc-nonfree "
-            "xserver-xorg-core xserver-xorg-video-all x11-xserver-utils xinit openbox unclutter chromium"
+            "xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput xserver-xorg-input-evdev "
+            "x11-xserver-utils xinit openbox unclutter chromium"
         )
 
         # Set root password to computemesh

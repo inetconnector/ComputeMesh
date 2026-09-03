@@ -700,9 +700,15 @@
           </div>
         </div>
       </div>
-      <div class="remote-qr-box" id="remote-qr-container">
-        <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fmesh.inetconnector.com" alt="Scan QR Code">
-        <span class="qr-label">📱 Handy-Scan (Webserver)</span>
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1.5rem; justify-content: center;">
+        <div class="remote-qr-box" id="remote-qr-container">
+          <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fmesh.inetconnector.com" alt="Scan QR Code">
+          <span class="qr-label">📱 Handy-Scan (Webserver)</span>
+        </div>
+        <div class="remote-qr-box" id="lan-qr-container" style="display:none;">
+          <img id="lan-qr-code" src="" alt="Scan LAN QR Code">
+          <span class="qr-label">📶 Handy-Scan (LAN, volles Dashboard)</span>
+        </div>
       </div>
     </div>
 
@@ -1258,6 +1264,22 @@
             qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(tunnelUrl)}`;
             qrImg.dataset.loaded = 'true';
             qrImg.dataset.url = tunnelUrl;
+          }
+
+          // Second QR code for the LAN URL: this is the only way to reach the
+          // full interactive dashboard (config, USB->SSD clone, etc.) from a
+          // phone -- the tunnel/gateway URL above only renders a read-only
+          // remote telemetry view, not the full dashboard.
+          const lanIface = data.network.interfaces.find(i => i.interface.toLowerCase() !== 'tunnel' && i.interface.toLowerCase() !== 'web');
+          const lanQrContainer = document.getElementById('lan-qr-container');
+          const lanQrImg = document.getElementById('lan-qr-code');
+          if (lanIface && lanQrContainer && lanQrImg) {
+            if (!lanQrImg.dataset.loaded || lanQrImg.dataset.url !== lanIface.url) {
+              lanQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(lanIface.url)}`;
+              lanQrImg.dataset.loaded = 'true';
+              lanQrImg.dataset.url = lanIface.url;
+            }
+            lanQrContainer.style.display = 'flex';
           }
         }
 
