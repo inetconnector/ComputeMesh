@@ -4,8 +4,6 @@ from datetime import UTC, datetime, timedelta
 import json
 import unittest
 
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-
 from apps.client.confidential_openai import (
     ConfidentialOpenAIBridge,
     ConfidentialOpenAIError,
@@ -19,6 +17,7 @@ from protocol.confidential_envelope import (
     encrypt_response_in_attested_recipient,
     generate_attested_recipient_keypair,
 )
+from protocol.confidential_request_contract import create_committed_attestation_nonce
 from services.common.secure_memory import secure_zero_memory
 
 
@@ -34,7 +33,7 @@ class FakeProtectedTransport:
         self.decrypted_requests: list[dict] = []
         self.account_id = "owner-123"
         self.node_id = "node-tee-1"
-        self.nonce = "nonce-123"
+        self.nonce = ""
         self.metering_public_key = "metering-key-123"
 
     def _attestation(self) -> dict:
@@ -72,6 +71,13 @@ class FakeProtectedTransport:
                 "max_completion_tokens": max_completion_tokens,
             }
         )
+        self.nonce = create_committed_attestation_nonce(
+            model_id=model,
+            max_prompt_tokens=max_prompt_tokens,
+            max_completion_tokens=max_completion_tokens,
+            entropy=b"x" * 32,
+        )
+        attestation = self._attestation()
         return {
             "object": "computemesh.internal.confidential.session",
             "account_id": self.account_id,
@@ -83,14 +89,14 @@ class FakeProtectedTransport:
                 "operation": "chat_completion",
                 "max_prompt_tokens": max_prompt_tokens,
                 "max_completion_tokens": max_completion_tokens,
-                "expires_at": self._attestation()["expires_at"],
+                "expires_at": attestation["expires_at"],
                 "node_id": self.node_id,
                 "runtime_digest": RUNTIME_DIGEST,
                 "attestation_nonce": self.nonce,
                 "recipient_public_key": self.public_key,
                 "metering_public_key": self.metering_public_key,
                 "data_plane_tls_sha256": TLS_DIGEST,
-                "attestation": self._attestation(),
+                "attestation": attestation,
             },
             "max_customer_charge_micro_units": 1000,
         }
@@ -231,6 +237,29 @@ class ConfidentialOpenAIBridgeTests(unittest.TestCase):
         transport = WrongModelTransport()
         bridge = ConfidentialOpenAIBridge(transport=transport, attestation_policy=self.policy)
         with self.assertRaisesRegex(ConfidentialOpenAIError, "model binding mismatch"):
+            bridge.complete(
+                authorization="Bearer key",
+                body={"model": "model-a", "messages": []},
+            )
+        self.assertEqual(transport.execute_requests, [])
+
+    def test_unbound_attestation_nonce_is_rejected_before_dispatch(self) -> None:
+        class WrongContractTransport(FakeProtectedTransport):
+            def create_session(self, **kwargs):
+                result = super().create_session(**kwargs)
+                bad_nonce = create_committed_attestation_nonce(
+                    model_id="other-model",
+                    max_prompt_tokens=kwargs["max_prompt_tokens"],
+                    max_completion_tokens=kwargs["max_completion_tokens"],
+                    entropy=b"z" * 32,
+                )
+                result["session"]["attestation_nonce"] = bad_nonce
+                result["session"]["attestation"]["nonce"] = bad_nonce
+                return result
+
+        transport = WrongContractTransport()
+        bridge = ConfidentialOpenAIBridge(transport=transport, attestation_policy=self.policy)
+        with self.assertRaisesRegex(ConfidentialOpenAIError, "not attestation-bound"):
             bridge.complete(
                 authorization="Bearer key",
                 body={"model": "model-a", "messages": []},
