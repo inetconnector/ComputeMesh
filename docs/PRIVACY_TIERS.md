@@ -1,112 +1,109 @@
 # ComputeMesh Privacy Tiers
 
-**Status:** Draft v0.1
+**Status:** active architecture / pre-production implementation  
+**Current as of:** 2026-09-03
 
-Privacy tiers are enforceable scheduling policies. They are not marketing labels.
+Privacy classes are enforceable execution policies. They are not marketing labels.
 
 ## 1. General rule
 
-Encrypted transport protects data **between** endpoints. It does not protect plaintext while a provider-controlled runtime is processing it.
-
-Therefore ComputeMesh MUST distinguish:
+ComputeMesh separates three different concepts:
 
 - transport security;
-- operator/location policy;
+- provider/location/operator policy;
 - execution confidentiality.
 
-## 2. `public_compute`
+Encrypted transport protects data between endpoints. It does not by itself protect plaintext while a provider-controlled runtime is processing it.
 
-Eligible:
+The canonical execution-privacy classes are:
 
-- consumer/community provider nodes;
-- approved general providers.
+- `PUBLIC`;
+- `CONFIDENTIAL`;
+- `CRYPTO_PRIVATE`.
 
-Assumption:
+Provider trust (`OPEN`, `VERIFIED`, `RESTRICTED`) and region/operator restrictions are separate policy dimensions.
 
-- provider administrator or malware on the host may be able to inspect prompts, activations, KV state, or model outputs accessible to the process.
+## 2. `PUBLIC`
 
-Guarantees:
+`PUBLIC` is ordinary admitted compute.
 
-- authenticated/encrypted transport;
-- workload-boundary controls;
-- telemetry minimization.
+Eligible capacity may include community/consumer and approved general providers subject to the separately configured trust, region, model/runtime, network and customer policy.
 
-Does not guarantee:
+Security assumption:
 
-- confidential execution;
-- geographic restriction unless separately specified.
+- a provider administrator or malware on the host may be able to inspect prompts, activations, KV state, token-related state or outputs available to the runtime.
 
-## 3. `region_verified`
+Required protections still include authenticated transport/control, workload-boundary controls, bounded interfaces and telemetry minimization.
 
-Eligible:
+`PUBLIC` does **not** guarantee confidential execution.
 
-- nodes whose region/operator evidence meets the configured policy.
+## 3. Region/operator/datacenter restrictions
 
-Adds:
+Region, operator and datacenter restrictions constrain where and by whom a job may run. They can reduce contractual or operational risk, but they do not inherently provide cryptographic execution confidentiality.
 
-- geographic/operational placement constraint.
+A job may therefore be both region-restricted and `PUBLIC`, or region-restricted and `CONFIDENTIAL` when a verified confidential-compute topology also satisfies the region policy.
 
-Does not inherently add:
+## 4. `CONFIDENTIAL`
 
-- hardware memory confidentiality.
+`CONFIDENTIAL` requires a real hardware-backed protected-execution chain. It must fail closed when any mandatory part of that chain is missing or unverifiable.
 
-Naming should use explicit region where possible, e.g. `eu_region_verified`, rather than implying legal compliance from one flag.
+The required production chain includes:
 
-## 4. `datacenter_only`
+- a supported confidential-compute CPU/GPU/accelerator topology;
+- fresh technology-specific remote attestation;
+- measured/approved runtime identity;
+- debug-disabled/production confidential-compute state where the technology exposes such a distinction;
+- attestation-bound ephemeral X25519 recipient key;
+- attestation-bound Ed25519 content-free metering key;
+- attestation-bound protected data-plane TLS identity;
+- request/session binding including account, job, model, privacy class, operation and token budgets;
+- authenticated encryption of request and response content;
+- replay protection;
+- protected-worker memory/process hardening and bounded plaintext lifetime;
+- no prompt/output/token-ID/activation logging outside the protected boundary;
+- fail-closed settlement based on content-free authenticated usage evidence.
 
-Eligible:
+### Current implementation state
 
-- approved datacenter-class providers.
+Merged public foundations already include fail-closed protected execution, the attestation-bound confidential envelope and the pinned NVIDIA verifier-process boundary.
 
-Adds:
+Open draft PR #76 additionally contains the local protected OpenAI proxy, encrypted response/stream transport, durable confidential sessions, content-free metering, double-entry escrow, unified protected gateway composition, reduced remote confidential broker, authenticated provider-control provisioning handler and dedicated protected-worker HTTPS boundary.
 
-- provider-class restriction;
-- potentially stronger operational controls/SLA.
+That is substantial software implementation, but it is **not yet a production hardware confidentiality guarantee**. The final vendor-supported NVIDIA attestation helper and physical/adversarial acceptance on supported confidential-compute hardware are still required. AMD confidential execution is not claimed without a concrete proved topology.
 
-Does not automatically guarantee:
+The scheduler/gateway MUST reject `CONFIDENTIAL` when the complete required chain is unavailable rather than silently downgrade to `PUBLIC`.
 
-- prompt confidentiality from provider operator;
-- confidential accelerator memory.
+## 5. `CRYPTO_PRIVATE`
 
-## 5. `confidential_compute`
+`CRYPTO_PRIVATE` is a stronger/different class whose confidentiality must come from a validated cryptographic private-computation construction rather than relying solely on a provider hardware TEE.
 
-Disabled as a product guarantee until a concrete implementation exists.
+Candidate mechanisms may include MPC, secret sharing, FHE or carefully reviewed hybrids.
 
-To enable it, an ADR/security design must define:
-
-- supported TEE/confidential GPU/CPU;
-- remote attestation;
-- measured software identity;
-- key release;
-- model/input encryption flow;
-- accelerator-memory assumptions;
-- side-channel scope;
-- rollback/replay protection;
-- attestation failure behavior.
-
-The scheduler MUST reject the tier when no eligible attested capacity exists rather than silently downgrade.
+The current simple orthogonal hidden-state rotation/blinding prototype is research-only and does **not** satisfy this class. `CRYPTO_PRIVATE` must remain unavailable until functional equivalence, threat model and leakage properties are independently validated for the exact construction and runtime.
 
 ## 6. Mixed-stage policy
 
 A job's effective privacy is no stronger than its weakest participating stage.
 
-Sensitive jobs must not route some stages through public nodes unless the policy explicitly allows that exposure.
+Sensitive jobs must not route any plaintext-bearing stage through `PUBLIC` capacity unless the user explicitly requested a policy that permits that exposure. A protected job must never silently mix in an unprotected stage.
 
-## 7. Logging
+## 7. Logging and evidence
 
-For all tiers, default platform logs exclude raw prompts/outputs.
+For all privacy classes, default platform logs exclude raw prompts/outputs.
 
-Higher tiers may impose stricter:
-
-- telemetry fields;
-- retention;
-- operator access;
-- regional storage.
+For protected execution, ordinary gateway/control-plane/session/replay/billing stores must additionally exclude reusable content keys, token IDs and semantically useful intermediate state. Protected usage receipts are deliberately content-free.
 
 ## 8. User/API behavior
 
+The user-facing application contract remains OpenAI-compatible.
+
+- `PUBLIC` can use the ordinary remote API path.
+- `CONFIDENTIAL` uses a trusted local ComputeMesh transport/proxy (or equivalent client-side transport) so plaintext is encrypted before remote network egress.
+- internal `/internal/v1/confidential/...` routes are transport internals, not a second public application API.
+
 If requested privacy cannot be satisfied:
 
-- reject with machine-readable reason;
-- optionally suggest weaker tiers only if the user explicitly permits downgrade;
-- never silently relax privacy.
+- reject with a machine-readable/OpenAI-shaped error as appropriate;
+- never silently relax privacy;
+- never claim that TLS, SSH, containers, VMs, page locking or ordinary sharding alone satisfy `CONFIDENTIAL`;
+- never claim CI success as physical TEE validation.
