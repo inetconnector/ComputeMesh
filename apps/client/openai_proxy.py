@@ -19,12 +19,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 from apps.client.confidential_openai import (
-    ConfidentialOpenAIBridge,
     ConfidentialOpenAIError,
-    HttpProtectedTransport,
     MAX_OPENAI_BODY_BYTES,
     is_loopback_host,
     load_local_attestation_policy,
+)
+from apps.client.confidential_openai_stream import (
+    HttpStreamingProtectedTransport,
+    StreamingConfidentialOpenAIBridge,
 )
 
 
@@ -35,14 +37,13 @@ DEFAULT_PORT = 11435
 class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
     """Plaintext exists here by design: this process is the local trusted boundary."""
 
-    bridge: ConfidentialOpenAIBridge | None = None
-    transport: HttpProtectedTransport | None = None
+    bridge: StreamingConfidentialOpenAIBridge | None = None
+    transport: HttpStreamingProtectedTransport | None = None
     server_version = "ComputeMesh-Local-OpenAI/1"
     sys_version = ""
 
     def log_message(self, format: str, *args: Any) -> None:
-        # Do not log request lines because future OpenAI-compatible paths may carry
-        # user-selected identifiers.  Prompt/output bodies are never logged.
+        # Never log request paths/bodies from the plaintext boundary.
         return
 
     def _authorization(self) -> str:
@@ -116,13 +117,6 @@ class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         clean_path = urlparse(self.path).path.rstrip("/")
         try:
-            authorization = self._authorization()
-            if clean_path == "/v1/models":
-                if self.transport is None:
-                    raise ConfidentialOpenAIError("Local protected transport is not configured")
-                status, raw, content_type = self.transport.get_models(authorization=authorization)
-                self._send_bytes(status=status, raw=raw, content_type=content_type)
-                return
             if clean_path == "/healthz":
                 self._send_json(
                     {
@@ -132,6 +126,13 @@ class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
                     }
                 )
                 return
+            authorization = self._authorization()
+            if clean_path == "/v1/models":
+                if self.transport is None:
+                    raise ConfidentialOpenAIError("Local protected transport is not configured")
+                status, raw, content_type = self.transport.get_models(authorization=authorization)
+                self._send_bytes(status=status, raw=raw, content_type=content_type)
+                return
             raise ConfidentialOpenAIError(
                 "Not Found",
                 status=404,
@@ -139,6 +140,37 @@ class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
             )
         except ConfidentialOpenAIError as exc:
             self._send_error(exc)
+
+    def _send_openai_stream(
+        self,
+        *,
+        authorization: str,
+        body: dict[str, Any],
+        bridge: StreamingConfidentialOpenAIBridge,
+    ) -> None:
+        # The encrypted remote stream is not opened until bridge.stream() advances.
+        stream = bridge.stream(authorization=authorization, body=body)
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            for chunk in stream:
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except ConfidentialOpenAIError:
+            # Once OpenAI SSE headers/chunks have started, changing to an HTTP JSON
+            # error would corrupt the OpenAI stream contract.  Fail closed by ending
+            # the connection without [DONE]; OpenAI clients surface an interrupted stream.
+            pass
+        finally:
+            try:
+                stream.close()
+            except Exception:
+                pass
+            self.close_connection = True
 
     def do_POST(self) -> None:
         clean_path = urlparse(self.path).path.rstrip("/")
@@ -154,6 +186,14 @@ class LocalOpenAIProxyHandler(BaseHTTPRequestHandler):
             bridge = self.bridge
             if bridge is None:
                 raise ConfidentialOpenAIError("Local confidential bridge is not configured")
+            stream_value = body.get("stream", False)
+            if stream_value is True:
+                self._send_openai_stream(
+                    authorization=authorization,
+                    body=body,
+                    bridge=bridge,
+                )
+                return
             result = bridge.complete(authorization=authorization, body=body)
             self._send_json(result)
         except ConfidentialOpenAIError as exc:
@@ -164,8 +204,8 @@ def create_proxy_server(
     *,
     host: str,
     port: int,
-    bridge: ConfidentialOpenAIBridge,
-    transport: HttpProtectedTransport,
+    bridge: StreamingConfidentialOpenAIBridge,
+    transport: HttpStreamingProtectedTransport,
 ) -> tuple[ThreadingHTTPServer, int]:
     if not is_loopback_host(host):
         raise ValueError("The protected OpenAI proxy must bind to loopback only")
@@ -199,11 +239,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         policy = load_local_attestation_policy(Path(args.attestation_policy))
-        transport = HttpProtectedTransport(
+        transport = HttpStreamingProtectedTransport(
             base_url=args.remote,
             ca_file=Path(args.ca_file) if args.ca_file else None,
         )
-        bridge = ConfidentialOpenAIBridge(
+        bridge = StreamingConfidentialOpenAIBridge(
             transport=transport,
             attestation_policy=policy,
             privacy_class=args.privacy,
