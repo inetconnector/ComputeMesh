@@ -115,6 +115,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--protected-openai-backend", required=True)
     parser.add_argument("--protected-backend-timeout", type=float, default=120.0)
     parser.add_argument("--protected-session-ttl", type=int, default=120)
+    parser.add_argument("--protected-max-active-sessions", type=int, default=1)
     parser.add_argument("--attestation-issuer-executable", type=Path, required=True)
     parser.add_argument("--attestation-issuer-sha256", required=True)
     parser.add_argument("--attestation-issuer-timeout", type=float, default=15.0)
@@ -159,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
             backend=backend,
             attestation_issuer=issuer,
             session_ttl_seconds=args.protected_session_ttl,
+            max_active_sessions=args.protected_max_active_sessions,
         )
         worker_service = ProtectedWorkerHttpService(
             manager=manager,
@@ -211,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         raise ProviderAgentError(str(exc)) from exc
     finally:
         worker_service.close()
+        manager.close()
     return 0
 
 
