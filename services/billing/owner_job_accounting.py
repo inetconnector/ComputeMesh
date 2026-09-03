@@ -253,3 +253,30 @@ def capture_owner_job_hold(
             f"foreign={quote.foreign_compute_gross_micro_units}"
         ),
     )
+
+
+def settle_owner_job(
+    ledger: OwnerCreditLedger,
+    job_id: str,
+    quote: OwnerJobQuote,
+    description: str = "",
+) -> OwnerSpendResult | None:
+    """Directly debit customer owner credits and distribute fee/provider destinations."""
+    job_reference = _clean_identifier(job_id, field="job_id")
+    if quote.customer_charge_micro_units == 0:
+        return None
+    destinations = quote_destinations(quote)
+    desc = description or (
+        f"Owner-aware inference settlement {job_reference}; "
+        f"gross={quote.gross_reference_micro_units}, "
+        f"self={quote.self_compute_gross_micro_units}, "
+        f"foreign={quote.foreign_compute_gross_micro_units}"
+    )
+    return ledger.spend_owner_credits(
+        owner_id=quote.customer_owner_id,
+        amount_micro_units=quote.customer_charge_micro_units,
+        destinations=destinations,
+        spend_reference=f"job:{job_reference}",
+        description=desc,
+    )
+

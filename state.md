@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-03 22:55 CEST
+**Last updated:** 2026-09-03 23:03 CEST
 **Release Version:** `v1.2.22`
-**Test Suite Status:** `561/561 PASSED (100% OK in 25.94s)` across all 10 categories
-**Git Baseline:** Branch `main` with Public Executor v2 upgrade (N-stage and multi-GPU routing), NodeOS disk clone, fleet owner-key binding, and Windows platform dashboard views
+**Test Suite Status:** `562/562 PASSED (100% OK in 28.17s)` across all 10 categories
+**Git Baseline:** Branch `main` with Unified Account Credits, Multi-Rig Ledger Aggregation, Public Executor v2 upgrade, and Portal Fleet Telemetry API
 
 ---
 
@@ -2205,3 +2205,25 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Added unit tests in `tests/test_placement_provider_boundary.py` covering 3-stage signed plans, per-device indices, and gap rejections.
    - Added 3-stage live pipeline test in `services/orchestrator/tests/test_live_shared_runtime.py`.
    - Unified test harness (`python run_all_tests.py`): **561/561 tests passed in 25.94s (100% OK)** across all 10 subsystems.
+
+## 74. Unified Account Credits, Multi-Rig Ledger & Portal Fleet Integration (2026-09-03 23:03 CEST)
+
+1. **Owner-Level Credit Model & Balance Invariants (`services/billing/owner_credits.py`, `services/billing/owner_accounts.py`):**
+   - Maintained separation between `earned_balance` (provider earnings, spendable and withdrawable) and `purchased_balance` (top-ups, spendable, never withdrawable).
+   - Multi-rig aggregation: multiple provider nodes/rigs bound to one `owner_id` aggregate their compute earnings into the owner's single `earned_balance`.
+   - Circular compute loop verified: Earn on GPU $\to$ Spend on API inference $\to$ Balance drops to 0 $\to$ Fail closed on insufficient balance $\to$ Earn more on GPU $\to$ API spend unlocked.
+   - Self-compute vs. Marketplace fee structure: pure self-compute (owner's request on owner's GPU) debits only 10% infrastructure fee; marketplace compute debits 25% operator fee and credits 75% to provider owner.
+
+2. **Public Gateway & Portal Fleet Integration (`services/gateway/server.py`, `services/portal/server_core.py`):**
+   - Added `/api/v1/mesh/fleet` and `/mesh/fleet` to `PortalHandler` to aggregate telemetry, VRAM, and TFLOPS across all rigs bound to an `owner_key`.
+   - Wired `GatewayOwnerCreditLedger` into `_build_ledger_from_env()` when `COMPUTEMESH_UNIFIED_OWNER_CREDITS=1` is set.
+   - Initialized `GatewayAuthManager` with `owner_account_store=OWNER_ACCOUNT_STORE` to resolve owner identities for API tokens.
+
+3. **Direct Settlement API (`services/billing/owner_job_accounting.py`):**
+   - Added `settle_owner_job()` for direct owner debit and provider/operator credit distribution.
+
+4. **Testing & QA Verification:**
+   - Added `services/billing/tests/test_unified_multirig_accounting.py` covering multi-rig aggregation, circular compute, self-compute fee splitting, and withdrawable balance separation.
+   - Added portal fleet endpoint test in `services/portal/tests/test_portal_server.py`.
+   - Unified test harness (`python run_all_tests.py`): **562/562 tests passed in 28.17s (100% OK)**.
+

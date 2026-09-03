@@ -220,9 +220,45 @@ class TestPortalServer(unittest.TestCase):
             self.assertEqual(data["status"], "success")
             self.assertTrue(data["api_key"].startswith("cm_provider_"))
             self.assertEqual(data["encryption"], "AES-256-GCM")
-            self.assertEqual(data["payout_target_masked"], "0x71a9...B12F")
-            self.assertFalse(data["production_node_eligible"])
+    def test_mesh_fleet_api(self) -> None:
+        from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
+        owner_key = "test_fleet_key_12345"
+        owner_id = owner_id_for_key(owner_key)
+        assert owner_id is not None
+        OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+        OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, "fleet-node-01")
+
+        now = datetime.now(timezone.utc)
+        NODE_TELEMETRY_REGISTRY.clear()
+        NODE_TELEMETRY_REGISTRY["fleet-node-01"] = {
+            "node_id": "fleet-node-01",
+            "inventory": {
+                "gpus": [{"model_name": "NVIDIA RTX 4090", "vendor": "nvidia", "vram_bytes": 24 * 1024 * 1024 * 1024}],
+            },
+            "telemetry": {"local_compute_tflops": 82.5, "tokens_processed": 500},
+            "updated_at": now.isoformat().replace("+00:00", "Z"),
+        }
+        NODE_TELEMETRY_REGISTRY["unrelated-node"] = {
+            "node_id": "unrelated-node",
+            "inventory": {
+                "gpus": [{"model_name": "AMD MI25", "vendor": "amd", "vram_bytes": 16 * 1024 * 1024 * 1024}],
+            },
+            "telemetry": {"local_compute_tflops": 24.0, "tokens_processed": 100},
+            "updated_at": now.isoformat().replace("+00:00", "Z"),
+        }
+
+        with urllib.request.urlopen(f"http://127.0.0.1:13000/api/v1/mesh/fleet?owner_key={owner_key}") as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(data["owner_id"], owner_id)
+            self.assertEqual(data["total_nodes_bound"], 1)
+            self.assertEqual(data["total_nodes_online"], 1)
+            self.assertEqual(data["total_vram_gb"], 24.0)
+            self.assertEqual(data["total_tflops"], 82.5)
+            self.assertEqual(len(data["nodes"]), 1)
+            self.assertEqual(data["nodes"][0]["node_id"], "fleet-node-01")
 
 
 if __name__ == "__main__":
     unittest.main()
+

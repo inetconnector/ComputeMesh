@@ -300,6 +300,56 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
+            from tools.appliance.hardware_detector import is_integrated_display_adapter
+
+            owner_key = query_params.get("owner_key", [""])[0].strip()
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "owner_key query parameter is required"}, HTTPStatus.BAD_REQUEST)
+                return
+
+            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
+            live_nodes = fresh_node_telemetry_entries()
+            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+
+            nodes_out = []
+            total_vram_bytes = 0
+            total_tflops = 0.0
+            for n in fleet_nodes:
+                inv = n.get("inventory", {})
+                telem = n.get("telemetry", {})
+                gpus = inv.get("gpus", [])
+                healthy_gpus = [
+                    g for g in gpus
+                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+                ]
+                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
+                    node_vram = inv.get("total_vram_bytes", 0)
+                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
+                total_vram_bytes += node_vram
+                total_tflops += node_tflops
+                nodes_out.append({
+                    "node_id": n.get("node_id"),
+                    "vram_gb": round(node_vram / (1024**3), 1),
+                    "tflops": round(node_tflops, 1),
+                    "gpus": [g.get("model_name") for g in gpus],
+                    "updated_at": n.get("updated_at"),
+                })
+
+            self._send_json({
+                "owner_id": owner_id,
+                "total_nodes_bound": len(bound_node_ids),
+                "total_nodes_online": len(fleet_nodes),
+                "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
+                "total_tflops": round(total_tflops, 1),
+                "nodes": nodes_out,
+                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            })
+            return
+
         if clean_path.startswith("/downloads/"):
             dl_name = clean_path.removeprefix("/downloads/")
             body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")

@@ -64,6 +64,9 @@ def owner_id_for_key(owner_key: str) -> str | None:
 def _build_ledger_from_env() -> Ledger:
     ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
     path = Path(ledger_path_env) if ledger_path_env else None
+    if os.environ.get("COMPUTEMESH_UNIFIED_OWNER_CREDITS", "").strip().lower() in ("1", "true", "yes", "on"):
+        from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
+        return GatewayOwnerCreditLedger(storage_path=path)
     return ThreadSafeLedger(storage_path=path)
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
@@ -142,7 +145,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         max_tokens=CONFIG.teaser.max_free_tokens,
         window_seconds=CONFIG.teaser.window_seconds,
     )
-    auth_manager: GatewayAuthManager = GatewayAuthManager(ledger=ledger, teaser_manager=teaser_manager)
+    auth_manager: GatewayAuthManager = GatewayAuthManager(ledger=ledger, teaser_manager=teaser_manager, owner_account_store=OWNER_ACCOUNT_STORE)
     billing_routes: BillingRoutesHandler = BillingRoutesHandler(ledger=ledger, stripe_svc=stripe_svc, auth_manager=auth_manager)
     provider_routes: ProviderRoutesHandler = ProviderRoutesHandler(account_store=account_store, settlement_executor=settlement_executor, auth_manager=auth_manager, ledger=ledger)
     inference_engine: InferenceEngine = InferenceEngine(ledger=ledger, metrics=metrics, teaser_manager=teaser_manager)
@@ -150,7 +153,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
     @classmethod
     def sync_subsystems(cls) -> None:
         """Synchronizes sub-handlers when class-level dependencies are modified."""
-        cls.auth_manager = GatewayAuthManager(ledger=cls.ledger, teaser_manager=cls.teaser_manager, api_keys=getattr(cls, "api_keys", {}))
+        cls.auth_manager = GatewayAuthManager(ledger=cls.ledger, teaser_manager=cls.teaser_manager, api_keys=getattr(cls, "api_keys", {}), owner_account_store=OWNER_ACCOUNT_STORE)
         cls.billing_routes = BillingRoutesHandler(ledger=cls.ledger, stripe_svc=cls.stripe_svc, auth_manager=cls.auth_manager)
         cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
         backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
