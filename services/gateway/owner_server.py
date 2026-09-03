@@ -1,10 +1,9 @@
 """Fail-closed gateway entry point for unified owner credits.
 
-The legacy ``services.gateway.server`` remains unchanged and is still the default.
-This explicit migration target requires durable owner/billing storage and enables
-owner-scoped Stripe Connect settlement only for withdrawable ``earned`` credits.
-Hardware-bound onboarding promo is a second explicit opt-in and is delegated to the
-private control plane before any signed grant is accepted into the public ledger.
+This migration target uses one durable owner ledger for purchased, promo and earned
+credits, withdrawals, and protected-job escrow. Hardware-bound onboarding promo is
+an explicit opt-in delegated to the private control plane before any signed grant
+is accepted into the public journal.
 """
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from services.billing.accounting import AccountingStore
+from services.billing.confidential_owner_ledger import PayoutCapableConfidentialOwnerLedger
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_settlement import OwnerSettlementExecutor, PayoutCapableOwnerLedger
 from services.billing.owner_settlement_runtime import RobustOwnerSettlementExecutor
@@ -100,7 +100,7 @@ def build_unified_owner_handler() -> type[GatewayHandler]:
     owner_db_path = _required_path("COMPUTEMESH_OWNER_ACCOUNT_DB_PATH")
     accounting_db_path = _required_path("COMPUTEMESH_ACCOUNTING_DB_PATH")
 
-    ledger = PayoutCapableOwnerLedger(storage_path=ledger_path)
+    ledger = PayoutCapableConfidentialOwnerLedger(storage_path=ledger_path)
     owner_account_store = OwnerAccountStore(owner_db_path)
     account_store = AccountingStore(accounting_db_path)
 
