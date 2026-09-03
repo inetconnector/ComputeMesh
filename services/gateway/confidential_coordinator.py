@@ -15,6 +15,10 @@ from protocol.confidential_metering import (
     ConfidentialUsageReceipt,
     verify_confidential_usage_receipt,
 )
+from protocol.confidential_request_contract import (
+    ConfidentialRequestContractError,
+    verify_committed_attestation_nonce,
+)
 from runtime.confidential.data_plane import ConfidentialDataPlaneResult
 from runtime.confidential.session import (
     ConfidentialSessionBroker,
@@ -141,6 +145,17 @@ class ConfidentialInferenceCoordinator:
             raise ConfidentialCoordinatorError("confidential broker changed prompt token reservation")
         if provision.max_completion_tokens != max_completion_tokens:
             raise ConfidentialCoordinatorError("confidential broker changed completion token reservation")
+        try:
+            verify_committed_attestation_nonce(
+                provision.endpoint.attestation_nonce,
+                model_id=model_id,
+                max_prompt_tokens=max_prompt_tokens,
+                max_completion_tokens=max_completion_tokens,
+            )
+        except ConfidentialRequestContractError as exc:
+            raise ConfidentialCoordinatorError(
+                "confidential broker returned an unbound request contract"
+            ) from exc
 
         max_gross = calculate_max_charge_micro(
             model_id,
