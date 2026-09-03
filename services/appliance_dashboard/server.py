@@ -131,6 +131,49 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
             return
 
+        if req_path == "/api/debug/diagnostics":
+            if not self._verify_action_auth():
+                self._send_unauthorized()
+                return
+            from tools.appliance.hardware_detector import collect_hardware_debug
+
+            def _run(cmd: list[str]) -> dict[str, Any]:
+                try:
+                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+                    return {"cmd": cmd, "returncode": res.returncode, "stdout": res.stdout[-4000:], "stderr": res.stderr[-2000:]}
+                except FileNotFoundError:
+                    return {"cmd": cmd, "error": "command not found"}
+                except Exception as exc:
+                    return {"cmd": cmd, "error": str(exc)}
+
+            diagnostics: dict[str, Any] = {
+                "platform": sys.platform,
+                "process_start_inventory": self.inventory.to_dict(),
+                "hardware_debug": collect_hardware_debug(),
+            }
+            if sys.platform != "win32":
+                # Fixed, read-only diagnostic allowlist -- never user-supplied
+                # arguments, never shell=True, so this cannot become a remote
+                # arbitrary-command execution surface.
+                diagnostics["probes"] = {
+                    "lsmod_amdgpu": _run(["sh", "-c", "lsmod 2>/dev/null | grep -i amdgpu || true"]),
+                    "dmesg_amdgpu": _run(["sh", "-c", "dmesg 2>/dev/null | grep -i amdgpu | tail -n 40 || true"]),
+                    "lspci_vga": _run(["sh", "-c", "lspci -nnk 2>/dev/null | grep -A3 -i 'vga\\|3d\\|display' || true"]),
+                }
+            try:
+                diagnostics["fresh_rescan"] = scan_rig_hardware().to_dict()
+            except Exception as exc:
+                diagnostics["fresh_rescan_error"] = str(exc)
+
+            resp = json.dumps(diagnostics, indent=2).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+            return
+
         if req_path == "/api/status":
             thermals = []
             local_tflops = 0.0
