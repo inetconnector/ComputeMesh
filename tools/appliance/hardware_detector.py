@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -757,6 +758,32 @@ def scan_rig_hardware() -> RigInventory:
         pcie_riser_warning=riser_warning,
         vendor_breakdown=vendor_counts,
     )
+
+
+def scan_rig_hardware_stable(settle_attempts: int = 3, delay_seconds: float = 1.5) -> RigInventory:
+    """scan_rig_hardware(), retried until two consecutive scans agree.
+
+    Only intended for the one-time scan at process startup (e.g.
+    create_dashboard_server(), a tray app's __init__), not for repeated
+    hot-path calls (heartbeat loops etc.) which should keep using
+    scan_rig_hardware() directly to stay responsive.
+
+    Observed live on a real rig: a PCIe riser card can still be mid-train
+    when the appliance process starts, so the very first sysfs/lspci scan at
+    boot occasionally misses (or, once, misclassified) a GPU that a scan a
+    couple of seconds later reports correctly and consistently. Waiting for
+    two identical total_gpus counts filters out that one-shot boot race
+    without permanently trusting a single potentially-inconsistent snapshot.
+    """
+    previous: RigInventory | None = None
+    for attempt in range(max(1, settle_attempts)):
+        current = scan_rig_hardware()
+        if previous is not None and previous.total_gpus == current.total_gpus:
+            return current
+        previous = current
+        if attempt < settle_attempts - 1:
+            time.sleep(delay_seconds)
+    return previous if previous is not None else scan_rig_hardware()
 
 
 def read_all_thermals(inventory: RigInventory) -> list[GpuThermalMetrics]:

@@ -62,7 +62,7 @@ from config import CONFIG
 from services.appliance_dashboard.server import create_dashboard_server, run_dashboard_server
 from services.updater.auto_updater import AutoUpdater, UpdateInfo
 from tools.appliance.appliance_config import load_appliance_config
-from tools.appliance.hardware_detector import scan_rig_hardware
+from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_APP_NAME = "ComputeMesh"
@@ -253,7 +253,7 @@ class ComputeMeshProviderApp:
         self.is_running = True
         self.total_tokens_served = 0
         self.total_earnings_usd = 0.00
-        self.inventory = scan_rig_hardware()
+        self.inventory = scan_rig_hardware_stable()
         self.autostart_var = tk.BooleanVar(value=is_windows_autostart_enabled())
         self.autoupdate_var = tk.BooleanVar(value=self._load_autoupdate_setting())
 

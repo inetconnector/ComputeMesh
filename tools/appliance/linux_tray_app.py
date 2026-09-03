@@ -63,7 +63,7 @@ from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, NODE_AUT
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 from services.updater.auto_updater import AutoUpdater
 from tools.appliance.appliance_config import load_appliance_config
-from tools.appliance.hardware_detector import scan_rig_hardware
+from tools.appliance.hardware_detector import scan_rig_hardware, scan_rig_hardware_stable
 
 AUTOSTART_DESKTOP_FILE = Path.home() / ".config" / "autostart" / "computemesh.desktop"
 
@@ -157,7 +157,7 @@ class LinuxComputeMeshProviderApp:
         self.is_running = True
         self.total_tokens_served = 0
         self.total_earnings_usd = 0.00
-        self.inventory = scan_rig_hardware()
+        self.inventory = scan_rig_hardware_stable()
         self.autostart_var = tk.BooleanVar(value=is_linux_autostart_enabled())
         self.autoupdate_var = tk.BooleanVar(value=self._load_autoupdate_setting())
 

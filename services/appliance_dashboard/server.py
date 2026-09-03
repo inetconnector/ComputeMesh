@@ -28,6 +28,7 @@ from tools.appliance.appliance_config import (
 from tools.appliance.hardware_detector import (
     RigInventory,
     scan_rig_hardware,
+    scan_rig_hardware_stable,
 )
 
 from config import CONFIG
@@ -470,7 +471,7 @@ def create_dashboard_server(
     if config is None:
         config = load_appliance_config()
     if inventory is None:
-        inventory = scan_rig_hardware()
+        inventory = scan_rig_hardware_stable()
 
     effective_node_id = config.rig_name or node_id or "cm-node"
     DashboardHandler.config = config
