@@ -19,6 +19,10 @@ from apps.client.confidential_openai import (
     prepare_openai_chat_request,
 )
 from protocol.confidential_envelope import ConfidentialBinding, create_confidential_request
+from protocol.confidential_request_contract import (
+    ConfidentialRequestContractError,
+    verify_committed_attestation_nonce,
+)
 from protocol.confidential_stream import (
     ConfidentialStreamError,
     decrypt_stream_event,
@@ -130,6 +134,17 @@ class StreamingConfidentialOpenAIBridge(ConfidentialOpenAIBridge):
             raise ConfidentialOpenAIError("Protected streaming prompt reservation mismatch")
         if session.get("max_completion_tokens") != prepared.max_completion_tokens:
             raise ConfidentialOpenAIError("Protected streaming completion reservation mismatch")
+        try:
+            verify_committed_attestation_nonce(
+                str(session.get("attestation_nonce", "")),
+                model_id=prepared.model,
+                max_prompt_tokens=prepared.max_prompt_tokens,
+                max_completion_tokens=prepared.max_completion_tokens,
+            )
+        except ConfidentialRequestContractError as exc:
+            raise ConfidentialOpenAIError(
+                "Protected streaming request contract is not attestation-bound"
+            ) from exc
 
         binding = ConfidentialBinding(
             account_id=account_id,
