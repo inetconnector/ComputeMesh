@@ -1,86 +1,144 @@
 # ComputeMesh – aktueller öffentlicher Status
 
-**Stand:** 30. August 2026
+**Stand:** 3. September 2026
 
-Dieses Dokument ist die öffentliche, aktuelle Statuszusammenfassung. Es ist bewusst getrennt von `ComputeMesh-ControlPlane/STATE.md`, das private Control-Plane- und Betriebsdetails enthält.
+Dieses Dokument ist die öffentliche Statuszusammenfassung. Es ist bewusst getrennt von `ComputeMesh-ControlPlane/STATE.md`, das proprietäre Placement-, Ranking- und Betriebsdetails enthält.
+
+## Statusdisziplin
+
+Jede Aussage unten unterscheidet zwischen:
+
+- **gemergtem** Verhalten auf öffentlichem `main`;
+- **branch-lokalem Draft** in einem offenen PR;
+- **Software-/CI-Validierung**;
+- **physischer/adversarialer Validierung**;
+- **Produktionsgarantien**.
+
+Eine branch-lokale Implementierung oder grüne CI ist keine Produktionsaussage über Vertraulichkeit.
 
 ## Was heute tatsächlich existiert
 
-ComputeMesh ist nicht mehr nur ein M0/M1-Grundgerüst. Das öffentliche Repository enthält reale Implementierungen für:
+ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:
 
-- authentifizierte Provider-Control-Sitzungen sowie Ed25519-Node-Identity-/Enrollment-Referenzzustand;
-- einen ausführbaren öffentlichen Provider-Agenten (`apps/node/provider_agent.py`), der sich authentifiziert, gemessene Profil-/Runtime-/Benchmark-Evidence meldet, Reconnect unterstützt und Execution-Attestation-Anfragen beantwortet;
+- authentifizierte Provider-Control-Sitzungen und Ed25519-Node-Identity-/Enrollment-Referenzzustand;
+- einen ausführbaren öffentlichen Provider-Agenten, der sich authentifiziert, gemessene Profil-/Runtime-/Benchmark-Evidence veröffentlicht, Reconnect unterstützt und authentifizierte Control-Anfragen beantwortet;
 - OpenAI-/Ollama-kompatible Gateway-Oberflächen, Model-Catalog-Verarbeitung, Billing-Grundlagen und persistente Orchestrator-Zustände;
-- Live-Provider-Registrierung, Execution Evidence, authentifizierte Attestation-Sammlung, Cancellation- und Recovery-Mechanik;
-- einen öffentlichen Reference-/Research-Scheduler und konservative M1-Zwei-Node-Evidence-/Feasibility-Werkzeuge;
-- einen realen llama.cpp-Shared-Runtime-Forschungspfad mit mindestens einem physischen Trusted-Lab-Proof, deterministischem Baseline/Shared-Vergleich und gebundenen Proof-Artefakten;
-- kontrollierte Delay-/Jitter-/Disconnect-Instrumentierung und einen Network-Sensitivity-Runner für reale Shared-Inference-Messpunkte;
-- persistente Feedback-Hooks, die verifizierte öffentliche Execution-Outcomes an den privaten Performance-Pfad liefern;
-- globale Mesh-Routing-Policy-Verträge aus PR #55, einschließlich `OPEN` / `VERIFIED` / `RESTRICTED` Provider-Trust-Tiers, `PUBLIC` / `CONFIDENTIAL` / `CRYPTO_PRIVATE` Privacy-Klassen, expliziter Regionen-Policy, fail-closed Scheduler-Filter und Confidential-Attestation-/Key-Release-Binding-Grundlagen;
-- Windows-/Linux-Lab-Setup, Evidence-Transfer, GGUF-Manifest-Werkzeuge, Installer-/Appliance-Arbeit, Portal- und Updater-Komponenten.
+- private Produktions-Placement-/Recovery-Integration über begrenzte signierte Schnittstellen, während proprietäres Ranking, Reputation/Fraud und Pricing privat bleiben;
+- einen realen llama.cpp-Shared-Runtime-Forschungspfad mit dokumentierter physischer Zwei-Maschinen-Evidence für eine enge getestete Topologie;
+- globale Mesh-Trust-/Privacy-Policy mit `OPEN` / `VERIFIED` / `RESTRICTED` Provider-Trust-Tiers und `PUBLIC` / `CONFIDENTIAL` / `CRYPTO_PRIVATE` Execution-Privacy-Klassen;
+- signierte/replay-sichere Protokoll-, Identity-, Accounting- und Updater-Grundlagen.
+
+## P0-Stand Confidential Execution
+
+### Gemergte öffentliche Grundlagen
+
+Folgende P0-Grundlagen sind auf öffentlichem `main` gemergt:
+
+- PR #72 — zentrale fail-closed Protected-Execution-Grundlage;
+- PR #73 — attestation-gebundene X25519/HKDF/AES-256-GCM Confidential-Payload-Envelope-Grundlage;
+- PR #74 — hash-gepinnte NVIDIA-Confidential-Attestation-Verifier-Prozessgrenze;
+- Secure-Memory-Primitiven mit expliziter Zeroization und optional verpflichtendem Page Locking;
+- POSIX-Dumpability-/Core-Dump-Härtung;
+- request-spezifische Attestation- und Key-Release-Verträge.
+
+### Offener Draft-PR #76 — `security/p0-confidential-metering`
+
+PR #76 ist **offen und Draft**. Er darf nicht als gemergt oder produktionsreif beschrieben werden.
+
+Der Branch enthält inzwischen deutlich mehr als den früheren Session-/Metering-Prototyp, darunter:
+
+- persistente Confidential-Session-Zustände mit `OPEN -> DISPATCHED -> METERED -> COMPLETED` plus Fehlerzustand;
+- inhaltsfreie Ed25519-Usage-Receipts, gebunden an Account/Job/Request/Response/Node/Runtime/Privacy/Operation/Model/Tokenzahlen;
+- persistentes Double-Entry-Confidential-Escrow mit Restart-/Idempotency-Recovery;
+- authentifizierte Confidential-Envelope-Bindung einschließlich Modell sowie Prompt-/Completion-Tokenbudgets;
+- einen loopback-only OpenAI-kompatiblen lokalen Protected Proxy, sodass Plaintext vor Remote-Egress verschlüsselt werden kann;
+- bidirektional verschlüsselte Protected Responses und authentifiziertes Protected Streaming, das lokal wieder in normales OpenAI-SSE umgesetzt wird;
+- persistente Request-Replay-Tombstones und TLS-gepinnte Protected-Data-Plane-Clients;
+- einen reinen Protected-Transport-Gateway-Mixin und eine kanonische Unified-Live-Handler-Komposition statt eines konkurrierenden zweiten öffentlichen Servers;
+- einen Remote-Confidential-Session-Broker-Client, der nur inhaltsfreie Admission-Metadaten an den privaten Control Plane sendet und nur ein reduziertes Provision-Ergebnis akzeptiert;
+- einen Provider-Control-Handler für Confidential Provisioning über eine bereits authentifizierte Provider-`NodeSession`, der veraltete Session-Revisionen, falsche Node-Identität, fehlende Capability-Negotiation und nicht verfügbare Modelle ablehnt;
+- einen dedizierten Protected Worker mit request-spezifischem X25519-Recipient-Material, Ed25519-Metering-Identität, Replay-Prüfung, exakter Session-/Envelope-Bindung, Protected-Memory-Kontrollen, verschlüsselter Response-Verarbeitung und inhaltsfreiem Metering;
+- eine dedizierte HTTPS-Worker-Grenze statt raw public llama.cpp RPC als Protected-Sicherheitsgrenze zu behandeln.
+
+Das sind **branch-lokale Software-Grundlagen**. Sie beweisen noch nicht, dass ein Provider-Administrator auf realer Hardware keinen Plaintext inspizieren kann.
+
+## OpenAI-Kompatibilitätsgrenze
+
+Der beabsichtigte Nutzervertrag bleibt die Standard-OpenAI-artige Oberfläche:
+
+- `POST /v1/chat/completions`;
+- `GET /v1/models`;
+- Standard-Completion-Objekte für non-stream;
+- Standard-SSE-Completion-Chunks für `stream=true`.
+
+Für `CONFIDENTIAL` / künftig `CRYPTO_PRIVATE` ist der vertrauenswürdige lokale ComputeMesh-Transport/Proxy Teil der Client-Grenze. Er nimmt lokal den normalen OpenAI-förmigen Request an, prüft Protected Provision/Attestation-Policy, verschlüsselt den Original-Request vor Remote-Egress und entschlüsselt/validiert die Protected Response wieder lokal.
+
+Die internen `/internal/v1/confidential/...`-Routen sind Transport-Interna und keine zweite öffentliche API. Alte öffentliche `/v1/confidential/...`-Aliase sind nicht die beabsichtigte Produktoberfläche.
 
 ## Öffentliche/private Produktionsgrenze
 
-Die Produktions-Placement-Policy liegt **nicht** in `services/scheduler/placement.py`. Diese Datei bleibt ein öffentlicher Reference-/Research-Feasibility-Pfad.
+Produktions-Ranking und -Policy gehören **nicht** in den öffentlichen Reference Scheduler.
 
-Produktions-Scheduler, Ranking/Scoring, empirischer Performance-Zustand, Reputation/Fraud-Policy, Marketplace/Pricing, private Recovery-Auswahl und Settlement-Policy liegen im separaten privaten Repository `inetconnector/ComputeMesh-ControlPlane`. Der öffentliche Runtime-Pfad kommuniziert über begrenzte authentifizierte Schnittstellen mit diesem Control Plane und verifiziert signierte Placement-Entscheidungen vor der Ausführung.
+Das private Repository `inetconnector/ComputeMesh-ControlPlane` besitzt proprietäres Produktions-Placement/-Ranking, empirischen Performance-Zustand, Reputation/Fraud-Policy, Marketplace/Pricing-Policy und private Recovery-/Settlement-Policy. Das öffentliche Repository besitzt die portablen Protocol-/Runtime-/Gateway-/Client-/Provider-Mechanismen, die für die Ausführung eines reduzierten genehmigten Ergebnisses nötig sind.
 
-Damit bleibt das öffentliche Repository für Provider, Runtime-/Protocol-Interoperabilität und reproduzierbare Forschung nutzbar, ohne die produktive Ranking-/Daten-/Policy-Intelligenz zu veröffentlichen.
-
-## Aktuelle Live-Entwicklungstopologie
-
-Der praktische Zwei-Node-Pfad verwendet derzeit:
-
-1. einen Gateway-/Coordinator-Host mit öffentlichem Live-Gateway und lokalem Coordinator-`llama-server`;
-2. einen enrollten Remote-Provider mit öffentlichem Provider-Agent und upstream llama.cpp RPC Worker;
-3. private Placement-/Recovery-Auswahl;
-4. Verifikation des signierten Execution Plans;
-5. Execution Evidence und Provider Attestations;
-6. persistente Übertragung verifizierter Outcome-Metriken in den privaten Performance Store.
-
-Der upstream llama.cpp RPC-Socket ist weiterhin experimentell/unsicher und darf nicht als öffentliche Node-Sicherheitsgrenze behandelt werden. Der Entwicklungs-Bring-up kann RPC über SSH/private Netze führen; ein gehärteter Produktions-Data-Plane bleibt erforderlich.
-
-## Globale Mesh-Privacy-/Trust-Policy
-
-PR #55, [`feat(mesh): integrate confidential global mesh policy`](https://github.com/inetconnector/ComputeMesh/pull/55), wurde mit 19 geänderten Dateien und 545 Additions nach `main` gemergt. Merge-Commit: `e410b1d2adb417cf0e79689279b22899258ba13c`. Die gezielten lokalen Policy-/Security-Tests waren 13/13 grün; GitHub-CI-Run `33160647026` lief erfolgreich durch.
-
-Die Implementierung trennt Provider-Trust von Execution-Privacy:
-
-- Trust-Tiers: `OPEN`, `VERIFIED`, `RESTRICTED`;
-- Privacy-Klassen: `PUBLIC`, `CONFIDENTIAL`, `CRYPTO_PRIVATE`;
-- ein globaler heterogener GPU-Pool ist nur für `PUBLIC`-Workloads erlaubt, deren technische und Policy-Anforderungen passen;
-- Region/EWR sowie Kunden-/Vertragsrestriktionen bleiben eigenständige Constraints;
-- Protected Jobs werden nie stillschweigend downgraded, nie auf `OPEN` und nie auf Nodes mit Plaintext-Logging geroutet;
-- `CONFIDENTIAL` und `CRYPTO_PRIVATE` sind standardmäßig deaktiviert und schlagen fail-closed fehl;
-- Confidential Execution verlangt eine konkrete Attestation-Technologie samt Verifier, gebunden an Node, Nonce, Runtime-Messung/-Digest und attestierten ephemeren Key;
-- TLS, Container, VMs und gewöhnliches Sharding zählen nicht als Confidential Computing;
-- Content Keys dürfen nicht in gewöhnlichen Gateway-/Control-Plane-Code gelangen, und jedes künftige Key Release muss an den attestierten Node, Nonce und ephemeren Key-Austausch gebunden sein.
-
-Der bestehende EWR/B2B-Production-Gate bleibt der konservative Default. Das Repository behauptet weiterhin keine real produktionsfähige Confidential-Inference-Hardware, solange keine konkrete TEE-/GPU-Attestation-Technologie mit echtem Verifier implementiert und aktiviert ist.
+Für Confidential Admission enthält der öffentliche Branch jetzt den Remote-Broker-Vertrag und den authentifizierten Provider-Control-Provisioning-Handler. Die verbleibende Produktionsaufgabe ist, den privaten Confidential-Provision-Service über den bestehenden authentifizierten Provider-Control-Channel mit dem ausgewählten Protected Worker zu verbinden, ohne Losing Candidates, Scores, Fraud-/Reputation-Features oder Pricing-Koeffizienten offenzulegen.
 
 ## Was validiert ist – und was noch nicht
 
-Software/CI-validiert sind u. a. Verträge, Identity/Session-/Persistenz-Grundlagen, Gateway-/Orchestrator-Mechanik, Placement-Grenzverifikation, Provider-Agent-Protokollpfad, Evidence/Attestation, Feedback-Lieferung, Research-Runtime-Harnesses und kontrollierte Netzwerk-Instrumentierung.
+### In Software/Tests auf den Entwicklungsbranches validiert
 
-Physisch validiert ist mindestens ein enger Trusted-Lab-Zwei-Maschinen-Shared-llama.cpp-Proof, dokumentiert in `state.md`, für genau seine Hardware-/Modell-/Runtime-/Topologie-Kombination.
+- Protected Request-/Response-Envelope-Binding und Replay-Verhalten;
+- lokales Protected-OpenAI-Proxy-Verhalten;
+- Sequencing/Finalisierung des verschlüsselten Streamings;
+- Confidential-Session-State und Metering-Receipts;
+- Double-Entry-Confidential-Escrow und idempotente Recovery;
+- Unified-Protected-Gateway-Komposition;
+- Parsing/Validierung des reduzierten Remote-Confidential-Brokers;
+- fail-closed Protected-Worker- und Provider-Control-Verträge.
 
-Noch keine allgemeine Produktionsaussage: breite heterogene Zwei-GPU-Validierung, kontrollierte LAN-/WAN-Matrizen über repräsentative Hardware/Modelle, Runtime-Transport über untrusted Netze, providerseitig erzwungene Leases, produktive Key-Aufbewahrung/Revocation-Fanout, kalibrierte Performance Prediction, echte produktive Confidential-Inference-Hardware/-Attestation, große Multi-Node-Scheduling-Pfade und vollständige HA-/Operations-Reife.
+### Physisch validiert
+
+- ein enger historischer Trusted-Lab-Zwei-Maschinen-Shared-llama.cpp-Proof für genau die dokumentierte Hardware-/Modell-/Runtime-/Topologie-Kombination.
+
+### Noch keine Produktionsgarantie für Vertraulichkeit
+
+- reale unterstützte NVIDIA-Confidential-Compute-Hardware mit finalem Vendor-SDK-/Helper-Pfad;
+- physische Validierung von Nonce, Measurement, CC-/Debug-Zustand und gebundenen Protected-Endpoint-/Key-Identitäten auf dieser Hardware;
+- Hostile-Provider-/Root-/Admin-Memory-Inspection-Acceptance gegen die deklarierte TEE-Grenze;
+- vollständiger Produktions-Bootstrap und privates Confidential-Provisioning über reale ausgewählte Provider;
+- vollständige MITM-/Replay-/Substitution-/Core-Dump-/Swap-/Pagefile-Akzeptanztests;
+- AMD Confidential Execution für eine konkrete Topologie;
+- eine validierte `CRYPTO_PRIVATE`-Kryptokonstruktion;
+- breite heterogene Multi-Node-Produktion und HA-/Operations-Reife.
+
+## Wichtige Sicherheitsgrenzen
+
+- `PUBLIC` Compute kann Workload-Plaintext gegenüber der Provider-Runtime exponieren und ist keine Confidential Execution.
+- TLS, SSH, Container, VMs, gewöhnliches Sharding und Page Locking liefern für sich allein keine Confidential Execution.
+- raw/upstream llama.cpp RPC bleibt eine experimentelle Trusted-Network-Entwicklungskomponente und ist nicht die Protected Public Security Boundary.
+- `CONFIDENTIAL` muss fail-closed fehlschlagen, wenn die vollständige erforderliche Kette nicht verfügbar ist.
+- `CRYPTO_PRIVATE` muss deaktiviert bleiben, bis seine Kryptokonstruktion unabhängig validiert wurde.
+- CI-Erfolg darf nie als physische TEE-Akzeptanz dargestellt werden.
 
 ## Primäre Engineering-Dokumente
 
-- `docs/CURRENT_STATUS.md` / `docs/CURRENT_STATUS.de.md` — aktuelle öffentliche Statusquelle;
-- `state.md` — historischer öffentlicher Engineering-Handoff/Log;
-- `ARCHITECTURE.md` — öffentliche Zielarchitektur und Invarianten;
-- `docs/PRIVATE_CONTROL_PLANE_SPLIT.md` / `docs/PUBLIC_PRIVATE_CLASSIFICATION.md` — Disclosure-Grenze;
-- `docs/CONFIDENTIAL_GLOBAL_MESH.md`, `docs/GLOBAL_MESH_POLICY_MATRIX.md` und `docs/adr/0008-confidential-global-mesh.md` — Provider-Trust, Execution-Privacy, globales PUBLIC-Routing und fail-closed Confidential-Gates;
-- `services/orchestrator/README.md` — Live-Orchestrierung/Control;
-- `services/gateway/README.md` — API/Gateway;
-- `apps/node/README.md` — Provider-Agent/Node;
-- `runtime/llama/README.md` — Shared llama.cpp Research-/Evidence-Pfad;
-- `runtime/network/README.md` — Instrumentierung/Transport-Forschung;
-- `tests/README.md` — Testabdeckung;
-- `setup/README.md` / `setup/README.de.md` — öffentliches Lab-Setup.
+- `docs/CURRENT_STATUS.md` / `docs/CURRENT_STATUS.de.md` — aktueller öffentlicher Status;
+- `docs/P0_CONFIDENTIAL_EXECUTION_PLAN.md` — aktuelle P0-Architektur, abgeschlossene Grundlagen und verbleibende Release-Gates;
+- `THREAT_MODEL.md` und `SECURITY.md` — Sicherheitsgrenzen und Release-Blocker;
+- `docs/PRIVACY_TIERS.md` — erzwungene Execution-Privacy-Semantik;
+- `CONTRIBUTING.md` — Definition of Done einschließlich Documentation-Freshness-Invariant;
+- `state.md` — detaillierter historischer öffentlicher Engineering-Log;
+- `services/gateway/protected_transport_mixin.py` / `unified_live_handler.py` — branch-lokale Protected-Gateway-Komposition;
+- `services/orchestrator/remote_confidential_broker.py` — öffentlicher reduzierter Private-Control-Plane-Client;
+- `runtime/confidential/provider_control.py` / `protected_worker.py` / `worker_http.py` — providerseitige Protected-Admission-/Worker-Grenze.
 
 ## Unmittelbar nächster Readiness-Block
 
-Der nächste große Gate ist reale Evidence statt eines weiteren Public/Private-Splits: kompletten aktuellen Stack auf Zielhardware ausführen, reproduzierbare LAN-/WAN-Messungen sammeln, verifizierte Outcomes in den privaten Predictor zurückführen, echte Provider-Resource-Leases erzwingen, Data Plane und Node-Key-Lifecycle härten und erst danach `production_scheduling` breiter freigeben.
+Das nächste P0-Gate ist die reale End-to-End-Confidential-Provisioning-/Deployment-Kette, nicht weiterer Protokoll-Unterbau:
+
+1. privaten Confidential-Provision-Service fertigstellen und mit der bereits authentifizierten Provider-Control-Sitzung verbinden;
+2. Live-Protected-Bootstrap/-Konfiguration vervollständigen, sodass Confidential Readiness false bleibt, solange Broker, Session-/Replay-Stores, Escrow, Verifier-Policy und Data Planes nicht vollständig installiert sind;
+3. die standardisierte OpenAI-kompatible Nutzeroberfläche beibehalten, während Protected Transport intern bleibt;
+4. den realen vendor-unterstützten NVIDIA-Attestation-Helper bauen, hash-pinnen und auf unterstützter Confidential-Compute-Hardware validieren;
+5. physische/adversariale Akzeptanz vor jeder Produktionsaussage über Vertraulichkeit durchführen;
+6. alle autoritativen Dokumente mit jedem materiellen Meilenstein synchron halten.
