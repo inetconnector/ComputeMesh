@@ -18,7 +18,7 @@ Safety model:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 import re
 import subprocess
@@ -70,7 +70,22 @@ def _disk_model(disk_name: str) -> str:
 
 
 def _is_removable(disk_name: str) -> bool:
-    return _read_int(Path(f"/sys/block/{disk_name}/removable")) == 1
+    """True if disk_name is USB-attached.
+
+    The /sys/block/<dev>/removable flag alone is unreliable: many USB-SATA
+    and USB-NVMe bridge chips report removable=0 for an externally-attached
+    disk (observed live: a USB boot drive showed removable=0, model
+    "External"). Resolving the device's real sysfs path and checking for a
+    "usb" path component is what actually reflects the physical bus, and
+    catches USB disks the removable flag misses.
+    """
+    if _read_int(Path(f"/sys/block/{disk_name}/removable")) == 1:
+        return True
+    try:
+        resolved = Path(f"/sys/block/{disk_name}").resolve()
+        return any(part.startswith("usb") for part in resolved.parts)
+    except Exception:
+        return False
 
 
 def _resolve_source_disk() -> str | None:
