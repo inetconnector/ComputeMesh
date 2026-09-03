@@ -1522,19 +1522,19 @@ function parseMeshTelemetryPayload(data) {
   if (data.global_mesh && data.global_mesh.source === 'authenticated_registry') {
     return {
       source: data.global_mesh.source,
-      totalVramGb: Number(data.global_mesh.total_vram_gb || 24.0),
-      activeGpus: Number(data.global_mesh.total_gpus_active || 2),
+      totalVramGb: Number(data.global_mesh.total_vram_gb || 28.0),
+      activeGpus: Number(data.global_mesh.total_gpus_active || 3),
       totalNodes: Number(data.global_mesh.total_nodes_online || 3),
-      totalTflops: Number(data.global_mesh.total_tflops || 48.6)
+      totalTflops: Number(data.global_mesh.total_tflops || 58.4)
     };
   }
 
   return {
     source: data.source,
-    totalVramGb: Number(data.total_vram_gb || 24.0),
-    activeGpus: Number(data.active_gpus || 2),
+    totalVramGb: Number(data.total_vram_gb || 28.0),
+    activeGpus: Number(data.active_gpus || 3),
     totalNodes: Number(data.total_nodes || 3),
-    totalTflops: Number(data.total_tflops || 48.6)
+    totalTflops: Number(data.total_tflops || 58.4)
   };
 }
 
@@ -1547,9 +1547,9 @@ function updateMeshTelemetryTicker(stats) {
   const locale = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de') ? 'de-DE' : 'en-US';
   const isDe = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de')));
 
-  const vramVal = stats && stats.totalVramGb > 0 ? stats.totalVramGb : 24.0;
-  const gpusVal = stats && stats.activeGpus > 0 ? stats.activeGpus : 2;
-  const tflopsVal = stats && stats.totalTflops > 0 ? stats.totalTflops : 48.6;
+  const vramVal = stats && stats.totalVramGb > 0 ? stats.totalVramGb : 28.0;
+  const gpusVal = stats && stats.activeGpus > 0 ? stats.activeGpus : 3;
+  const tflopsVal = stats && stats.totalTflops > 0 ? stats.totalTflops : 58.4;
   const nodesVal = stats && stats.totalNodes > 0 ? stats.totalNodes : 3;
 
   const gpuWord = gpusVal === 1 ? 'GPU' : 'GPUs';
