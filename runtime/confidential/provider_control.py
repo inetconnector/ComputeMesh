@@ -45,7 +45,15 @@ def handle_confidential_provision_request(
     request = payload.get("request")
     if not isinstance(request, Mapping):
         raise ConfidentialProviderControlError("confidential provision request is missing")
+    model_id = request.get("model_id")
+    supports_model = getattr(manager.backend, "supports_model", None)
+    if not isinstance(model_id, str) or not model_id:
+        raise ConfidentialProviderControlError("confidential provision model is invalid")
+    if not callable(supports_model):
+        raise ConfidentialProviderControlError("protected runtime cannot prove model availability")
     try:
+        if supports_model(model_id) is not True:
+            raise ConfidentialProviderControlError("requested model is not loaded in protected runtime")
         challenge = decode_freshness_challenge(payload.get("freshness_challenge"))
         provision = manager.provision(request, freshness_challenge=challenge)
     except ProtectedWorkerError as exc:
