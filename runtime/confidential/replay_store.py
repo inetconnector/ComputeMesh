@@ -7,6 +7,8 @@ attestation state rather than replaying protected ciphertext.
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
@@ -65,7 +67,8 @@ class SQLiteConfidentialReplayStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(
             self.path,
             timeout=10.0,
@@ -75,7 +78,11 @@ class SQLiteConfidentialReplayStore:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA synchronous=FULL")
         connection.execute("PRAGMA foreign_keys=ON")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -142,8 +149,7 @@ class SQLiteConfidentialReplayStore:
             claimed_at=claimed_at,
         )
 
-        connection = self._connect()
-        try:
+        with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 connection.execute(
@@ -169,12 +175,6 @@ class SQLiteConfidentialReplayStore:
                 raise ConfidentialReplayDetected("confidential envelope was already consumed") from exc
             connection.execute("COMMIT")
             return claim
-        except Exception:
-            if connection.in_transaction:
-                connection.execute("ROLLBACK")
-            raise
-        finally:
-            connection.close()
 
     def get_claim(self, envelope_id: str) -> ReplayClaim | None:
         if not isinstance(envelope_id, str) or len(envelope_id) != 32:

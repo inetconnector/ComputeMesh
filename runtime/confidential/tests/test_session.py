@@ -7,7 +7,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from protocol.confidential_metering import generate_attested_metering_keypair
+from protocol.confidential_metering import generate_attested_metering_keypair, sign_confidential_usage
 from protocol.confidential_envelope import generate_attested_recipient_keypair
 from runtime.confidential.data_plane import AttestedConfidentialEndpoint
 from runtime.confidential.session import (
@@ -23,7 +23,7 @@ class ConfidentialSessionTests(unittest.TestCase):
         self.path = Path(self.temp.name) / "sessions.sqlite3"
         self.store = SQLiteConfidentialSessionStore(self.path)
         _, recipient_public = generate_attested_recipient_keypair()
-        _, metering_public = generate_attested_metering_keypair()
+        self.metering_private, metering_public = generate_attested_metering_keypair()
         self.expires = datetime.now(UTC) + timedelta(minutes=5)
         self.endpoint = AttestedConfidentialEndpoint(
             url="https://tee.example/v1/confidential/execute",
@@ -70,8 +70,11 @@ class ConfidentialSessionTests(unittest.TestCase):
         loaded = self.store.get("job-1")
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded.endpoint.metering_public_key, self.endpoint.metering_public_key)
-        with sqlite3.connect(self.path) as connection:
+        connection = sqlite3.connect(self.path)
+        try:
             columns = [row[1] for row in connection.execute("PRAGMA table_info(confidential_sessions)")]
+        finally:
+            connection.close()
         self.assertNotIn("prompt", columns)
         self.assertNotIn("output", columns)
         self.assertNotIn("ciphertext", columns)
@@ -152,10 +155,35 @@ class ConfidentialSessionTests(unittest.TestCase):
             account_id="acct-1",
             envelope_id="a" * 32,
         )
+        receipt = sign_confidential_usage(
+            private_key=self.metering_private,
+            account_id="acct-1",
+            job_id="job-1",
+            request_envelope_id="a" * 32,
+            response_id="b" * 32,
+            node_id="node-1",
+            runtime_digest="sha256:runtime",
+            privacy_class="CONFIDENTIAL",
+            operation="chat_completion",
+            model_id="qwen/qwen2.5-7b-instruct",
+            prompt_tokens=100,
+            completion_tokens=50,
+        )
+        self.store.record_metering(job_id="job-1", receipt=receipt)
         completed = self.store.finish(job_id="job-1", target="COMPLETED")
         self.assertEqual(completed.state, "COMPLETED")
         with self.assertRaises(ConfidentialSessionStateError):
             self.store.finish(job_id="job-1", target="FAILED")
+
+    def test_dispatched_session_can_fail_directly(self) -> None:
+        self.store.create(self.provision, hold_id="hold-1")
+        self.store.begin_dispatch(
+            job_id="job-1",
+            account_id="acct-1",
+            envelope_id="a" * 32,
+        )
+        failed = self.store.finish(job_id="job-1", target="FAILED")
+        self.assertEqual(failed.state, "FAILED")
 
     def test_in_memory_store_is_forbidden(self) -> None:
         with self.assertRaisesRegex(ValueError, "durable"):

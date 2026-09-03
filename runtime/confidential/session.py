@@ -7,6 +7,8 @@ only a signed content-free usage receipt is persisted before ledger capture.
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
@@ -173,11 +175,16 @@ class SQLiteConfidentialSessionStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path, timeout=10.0, isolation_level=None, check_same_thread=False)
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA synchronous=FULL")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -239,8 +246,7 @@ class SQLiteConfidentialSessionStore:
             created_at=now,
             updated_at=now,
         )
-        connection = self._connect()
-        try:
+        with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 connection.execute(
@@ -251,8 +257,6 @@ class SQLiteConfidentialSessionStore:
                 connection.execute("ROLLBACK")
                 raise ConfidentialSessionError("confidential session job_id already exists") from exc
             connection.execute("COMMIT")
-        finally:
-            connection.close()
         return record
 
     def get(self, job_id: str) -> ConfidentialSessionRecord | None:
@@ -271,39 +275,37 @@ class SQLiteConfidentialSessionStore:
         current = now or datetime.now(UTC)
         if current.tzinfo is None or current.utcoffset() is None:
             raise ValueError("confidential session dispatch timestamp must be timezone-aware")
-        connection = self._connect()
-        try:
+        with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
-            if row is None:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session not found")
-            record = ConfidentialSessionRecord(*row)
-            if record.account_id != account_id:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session account mismatch")
-            if record.state != "OPEN":
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session is not open")
-            if _timestamp(record.expires_at) <= current.astimezone(UTC):
+            try:
+                row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
+                if row is None:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session not found")
+                record = ConfidentialSessionRecord(*row)
+                if record.account_id != account_id:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session account mismatch")
+                if record.state != "OPEN":
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session is not open")
+                if _timestamp(record.expires_at) <= current.astimezone(UTC):
+                    connection.execute(
+                        "UPDATE confidential_sessions SET state='EXPIRED', updated_at=? WHERE job_id=?",
+                        (current.astimezone(UTC).isoformat().replace("+00:00", "Z"), job_id),
+                    )
+                    connection.execute("COMMIT")
+                    raise ConfidentialSessionStateError("confidential session expired")
+                updated_at = current.astimezone(UTC).isoformat().replace("+00:00", "Z")
                 connection.execute(
-                    "UPDATE confidential_sessions SET state='EXPIRED', updated_at=? WHERE job_id=?",
-                    (current.astimezone(UTC).isoformat().replace("+00:00", "Z"), job_id),
+                    "UPDATE confidential_sessions SET state='DISPATCHED', envelope_id=?, updated_at=? WHERE job_id=?",
+                    (envelope_id, updated_at, job_id),
                 )
                 connection.execute("COMMIT")
-                raise ConfidentialSessionStateError("confidential session expired")
-            updated_at = current.astimezone(UTC).isoformat().replace("+00:00", "Z")
-            connection.execute(
-                "UPDATE confidential_sessions SET state='DISPATCHED', envelope_id=?, updated_at=? WHERE job_id=?",
-                (envelope_id, updated_at, job_id),
-            )
-            connection.execute("COMMIT")
-        except Exception:
-            if connection.in_transaction:
-                connection.execute("ROLLBACK")
-            raise
-        finally:
-            connection.close()
+            except Exception:
+                if connection.in_transaction:
+                    connection.execute("ROLLBACK")
+                raise
         updated = self.get(job_id)
         if updated is None:
             raise ConfidentialSessionStateError("confidential session disappeared")
@@ -311,32 +313,30 @@ class SQLiteConfidentialSessionStore:
 
     def record_metering(self, *, job_id: str, receipt: ConfidentialUsageReceipt) -> ConfidentialSessionRecord:
         receipt.validate()
-        connection = self._connect()
-        try:
+        with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
-            if row is None:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session not found")
-            record = ConfidentialSessionRecord(*row)
-            if record.state != "DISPATCHED" or record.envelope_id is None:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session is not awaiting metering")
-            if receipt.job_id != record.job_id or receipt.request_envelope_id != record.envelope_id:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential metering receipt does not match session")
-            updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-            connection.execute(
-                "UPDATE confidential_sessions SET state='METERED', usage_receipt_json=?, updated_at=? WHERE job_id=?",
-                (json.dumps(receipt.to_dict(), sort_keys=True, separators=(",", ":")), updated_at, job_id),
-            )
-            connection.execute("COMMIT")
-        except Exception:
-            if connection.in_transaction:
-                connection.execute("ROLLBACK")
-            raise
-        finally:
-            connection.close()
+            try:
+                row = connection.execute("SELECT * FROM confidential_sessions WHERE job_id = ?", (job_id,)).fetchone()
+                if row is None:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session not found")
+                record = ConfidentialSessionRecord(*row)
+                if record.state != "DISPATCHED" or record.envelope_id is None:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session is not awaiting metering")
+                if receipt.job_id != record.job_id or receipt.request_envelope_id != record.envelope_id:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential metering receipt does not match session")
+                updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                connection.execute(
+                    "UPDATE confidential_sessions SET state='METERED', usage_receipt_json=?, updated_at=? WHERE job_id=?",
+                    (json.dumps(receipt.to_dict(), sort_keys=True, separators=(",", ":")), updated_at, job_id),
+                )
+                connection.execute("COMMIT")
+            except Exception:
+                if connection.in_transaction:
+                    connection.execute("ROLLBACK")
+                raise
         updated = self.get(job_id)
         if updated is None:
             raise ConfidentialSessionStateError("confidential session disappeared")
@@ -346,25 +346,27 @@ class SQLiteConfidentialSessionStore:
         if target not in {"COMPLETED", "FAILED"}:
             raise ValueError("invalid confidential session terminal state")
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        connection = self._connect()
-        try:
+        with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            if target == "COMPLETED":
-                cursor = connection.execute(
-                    "UPDATE confidential_sessions SET state='COMPLETED', updated_at=? WHERE job_id=? AND state='METERED'",
-                    (now, job_id),
-                )
-            else:
-                cursor = connection.execute(
-                    "UPDATE confidential_sessions SET state='FAILED', updated_at=? WHERE job_id=? AND state IN ('DISPATCHED','METERED')",
-                    (now, job_id),
-                )
-            if cursor.rowcount != 1:
-                connection.execute("ROLLBACK")
-                raise ConfidentialSessionStateError("confidential session cannot enter terminal state")
-            connection.execute("COMMIT")
-        finally:
-            connection.close()
+            try:
+                if target == "COMPLETED":
+                    cursor = connection.execute(
+                        "UPDATE confidential_sessions SET state='COMPLETED', updated_at=? WHERE job_id=? AND state='METERED'",
+                        (now, job_id),
+                    )
+                else:
+                    cursor = connection.execute(
+                        "UPDATE confidential_sessions SET state='FAILED', updated_at=? WHERE job_id=? AND state IN ('DISPATCHED','METERED')",
+                        (now, job_id),
+                    )
+                if cursor.rowcount != 1:
+                    connection.execute("ROLLBACK")
+                    raise ConfidentialSessionStateError("confidential session cannot enter terminal state")
+                connection.execute("COMMIT")
+            except Exception:
+                if connection.in_transaction:
+                    connection.execute("ROLLBACK")
+                raise
         record = self.get(job_id)
         if record is None:
             raise ConfidentialSessionStateError("confidential session disappeared")

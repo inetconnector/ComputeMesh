@@ -109,7 +109,8 @@ class ConfidentialReplayStoreTests(unittest.TestCase):
 
     def test_plaintext_and_ciphertext_are_not_stored(self) -> None:
         self._claim()
-        with sqlite3.connect(self.db_path) as connection:
+        connection = sqlite3.connect(self.db_path)
+        try:
             columns = [
                 row[1]
                 for row in connection.execute("PRAGMA table_info(confidential_replay_claims)")
@@ -118,6 +119,8 @@ class ConfidentialReplayStoreTests(unittest.TestCase):
                 "SELECT * FROM confidential_replay_claims WHERE envelope_id = ?",
                 (self.envelope.envelope_id,),
             ).fetchone()
+        finally:
+            connection.close()
         self.assertNotIn("ciphertext", columns)
         self.assertNotIn("prompt", columns)
         encoded_row = repr(row)

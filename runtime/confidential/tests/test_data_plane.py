@@ -12,6 +12,7 @@ from protocol.confidential_envelope import (
     encrypt_response_in_attested_recipient,
     generate_attested_recipient_keypair,
 )
+from protocol.confidential_metering import generate_attested_metering_keypair, sign_confidential_usage
 from runtime.confidential.data_plane import (
     AttestedConfidentialEndpoint,
     ConfidentialDataPlaneError,
@@ -60,6 +61,7 @@ class _FakeConnection:
 class ConfidentialDataPlaneTests(unittest.TestCase):
     def setUp(self) -> None:
         self.recipient_private, self.recipient_public = generate_attested_recipient_keypair()
+        self.metering_private, self.metering_public = generate_attested_metering_keypair()
         self.certificate = b"DER-CERTIFICATE-FOR-TEST"
         self.fingerprint = "sha256:" + hashlib.sha256(self.certificate).hexdigest()
         self.binding = ConfidentialBinding(
@@ -88,6 +90,7 @@ class ConfidentialDataPlaneTests(unittest.TestCase):
             runtime_digest="sha256:runtime",
             attestation_nonce="nonce-1",
             recipient_public_key=self.recipient_public,
+            metering_public_key=self.metering_public,
             tls_certificate_sha256=self.fingerprint,
         )
 
@@ -95,11 +98,27 @@ class ConfidentialDataPlaneTests(unittest.TestCase):
         self.client_context.close()
 
     def _body(self, response: ConfidentialResponseEnvelope | None = None) -> bytes:
+        resp = response or self.protected_response
+        receipt = sign_confidential_usage(
+            private_key=self.metering_private,
+            account_id=resp.binding.account_id,
+            job_id=resp.binding.job_id,
+            request_envelope_id=resp.request_envelope_id,
+            response_id=resp.response_id,
+            node_id=resp.binding.node_id,
+            runtime_digest=resp.binding.runtime_digest,
+            privacy_class=resp.binding.privacy_class,
+            operation=resp.binding.operation,
+            model_id="secret-model",
+            prompt_tokens=10,
+            completion_tokens=5,
+        )
         return json.dumps(
             {
                 "schema_version": 1,
                 "confidential_protocol_version": 2,
-                "response": (response or self.protected_response).to_dict(),
+                "response": resp.to_dict(),
+                "usage_receipt": receipt.to_dict(),
             }
         ).encode("utf-8")
 
@@ -115,7 +134,8 @@ class ConfidentialDataPlaneTests(unittest.TestCase):
     def test_forwards_only_opaque_envelope_and_returns_opaque_response(self) -> None:
         fake = _FakeConnection(self.certificate, self._body())
         result = self._plane(fake).execute(self.request, endpoint=self.endpoint)
-        self.assertEqual(result, self.protected_response)
+        self.assertEqual(result.response, self.protected_response)
+        self.assertEqual(result.usage_receipt.job_id, "job-1")
         self.assertTrue(fake.connected)
         self.assertTrue(fake.closed)
         method, path, body, headers = fake.request_args

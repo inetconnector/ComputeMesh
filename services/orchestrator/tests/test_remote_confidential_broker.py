@@ -1,9 +1,9 @@
 import base64
-import json
 from datetime import UTC, datetime, timedelta
+import json
 from types import SimpleNamespace
+import unittest
 
-import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -145,85 +145,89 @@ class BrokerUnderTest(RemoteConfidentialSessionBroker):
         return envelope
 
 
-def _broker():
-    key = Ed25519PrivateKey.generate()
-    public = key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    )
-    registry = FakeRegistry()
-    broker = BrokerUnderTest(
-        signing_key=key,
-        endpoint="https://control.example/internal/v1/confidential/dispatch",
-        bearer_token="confidential-token",
-        verification_key_b64u=_b64u(public),
-        expected_key_id="decision-key",
-        registry=registry,
-    )
-    return broker, registry
+class TestRemoteConfidentialBroker(unittest.TestCase):
+    def _broker(self):
+        key = Ed25519PrivateKey.generate()
+        public = key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        registry = FakeRegistry()
+        broker = BrokerUnderTest(
+            signing_key=key,
+            endpoint="https://control.example/internal/v1/confidential/dispatch",
+            bearer_token="confidential-token",
+            verification_key_b64u=_b64u(public),
+            expected_key_id="decision-key",
+            registry=registry,
+        )
+        return broker, registry
 
-
-def test_broker_submits_only_live_confidential_sessions_and_dispatches_selected_node():
-    broker, registry = _broker()
-    provision = broker.provision(
-        account_id="owner-a",
-        model_id="model-a",
-        privacy_class="CONFIDENTIAL",
-        operation="chat_completion",
-        max_prompt_tokens=2048,
-        max_completion_tokens=512,
-    )
-    _, private_body = broker.private_requests[0]
-    assert private_body["candidates"] == [
-        {"node_id": "node-a", "session_id": "session-a", "session_revision": 7}
-    ]
-    assert "prompt" not in repr(private_body).lower()
-    node_id, message_type, provider_body, _ = registry.control_client.requests[0]
-    assert node_id == "node-a"
-    assert message_type == "ConfidentialSessionProvisionRequest"
-    assert provider_body["freshness_challenge"] == "fresh-challenge"
-    assert provider_body["request"]["job_id"] == "job-a"
-    assert provision.job_id == "job-a"
-    assert provision.endpoint.node_id == "node-a"
-
-
-def test_broker_rejects_private_selection_of_unsubmitted_node():
-    broker, _ = _broker()
-    broker.select_unsubmitted = True
-    with pytest.raises(RemoteConfidentialBrokerError, match="unsubmitted"):
-        broker.provision(
+    def test_broker_submits_only_live_confidential_sessions_and_dispatches_selected_node(self):
+        broker, registry = self._broker()
+        provision = broker.provision(
             account_id="owner-a",
             model_id="model-a",
             privacy_class="CONFIDENTIAL",
             operation="chat_completion",
-            max_prompt_tokens=128,
-            max_completion_tokens=64,
+            max_prompt_tokens=2048,
+            max_completion_tokens=512,
         )
-
-
-def test_provider_failure_releases_private_lease_best_effort():
-    broker, registry = _broker()
-    registry.control_client.fail = True
-    with pytest.raises(RemoteConfidentialBrokerError, match="could not be provisioned"):
-        broker.provision(
-            account_id="owner-a",
-            model_id="model-a",
-            privacy_class="CONFIDENTIAL",
-            operation="chat_completion",
-            max_prompt_tokens=128,
-            max_completion_tokens=64,
+        _, private_body = broker.private_requests[0]
+        self.assertEqual(
+            private_body["candidates"],
+            [{"node_id": "node-a", "session_id": "session-a", "session_revision": 7}],
         )
-    assert broker.releases == ["decision-a"]
+        self.assertNotIn("messages", private_body)
+        self.assertNotIn("content", private_body)
+        node_id, message_type, provider_body, _ = registry.control_client.requests[0]
+        self.assertEqual(node_id, "node-a")
+        self.assertEqual(message_type, "ConfidentialSessionProvisionRequest")
+        self.assertEqual(provider_body["freshness_challenge"], "fresh-challenge")
+        self.assertEqual(provider_body["request"]["job_id"], "job-a")
+        self.assertEqual(provision.job_id, "job-a")
+        self.assertEqual(provision.endpoint.node_id, "node-a")
+
+    def test_broker_rejects_private_selection_of_unsubmitted_node(self):
+        broker, _ = self._broker()
+        broker.select_unsubmitted = True
+        with self.assertRaisesRegex(RemoteConfidentialBrokerError, "unsubmitted"):
+            broker.provision(
+                account_id="owner-a",
+                model_id="model-a",
+                privacy_class="CONFIDENTIAL",
+                operation="chat_completion",
+                max_prompt_tokens=128,
+                max_completion_tokens=64,
+            )
+
+    def test_provider_failure_releases_private_lease_best_effort(self):
+        broker, registry = self._broker()
+        registry.control_client.fail = True
+        with self.assertRaisesRegex(RemoteConfidentialBrokerError, "could not be provisioned"):
+            broker.provision(
+                account_id="owner-a",
+                model_id="model-a",
+                privacy_class="CONFIDENTIAL",
+                operation="chat_completion",
+                max_prompt_tokens=128,
+                max_completion_tokens=64,
+            )
+        self.assertEqual(broker.releases, ["decision-a"])
+
+    def test_crypto_private_remains_fail_closed(self):
+        broker, _ = self._broker()
+        with self.assertRaisesRegex(RemoteConfidentialBrokerError, "CONFIDENTIAL only"):
+            broker.provision(
+                account_id="owner-a",
+                model_id="model-a",
+                privacy_class="CRYPTO_PRIVATE",
+                operation="chat_completion",
+                max_prompt_tokens=128,
+                max_completion_tokens=64,
+            )
 
 
-def test_crypto_private_remains_fail_closed():
-    broker, _ = _broker()
-    with pytest.raises(RemoteConfidentialBrokerError, match="CONFIDENTIAL only"):
-        broker.provision(
-            account_id="owner-a",
-            model_id="model-a",
-            privacy_class="CRYPTO_PRIVATE",
-            operation="chat_completion",
-            max_prompt_tokens=128,
-            max_completion_tokens=64,
-        )
+if __name__ == "__main__":
+    unittest.main()
+

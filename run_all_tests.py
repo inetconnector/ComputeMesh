@@ -108,6 +108,23 @@ CATEGORIES: dict[str, list[str]] = {
         "tools.benchmark.tests.test_llama_bench_adapter",
         "services.updater.tests.test_auto_updater",
     ],
+    "Confidential & Protected Execution": [
+        "apps.client.tests.test_openai_proxy",
+        "apps.client.tests.test_confidential_openai",
+        "apps.client.tests.test_confidential_openai_stream",
+        "runtime.confidential.tests.test_data_plane",
+        "runtime.confidential.tests.test_protected_worker",
+        "runtime.confidential.tests.test_protected_worker_lifecycle",
+        "runtime.confidential.tests.test_protected_context",
+        "runtime.confidential.tests.test_replay_store",
+        "runtime.confidential.tests.test_session",
+        "services.gateway.tests.test_confidential_live_bootstrap",
+        "services.gateway.tests.test_confidential_coordinator",
+        "services.gateway.tests.test_live_confidential_transport",
+        "services.gateway.tests.test_live_confidential_gate",
+        "services.gateway.tests.test_unified_live_protected_handler",
+        "services.orchestrator.tests.test_remote_confidential_broker",
+    ],
 }
 
 

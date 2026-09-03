@@ -23,6 +23,7 @@ class ProtectedContextTests(unittest.TestCase):
             attestation_nonce="nonce-1",
             expected_runtime_digest="sha256:runtime",
             ciphertext_recipient_public_key="ephemeral-pub",
+            metering_public_key="metering-pub",
             data_plane_tls_sha256=self.tls_fingerprint,
         )
         self.attestation = {
@@ -32,6 +33,7 @@ class ProtectedContextTests(unittest.TestCase):
             "measurement": "measurement-1",
             "runtime_digest": "sha256:runtime",
             "ephemeral_public_key": "ephemeral-pub",
+            "metering_public_key": "metering-pub",
             "data_plane_tls_sha256": self.tls_fingerprint,
             "nonce": "nonce-1",
             "issued_at": (now - timedelta(seconds=1)).isoformat(),
@@ -116,6 +118,7 @@ class ProtectedContextTests(unittest.TestCase):
             attestation_nonce="nonce-1",
             expected_runtime_digest="sha256:runtime",
             ciphertext_recipient_public_key="ephemeral-pub",
+            metering_public_key="metering-pub",
             data_plane_tls_sha256=self.tls_fingerprint,
         )
         with self.assertRaisesRegex(ProtectedContextError, "cannot be PUBLIC"):

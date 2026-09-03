@@ -78,6 +78,7 @@ class LiveConfidentialTransportTests(unittest.TestCase):
             runtime_digest="sha256:runtime",
             attestation_nonce="nonce-1",
             recipient_public_key=self.recipient_public,
+            metering_public_key="metering-key-1",
             tls_certificate_sha256=self.tls_fingerprint,
         )
 
