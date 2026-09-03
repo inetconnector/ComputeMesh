@@ -160,10 +160,16 @@ class OwnerAccountStore:
                 (oid,),
             ).fetchone()
             if row is None:
-                conn.execute(
-                    "INSERT INTO owner_accounts(owner_id, display_name, created_at, updated_at) VALUES(?, ?, ?, ?)",
-                    (oid, str(display_name or "").strip(), now, now),
-                )
+                try:
+                    conn.execute(
+                        "INSERT INTO owner_accounts(owner_id, display_name, created_at, updated_at) VALUES(?, ?, ?, ?)",
+                        (oid, str(display_name or "").strip(), now, now),
+                    )
+                except sqlite3.IntegrityError:
+                    # Concurrent request for the same owner_id (e.g. many
+                    # nodes heartbeating into the shared default fleet) won
+                    # the SELECT-then-INSERT race first; the row now exists.
+                    pass
             elif display_name and str(display_name).strip() != row["display_name"]:
                 conn.execute(
                     "UPDATE owner_accounts SET display_name = ?, updated_at = ? WHERE owner_id = ?",
