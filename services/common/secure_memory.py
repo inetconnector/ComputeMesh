@@ -1,32 +1,42 @@
-"""Cryptographic In-Memory Ephemeral RAM Hardening & Secure Zeroization.
+"""Protected in-memory buffers for confidential ComputeMesh execution.
 
-Provides hardware/OS-level RAM page locking (mlock / VirtualLock), ephemeral
-AES-256-GCM in-memory envelope encryption, and cryptographic memory zeroization
-to guarantee zero-retention of prompt payloads and completions in volatile RAM.
+The primitives in this module are defense in depth.  They reduce paging,
+core-dump and plaintext-lifetime exposure inside a process, but they do not turn
+an ordinary hostile host into a TEE.  `CONFIDENTIAL` execution must combine
+these primitives with real hardware attestation and protected execution memory.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 import ctypes
 import os
 import platform
 import secrets
-import sys
-from contextlib import contextmanager
 from typing import Generator
 
 try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    _HAS_AESGCM = True
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    _HAS_CRYPTOGRAPHY = True
 except ImportError:
-    _HAS_AESGCM = False
+    _HAS_CRYPTOGRAPHY = False
 
 
-# ---------------------------------------------------------------------------
-# Native OS Memory Locking (mlock / VirtualLock)
-# ---------------------------------------------------------------------------
+class SecureMemoryError(RuntimeError):
+    """Base error for protected-memory operations."""
+
+
+class MemoryLockError(SecureMemoryError):
+    """Raised when a mandatory page lock cannot be established."""
+
+
+class CryptographyUnavailableError(SecureMemoryError):
+    """Raised rather than falling back to a weaker ad-hoc cipher."""
+
 
 _SYSTEM = platform.system()
 _HAS_MLOCK = False
+_libc = None
 
 if _SYSTEM == "Windows":
     try:
@@ -55,136 +65,211 @@ else:
         _HAS_MLOCK = False
 
 
-def lock_memory_buffer(buffer: ctypes.Array) -> bool:
-    """Lock memory buffer into physical RAM to prevent paging/swapping to disk."""
-    if not _HAS_MLOCK or not buffer:
+MutableBuffer = bytearray | ctypes.Array | memoryview
+
+
+def memory_locking_available() -> bool:
+    return _HAS_MLOCK
+
+
+def _buffer_address_and_size(buffer: MutableBuffer) -> tuple[int, int]:
+    if isinstance(buffer, ctypes.Array):
+        return ctypes.addressof(buffer), ctypes.sizeof(buffer)
+    if isinstance(buffer, bytearray):
+        if not buffer:
+            return 0, 0
+        array = (ctypes.c_ubyte * len(buffer)).from_buffer(buffer)
+        return ctypes.addressof(array), len(buffer)
+    if isinstance(buffer, memoryview):
+        if buffer.readonly or not buffer.contiguous:
+            raise TypeError("memoryview must be writable and contiguous")
+        view = buffer.cast("B")
+        if view.nbytes == 0:
+            return 0, 0
+        array = (ctypes.c_ubyte * view.nbytes).from_buffer(view)
+        return ctypes.addressof(array), view.nbytes
+    raise TypeError("unsupported mutable buffer type")
+
+
+def lock_memory_buffer(buffer: MutableBuffer) -> bool:
+    """Lock mutable pages into RAM to prevent ordinary paging/swapping."""
+    if not _HAS_MLOCK:
         return False
-    ptr = ctypes.cast(buffer, ctypes.c_void_p).value
-    size = ctypes.sizeof(buffer)
     try:
+        ptr, size = _buffer_address_and_size(buffer)
+        if size == 0:
+            return True
         if _SYSTEM == "Windows":
             return bool(_VirtualLock(ptr, size))
-        else:
-            return _mlock(ptr, size) == 0
+        return _mlock(ptr, size) == 0
     except Exception:
         return False
 
 
-def unlock_memory_buffer(buffer: ctypes.Array) -> bool:
-    """Unlock previously locked memory buffer."""
-    if not _HAS_MLOCK or not buffer:
+def unlock_memory_buffer(buffer: MutableBuffer) -> bool:
+    """Release a previously established page lock."""
+    if not _HAS_MLOCK:
         return False
-    ptr = ctypes.cast(buffer, ctypes.c_void_p).value
-    size = ctypes.sizeof(buffer)
     try:
+        ptr, size = _buffer_address_and_size(buffer)
+        if size == 0:
+            return True
         if _SYSTEM == "Windows":
             return bool(_VirtualUnlock(ptr, size))
-        else:
-            return _munlock(ptr, size) == 0
+        return _munlock(ptr, size) == 0
     except Exception:
         return False
 
 
-# ---------------------------------------------------------------------------
-# Cryptographic Memory Zeroization
-# ---------------------------------------------------------------------------
-
-def secure_zero_memory(target: bytearray | ctypes.Array | memoryview) -> None:
-    """Overwrite memory with CSPRNG random entropy and then zero it out completely.
-    
-    Prevents dead-store elimination and ensures residual forensics are impossible.
-    """
-    if isinstance(target, bytearray):
-        size = len(target)
-        if size == 0:
-            return
-        # Pass 1: Random CSPRNG entropy
-        rand_bytes = secrets.token_bytes(size)
-        for i in range(size):
-            target[i] = rand_bytes[i]
-        # Pass 2: Cryptographic Zero
-        for i in range(size):
-            target[i] = 0
-    elif isinstance(target, (ctypes.Array, memoryview)):
-        size = ctypes.sizeof(target) if isinstance(target, ctypes.Array) else target.nbytes
-        if size == 0:
-            return
-        ptr = ctypes.cast(target, ctypes.c_void_p).value if isinstance(target, ctypes.Array) else ctypes.c_void_p.from_buffer(target).value
-        # Overwrite with random bytes
-        rand_bytes = secrets.token_bytes(size)
-        ctypes.memmove(ptr, rand_bytes, size)
-        # Overwrite with zeroes
+def secure_zero_memory(target: MutableBuffer) -> None:
+    """Overwrite a mutable buffer through a native memory operation."""
+    ptr, size = _buffer_address_and_size(target)
+    if size:
         ctypes.memset(ptr, 0, size)
 
 
-# ---------------------------------------------------------------------------
-# Secure In-Memory Buffer with Ephemeral AES-256-GCM Envelope
-# ---------------------------------------------------------------------------
+def disable_process_core_dumps() -> bool:
+    """Disable ordinary POSIX core dumps and Linux dumpability where supported.
+
+    Windows crash-dump policy must be enforced by the production service/host
+    configuration; this function therefore reports False on Windows rather than
+    claiming protection it did not establish.
+    """
+    if os.name != "posix":
+        return False
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ImportError, OSError, ValueError):
+        return False
+
+    if _SYSTEM == "Linux" and _libc is not None and hasattr(_libc, "prctl"):
+        try:
+            # PR_SET_DUMPABLE = 4
+            if _libc.prctl(4, 0, 0, 0, 0) != 0:
+                return False
+        except Exception:
+            return False
+    return True
+
 
 class SecureMemoryBuffer:
-    """Ephemeral In-Memory Encrypted Buffer.
-    
-    Data is stored in RAM encrypted with a single-use 256-bit key. Plaintext
-    only exists in volatile memory within an active context manager and is
-    zeroized immediately upon exit.
+    """Single-use AES-256-GCM envelope with bounded mutable plaintext exposure.
+
+    `require_memory_lock=True` is intended for protected execution.  It makes
+    inability to lock key/nonce/plaintext pages a hard error rather than silently
+    continuing with a weaker memory posture.
     """
 
-    def __init__(self, data: bytes | str | None = None) -> None:
-        self._key = bytearray(secrets.token_bytes(32))  # 256-bit AES key
-        self._nonce = bytearray(secrets.token_bytes(12))  # 96-bit GCM nonce
+    def __init__(
+        self,
+        data: bytes | bytearray | memoryview | str | None = None,
+        *,
+        require_memory_lock: bool = False,
+    ) -> None:
+        if not _HAS_CRYPTOGRAPHY:
+            raise CryptographyUnavailableError(
+                "cryptography is required for protected AES-256-GCM memory envelopes"
+            )
+        self.require_memory_lock = require_memory_lock
+        self._key = bytearray(secrets.token_bytes(32))
+        self._nonce = bytearray(secrets.token_bytes(12))
         self._ciphertext = bytearray()
+        self._tag = bytearray()
         self._is_zeroized = False
-        
+        self._key_locked = lock_memory_buffer(self._key)
+        self._nonce_locked = lock_memory_buffer(self._nonce)
+        if require_memory_lock and not (self._key_locked and self._nonce_locked):
+            self.zeroize()
+            raise MemoryLockError("mandatory key/nonce page locking could not be established")
         if data is not None:
             raw = data.encode("utf-8") if isinstance(data, str) else data
             self.write(raw)
 
-    def write(self, plaintext: bytes) -> None:
-        """Encrypt plaintext into the in-memory envelope."""
+    def write(self, plaintext: bytes | bytearray | memoryview) -> None:
+        """Encrypt exactly one plaintext value into this request-scoped envelope."""
         if self._is_zeroized:
-            raise RuntimeError("Cannot write to zeroized SecureMemoryBuffer")
-        
-        if _HAS_AESGCM:
-            aesgcm = AESGCM(bytes(self._key))
-            ct = aesgcm.encrypt(bytes(self._nonce), plaintext, None)
-        else:
-            # Fallback XOR streaming pad with SHA256 PRF if cryptography package missing
-            pad = secrets.token_bytes(len(plaintext))
-            ct = bytes(b ^ p for b, p in zip(plaintext, pad))
-            self._nonce = bytearray(pad)
-            
-        self._ciphertext = bytearray(ct)
+            raise SecureMemoryError("cannot write to a zeroized SecureMemoryBuffer")
+        if self._ciphertext or self._tag:
+            raise SecureMemoryError("SecureMemoryBuffer is single-use; create a new buffer")
+        if not isinstance(plaintext, (bytes, bytearray, memoryview)):
+            raise TypeError("plaintext must be bytes-like")
+
+        cipher = Cipher(algorithms.AES(memoryview(self._key)), modes.GCM(memoryview(self._nonce)))
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        self._ciphertext = bytearray(ciphertext)
+        self._tag = bytearray(encryptor.tag)
 
     @contextmanager
-    def open_plaintext(self) -> Generator[bytes, None, None]:
-        """Temporarily decrypt ciphertext in a locked, ephemeral memory scope.
-        
-        The decrypted plaintext bytearray is scrubbed and zeroized upon exit.
+    def open_plaintext(self) -> Generator[memoryview, None, None]:
+        """Expose plaintext only as a mutable-backed read-only memoryview.
+
+        The decrypted backing allocation is optionally page-locked before it is
+        yielded and is zeroized before unlock on every exit path.  Returning a
+        memoryview avoids the previous extra immutable `bytes` copy of protected
+        plaintext.
         """
         if self._is_zeroized:
-            raise RuntimeError("SecureMemoryBuffer has been zeroized")
+            raise SecureMemoryError("SecureMemoryBuffer has been zeroized")
         if not self._ciphertext:
-            yield b""
+            empty = bytearray()
+            view = memoryview(empty).toreadonly()
+            try:
+                yield view
+            finally:
+                view.release()
             return
 
-        if _HAS_AESGCM:
-            aesgcm = AESGCM(bytes(self._key))
-            decrypted = bytearray(aesgcm.decrypt(bytes(self._nonce), bytes(self._ciphertext), None))
-        else:
-            decrypted = bytearray(bytes(b ^ p for b, p in zip(self._ciphertext, self._nonce)))
+        cipher = Cipher(
+            algorithms.AES(memoryview(self._key)),
+            # cryptography's GCM API deliberately requires an immutable bytes tag.
+            # This short-lived copy is authentication metadata, not protected plaintext.
+            modes.GCM(memoryview(self._nonce), bytes(self._tag)),
+        )
+        decryptor = cipher.decryptor()
+        # update_into requires room for up to block_size - 1 extra bytes.
+        plaintext = bytearray(len(self._ciphertext) + 15)
+        written = decryptor.update_into(self._ciphertext, plaintext)
+        tail = decryptor.finalize()
+        if tail:
+            # GCM/AES should not leave plaintext in finalize after update_into.
+            secure_zero_memory(plaintext)
+            raise SecureMemoryError("unexpected final plaintext allocation")
+        del plaintext[written:]
 
+        locked = lock_memory_buffer(plaintext)
+        if self.require_memory_lock and not locked:
+            secure_zero_memory(plaintext)
+            raise MemoryLockError("mandatory plaintext page locking could not be established")
+
+        view = memoryview(plaintext).toreadonly()
         try:
-            yield bytes(decrypted)
+            yield view
         finally:
-            secure_zero_memory(decrypted)
+            view.release()
+            secure_zero_memory(plaintext)
+            if locked:
+                unlock_memory_buffer(plaintext)
 
     def zeroize(self) -> None:
-        """Erase and zeroize all cryptographic key material and ciphertext from RAM."""
-        if not self._is_zeroized:
-            secure_zero_memory(self._key)
-            secure_zero_memory(self._nonce)
-            secure_zero_memory(self._ciphertext)
-            self._is_zeroized = True
+        """Erase request-scoped keys, nonce, tag and ciphertext."""
+        if self._is_zeroized:
+            return
+        for value in (self._ciphertext, self._tag, self._nonce, self._key):
+            secure_zero_memory(value)
+        if self._nonce_locked:
+            unlock_memory_buffer(self._nonce)
+        if self._key_locked:
+            unlock_memory_buffer(self._key)
+        self._is_zeroized = True
+
+    def __enter__(self) -> "SecureMemoryBuffer":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.zeroize()
 
     def __del__(self) -> None:
         try:
