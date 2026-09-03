@@ -199,7 +199,12 @@ del "%~f0"
             if k.startswith("_MEI") or k.startswith("_PYI") or k.startswith("PYINSTALLER"):
                 clean_env.pop(k, None)
         subprocess.Popen(["cmd.exe", "/c", str(updater_bat)], creationflags=0x08000000, env=clean_env)
-        sys.exit(0)
+        # sys.exit() only unwinds the calling thread: apply_windows_update()
+        # runs inside a ThreadingHTTPServer request-handler thread, so it
+        # never actually terminated the process, leaving the running .exe
+        # locked and the batch helper's "copy /y" silently failing. os._exit()
+        # terminates the whole process unconditionally regardless of thread.
+        os._exit(0)
 
     def apply_linux_update(self, downloaded_pkg: Path) -> None:
         """Apply Linux update by restarting systemd service or extracting binary."""
