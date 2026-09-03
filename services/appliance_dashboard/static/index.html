@@ -391,6 +391,13 @@
       text-align: center;
       box-sizing: border-box;
     }
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      filter: grayscale(60%);
+      box-shadow: none;
+      transform: none;
+    }
     .btn-primary {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       color: #000;
@@ -897,30 +904,45 @@
             </select>
           </div>
         </div>
+      </div>
 
+      <div class="config-card" id="system-actions-card">
+        <div class="section-title">⚙️ System Actions</div>
         <div class="btn-row">
-          <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
-          <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: var(--accent-emerald);">🛡️ Check Signed Update</button>
-          <button class="btn btn-secondary linux-only" id="btn-os-upgrade" onclick="runOSUpgrade()" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: var(--accent-cyan);">📦 OS System Upgrade (Debian)</button>
+          <button class="btn btn-primary" id="btn-save-config" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
+          <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()">🛡️ Check Signed Update</button>
+          <button class="btn btn-secondary linux-only" id="btn-os-upgrade" onclick="runOSUpgrade()">📦 OS System Upgrade (Debian)</button>
           <button class="btn btn-secondary" id="btn-restart-daemon" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger linux-only" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
         </div>
+        <span class="form-desc" id="clone-lock-notice" style="display:none; color: var(--accent-amber); font-weight: 600;">
+          🔒 Gesperrt, solange das Spiegeln auf die SSD läuft — Neustarts oder Updates könnten den Kopiervorgang beschädigen.
+        </span>
+      </div>
 
-        <div class="form-group linux-only" id="usb-clone-section" style="display:none; margin-top: 24px; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 16px; background: rgba(239, 68, 68, 0.06);">
-          <label class="form-label" style="color: var(--accent-red, #ef4444);">⚠️ Von USB gebootet: Auf interne SSD spiegeln</label>
-          <p class="form-desc" id="usb-clone-source-desc"></p>
-          <p class="form-desc" style="color: var(--accent-red, #ef4444); font-weight: 600;">
-            Das überschreibt ALLE Daten auf dem Zielgerät unwiderruflich. Nach dem Spiegeln musst du im BIOS/UEFI selbst von der SSD statt USB booten (das kann diese Software nicht automatisch umstellen).
-          </p>
-          <select id="usb-clone-target" class="form-select" style="margin-bottom: 8px;"></select>
-          <input type="text" id="usb-clone-confirm" class="form-input" placeholder="Zur Bestätigung eintippen: ERASE AND CLONE" style="margin-bottom: 8px;">
-          <button class="btn btn-danger" id="btn-usb-clone-start" onclick="startUsbClone()">🔥 Spiegeln starten (unwiderruflich)</button>
-          <div id="usb-clone-progress" style="display:none; margin-top: 12px;">
-            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; height: 20px;">
-              <div id="usb-clone-progress-bar" style="background: var(--accent-red, #ef4444); height: 100%; width: 0%; transition: width 0.5s;"></div>
-            </div>
-            <span id="usb-clone-progress-text" class="form-desc"></span>
+      <div class="config-card linux-only" id="usb-clone-section" style="display:none; border: 1px solid rgba(244, 63, 94, 0.35);">
+        <div class="section-title" style="color: var(--accent-rose);">⚠️ Von USB gebootet: Auf interne SSD spiegeln</div>
+        <span class="badge" style="display:inline-block; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.4); color: var(--accent-rose); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 700; margin-bottom: 0.6rem;">
+          UNWIDERRUFLICH — ÜBERSCHREIBT ALLE DATEN AUF DEM ZIEL
+        </span>
+        <p class="form-desc" id="usb-clone-source-desc"></p>
+        <p class="form-desc">
+          Nach dem Spiegeln musst du im BIOS/UEFI selbst von der SSD statt USB booten (das kann diese Software nicht automatisch umstellen).
+        </p>
+        <div class="form-group">
+          <label class="form-label">Zielgerät</label>
+          <select id="usb-clone-target" class="form-select"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Zur Bestätigung eintippen: <code>ERASE AND CLONE</code></label>
+          <input type="text" id="usb-clone-confirm" class="form-input" placeholder="ERASE AND CLONE">
+        </div>
+        <button class="btn btn-danger" id="btn-usb-clone-start" onclick="startUsbClone()">🔥 Spiegeln starten (unwiderruflich)</button>
+        <div id="usb-clone-progress" style="display:none; margin-top: 1rem;">
+          <div style="background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; height: 20px;">
+            <div id="usb-clone-progress-bar" style="background: var(--accent-rose); height: 100%; width: 0%; transition: width 0.5s;"></div>
           </div>
+          <span id="usb-clone-progress-text" class="form-desc"></span>
         </div>
       </div>
     </div>
@@ -1528,34 +1550,63 @@
           return;
         }
         showToast('Spiegeln gestartet...');
-        document.getElementById('usb-clone-progress').style.display = 'block';
-        document.getElementById('btn-usb-clone-start').disabled = true;
         pollUsbCloneProgress();
       } catch (e) {
         showToast('Spiegeln fehlgeschlagen: ' + e, false);
       }
     }
 
+    let cloneWasRunning = false;
+
+    // While a whole-disk clone is running, every other action that could
+    // restart/reboot the appliance (or start a second clone) must be
+    // disabled -- interrupting dd mid-write can leave the target disk
+    // unbootable. Polls continuously (not just after clicking Start) so a
+    // page reload or a fresh visit from another device also picks up an
+    // already-running clone immediately.
+    function setActionsLocked(locked) {
+      const lockIds = ['btn-save-config', 'ota-update-button', 'btn-os-upgrade', 'btn-restart-daemon', 'btn-reboot-node', 'btn-usb-clone-start'];
+      lockIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = locked;
+      });
+      const card = document.getElementById('system-actions-card');
+      if (card) card.style.opacity = locked ? '0.5' : '1';
+      const notice = document.getElementById('clone-lock-notice');
+      if (notice) notice.style.display = locked ? 'block' : 'none';
+    }
+
     async function pollUsbCloneProgress() {
       try {
         const res = await fetch('/api/action/clone_status');
         const s = await res.json();
+        const progressEl = document.getElementById('usb-clone-progress');
         const bar = document.getElementById('usb-clone-progress-bar');
         const text = document.getElementById('usb-clone-progress-text');
-        if (bar) bar.style.width = s.percent + '%';
-        if (text) text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}`;
+        setActionsLocked(s.running);
+        if (s.running || s.done) {
+          if (progressEl) progressEl.style.display = 'block';
+          if (bar) bar.style.width = s.percent + '%';
+          if (text) text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}`;
+        }
         if (s.running) {
+          cloneWasRunning = true;
           setTimeout(pollUsbCloneProgress, 3000);
         } else if (s.done) {
-          if (s.error) {
-            showToast('Spiegeln fehlgeschlagen: ' + s.error, false);
-          } else {
-            showToast('✓ Spiegeln abgeschlossen. Wechsle im BIOS/UEFI auf die interne SSD als Bootlaufwerk.', true);
+          if (cloneWasRunning) {
+            if (s.error) {
+              showToast('Spiegeln fehlgeschlagen: ' + s.error, false);
+            } else {
+              showToast('✓ Spiegeln abgeschlossen. Wechsle im BIOS/UEFI auf die interne SSD als Bootlaufwerk.', true);
+            }
+            cloneWasRunning = false;
           }
-          document.getElementById('btn-usb-clone-start').disabled = false;
+          setTimeout(pollUsbCloneProgress, 10000);
+        } else {
+          setTimeout(pollUsbCloneProgress, 10000);
         }
       } catch (e) {
-        setTimeout(pollUsbCloneProgress, 5000);
+        setTimeout(pollUsbCloneProgress, 10000);
       }
     }
 
@@ -1643,12 +1694,14 @@
         updateDashboard();
         refreshReleaseStatus();
         checkUsbCloneAvailability();
+        pollUsbCloneProgress();
       });
     } else {
       handleInitialRouting();
       updateDashboard();
       refreshReleaseStatus();
       checkUsbCloneAvailability();
+      pollUsbCloneProgress();
     }
 
     window.addEventListener('hashchange', handleInitialRouting);
