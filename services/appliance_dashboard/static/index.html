@@ -709,7 +709,7 @@
       </div>
       <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1.5rem; justify-content: center;">
         <div class="remote-qr-box" id="remote-qr-container">
-          <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fmesh.inetconnector.com" alt="Scan QR Code">
+          <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=https%3A%2F%2Fmesh.inetconnector.com" alt="Scan QR Code">
           <span class="qr-label">📱 Handy-Scan (Webserver)</span>
         </div>
         <div class="remote-qr-box" id="lan-qr-container" style="display:none;">
@@ -1273,7 +1273,6 @@
             const chip = document.createElement('a');
             chip.className = 'ip-chip';
             chip.href = iface.url;
-            chip.target = '_blank';
             const isTunnel = iface.interface.toLowerCase() === 'tunnel' || iface.interface.toLowerCase() === 'web';
             if (isTunnel) {
               chip.style.borderColor = 'rgba(0, 240, 255, 0.5)';
@@ -1287,7 +1286,7 @@
 
           const qrImg = document.getElementById('remote-qr-code');
           if (qrImg && (!qrImg.dataset.loaded || qrImg.dataset.url !== tunnelUrl)) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(tunnelUrl)}`;
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(tunnelUrl)}`;
             qrImg.dataset.loaded = 'true';
             qrImg.dataset.url = tunnelUrl;
           }
@@ -1301,7 +1300,7 @@
           const lanQrImg = document.getElementById('lan-qr-code');
           if (lanIface && lanQrContainer && lanQrImg) {
             if (!lanQrImg.dataset.loaded || lanQrImg.dataset.url !== lanIface.url) {
-              lanQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(lanIface.url)}`;
+              lanQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(lanIface.url)}`;
               lanQrImg.dataset.loaded = 'true';
               lanQrImg.dataset.url = lanIface.url;
             }
