@@ -11,6 +11,7 @@ from protocol.confidential_envelope import (
     decrypt_in_attested_recipient,
     generate_attested_recipient_keypair,
 )
+from protocol.confidential_request_contract import create_committed_attestation_nonce
 from protocol.confidential_stream import encrypt_stream_event_in_attested_recipient
 from services.common.secure_memory import secure_zero_memory
 
@@ -23,13 +24,19 @@ class FakeStreamingTransport:
     def __init__(self) -> None:
         self.private_key, self.public_key = generate_attested_recipient_keypair()
         self.node_id = "node-stream-1"
-        self.nonce = "nonce-stream-1"
+        self.nonce = ""
         self.account_id = "owner-stream-1"
         self.last_plaintext_request = None
         self.remote_wire_repr = ""
 
     def create_session(self, **kwargs):
         now = datetime.now(UTC)
+        self.nonce = create_committed_attestation_nonce(
+            model_id=kwargs["model"],
+            max_prompt_tokens=kwargs["max_prompt_tokens"],
+            max_completion_tokens=kwargs["max_completion_tokens"],
+            entropy=b"s" * 32,
+        )
         attestation = {
             "schema_version": 1,
             "node_id": self.node_id,
