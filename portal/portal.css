@@ -640,12 +640,18 @@ pre code {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 2.25rem;
   position: relative;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+.modal-box.modal-lg {
+  max-width: 960px;
+  width: 94vw;
+  padding: 2.5rem;
 }
 
 .modal-close {
@@ -1204,60 +1210,67 @@ footer.site-footer {
 .conv-options-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-  margin-top: 1rem;
+  gap: 1.75rem;
+  margin-top: 1.5rem;
 }
 
 .conv-card {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.85);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem 1.75rem 1.75rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   position: relative;
+  min-height: 290px;
+  box-sizing: border-box;
 }
 
 .conv-card.highlight {
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 25px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.12);
 }
 
 .conv-card.emerald {
-  border-color: rgba(16, 185, 129, 0.5);
-  box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.12);
 }
 
 .conv-card-badge {
   position: absolute;
-  top: -10px;
-  right: 15px;
-  font-size: 0.7rem;
+  top: 1.25rem;
+  right: 1.25rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: var(--primary);
-  color: white;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  letter-spacing: 0.04em;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
 }
 
 .conv-card-badge.emerald {
-  background: var(--accent-emerald);
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
 }
 
 .conv-cli-box {
   background: #020617;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-sm);
-  padding: 0.5rem 0.75rem;
-  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem;
+  margin: 1rem 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: #38bdf8;
+  gap: 0.5rem;
   overflow: hidden;
 }
 
@@ -1265,18 +1278,23 @@ footer.site-footer {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: all;
+  flex: 1;
 }
 
 .btn-copy-code {
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
-  padding: 0.1rem 0.3rem;
+  padding: 0.25rem 0.5rem;
   color: var(--text-muted);
+  transition: all 0.15s ease;
 }
 
 .btn-copy-code:hover {
+  background: rgba(255, 255, 255, 0.15);
   color: var(--text-main);
 }
 
