@@ -16,7 +16,18 @@ from typing import Any
 
 from services.common.config import CONFIG
 
-REGISTRY_FILE = Path("/tmp/computemesh_node_registry.json") if sys.platform != "win32" else Path.home() / ".computemesh" / "node_registry.json"
+def _resolve_registry_file() -> Path:
+    if sys.platform == "win32":
+        return Path.home() / ".computemesh" / "node_registry.json"
+    p = Path("/var/lib/computemesh/node_registry.json")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+    except Exception:
+        return Path("/tmp/computemesh_node_registry.json")
+
+
+REGISTRY_FILE = _resolve_registry_file()
 _registry_lock = threading.Lock()
 
 
