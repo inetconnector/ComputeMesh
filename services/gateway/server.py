@@ -407,13 +407,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
             live_nodes = fresh_node_telemetry_entries()
             fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
 
+            from tools.appliance.hardware_detector import is_integrated_display_adapter
+
             nodes_out = []
             total_vram_bytes = 0
             total_tflops = 0.0
             for n in fleet_nodes:
                 inv = n.get("inventory", {})
                 telem = n.get("telemetry", {})
-                node_vram = int(inv.get("total_vram_bytes", 0) or 0)
+                gpus = inv.get("gpus", [])
+                healthy_gpus = [
+                    g for g in gpus
+                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+                ]
+                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
+                    node_vram = inv.get("total_vram_bytes", 0)
                 node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
                 total_vram_bytes += node_vram
                 total_tflops += node_tflops
@@ -421,7 +430,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "node_id": n.get("node_id"),
                     "vram_gb": round(node_vram / (1024**3), 1),
                     "tflops": round(node_tflops, 1),
-                    "gpus": [g.get("model_name") for g in inv.get("gpus", [])],
+                    "gpus": [g.get("model_name") for g in gpus],
                     "updated_at": n.get("updated_at"),
                 })
 
