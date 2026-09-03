@@ -224,7 +224,9 @@ class SecureMemoryBuffer:
 
         cipher = Cipher(
             algorithms.AES(memoryview(self._key)),
-            modes.GCM(memoryview(self._nonce), memoryview(self._tag)),
+            # cryptography's GCM API deliberately requires an immutable bytes tag.
+            # This short-lived copy is authentication metadata, not protected plaintext.
+            modes.GCM(memoryview(self._nonce), bytes(self._tag)),
         )
         decryptor = cipher.decryptor()
         # update_into requires room for up to block_size - 1 extra bytes.
