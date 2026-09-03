@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-08-30 21:09 CEST
-**Release Version:** `v1.2.19`
-**Test Suite Status:** `412/412 PASSED (100% OK in 16.31s)` across all 9 categories
-**Git Baseline:** Branch `main` after simplifying the public README entry text, cleaning merged remote branches/failed Actions runs and updating CI actions to Node-24-compatible major versions
+**Last updated:** 2026-09-03 22:55 CEST
+**Release Version:** `v1.2.22`
+**Test Suite Status:** `561/561 PASSED (100% OK in 25.94s)` across all 10 categories
+**Git Baseline:** Branch `main` with Public Executor v2 upgrade (N-stage and multi-GPU routing), NodeOS disk clone, fleet owner-key binding, and Windows platform dashboard views
 
 ---
 
@@ -2184,3 +2184,24 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Cryptographically signed `portal/updates/version.json` with Master Ed25519 key (`[VALID OK]`).
    - Unified test harness (`python run_all_tests.py`): **444/444 tests passed in 19.36s (100% OK)**.
    - Deployed and live-verified on `supersrv-trixie` (`computemesh-gateway.service`, `computemesh-node.service`, `computemesh-autoupdate.service` all active).
+
+## 73. Public Executor v2 Upgrade & N-Stage/Multi-GPU Pipeline Support (2026-09-03 22:55 CEST)
+
+1. **Public Placement Verification Boundary (`services/orchestrator/placement_provider.py`):**
+   - Upgraded `PlacementPlan` and `_external_plan()` to support `executor_version = 2` for arbitrary $N$-stage pipelines ($N \ge 2$).
+   - Supported optional per-stage `device_index` to route compute stages directly to individual GPUs on multi-GPU nodes/rigs.
+   - Preserved strict backward compatibility for legacy 2-stage `executor_version = 1` plans.
+   - Strict fail-closed verification ensures contiguous layer coverage from layer 0 to `layer_count` without gaps or overlaps.
+
+2. **Public Live Shared Runtime (`services/orchestrator/live_shared_runtime.py`):**
+   - `LiveSharedRuntimeRegistry.build_execution_plan()` now advertises `executor_max_stages = 8` and `executor_version = 2` to the private scheduler.
+   - Generalized `TrialPlan` and `LiveSharedRuntimeRegistry._trial_from_plan()` to construct $N$-stage execution plans.
+   - Pipeline network connectivity and runtime build compatibility are verified across all adjacent pipeline stages ($S_0 \to S_1 \to \dots \to S_{N-1}$).
+
+3. **Trial Runtime Dataclass (`runtime/llama/shared_trial.py`):**
+   - Generalized `TrialPlan.tensor_split` to `tuple[float, ...]` and `TrialPlan.layer_ranges` to `tuple[dict[str, Any], ...]`.
+
+4. **Testing & QA Verification:**
+   - Added unit tests in `tests/test_placement_provider_boundary.py` covering 3-stage signed plans, per-device indices, and gap rejections.
+   - Added 3-stage live pipeline test in `services/orchestrator/tests/test_live_shared_runtime.py`.
+   - Unified test harness (`python run_all_tests.py`): **561/561 tests passed in 25.94s (100% OK)** across all 10 subsystems.

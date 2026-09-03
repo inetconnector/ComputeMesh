@@ -168,8 +168,43 @@ class LiveSharedRuntimeTests(unittest.TestCase):
             bench("tcp_network_path", "net", 3, local_node_id="node-a", peer_node_id="node-b"),
         )
         registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
-        with self.assertRaises(LiveSharedRuntimeError):
-            registry.build_execution_plan("test-model", allow_experimental=True)
+    def test_production_provider_builds_n_stage_plan(self):
+        class _ThreeStageProvider:
+            def decide(self, **inputs):
+                return PlacementPlan(
+                    decision_id="private-n-stage-1",
+                    model_id="test-model",
+                    artifact_digest=DIGEST,
+                    artifact_size_bytes=8_000_000_000,
+                    layer_count=30,
+                    coordinator_node_id="node-a",
+                    coordinator_kind="gpu",
+                    coordinator_name="GPU A",
+                    worker_node_id="node-b",
+                    layer_ranges=(("node-a", 0, 10), ("node-b", 10, 20), ("node-c", 20, 30)),
+                    tensor_split=(10.0, 10.0, 10.0),
+                    device_indices=(0, 0, 0),
+                    executor_version=2,
+                )
+
+        provider = _ThreeStageProvider()
+        registry = configured_registry(control=_ControlClient(("node-a", "node-b", "node-c")), provider=provider)
+        registry.register_node(live_node("node-a", 10_000_000_000, 50051))
+        registry.register_node(live_node("node-b", 10_000_000_000, 50052))
+        registry.register_node(live_node("node-c", 8_000_000_000, 50053))
+        for source, target in (("node-a", "node-b"), ("node-b", "node-c")):
+            registry.register_network_result(
+                source,
+                target,
+                bench("tcp_network_path", f"{source}-{target}", 3, local_node_id=source, peer_node_id=target),
+            )
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=30), Path("/models/model.gguf")))
+        live = registry.build_execution_plan("test-model", allow_experimental=False)
+        self.assertEqual(live.placement.provider_node_ids, ("node-a", "node-b", "node-c"))
+        self.assertEqual(len(live.trial_plan.layer_ranges), 3)
+        self.assertEqual(live.trial_plan.layer_ranges[0]["start_layer"], 0)
+        self.assertEqual(live.trial_plan.layer_ranges[1]["start_layer"], 10)
+        self.assertEqual(live.trial_plan.layer_ranges[2]["start_layer"], 20)
 
 
 if __name__ == "__main__":

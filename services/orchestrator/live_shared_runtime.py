@@ -161,7 +161,7 @@ class LiveSharedRuntimeRegistry:
             model_size_bytes=plan.artifact_size_bytes,
             model_sha256=plan.artifact_digest.removeprefix("sha256:"),
             tensor_split=plan.tensor_split,
-            layer_ranges=(ranges[0], ranges[1]),
+            layer_ranges=ranges,
         )
 
     def _reference_plan(self, model: LiveModelState, nodes: list[LiveNodeState], networks: dict[tuple[str, str], dict[str, Any]], provider: PlacementProvider) -> PlacementPlan:
@@ -199,7 +199,7 @@ class LiveSharedRuntimeRegistry:
         allow_experimental: bool,
         avoid_provider_sets: tuple[frozenset[str], ...] = (),
     ) -> LiveExecutionPlan:
-        if len(avoid_provider_sets) > 8 or any(len(item) != 2 for item in avoid_provider_sets):
+        if len(avoid_provider_sets) > 8 or any(len(item) < 2 for item in avoid_provider_sets):
             raise LiveSharedRuntimeError("invalid recovery provider-set constraints")
         with self._lock:
             model = self._models.get(model_id)
@@ -247,7 +247,8 @@ class LiveSharedRuntimeRegistry:
                     network_edges=network_edges,
                     constraints={
                         "topology": "shared_contiguous_layers",
-                        "executor_max_stages": 2,
+                        "executor_max_stages": 8,
+                        "executor_version": 2,
                         "avoid_provider_sets": recovery_sets,
                     },
                 )
@@ -259,15 +260,28 @@ class LiveSharedRuntimeRegistry:
         worker = by_id.get(plan.worker_node_id)
         if coordinator is None or worker is None:
             raise LiveSharedRuntimeError("signed placement selected a node outside the submitted live snapshot")
-        network_result = networks.get((plan.coordinator_node_id, plan.worker_node_id))
-        if network_result is None:
-            raise LiveSharedRuntimeError("signed placement selected an unmeasured network path")
-        if coordinator.llama_build_number != worker.llama_build_number or coordinator.llama_build_commit.lower() != worker.llama_build_commit.lower():
-            raise LiveSharedRuntimeError("signed placement selected runtime-incompatible nodes")
+        
+        stage_nodes = [item[0] for item in plan.layer_ranges]
+        for node_id_elem in stage_nodes:
+            if node_id_elem not in by_id:
+                raise LiveSharedRuntimeError(f"signed placement selected node {node_id_elem!r} outside submitted live snapshot")
+            st = by_id[node_id_elem]
+            if st.llama_build_number != coordinator.llama_build_number or st.llama_build_commit.lower() != coordinator.llama_build_commit.lower():
+                raise LiveSharedRuntimeError("signed placement selected runtime-incompatible nodes")
+
+        for i in range(len(stage_nodes) - 1):
+            s_src, s_tgt = stage_nodes[i], stage_nodes[i + 1]
+            if s_src != s_tgt and (s_src, s_tgt) not in networks and (s_tgt, s_src) not in networks:
+                raise LiveSharedRuntimeError(f"signed placement selected an unmeasured network path: {s_src}->{s_tgt}")
+
+        network_result = networks.get((plan.coordinator_node_id, plan.worker_node_id)) or {}
         if plan.model_id != model_id:
             raise LiveSharedRuntimeError("signed placement model mismatch")
-        if frozenset((plan.coordinator_node_id, plan.worker_node_id)) in avoid_provider_sets:
-            raise LiveSharedRuntimeError("signed placement violated private recovery exclusion")
+        
+        stage_node_set = frozenset(stage_nodes)
+        for avoided in avoid_provider_sets:
+            if avoided.issubset(stage_node_set):
+                raise LiveSharedRuntimeError("signed placement violated private recovery exclusion")
 
         return LiveExecutionPlan(
             placement=_selection_from_plan(plan),

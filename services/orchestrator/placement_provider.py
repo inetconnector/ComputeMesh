@@ -36,23 +36,36 @@ class PlacementPlan:
     worker_node_id: str
     layer_ranges: tuple[tuple[str, int, int], ...]
     tensor_split: tuple[float, ...]
+    device_indices: tuple[int | None, ...] = ()
+    executor_version: int = 1
 
     def __post_init__(self) -> None:
         if not self.decision_id or not self.model_id or not self.artifact_digest:
             raise ValueError("placement identifiers must be non-empty")
         if self.artifact_size_bytes < 1 or self.layer_count < 2:
             raise ValueError("placement model metadata is invalid")
-        if not self.coordinator_node_id or not self.worker_node_id or self.coordinator_node_id == self.worker_node_id:
-            raise ValueError("placement requires distinct coordinator and worker")
-        if len(self.layer_ranges) != 2 or len(self.tensor_split) != 2:
-            raise ValueError("current live executor requires exactly two placement stages")
+        if not self.coordinator_node_id or not self.worker_node_id:
+            raise ValueError("placement requires coordinator and worker identifiers")
+        if self.executor_version == 1:
+            if self.coordinator_node_id == self.worker_node_id:
+                raise ValueError("placement requires distinct coordinator and worker")
+            if len(self.layer_ranges) != 2 or len(self.tensor_split) != 2:
+                raise ValueError("current live executor requires exactly two placement stages")
+            if {item[0] for item in self.layer_ranges} != {self.coordinator_node_id, self.worker_node_id}:
+                raise ValueError("placement layer ranges do not match selected nodes")
+        else:
+            if len(self.layer_ranges) < 2 or len(self.tensor_split) != len(self.layer_ranges):
+                raise ValueError("executor_version=2 placement requires at least two stages")
+            if self.coordinator_node_id not in {item[0] for item in self.layer_ranges}:
+                raise ValueError("coordinator must be one of the stage nodes")
         if any(value <= 0 for value in self.tensor_split):
             raise ValueError("tensor split entries must be positive")
         ordered = sorted(self.layer_ranges, key=lambda item: item[1])
-        if ordered[0][1] != 0 or ordered[0][2] != ordered[1][1] or ordered[-1][2] != self.layer_count:
-            raise ValueError("placement layer ranges must be contiguous and cover the model")
-        if {item[0] for item in self.layer_ranges} != {self.coordinator_node_id, self.worker_node_id}:
-            raise ValueError("placement layer ranges do not match selected nodes")
+        if ordered[0][1] != 0 or ordered[-1][2] != self.layer_count:
+            raise ValueError("placement layer ranges must cover the model from layer 0 to layer_count")
+        for idx in range(len(ordered) - 1):
+            if ordered[idx][2] != ordered[idx + 1][1]:
+                raise ValueError("placement layer ranges must be contiguous without gaps or overlaps")
 
 
 class PlacementProvider(Protocol):
@@ -149,17 +162,25 @@ def _external_plan(value: dict[str, Any]) -> PlacementPlan:
     if not isinstance(payload, dict):
         raise PlacementProviderError("private placement response lacks payload")
     model, execution = payload.get("model"), payload.get("execution")
-    if not isinstance(model, dict) or not isinstance(execution, dict) or execution.get("executor_version") != 1:
+    if not isinstance(model, dict) or not isinstance(execution, dict):
         raise PlacementProviderError("private placement response lacks supported execution data")
+    exec_version = execution.get("executor_version", 1)
+    if exec_version not in (1, 2):
+        raise PlacementProviderError(f"unsupported executor_version: {exec_version}")
     coordinator = execution.get("coordinator")
     stages = execution.get("stages")
-    if not isinstance(coordinator, dict) or not isinstance(stages, list) or len(stages) != 2:
+    if not isinstance(coordinator, dict) or not isinstance(stages, list):
+        raise PlacementProviderError("private placement execution must include coordinator and stages")
+    if exec_version == 1 and len(stages) != 2:
         raise PlacementProviderError("current public executor requires exactly two signed stages")
+    if exec_version == 2 and len(stages) < 2:
+        raise PlacementProviderError("executor_version=2 requires at least two signed stages")
     try:
         ranges = tuple((str(item["node_id"]), int(item["start_layer"]), int(item["end_layer_exclusive"])) for item in stages)
         split = tuple(float(item["tensor_weight"]) for item in stages)
+        device_indices = tuple((int(item["device_index"]) if item.get("device_index") is not None else None) for item in stages)
         coordinator_id = str(coordinator["node_id"])
-        worker_id = next(item[0] for item in ranges if item[0] != coordinator_id)
+        worker_id = next((item[0] for item in ranges if item[0] != coordinator_id), coordinator_id)
         return PlacementPlan(
             decision_id=str(value["decision_id"]),
             model_id=str(model["model_id"]),
@@ -172,6 +193,8 @@ def _external_plan(value: dict[str, Any]) -> PlacementPlan:
             worker_node_id=worker_id,
             layer_ranges=ranges,
             tensor_split=split,
+            device_indices=device_indices,
+            executor_version=exec_version,
         )
     except (KeyError, StopIteration, TypeError, ValueError) as exc:
         raise PlacementProviderError("private placement payload contains invalid execution data") from exc

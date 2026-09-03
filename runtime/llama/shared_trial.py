@@ -72,8 +72,8 @@ class TrialPlan:
     model_basename: str
     model_size_bytes: int
     model_sha256: str
-    tensor_split: tuple[float, float]
-    layer_ranges: tuple[dict[str, Any], dict[str, Any]]
+    tensor_split: tuple[float, ...]
+    layer_ranges: tuple[dict[str, Any], ...]
 
 
 def _reject_constant(value: str) -> None:
