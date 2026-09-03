@@ -599,7 +599,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if p_id not in NODE_TELEMETRY_REGISTRY or NODE_TELEMETRY_REGISTRY[p_id].get("is_peer_relay", False):
                         NODE_TELEMETRY_REGISTRY[p_id] = {
                             "node_id": p_id,
-                            "auth_token": f"peer_relayed_{p_id}",
+                            # Deliberately no auth_token: a synthetic token here
+                            # would permanently lock the real node p_id out of
+                            # its own registry slot, since its real auth_token
+                            # would then never match this placeholder and every
+                            # subsequent direct heartbeat from p_id would be
+                            # rejected as a mismatch until 5-minute staleness.
+                            "auth_token": "",
                             "is_peer_relay": True,
                             "inventory": {
                                 "total_vram_bytes": p_vram_bytes,
