@@ -1,11 +1,11 @@
 """Canonical commitments for confidential ComputeMesh attestation nonces.
 
-`cmrc1` is retained only for backwards-compatible unit contracts that commit the
-OpenAI model and token reservation.  Production protected sessions use `cmrc2`:
-the vendor-attested nonce commits the complete content-free session boundary,
-including account/job, selected node, runtime measurement, ephemeral encryption
-and metering keys, TLS leaf pin, privacy class and operation.  A verifier that
-accepts only a vendor nonce but not this complete commitment is insufficient.
+`cmrc1` commits only the OpenAI model and token reservation and is retained for
+compatibility. Production protected sessions use `cmrc2`, which contains both the
+legacy request digest and a second digest over the complete content-free session
+boundary. This lets existing OpenAI request-contract checks continue to verify the
+model/budgets while the attestation verifier independently requires the stronger
+session digest.
 """
 from __future__ import annotations
 
@@ -85,7 +85,6 @@ def canonical_request_contract(
     max_prompt_tokens: int,
     max_completion_tokens: int,
 ) -> bytes:
-    """Return the legacy model/token-only commitment bytes."""
     model, prompt_limit, completion_limit = _validate_contract_values(
         model_id,
         max_prompt_tokens,
@@ -122,7 +121,7 @@ def create_committed_attestation_nonce(
     max_completion_tokens: int,
     entropy: bytes | None = None,
 ) -> str:
-    """Create the legacy `cmrc1` nonce for compatibility tests/callers."""
+    """Create the legacy `cmrc1` nonce for compatibility callers."""
     raw_entropy = entropy if entropy is not None else secrets.token_bytes(32)
     _validate_entropy(raw_entropy)
     digest = request_contract_sha256(
@@ -140,13 +139,18 @@ def verify_committed_attestation_nonce(
     max_prompt_tokens: int,
     max_completion_tokens: int,
 ) -> None:
-    """Verify the legacy model/token-only `cmrc1` commitment."""
-    digest, _ = _parse_nonce(nonce, prefix=ATTESTATION_NONCE_PREFIX)
+    """Verify the model/token portion of either a `cmrc1` or `cmrc2` nonce."""
     expected = request_contract_sha256(
         model_id=model_id,
         max_prompt_tokens=max_prompt_tokens,
         max_completion_tokens=max_completion_tokens,
     )
+    if isinstance(nonce, str) and nonce.startswith(SESSION_ATTESTATION_NONCE_PREFIX + ":"):
+        request_digest, _, _ = _parse_session_nonce(nonce)
+        if not hmac.compare_digest(request_digest, expected):
+            raise ConfidentialRequestContractError("attestation nonce request contract mismatch")
+        return
+    digest, _ = _parse_nonce(nonce, prefix=ATTESTATION_NONCE_PREFIX)
     if not hmac.compare_digest(digest, expected):
         raise ConfidentialRequestContractError("attestation nonce request contract mismatch")
 
@@ -199,15 +203,19 @@ def create_committed_session_attestation_nonce(
     entropy: bytes | None = None,
     **values: Any,
 ) -> str:
-    """Create a fresh `cmrc2` nonce committing the complete protected session.
-
-    A private broker may supply its own random `entropy`; the provider cannot then
-    replay an old session while still satisfying the broker's expected entropy.
-    """
+    """Create a fresh `cmrc2` nonce committing the complete protected session."""
     raw_entropy = entropy if entropy is not None else secrets.token_bytes(32)
     _validate_entropy(raw_entropy)
-    digest = session_request_contract_sha256(**values)
-    return f"{SESSION_ATTESTATION_NONCE_PREFIX}:{digest}:{raw_entropy.hex()}"
+    request_digest = request_contract_sha256(
+        model_id=values.get("model_id"),
+        max_prompt_tokens=values.get("max_prompt_tokens"),
+        max_completion_tokens=values.get("max_completion_tokens"),
+    )
+    session_digest = session_request_contract_sha256(**values)
+    return (
+        f"{SESSION_ATTESTATION_NONCE_PREFIX}:{request_digest}:"
+        f"{session_digest}:{raw_entropy.hex()}"
+    )
 
 
 def verify_committed_session_attestation_nonce(
@@ -217,13 +225,20 @@ def verify_committed_session_attestation_nonce(
     **values: Any,
 ) -> None:
     """Require a vendor-attested nonce bound to the complete protected session."""
-    digest, entropy = _parse_nonce(nonce, prefix=SESSION_ATTESTATION_NONCE_PREFIX)
+    request_digest, session_digest, entropy = _parse_session_nonce(nonce)
+    expected_request = request_contract_sha256(
+        model_id=values.get("model_id"),
+        max_prompt_tokens=values.get("max_prompt_tokens"),
+        max_completion_tokens=values.get("max_completion_tokens"),
+    )
+    if not hmac.compare_digest(request_digest, expected_request):
+        raise ConfidentialRequestContractError("attestation nonce request contract mismatch")
     if expected_entropy is not None:
         _validate_entropy(expected_entropy)
         if not hmac.compare_digest(entropy, expected_entropy):
             raise ConfidentialRequestContractError("attestation nonce freshness challenge mismatch")
-    expected = session_request_contract_sha256(**values)
-    if not hmac.compare_digest(digest, expected):
+    expected_session = session_request_contract_sha256(**values)
+    if not hmac.compare_digest(session_digest, expected_session):
         raise ConfidentialRequestContractError("attestation nonce session contract mismatch")
 
 
@@ -233,18 +248,36 @@ def _validate_entropy(value: Any) -> bytes:
     return value
 
 
+def _digest(value: str) -> str:
+    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        raise ConfidentialRequestContractError("invalid protected request contract digest")
+    return value
+
+
 def _parse_nonce(nonce: Any, *, prefix: str) -> tuple[str, bytes]:
     if not isinstance(nonce, str):
         raise ConfidentialRequestContractError("invalid committed attestation nonce")
     parts = nonce.split(":", 2)
     if len(parts) != 3 or parts[0] != prefix:
         raise ConfidentialRequestContractError("attestation nonce lacks protected request commitment")
-    digest, entropy_hex = parts[1], parts[2]
-    if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
-        raise ConfidentialRequestContractError("invalid protected request contract digest")
+    digest = _digest(parts[1])
+    entropy = _entropy_hex(parts[2])
+    return digest, entropy
+
+
+def _parse_session_nonce(nonce: Any) -> tuple[str, str, bytes]:
+    if not isinstance(nonce, str):
+        raise ConfidentialRequestContractError("invalid committed attestation nonce")
+    parts = nonce.split(":", 3)
+    if len(parts) != 4 or parts[0] != SESSION_ATTESTATION_NONCE_PREFIX:
+        raise ConfidentialRequestContractError("attestation nonce lacks protected session commitment")
+    return _digest(parts[1]), _digest(parts[2]), _entropy_hex(parts[3])
+
+
+def _entropy_hex(value: str) -> bytes:
     try:
-        entropy = bytes.fromhex(entropy_hex)
+        entropy = bytes.fromhex(value)
     except ValueError as exc:
         raise ConfidentialRequestContractError("invalid committed attestation nonce entropy") from exc
     _validate_entropy(entropy)
-    return digest, entropy
+    return entropy
