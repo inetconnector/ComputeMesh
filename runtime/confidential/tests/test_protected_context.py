@@ -15,6 +15,7 @@ from services.compliance.mesh_policy import ExecutionPrivacyClass
 class ProtectedContextTests(unittest.TestCase):
     def setUp(self) -> None:
         now = datetime.now(UTC)
+        self.tls_fingerprint = "sha256:" + "a" * 64
         self.context = ProtectedRequestContext(
             job_id="job-1",
             privacy_class=ExecutionPrivacyClass.CONFIDENTIAL,
@@ -22,6 +23,7 @@ class ProtectedContextTests(unittest.TestCase):
             attestation_nonce="nonce-1",
             expected_runtime_digest="sha256:runtime",
             ciphertext_recipient_public_key="ephemeral-pub",
+            data_plane_tls_sha256=self.tls_fingerprint,
         )
         self.attestation = {
             "schema_version": 1,
@@ -30,6 +32,7 @@ class ProtectedContextTests(unittest.TestCase):
             "measurement": "measurement-1",
             "runtime_digest": "sha256:runtime",
             "ephemeral_public_key": "ephemeral-pub",
+            "data_plane_tls_sha256": self.tls_fingerprint,
             "nonce": "nonce-1",
             "issued_at": (now - timedelta(seconds=1)).isoformat(),
             "expires_at": (now + timedelta(minutes=1)).isoformat(),
@@ -60,6 +63,7 @@ class ProtectedContextTests(unittest.TestCase):
         self.assertTrue(evidence.runtime_measurement_bound)
         self.assertTrue(evidence.ephemeral_key_bound)
         self.assertTrue(evidence.content_key_release_bound)
+        self.assertTrue(evidence.encrypted_data_plane)
 
     def test_runtime_digest_substitution_is_rejected(self) -> None:
         self.attestation["runtime_digest"] = "sha256:other"
@@ -69,6 +73,16 @@ class ProtectedContextTests(unittest.TestCase):
     def test_ephemeral_key_substitution_is_rejected(self) -> None:
         self.attestation["ephemeral_public_key"] = "attacker-key"
         with self.assertRaisesRegex(ProtectedContextError, "recipient"):
+            self._build()
+
+    def test_data_plane_tls_substitution_is_rejected(self) -> None:
+        self.attestation["data_plane_tls_sha256"] = "sha256:" + "b" * 64
+        with self.assertRaisesRegex(ProtectedContextError, "TLS identity"):
+            self._build()
+
+    def test_missing_data_plane_tls_binding_is_rejected(self) -> None:
+        self.attestation.pop("data_plane_tls_sha256")
+        with self.assertRaisesRegex(ProtectedContextError, "TLS identity"):
             self._build()
 
     def test_key_release_cross_job_reuse_is_rejected(self) -> None:
@@ -102,6 +116,7 @@ class ProtectedContextTests(unittest.TestCase):
             attestation_nonce="nonce-1",
             expected_runtime_digest="sha256:runtime",
             ciphertext_recipient_public_key="ephemeral-pub",
+            data_plane_tls_sha256=self.tls_fingerprint,
         )
         with self.assertRaisesRegex(ProtectedContextError, "cannot be PUBLIC"):
             build_protected_execution_evidence(
