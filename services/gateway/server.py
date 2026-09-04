@@ -645,15 +645,18 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_binding_error: str | None = None
             owner_id = owner_id_for_key(owner_key)
             if owner_id:
-                try:
-                    OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
-                    OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
-                except OwnerAccountStoreError as exc:
-                    # Do not fail the heartbeat over a fleet-binding conflict
-                    # (e.g. this node_id already belongs to a different
-                    # owner_key) -- telemetry/pricing must keep working.
-                    owner_binding_error = str(exc)
-                    owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+                if OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
+                    owner_id = None
+                else:
+                    try:
+                        OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+                        OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
+                    except OwnerAccountStoreError as exc:
+                        # Do not fail the heartbeat over a fleet-binding conflict
+                        # (e.g. this node_id already belongs to a different
+                        # owner_key) -- telemetry/pricing must keep working.
+                        owner_binding_error = str(exc)
+                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             NODE_TELEMETRY_REGISTRY[node_id] = {

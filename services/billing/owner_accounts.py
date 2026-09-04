@@ -123,6 +123,14 @@ class OwnerAccountStore:
                     FOREIGN KEY(owner_id) REFERENCES owner_accounts(owner_id)
                 );
 
+                CREATE TABLE IF NOT EXISTS owner_unbound_nodes (
+                    provider_node_id TEXT NOT NULL,
+                    owner_id TEXT NOT NULL,
+                    unbound_at TEXT NOT NULL,
+                    PRIMARY KEY(provider_node_id, owner_id),
+                    FOREIGN KEY(owner_id) REFERENCES owner_accounts(owner_id)
+                );
+
                 CREATE TABLE IF NOT EXISTS owner_devices (
                     device_claim_id TEXT PRIMARY KEY,
                     owner_id TEXT NOT NULL,
@@ -222,7 +230,15 @@ class OwnerAccountStore:
             owner_id=owner_id,
         )
 
-    def bind_provider_node(self, owner_id: str, provider_node_id: str) -> None:
+    def bind_provider_node(self, owner_id: str, provider_node_id: str, *, clear_unbound: bool = False) -> None:
+        if clear_unbound:
+            oid = _clean_identifier(owner_id, field="owner_id")
+            nid = _clean_identifier(provider_node_id, field="provider_node_id")
+            with self._connection() as conn:
+                conn.execute(
+                    "DELETE FROM owner_unbound_nodes WHERE provider_node_id = ? AND owner_id = ?",
+                    (nid, oid),
+                )
         self._bind_unique(
             table="owner_provider_nodes",
             key_column="provider_node_id",
@@ -233,12 +249,29 @@ class OwnerAccountStore:
     def unbind_provider_node(self, owner_id: str, provider_node_id: str) -> bool:
         oid = _clean_identifier(owner_id, field="owner_id")
         nid = _clean_identifier(provider_node_id, field="provider_node_id")
+        now = utc_now()
         with self._connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM owner_provider_nodes WHERE provider_node_id = ? AND owner_id = ?",
                 (nid, oid),
             )
-            return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+            if self.get_owner(oid) is not None:
+                conn.execute(
+                    "INSERT OR REPLACE INTO owner_unbound_nodes(provider_node_id, owner_id, unbound_at) VALUES(?, ?, ?)",
+                    (nid, oid, now),
+                )
+            return deleted
+
+    def is_node_unbound(self, owner_id: str, provider_node_id: str) -> bool:
+        oid = _clean_identifier(owner_id, field="owner_id")
+        nid = _clean_identifier(provider_node_id, field="provider_node_id")
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM owner_unbound_nodes WHERE provider_node_id = ? AND owner_id = ?",
+                (nid, oid),
+            ).fetchone()
+            return row is not None
 
     def bind_device(
         self,
