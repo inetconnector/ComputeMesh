@@ -18,12 +18,15 @@
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">Support</span>
+        <span class="brand-badge">LIVE MESH</span>
       </a>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
         <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
         <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <button id="auth-nav-btn" class="btn btn-secondary" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span>
+        </button>
       </div>
     </div>
     <nav class="nav-sub-row">
@@ -36,6 +39,7 @@
           <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
         </ul>
       </div>
     </nav>

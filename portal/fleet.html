@@ -392,7 +392,7 @@
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3);" data-i18n="nav_fleet">⚡ Flotte verwalten</span>
+        <span class="brand-badge">LIVE MESH</span>
       </a>
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
@@ -413,7 +413,7 @@
           <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-          <li><a href="/fleet" class="active" style="color: var(--accent-cyan); font-weight: 700;">⚡ <span data-i18n="nav_fleet">Flotte verwalten</span></a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
         </ul>
       </div>
     </nav>
@@ -619,10 +619,6 @@
 
     window.onLanguageChanged = function(lang) {
       updateAuthNavBtn();
-      const btnDe = document.getElementById("lang-de");
-      const btnEn = document.getElementById("lang-en");
-      if (btnDe) btnDe.classList.toggle("active", lang === "de");
-      if (btnEn) btnEn.classList.toggle("active", lang === "en");
       if (isLoggedIn) {
         loadFleet(false);
       }
@@ -969,11 +965,6 @@
 
     // Auto-init on page load
     (async function initFleet() {
-      const lang = getLang();
-      const btnDe = document.getElementById("lang-de");
-      const btnEn = document.getElementById("lang-en");
-      if (btnDe) btnDe.classList.toggle("active", lang === "de");
-      if (btnEn) btnEn.classList.toggle("active", lang === "en");
       updateAuthNavBtn();
 
       // Check localStorage for saved key

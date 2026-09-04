@@ -799,6 +799,7 @@ function switchLanguage(lang) {
     localStorage.setItem('cm_portal_lang', lang);
   } catch (e) {}
   updateCalculators();
+  updateAuthNavBtn();
   if (typeof window.syncComplianceLanguage === 'function') {
     window.syncComplianceLanguage(lang);
   }
@@ -815,11 +816,99 @@ function toggleLanguage() {
   switchLanguage(nextLang);
 }
 
+function updateAuthNavBtn() {
+  const btn = document.getElementById('auth-nav-btn');
+  const icon = document.getElementById('auth-nav-btn-icon');
+  const text = document.getElementById('auth-nav-btn-text');
+  if (!btn) return;
+
+  const lang = window.getLang ? window.getLang() : 'de';
+  const hasSession = (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
+                     (document.cookie && document.cookie.includes('cm_session=')) ||
+                     (typeof localStorage !== 'undefined' && (Boolean(localStorage.getItem('cm_owner_key')) || Boolean(localStorage.getItem('cm_fleet_email'))));
+
+  if (hasSession) {
+    if (icon) icon.textContent = '🚪';
+    if (text) {
+      text.textContent = lang === 'de' ? 'Abmelden' : 'Sign out';
+      text.setAttribute('data-i18n', 'fleet_btn_logout');
+    }
+  } else {
+    if (icon) icon.textContent = '🔑';
+    if (text) {
+      text.textContent = lang === 'de' ? 'Anmelden' : 'Sign in';
+      text.setAttribute('data-i18n', 'fleet_btn_login_nav');
+    }
+  }
+}
+
+function handleAuthNavClick() {
+  if (typeof window.doLogout === 'function' && window.isLoggedIn) {
+    window.doLogout();
+    return;
+  }
+  const hasSession = (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
+                     (document.cookie && document.cookie.includes('cm_session=')) ||
+                     (typeof localStorage !== 'undefined' && (Boolean(localStorage.getItem('cm_owner_key')) || Boolean(localStorage.getItem('cm_fleet_email'))));
+
+  if (hasSession) {
+    try {
+      localStorage.removeItem('cm_owner_key');
+      localStorage.removeItem('cm_fleet_email');
+      document.cookie = 'cm_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    } catch (e) {}
+    if (typeof window.isLoggedIn !== 'undefined') {
+      window.isLoggedIn = false;
+    }
+    updateAuthNavBtn();
+    if (window.location.pathname.startsWith('/fleet')) {
+      window.location.reload();
+    }
+  } else {
+    if (window.location.pathname.startsWith('/fleet')) {
+      const authSec = document.getElementById('auth-section');
+      if (authSec) {
+        authSec.hidden = false;
+        authSec.scrollIntoView({ behavior: 'smooth' });
+        const emailInput = document.getElementById('auth-email');
+        if (emailInput) emailInput.focus();
+      }
+    } else {
+      window.location.href = '/fleet';
+    }
+  }
+}
+
+function initUnifiedPortalHeader() {
+  const header = document.querySelector('header.site-header');
+  if (!header) return;
+
+  const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+  const navLinks = header.querySelectorAll('.nav-links a');
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href) return;
+    const cleanHref = href.split('#')[0].replace(/\/$/, '') || '/';
+    if (cleanHref === currentPath && currentPath !== '/') {
+      link.classList.add('active');
+    } else if (cleanHref === '/' && currentPath === '/' && !href.includes('#')) {
+      link.classList.add('active');
+    } else {
+      link.classList.remove('active');
+    }
+  });
+
+  updateAuthNavBtn();
+}
+
 window.detectInitialLanguage = detectInitialLanguage;
 window.switchLanguage = switchLanguage;
 window.toggleLanguage = toggleLanguage;
 window.setLang = switchLanguage;
 window.getLang = function() { return currentLang || 'de'; };
+window.updateAuthNavBtn = updateAuthNavBtn;
+window.handleAuthNavClick = handleAuthNavClick;
+window.initUnifiedPortalHeader = initUnifiedPortalHeader;
 window.translations = translations;
 window.currentLang = currentLang;
 
@@ -919,9 +1008,13 @@ function showTab(tabName) {
 // Modal Registration
 function openModal(role = 'consumer') {
   const modal = document.getElementById('register-modal');
-  if (modal) modal.classList.add('active');
-  const select = document.getElementById('modal-role');
-  if (select) select.value = role;
+  if (modal) {
+    modal.classList.add('active');
+    const select = document.getElementById('modal-role');
+    if (select) select.value = role;
+  } else {
+    window.location.href = '/#register';
+  }
 }
 
 function closeModal() {
@@ -930,6 +1023,9 @@ function closeModal() {
   const resBox = document.getElementById('modal-result-box');
   if (resBox) resBox.style.display = 'none';
 }
+
+window.openModal = openModal;
+window.closeModal = closeModal;
 
 async function handleRegistration(e) {
   e.preventDefault();
@@ -1135,15 +1231,23 @@ function copyLinuxCommand() {
 
 function openDepositModal() {
   const modal = document.getElementById('deposit-modal');
-  if (modal) modal.classList.add('active');
-  const msgBox = document.getElementById('deposit-msg-box');
-  if (msgBox) msgBox.style.display = 'none';
+  if (modal) {
+    modal.classList.add('active');
+    const msgBox = document.getElementById('deposit-msg-box');
+    if (msgBox) msgBox.style.display = 'none';
+  } else {
+    window.location.href = '/#deposit';
+  }
 }
 
 function closeDepositModal() {
   const modal = document.getElementById('deposit-modal');
   if (modal) modal.classList.remove('active');
 }
+
+window.openDepositModal = openDepositModal;
+window.closeDepositModal = closeDepositModal;
+window.handleDepositSubmit = handleDepositSubmit;
 
 async function handleDepositSubmit(e) {
   e.preventDefault();
@@ -1705,6 +1809,7 @@ function initPortal() {
 
   const initialLang = detectInitialLanguage();
   switchLanguage(initialLang);
+  initUnifiedPortalHeader();
   
   document.getElementById('slider-tokens')?.addEventListener('input', updateCalculators);
   document.getElementById('select-model')?.addEventListener('change', updateCalculators);
