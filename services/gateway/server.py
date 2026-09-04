@@ -48,18 +48,16 @@ def _resolve_owner_account_store_path() -> Path:
 OWNER_ACCOUNT_STORE = OwnerAccountStore(_resolve_owner_account_store_path())
 
 
-DEFAULT_FLEET_OWNER_KEY = "inetconnector"
-
-
 def owner_id_for_key(owner_key: str) -> str | None:
     """Derive a stable owner_id from a shared fleet owner key.
 
     The raw key is never stored; only this derived id is persisted in
     OWNER_ACCOUNT_STORE, so recovering the original key from the database is
-    not possible. Nodes/queries with no owner_key fall back to the shared
-    DEFAULT_FLEET_OWNER_KEY so every node belongs to a fleet by default.
+    not possible. Requires a non-empty, valid secret key.
     """
-    cleaned = str(owner_key or "").strip() or DEFAULT_FLEET_OWNER_KEY
+    cleaned = str(owner_key or "").strip()
+    if not cleaned:
+        return None
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
 
 
