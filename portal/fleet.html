@@ -392,28 +392,29 @@
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border-color: rgba(56, 189, 248, 0.3);" data-i18n="nav_fleet">⚡ Flotte verwalten</span>
       </a>
-      <div class="nav-right" style="display:flex;align-items:center;gap:0.75rem;">
-        <div class="lang-switch">
-          <button id="lang-de" class="lang-btn active" onclick="setLang('de')">DE</button>
-          <button id="lang-en" class="lang-btn" onclick="setLang('en')">EN</button>
-        </div>
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <button id="auth-nav-btn" class="btn btn-secondary" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span>
+        </button>
       </div>
     </div>
     <nav class="nav-sub-row">
-      <div class="container nav-sub-container" style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+      <div class="container nav-sub-container">
         <ul class="nav-links">
-          <li><a href="/" data-i18n="nav_home">Home</a></li>
           <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li><a href="/#features" data-i18n="nav_features">Funktionen</a></li>
           <li><a href="/#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
           <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
           <li><a href="/fleet" class="active" style="color: var(--accent-cyan); font-weight: 700;">⚡ <span data-i18n="nav_fleet">Flotte verwalten</span></a></li>
         </ul>
-        <button id="auth-nav-btn" class="btn btn-secondary" style="font-size:0.82rem;padding:0.35rem 0.9rem;border-radius:6px;margin-left:auto;white-space:nowrap;" onclick="handleAuthNavClick()">
-          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span>
-        </button>
       </div>
     </nav>
   </header>
@@ -556,6 +557,10 @@
 
   </div>
 
+  <div id="register-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p><form id="registration-form" onsubmit="handleRegistration(event)"><div class="form-group"><label data-i18n="modal_role_lbl">Konto-Typ:</label><select id="modal-role" class="form-control"><option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option><option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option></select></div><div class="form-group"><label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label><input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com"></div><div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);"><div class="form-group" style="margin-bottom: 0;"><label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label><select id="cm-provider-country" class="form-control" style="cursor: pointer;"><option value="" data-i18n="modal_country_select">Land auswählen…</option><option value="DE">Deutschland (DE)</option><option value="AT">Österreich (AT)</option><option value="CH">Schweiz (CH)</option><option value="FR">Frankreich (FR)</option><option value="NL">Niederlande (NL)</option><option value="SE">Schweden (SE)</option><option value="NO">Norwegen (NO)</option><option value="FI">Finnland (FI)</option><option value="DK">Dänemark (DK)</option><option value="PL">Polen (PL)</option><option value="IT">Italien (IT)</option><option value="ES">Spanien (ES)</option><option value="IE">Irland (IE)</option><option value="BE">Belgien (BE)</option></select></div><div class="form-group" style="margin-bottom: 0;"><label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label><input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)"></div></div><div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;"><label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;"><input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> & <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span></label></div><button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button></form><div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;"><label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label><div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;"><input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);"><button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Schlüssel kopieren</button></div></div></div></div>
+
+  <div id="deposit-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeDepositModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p><form onsubmit="handleDepositSubmit(event)"><div class="form-group"><label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label><input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);"></div><div class="form-group"><label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label><select id="deposit-amount-select" class="form-control" style="cursor: pointer;"><option value="10">$10.00 USD (Starter)</option><option value="25" selected>$25.00 USD (Pro)</option><option value="50">$50.00 USD (Scale)</option><option value="100">$100.00 USD (Enterprise Light)</option><option value="500">$500.00 USD (High-Volume)</option></select></div><button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button></form><div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div></div></div>
+
   <footer class="site-footer">
     <div class="container">
       <div class="footer-bottom">
@@ -565,6 +570,7 @@
     </div>
   </footer>
 
+  <script src="/portal.js?v=2.5"></script>
   <script src="/portal-core.js?v=2.5"></script>
   <script>
     let isLoggedIn = false;
