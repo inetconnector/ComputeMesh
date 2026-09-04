@@ -330,7 +330,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence live-media=removable-usb
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
 """,
         encoding="utf-8",
     )
@@ -342,7 +342,7 @@ LABEL computemesh
 set timeout=3
 search --set=root --file /boot/vmlinuz
 menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media=removable-usb
+    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 """
@@ -401,20 +401,30 @@ menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
     # not just specific paths, so OS package upgrades are covered the same
     # way app updates and ~/.computemesh config are.
     #
-    # `live-media=removable-usb` (also wired into both boot configs above)
-    # closes a second, subtler failure mode: without it, live-boot's medium
-    # scan has no notion of "the device we actually booted from" -- it just
-    # searches block devices for a live filesystem with a matching label,
-    # preferring removable devices but falling back to fixed disks the
-    # instant one answers first. On real hardware the USB stick (behind a
-    # hub, slower to enumerate) can lose that race to an internal SSD/HDD
+    # `live-media-timeout=8` (also wired into both boot configs above)
+    # closes a second, subtler failure mode: live-boot's medium scan starts
+    # scanning immediately and takes whichever device answers its label
+    # search first, preferring removable devices but falling back to fixed
+    # disks the instant one answers. On real hardware the USB stick (behind
+    # a hub, slower to enumerate) can still be invisible to the kernel at
+    # the moment the scan runs and lose the race to an internal SSD/HDD
     # that happens to carry an old COMPUTEMESH-labeled image (e.g. from a
     # prior USB->SSD clone) -- live-boot mounts that stale disk instead,
     # finds no persistence partition on it, and silently falls back to the
     # ephemeral RAM overlay, so updates appear to "vanish" on next reboot
     # even though the USB stick's own persistence partition is fine.
-    # Restricting the scan to removable USB devices only removes the fixed
-    # disk from consideration entirely, so it can no longer win that race.
+    #
+    # An earlier version of this fix used `live-media=removable-usb`,
+    # which excludes fixed disks from the scan entirely -- that closes the
+    # race but also permanently breaks booting the SSD standalone once the
+    # USB stick that was used to flash it is removed (live-boot then finds
+    # *no* medium at all and drops to a rescue shell), which defeats the
+    # actual point of the USB->SSD clone feature. `live-media-timeout=8`
+    # instead only delays when the scan *starts* by up to 8 seconds,
+    # giving the USB controller time to enumerate before either the
+    # removable-first or the fixed-disk-fallback branch runs -- so a
+    # present USB stick still reliably wins the race, but the SSD boots
+    # fine on its own once the stick is unplugged for good.
     print("\nGenerating flashable .img with an ext4 persistence partition...")
     mib = 1024 * 1024
     iso_size = out_iso.stat().st_size
