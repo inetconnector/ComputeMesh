@@ -715,6 +715,29 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(resp)
             return
 
+        if clean_path in ("/api/portal/fleet/unbind_node", "/api/v1/mesh/fleet/unbind_node"):
+            node_id = str(body.get("node_id", "")).strip()
+            if not node_id:
+                self._send_error_response("node_id is required", "invalid_request", HTTPStatus.BAD_REQUEST)
+                return
+
+            account = session_account_from_headers(self.headers)
+            owner_key = str(body.get("owner_key", "")).strip()
+            if account is not None:
+                owner_id = owner_id_for_key(account.owner_key)
+            elif owner_key:
+                owner_id = owner_id_for_key(owner_key)
+            else:
+                owner_id = owner_id_for_key("")
+
+            unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
+            if node_id in NODE_TELEMETRY_REGISTRY:
+                NODE_TELEMETRY_REGISTRY.pop(node_id, None)
+                save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+
+            self._send_json({"status": "ok", "unbound": unbound, "node_id": node_id})
+            return
+
         if clean_path in ("/api/v1/billing/quote", "/v1/billing/quote"):
             from services.portal.routes_quotes import PortalQuotesHandler
             quotes_handler = PortalQuotesHandler()

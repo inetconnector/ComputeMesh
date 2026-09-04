@@ -545,6 +545,30 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id}, HTTPStatus.OK)
             return
 
+        if clean_path in ("/api/portal/fleet/unbind_node", "/api/v1/mesh/fleet/unbind_node"):
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key, session_account_from_headers
+            node_id = str(body.get("node_id", "")).strip()
+            if not node_id:
+                self._send_json({"error": "node_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+
+            account = session_account_from_headers(self.headers)
+            owner_key = str(body.get("owner_key", "")).strip()
+            if account is not None:
+                owner_id = owner_id_for_key(account.owner_key)
+            elif owner_key:
+                owner_id = owner_id_for_key(owner_key)
+            else:
+                owner_id = owner_id_for_key("")
+
+            unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
+            if node_id in NODE_TELEMETRY_REGISTRY:
+                NODE_TELEMETRY_REGISTRY.pop(node_id, None)
+                save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+
+            self._send_json({"status": "ok", "unbound": unbound, "node_id": node_id}, HTTPStatus.OK)
+            return
+
         if clean_path == "/api/auth/register/begin":
             data, status, cookie = self.passkey_handler.register_begin(body)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)

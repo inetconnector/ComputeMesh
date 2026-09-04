@@ -31,6 +31,13 @@ class TestOwnerAccountStore(unittest.TestCase):
         self.assertEqual(self.store.owner_for_provider_node("rig-01"), "alice")
         self.assertEqual(self.store.list_provider_nodes("alice"), ["rig-01", "rig-02"])
 
+        # Unbinding removes the provider node mapping cleanly
+        self.assertTrue(self.store.unbind_provider_node("alice", "rig-01"))
+        self.assertIsNone(self.store.owner_for_provider_node("rig-01"))
+        self.assertEqual(self.store.list_provider_nodes("alice"), ["rig-02"])
+        # Second unbind returns False
+        self.assertFalse(self.store.unbind_provider_node("alice", "rig-01"))
+
     def test_provider_node_cannot_silently_move_to_another_owner(self) -> None:
         self.store.ensure_owner("alice")
         self.store.ensure_owner("bob")

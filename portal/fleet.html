@@ -362,9 +362,26 @@
       transition: all 0.2s;
     }
 
-    .copy-btn:hover {
-      background: var(--accent-cyan);
-      color: #090d16;
+    .btn-node-delete {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-node-delete:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
     }
   </style>
 </head>
@@ -372,7 +389,7 @@
 
   <!-- Top Navigation Header -->
   <header class="site-header">
-    <div class="container nav-container">
+    <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
       </a>
@@ -381,13 +398,10 @@
           <button id="lang-de" class="lang-btn" onclick="setLang('de')">DE</button>
           <button id="lang-en" class="lang-btn active" onclick="setLang('en')">EN</button>
         </div>
-        <button id="logout-btn" class="btn btn-secondary" style="font-size:0.85rem;padding:0.4rem 0.9rem;" onclick="doLogout()" hidden>
-          <span data-i18n="fleet_btn_logout">Abmelden</span>
-        </button>
       </div>
     </div>
     <nav class="nav-sub-row">
-      <div class="container nav-sub-container">
+      <div class="container nav-sub-container" style="display:flex;justify-content:space-between;align-items:center;width:100%;">
         <ul class="nav-links">
           <li><a href="/" data-i18n="nav_home">Home</a></li>
           <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
@@ -397,6 +411,9 @@
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
           <li><a href="/fleet" class="active" style="color: var(--accent-cyan); font-weight: 700;">⚡ <span data-i18n="nav_fleet">Flotte verwalten</span></a></li>
         </ul>
+        <button id="logout-btn" class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.85rem;border-radius:6px;margin-left:auto;white-space:nowrap;" onclick="doLogout()" hidden>
+          <span data-i18n="fleet_btn_logout">Abmelden</span>
+        </button>
       </div>
     </nav>
   </header>
@@ -797,9 +814,25 @@
               </div>
 
               <div>
-                <a href="${targetUrl}" target="_self" class="btn btn-primary" style="width:100%;text-align:center;display:block;padding:0.65rem 1rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
-                  ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
-                </a>
+                ${(Number(n.tflops || 0) === 0) ? `
+                  <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <a href="${targetUrl}" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
+                      ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                    </a>
+                    <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${currentLang === 'de' ? 'Inaktiven Knoten löschen' : 'Delete inactive node'}">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
+                  </div>
+                ` : `
+                  <a href="${targetUrl}" target="_self" class="btn btn-primary" style="width:100%;text-align:center;display:block;padding:0.65rem 1rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
+                    ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                  </a>
+                `}
               </div>
             `;
             gridEl.appendChild(card);
@@ -808,6 +841,36 @@
 
       } catch (err) {
         console.error("Fleet fetch error:", err);
+      }
+    }
+
+    async function confirmDeleteNode(nodeId) {
+      if (!nodeId) return;
+      const msg = currentLang === 'de'
+        ? `Möchtest du den Server "${nodeId}" wirklich aus deiner Flotte löschen?\n\nDieser Knoten hat 0 TFLOPS und ist inaktiv bzw. veraltet.`
+        : `Do you really want to remove server "${nodeId}" from your fleet?\n\nThis node has 0 TFLOPS and is inactive or outdated.`;
+      
+      if (!confirm(msg)) return;
+
+      try {
+        const payload = {
+          node_id: nodeId,
+          owner_key: activeOwnerKey || ""
+        };
+        const res = await fetch("/api/portal/fleet/unbind_node", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          await loadFleetOverview();
+        } else {
+          alert(data.error || (currentLang === 'de' ? "Fehler beim Löschen des Knotens" : "Error deleting node"));
+        }
+      } catch (err) {
+        console.error("Delete node error:", err);
+        alert(currentLang === 'de' ? "Netzwerkfehler beim Löschen des Knotens" : "Network error deleting node");
       }
     }
 

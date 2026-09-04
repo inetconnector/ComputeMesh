@@ -2227,3 +2227,24 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Added portal fleet endpoint test in `services/portal/tests/test_portal_server.py`.
    - Unified test harness (`python run_all_tests.py`): **562/562 tests passed in 28.17s (100% OK)**.
 
+## 75. Fleet Management 0-TFLOPS Inactive Node Deletion & Navigation Header Refinement (2026-09-04 10:35 CEST)
+
+1. **Owner Store Unbind Method (`services/billing/owner_accounts.py`):**
+   - Implemented `unbind_provider_node(owner_id, provider_node_id) -> bool` to delete provider node bindings from `owner_provider_nodes` cleanly without affecting other active resources.
+
+2. **Authenticated Unbind Endpoint (`services/gateway/server.py`, `services/portal/server_core.py`):**
+   - Added `POST /api/portal/fleet/unbind_node` (and `POST /api/v1/mesh/fleet/unbind_node`) supporting passkey session auth or direct `owner_key`.
+   - Unbinds provider node from SQLite `owner_accounts.db` and purges entry from in-memory `NODE_TELEMETRY_REGISTRY` and `/var/lib/computemesh/node_registry.json`.
+
+3. **Fleet Management UI & Navigation Refinements (`portal/fleet.html`):**
+   - For all cards reporting 0 TFLOPS, added a sleek trash bin button (`🗑️` / `.btn-node-delete`) adjacent to the *Open Server* button.
+   - Integrated `confirmDeleteNode(nodeId)` prompting operator confirmation before dispatching unbind request and triggering real-time UI refresh.
+   - Relocated `Sign out` (`#logout-btn`) to the sub-navigation row all the way on the right, horizontally aligned with `⚡ Flotte verwalten` (`Manage Fleet`).
+
+4. **Testing & QA Verification:**
+   - Added unit tests in `services/billing/tests/test_owner_accounts.py` for `unbind_provider_node`.
+   - Added HTTP API tests in `services/portal/tests/test_fleet_http.py` for `/api/portal/fleet/unbind_node`.
+   - Updated `tools/security/release_signer.py` default to dynamically use `CONFIG.appliance_version`.
+   - Full unified public test suite (`run_all_tests.py`): **598/598 tests passed in 35.49s (100% OK)**.
+   - Private control plane test suite (`pytest`): **148/148 tests passed in 4.96s (100% OK)**.
+

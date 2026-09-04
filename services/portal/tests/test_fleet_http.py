@@ -163,6 +163,34 @@ class TestFleetHttp(unittest.TestCase):
         status, resp = self._get("/api/auth/me", cookie=f"{passkey_routes.SESSION_COOKIE_NAME}=garbage-token")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
+    def test_unbind_node_api_removes_from_fleet_and_registry(self) -> None:
+        owner_key = "cm_owner_unbind_test_key"
+        owner_id = gateway_server_module.owner_id_for_key(owner_key)
+        self.owner_store.ensure_owner(owner_id)
+        self.owner_store.bind_provider_node(owner_id, "stale-node-01")
+        NODE_TELEMETRY_REGISTRY["stale-node-01"] = {
+            "node_id": "stale-node-01",
+            "auth_token": "cm_tunnel_stale_123",
+            "inventory": {"gpus": []},
+            "telemetry": {"local_compute_tflops": 0.0},
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+
+        # 1. Missing node_id returns 400
+        status, data, _ = self._post("/api/portal/fleet/unbind_node", {"owner_key": owner_key})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+
+        # 2. Valid unbind removes from DB and registry
+        status, data, _ = self._post(
+            "/api/portal/fleet/unbind_node",
+            {"node_id": "stale-node-01", "owner_key": owner_key},
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(data.get("unbound"))
+        self.assertEqual(data.get("node_id"), "stale-node-01")
+        self.assertNotIn("stale-node-01", NODE_TELEMETRY_REGISTRY)
+        self.assertEqual(self.owner_store.list_provider_nodes(owner_id), [])
+
 
 if __name__ == "__main__":
     unittest.main()

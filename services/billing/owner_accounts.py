@@ -230,6 +230,16 @@ class OwnerAccountStore:
             owner_id=owner_id,
         )
 
+    def unbind_provider_node(self, owner_id: str, provider_node_id: str) -> bool:
+        oid = _clean_identifier(owner_id, field="owner_id")
+        nid = _clean_identifier(provider_node_id, field="provider_node_id")
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM owner_provider_nodes WHERE provider_node_id = ? AND owner_id = ?",
+                (nid, oid),
+            )
+            return cursor.rowcount > 0
+
     def bind_device(
         self,
         owner_id: str,
