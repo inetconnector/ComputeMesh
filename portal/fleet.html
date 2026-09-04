@@ -394,10 +394,9 @@
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
       </a>
       <div class="nav-right" style="display:flex;align-items:center;gap:0.75rem;">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
         <div class="lang-switch">
-          <button id="lang-de" class="lang-btn" onclick="setLang('de')">DE</button>
-          <button id="lang-en" class="lang-btn active" onclick="setLang('en')">EN</button>
+          <button id="lang-de" class="lang-btn active" onclick="setLang('de')">DE</button>
+          <button id="lang-en" class="lang-btn" onclick="setLang('en')">EN</button>
         </div>
       </div>
     </div>
@@ -462,7 +461,7 @@
       <!-- Owner Key Tab Pane -->
       <div id="pane-key" class="auth-pane" style="display: none;">
         <div class="form-group">
-          <label data-i18n="fleet_lbl_owner_key">Owner Key / Flotten-Token</label>
+          <label data-i18n="fleet_lbl_owner_key">Geheimer Owner Key / Flotten-Secret (Token)</label>
           <input id="input-owner-key" type="password" class="form-control-custom" placeholder="owner_..." spellcheck="false">
         </div>
         <div style="margin-bottom: 1.25rem;">
@@ -477,7 +476,7 @@
           </button>
         </div>
         <p style="color:#64748b;font-size:0.82rem;margin-top:0.75rem;" data-i18n="fleet_key_hint">
-          Direktzugriff mit deinem geheimen Flottenschlüssel. Diesen findest du im Dashboard deines Mining-Rigs oder in <code>/boot/computemesh.env</code>.
+          Direktzugriff mit deinem geheimen Flottenschlüssel (API-Secret). Diesen findest du im Dashboard deines Mining-Rigs oder in <code>/boot/computemesh.env</code>. Verwende niemals öffentliche Namen.
         </p>
       </div>
 
@@ -568,9 +567,60 @@
 
   <script src="/portal-core.js"></script>
   <script>
+    let isLoggedIn = false;
     let activeOwnerKey = "";
     let activeNodesList = [];
     let refreshInterval = null;
+
+    function getLang() {
+      return (window.getLang && window.getLang()) || window.currentLang || localStorage.getItem("cm_portal_lang") || "de";
+    }
+
+    function setLang(lang) {
+      if (typeof window.switchLanguage === "function") {
+        window.switchLanguage(lang);
+      }
+    }
+
+    function updateAuthNavBtn() {
+      const btn = document.getElementById("auth-nav-btn");
+      const icon = document.getElementById("auth-nav-btn-icon");
+      const text = document.getElementById("auth-nav-btn-text");
+      if (!btn || !text) return;
+      const lang = getLang();
+      if (isLoggedIn) {
+        if (icon) icon.textContent = "🚪";
+        text.textContent = lang === "de" ? "Abmelden" : "Sign out";
+        text.setAttribute("data-i18n", "fleet_btn_logout");
+      } else {
+        if (icon) icon.textContent = "🔑";
+        text.textContent = lang === "de" ? "Anmelden" : "Sign in";
+        text.setAttribute("data-i18n", "fleet_btn_login_nav");
+      }
+    }
+
+    function handleAuthNavClick() {
+      if (isLoggedIn) {
+        doLogout();
+      } else {
+        const authSec = document.getElementById("auth-section");
+        if (authSec) {
+          authSec.hidden = false;
+          authSec.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+    }
+
+    window.onLanguageChanged = function(lang) {
+      updateAuthNavBtn();
+      const btnDe = document.getElementById("lang-de");
+      const btnEn = document.getElementById("lang-en");
+      if (btnDe) btnDe.classList.toggle("active", lang === "de");
+      if (btnEn) btnEn.classList.toggle("active", lang === "en");
+      if (isLoggedIn) {
+        loadFleet(false);
+      }
+    };
 
     function b64urlToBytes(b64url) {
       const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
@@ -913,6 +963,11 @@
 
     // Auto-init on page load
     (async function initFleet() {
+      const lang = getLang();
+      const btnDe = document.getElementById("lang-de");
+      const btnEn = document.getElementById("lang-en");
+      if (btnDe) btnDe.classList.toggle("active", lang === "de");
+      if (btnEn) btnEn.classList.toggle("active", lang === "en");
       updateAuthNavBtn();
 
       // Check localStorage for saved key

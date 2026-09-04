@@ -42,10 +42,10 @@ const translations = {
     fleet_btn_login_passkey: "Sign in with Passkey",
     fleet_btn_register_passkey: "Register New Fleet Account",
     fleet_passkey_hint: "100% passwordless & cryptographically secured via Windows Hello, Touch ID, Face ID or hardware security keys.",
-    fleet_lbl_owner_key: "Owner Key / Fleet Secret",
+    fleet_lbl_owner_key: "Secret Owner Key / Fleet Secret (Token)",
     fleet_remember_key: "Remember on this device",
     fleet_btn_login_key: "Open Fleet Now",
-    fleet_key_hint: "Direct access with your secret fleet key. Found in your mining rig dashboard or in /boot/computemesh.env.",
+    fleet_key_hint: "Direct access with your secret fleet security key (API Secret). Found in your mining rig dashboard or in /boot/computemesh.env. Never use public names.",
     fleet_stat_nodes: "Connected Servers",
     fleet_stat_vram: "Total VRAM",
     fleet_stat_tflops: "Compute Capacity",
@@ -56,8 +56,8 @@ const translations = {
     fleet_servers_title: "Connected Servers & Mining Rigs",
     fleet_empty_title: "No servers connected yet",
     fleet_empty_desc: "Enter your Owner Key below into your servers' configuration (in /boot/computemesh.env or in local dashboard settings). They will appear here automatically within seconds.",
-    fleet_owner_key_title: "Your Fleet Owner Key",
-    fleet_owner_key_desc: "Enter this key into your mining rigs or workstations to bind them to this fleet:",
+    fleet_owner_key_title: "Your Secret Fleet Owner Key",
+    fleet_owner_key_desc: "This is your private security key (API Secret). Enter it into your mining rigs or workstations to bind them securely to this fleet:",
     fleet_btn_copy_key: "Copy Key",
     nav_register: "Get API Key",
     nav_topup: "💳 Credits",
@@ -399,10 +399,10 @@ const translations = {
     fleet_btn_login_passkey: "Mit Passkey anmelden",
     fleet_btn_register_passkey: "Neues Flotten-Konto registrieren",
     fleet_passkey_hint: "100% passwortlos & kryptografisch geschützt über Windows Hello, Touch ID, Face ID oder Hardware-Sicherheitsschlüssel.",
-    fleet_lbl_owner_key: "Owner Key / Flotten-Token",
+    fleet_lbl_owner_key: "Geheimer Owner Key / Flotten-Secret (Token)",
     fleet_remember_key: "Auf diesem Gerät merken",
     fleet_btn_login_key: "Flotte jetzt öffnen",
-    fleet_key_hint: "Direktzugriff mit deinem geheimen Flottenschlüssel. Diesen findest du im Dashboard deines Mining-Rigs oder in /boot/computemesh.env.",
+    fleet_key_hint: "Direktzugriff mit deinem geheimen Flottenschlüssel (API-Secret). Diesen findest du im Dashboard deines Mining-Rigs oder in /boot/computemesh.env. Verwende niemals öffentliche Namen.",
     fleet_stat_nodes: "Verbundene Server",
     fleet_stat_vram: "Gesamter VRAM",
     fleet_stat_tflops: "Mesh-Rechenleistung",
@@ -413,8 +413,8 @@ const translations = {
     fleet_servers_title: "Verbundene Server & Mining-Rigs",
     fleet_empty_title: "Noch keine Server verbunden",
     fleet_empty_desc: "Trage deinen Owner Key unten in der Konfiguration deiner Server (in /boot/computemesh.env oder im lokalen Dashboard unter Einstellungen) ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.",
-    fleet_owner_key_title: "Dein Flotten Owner Key",
-    fleet_owner_key_desc: "Trage diesen Schlüssel in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte zuzuordnen:",
+    fleet_owner_key_title: "Dein geheimer Flotten Owner Key",
+    fleet_owner_key_desc: "Dies ist dein privater Sicherheitsschlüssel (API-Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:",
     fleet_btn_copy_key: "Kopieren",
     nav_register: "API-Key holen",
     nav_topup: "💳 Guthaben",
@@ -819,6 +819,7 @@ window.detectInitialLanguage = detectInitialLanguage;
 window.switchLanguage = switchLanguage;
 window.toggleLanguage = toggleLanguage;
 window.setLang = switchLanguage;
+window.getLang = function() { return currentLang || 'de'; };
 window.translations = translations;
 window.currentLang = currentLang;
 
