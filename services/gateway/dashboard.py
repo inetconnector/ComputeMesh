@@ -281,14 +281,21 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
 </head>
 <body>
     <header class="header">
-        <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 3v18M3 12h18"/>
-            </svg>
-            Compute<span>Mesh</span> &middot; Node Telemetry
+        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <a href="/fleet" style="display: inline-flex; align-items: center; gap: 6px; color: #38bdf8; text-decoration: none; font-size: 13px; font-weight: 600; padding: 6px 12px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; transition: all 0.2s;">
+                &larr; Zurück zur Flotte
+            </a>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 3v18M3 12h18"/>
+                </svg>
+                Compute<span>Mesh</span> &middot; Node Telemetry
+            </div>
         </div>
-        {feed_badge}
+        <div style="display: flex; align-items: center; gap: 12px;">
+            {feed_badge}
+        </div>
     </header>
 
     <main class="grid">

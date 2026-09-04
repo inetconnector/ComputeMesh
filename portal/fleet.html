@@ -3,66 +3,557 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ComputeMesh — Flotten-Verwaltung</title>
-  <meta name="robots" content="noindex,nofollow">
-  <link rel="stylesheet" href="portal.css?v=2.3">
+  <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
+  <link rel="stylesheet" href="/portal.css">
   <style>
-    .fleet-wrap { max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
-    .fleet-card { background: var(--bg-card, #12141c); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: var(--radius-md, 12px); padding: 2rem; margin-bottom: 1.5rem; }
-    .fleet-msg { font-size: 0.85rem; border-radius: var(--radius-sm, 8px); padding: 0.75rem 1rem; margin-top: 1rem; }
-    .fleet-msg.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
-    .fleet-msg.ok { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; }
-    .owner-key-box { font-family: var(--font-mono, monospace); background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: var(--radius-sm, 8px); padding: 0.85rem 1rem; word-break: break-all; font-size: 0.9rem; color: var(--accent-cyan, #22d3ee); }
-    .node-row { display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 0; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); }
-    .node-row:last-child { border-bottom: none; }
-    .node-id { font-family: var(--font-mono, monospace); font-weight: 600; }
-    .node-meta { font-size: 0.8rem; color: var(--text-muted, #9ca3af); }
-    [hidden] { display: none !important; }
+    :root {
+      --fleet-bg: #090d16;
+      --card-glass: rgba(15, 23, 42, 0.82);
+      --card-glass-border: rgba(56, 189, 248, 0.18);
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-indigo: #6366f1;
+    }
+
+    body {
+      background-color: var(--fleet-bg);
+      background-image: radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+                        radial-gradient(circle at 10% 80%, rgba(16, 185, 129, 0.08), transparent 50%);
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .fleet-page-container {
+      max-width: 1200px;
+      margin: 2rem auto 4rem auto;
+      padding: 0 1.5rem;
+      width: 100%;
+      flex: 1;
+    }
+
+    .fleet-hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .fleet-hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--accent-cyan);
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .fleet-hero h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      line-height: 1.2;
+    }
+
+    .fleet-hero p {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .fleet-card {
+      background: var(--card-glass);
+      border: 1px solid var(--card-glass-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .auth-tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .auth-tab-btn:hover {
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .auth-tab-btn.active {
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.4rem;
+    }
+
+    .form-control-custom {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: #f8fafc;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control-custom:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .fleet-msg {
+      padding: 0.85rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .fleet-msg.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+
+    .fleet-msg.ok {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+    }
+
+    .fleet-telemetry-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.2rem;
+      margin-bottom: 2rem;
+    }
+
+    .telemetry-box {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+
+    .telemetry-val {
+      font-size: 1.8rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: #f8fafc;
+      margin-bottom: 0.3rem;
+    }
+
+    .telemetry-val.emerald { color: var(--accent-emerald); }
+    .telemetry-val.cyan { color: var(--accent-cyan); }
+    .telemetry-val.indigo { color: var(--accent-indigo); }
+
+    .telemetry-lbl {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .fleet-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .server-switcher-select {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 8px;
+      color: #f8fafc;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .server-switcher-select:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+    }
+
+    .node-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .node-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .node-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+
+    .node-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .node-id-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-pill.online {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+    }
+
+    .status-pill.offline {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .node-specs {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.85rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+    }
+
+    .node-gpu-tag {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+      border-radius: 6px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .node-spec-row {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      margin-top: 0.3rem;
+    }
+
+    .node-spec-row strong {
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .owner-key-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px dashed rgba(56, 189, 248, 0.4);
+      padding: 0.85rem 1.2rem;
+      border-radius: 10px;
+      color: var(--accent-cyan);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-cyan);
+      color: #090d16;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Top Navigation Header -->
   <header class="site-header">
-    <div class="container nav-top-row" style="display:flex;justify-content:space-between;align-items:center;padding:0.65rem 1.5rem;">
+    <div class="container nav-container">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">FLEET</span>
       </a>
-      <button id="logout-btn" class="btn btn-secondary" hidden onclick="doLogout()">Abmelden</button>
+      <div class="nav-right">
+        <div class="lang-switch">
+          <button id="lang-de" class="lang-btn" onclick="setLang('de')">DE</button>
+          <button id="lang-en" class="lang-btn active" onclick="setLang('en')">EN</button>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary" style="font-size:0.85rem;padding:0.4rem 0.9rem;" onclick="doLogout()" hidden>
+          <span data-i18n="fleet_btn_logout">Abmelden</span>
+        </button>
+      </div>
     </div>
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/" data-i18n="nav_home">Home</a></li>
+          <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li><a href="/#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
+          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" class="active" style="color: var(--accent-cyan); font-weight: 700;">⚡ <span data-i18n="nav_fleet">Flotte verwalten</span></a></li>
+        </ul>
+      </div>
+    </nav>
   </header>
 
-  <div class="fleet-wrap">
+  <div class="fleet-page-container">
 
+    <div class="fleet-hero">
+      <div class="fleet-hero-tag">
+        <span>⚡</span> <span data-i18n="fleet_hero_tag">Dezentrales Flotten-Cockpit</span>
+      </div>
+      <h1 data-i18n="fleet_hero_title">Verwalte deine <span class="gradient-text">GPU-Server & Mining-Rigs</span></h1>
+      <p data-i18n="fleet_hero_sub">Melde dich mit deinem Flotten-Konto oder direkt per Owner-Key an, um alle deine Rechenknoten in Echtzeit zu überwachen und nahtlos zwischen ihnen zu wechseln.</p>
+    </div>
+
+    <!-- 1. Authentication Section -->
     <div id="auth-section" class="fleet-card">
-      <h2 style="margin-top:0;">Flotte remote verwalten</h2>
-      <p style="color:var(--text-muted);font-size:0.9rem;">Login per Passkey (Face ID / Windows Hello / Sicherheitsschlüssel) — kein Passwort. Funktioniert von überall, auch außerhalb deines LAN.</p>
-      <div class="form-group">
-        <label>E-Mail</label>
-        <input id="auth-email" type="email" class="form-control" placeholder="du@example.com">
+      <div class="auth-tabs">
+        <button id="tab-passkey-btn" class="auth-tab-btn active" onclick="switchAuthTab('passkey')">
+          🔑 <span data-i18n="fleet_tab_passkey">Passkey / Biometrie</span>
+        </button>
+        <button id="tab-key-btn" class="auth-tab-btn" onclick="switchAuthTab('owner_key')">
+          🛡️ <span data-i18n="fleet_tab_key">Direkter Owner-Key</span>
+        </button>
       </div>
-      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="doLogin()">Mit Passkey anmelden</button>
-        <button class="btn btn-secondary" onclick="doRegister()">Neues Konto + Passkey erstellen</button>
+
+      <!-- Passkey Tab Pane -->
+      <div id="pane-passkey" class="auth-pane">
+        <div class="form-group">
+          <label data-i18n="fleet_lbl_email">E-Mail-Adresse für Flotten-Konto</label>
+          <input id="auth-email" type="email" class="form-control-custom" placeholder="name@example.com" spellcheck="false">
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-primary" onclick="doLogin()">
+            🔑 <span data-i18n="fleet_btn_login_passkey">Mit Passkey anmelden</span>
+          </button>
+          <button class="btn btn-secondary" onclick="doRegister()">
+            ➕ <span data-i18n="fleet_btn_register_passkey">Neues Flotten-Konto registrieren</span>
+          </button>
+        </div>
+        <p style="color:#64748b;font-size:0.82rem;margin-top:0.75rem;" data-i18n="fleet_passkey_hint">
+          100% passwortlos & kryptografisch geschützt über Windows Hello, Touch ID, Face ID oder Hardware-Sicherheitsschlüssel.
+        </p>
       </div>
+
+      <!-- Owner Key Tab Pane -->
+      <div id="pane-key" class="auth-pane" style="display: none;">
+        <div class="form-group">
+          <label data-i18n="fleet_lbl_owner_key">Owner Key / Flotten-Token</label>
+          <input id="input-owner-key" type="password" class="form-control-custom" placeholder="owner_..." spellcheck="false">
+        </div>
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#cbd5e1;cursor:pointer;">
+            <input type="checkbox" id="remember-key-check" checked style="accent-color:var(--accent-cyan);">
+            <span data-i18n="fleet_remember_key">Auf diesem Gerät merken</span>
+          </label>
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="doDirectKeyLogin()">
+            ⚡ <span data-i18n="fleet_btn_login_key">Flotte jetzt öffnen</span>
+          </button>
+        </div>
+        <p style="color:#64748b;font-size:0.82rem;margin-top:0.75rem;" data-i18n="fleet_key_hint">
+          Direktzugriff mit deinem geheimen Flottenschlüssel. Diesen findest du im Dashboard deines Mining-Rigs oder in <code>/boot/computemesh.env</code>.
+        </p>
+      </div>
+
       <div id="auth-msg"></div>
     </div>
 
-    <div id="owner-key-section" class="fleet-card" hidden>
-      <h3 style="margin-top:0;">Dein Owner Key</h3>
-      <p style="color:var(--text-muted);font-size:0.85rem;">Trage diesen Key im Dashboard jedes Geräts (unter "Owner Key / Fleet Grouping") ein, um es dieser Flotte zuzuordnen.</p>
-      <div id="owner-key-val" class="owner-key-box"></div>
-    </div>
+    <!-- 2. Fleet Dashboard Section -->
+    <div id="fleet-section" hidden>
 
-    <div id="fleet-section" class="fleet-card" hidden>
-      <h3 style="margin-top:0;">Deine Flotte</h3>
-      <div id="fleet-summary" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);"></div>
-      <div id="fleet-nodes"></div>
-      <p id="fleet-empty" style="color:var(--text-muted);font-size:0.85rem;" hidden>Noch keine Geräte gebunden — trage den Owner Key oben im Dashboard eines Geräts ein.</p>
+      <!-- Telemetry Bar -->
+      <div class="fleet-telemetry-bar">
+        <div class="telemetry-box">
+          <div id="telem-nodes" class="telemetry-val emerald">--</div>
+          <div class="telemetry-lbl" data-i18n="fleet_stat_nodes">Verbundene Server</div>
+        </div>
+        <div class="telemetry-box">
+          <div id="telem-vram" class="telemetry-val cyan">-- GB</div>
+          <div class="telemetry-lbl" data-i18n="fleet_stat_vram">Gesamter VRAM</div>
+        </div>
+        <div class="telemetry-box">
+          <div id="telem-tflops" class="telemetry-val indigo">-- TF</div>
+          <div class="telemetry-lbl" data-i18n="fleet_stat_tflops">Mesh-Rechenleistung</div>
+        </div>
+        <div class="telemetry-box">
+          <div id="telem-status" class="telemetry-val emerald" style="font-size:1.3rem;padding-top:0.35rem;">🟢 Aktiv</div>
+          <div class="telemetry-lbl" data-i18n="fleet_stat_status">Cluster-Status</div>
+        </div>
+      </div>
+
+      <!-- Toolbar with Server Switcher -->
+      <div class="fleet-card" style="padding: 1.5rem;">
+        <div class="fleet-toolbar">
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <label style="font-size:0.9rem;font-weight:600;color:#cbd5e1;" data-i18n="fleet_quick_jump">⚡ Zu Server wechseln:</label>
+            <select id="quick-server-select" class="server-switcher-select" onchange="onQuickServerSelect(this.value)">
+              <option value="" data-i18n="fleet_select_server">-- Server auswählen --</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="loadFleet(true)">
+              🔄 <span data-i18n="fleet_btn_refresh">Aktualisieren</span>
+            </button>
+            <span id="auto-refresh-badge" style="font-size:0.75rem;color:#64748b;">Sync: 5s</span>
+          </div>
+        </div>
+
+        <h3 style="margin-top:0;margin-bottom:1.25rem;font-size:1.2rem;" data-i18n="fleet_servers_title">Verbundene Server & Mining-Rigs</h3>
+        
+        <div id="fleet-nodes" class="node-grid"></div>
+
+        <div id="fleet-empty" style="text-align:center;padding:3rem 1rem;" hidden>
+          <div style="font-size:2.5rem;margin-bottom:0.75rem;">📡</div>
+          <h4 style="font-size:1.15rem;margin-bottom:0.5rem;" data-i18n="fleet_empty_title">Noch keine Server verbunden</h4>
+          <p style="color:#94a3b8;max-width:520px;margin:0 auto 1.5rem auto;font-size:0.9rem;" data-i18n="fleet_empty_desc">
+            Trage deinen Owner Key unten in der Konfiguration deiner Server (in <code>/boot/computemesh.env</code> oder im lokalen Dashboard unter Einstellungen) ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.
+          </p>
+        </div>
+      </div>
+
+      <!-- Owner Key Helper Section -->
+      <div id="owner-key-section" class="fleet-card" hidden>
+        <h3 style="margin-top:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;">
+          <span>🛡️</span> <span data-i18n="fleet_owner_key_title">Dein Flotten Owner Key</span>
+        </h3>
+        <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem;" data-i18n="fleet_owner_key_desc">
+          Trage diesen Schlüssel in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte zuzuordnen:
+        </p>
+        <div class="owner-key-box">
+          <span id="owner-key-val">owner_...</span>
+          <button class="copy-btn" onclick="copyOwnerKey()">
+            📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
+          </button>
+        </div>
+      </div>
+
     </div>
 
   </div>
 
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span></div>
+        <div><span data-i18n="footer_tech_status">Systemstatus: Voll einsatzbereit</span></div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/portal-core.js"></script>
   <script>
+    let activeOwnerKey = "";
+    let activeNodesList = [];
+    let refreshInterval = null;
+
     function b64urlToBytes(b64url) {
       const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
       const b64 = (b64url + pad).replace(/-/g, "+").replace(/_/g, "/");
@@ -104,13 +595,23 @@
 
     function showMsg(text, kind) {
       const el = document.getElementById("auth-msg");
-      el.innerHTML = `<div class="fleet-msg ${kind}">${text}</div>`;
+      if (!text) { el.innerHTML = ""; return; }
+      el.innerHTML = `<div class="fleet-msg ${kind}"><span>${kind === 'ok' ? '✓' : '⚠️'}</span> <span>${text}</span></div>`;
+    }
+
+    function switchAuthTab(tab) {
+      document.getElementById("tab-passkey-btn").classList.toggle("active", tab === 'passkey');
+      document.getElementById("tab-key-btn").classList.toggle("active", tab === 'owner_key');
+      document.getElementById("pane-passkey").style.display = tab === 'passkey' ? 'block' : 'none';
+      document.getElementById("pane-key").style.display = tab === 'owner_key' ? 'block' : 'none';
+      showMsg("", "");
     }
 
     async function doRegister() {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showMsg("Bitte E-Mail eingeben.", "error"); return; }
+      if (!email) { showMsg(currentLang === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
       try {
+        showMsg(currentLang === 'de' ? "Erstelle Registrierung..." : "Creating registration...", "ok");
         const beginRes = await fetch("/api/auth/register/begin", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
@@ -133,7 +634,7 @@
         const completeData = await completeRes.json();
         if (!completeRes.ok) { showMsg(completeData.error || "Registrierung fehlgeschlagen.", "error"); return; }
 
-        showMsg("Konto erstellt und Passkey registriert.", "ok");
+        showMsg(currentLang === 'de' ? "Konto erstellt und Passkey registriert!" : "Account created and Passkey registered!", "ok");
         onLoggedIn(completeData);
       } catch (err) {
         showMsg("Fehler: " + (err.message || err), "error");
@@ -142,8 +643,9 @@
 
     async function doLogin() {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showMsg("Bitte E-Mail eingeben.", "error"); return; }
+      if (!email) { showMsg(currentLang === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
       try {
+        showMsg(currentLang === 'de' ? "Warte auf Passkey-Bestätigung..." : "Waiting for passkey confirmation...", "ok");
         const beginRes = await fetch("/api/auth/login/begin", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
@@ -171,52 +673,188 @@
       }
     }
 
+    async function doDirectKeyLogin() {
+      const key = document.getElementById("input-owner-key").value.trim();
+      if (!key) {
+        showMsg(currentLang === 'de' ? "Bitte Owner Key eingeben." : "Please enter an owner key.", "error");
+        return;
+      }
+      activeOwnerKey = key;
+      if (document.getElementById("remember-key-check").checked) {
+        localStorage.setItem("cm_fleet_owner_key", key);
+      } else {
+        localStorage.removeItem("cm_fleet_owner_key");
+      }
+      onLoggedIn({ owner_key: key });
+    }
+
     async function doLogout() {
-      await fetch("/api/auth/logout", { method: "POST" });
+      activeOwnerKey = "";
+      localStorage.removeItem("cm_fleet_owner_key");
+      if (refreshInterval) clearInterval(refreshInterval);
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } catch (e) {}
       location.reload();
     }
 
     function onLoggedIn(data) {
       document.getElementById("auth-section").hidden = true;
       document.getElementById("logout-btn").hidden = false;
-      if (data.owner_key) {
-        document.getElementById("owner-key-section").hidden = false;
-        document.getElementById("owner-key-val").textContent = data.owner_key;
-      }
-      loadFleet();
-    }
-
-    async function loadFleet() {
-      const res = await fetch("/api/portal/fleet");
-      if (!res.ok) return;
-      const data = await res.json();
       document.getElementById("fleet-section").hidden = false;
-      document.getElementById("fleet-summary").innerHTML =
-        `<div><strong>${data.total_nodes_online}</strong> von ${data.total_nodes_bound} online</div>` +
-        `<div><strong>${data.total_vram_gb}</strong> GB VRAM</div>` +
-        `<div><strong>${data.total_tflops}</strong> TFLOPS</div>`;
-      const nodesEl = document.getElementById("fleet-nodes");
-      nodesEl.innerHTML = "";
-      (data.nodes || []).forEach(n => {
-        const row = document.createElement("div");
-        row.className = "node-row";
-        row.innerHTML = `<div><div class="node-id">${n.node_id}</div><div class="node-meta">${(n.gpus||[]).join(", ")} · ${n.vram_gb} GB · ${n.tflops} TFLOPS</div></div>` +
-          (n.remote_url ? `<a href="${n.remote_url}" class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;">Dashboard öffnen →</a>` : "");
-        nodesEl.appendChild(row);
-      });
-      document.getElementById("fleet-empty").hidden = (data.nodes || []).length > 0;
-    }
 
-    (async function initSession() {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        document.getElementById("auth-section").hidden = true;
-        document.getElementById("logout-btn").hidden = false;
+      if (data && data.owner_key) {
+        activeOwnerKey = data.owner_key;
         document.getElementById("owner-key-section").hidden = false;
         document.getElementById("owner-key-val").textContent = data.owner_key;
-        loadFleet();
       }
+
+      loadFleet();
+      if (refreshInterval) clearInterval(refreshInterval);
+      refreshInterval = setInterval(() => loadFleet(false), 5000);
+    }
+
+    async function loadFleet(isManual = false) {
+      try {
+        let url = "/api/portal/fleet";
+        const headers = {};
+        if (activeOwnerKey) {
+          headers["X-Owner-Key"] = activeOwnerKey;
+          url = `/api/portal/fleet?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+        }
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          if (res.status === 401 && !activeOwnerKey) {
+            document.getElementById("auth-section").hidden = false;
+            document.getElementById("fleet-section").hidden = true;
+            document.getElementById("logout-btn").hidden = true;
+          }
+          return;
+        }
+
+        const data = await res.json();
+        activeNodesList = data.nodes || [];
+
+        // Update Telemetry Header
+        const onlineCount = data.total_nodes_online ?? activeNodesList.length;
+        const boundCount = data.total_nodes_bound ?? activeNodesList.length;
+        document.getElementById("telem-nodes").textContent = `${onlineCount} / ${boundCount}`;
+        document.getElementById("telem-vram").textContent = `${data.total_vram_gb || 0} GB`;
+        document.getElementById("telem-tflops").textContent = `${data.total_tflops || 0} TF`;
+        document.getElementById("telem-status").innerHTML = onlineCount > 0 ? "🟢 Aktiv" : "🟡 Standby";
+
+        // Update Quick Switcher Dropdown
+        const selectEl = document.getElementById("quick-server-select");
+        const prevVal = selectEl.value;
+        selectEl.innerHTML = `<option value="">-- ${currentLang === 'de' ? 'Server auswählen' : 'Select Server'} --</option>`;
+        activeNodesList.forEach(n => {
+          const opt = document.createElement("option");
+          opt.value = n.remote_url || `/node/${n.node_id}`;
+          opt.textContent = `${n.node_id} (${n.vram_gb} GB VRAM &middot; ${(n.gpus||[]).join(', ') || 'Node'})`;
+          selectEl.appendChild(opt);
+        });
+        if (prevVal) selectEl.value = prevVal;
+
+        // Render Server Cards Grid
+        const gridEl = document.getElementById("fleet-nodes");
+        gridEl.innerHTML = "";
+
+        if (activeNodesList.length === 0) {
+          document.getElementById("fleet-empty").hidden = false;
+        } else {
+          document.getElementById("fleet-empty").hidden = true;
+          activeNodesList.forEach(n => {
+            const card = document.createElement("div");
+            card.className = "node-card";
+            
+            const gpuNames = (n.gpus && n.gpus.length) ? n.gpus.join(", ") : "Compute Node GPU";
+            const targetUrl = n.remote_url || `/node/${n.node_id}`;
+
+            card.innerHTML = `
+              <div>
+                <div class="node-card-header">
+                  <div>
+                    <div class="node-id-title">${escapeHtml(n.node_id)}</div>
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Knoten-ID &middot; Live Stream</div>
+                  </div>
+                  <div class="status-pill online">
+                    <span class="pulse-dot"></span> Online
+                  </div>
+                </div>
+
+                <div class="node-specs">
+                  <div class="node-gpu-tag">🎮 ${escapeHtml(gpuNames)}</div>
+                  <div class="node-spec-row">
+                    <span>VRAM Pool:</span>
+                    <strong>${n.vram_gb || 0} GB</strong>
+                  </div>
+                  <div class="node-spec-row">
+                    <span>Rechenleistung:</span>
+                    <strong>${n.tflops || 0} TFLOPS</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <a href="${targetUrl}" target="_self" class="btn btn-primary" style="width:100%;text-align:center;display:block;padding:0.65rem 1rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
+                  ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                </a>
+              </div>
+            `;
+            gridEl.appendChild(card);
+          });
+        }
+
+      } catch (err) {
+        console.error("Fleet fetch error:", err);
+      }
+    }
+
+    function onQuickServerSelect(targetUrl) {
+      if (targetUrl) {
+        // Navigate in the same browser window as requested!
+        window.location.href = targetUrl;
+      }
+    }
+
+    function copyOwnerKey() {
+      const key = document.getElementById("owner-key-val").textContent;
+      if (!key) return;
+      navigator.clipboard.writeText(key).then(() => {
+        alert(currentLang === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str || "";
+      return div.innerHTML;
+    }
+
+    // Auto-init on page load
+    (async function initFleet() {
+      // Check localStorage for saved key
+      const savedKey = localStorage.getItem("cm_fleet_owner_key");
+      if (savedKey) {
+        activeOwnerKey = savedKey;
+        document.getElementById("input-owner-key").value = savedKey;
+        onLoggedIn({ owner_key: savedKey });
+        return;
+      }
+
+      // Check session auth
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          onLoggedIn(data);
+          return;
+        }
+      } catch (e) {}
+
+      // Default: show auth
+      document.getElementById("auth-section").hidden = false;
     })();
   </script>
 </body>

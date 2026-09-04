@@ -454,9 +454,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
-            owner_key = query.get("owner_key", [""])[0].strip()
-            owner_id = owner_id_for_key(owner_key)
-            self._send_json(_build_fleet_payload(owner_id))
+            owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    candidate = auth_hdr[7:].strip()
+                    if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        owner_key = candidate
+            owner_id = owner_id_for_key(owner_key) if owner_key else None
+            self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
         if clean_path == "/api/auth/me":
@@ -469,10 +475,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/portal/fleet":
             account = session_account_from_headers(self.headers)
-            if account is None:
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(account.owner_key)
+            owner_id = owner_id_for_key(owner_key)
             payload = _build_fleet_payload(owner_id, include_remote_urls=True)
             self._send_json(payload)
             return

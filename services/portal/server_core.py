@@ -331,14 +331,25 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/portal/fleet":
             account = session_account_from_headers(self.headers)
-            if account is None:
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
 
             from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
             from tools.appliance.hardware_detector import is_integrated_display_adapter
 
-            owner_id = owner_id_for_key(account.owner_key)
+            owner_id = owner_id_for_key(owner_key)
             bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
             live_nodes = fresh_node_telemetry_entries()
             fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]

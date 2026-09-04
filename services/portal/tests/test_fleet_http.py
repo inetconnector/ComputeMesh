@@ -129,6 +129,36 @@ class TestFleetHttp(unittest.TestCase):
         self.assertEqual(fleet["nodes"][0]["node_id"], "rig-01")
         self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-01?auth=cm_tunnel_abc123")
 
+    def test_portal_fleet_with_direct_owner_key_header_and_query(self) -> None:
+        owner_key = "cm_owner_direct_test_key_123"
+        owner_id = gateway_server_module.owner_id_for_key(owner_key)
+        self.owner_store.ensure_owner(owner_id)
+        self.owner_store.bind_provider_node(owner_id, "node-direct-01")
+        NODE_TELEMETRY_REGISTRY["node-direct-01"] = {
+            "node_id": "node-direct-01",
+            "auth_token": "cm_tunnel_direct_456",
+            "inventory": {"gpus": [{"model_name": "RTX 4090", "vram_bytes": 24 * 1024**3, "vendor": "nvidia"}]},
+            "telemetry": {"local_compute_tflops": 82.6},
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+
+        # 1. Via Query Parameter
+        req = urllib.request.Request(f"{BASE}/api/portal/fleet?owner_key={owner_key}")
+        resp = urllib.request.urlopen(req)
+        self.assertEqual(resp.status, HTTPStatus.OK)
+        data = json.loads(resp.read().decode("utf-8"))
+        self.assertEqual(data["total_nodes_bound"], 1)
+        self.assertEqual(data["nodes"][0]["node_id"], "node-direct-01")
+        self.assertEqual(data["nodes"][0]["remote_url"], "/node/node-direct-01?auth=cm_tunnel_direct_456")
+
+        # 2. Via X-Owner-Key Header
+        req_hdr = urllib.request.Request(f"{BASE}/api/portal/fleet", headers={"X-Owner-Key": owner_key})
+        resp_hdr = urllib.request.urlopen(req_hdr)
+        self.assertEqual(resp_hdr.status, HTTPStatus.OK)
+        data_hdr = json.loads(resp_hdr.read().decode("utf-8"))
+        self.assertEqual(data_hdr["total_nodes_bound"], 1)
+        self.assertEqual(data_hdr["nodes"][0]["node_id"], "node-direct-01")
+
     def test_invalid_session_cookie_rejected(self) -> None:
         status, resp = self._get("/api/auth/me", cookie=f"{passkey_routes.SESSION_COOKIE_NAME}=garbage-token")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
