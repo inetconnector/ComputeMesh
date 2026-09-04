@@ -63,6 +63,56 @@ def owner_id_for_key(owner_key: str) -> str | None:
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
 
 
+def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = False) -> dict[str, Any]:
+    """Shared node summary for both the raw owner_key fleet API and the
+    passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
+    from tools.appliance.hardware_detector import is_integrated_display_adapter
+
+    bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else set()
+    live_nodes = fresh_node_telemetry_entries()
+    fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+
+    nodes_out = []
+    total_vram_bytes = 0
+    total_tflops = 0.0
+    for n in fleet_nodes:
+        inv = n.get("inventory", {})
+        telem = n.get("telemetry", {})
+        gpus = inv.get("gpus", [])
+        healthy_gpus = [
+            g for g in gpus
+            if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+        ]
+        node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+        if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
+            node_vram = inv.get("total_vram_bytes", 0)
+        node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
+        total_vram_bytes += node_vram
+        total_tflops += node_tflops
+        node_id = n.get("node_id")
+        node_entry = {
+            "node_id": node_id,
+            "vram_gb": round(node_vram / (1024**3), 1),
+            "tflops": round(node_tflops, 1),
+            "gpus": [g.get("model_name") for g in gpus],
+            "updated_at": n.get("updated_at"),
+        }
+        if include_remote_urls:
+            auth_token = str(n.get("auth_token", "")).strip()
+            node_entry["remote_url"] = f"/node/{node_id}?auth={auth_token}" if auth_token else None
+        nodes_out.append(node_entry)
+
+    return {
+        "owner_id": owner_id,
+        "total_nodes_bound": len(bound_node_ids),
+        "total_nodes_online": len(fleet_nodes),
+        "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
+        "total_tflops": round(total_tflops, 1),
+        "nodes": nodes_out,
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+
+
 def _build_ledger_from_env() -> Ledger:
     ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
     path = Path(ledger_path_env) if ledger_path_env else None
@@ -92,6 +142,7 @@ from services.gateway.security import (
     sanitize_error_message,
 )
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
+from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
 
 DEFAULT_PORT = CONFIG.default_gateway_port
 
@@ -151,6 +202,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
     billing_routes: BillingRoutesHandler = BillingRoutesHandler(ledger=ledger, stripe_svc=stripe_svc, auth_manager=auth_manager)
     provider_routes: ProviderRoutesHandler = ProviderRoutesHandler(account_store=account_store, settlement_executor=settlement_executor, auth_manager=auth_manager, ledger=ledger)
     inference_engine: InferenceEngine = InferenceEngine(ledger=ledger, metrics=metrics, teaser_manager=teaser_manager)
+    passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
 
     @classmethod
     def sync_subsystems(cls) -> None:
@@ -404,47 +456,25 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
             owner_key = query.get("owner_key", [""])[0].strip()
             owner_id = owner_id_for_key(owner_key)
+            self._send_json(_build_fleet_payload(owner_id))
+            return
 
-            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
-            live_nodes = fresh_node_telemetry_entries()
-            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+        if clean_path == "/api/auth/me":
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
+                return
+            self._send_json({"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key})
+            return
 
-            from tools.appliance.hardware_detector import is_integrated_display_adapter
-
-            nodes_out = []
-            total_vram_bytes = 0
-            total_tflops = 0.0
-            for n in fleet_nodes:
-                inv = n.get("inventory", {})
-                telem = n.get("telemetry", {})
-                gpus = inv.get("gpus", [])
-                healthy_gpus = [
-                    g for g in gpus
-                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
-                ]
-                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
-                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
-                    node_vram = inv.get("total_vram_bytes", 0)
-                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
-                total_vram_bytes += node_vram
-                total_tflops += node_tflops
-                nodes_out.append({
-                    "node_id": n.get("node_id"),
-                    "vram_gb": round(node_vram / (1024**3), 1),
-                    "tflops": round(node_tflops, 1),
-                    "gpus": [g.get("model_name") for g in gpus],
-                    "updated_at": n.get("updated_at"),
-                })
-
-            self._send_json({
-                "owner_id": owner_id,
-                "total_nodes_bound": len(bound_node_ids),
-                "total_nodes_online": len(fleet_nodes),
-                "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
-                "total_tflops": round(total_tflops, 1),
-                "nodes": nodes_out,
-                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            })
+        if clean_path == "/api/portal/fleet":
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
+                return
+            owner_id = owner_id_for_key(account.owner_key)
+            payload = _build_fleet_payload(owner_id, include_remote_urls=True)
+            self._send_json(payload)
             return
 
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
@@ -542,6 +572,31 @@ class GatewayHandler(BaseHTTPRequestHandler):
             body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
         except Exception:
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path == "/api/auth/register/begin":
+            data, status, cookie = self.passkey_handler.register_begin(body)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/auth/register/complete":
+            data, status, cookie = self.passkey_handler.register_complete(body)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/auth/login/begin":
+            data, status, cookie = self.passkey_handler.login_begin(body)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/auth/login/complete":
+            data, status, cookie = self.passkey_handler.login_complete(body)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/auth/logout":
+            data, status, cookie = self.passkey_handler.logout(self.headers)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
         if clean_path in ("/api/v1/node/heartbeat", "/api/node/heartbeat", "/v1/node/heartbeat"):

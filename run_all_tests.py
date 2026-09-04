@@ -35,10 +35,14 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_owner_promo_routes",
         "services.gateway.tests.test_server_driven_gpu_promo",
         "tests.test_security_audit_fixes",
+        "tests.test_gateway_passkey_auth",
     ],
     "Portal & Web Subsystem": [
         "services.portal.tests.test_portal_server",
         "services.portal.tests.test_portal_modular",
+        "services.portal.tests.test_fleet_accounts",
+        "services.portal.tests.test_passkey_routes",
+        "services.portal.tests.test_fleet_http",
     ],
     "Billing & Financial Ledger": [
         "services.billing.tests.test_ledger",

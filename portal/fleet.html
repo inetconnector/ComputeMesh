@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ComputeMesh — Flotten-Verwaltung</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="stylesheet" href="portal.css?v=2.3">
+  <style>
+    .fleet-wrap { max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    .fleet-card { background: var(--bg-card, #12141c); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: var(--radius-md, 12px); padding: 2rem; margin-bottom: 1.5rem; }
+    .fleet-msg { font-size: 0.85rem; border-radius: var(--radius-sm, 8px); padding: 0.75rem 1rem; margin-top: 1rem; }
+    .fleet-msg.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
+    .fleet-msg.ok { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+    .owner-key-box { font-family: var(--font-mono, monospace); background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); border-radius: var(--radius-sm, 8px); padding: 0.85rem 1rem; word-break: break-all; font-size: 0.9rem; color: var(--accent-cyan, #22d3ee); }
+    .node-row { display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 0; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); }
+    .node-row:last-child { border-bottom: none; }
+    .node-id { font-family: var(--font-mono, monospace); font-weight: 600; }
+    .node-meta { font-size: 0.8rem; color: var(--text-muted, #9ca3af); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-top-row" style="display:flex;justify-content:space-between;align-items:center;padding:0.65rem 1.5rem;">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">FLEET</span>
+      </a>
+      <button id="logout-btn" class="btn btn-secondary" hidden onclick="doLogout()">Abmelden</button>
+    </div>
+  </header>
+
+  <div class="fleet-wrap">
+
+    <div id="auth-section" class="fleet-card">
+      <h2 style="margin-top:0;">Flotte remote verwalten</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;">Login per Passkey (Face ID / Windows Hello / Sicherheitsschlüssel) — kein Passwort. Funktioniert von überall, auch außerhalb deines LAN.</p>
+      <div class="form-group">
+        <label>E-Mail</label>
+        <input id="auth-email" type="email" class="form-control" placeholder="du@example.com">
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="doLogin()">Mit Passkey anmelden</button>
+        <button class="btn btn-secondary" onclick="doRegister()">Neues Konto + Passkey erstellen</button>
+      </div>
+      <div id="auth-msg"></div>
+    </div>
+
+    <div id="owner-key-section" class="fleet-card" hidden>
+      <h3 style="margin-top:0;">Dein Owner Key</h3>
+      <p style="color:var(--text-muted);font-size:0.85rem;">Trage diesen Key im Dashboard jedes Geräts (unter "Owner Key / Fleet Grouping") ein, um es dieser Flotte zuzuordnen.</p>
+      <div id="owner-key-val" class="owner-key-box"></div>
+    </div>
+
+    <div id="fleet-section" class="fleet-card" hidden>
+      <h3 style="margin-top:0;">Deine Flotte</h3>
+      <div id="fleet-summary" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);"></div>
+      <div id="fleet-nodes"></div>
+      <p id="fleet-empty" style="color:var(--text-muted);font-size:0.85rem;" hidden>Noch keine Geräte gebunden — trage den Owner Key oben im Dashboard eines Geräts ein.</p>
+    </div>
+
+  </div>
+
+  <script>
+    function b64urlToBytes(b64url) {
+      const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
+      const b64 = (b64url + pad).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(b64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr.buffer;
+    }
+    function bytesToB64url(buf) {
+      const bytes = new Uint8Array(buf);
+      let str = "";
+      for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+      return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function credentialToJSON(cred) {
+      if (typeof cred.toJSON === "function") return cred.toJSON();
+      const resp = cred.response;
+      const out = {
+        id: cred.id,
+        rawId: bytesToB64url(cred.rawId),
+        type: cred.type,
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: bytesToB64url(resp.clientDataJSON),
+        },
+      };
+      if (resp.attestationObject) {
+        out.response.attestationObject = bytesToB64url(resp.attestationObject);
+        if (typeof resp.getTransports === "function") out.response.transports = resp.getTransports();
+      }
+      if (resp.authenticatorData) {
+        out.response.authenticatorData = bytesToB64url(resp.authenticatorData);
+        out.response.signature = bytesToB64url(resp.signature);
+        if (resp.userHandle) out.response.userHandle = bytesToB64url(resp.userHandle);
+      }
+      return out;
+    }
+
+    function showMsg(text, kind) {
+      const el = document.getElementById("auth-msg");
+      el.innerHTML = `<div class="fleet-msg ${kind}">${text}</div>`;
+    }
+
+    async function doRegister() {
+      const email = document.getElementById("auth-email").value.trim();
+      if (!email) { showMsg("Bitte E-Mail eingeben.", "error"); return; }
+      try {
+        const beginRes = await fetch("/api/auth/register/begin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const beginData = await beginRes.json();
+        if (!beginRes.ok) { showMsg(beginData.error || "Registrierung fehlgeschlagen.", "error"); return; }
+
+        const opts = beginData.options;
+        opts.challenge = b64urlToBytes(opts.challenge);
+        opts.user.id = b64urlToBytes(opts.user.id);
+        if (opts.excludeCredentials) {
+          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        }
+
+        const cred = await navigator.credentials.create({ publicKey: opts });
+        const completeRes = await fetch("/api/auth/register/complete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, credential: credentialToJSON(cred) }),
+        });
+        const completeData = await completeRes.json();
+        if (!completeRes.ok) { showMsg(completeData.error || "Registrierung fehlgeschlagen.", "error"); return; }
+
+        showMsg("Konto erstellt und Passkey registriert.", "ok");
+        onLoggedIn(completeData);
+      } catch (err) {
+        showMsg("Fehler: " + (err.message || err), "error");
+      }
+    }
+
+    async function doLogin() {
+      const email = document.getElementById("auth-email").value.trim();
+      if (!email) { showMsg("Bitte E-Mail eingeben.", "error"); return; }
+      try {
+        const beginRes = await fetch("/api/auth/login/begin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const beginData = await beginRes.json();
+        if (!beginRes.ok) { showMsg(beginData.error || "Login fehlgeschlagen.", "error"); return; }
+
+        const opts = beginData.options;
+        opts.challenge = b64urlToBytes(opts.challenge);
+        if (opts.allowCredentials) {
+          opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        }
+
+        const cred = await navigator.credentials.get({ publicKey: opts });
+        const completeRes = await fetch("/api/auth/login/complete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, credential: credentialToJSON(cred) }),
+        });
+        const completeData = await completeRes.json();
+        if (!completeRes.ok) { showMsg(completeData.error || "Login fehlgeschlagen.", "error"); return; }
+
+        onLoggedIn(completeData);
+      } catch (err) {
+        showMsg("Fehler: " + (err.message || err), "error");
+      }
+    }
+
+    async function doLogout() {
+      await fetch("/api/auth/logout", { method: "POST" });
+      location.reload();
+    }
+
+    function onLoggedIn(data) {
+      document.getElementById("auth-section").hidden = true;
+      document.getElementById("logout-btn").hidden = false;
+      if (data.owner_key) {
+        document.getElementById("owner-key-section").hidden = false;
+        document.getElementById("owner-key-val").textContent = data.owner_key;
+      }
+      loadFleet();
+    }
+
+    async function loadFleet() {
+      const res = await fetch("/api/portal/fleet");
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById("fleet-section").hidden = false;
+      document.getElementById("fleet-summary").innerHTML =
+        `<div><strong>${data.total_nodes_online}</strong> von ${data.total_nodes_bound} online</div>` +
+        `<div><strong>${data.total_vram_gb}</strong> GB VRAM</div>` +
+        `<div><strong>${data.total_tflops}</strong> TFLOPS</div>`;
+      const nodesEl = document.getElementById("fleet-nodes");
+      nodesEl.innerHTML = "";
+      (data.nodes || []).forEach(n => {
+        const row = document.createElement("div");
+        row.className = "node-row";
+        row.innerHTML = `<div><div class="node-id">${n.node_id}</div><div class="node-meta">${(n.gpus||[]).join(", ")} · ${n.vram_gb} GB · ${n.tflops} TFLOPS</div></div>` +
+          (n.remote_url ? `<a href="${n.remote_url}" class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;">Dashboard öffnen →</a>` : "");
+        nodesEl.appendChild(row);
+      });
+      document.getElementById("fleet-empty").hidden = (data.nodes || []).length > 0;
+    }
+
+    (async function initSession() {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById("auth-section").hidden = true;
+        document.getElementById("logout-btn").hidden = false;
+        document.getElementById("owner-key-section").hidden = false;
+        document.getElementById("owner-key-val").textContent = data.owner_key;
+        loadFleet();
+      }
+    })();
+  </script>
+</body>
+</html>

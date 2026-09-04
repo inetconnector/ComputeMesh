@@ -37,6 +37,7 @@ from services.gateway.security import (
 )
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
+from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
@@ -51,6 +52,7 @@ ROUTE_MAP: dict[str, str] = {
     "/privacy": "privacy.html",
     "/impressum": "impressum.html",
     "/contact": "contact.html",
+    "/fleet": "fleet.html",
     "/google55d49cbebf6659d4.html": "google55d49cbebf6659d4.html",
 }
 
@@ -81,6 +83,7 @@ class PortalHandler(BaseHTTPRequestHandler):
 
     registration_handler: PortalRegistrationHandler = PortalRegistrationHandler()
     quotes_handler: PortalQuotesHandler = PortalQuotesHandler()
+    passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
@@ -125,13 +128,28 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
         self.close_connection = True
 
-    def _send_json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+    def _send_json(
+        self,
+        data: dict[str, Any],
+        status: HTTPStatus = HTTPStatus.OK,
+        set_cookie: str | None = None,
+        credentialed: bool = False,
+    ) -> None:
         body = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         for h_name, h_val in SECURITY_HEADERS.items():
             self.send_header(h_name, h_val)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Session-authenticated JSON routes (auth/*, portal/*) carry credentials via
+        # cookie, so a wildcard CORS origin would let any third-party site read them
+        # cross-site; only the portal's own origin may fetch() those with credentials.
+        if credentialed or set_cookie is not None:
+            self.send_header("Access-Control-Allow-Origin", f"{CONFIG.endpoints.scheme}://{CONFIG.endpoints.domain}")
+            self.send_header("Access-Control-Allow-Credentials", "true")
+        else:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        if set_cookie is not None:
+            self.send_header("Set-Cookie", set_cookie)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Connection", "close")
         self.end_headers()
@@ -300,6 +318,73 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if clean_path == "/api/auth/me":
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            self._send_json(
+                {"account_id": account.account_id, "email": account.email, "owner_key": account.owner_key},
+                credentialed=True,
+            )
+            return
+
+        if clean_path == "/api/portal/fleet":
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
+            from tools.appliance.hardware_detector import is_integrated_display_adapter
+
+            owner_id = owner_id_for_key(account.owner_key)
+            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
+            live_nodes = fresh_node_telemetry_entries()
+            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+
+            nodes_out = []
+            total_vram_bytes = 0
+            total_tflops = 0.0
+            for n in fleet_nodes:
+                inv = n.get("inventory", {})
+                telem = n.get("telemetry", {})
+                gpus = inv.get("gpus", [])
+                healthy_gpus = [
+                    g for g in gpus
+                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+                ]
+                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
+                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
+                    node_vram = inv.get("total_vram_bytes", 0)
+                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
+                total_vram_bytes += node_vram
+                total_tflops += node_tflops
+                node_id = n.get("node_id")
+                auth_token = str(n.get("auth_token", "")).strip()
+                nodes_out.append({
+                    "node_id": node_id,
+                    "vram_gb": round(node_vram / (1024**3), 1),
+                    "tflops": round(node_tflops, 1),
+                    "gpus": [g.get("model_name") for g in gpus],
+                    "updated_at": n.get("updated_at"),
+                    "remote_url": f"/node/{node_id}?auth={auth_token}" if auth_token else None,
+                })
+
+            self._send_json(
+                {
+                    "owner_id": owner_id,
+                    "total_nodes_bound": len(bound_node_ids),
+                    "total_nodes_online": len(fleet_nodes),
+                    "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
+                    "total_tflops": round(total_tflops, 1),
+                    "nodes": nodes_out,
+                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                },
+                credentialed=True,
+            )
+            return
+
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
             from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
             from tools.appliance.hardware_detector import is_integrated_display_adapter
@@ -447,6 +532,31 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id}, HTTPStatus.OK)
+            return
+
+        if clean_path == "/api/auth/register/begin":
+            data, status, cookie = self.passkey_handler.register_begin(body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/register/complete":
+            data, status, cookie = self.passkey_handler.register_complete(body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/login/begin":
+            data, status, cookie = self.passkey_handler.login_begin(body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/login/complete":
+            data, status, cookie = self.passkey_handler.login_complete(body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/logout":
+            data, status, cookie = self.passkey_handler.logout(self.headers)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
         if clean_path == "/api/v1/register":

@@ -53,7 +53,7 @@ class ChecksumMismatchError(Exception):
 class AutoUpdater:
     def __init__(
         self,
-        current_version: str = "1.2.38",
+        current_version: str = "1.2.39",
         manifest_url: str = DEFAULT_UPDATE_URL,
         public_key_hex: str = OFFICIAL_RELEASE_PUBLIC_KEY_HEX,
     ) -> None:
