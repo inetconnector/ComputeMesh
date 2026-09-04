@@ -14,7 +14,25 @@ const translations = {
     nav_status: "Network Status",
     nav_fleet: "Manage Fleet",
     btn_manage_fleet: "Fleet Cockpit",
+    fleet_btn_login_nav: "Sign in",
     fleet_btn_logout: "Sign out",
+    fleet_node_open: "Open Server ➔",
+    fleet_node_delete: "Delete inactive node",
+    fleet_node_delete_confirm: "Do you really want to remove server \"{node_id}\" from your fleet?\n\nThis node has 0 TFLOPS and is inactive or outdated.",
+    fleet_node_delete_success: "Node removed successfully.",
+    fleet_node_delete_error: "Error deleting node",
+    fleet_node_delete_net_error: "Network error deleting node",
+    fleet_node_id_stream: "Node-ID · Live Stream",
+    fleet_cluster_active: "🟢 Active",
+    fleet_cluster_standby: "🟡 Standby",
+    fleet_key_copied: "Owner Key copied to clipboard!",
+    fleet_key_missing: "Please enter an owner key.",
+    fleet_email_missing: "Please enter an email address.",
+    fleet_reg_creating: "Creating registration...",
+    fleet_reg_success: "Account created and Passkey registered!",
+    fleet_login_waiting: "Waiting for passkey confirmation...",
+    fleet_login_failed: "Login failed.",
+    fleet_reg_failed: "Registration failed.",
     fleet_hero_tag: "Decentralized Fleet Cockpit",
     fleet_hero_title: "Manage your <span class=\"gradient-text\">GPU Servers & Mining Rigs</span>",
     fleet_hero_sub: "Sign in with your fleet account or directly using your Owner Key to monitor all compute nodes in real time and seamlessly switch between them.",
@@ -353,7 +371,25 @@ const translations = {
     nav_status: "Systemstatus",
     nav_fleet: "Flotte verwalten",
     btn_manage_fleet: "Flotten-Cockpit",
+    fleet_btn_login_nav: "Anmelden",
     fleet_btn_logout: "Abmelden",
+    fleet_node_open: "Server öffnen ➔",
+    fleet_node_delete: "Inaktiven Knoten löschen",
+    fleet_node_delete_confirm: "Möchtest du den Server \"{node_id}\" wirklich aus deiner Flotte löschen?\n\nDieser Knoten hat 0 TFLOPS und ist inaktiv bzw. veraltet.",
+    fleet_node_delete_success: "Knoten erfolgreich entfernt.",
+    fleet_node_delete_error: "Fehler beim Löschen des Knotens",
+    fleet_node_delete_net_error: "Netzwerkfehler beim Löschen des Knotens",
+    fleet_node_id_stream: "Knoten-ID · Live Stream",
+    fleet_cluster_active: "🟢 Aktiv",
+    fleet_cluster_standby: "🟡 Standby",
+    fleet_key_copied: "Owner Key in die Zwischenablage kopiert!",
+    fleet_key_missing: "Bitte Owner Key eingeben.",
+    fleet_email_missing: "Bitte E-Mail-Adresse eingeben.",
+    fleet_reg_creating: "Erstelle Registrierung...",
+    fleet_reg_success: "Konto erstellt und Passkey registriert!",
+    fleet_login_waiting: "Warte auf Passkey-Bestätigung...",
+    fleet_login_failed: "Login fehlgeschlagen.",
+    fleet_reg_failed: "Registrierung fehlgeschlagen.",
     fleet_hero_tag: "Dezentrales Flotten-Cockpit",
     fleet_hero_title: "Verwalte deine <span class=\"gradient-text\">GPU-Server & Mining-Rigs</span>",
     fleet_hero_sub: "Melde dich mit deinem Flotten-Konto oder direkt per Owner-Key an, um alle deine Rechenknoten in Echtzeit zu überwachen und nahtlos zwischen ihnen zu wechseln.",
@@ -755,6 +791,10 @@ function switchLanguage(lang) {
   if (btn) {
     btn.textContent = lang === 'en' ? '🇩🇪 Deutsch' : '🇬🇧 English';
   }
+  const btnDe = document.getElementById('lang-de');
+  const btnEn = document.getElementById('lang-en');
+  if (btnDe) btnDe.classList.toggle('active', lang === 'de');
+  if (btnEn) btnEn.classList.toggle('active', lang === 'en');
   try {
     localStorage.setItem('cm_portal_lang', lang);
   } catch (e) {}
@@ -764,6 +804,9 @@ function switchLanguage(lang) {
   }
   if (typeof window.syncPortalStaticLanguage === 'function') {
     window.syncPortalStaticLanguage(lang);
+  }
+  if (typeof window.onLanguageChanged === 'function') {
+    try { window.onLanguageChanged(lang); } catch (e) { console.error(e); }
   }
 }
 
@@ -775,6 +818,9 @@ function toggleLanguage() {
 window.detectInitialLanguage = detectInitialLanguage;
 window.switchLanguage = switchLanguage;
 window.toggleLanguage = toggleLanguage;
+window.setLang = switchLanguage;
+window.translations = translations;
+window.currentLang = currentLang;
 
 // Canonical Pricing State
 let CM_PRICING = {

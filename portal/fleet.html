@@ -393,7 +393,8 @@
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
       </a>
-      <div class="nav-right">
+      <div class="nav-right" style="display:flex;align-items:center;gap:0.75rem;">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
         <div class="lang-switch">
           <button id="lang-de" class="lang-btn" onclick="setLang('de')">DE</button>
           <button id="lang-en" class="lang-btn active" onclick="setLang('en')">EN</button>
@@ -411,8 +412,8 @@
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
           <li><a href="/fleet" class="active" style="color: var(--accent-cyan); font-weight: 700;">⚡ <span data-i18n="nav_fleet">Flotte verwalten</span></a></li>
         </ul>
-        <button id="logout-btn" class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.85rem;border-radius:6px;margin-left:auto;white-space:nowrap;" onclick="doLogout()" hidden>
-          <span data-i18n="fleet_btn_logout">Abmelden</span>
+        <button id="auth-nav-btn" class="btn btn-secondary" style="font-size:0.82rem;padding:0.35rem 0.9rem;border-radius:6px;margin-left:auto;white-space:nowrap;" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span>
         </button>
       </div>
     </nav>
@@ -626,9 +627,9 @@
 
     async function doRegister() {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showMsg(currentLang === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
+      if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
       try {
-        showMsg(currentLang === 'de' ? "Erstelle Registrierung..." : "Creating registration...", "ok");
+        showMsg(getLang() === 'de' ? "Erstelle Registrierung..." : "Creating registration...", "ok");
         const beginRes = await fetch("/api/auth/register/begin", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
@@ -651,7 +652,7 @@
         const completeData = await completeRes.json();
         if (!completeRes.ok) { showMsg(completeData.error || "Registrierung fehlgeschlagen.", "error"); return; }
 
-        showMsg(currentLang === 'de' ? "Konto erstellt und Passkey registriert!" : "Account created and Passkey registered!", "ok");
+        showMsg(getLang() === 'de' ? "Konto erstellt und Passkey registriert!" : "Account created and Passkey registered!", "ok");
         onLoggedIn(completeData);
       } catch (err) {
         showMsg("Fehler: " + (err.message || err), "error");
@@ -660,9 +661,9 @@
 
     async function doLogin() {
       const email = document.getElementById("auth-email").value.trim();
-      if (!email) { showMsg(currentLang === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
+      if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
       try {
-        showMsg(currentLang === 'de' ? "Warte auf Passkey-Bestätigung..." : "Waiting for passkey confirmation...", "ok");
+        showMsg(getLang() === 'de' ? "Warte auf Passkey-Bestätigung..." : "Waiting for passkey confirmation...", "ok");
         const beginRes = await fetch("/api/auth/login/begin", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
@@ -693,7 +694,7 @@
     async function doDirectKeyLogin() {
       const key = document.getElementById("input-owner-key").value.trim();
       if (!key) {
-        showMsg(currentLang === 'de' ? "Bitte Owner Key eingeben." : "Please enter an owner key.", "error");
+        showMsg(getLang() === 'de' ? "Bitte Owner Key eingeben." : "Please enter an owner key.", "error");
         return;
       }
       activeOwnerKey = key;
@@ -706,19 +707,33 @@
     }
 
     async function doLogout() {
+      isLoggedIn = false;
       activeOwnerKey = "";
+      activeNodesList = [];
       localStorage.removeItem("cm_fleet_owner_key");
-      if (refreshInterval) clearInterval(refreshInterval);
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
       try {
         await fetch("/api/auth/logout", { method: "POST" });
       } catch (e) {}
-      location.reload();
+
+      document.getElementById("auth-section").hidden = false;
+      document.getElementById("fleet-section").hidden = true;
+      const ownerKeySec = document.getElementById("owner-key-section");
+      if (ownerKeySec) ownerKeySec.hidden = true;
+      const inputKey = document.getElementById("input-owner-key");
+      if (inputKey) inputKey.value = "";
+      updateAuthNavBtn();
+      showMsg("", "");
     }
 
     function onLoggedIn(data) {
+      isLoggedIn = true;
       document.getElementById("auth-section").hidden = true;
-      document.getElementById("logout-btn").hidden = false;
       document.getElementById("fleet-section").hidden = false;
+      updateAuthNavBtn();
 
       if (data && data.owner_key) {
         activeOwnerKey = data.owner_key;
@@ -743,9 +758,10 @@
         const res = await fetch(url, { headers });
         if (!res.ok) {
           if (res.status === 401 && !activeOwnerKey) {
+            isLoggedIn = false;
             document.getElementById("auth-section").hidden = false;
             document.getElementById("fleet-section").hidden = true;
-            document.getElementById("logout-btn").hidden = true;
+            updateAuthNavBtn();
           }
           return;
         }
@@ -764,7 +780,7 @@
         // Update Quick Switcher Dropdown
         const selectEl = document.getElementById("quick-server-select");
         const prevVal = selectEl.value;
-        selectEl.innerHTML = `<option value="">-- ${currentLang === 'de' ? 'Server auswählen' : 'Select Server'} --</option>`;
+        selectEl.innerHTML = `<option value="">-- ${getLang() === 'de' ? 'Server auswählen' : 'Select Server'} --</option>`;
         activeNodesList.forEach(n => {
           const opt = document.createElement("option");
           opt.value = n.remote_url || `/node/${n.node_id}`;
@@ -817,9 +833,9 @@
                 ${(Number(n.tflops || 0) === 0) ? `
                   <div style="display:flex;gap:0.5rem;align-items:center;">
                     <a href="${targetUrl}" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
-                      ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                      ⚡ ${getLang() === 'de' ? 'Server öffnen →' : 'Open Server →'}
                     </a>
-                    <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${currentLang === 'de' ? 'Inaktiven Knoten löschen' : 'Delete inactive node'}">
+                    <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${getLang() === 'de' ? 'Inaktiven Knoten löschen' : 'Delete inactive node'}">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -830,7 +846,7 @@
                   </div>
                 ` : `
                   <a href="${targetUrl}" target="_self" class="btn btn-primary" style="width:100%;text-align:center;display:block;padding:0.65rem 1rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
-                    ⚡ ${currentLang === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                    ⚡ ${getLang() === 'de' ? 'Server öffnen →' : 'Open Server →'}
                   </a>
                 `}
               </div>
@@ -846,7 +862,7 @@
 
     async function confirmDeleteNode(nodeId) {
       if (!nodeId) return;
-      const msg = currentLang === 'de'
+      const msg = getLang() === 'de'
         ? `Möchtest du den Server "${nodeId}" wirklich aus deiner Flotte löschen?\n\nDieser Knoten hat 0 TFLOPS und ist inaktiv bzw. veraltet.`
         : `Do you really want to remove server "${nodeId}" from your fleet?\n\nThis node has 0 TFLOPS and is inactive or outdated.`;
       
@@ -864,13 +880,13 @@
         });
         const data = await res.json();
         if (res.ok && data.status === "ok") {
-          await loadFleetOverview();
+          await loadFleet(true);
         } else {
-          alert(data.error || (currentLang === 'de' ? "Fehler beim Löschen des Knotens" : "Error deleting node"));
+          alert(data.error || (getLang() === 'de' ? "Fehler beim Löschen des Knotens" : "Error deleting node"));
         }
       } catch (err) {
         console.error("Delete node error:", err);
-        alert(currentLang === 'de' ? "Netzwerkfehler beim Löschen des Knotens" : "Network error deleting node");
+        alert(getLang() === 'de' ? "Netzwerkfehler beim Löschen des Knotens" : "Network error deleting node");
       }
     }
 
@@ -885,7 +901,7 @@
       const key = document.getElementById("owner-key-val").textContent;
       if (!key) return;
       navigator.clipboard.writeText(key).then(() => {
-        alert(currentLang === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
+        alert(getLang() === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
       });
     }
 
@@ -897,6 +913,8 @@
 
     // Auto-init on page load
     (async function initFleet() {
+      updateAuthNavBtn();
+
       // Check localStorage for saved key
       const savedKey = localStorage.getItem("cm_fleet_owner_key");
       if (savedKey) {
@@ -917,7 +935,9 @@
       } catch (e) {}
 
       // Default: show auth
+      isLoggedIn = false;
       document.getElementById("auth-section").hidden = false;
+      updateAuthNavBtn();
     })();
   </script>
 </body>
