@@ -1,24 +1,26 @@
 """Durable portal login accounts for remote fleet administration.
 
-Each account is authenticated by WebAuthn passkeys (no passwords) and owns a
-generated fleet `owner_key` -- the same shared secret that nodes are already
-configured with (tools/appliance/appliance_config.py, the dashboard's "Owner
-Key" field) to bind themselves to a fleet in services/billing/owner_accounts.
-This store only holds portal identity/session state; it never touches the
-gateway's OwnerAccountStore directly.
+Each account is authenticated by WebAuthn passkeys (no passwords) or secure
+transactional magic-link recovery (via mesh@inetconnector.com) and owns a
+generated fleet `owner_key` -- the same shared secret that nodes are configured with
+to bind themselves to a fleet in services/billing/owner_accounts.
 """
 from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
 from pathlib import Path
 import secrets
 import sqlite3
+from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 CHALLENGE_TTL_MINUTES = 5
 SESSION_TTL_DAYS = 30
+MAGIC_LINK_TTL_MINUTES = 15
+ENROLLMENT_TOKEN_TTL_MINUTES = 30
 
 
 class FleetAccountStoreError(Exception):
@@ -46,6 +48,11 @@ class FleetPasskey:
     sign_count: int
     transports: str
     created_at: str
+    nickname: str = ""
+    last_used_at: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def utc_now() -> str:
@@ -60,7 +67,7 @@ def _clean_email(value: str) -> str:
 
 
 class FleetAccountStore:
-    """SQLite-backed passkey accounts, credentials, sessions and login challenges."""
+    """SQLite-backed passkey accounts, credentials, sessions, audit log and login challenges."""
 
     def __init__(self, storage_path: Path) -> None:
         self.storage_path = Path(storage_path)
@@ -101,10 +108,13 @@ class FleetAccountStore:
                     public_key TEXT NOT NULL,
                     sign_count INTEGER NOT NULL DEFAULT 0,
                     transports TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    nickname TEXT NOT NULL DEFAULT '',
+                    last_used_at TEXT NOT NULL DEFAULT ''
                 );
                 CREATE INDEX IF NOT EXISTS idx_fleet_passkeys_account
                     ON fleet_passkeys(account_id);
+
                 CREATE TABLE IF NOT EXISTS fleet_sessions (
                     session_token TEXT PRIMARY KEY,
                     account_id TEXT NOT NULL REFERENCES fleet_accounts(account_id),
@@ -119,8 +129,48 @@ class FleetAccountStore:
                     expires_at TEXT NOT NULL,
                     PRIMARY KEY (email, kind)
                 );
+                CREATE TABLE IF NOT EXISTS fleet_recovery_tokens (
+                    token_hash TEXT PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    consumed INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_fleet_recovery_email
+                    ON fleet_recovery_tokens(email);
+
+                CREATE TABLE IF NOT EXISTS fleet_enrollment_tokens (
+                    token TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL REFERENCES fleet_accounts(account_id),
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS fleet_audit_log (
+                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    details TEXT NOT NULL DEFAULT '',
+                    ip_address TEXT NOT NULL DEFAULT '',
+                    user_agent TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fleet_audit_acc
+                    ON fleet_audit_log(account_id, log_id DESC);
                 """
             )
+            # Safe schema migration for existing databases
+            try:
+                conn.execute("ALTER TABLE fleet_passkeys ADD COLUMN nickname TEXT NOT NULL DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE fleet_passkeys ADD COLUMN last_used_at TEXT NOT NULL DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+
             conn.execute(
                 "INSERT OR REPLACE INTO fleet_schema_meta(key, value) VALUES('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -162,14 +212,14 @@ class FleetAccountStore:
 
     # -- passkeys -----------------------------------------------------------
 
-    def add_passkey(self, account_id: str, credential_id: str, public_key: str, sign_count: int, transports: str = "") -> None:
+    def add_passkey(self, account_id: str, credential_id: str, public_key: str, sign_count: int, transports: str = "", nickname: str = "") -> None:
         now = utc_now()
         with self._connection() as conn:
             try:
                 conn.execute(
-                    "INSERT INTO fleet_passkeys(credential_id, account_id, public_key, sign_count, transports, created_at) "
-                    "VALUES(?, ?, ?, ?, ?, ?)",
-                    (credential_id, account_id, public_key, int(sign_count), str(transports or ""), now),
+                    "INSERT INTO fleet_passkeys(credential_id, account_id, public_key, sign_count, transports, created_at, nickname, last_used_at) "
+                    "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                    (credential_id, account_id, public_key, int(sign_count), str(transports or ""), now, str(nickname or "").strip(), now),
                 )
             except sqlite3.IntegrityError as exc:
                 raise FleetAccountStoreError("this passkey is already registered") from exc
@@ -184,16 +234,33 @@ class FleetAccountStore:
     def list_passkeys(self, account_id: str) -> list[FleetPasskey]:
         with self._connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM fleet_passkeys WHERE account_id = ?", (account_id,)
+                "SELECT * FROM fleet_passkeys WHERE account_id = ? ORDER BY created_at ASC", (account_id,)
             ).fetchall()
         return [FleetPasskey(**dict(r)) for r in rows]
 
     def update_sign_count(self, credential_id: str, sign_count: int) -> None:
+        now = utc_now()
         with self._connection() as conn:
             conn.execute(
-                "UPDATE fleet_passkeys SET sign_count = ? WHERE credential_id = ?",
-                (int(sign_count), credential_id),
+                "UPDATE fleet_passkeys SET sign_count = ?, last_used_at = ? WHERE credential_id = ?",
+                (int(sign_count), now, credential_id),
             )
+
+    def rename_passkey(self, account_id: str, credential_id: str, nickname: str) -> bool:
+        with self._connection() as conn:
+            cur = conn.execute(
+                "UPDATE fleet_passkeys SET nickname = ? WHERE account_id = ? AND credential_id = ?",
+                (str(nickname or "").strip(), account_id, credential_id),
+            )
+            return cur.rowcount > 0
+
+    def delete_passkey(self, account_id: str, credential_id: str) -> bool:
+        with self._connection() as conn:
+            cur = conn.execute(
+                "DELETE FROM fleet_passkeys WHERE account_id = ? AND credential_id = ?",
+                (account_id, credential_id),
+            )
+            return cur.rowcount > 0
 
     # -- registration/login challenges --------------------------------------
 
@@ -222,6 +289,85 @@ class FleetAccountStore:
         if datetime.now(timezone.utc) > expires_at:
             return None
         return str(row["challenge"])
+
+    # -- magic links & recovery tokens --------------------------------------
+
+    def create_magic_link_token(self, email: str, ttl_minutes: int = MAGIC_LINK_TTL_MINUTES) -> str:
+        cleaned = _clean_email(email)
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(minutes=ttl_minutes)).isoformat().replace("+00:00", "Z")
+        with self._connection() as conn:
+            conn.execute(
+                "INSERT INTO fleet_recovery_tokens(token_hash, email, created_at, expires_at, consumed) "
+                "VALUES(?, ?, ?, ?, 0)",
+                (token_hash, cleaned, utc_now(), expires),
+            )
+        return raw_token
+
+    def verify_magic_link_token(self, raw_token: str) -> FleetAccount | None:
+        token = str(raw_token or "").strip()
+        if not token:
+            return None
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT email, expires_at, consumed FROM fleet_recovery_tokens WHERE token_hash = ?",
+                (token_hash,),
+            ).fetchone()
+            if row is None or row["consumed"]:
+                return None
+            conn.execute("UPDATE fleet_recovery_tokens SET consumed = 1 WHERE token_hash = ?", (token_hash,))
+            expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > expires_at:
+                return None
+            email = row["email"]
+            account_row = conn.execute("SELECT * FROM fleet_accounts WHERE email = ?", (email,)).fetchone()
+            if account_row is None:
+                # First time magic link registration
+                account_id = "facc_" + secrets.token_hex(12)
+                owner_key = "ok_" + secrets.token_urlsafe(24)
+                now_str = utc_now()
+                conn.execute(
+                    "INSERT INTO fleet_accounts(account_id, email, owner_key, display_name, created_at, updated_at) "
+                    "VALUES(?, ?, ?, '', ?, ?)",
+                    (account_id, email, owner_key, now_str, now_str),
+                )
+                account_row = conn.execute("SELECT * FROM fleet_accounts WHERE account_id = ?", (account_id,)).fetchone()
+        return FleetAccount(**dict(account_row)) if account_row else None
+
+    # -- enrollment tokens --------------------------------------------------
+
+    def create_enrollment_token(self, account_id: str, ttl_minutes: int = ENROLLMENT_TOKEN_TTL_MINUTES) -> str:
+        token = "cmenroll_" + secrets.token_urlsafe(20)
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(minutes=ttl_minutes)).isoformat().replace("+00:00", "Z")
+        with self._connection() as conn:
+            conn.execute(
+                "INSERT INTO fleet_enrollment_tokens(token, account_id, created_at, expires_at, used) VALUES(?, ?, ?, ?, 0)",
+                (token, account_id, utc_now(), expires),
+            )
+        return token
+
+    def verify_and_consume_enrollment_token(self, token: str) -> str | None:
+        """Verifies enrollment token and returns owner_key if valid."""
+        raw = str(token or "").strip()
+        if not raw:
+            return None
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT account_id, expires_at, used FROM fleet_enrollment_tokens WHERE token = ?",
+                (raw,),
+            ).fetchone()
+            if row is None or row["used"]:
+                return None
+            conn.execute("UPDATE fleet_enrollment_tokens SET used = 1 WHERE token = ?", (raw,))
+            expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > expires_at:
+                return None
+            account = conn.execute("SELECT owner_key FROM fleet_accounts WHERE account_id = ?", (row["account_id"],)).fetchone()
+            return str(account["owner_key"]) if account else None
 
     # -- sessions -------------------------------------------------------------
 
@@ -261,3 +407,43 @@ class FleetAccountStore:
             return
         with self._connection() as conn:
             conn.execute("DELETE FROM fleet_sessions WHERE session_token = ?", (token,))
+
+    def revoke_all_sessions(self, account_id: str) -> None:
+        with self._connection() as conn:
+            conn.execute("DELETE FROM fleet_sessions WHERE account_id = ?", (account_id,))
+
+    # -- audit log ------------------------------------------------------------
+
+    def record_audit_event(
+        self,
+        account_id: str,
+        email: str,
+        event_type: str,
+        details: str = "",
+        ip_address: str = "",
+        user_agent: str = "",
+    ) -> None:
+        now = utc_now()
+        with self._connection() as conn:
+            conn.execute(
+                "INSERT INTO fleet_audit_log(account_id, email, event_type, details, ip_address, user_agent, created_at) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?)",
+                (
+                    account_id,
+                    email,
+                    event_type,
+                    str(details or "").strip()[:500],
+                    str(ip_address or "").strip()[:45],
+                    str(user_agent or "").strip()[:255],
+                    now,
+                ),
+            )
+
+    def get_audit_log(self, account_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT log_id, event_type, details, ip_address, user_agent, created_at "
+                "FROM fleet_audit_log WHERE account_id = ? ORDER BY log_id DESC LIMIT ?",
+                (account_id, max(1, min(limit, 200))),
+            ).fetchall()
+        return [dict(r) for r in rows]

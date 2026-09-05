@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
-  <link rel="stylesheet" href="/portal.css?v=2.5">
+  <link rel="stylesheet" href="/portal.css?v=2.6">
   <style>
     :root {
       --fleet-bg: #090d16;
@@ -87,6 +87,7 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 1.5rem;
       padding-bottom: 0.5rem;
+      flex-wrap: wrap;
     }
 
     .auth-tab-btn {
@@ -110,6 +111,38 @@
       color: var(--accent-cyan);
       background: rgba(56, 189, 248, 0.12);
       border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .cockpit-tabs {
+      display: flex;
+      gap: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.75rem;
+      padding-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .cockpit-tab-btn {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      padding: 0.65rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cockpit-tab-btn:hover {
+      color: #f8fafc;
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .cockpit-tab-btn.active {
+      color: #ffffff;
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
     }
 
     .form-group {
@@ -383,6 +416,41 @@
       transform: translateY(-1px);
       box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
     }
+
+    /* Security tables & badges */
+    .sec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin-top: 1rem;
+    }
+
+    .sec-table th, .sec-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sec-table th {
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    .sec-badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .sec-badge.info { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); }
+    .sec-badge.warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .sec-badge.danger { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .sec-badge.success { background: rgba(16, 185, 129, 0.15); color: #34d399; }
   </style>
 </head>
 <body>
@@ -435,6 +503,9 @@
         <button id="tab-passkey-btn" class="auth-tab-btn active" onclick="switchAuthTab('passkey')">
           🔑 <span data-i18n="fleet_tab_passkey">Passkey / Biometrie</span>
         </button>
+        <button id="tab-magic-btn" class="auth-tab-btn" onclick="switchAuthTab('magic_link')">
+          ✉️ <span data-i18n="fleet_tab_magic">E-Mail Magic-Link</span>
+        </button>
         <button id="tab-key-btn" class="auth-tab-btn" onclick="switchAuthTab('owner_key')">
           🛡️ <span data-i18n="fleet_tab_key">Direkter Owner-Key</span>
         </button>
@@ -456,6 +527,22 @@
         </div>
         <p style="color:#64748b;font-size:0.82rem;margin-top:0.75rem;" data-i18n="fleet_passkey_hint">
           100% passwortlos & kryptografisch geschützt über Windows Hello, Touch ID, Face ID oder Hardware-Sicherheitsschlüssel.
+        </p>
+      </div>
+
+      <!-- Magic Link Tab Pane -->
+      <div id="pane-magic" class="auth-pane" style="display: none;">
+        <div class="form-group">
+          <label data-i18n="fleet_lbl_email">E-Mail-Adresse für Login-Link</label>
+          <input id="magic-email" type="email" class="form-control-custom" placeholder="name@example.com" spellcheck="false">
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="doRequestMagicLink()">
+            ✉️ <span data-i18n="fleet_btn_request_magic">Login-Link per E-Mail anfordern</span>
+          </button>
+        </div>
+        <p style="color:#64748b;font-size:0.82rem;margin-top:0.75rem;" data-i18n="fleet_magic_hint">
+          Erhalte einen kryptografisch signierten Einmal-Link direkt von <code>mesh@inetconnector.com</code>.
         </p>
       </div>
 
@@ -484,7 +571,7 @@
       <div id="auth-msg"></div>
     </div>
 
-    <!-- 2. Fleet Dashboard Section -->
+    <!-- 2. Fleet Cockpit Section -->
     <div id="fleet-section" hidden>
 
       <!-- Telemetry Bar -->
@@ -507,49 +594,108 @@
         </div>
       </div>
 
-      <!-- Toolbar with Server Switcher -->
-      <div class="fleet-card" style="padding: 1.5rem;">
-        <div class="fleet-toolbar">
-          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-            <label style="font-size:0.9rem;font-weight:600;color:#cbd5e1;" data-i18n="fleet_quick_jump">⚡ Zu Server wechseln:</label>
-            <select id="quick-server-select" class="server-switcher-select" onchange="onQuickServerSelect(this.value)">
-              <option value="" data-i18n="fleet_select_server">-- Server auswählen --</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:0.75rem;">
-            <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="loadFleet(true)">
-              🔄 <span data-i18n="fleet_btn_refresh">Aktualisieren</span>
-            </button>
-            <span id="auto-refresh-badge" style="font-size:0.75rem;color:#64748b;">Sync: 5s</span>
-          </div>
-        </div>
+      <!-- Cockpit View Tabs -->
+      <div class="cockpit-tabs">
+        <button id="btn-cockpit-servers" class="cockpit-tab-btn active" onclick="switchCockpitView('servers')">
+          <span data-i18n="fleet_nav_tab_servers">⚡ Verbundene Server</span>
+        </button>
+        <button id="btn-cockpit-security" class="cockpit-tab-btn" onclick="switchCockpitView('security')">
+          <span data-i18n="fleet_nav_tab_security">🛡️ Sicherheit & Passkeys</span>
+        </button>
+        <button id="btn-cockpit-setup" class="cockpit-tab-btn" onclick="switchCockpitView('setup')">
+          <span data-i18n="fleet_nav_tab_setup">🔑 Owner Key & Kopplung</span>
+        </button>
+      </div>
 
-        <h3 style="margin-top:0;margin-bottom:1.25rem;font-size:1.2rem;" data-i18n="fleet_servers_title">Verbundene Server & Mining-Rigs</h3>
-        
-        <div id="fleet-nodes" class="node-grid"></div>
+      <!-- VIEW 1: Servers Grid -->
+      <div id="cockpit-view-servers">
+        <div class="fleet-card" style="padding: 1.5rem;">
+          <div class="fleet-toolbar">
+            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+              <label style="font-size:0.9rem;font-weight:600;color:#cbd5e1;" data-i18n="fleet_quick_jump">⚡ Zu Server wechseln:</label>
+              <select id="quick-server-select" class="server-switcher-select" onchange="onQuickServerSelect(this.value)">
+                <option value="" data-i18n="fleet_select_server">-- Server auswählen --</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="loadFleet(true)">
+                🔄 <span data-i18n="fleet_btn_refresh">Aktualisieren</span>
+              </button>
+              <span id="auto-refresh-badge" style="font-size:0.75rem;color:#64748b;">Sync: 5s</span>
+            </div>
+          </div>
 
-        <div id="fleet-empty" style="text-align:center;padding:3rem 1rem;" hidden>
-          <div style="font-size:2.5rem;margin-bottom:0.75rem;">📡</div>
-          <h4 style="font-size:1.15rem;margin-bottom:0.5rem;" data-i18n="fleet_empty_title">Noch keine Server verbunden</h4>
-          <p style="color:#94a3b8;max-width:520px;margin:0 auto 1.5rem auto;font-size:0.9rem;" data-i18n="fleet_empty_desc">
-            Trage deinen Owner Key unten in der Konfiguration deiner Server (in <code>/boot/computemesh.env</code> oder im lokalen Dashboard unter Einstellungen) ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.
-          </p>
+          <h3 style="margin-top:0;margin-bottom:1.25rem;font-size:1.2rem;" data-i18n="fleet_servers_title">Verbundene Server & Mining-Rigs</h3>
+          
+          <div id="fleet-nodes" class="node-grid"></div>
+
+          <div id="fleet-empty" style="text-align:center;padding:3rem 1rem;" hidden>
+            <div style="font-size:2.5rem;margin-bottom:0.75rem;">📡</div>
+            <h4 style="font-size:1.15rem;margin-bottom:0.5rem;" data-i18n="fleet_empty_title">Noch keine Server verbunden</h4>
+            <p style="color:#94a3b8;max-width:520px;margin:0 auto 1.5rem auto;font-size:0.9rem;" data-i18n="fleet_empty_desc">
+              Trage deinen Owner Key oder einen Einmal-Pairing-Code in der Konfiguration deiner Server ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.
+            </p>
+          </div>
         </div>
       </div>
 
-      <!-- Owner Key Helper Section -->
-      <div id="owner-key-section" class="fleet-card" hidden>
-        <h3 style="margin-top:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;">
-          <span>🛡️</span> <span data-i18n="fleet_owner_key_title">Dein Flotten Owner Key</span>
-        </h3>
-        <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem;" data-i18n="fleet_owner_key_desc">
-          Trage diesen Schlüssel in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte zuzuordnen:
-        </p>
-        <div class="owner-key-box">
-          <span id="owner-key-val">owner_...</span>
-          <button class="copy-btn" onclick="copyOwnerKey()">
-            📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
-          </button>
+      <!-- VIEW 2: Security & Passkeys & Audit Log -->
+      <div id="cockpit-view-security" style="display: none;">
+        
+        <!-- Multi-Passkey Manager -->
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+            <h3 style="margin:0;font-size:1.2rem;" data-i18n="fleet_passkeys_title">Registrierte Passkeys & Hardware-Schlüssel</h3>
+            <button class="btn btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem;" onclick="doAddAdditionalPasskey()">
+              <span data-i18n="fleet_btn_add_passkey">+ Weiteren Passkey / YubiKey registrieren</span>
+            </button>
+          </div>
+          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;">
+            Du kannst mehrere FIDO2-Sicherheitsschlüssel (z. B. MacBook Touch ID, Windows Hello und einen YubiKey) für deinen Account hinterlegen.
+          </p>
+          <div id="passkeys-list-box"></div>
+        </div>
+
+        <!-- Zero-Trust Server Enrollment Token Generator -->
+        <div class="fleet-card">
+          <h3 style="margin-top:0;font-size:1.2rem;" data-i18n="fleet_enrollment_title">Einmaliger Zero-Trust Server-Pairing-Code</h3>
+          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;" data-i18n="fleet_enrollment_desc">
+            Erzeuge einen 30-Minuten Einmal-Code, um einen GPU-Server anzubinden, ohne deinen Master Owner-Key weiterzugeben.
+          </p>
+          <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="generateEnrollmentToken()">
+              <span data-i18n="fleet_btn_gen_enrollment">⚡ 30-Minuten Pairing-Code erzeugen</span>
+            </button>
+            <div id="enrollment-token-result" style="font-family:'JetBrains Mono', monospace;color:var(--accent-cyan);font-weight:700;"></div>
+          </div>
+        </div>
+
+        <!-- Security Audit Log -->
+        <div class="fleet-card">
+          <h3 style="margin-top:0;font-size:1.2rem;" data-i18n="fleet_audit_title">Sicherheits-Audit-Log (mesh@inetconnector.com geschützt)</h3>
+          <p style="color:#94a3b8;font-size:0.88rem;">
+            Protokoll der letzten sicherheitsrelevanten Aktionen (Logins, Passkey-Registrierungen, Node-Entfernungen).
+          </p>
+          <div id="audit-log-box" style="overflow-x:auto;"></div>
+        </div>
+
+      </div>
+
+      <!-- VIEW 3: Owner Key & Setup Helper Section -->
+      <div id="cockpit-view-setup" style="display: none;">
+        <div id="owner-key-section" class="fleet-card">
+          <h3 style="margin-top:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;">
+            <span>🛡️</span> <span data-i18n="fleet_owner_key_title">Dein geheimer Flotten Owner Key</span>
+          </h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem;" data-i18n="fleet_owner_key_desc">
+            Dies ist dein privater Master-Schlüssel (API Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:
+          </p>
+          <div class="owner-key-box">
+            <span id="owner-key-val">owner_...</span>
+            <button class="copy-btn" onclick="copyOwnerKey()">
+              📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -570,11 +716,12 @@
     </div>
   </footer>
 
-  <script src="/portal.js?v=2.5"></script>
-  <script src="/portal-core.js?v=2.5"></script>
+  <script src="/portal.js?v=2.6"></script>
+  <script src="/portal-core.js?v=2.6"></script>
   <script>
     let isLoggedIn = false;
     let activeOwnerKey = "";
+    let activeEmail = "";
     let activeNodesList = [];
     let refreshInterval = null;
 
@@ -632,6 +779,7 @@
       for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
       return arr.buffer;
     }
+
     function bytesToB64url(buf) {
       const bytes = new Uint8Array(buf);
       let str = "";
@@ -671,10 +819,26 @@
 
     function switchAuthTab(tab) {
       document.getElementById("tab-passkey-btn").classList.toggle("active", tab === 'passkey');
+      document.getElementById("tab-magic-btn").classList.toggle("active", tab === 'magic_link');
       document.getElementById("tab-key-btn").classList.toggle("active", tab === 'owner_key');
       document.getElementById("pane-passkey").style.display = tab === 'passkey' ? 'block' : 'none';
+      document.getElementById("pane-magic").style.display = tab === 'magic_link' ? 'block' : 'none';
       document.getElementById("pane-key").style.display = tab === 'owner_key' ? 'block' : 'none';
       showMsg("", "");
+    }
+
+    function switchCockpitView(view) {
+      document.getElementById("btn-cockpit-servers").classList.toggle("active", view === 'servers');
+      document.getElementById("btn-cockpit-security").classList.toggle("active", view === 'security');
+      document.getElementById("btn-cockpit-setup").classList.toggle("active", view === 'setup');
+      document.getElementById("cockpit-view-servers").style.display = view === 'servers' ? 'block' : 'none';
+      document.getElementById("cockpit-view-security").style.display = view === 'security' ? 'block' : 'none';
+      document.getElementById("cockpit-view-setup").style.display = view === 'setup' ? 'block' : 'none';
+
+      if (view === 'security') {
+        loadPasskeys();
+        loadAuditLog();
+      }
     }
 
     async function doRegister() {
@@ -699,7 +863,7 @@
         const cred = await navigator.credentials.create({ publicKey: opts });
         const completeRes = await fetch("/api/auth/register/complete", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, credential: credentialToJSON(cred) }),
+          body: JSON.stringify({ email, credential: credentialToJSON(cred), nickname: "Primary Key" }),
         });
         const completeData = await completeRes.json();
         if (!completeRes.ok) { showMsg(completeData.error || "Registrierung fehlgeschlagen.", "error"); return; }
@@ -743,6 +907,48 @@
       }
     }
 
+    async function doRequestMagicLink() {
+      const email = document.getElementById("magic-email").value.trim();
+      if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
+      try {
+        showMsg(getLang() === 'de' ? "Sende sicheren Login-Link über mesh@inetconnector.com..." : "Sending login link via mesh@inetconnector.com...", "ok");
+        const res = await fetch("/api/auth/magic_link/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showMsg(data.message || (getLang() === 'de' ? "Ein sicherer Login-Link wurde an deine E-Mail-Adresse gesendet!" : "A secure login link has been sent!"), "ok");
+        } else {
+          showMsg(data.error || "Fehler beim Anfordern des Login-Links", "error");
+        }
+      } catch (err) {
+        showMsg("Netzwerkfehler: " + (err.message || err), "error");
+      }
+    }
+
+    async function verifyMagicLink(token) {
+      try {
+        showMsg(getLang() === 'de' ? "Verifiziere E-Mail-Login..." : "Verifying email login...", "ok");
+        const res = await fetch("/api/auth/magic_link/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ magic_token: token })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Clean URL parameter
+          window.history.replaceState({}, document.title, window.location.pathname);
+          onLoggedIn(data);
+        } else {
+          showMsg(data.error || "Ungültiger oder abgelaufener Login-Link.", "error");
+        }
+      } catch (err) {
+        showMsg("Fehler bei Link-Verifikation: " + (err.message || err), "error");
+      }
+    }
+
     async function doDirectKeyLogin() {
       const key = document.getElementById("input-owner-key").value.trim();
       if (!key) {
@@ -761,6 +967,7 @@
     async function doLogout() {
       isLoggedIn = false;
       activeOwnerKey = "";
+      activeEmail = "";
       activeNodesList = [];
       localStorage.removeItem("cm_fleet_owner_key");
       if (refreshInterval) {
@@ -773,10 +980,6 @@
 
       document.getElementById("auth-section").hidden = false;
       document.getElementById("fleet-section").hidden = true;
-      const ownerKeySec = document.getElementById("owner-key-section");
-      if (ownerKeySec) ownerKeySec.hidden = true;
-      const inputKey = document.getElementById("input-owner-key");
-      if (inputKey) inputKey.value = "";
       updateAuthNavBtn();
       showMsg("", "");
     }
@@ -787,9 +990,9 @@
       document.getElementById("fleet-section").hidden = false;
       updateAuthNavBtn();
 
+      if (data && data.email) activeEmail = data.email;
       if (data && data.owner_key) {
         activeOwnerKey = data.owner_key;
-        document.getElementById("owner-key-section").hidden = false;
         document.getElementById("owner-key-val").textContent = data.owner_key;
       }
 
@@ -942,9 +1145,188 @@
       }
     }
 
+    /* Multi-Passkey Manager */
+    async function loadPasskeys() {
+      const box = document.getElementById("passkeys-list-box");
+      if (!box) return;
+      try {
+        const res = await fetch("/api/auth/passkeys");
+        const data = await res.json();
+        if (!res.ok) { box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${data.error || 'Fehler'}</span></div>`; return; }
+
+        const list = data.passkeys || [];
+        if (list.length === 0) {
+          box.innerHTML = `<p style="color:#94a3b8;">Keine Passkeys gefunden.</p>`;
+          return;
+        }
+
+        let html = `
+          <table class="sec-table">
+            <thead>
+              <tr>
+                <th>Schlüssel-Name</th>
+                <th>Erstellt am</th>
+                <th>Zuletzt verwendet</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        list.forEach(pk => {
+          html += `
+            <tr>
+              <td><strong>🔑 ${escapeHtml(pk.nickname || 'Passkey')}</strong></td>
+              <td style="color:#94a3b8;font-size:0.82rem;">${pk.created_at ? pk.created_at.substring(0, 10) : '--'}</td>
+              <td style="color:#94a3b8;font-size:0.82rem;">${pk.last_used_at ? pk.last_used_at.substring(0, 19).replace('T', ' ') : '--'}</td>
+              <td>
+                <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.25rem 0.6rem;color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="deletePasskey('${escapeHtml(pk.credential_id)}')">
+                  🗑️ Löschen
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+        html += `</tbody></table>`;
+        box.innerHTML = html;
+      } catch (e) {
+        box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${e.message}</span></div>`;
+      }
+    }
+
+    async function doAddAdditionalPasskey() {
+      if (!activeEmail) {
+        alert("Bitte melde dich per Passkey oder Magic Link an, um weitere Schlüssel zu registrieren.");
+        return;
+      }
+      const nickname = prompt("Name für den neuen Passkey (z. B. 'YubiKey 5C' oder 'MacBook Pro'):", "Backup Key");
+      if (!nickname) return;
+
+      try {
+        const beginRes = await fetch("/api/auth/register/begin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: activeEmail })
+        });
+        const beginData = await beginRes.json();
+        if (!beginRes.ok) { alert(beginData.error || "Fehler bei Registrierung"); return; }
+
+        const opts = beginData.options;
+        opts.challenge = b64urlToBytes(opts.challenge);
+        opts.user.id = b64urlToBytes(opts.user.id);
+        if (opts.excludeCredentials) {
+          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        }
+
+        const cred = await navigator.credentials.create({ publicKey: opts });
+        const compRes = await fetch("/api/auth/register/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: activeEmail, credential: credentialToJSON(cred), nickname })
+        });
+        const compData = await compRes.json();
+        if (compRes.ok) {
+          alert("Neuer Passkey erfolgreich hinzugefügt!");
+          loadPasskeys();
+          loadAuditLog();
+        } else {
+          alert(compData.error || "Fehler beim Speichern des Schlüssels.");
+        }
+      } catch (err) {
+        alert("Passkey-Registrierung abgebrochen: " + err.message);
+      }
+    }
+
+    async function deletePasskey(credentialId) {
+      if (!confirm("Möchtest du diesen Sicherheitsschlüssel wirklich entfernen?")) return;
+      try {
+        const res = await fetch("/api/auth/passkeys/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential_id: credentialId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          loadPasskeys();
+          loadAuditLog();
+        } else {
+          alert(data.error || "Fehler beim Löschen");
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    /* Enrollment Token Generator */
+    async function generateEnrollmentToken() {
+      const resBox = document.getElementById("enrollment-token-result");
+      try {
+        resBox.textContent = "Erzeuge Code...";
+        const res = await fetch("/api/portal/fleet/enrollment_token", { method: "POST" });
+        const data = await res.json();
+        if (res.ok && data.enrollment_token) {
+          resBox.innerHTML = `
+            <span>Code: <code>${data.enrollment_token}</code> (Gültig: 30 Min.)</span>
+            <button class="copy-btn" style="margin-left:0.5rem;" onclick="navigator.clipboard.writeText('${data.enrollment_token}').then(()=>alert('Code kopiert!'))">📋 Kopieren</button>
+          `;
+        } else {
+          resBox.textContent = "Fehler: " + (data.error || "Nicht autorisiert");
+        }
+      } catch (e) {
+        resBox.textContent = "Fehler: " + e.message;
+      }
+    }
+
+    /* Security Audit Log */
+    async function loadAuditLog() {
+      const box = document.getElementById("audit-log-box");
+      if (!box) return;
+      try {
+        const res = await fetch("/api/portal/fleet/audit_log");
+        const data = await res.json();
+        if (!res.ok) { box.innerHTML = `<p style="color:#94a3b8;">${data.error || 'Audit Log nicht verfügbar'}</p>`; return; }
+
+        const logs = data.audit_log || [];
+        if (logs.length === 0) {
+          box.innerHTML = `<p style="color:#94a3b8;">Keine Einträge vorhanden.</p>`;
+          return;
+        }
+
+        let html = `
+          <table class="sec-table">
+            <thead>
+              <tr>
+                <th>Ereignis</th>
+                <th>Details</th>
+                <th>IP-Adresse</th>
+                <th>Zeitpunkt (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        logs.forEach(l => {
+          let badgeClass = "info";
+          if (l.event_type.includes("failed")) badgeClass = "danger";
+          else if (l.event_type.includes("deleted") || l.event_type.includes("unbound")) badgeClass = "warn";
+          else if (l.event_type.includes("success") || l.event_type.includes("registered")) badgeClass = "success";
+
+          html += `
+            <tr>
+              <td><span class="sec-badge ${badgeClass}">${escapeHtml(l.event_type)}</span></td>
+              <td style="color:#e2e8f0;">${escapeHtml(l.details || '--')}</td>
+              <td style="font-family:'JetBrains Mono', monospace;font-size:0.8rem;color:#94a3b8;">${escapeHtml(l.ip_address || '--')}</td>
+              <td style="color:#94a3b8;font-size:0.8rem;">${escapeHtml(l.created_at ? l.created_at.substring(0, 19).replace('T', ' ') : '--')}</td>
+            </tr>
+          `;
+        });
+        html += `</tbody></table>`;
+        box.innerHTML = html;
+      } catch (e) {
+        box.innerHTML = `<p style="color:#f87171;">Fehler: ${e.message}</p>`;
+      }
+    }
+
     function onQuickServerSelect(targetUrl) {
       if (targetUrl) {
-        // Navigate in the same browser window as requested!
         window.location.href = targetUrl;
       }
     }
@@ -966,6 +1348,14 @@
     // Auto-init on page load
     (async function initFleet() {
       updateAuthNavBtn();
+
+      // Check if URL has magic_token
+      const urlParams = new URLSearchParams(window.location.search);
+      const magicToken = urlParams.get("magic_token");
+      if (magicToken) {
+        await verifyMagicLink(magicToken);
+        return;
+      }
 
       // Check localStorage for saved key
       const savedKey = localStorage.getItem("cm_fleet_owner_key");

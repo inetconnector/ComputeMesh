@@ -329,6 +329,16 @@ class PortalHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if clean_path == "/api/auth/passkeys":
+            data, status, cookie = self.passkey_handler.list_passkeys(self.headers)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/portal/fleet/audit_log":
+            data, status, cookie = self.passkey_handler.get_audit_log(self.headers)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
         if clean_path == "/api/portal/fleet":
             account = session_account_from_headers(self.headers)
             owner_key = ""
@@ -570,22 +580,47 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path == "/api/auth/register/begin":
-            data, status, cookie = self.passkey_handler.register_begin(body)
+            data, status, cookie = self.passkey_handler.register_begin(body, self.headers, self.client_address)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
         if clean_path == "/api/auth/register/complete":
-            data, status, cookie = self.passkey_handler.register_complete(body)
+            data, status, cookie = self.passkey_handler.register_complete(body, self.headers, self.client_address)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
         if clean_path == "/api/auth/login/begin":
-            data, status, cookie = self.passkey_handler.login_begin(body)
+            data, status, cookie = self.passkey_handler.login_begin(body, self.headers, self.client_address)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
         if clean_path == "/api/auth/login/complete":
-            data, status, cookie = self.passkey_handler.login_complete(body)
+            data, status, cookie = self.passkey_handler.login_complete(body, self.headers, self.client_address)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/magic_link/request":
+            data, status, cookie = self.passkey_handler.request_magic_link(body, self.headers, self.client_address)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/magic_link/verify":
+            data, status, cookie = self.passkey_handler.verify_magic_link(body, self.headers, self.client_address)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/passkeys/delete":
+            data, status, cookie = self.passkey_handler.delete_passkey(self.headers, body, self.client_address)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/auth/passkeys/rename":
+            data, status, cookie = self.passkey_handler.rename_passkey(self.headers, body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/portal/fleet/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
