@@ -726,8 +726,14 @@
     let refreshInterval = null;
 
     function getLang() {
-      return (window.getLang && window.getLang()) || window.currentLang || localStorage.getItem("cm_portal_lang") || "de";
+      if (typeof window.currentLang === "string" && window.currentLang) return window.currentLang;
+      try {
+        const stored = localStorage.getItem("cm_portal_lang");
+        if (stored) return stored;
+      } catch (e) {}
+      return ((navigator.language || "").startsWith("de")) ? "de" : "en";
     }
+    window.getLang = getLang;
 
     function setLang(lang) {
       if (typeof window.switchLanguage === "function") {
