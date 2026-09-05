@@ -53,7 +53,7 @@ class ChecksumMismatchError(Exception):
 class AutoUpdater:
     def __init__(
         self,
-        current_version: str = "1.2.42",
+        current_version: str = "1.2.45",
         manifest_url: str = DEFAULT_UPDATE_URL,
         public_key_hex: str = OFFICIAL_RELEASE_PUBLIC_KEY_HEX,
     ) -> None:
@@ -183,15 +183,33 @@ class AutoUpdater:
         updater_bat = downloaded_exe.parent / "apply_update.bat"
 
         bat_content = f"""@echo off
-timeout /t 2 /nobreak > NUL
+setlocal enabledelayedexpansion
+
 set _MEIPASS=
 set _MEIPASS2=
 set _PYI_PARENT_PID=
 set _PYI_CHILD_PROCESS=
 set PYINSTALLER_STRICT_UNPACK_MODE=
-copy /y "{downloaded_exe}" "{current_exe}" > NUL
-start "" "{current_exe}"
-del "%~f0"
+
+set "SRC={downloaded_exe}"
+set "DST={current_exe}"
+
+set /a ATTEMPTS=0
+:RETRY_COPY
+set /a ATTEMPTS+=1
+ping 127.0.0.1 -n 2 > NUL
+
+copy /y "%SRC%" "%DST%" > NUL 2>&1
+if %ERRORLEVEL% equ 0 goto COPY_OK
+
+if %ATTEMPTS% lss 30 goto RETRY_COPY
+
+powershell -Command "Start-Sleep -Milliseconds 500; Copy-Item -Path '%SRC%' -Destination '%DST%' -Force" > NUL 2>&1
+
+:COPY_OK
+del "%SRC%" > NUL 2>&1
+start "" "%DST%"
+(goto) 2>nul & del "%~f0"
 """
         updater_bat.write_text(bat_content, encoding="utf-8")
         clean_env = os.environ.copy()
