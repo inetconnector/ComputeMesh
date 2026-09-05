@@ -1,0 +1,26 @@
+{
+  "name": "InetConnector — Distributed AI Compute",
+  "short_name": "InetConnector",
+  "description": "Dezentrales Hochleistungs-KI-Rechennetzwerk für OpenAI- und Ollama-Inferenz.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070c18",
+  "theme_color": "#00f2fe",
+  "icons": [
+    {
+      "src": "/assets/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

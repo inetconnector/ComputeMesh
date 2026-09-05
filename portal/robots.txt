@@ -1,4 +1,16 @@
 User-agent: *
 Allow: /
+Allow: /assets/
+Allow: /downloads/
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.svg$
+Allow: /*.ico$
+Allow: /*.webmanifest$
+
+Disallow: /api/billing/webhook
+Disallow: /api/internal/
 
 Sitemap: https://mesh.inetconnector.com/sitemap.xml
+Sitemap: https://inetconnector.com/sitemap.xml
