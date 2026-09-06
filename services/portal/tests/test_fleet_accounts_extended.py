@@ -24,7 +24,7 @@ class TestFleetAccountsExtended(unittest.TestCase):
         account = self.store.verify_magic_link_token(raw_token)
         self.assertIsNotNone(account)
         self.assertEqual(account.email, email)
-        self.assertTrue(account.owner_key.startswith("ok_"))
+        self.assertTrue(account.owner_key.startswith("inet-"))
 
         # Second verification fails (single-use)
         second_try = self.store.verify_magic_link_token(raw_token)

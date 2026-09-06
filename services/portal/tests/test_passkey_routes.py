@@ -131,6 +131,40 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIsNone(self.store.get_session_account(token))
 
+    def test_rotate_owner_key_requires_auth(self) -> None:
+        class FakeHeaders(dict):
+            def get(self, key, default=""):
+                return dict.get(self, key, default)
+
+        data, status, cookie = self.handler.rotate_owner_key(FakeHeaders(), {})
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+
+    def test_rotate_owner_key_authenticated_success(self) -> None:
+        acc = self.store.create_account("alice@example.com")
+        token = self.store.create_session(acc.account_id)
+
+        class FakeHeaders(dict):
+            def get(self, key, default=""):
+                return dict.get(self, key, default)
+
+        headers = FakeHeaders({
+            "Cookie": f"{passkey_routes.SESSION_COOKIE_NAME}={token}",
+            "User-Agent": "PyTest-Agent",
+        })
+
+        data, status, cookie = self.handler.rotate_owner_key(headers, {})
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(data["status"], "ok")
+        self.assertTrue(data["owner_key"].startswith("inet-"))
+
+        # Verify in store
+        updated_acc = self.store.get_account(acc.account_id)
+        self.assertEqual(updated_acc.owner_key, data["owner_key"])
+
+        # Verify audit log
+        logs = self.store.get_audit_log(acc.account_id)
+        self.assertTrue(any(l["event_type"] == "owner_key_rotated" for l in logs))
+
 
 if __name__ == "__main__":
     unittest.main()

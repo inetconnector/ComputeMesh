@@ -762,18 +762,27 @@
       <!-- VIEW 3: Owner Key & Setup Helper Section -->
       <div id="cockpit-view-setup" style="display: none;">
         <div id="owner-key-section" class="fleet-card">
-          <h3 style="margin-top:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;">
-            <span>🛡️</span> <span data-i18n="fleet_owner_key_title">Dein geheimer Flotten Owner Key</span>
-          </h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+            <h3 style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;">
+              <span>🛡️</span> <span data-i18n="fleet_owner_key_title">Dein geheimer Flotten Owner Key</span>
+            </h3>
+            <span class="status-pill online" style="font-size:0.75rem;"><span class="pulse-dot"></span> CSPRNG 160-Bit Safe</span>
+          </div>
           <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.75rem;" data-i18n="fleet_owner_key_desc">
             Dies ist dein privater Master-Schlüssel (API Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:
           </p>
-          <div class="owner-key-box">
-            <span id="owner-key-val">owner_...</span>
-            <button class="copy-btn" onclick="copyOwnerKey()">
-              📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
-            </button>
+          <div class="owner-key-box" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
+            <span id="owner-key-val" style="font-family:'JetBrains Mono', monospace;word-break:break-all;">owner_...</span>
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+              <button class="copy-btn" onclick="copyOwnerKey()">
+                📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.82rem;padding:0.45rem 0.85rem;border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="rotateOwnerKeyPrompt()">
+                🔄 <span>Neuen Key generieren (inet-...)</span>
+              </button>
+            </div>
           </div>
+          <div id="owner-key-rotate-status" style="margin-top:0.75rem;font-size:0.85rem;font-weight:600;display:none;"></div>
         </div>
       </div>
 
@@ -1765,6 +1774,75 @@
       navigator.clipboard.writeText(key).then(() => {
         alert(getLang() === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
       });
+    }
+
+    async function rotateOwnerKeyPrompt() {
+      const isDe = (typeof getLang === 'function' ? getLang() : 'de') === 'de';
+      const promptMsg = isDe
+        ? "⚠️ ACHTUNG: Wenn du deinen Secret Owner Key rotierst, müssen alle angebundenen Worker-Nodes und Skripte mit dem neuen Key aktualisiert werden!\n\nMöchtest du jetzt einen neuen, kryptografisch sicheren Key (Präfix: inet-...) generieren?"
+        : "⚠️ WARNING: Rotating your Secret Owner Key requires updating all connected worker nodes and scripts with the new key!\n\nDo you want to generate a new cryptographically secure key (prefix: inet-...) now?";
+
+      if (!confirm(promptMsg)) return;
+
+      const statusEl = document.getElementById("owner-key-rotate-status");
+      if (statusEl) {
+        statusEl.style.display = "block";
+        statusEl.style.color = "var(--accent-cyan)";
+        statusEl.textContent = isDe ? "Generiere neuen sicheren Owner Key..." : "Generating new secure owner key...";
+      }
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        const res = await fetch("/api/auth/owner_key/rotate", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({})
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || (isDe ? "Fehler beim Rotieren des Schlüssels" : "Failed to rotate key"));
+        }
+
+        const newKey = data.owner_key;
+        activeOwnerKey = newKey;
+        localStorage.setItem("cm_fleet_owner_key", newKey);
+
+        // Update all UI locations
+        const valEl = document.getElementById("owner-key-val");
+        if (valEl) valEl.textContent = newKey;
+        const hintEl = document.getElementById("ollama-owner-key-hint");
+        if (hintEl) hintEl.textContent = newKey;
+
+        const curlEl = document.getElementById("curl-quick-cmd");
+        if (curlEl) {
+          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${newKey}" | bash`;
+        }
+        const psEl = document.getElementById("ps-quick-cmd");
+        if (psEl) {
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${newKey}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+        }
+
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.color = "#10b981";
+          statusEl.textContent = isDe
+            ? "✅ Neuer Owner Key erfolgreich aktiv und Sicherheits-Warnung per E-Mail versendet!"
+            : "✅ New owner key activated and security alert sent via email!";
+        }
+
+        // Reload fleet and audit log
+        loadFleet(true);
+        loadAuditLog();
+      } catch (e) {
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.color = "#f87171";
+          statusEl.textContent = "❌ " + e.message;
+        }
+      }
     }
 
     function escapeHtml(str) {

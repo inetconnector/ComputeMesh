@@ -243,7 +243,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
 
             os_target = query_params.get("os", ["windows"])[0].strip()
@@ -401,7 +401,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -435,7 +435,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -496,7 +496,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
@@ -677,6 +677,11 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path in ("/api/auth/owner_key/rotate", "/api/portal/owner_key/rotate"):
+            data, status, cookie = self.passkey_handler.rotate_owner_key(self.headers, body, self.client_address)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 

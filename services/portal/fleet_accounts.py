@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 from pathlib import Path
+import re
 import secrets
 import sqlite3
 from typing import Any
@@ -178,10 +179,18 @@ class FleetAccountStore:
 
     # -- accounts ---------------------------------------------------------
 
+    def generate_secure_owner_key(self) -> str:
+        """Generates a cryptographically secure, high-entropy unique owner key prefixed with 'inet-'."""
+        for _ in range(10):
+            candidate = "inet-" + secrets.token_hex(20)
+            if self.get_account_by_owner_key(candidate) is None:
+                return candidate
+        raise FleetAccountStoreError("Konnte keinen eindeutigen Owner Key generieren. Bitte versuche es erneut.")
+
     def create_account(self, email: str, *, display_name: str = "") -> FleetAccount:
         cleaned = _clean_email(email)
         account_id = "facc_" + secrets.token_hex(12)
-        owner_key = "ok_" + secrets.token_urlsafe(24)
+        owner_key = self.generate_secure_owner_key()
         now = utc_now()
         with self._connection() as conn:
             try:
@@ -193,6 +202,43 @@ class FleetAccountStore:
             except sqlite3.IntegrityError as exc:
                 raise FleetAccountStoreError(f"an account for {cleaned!r} already exists") from exc
         return FleetAccount(account_id=account_id, email=cleaned, owner_key=owner_key, display_name=display_name, created_at=now, updated_at=now)
+
+    def rotate_owner_key(self, account_id: str, proposed_key: str | None = None) -> str:
+        """Rotates the owner_key for a given fleet account.
+
+        - If proposed_key is provided, strictly validates that:
+          1. It starts with 'inet-'
+          2. It is 24 to 128 characters long
+          3. Contains only safe characters [a-zA-Z0-9_.-]
+          4. Is NOT in use by any other fleet account
+        - If proposed_key is None or empty, generates a safe CSPRNG 'inet-' key.
+        """
+        account = self.get_account(account_id)
+        if account is None:
+            raise FleetAccountStoreError(f"Account {account_id!r} wurde nicht gefunden.")
+
+        cleaned_key = str(proposed_key or "").strip()
+        if cleaned_key:
+            if not cleaned_key.startswith("inet-"):
+                raise FleetAccountStoreError("Der Owner Key muss zwingend mit dem Präfix 'inet-' beginnen.")
+            if len(cleaned_key) < 24 or len(cleaned_key) > 128:
+                raise FleetAccountStoreError("Der Owner Key muss zwischen 24 und 128 Zeichen lang sein.")
+            if not re.match(r"^inet-[a-zA-Z0-9_\-\.]{19,123}$", cleaned_key):
+                raise FleetAccountStoreError("Der Owner Key enthält ungültige Zeichen. Erlaubt sind nur: a-z, A-Z, 0-9, -, _, .")
+            existing = self.get_account_by_owner_key(cleaned_key)
+            if existing is not None and existing.account_id != account_id:
+                raise FleetAccountStoreError("Dieser Owner Key ist bereits bei einem anderen Benutzer in Verwendung.")
+            new_key = cleaned_key
+        else:
+            new_key = self.generate_secure_owner_key()
+
+        now = utc_now()
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE fleet_accounts SET owner_key = ?, updated_at = ? WHERE account_id = ?",
+                (new_key, now, account_id),
+            )
+        return new_key
 
     def get_account_by_email(self, email: str) -> FleetAccount | None:
         cleaned = str(email or "").strip().lower()
@@ -335,7 +381,7 @@ class FleetAccountStore:
             if account_row is None:
                 # First time magic link registration
                 account_id = "facc_" + secrets.token_hex(12)
-                owner_key = "ok_" + secrets.token_urlsafe(24)
+                owner_key = self.generate_secure_owner_key()
                 now_str = utc_now()
                 conn.execute(
                     "INSERT INTO fleet_accounts(account_id, email, owner_key, display_name, created_at, updated_at) "

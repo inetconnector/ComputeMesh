@@ -520,7 +520,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 auth_hdr = self.headers.get("Authorization", "").strip()
                 if auth_hdr.startswith("Bearer "):
                     candidate = auth_hdr[7:].strip()
-                    if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                    if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                         owner_key = candidate
             owner_id = owner_id_for_key(owner_key) if owner_key else None
             self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
@@ -555,7 +555,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
@@ -576,7 +576,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
@@ -611,7 +611,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
 
             os_target = query.get("os", ["windows"])[0].strip()
@@ -774,6 +774,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
+        if clean_path in ("/api/auth/owner_key/rotate", "/api/portal/owner_key/rotate"):
+            data, status, cookie = self.passkey_handler.rotate_owner_key(self.headers, body, self.client_address)
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
         if clean_path == "/api/auth/logout":
             data, status, cookie = self.passkey_handler.logout(self.headers)
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
@@ -916,7 +921,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)

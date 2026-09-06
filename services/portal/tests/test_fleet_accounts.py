@@ -95,6 +95,44 @@ class TestFleetAccountStore(unittest.TestCase):
     def test_unknown_session_token_returns_none(self) -> None:
         self.assertIsNone(self.store.get_session_account("does-not-exist"))
 
+    def test_owner_key_format_and_rotation(self) -> None:
+        acc = self.store.create_account("charlie@example.com")
+        self.assertTrue(acc.owner_key.startswith("inet-"))
+        self.assertGreaterEqual(len(acc.owner_key), 24)
+
+        # Rotate without proposed key generates a new unique inet- key
+        old_key = acc.owner_key
+        new_key = self.store.rotate_owner_key(acc.account_id)
+        self.assertTrue(new_key.startswith("inet-"))
+        self.assertNotEqual(old_key, new_key)
+        self.assertEqual(self.store.get_account(acc.account_id).owner_key, new_key)
+
+    def test_owner_key_custom_validation_and_uniqueness(self) -> None:
+        acc1 = self.store.create_account("user1@example.com")
+        acc2 = self.store.create_account("user2@example.com")
+
+        # Must start with inet-
+        with self.assertRaises(FleetAccountStoreError):
+            self.store.rotate_owner_key(acc1.account_id, "invalid-prefix-12345678901234567890")
+
+        # Must be at least 24 chars
+        with self.assertRaises(FleetAccountStoreError):
+            self.store.rotate_owner_key(acc1.account_id, "inet-tooshort")
+
+        # Must not contain dangerous/illegal characters
+        with self.assertRaises(FleetAccountStoreError):
+            self.store.rotate_owner_key(acc1.account_id, "inet-bad char's;drop table 12345")
+
+        # Valid custom inet- key
+        custom_key = "inet-custom-production-key-998877665544332211"
+        rotated = self.store.rotate_owner_key(acc1.account_id, custom_key)
+        self.assertEqual(rotated, custom_key)
+        self.assertEqual(self.store.get_account_by_owner_key(custom_key).account_id, acc1.account_id)
+
+        # Rejects if already in use by another user (acc1)
+        with self.assertRaises(FleetAccountStoreError):
+            self.store.rotate_owner_key(acc2.account_id, custom_key)
+
 
 if __name__ == "__main__":
     unittest.main()

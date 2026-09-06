@@ -148,7 +148,7 @@ def session_account_from_headers(headers: Any):
             auth_hdr = str(headers.get("Authorization", "")).strip()
             if auth_hdr.startswith("Bearer "):
                 candidate = auth_hdr[7:].strip()
-                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("inet-"):
                     owner_key = candidate
 
     if owner_key:
@@ -448,6 +448,60 @@ class PasskeyAuthHandler:
 
         logs = FLEET_ACCOUNT_STORE.get_audit_log(account.account_id, limit=50)
         return {"audit_log": logs}, HTTPStatus.OK, None
+
+    def rotate_owner_key(
+        self,
+        headers: Any,
+        body: dict[str, Any] | None = None,
+        client_address: tuple[str, int] | None = None,
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
+        account = session_account_from_headers(headers)
+        if account is None:
+            return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
+
+        ip = _client_ip(headers, client_address)
+        ua = str(headers.get("User-Agent", "")).strip() if headers else ""
+        if not RATE_LIMITER.is_allowed(f"key_rotate:{account.account_id}"):
+            return {
+                "error": "Zu viele Anfragen zur Schlüsseländerung. Bitte versuche es später erneut."
+            }, HTTPStatus.TOO_MANY_REQUESTS, None
+
+        body_dict = body if isinstance(body, dict) else {}
+        proposed_key = body_dict.get("owner_key")
+        try:
+            new_key = FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key)
+        except FleetAccountStoreError as exc:
+            return {"error": str(exc)}, HTTPStatus.BAD_REQUEST, None
+
+        # Record audit event
+        FLEET_ACCOUNT_STORE.record_audit_event(
+            account.account_id,
+            account.email,
+            "owner_key_rotated",
+            f"Fleet Owner Key rotiert (Präfix: {new_key[:12]}...)",
+            ip,
+            ua,
+        )
+
+        # Dispatch security alert email
+        try:
+            send_security_alert(
+                account.email,
+                "Sicherheits-Alarm: Fleet Owner Key geändert",
+                f"Dein Secret Fleet Owner Key wurde geändert. Neuer Key beginnt mit: '{new_key[:12]}...'. "
+                "Bitte aktualisiere deine angebundenen Worker-Nodes und Skripte entsprechend.",
+                ip,
+                ua,
+            )
+        except Exception as exc:
+            logger.warning("Failed to dispatch security alert email for owner key rotation: %s", exc)
+
+        return {
+            "status": "ok",
+            "owner_key": new_key,
+            "account_id": account.account_id,
+            "message": "Owner Key wurde erfolgreich aktualisiert.",
+        }, HTTPStatus.OK, None
 
     def logout(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         raw = headers.get("Cookie", "")
