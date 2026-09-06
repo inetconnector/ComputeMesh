@@ -20,6 +20,12 @@ account-level activation itself; it must be completed in the Stripe Dashboard.
 The portal and provider routes classify this condition as HTTP 503 while
 preserving HTTP 400 for ordinary onboarding input errors.
 
+Added `tools/stripe_preflight.py`, a secret-free operator check for Stripe
+configuration shape and the deployed `/healthz` contract. Its unit tests pass
+2/2; running it locally without production secrets correctly reports the
+gateway healthy but overall readiness false. It never creates Stripe resources
+or sends a webhook.
+
 ---
 
 ## 0. CURRENT TRUTH BLOCK (Canonical System Snapshot)

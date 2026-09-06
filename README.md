@@ -222,6 +222,10 @@ Stripe Checkout and webhook processing enforce mode consistency: `sk_live_`
 accepts only live-mode sessions/events and `sk_test_` only test mode. A
 mismatch fails closed before ledger crediting.
 
+`tools/stripe_preflight.py` provides a secret-free operator check for Stripe
+configuration shape and the deployed `/healthz` contract. It never creates
+Stripe resources or sends a webhook.
+
 Live provider sessions reserve capacity on the provider through the
 authenticated control channel before inference starts. Reservations are
 lease-bound, TTL-limited, idempotent on retry and released after completion.
