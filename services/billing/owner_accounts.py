@@ -263,6 +263,28 @@ class OwnerAccountStore:
                 )
             return deleted
 
+    def migrate_owner_bindings(self, old_owner_id: str, new_owner_id: str) -> int:
+        """Migrates all bound provider nodes, devices, and credentials from old_owner_id to new_owner_id."""
+        old_id = str(old_owner_id or "").strip()
+        new_id = str(new_owner_id or "").strip()
+        if not old_id or not new_id or old_id == new_id:
+            return 0
+        self.ensure_owner(new_id)
+        with self._connection() as conn:
+            cur1 = conn.execute(
+                "UPDATE owner_provider_nodes SET owner_id = ? WHERE owner_id = ?",
+                (new_id, old_id),
+            )
+            cur2 = conn.execute(
+                "UPDATE owner_devices SET owner_id = ? WHERE owner_id = ?",
+                (new_id, old_id),
+            )
+            cur3 = conn.execute(
+                "UPDATE owner_api_credentials SET owner_id = ? WHERE owner_id = ?",
+                (new_id, old_id),
+            )
+            return cur1.rowcount + cur2.rowcount + cur3.rowcount
+
     def is_node_unbound(self, owner_id: str, provider_node_id: str) -> bool:
         oid = _clean_identifier(owner_id, field="owner_id")
         nid = _clean_identifier(provider_node_id, field="provider_node_id")

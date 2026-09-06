@@ -560,10 +560,26 @@ class PortalHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
                     return
 
+            sent_owner_key = str(body.get("owner_key", "")).strip()
+            resolved_owner_key = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
+            active_owner_key = resolved_owner_key or sent_owner_key
+            key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
+
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key, OwnerAccountStoreError
+            owner_id = owner_id_for_key(active_owner_key)
+            if owner_id:
+                if not OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
+                    try:
+                        OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
+                        OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
+                    except OwnerAccountStoreError:
+                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
+                "owner_id": owner_id,
                 "inventory": body.get("inventory", {}),
                 "telemetry": body.get("telemetry", {}),
                 "global_mesh": body.get("global_mesh", {}),
@@ -608,7 +624,35 @@ class PortalHandler(BaseHTTPRequestHandler):
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            self._send_json({"status": "ok", "message": "heartbeat registered", "node_id": node_id}, HTTPStatus.OK)
+            self._send_json({
+                "status": "ok",
+                "message": "heartbeat registered",
+                "node_id": node_id,
+                "owner_key": active_owner_key,
+                "key_rotated": key_rotated,
+            }, HTTPStatus.OK)
+            return
+
+        if clean_path in ("/api/v1/node/sync_key", "/api/node/sync_key"):
+            node_id = str(body.get("node_id", "")).strip()
+            auth_token = str(body.get("auth_token", "")).strip()
+            sent_owner_key = str(body.get("owner_key", "")).strip()
+            if not node_id:
+                self._send_json({"error": "Valid node_id is required"}, HTTPStatus.BAD_REQUEST)
+                return
+            if not auth_token:
+                self._send_json({"error": "auth_token is required"}, HTTPStatus.UNAUTHORIZED)
+                return
+
+            resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
+            active_key = resolved or sent_owner_key
+            key_rotated = bool(resolved and resolved != sent_owner_key)
+            self._send_json({
+                "status": "ok",
+                "node_id": node_id,
+                "owner_key": active_key,
+                "key_rotated": key_rotated,
+            }, HTTPStatus.OK)
             return
 
         if clean_path in ("/api/portal/fleet/unbind_node", "/api/v1/mesh/fleet/unbind_node"):

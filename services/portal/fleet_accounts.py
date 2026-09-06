@@ -160,6 +160,15 @@ class FleetAccountStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_fleet_audit_acc
                     ON fleet_audit_log(account_id, log_id DESC);
+
+                CREATE TABLE IF NOT EXISTS fleet_key_rotations (
+                    old_key TEXT PRIMARY KEY,
+                    new_key TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    rotated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fleet_key_rot_acc
+                    ON fleet_key_rotations(account_id);
                 """
             )
             # Safe schema migration for existing databases
@@ -217,6 +226,7 @@ class FleetAccountStore:
         if account is None:
             raise FleetAccountStoreError(f"Account {account_id!r} wurde nicht gefunden.")
 
+        old_key = account.owner_key
         cleaned_key = str(proposed_key or "").strip()
         if cleaned_key:
             if not cleaned_key.startswith("inet-"):
@@ -238,7 +248,30 @@ class FleetAccountStore:
                 "UPDATE fleet_accounts SET owner_key = ?, updated_at = ? WHERE account_id = ?",
                 (new_key, now, account_id),
             )
+            if old_key and old_key != new_key:
+                conn.execute(
+                    "INSERT OR REPLACE INTO fleet_key_rotations(old_key, new_key, account_id, rotated_at) VALUES(?, ?, ?, ?)",
+                    (old_key, new_key, account_id, now),
+                )
+                conn.execute(
+                    "UPDATE fleet_key_rotations SET new_key = ? WHERE new_key = ? AND account_id = ?",
+                    (new_key, old_key, account_id),
+                )
         return new_key
+
+    def resolve_latest_owner_key(self, key: str) -> str:
+        """Resolves an old/historical owner_key to its current active rotated key, or returns the key if active."""
+        cleaned = str(key or "").strip()
+        if not cleaned:
+            return ""
+        with self._connection() as conn:
+            row = conn.execute("SELECT new_key FROM fleet_key_rotations WHERE old_key = ?", (cleaned,)).fetchone()
+            if row:
+                return str(row["new_key"])
+            acct = conn.execute("SELECT owner_key FROM fleet_accounts WHERE owner_key = ?", (cleaned,)).fetchone()
+            if acct:
+                return str(acct["owner_key"])
+        return ""
 
     def get_account_by_email(self, email: str) -> FleetAccount | None:
         cleaned = str(email or "").strip().lower()

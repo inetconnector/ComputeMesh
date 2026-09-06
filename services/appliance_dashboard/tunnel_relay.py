@@ -137,7 +137,46 @@ class CloudTunnelRelay:
                     data=data,
                     headers={"Content-Type": "application/json", "User-Agent": "ComputeMesh-Node-Relay/1.2"},
                 )
-                urllib.request.urlopen(req, timeout=3.0)
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    if resp.status == 200:
+                        raw_body = resp.read().decode("utf-8")
+                        try:
+                            resp_json = json.loads(raw_body)
+                            server_key = str(resp_json.get("owner_key", "")).strip()
+                            key_rotated = bool(resp_json.get("key_rotated", False))
+                            if server_key and (key_rotated or (owner_key and server_key != owner_key)):
+                                from tools.appliance.appliance_config import (
+                                    ApplianceConfig,
+                                    load_appliance_config,
+                                    save_system_config,
+                                )
+                                cfg = load_appliance_config()
+                                if cfg.owner_key != server_key:
+                                    updated_cfg = ApplianceConfig(
+                                        rig_name=cfg.rig_name,
+                                        provider_account_id=cfg.provider_account_id,
+                                        payout_address=cfg.payout_address,
+                                        coordinator_url=cfg.coordinator_url,
+                                        network_mode=cfg.network_mode,
+                                        static_ip=cfg.static_ip,
+                                        gateway=cfg.gateway,
+                                        dns=cfg.dns,
+                                        enable_web_dashboard=cfg.enable_web_dashboard,
+                                        dashboard_port=cfg.dashboard_port,
+                                        allow_ssh=cfg.allow_ssh,
+                                        ssh_authorized_keys=cfg.ssh_authorized_keys,
+                                        disabled_gpus=cfg.disabled_gpus,
+                                        vram_reserve_mb=cfg.vram_reserve_mb,
+                                        power_mode=cfg.power_mode,
+                                        max_temp_c=cfg.max_temp_c,
+                                        enable_kiosk=cfg.enable_kiosk,
+                                        auto_update=cfg.auto_update,
+                                        auto_system_upgrade=cfg.auto_system_upgrade,
+                                        owner_key=server_key,
+                                    )
+                                    save_system_config(updated_cfg)
+                        except Exception:
+                            pass
             except Exception:
                 pass
             time.sleep(5)

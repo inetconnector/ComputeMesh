@@ -466,12 +466,32 @@ class PasskeyAuthHandler:
                 "error": "Zu viele Anfragen zur Schlüsseländerung. Bitte versuche es später erneut."
             }, HTTPStatus.TOO_MANY_REQUESTS, None
 
+        old_key = account.owner_key
         body_dict = body if isinstance(body, dict) else {}
         proposed_key = body_dict.get("owner_key")
         try:
             new_key = FLEET_ACCOUNT_STORE.rotate_owner_key(account.account_id, proposed_key)
         except FleetAccountStoreError as exc:
             return {"error": str(exc)}, HTTPStatus.BAD_REQUEST, None
+
+        # Auto-migrate node bindings in OWNER_ACCOUNT_STORE & in-memory registry
+        try:
+            from services.gateway.server import (
+                OWNER_ACCOUNT_STORE,
+                NODE_TELEMETRY_REGISTRY,
+                save_node_telemetry_registry,
+                owner_id_for_key,
+            )
+            old_owner_id = owner_id_for_key(old_key)
+            new_owner_id = owner_id_for_key(new_key)
+            if old_owner_id and new_owner_id and old_owner_id != new_owner_id:
+                OWNER_ACCOUNT_STORE.migrate_owner_bindings(old_owner_id, new_owner_id)
+                for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                    if n_data.get("owner_id") == old_owner_id:
+                        n_data["owner_id"] = new_owner_id
+                save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+        except Exception as exc:
+            logger.warning("Could not auto-migrate node bindings during key rotation: %s", exc)
 
         # Record audit event
         FLEET_ACCOUNT_STORE.record_audit_event(
