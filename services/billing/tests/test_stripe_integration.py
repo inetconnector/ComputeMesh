@@ -185,6 +185,24 @@ class TestStripeIntegration(unittest.TestCase):
         self.assertEqual(len(self.fake_stripe.checkout_session_api.calls), 1)
         self.assertEqual(self.fake_stripe.checkout_session_api.calls[0]["idempotency_key"], "checkout-retry-001")
 
+        restarted_store = StripeSessionStore(self.store.storage_path)
+        restarted_stripe = FakeStripeClient()
+        restarted_service = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_test_123",
+            session_store=restarted_store,
+            stripe_client=restarted_stripe,
+            require_live_configuration=True,
+        )
+        after_restart = restarted_service.create_checkout_session(
+            customer_account_id="cust_idempotent",
+            amount_usd=25.00,
+            idempotency_key="checkout-retry-001",
+        )
+        self.assertEqual(after_restart, first)
+        self.assertEqual(restarted_stripe.checkout_session_api.calls, [])
+
     def test_checkout_idempotency_key_cannot_change_parameters(self) -> None:
         self.stripe_svc.create_checkout_session(
             customer_account_id="cust_idempotent_conflict",
