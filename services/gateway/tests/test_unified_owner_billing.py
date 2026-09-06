@@ -90,6 +90,16 @@ class TestUnifiedOwnerBillingGateway(unittest.TestCase):
         self.assertEqual(balances.promo_micro_units, 0)
         self.assertEqual(balances.withdrawable_micro_units, 0)
 
+    def test_topup_rejects_non_finite_and_excessive_amounts(self) -> None:
+        for amount in (float("nan"), float("inf"), float("-inf"), 10_000.01):
+            payload, error, status = self.routes.handle_post_topup(
+                self.headers,
+                {"amount_usd": amount},
+            )
+            self.assertIsNone(payload)
+            self.assertEqual(int(status), 400)
+            self.assertIsNotNone(error)
+
     def test_legacy_stripe_deposit_surface_routes_owner_money_to_purchased(self) -> None:
         self.ledger.deposit_customer_credits(
             customer_account_id="alice",

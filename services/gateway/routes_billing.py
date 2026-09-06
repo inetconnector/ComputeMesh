@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from http import HTTPStatus
 from pathlib import Path
+import math
 import secrets
 import sys
 from typing import Any
@@ -21,6 +22,8 @@ from services.billing.stripe_integration import StripeIntegrationError, StripePa
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
 
+MAX_CREDIT_AMOUNT_USD = 10_000.0
+
 
 class BillingRoutesHandler:
     """Dispatches billing and Stripe payment endpoints."""
@@ -34,6 +37,20 @@ class BillingRoutesHandler:
         self.ledger = ledger
         self.stripe_svc = stripe_svc
         self.auth_manager = auth_manager
+
+    @staticmethod
+    def _parse_credit_amount(body: dict[str, Any]) -> tuple[float | None, str | None]:
+        try:
+            amount_usd = float(body.get("amount_usd", 10.0))
+        except (TypeError, ValueError):
+            return None, "Invalid amount_usd format"
+        if not math.isfinite(amount_usd):
+            return None, "amount_usd must be a finite number"
+        if amount_usd <= 0:
+            return None, "amount_usd must be positive"
+        if amount_usd > MAX_CREDIT_AMOUNT_USD:
+            return None, "amount_usd exceeds the maximum single credit amount"
+        return amount_usd, None
 
     def handle_get_balance(self, headers: Any) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
         auth = self.auth_manager.authenticate_request(headers, allow_teaser=False)
@@ -74,13 +91,10 @@ class BillingRoutesHandler:
         if not auth.account_id:
             return (None, auth.error_message or "Unauthorized", auth.status_code)
 
-        try:
-            amount_usd = float(body.get("amount_usd", 10.0))
-        except (ValueError, TypeError):
-            return (None, "Invalid amount_usd format", HTTPStatus.BAD_REQUEST)
-
-        if amount_usd <= 0:
-            return (None, "amount_usd must be positive", HTTPStatus.BAD_REQUEST)
+        amount_usd, amount_error = self._parse_credit_amount(body)
+        if amount_error:
+            return (None, amount_error, HTTPStatus.BAD_REQUEST)
+        assert amount_usd is not None
 
         micro_units = int(amount_usd * MICRO_UNIT_SCALE)
         if isinstance(self.ledger, OwnerCreditLedger):
@@ -121,13 +135,10 @@ class BillingRoutesHandler:
         if not auth.account_id:
             return (None, auth.error_message or "Unauthorized", auth.status_code)
 
-        try:
-            amount_usd = float(body.get("amount_usd", 10.0))
-        except (ValueError, TypeError):
-            return (None, "Invalid amount_usd format", HTTPStatus.BAD_REQUEST)
-
-        if amount_usd <= 0:
-            return (None, "amount_usd must be positive", HTTPStatus.BAD_REQUEST)
+        amount_usd, amount_error = self._parse_credit_amount(body)
+        if amount_error:
+            return (None, amount_error, HTTPStatus.BAD_REQUEST)
+        assert amount_usd is not None
 
         try:
             session = self.stripe_svc.create_checkout_session(
