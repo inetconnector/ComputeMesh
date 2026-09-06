@@ -350,110 +350,27 @@ class PortalHandler(BaseHTTPRequestHandler):
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
                         candidate = auth_hdr[7:].strip()
-                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
                             owner_key = candidate
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
 
-            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
-            from tools.appliance.hardware_detector import is_integrated_display_adapter
-
+            from services.gateway.server import _build_fleet_payload, owner_id_for_key
             owner_id = owner_id_for_key(owner_key)
-            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
-            live_nodes = fresh_node_telemetry_entries()
-            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
-
-            nodes_out = []
-            total_vram_bytes = 0
-            total_tflops = 0.0
-            for n in fleet_nodes:
-                inv = n.get("inventory", {})
-                telem = n.get("telemetry", {})
-                gpus = inv.get("gpus", [])
-                healthy_gpus = [
-                    g for g in gpus
-                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
-                ]
-                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
-                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
-                    node_vram = inv.get("total_vram_bytes", 0)
-                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
-                total_vram_bytes += node_vram
-                total_tflops += node_tflops
-                node_id = n.get("node_id")
-                auth_token = str(n.get("auth_token", "")).strip()
-                nodes_out.append({
-                    "node_id": node_id,
-                    "vram_gb": round(node_vram / (1024**3), 1),
-                    "tflops": round(node_tflops, 1),
-                    "gpus": [g.get("model_name") for g in gpus],
-                    "updated_at": n.get("updated_at"),
-                    "remote_url": f"/node/{node_id}?auth={auth_token}" if auth_token else None,
-                })
-
-            self._send_json(
-                {
-                    "owner_id": owner_id,
-                    "total_nodes_bound": len(bound_node_ids),
-                    "total_nodes_online": len(fleet_nodes),
-                    "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
-                    "total_tflops": round(total_tflops, 1),
-                    "nodes": nodes_out,
-                    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                },
-                credentialed=True,
-            )
+            self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True), credentialed=True)
             return
 
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
-            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
-            from tools.appliance.hardware_detector import is_integrated_display_adapter
+            from services.gateway.server import _build_fleet_payload, owner_id_for_key
 
-            owner_key = query_params.get("owner_key", [""])[0].strip()
+            owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
             owner_id = owner_id_for_key(owner_key)
             if not owner_id:
                 self._send_json({"error": "owner_key query parameter is required"}, HTTPStatus.BAD_REQUEST)
                 return
 
-            bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id))
-            live_nodes = fresh_node_telemetry_entries()
-            fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
-
-            nodes_out = []
-            total_vram_bytes = 0
-            total_tflops = 0.0
-            for n in fleet_nodes:
-                inv = n.get("inventory", {})
-                telem = n.get("telemetry", {})
-                gpus = inv.get("gpus", [])
-                healthy_gpus = [
-                    g for g in gpus
-                    if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
-                ]
-                node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
-                if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
-                    node_vram = inv.get("total_vram_bytes", 0)
-                node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
-                total_vram_bytes += node_vram
-                total_tflops += node_tflops
-                nodes_out.append({
-                    "node_id": n.get("node_id"),
-                    "vram_gb": round(node_vram / (1024**3), 1),
-                    "tflops": round(node_tflops, 1),
-                    "gpus": [g.get("model_name") for g in gpus],
-                    "updated_at": n.get("updated_at"),
-                })
-
-            self._send_json({
-                "owner_id": owner_id,
-                "total_nodes_bound": len(bound_node_ids),
-                "total_nodes_online": len(fleet_nodes),
-                "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
-                "total_tflops": round(total_tflops, 1),
-                "nodes": nodes_out,
-                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            })
+            self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
         if clean_path.startswith("/downloads/"):
@@ -517,6 +434,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             }
 
             # Register discovered cluster peers (e.g. LAN miners or secondary appliances)
+            # Deliberately do not set updated_at=now_iso for relayed peers so they do not falsely appear as direct online nodes
             gm = body.get("global_mesh", {})
             for peer in gm.get("nodes", []):
                 p_id = str(peer.get("node_id", "")).strip()
@@ -526,7 +444,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     p_tflops = float(peer.get("tflops", 0.0))
                     p_gpus_cnt = int(peer.get("gpus_count", 1))
 
-                    if p_id not in NODE_TELEMETRY_REGISTRY or NODE_TELEMETRY_REGISTRY[p_id].get("is_peer_relay", False):
+                    if p_id not in NODE_TELEMETRY_REGISTRY:
                         NODE_TELEMETRY_REGISTRY[p_id] = {
                             "node_id": p_id,
                             "auth_token": f"peer_relayed_{p_id}",
@@ -548,7 +466,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                                 "local_compute_tflops": p_tflops,
                                 "is_simulated": False,
                             },
-                            "updated_at": now_iso,
+                            "updated_at": "",
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)

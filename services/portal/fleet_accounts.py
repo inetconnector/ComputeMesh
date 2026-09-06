@@ -202,6 +202,14 @@ class FleetAccountStore:
             row = conn.execute("SELECT * FROM fleet_accounts WHERE email = ?", (cleaned,)).fetchone()
         return FleetAccount(**dict(row)) if row else None
 
+    def get_account_by_owner_key(self, owner_key: str) -> FleetAccount | None:
+        cleaned = str(owner_key or "").strip()
+        if not cleaned:
+            return None
+        with self._connection() as conn:
+            row = conn.execute("SELECT * FROM fleet_accounts WHERE owner_key = ?", (cleaned,)).fetchone()
+        return FleetAccount(**dict(row)) if row else None
+
     def get_account(self, account_id: str) -> FleetAccount | None:
         aid = str(account_id or "").strip()
         if not aid:

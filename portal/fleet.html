@@ -605,6 +605,9 @@
         <button id="btn-cockpit-setup" class="cockpit-tab-btn" onclick="switchCockpitView('setup')">
           <span data-i18n="fleet_nav_tab_setup">🔑 Owner Key & Kopplung</span>
         </button>
+        <button id="btn-cockpit-ollama" class="cockpit-tab-btn" onclick="switchCockpitView('ollama')">
+          <span>🦙 Ollama & Dev Pool</span>
+        </button>
       </div>
 
       <!-- VIEW 1: Servers Grid -->
@@ -695,6 +698,52 @@
             <button class="copy-btn" onclick="copyOwnerKey()">
               📋 <span data-i18n="fleet_btn_copy_key">Kopieren</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: Ollama & Developer Mesh Pool Integration -->
+      <div id="cockpit-view-ollama" style="display: none;">
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+            <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">🦙 Ollama Mesh-Pool & Developer API</h3>
+            <span class="status-pill online"><span class="pulse-dot"></span> 100% Eigennutzung + Automatischer Mesh-Verkauf</span>
+          </div>
+          <p style="color:#94a3b8;font-size:0.92rem;line-height:1.6;margin-bottom:1.5rem;">
+            Nutze deine eigene GPU mit voller Rechenleistung für lokale KI-Entwicklung (z. B. LocalCode, VS Code, Cursor, Cline, Ollama CLI).
+            Sobald dein System im Leerlauf ist, monetarisiert ComputeMesh die ungenutzte GPU-Kapazität automatisch im dezentralen Netzwerk und zahlt dir Echtzeit-Credits aus!
+          </p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1.25rem;margin-bottom:1.5rem;">
+            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1.25rem;">
+              <h4 style="margin-top:0;margin-bottom:0.5rem;font-size:1.05rem;color:#f8fafc;">🚀 1-Klick Start (Windows)</h4>
+              <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">Führe die vorbereitete Start-Batch im Projektordner aus:</p>
+              <div style="background:#090d16;padding:0.75rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#38bdf8;margin-bottom:0.5rem;">
+                .\OLLAMA-MESH-START.bat
+              </div>
+              <p style="font-size:0.78rem;color:#64748b;">Startet Ollama mit Mesh-CORS (0.0.0.0:11434) und verknüpft deinen Provider-Daemon.</p>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:1.25rem;">
+              <h4 style="margin-top:0;margin-bottom:0.5rem;font-size:1.05rem;color:#f8fafc;">🔄 Ursprungszustand zurücksetzen</h4>
+              <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">Setzt alle Ollama-Umgebungsvariablen wieder auf Standard:</p>
+              <div style="background:#090d16;padding:0.75rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#10b981;margin-bottom:0.5rem;">
+                .\OLLAMA-RESET-DEFAULT.bat
+              </div>
+              <p style="font-size:0.78rem;color:#64748b;">Bereinigt OLLAMA_HOST/ORIGINS und stellt den reinen Standardzustand wieder her.</p>
+            </div>
+          </div>
+
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">💻 Entwicklungsumgebungen (VS Code / Python / OpenAI SDK)</h4>
+            <div style="background:#090d16;padding:1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;">
+              <span style="color:#64748b;"># Verbindung zu deinem ComputeMesh-Cluster über OpenAI SDK:</span><br>
+              export OPENAI_BASE_URL="https://mesh.inetconnector.com/v1"<br>
+              export OPENAI_API_KEY="<span id="ollama-owner-key-hint">owner_...</span>"<br><br>
+              <span style="color:#64748b;"># Oder direkt über die Standard Ollama CLI:</span><br>
+              export OLLAMA_HOST="mesh.inetconnector.com:443"<br>
+              ollama list
+            </div>
           </div>
         </div>
       </div>
@@ -828,18 +877,47 @@
       document.getElementById("tab-magic-btn").classList.toggle("active", tab === 'magic_link');
       document.getElementById("tab-key-btn").classList.toggle("active", tab === 'owner_key');
       document.getElementById("pane-passkey").style.display = tab === 'passkey' ? 'block' : 'none';
+    function getErrorMessage(data, fallback = "Fehler") {
+      if (!data) return fallback;
+      if (typeof data === "string") return data;
+      if (typeof data.error === "string") return data.error;
+      if (typeof data.error === "object" && data.error !== null) {
+        return data.error.message || data.error.detail || JSON.stringify(data.error);
+      }
+      if (typeof data.message === "string") return data.message;
+      return fallback;
+    }
+
+    function switchAuthTab(tab) {
+      document.getElementById("tab-passkey-btn").classList.toggle("active", tab === 'passkey');
+      document.getElementById("tab-magic-btn").classList.toggle("active", tab === 'magic_link');
+      document.getElementById("tab-key-btn").classList.toggle("active", tab === 'owner_key');
+      document.getElementById("pane-passkey").style.display = tab === 'passkey' ? 'block' : 'none';
       document.getElementById("pane-magic").style.display = tab === 'magic_link' ? 'block' : 'none';
       document.getElementById("pane-key").style.display = tab === 'owner_key' ? 'block' : 'none';
       showMsg("", "");
     }
 
     function switchCockpitView(view) {
-      document.getElementById("btn-cockpit-servers").classList.toggle("active", view === 'servers');
-      document.getElementById("btn-cockpit-security").classList.toggle("active", view === 'security');
-      document.getElementById("btn-cockpit-setup").classList.toggle("active", view === 'setup');
-      document.getElementById("cockpit-view-servers").style.display = view === 'servers' ? 'block' : 'none';
-      document.getElementById("cockpit-view-security").style.display = view === 'security' ? 'block' : 'none';
-      document.getElementById("cockpit-view-setup").style.display = view === 'setup' ? 'block' : 'none';
+      const btnServers = document.getElementById("btn-cockpit-servers");
+      const btnSec = document.getElementById("btn-cockpit-security");
+      const btnSetup = document.getElementById("btn-cockpit-setup");
+      const btnOllama = document.getElementById("btn-cockpit-ollama");
+
+      if (btnServers) btnServers.classList.toggle("active", view === 'servers');
+      if (btnSec) btnSec.classList.toggle("active", view === 'security');
+      if (btnSetup) btnSetup.classList.toggle("active", view === 'setup');
+      if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
+
+      const vServers = document.getElementById("cockpit-view-servers");
+      const vSec = document.getElementById("cockpit-view-security");
+      const vSetup = document.getElementById("cockpit-view-setup");
+      const vOllama = document.getElementById("cockpit-view-ollama");
+
+      if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
+      if (vSec) vSec.style.display = view === 'security' ? 'block' : 'none';
+      if (vSetup) vSetup.style.display = view === 'setup' ? 'block' : 'none';
+      if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
 
       if (view === 'security') {
         loadPasskeys();
@@ -857,7 +935,7 @@
           body: JSON.stringify({ email }),
         });
         const beginData = await beginRes.json();
-        if (!beginRes.ok) { showMsg(beginData.error || "Registrierung fehlgeschlagen.", "error"); return; }
+        if (!beginRes.ok) { showMsg(getErrorMessage(beginData, "Registrierung fehlgeschlagen."), "error"); return; }
 
         const opts = beginData.options;
         opts.challenge = b64urlToBytes(opts.challenge);
@@ -872,7 +950,7 @@
           body: JSON.stringify({ email, credential: credentialToJSON(cred), nickname: "Primary Key" }),
         });
         const completeData = await completeRes.json();
-        if (!completeRes.ok) { showMsg(completeData.error || "Registrierung fehlgeschlagen.", "error"); return; }
+        if (!completeRes.ok) { showMsg(getErrorMessage(completeData, "Registrierung fehlgeschlagen."), "error"); return; }
 
         showMsg(getLang() === 'de' ? "Konto erstellt und Passkey registriert!" : "Account created and Passkey registered!", "ok");
         onLoggedIn(completeData);
@@ -891,7 +969,7 @@
           body: JSON.stringify({ email }),
         });
         const beginData = await beginRes.json();
-        if (!beginRes.ok) { showMsg(beginData.error || "Login fehlgeschlagen.", "error"); return; }
+        if (!beginRes.ok) { showMsg(getErrorMessage(beginData, "Login fehlgeschlagen."), "error"); return; }
 
         const opts = beginData.options;
         opts.challenge = b64urlToBytes(opts.challenge);
@@ -905,7 +983,7 @@
           body: JSON.stringify({ email, credential: credentialToJSON(cred) }),
         });
         const completeData = await completeRes.json();
-        if (!completeRes.ok) { showMsg(completeData.error || "Login fehlgeschlagen.", "error"); return; }
+        if (!completeRes.ok) { showMsg(getErrorMessage(completeData, "Login fehlgeschlagen."), "error"); return; }
 
         onLoggedIn(completeData);
       } catch (err) {
@@ -927,7 +1005,7 @@
         if (res.ok) {
           showMsg(data.message || (getLang() === 'de' ? "Ein sicherer Login-Link wurde an deine E-Mail-Adresse gesendet!" : "A secure login link has been sent!"), "ok");
         } else {
-          showMsg(data.error || "Fehler beim Anfordern des Login-Links", "error");
+          showMsg(getErrorMessage(data, "Fehler beim Anfordern des Login-Links"), "error");
         }
       } catch (err) {
         showMsg("Netzwerkfehler: " + (err.message || err), "error");
@@ -948,7 +1026,7 @@
           window.history.replaceState({}, document.title, window.location.pathname);
           onLoggedIn(data);
         } else {
-          showMsg(data.error || "Ungültiger oder abgelaufener Login-Link.", "error");
+          showMsg(getErrorMessage(data, "Ungültiger oder abgelaufener Login-Link."), "error");
         }
       } catch (err) {
         showMsg("Fehler bei Link-Verifikation: " + (err.message || err), "error");
@@ -1000,6 +1078,8 @@
       if (data && data.owner_key) {
         activeOwnerKey = data.owner_key;
         document.getElementById("owner-key-val").textContent = data.owner_key;
+        const hintEl = document.getElementById("ollama-owner-key-hint");
+        if (hintEl) hintEl.textContent = data.owner_key;
       }
 
       loadFleet();
@@ -1031,7 +1111,7 @@
         activeNodesList = data.nodes || [];
 
         // Update Telemetry Header
-        const onlineCount = data.total_nodes_online ?? activeNodesList.length;
+        const onlineCount = data.total_nodes_online ?? activeNodesList.filter(n => n.is_online || n.status === 'online').length;
         const boundCount = data.total_nodes_bound ?? activeNodesList.length;
         document.getElementById("telem-nodes").textContent = `${onlineCount} / ${boundCount}`;
         document.getElementById("telem-vram").textContent = `${data.total_vram_gb || 0} GB`;
@@ -1045,7 +1125,8 @@
         activeNodesList.forEach(n => {
           const opt = document.createElement("option");
           opt.value = n.remote_url || `/node/${n.node_id}`;
-          opt.textContent = `${n.node_id} (${n.vram_gb} GB VRAM &middot; ${(n.gpus||[]).join(', ') || 'Node'})`;
+          const statusTag = (n.is_online || n.status === 'online') ? '✓ Online' : 'Standby';
+          opt.textContent = `${n.node_id} (${n.vram_gb} GB VRAM &middot; ${statusTag})`;
           selectEl.appendChild(opt);
         });
         if (prevVal) selectEl.value = prevVal;
@@ -1062,19 +1143,24 @@
             const card = document.createElement("div");
             card.className = "node-card";
             
+            const isOnline = (n.is_online !== undefined) ? n.is_online : (n.status === "online");
             const gpuNames = (n.gpus && n.gpus.length) ? n.gpus.join(", ") : "Compute Node GPU";
             const targetUrl = n.remote_url || `/node/${n.node_id}`;
+
+            const statusBadge = isOnline
+              ? `<div class="status-pill online"><span class="pulse-dot"></span> Online</div>`
+              : `<div class="status-pill offline" style="background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);"><span class="pulse-dot" style="background:#64748b;animation:none;"></span> Offline / Standby</div>`;
+
+            const showDelete = !isOnline || Number(n.tflops || 0) === 0;
 
             card.innerHTML = `
               <div>
                 <div class="node-card-header">
                   <div>
                     <div class="node-id-title">${escapeHtml(n.node_id)}</div>
-                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Knoten-ID &middot; Live Stream</div>
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Knoten-ID &middot; ${isOnline ? 'Live Stream' : 'Nicht erreichbar'}</div>
                   </div>
-                  <div class="status-pill online">
-                    <span class="pulse-dot"></span> Online
-                  </div>
+                  ${statusBadge}
                 </div>
 
                 <div class="node-specs">
@@ -1085,13 +1171,13 @@
                   </div>
                   <div class="node-spec-row">
                     <span>Rechenleistung:</span>
-                    <strong>${n.tflops || 0} TFLOPS</strong>
+                    <strong>${isOnline ? (n.tflops || 0) : 0} TFLOPS</strong>
                   </div>
                 </div>
               </div>
 
               <div>
-                ${(Number(n.tflops || 0) === 0) ? `
+                ${showDelete ? `
                   <div style="display:flex;gap:0.5rem;align-items:center;">
                     <a href="${targetUrl}" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
                       ⚡ ${getLang() === 'de' ? 'Server öffnen →' : 'Open Server →'}
@@ -1124,8 +1210,8 @@
     async function confirmDeleteNode(nodeId) {
       if (!nodeId) return;
       const msg = getLang() === 'de'
-        ? `Möchtest du den Server "${nodeId}" wirklich aus deiner Flotte löschen?\n\nDieser Knoten hat 0 TFLOPS und ist inaktiv bzw. veraltet.`
-        : `Do you really want to remove server "${nodeId}" from your fleet?\n\nThis node has 0 TFLOPS and is inactive or outdated.`;
+        ? `Möchtest du den Server "${nodeId}" wirklich aus deiner Flotte löschen?\n\nDieser Knoten wird dauerhaft entkoppelt.`
+        : `Do you really want to remove server "${nodeId}" from your fleet?\n\nThis node will be permanently unbound.`;
       
       if (!confirm(msg)) return;
 
@@ -1134,16 +1220,19 @@
           node_id: nodeId,
           owner_key: activeOwnerKey || ""
         };
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
         const res = await fetch("/api/portal/fleet/unbind_node", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (res.ok && data.status === "ok") {
           await loadFleet(true);
         } else {
-          alert(data.error || (getLang() === 'de' ? "Fehler beim Löschen des Knotens" : "Error deleting node"));
+          alert(getErrorMessage(data, getLang() === 'de' ? "Fehler beim Löschen des Knotens" : "Error deleting node"));
         }
       } catch (err) {
         console.error("Delete node error:", err);
@@ -1156,13 +1245,16 @@
       const box = document.getElementById("passkeys-list-box");
       if (!box) return;
       try {
-        const res = await fetch("/api/auth/passkeys");
+        const headers = {};
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        const res = await fetch("/api/auth/passkeys", { headers });
         const data = await res.json();
-        if (!res.ok) { box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${data.error || 'Fehler'}</span></div>`; return; }
+        if (!res.ok) { box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${getErrorMessage(data, 'Fehler beim Laden der Passkeys')}</span></div>`; return; }
 
         const list = data.passkeys || [];
         if (list.length === 0) {
-          box.innerHTML = `<p style="color:#94a3b8;">Keine Passkeys gefunden.</p>`;
+          box.innerHTML = `<p style="color:#94a3b8;">Keine Passkeys gefunden. Du kannst oben einen neuen Sicherheitsschlüssel registrieren.</p>`;
           return;
         }
 
@@ -1200,21 +1292,25 @@
     }
 
     async function doAddAdditionalPasskey() {
-      if (!activeEmail) {
-        alert("Bitte melde dich per Passkey oder Magic Link an, um weitere Schlüssel zu registrieren.");
+      const targetEmail = activeEmail || (activeOwnerKey ? `owner_${activeOwnerKey.substring(0,8)}@local` : "");
+      if (!targetEmail && !activeOwnerKey) {
+        alert("Bitte melde dich per Passkey oder Owner Key an, um weitere Schlüssel zu registrieren.");
         return;
       }
       const nickname = prompt("Name für den neuen Passkey (z. B. 'YubiKey 5C' oder 'MacBook Pro'):", "Backup Key");
       if (!nickname) return;
 
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
         const beginRes = await fetch("/api/auth/register/begin", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: activeEmail })
+          headers: headers,
+          body: JSON.stringify({ email: targetEmail })
         });
         const beginData = await beginRes.json();
-        if (!beginRes.ok) { alert(beginData.error || "Fehler bei Registrierung"); return; }
+        if (!beginRes.ok) { alert(getErrorMessage(beginData, "Fehler bei Registrierung")); return; }
 
         const opts = beginData.options;
         opts.challenge = b64urlToBytes(opts.challenge);
@@ -1226,8 +1322,8 @@
         const cred = await navigator.credentials.create({ publicKey: opts });
         const compRes = await fetch("/api/auth/register/complete", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: activeEmail, credential: credentialToJSON(cred), nickname })
+          headers: headers,
+          body: JSON.stringify({ email: targetEmail, credential: credentialToJSON(cred), nickname })
         });
         const compData = await compRes.json();
         if (compRes.ok) {
@@ -1235,7 +1331,7 @@
           loadPasskeys();
           loadAuditLog();
         } else {
-          alert(compData.error || "Fehler beim Speichern des Schlüssels.");
+          alert(getErrorMessage(compData, "Fehler beim Speichern des Schlüssels."));
         }
       } catch (err) {
         alert("Passkey-Registrierung abgebrochen: " + err.message);
@@ -1245,9 +1341,12 @@
     async function deletePasskey(credentialId) {
       if (!confirm("Möchtest du diesen Sicherheitsschlüssel wirklich entfernen?")) return;
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
         const res = await fetch("/api/auth/passkeys/delete", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify({ credential_id: credentialId })
         });
         const data = await res.json();
@@ -1255,7 +1354,7 @@
           loadPasskeys();
           loadAuditLog();
         } else {
-          alert(data.error || "Fehler beim Löschen");
+          alert(getErrorMessage(data, "Fehler beim Löschen"));
         }
       } catch (e) {
         alert(e.message);
@@ -1267,7 +1366,10 @@
       const resBox = document.getElementById("enrollment-token-result");
       try {
         resBox.textContent = "Erzeuge Code...";
-        const res = await fetch("/api/portal/fleet/enrollment_token", { method: "POST" });
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        const res = await fetch("/api/portal/fleet/enrollment_token", { method: "POST", headers });
         const data = await res.json();
         if (res.ok && data.enrollment_token) {
           resBox.innerHTML = `
@@ -1275,7 +1377,7 @@
             <button class="copy-btn" style="margin-left:0.5rem;" onclick="navigator.clipboard.writeText('${data.enrollment_token}').then(()=>alert('Code kopiert!'))">📋 Kopieren</button>
           `;
         } else {
-          resBox.textContent = "Fehler: " + (data.error || "Nicht autorisiert");
+          resBox.textContent = "Fehler: " + getErrorMessage(data, "Nicht autorisiert");
         }
       } catch (e) {
         resBox.textContent = "Fehler: " + e.message;
@@ -1287,9 +1389,12 @@
       const box = document.getElementById("audit-log-box");
       if (!box) return;
       try {
-        const res = await fetch("/api/portal/fleet/audit_log");
+        const headers = {};
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        const res = await fetch("/api/portal/fleet/audit_log", { headers });
         const data = await res.json();
-        if (!res.ok) { box.innerHTML = `<p style="color:#94a3b8;">${data.error || 'Audit Log nicht verfügbar'}</p>`; return; }
+        if (!res.ok) { box.innerHTML = `<p style="color:#94a3b8;">${getErrorMessage(data, 'Audit Log nicht verfügbar')}</p>`; return; }
 
         const logs = data.audit_log || [];
         if (logs.length === 0) {

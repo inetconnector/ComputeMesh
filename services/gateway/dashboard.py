@@ -60,11 +60,13 @@ def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
 NODE_TELEMETRY_REGISTRY: dict[str, dict[str, Any]] = _load_registry()
 
 
-def fresh_node_telemetry_entries(max_age_seconds: int = 120) -> list[dict[str, Any]]:
+def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_relays: bool = False) -> list[dict[str, Any]]:
     """Return only recently refreshed node telemetry entries for live capacity views."""
     now = datetime.now(timezone.utc)
     entries: list[dict[str, Any]] = []
     for node_data in NODE_TELEMETRY_REGISTRY.values():
+        if not include_peer_relays and node_data.get("is_peer_relay", False):
+            continue
         updated_at = str(node_data.get("updated_at", "")).strip()
         if not updated_at:
             continue

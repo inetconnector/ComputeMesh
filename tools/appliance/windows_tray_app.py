@@ -737,11 +737,26 @@ class ComputeMeshProviderApp:
             pady=8,
             command=self._open_web_dashboard,
         )
-        btn_dash.pack(side="left", padx=(10, 5))
+        btn_dash.pack(side="left", padx=(10, 4))
+
+        btn_ollama = tk.Button(
+            ctrl_frame,
+            text="🦙 Ollama Mesh Pool",
+            font=("Inter", 10, "bold"),
+            bg="#1e293b",
+            fg="#38bdf8",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=10,
+            pady=8,
+            command=self._toggle_ollama_pool,
+        )
+        btn_ollama.pack(side="left", padx=(0, 4))
 
         btn_update = tk.Button(
             ctrl_frame,
-            text="⬆️ Update vom Webserver",
+            text="⬆️ Update",
             font=("Inter", 10),
             bg="#1f2937",
             fg="#10b981",
@@ -890,6 +905,49 @@ class ComputeMeshProviderApp:
             text="🦊 MetaMask im Browser geöffnet — nur Auszahlungsadresse auswählen; Zahlungen laufen über Stripe.",
             foreground="#00f2fe"
         )
+
+    def _toggle_ollama_pool(self) -> None:
+        try:
+            from tools.appliance.ollama_mesh_bridge import (
+                get_ollama_bridge_status,
+                launch_ollama_for_mesh,
+                reset_ollama_to_default_environment,
+            )
+            st = get_ollama_bridge_status()
+            if not st.installed:
+                messagebox.showwarning(
+                    "Ollama nicht gefunden",
+                    "Ollama ist auf diesem System nicht im Standardpfad installiert.\n\n"
+                    "Bitte lade Ollama von https://ollama.com herunter und installiere es.",
+                    parent=self.root,
+                )
+                return
+
+            if st.running:
+                model_names = [m.get("name", "") for m in st.models]
+                msg = (
+                    f"✓ Ollama Mesh-Pool ist AKTIV (Port 11434)!\n\n"
+                    f"Erkannte lokale Modelle ({len(model_names)}):\n"
+                    f"{', '.join(model_names) if model_names else 'Noch keine Modelle geladen (z. B. `ollama run qwen2.5`)'}\n\n"
+                    "• Eigennutzung (LocalCode / CLI / VS Code) hat 100% Vorrang.\n"
+                    "• Im Leerlauf wird ungenutzte GPU-Kapazität automatisch im Mesh monetarisiert.\n\n"
+                    "Möchtest du Ollama auf den Standard-Ursprungszustand zurücksetzen?"
+                )
+                if messagebox.askyesno("Ollama Mesh Pool", msg, parent=self.root):
+                    reset_ollama_to_default_environment()
+                    messagebox.showinfo("Reset", "Ollama wurde auf den Ursprungszustand zurückgesetzt.", parent=self.root)
+            else:
+                proc = launch_ollama_for_mesh()
+                messagebox.showinfo(
+                    "Ollama Mesh Pool Gestartet",
+                    "✓ Ollama wurde erfolgreich mit ComputeMesh Mesh-Pooling gestartet!\n\n"
+                    "• Port: 127.0.0.1:11434 (und 0.0.0.0:11434)\n"
+                    "• Eigene Entwickler-Tools (LocalCode / Cursor / VS Code) haben stets Priorität.\n"
+                    "• Ungenutzte GPU-Kapazität wird automatisch im Mesh monetarisiert.",
+                    parent=self.root,
+                )
+        except Exception as e:
+            messagebox.showerror("Ollama Fehler", f"Fehler beim Starten von Ollama: {e}", parent=self.root)
 
     def _calculate_local_tflops(self) -> float:
         total_tf = 0.0

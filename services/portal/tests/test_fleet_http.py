@@ -191,6 +191,69 @@ class TestFleetHttp(unittest.TestCase):
         self.assertNotIn("stale-node-01", NODE_TELEMETRY_REGISTRY)
         self.assertEqual(self.owner_store.list_provider_nodes(owner_id), [])
 
+    def test_enrollment_token_with_owner_key_header(self) -> None:
+        owner_key = "cm_owner_enroll_test_999"
+        req = urllib.request.Request(
+            f"{BASE}/api/portal/fleet/enrollment_token",
+            data=b"{}",
+            headers={"Content-Type": "application/json", "X-Owner-Key": owner_key},
+            method="POST",
+        )
+        resp = urllib.request.urlopen(req)
+        self.assertEqual(resp.status, HTTPStatus.OK)
+        data = json.loads(resp.read().decode("utf-8"))
+        self.assertIn("enrollment_token", data)
+        self.assertTrue(data["enrollment_token"].startswith("cmenroll_"))
+
+    def test_stale_and_offline_nodes_are_filtered_from_vram_aggregation(self) -> None:
+        owner_key = "cm_owner_telemetry_test_key"
+        owner_id = gateway_server_module.owner_id_for_key(owner_key)
+        self.owner_store.ensure_owner(owner_id)
+        # Bind 2 nodes to this owner
+        self.owner_store.bind_provider_node(owner_id, "node-live-mifcom")
+        self.owner_store.bind_provider_node(owner_id, "node-stale-custom")
+
+        # 1. Live node: fresh heartbeat with RTX 3080 16GB
+        NODE_TELEMETRY_REGISTRY["node-live-mifcom"] = {
+            "node_id": "node-live-mifcom",
+            "auth_token": "tok_live",
+            "inventory": {"gpus": [{"model_name": "NVIDIA GeForce RTX 3080 Laptop GPU", "vram_bytes": 16 * 1024**3, "vendor": "nvidia"}]},
+            "telemetry": {"local_compute_tflops": 24.0},
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+
+        # 2. Stale node: heartbeat from 5 minutes ago (offline)
+        NODE_TELEMETRY_REGISTRY["node-stale-custom"] = {
+            "node_id": "node-stale-custom",
+            "auth_token": "tok_stale",
+            "inventory": {"gpus": [{"model_name": "NVIDIA GeForce RTX 3080 Laptop GPU", "vram_bytes": 16 * 1024**3, "vendor": "nvidia"}]},
+            "telemetry": {"local_compute_tflops": 24.0},
+            "updated_at": "2026-01-01T00:00:00Z",
+        }
+
+        req = urllib.request.Request(f"{BASE}/api/portal/fleet", headers={"X-Owner-Key": owner_key})
+        resp = urllib.request.urlopen(req)
+        self.assertEqual(resp.status, HTTPStatus.OK)
+        fleet = json.loads(resp.read().decode("utf-8"))
+
+        self.assertEqual(fleet["total_nodes_bound"], 2)
+        self.assertEqual(fleet["total_nodes_online"], 1)
+        self.assertEqual(fleet["total_vram_gb"], 16.0)
+        self.assertEqual(fleet["total_tflops"], 24.0)
+
+        # Check individual nodes
+        live_entry = next(n for n in fleet["nodes"] if n["node_id"] == "node-live-mifcom")
+        stale_entry = next(n for n in fleet["nodes"] if n["node_id"] == "node-stale-custom")
+
+        self.assertEqual(live_entry["status"], "online")
+        self.assertTrue(live_entry["is_online"])
+        self.assertEqual(live_entry["vram_gb"], 16.0)
+        self.assertEqual(live_entry["tflops"], 24.0)
+
+        self.assertEqual(stale_entry["status"], "offline")
+        self.assertFalse(stale_entry["is_online"])
+        self.assertEqual(stale_entry["tflops"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

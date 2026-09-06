@@ -66,17 +66,31 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
     from tools.appliance.hardware_detector import is_integrated_display_adapter
 
-    bound_node_ids = set(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else set()
-    live_nodes = fresh_node_telemetry_entries()
-    fleet_nodes = [n for n in live_nodes if n.get("node_id") in bound_node_ids]
+    bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
+    now = datetime.now(timezone.utc)
+    max_age_seconds = 45
 
     nodes_out = []
     total_vram_bytes = 0
     total_tflops = 0.0
-    for n in fleet_nodes:
-        inv = n.get("inventory", {})
-        telem = n.get("telemetry", {})
-        gpus = inv.get("gpus", [])
+    online_count = 0
+
+    for node_id in bound_node_ids:
+        n = NODE_TELEMETRY_REGISTRY.get(node_id)
+        is_online = False
+        if n and not n.get("is_peer_relay", False):
+            updated_at_str = str(n.get("updated_at", "")).strip()
+            if updated_at_str:
+                try:
+                    ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                    if (now - ts).total_seconds() <= max_age_seconds:
+                        is_online = True
+                except Exception:
+                    is_online = False
+
+        inv = n.get("inventory", {}) if n else {}
+        telem = n.get("telemetry", {}) if n else {}
+        gpus = inv.get("gpus", []) if inv else []
         healthy_gpus = [
             g for g in gpus
             if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
@@ -85,25 +99,33 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
             node_vram = inv.get("total_vram_bytes", 0)
         node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
-        total_vram_bytes += node_vram
-        total_tflops += node_tflops
-        node_id = n.get("node_id")
+
+        if is_online:
+            online_count += 1
+            total_vram_bytes += node_vram
+            total_tflops += node_tflops
+
         node_entry = {
             "node_id": node_id,
+            "status": "online" if is_online else "offline",
+            "is_online": is_online,
             "vram_gb": round(node_vram / (1024**3), 1),
-            "tflops": round(node_tflops, 1),
-            "gpus": [g.get("model_name") for g in gpus],
-            "updated_at": n.get("updated_at"),
+            "tflops": round(node_tflops, 1) if is_online else 0.0,
+            "gpus": [g.get("model_name") for g in gpus] if gpus else [],
+            "updated_at": n.get("updated_at") if n else None,
         }
-        if include_remote_urls:
+        if include_remote_urls and n:
             auth_token = str(n.get("auth_token", "")).strip()
             node_entry["remote_url"] = f"/node/{node_id}?auth={auth_token}" if auth_token else None
         nodes_out.append(node_entry)
 
+    # Sort nodes so online nodes appear first
+    nodes_out.sort(key=lambda x: (not x.get("is_online", False), x.get("node_id", "")))
+
     return {
         "owner_id": owner_id,
         "total_nodes_bound": len(bound_node_ids),
-        "total_nodes_online": len(fleet_nodes),
+        "total_nodes_online": online_count,
         "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
         "total_tflops": round(total_tflops, 1),
         "nodes": nodes_out,
@@ -706,6 +728,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             }
 
             # Register discovered cluster peers (e.g. LAN miners or secondary appliances)
+            # Deliberately do not set updated_at=now_iso for relayed peers so they do not falsely appear as direct online nodes
             gm = body.get("global_mesh", {})
             for peer in gm.get("nodes", []):
                 p_id = str(peer.get("node_id", "")).strip()
@@ -715,15 +738,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     p_tflops = float(peer.get("tflops", 0.0))
                     p_gpus_cnt = int(peer.get("gpus_count", 1))
 
-                    if p_id not in NODE_TELEMETRY_REGISTRY or NODE_TELEMETRY_REGISTRY[p_id].get("is_peer_relay", False):
+                    if p_id not in NODE_TELEMETRY_REGISTRY:
                         NODE_TELEMETRY_REGISTRY[p_id] = {
                             "node_id": p_id,
-                            # Deliberately no auth_token: a synthetic token here
-                            # would permanently lock the real node p_id out of
-                            # its own registry slot, since its real auth_token
-                            # would then never match this placeholder and every
-                            # subsequent direct heartbeat from p_id would be
-                            # rejected as a mismatch until 5-minute staleness.
                             "auth_token": "",
                             "is_peer_relay": True,
                             "inventory": {
@@ -743,7 +760,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                                 "local_compute_tflops": p_tflops,
                                 "is_simulated": False,
                             },
-                            "updated_at": now_iso,
+                            "updated_at": "",
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
