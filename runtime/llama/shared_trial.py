@@ -74,6 +74,7 @@ class TrialPlan:
     model_sha256: str
     tensor_split: tuple[float, ...]
     layer_ranges: tuple[dict[str, Any], ...]
+    rpc_endpoints: tuple[RpcEndpoint, ...] = ()
 
 
 def _reject_constant(value: str) -> None:
@@ -327,6 +328,29 @@ def choose_rpc_device(devices: Sequence[DeviceInfo], requested: str | None = Non
     raise SharedTrialError("worker exposes multiple RPC devices; pass --rpc-device explicitly")
 
 
+def choose_rpc_devices(
+    devices: Sequence[DeviceInfo],
+    count: int,
+    requested: Sequence[str] | None = None,
+) -> tuple[str, ...]:
+    """Select exactly one distinct RPC device per remote execution stage."""
+    if not isinstance(count, int) or count < 1:
+        raise ValueError("RPC device count must be positive")
+    available = _rpc_devices(devices)
+    if requested is not None:
+        selected = tuple(requested)
+        if len(selected) != count or len(set(selected)) != count:
+            raise SharedTrialError("explicit RPC device selection does not match the N-stage plan")
+        if any(not any(device.name == name for device in available) for name in selected):
+            raise SharedTrialError("requested RPC device is not in llama.cpp --list-devices output")
+        return selected
+    if len(available) < count:
+        raise SharedTrialError(
+            f"llama-server exposed {len(available)} RPC devices, but the plan requires {count}"
+        )
+    return tuple(device.name for device in available[:count])
+
+
 def sibling_llama_cli(llama_server: Path) -> Path | None:
     suffix = ".exe" if llama_server.suffix.lower() == ".exe" else ""
     candidate = llama_server.with_name("llama-cli" + suffix)
@@ -340,27 +364,45 @@ def preflight_server_rpc(
     llama_cli: Path | None = None,
     discovery: Callable[[Path, Sequence[RpcEndpoint]], tuple[DeviceInfo, ...]] = discover_devices,
 ) -> tuple[DeviceInfo, ...]:
+    return preflight_server_rpcs(
+        llama_server,
+        (worker,),
+        llama_cli=llama_cli,
+        discovery=discovery,
+    )
+
+
+def preflight_server_rpcs(
+    llama_server: Path,
+    workers: Sequence[RpcEndpoint],
+    *,
+    llama_cli: Path | None = None,
+    discovery: Callable[[Path, Sequence[RpcEndpoint]], tuple[DeviceInfo, ...]] = discover_devices,
+) -> tuple[DeviceInfo, ...]:
+    endpoints = tuple(workers)
+    if not endpoints:
+        raise ValueError("at least one worker RPC endpoint is required")
     server_error: SharedTrialError | None = None
     try:
-        devices = discovery(llama_server, (worker,))
+        devices = discovery(llama_server, endpoints)
         if _rpc_devices(devices):
             return devices
-        server_error = SharedTrialError("llama-server completed discovery but exposed no RPC device")
+        server_error = SharedTrialError("llama-server completed discovery but exposed no RPC devices")
     except SharedTrialError as exc:
         server_error = exc
 
     diagnostic_cli = llama_cli or sibling_llama_cli(llama_server)
     if diagnostic_cli is not None:
         try:
-            cli_devices = discovery(diagnostic_cli, (worker,))
+            cli_devices = discovery(diagnostic_cli, endpoints)
         except SharedTrialError:
             cli_devices = ()
         if _rpc_devices(cli_devices):
             raise SharedTrialError(
-                "llama-server cannot expose the RPC worker while llama-cli can; stop here and use a llama.cpp build without the current server-RPC compatibility regression"
+                "llama-server cannot expose the RPC workers while llama-cli can; stop here and use a llama.cpp build without the current server-RPC compatibility regression"
             ) from server_error
     raise SharedTrialError(
-        "llama-server cannot expose the RPC worker; verify worker process, private-LAN firewall, and matching RPC-capable llama.cpp builds"
+        "llama-server cannot expose the RPC workers; verify worker processes, private-LAN firewall, and matching RPC-capable llama.cpp builds"
     ) from server_error
 
 

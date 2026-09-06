@@ -29,9 +29,9 @@ from runtime.llama.shared_trial import (
     SharedTrialError,
     TrialPlan,
     choose_local_device,
-    choose_rpc_device,
+    choose_rpc_devices,
     discover_devices,
-    preflight_server_rpc,
+    preflight_server_rpcs,
     start_measurement_relay,
     stop_relay,
     wait_relay_success,
@@ -53,6 +53,7 @@ def run_live_shared_request(
     llama_server: Path,
     model_path: Path,
     worker_rpc: RpcEndpoint,
+    worker_rpcs: tuple[RpcEndpoint, ...] | None = None,
     output_dir: Path,
     prompt: str,
     llama_cli: Path | None = None,
@@ -103,12 +104,39 @@ def run_live_shared_request(
 
     local_listing = discover_devices(llama_server)
     selected_local = choose_local_device(local_listing, plan, local_device)
-    remote_listing = preflight_server_rpc(llama_server, worker_rpc, llama_cli=llama_cli)
-    selected_rpc = choose_rpc_device(remote_listing, rpc_device)
+    remote_rpcs = tuple(worker_rpcs or (worker_rpc,))
+    if not remote_rpcs:
+        raise SharedRequestError("live plan has no remote RPC endpoints")
+    remote_stage_count = len(plan.tensor_split) - 1
+    if remote_stage_count < 1:
+        raise SharedRequestError("live plan must contain at least one remote stage")
+    remote_listing = preflight_server_rpcs(llama_server, remote_rpcs, llama_cli=llama_cli)
+    selected_rpcs = choose_rpc_devices(
+        remote_listing,
+        remote_stage_count,
+        requested=(rpc_device,) if remote_stage_count == 1 and rpc_device is not None else None,
+    )
     require_live("before runtime start")
 
-    relay_metrics_path = output_dir / "relay_metrics.json"
-    relay = start_measurement_relay(worker_rpc, relay_metrics_path, listen_port=relay_port)
+    relay_handles = []
+    relay_metrics_paths = []
+    try:
+        for index, endpoint in enumerate(remote_rpcs):
+            metrics_path = output_dir / (
+                "relay_metrics.json" if len(remote_rpcs) == 1 else f"relay_metrics_{index}.json"
+            )
+            relay_handles.append(
+                start_measurement_relay(
+                    endpoint,
+                    metrics_path,
+                    listen_port=relay_port + index,
+                )
+            )
+            relay_metrics_paths.append(metrics_path)
+    except Exception:
+        for handle in relay_handles:
+            stop_relay(handle)
+        raise
     process: subprocess.Popen | None = None
     watcher: threading.Thread | None = None
     watcher_stop = threading.Event()
@@ -128,8 +156,8 @@ def run_live_shared_request(
         spike_plan = SpikePlan(
             llama_server=llama_server,
             model=model_path,
-            rpc_endpoints=(relay.endpoint,),
-            devices=(selected_local, selected_rpc),
+            rpc_endpoints=tuple(handle.endpoint for handle in relay_handles),
+            devices=(selected_local, *selected_rpcs),
             tensor_split=plan.tensor_split,
             mode="shared_rpc",
             local_port=local_port,
@@ -161,10 +189,12 @@ def run_live_shared_request(
         timings["request_ms"] = request_ms
         timings["model_ready_ms"] = model_ready_ms
     except (SharedRequestCancelled, SharedRequestAborted):
-        stop_relay(relay)
+        for handle in relay_handles:
+            stop_relay(handle)
         raise
     except Exception as exc:
-        stop_relay(relay)
+        for handle in relay_handles:
+            stop_relay(handle)
         if cancelled.is_set():
             raise SharedRequestCancelled("shared request was cancelled during inference") from exc
         if aborted.is_set():
@@ -182,9 +212,11 @@ def run_live_shared_request(
                 process.kill()
                 process.wait(timeout=5)
     try:
-        wait_relay_success(relay, relay_metrics_path)
+        for handle, metrics_path in zip(relay_handles, relay_metrics_paths):
+            wait_relay_success(handle, metrics_path)
     except SharedTrialError as exc:
-        stop_relay(relay)
+        for handle in relay_handles:
+            stop_relay(handle)
         if cancelled.is_set():
             raise SharedRequestCancelled("shared request was cancelled before relay completion") from exc
         if aborted.is_set():
@@ -192,7 +224,12 @@ def run_live_shared_request(
         raise SharedRequestError("live shared request relay did not complete cleanly") from exc
 
     require_live("before evidence creation")
-    relay_metrics = _read_relay_metrics(relay_metrics_path)
+    relay_documents = [_read_relay_metrics(path) for path in relay_metrics_paths]
+    relay_metrics = {
+        "client_to_target_bytes": sum(int(item["client_to_target_bytes"]) for item in relay_documents),
+        "target_to_client_bytes": sum(int(item["target_to_client_bytes"]) for item in relay_documents),
+        "legs": relay_documents,
+    }
     evidence = build_shared_request_evidence(
         job_id=job_id,
         plan=plan,

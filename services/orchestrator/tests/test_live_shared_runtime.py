@@ -106,6 +106,7 @@ class LiveSharedRuntimeTests(unittest.TestCase):
         self.assertEqual(live.placement.provider_node_ids, ("node-a", "node-b"))
         self.assertEqual(live.trial_plan.llama_build_number, 999)
         self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50052")
+        self.assertEqual(tuple(endpoint.text() for endpoint in live.worker_rpcs), ("127.0.0.1:50052",))
         self.assertTrue(live.trial_plan.bundle_id.startswith("live:"))
 
     def test_production_provider_receives_full_pool_once_and_selects_pair_privately(self):
@@ -126,6 +127,7 @@ class LiveSharedRuntimeTests(unittest.TestCase):
         self.assertEqual(len(provider.calls[0]["candidates"]), 3)
         self.assertEqual(live.placement.provider_node_ids, ("node-b", "node-c"))
         self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50053")
+        self.assertEqual(tuple(endpoint.text() for endpoint in live.worker_rpcs), ("127.0.0.1:50053",))
 
     def test_disconnected_node_is_excluded_before_scheduling(self):
         registry = configured_registry(control=_ControlClient(("node-a",)))

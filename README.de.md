@@ -70,6 +70,11 @@ Für Entwickler heißt das konkret:
 
 Ab hier wird es technischer. Die folgenden Abschnitte erklären die Grenzen, Sicherheitsregeln und Experimentpfade für Entwickler und Betreiber.
 
+Der öffentliche Executor unterstützt jetzt Pläne der Version 2 mit N Stufen,
+geordneten Layer-Bereichen, gerätebezogenen Stage-Indizes und mehreren
+RPC-Endpunkten/Geräten. Reale Hardware-Tests mit drei oder mehr Nodes und
+Multi-GPU-Rigs bleiben ein Produktions-Gate.
+
 ### Öffentliche/private Produktionsgrenze
 
 `services/scheduler/placement.py` bleibt der offengelegte deterministische **Research-/Reference**-Machbarkeitsplaner, der unten beschrieben wird. Er ist nicht die produktive Ranking-Engine.

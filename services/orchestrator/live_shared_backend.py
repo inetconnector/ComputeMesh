@@ -93,6 +93,7 @@ class LiveSharedInferenceBackend:
             kwargs.pop("bundle_path", None)
             return run_live_shared_request(
                 plan=live.trial_plan,
+                worker_rpcs=getattr(live, "worker_rpcs", None),
                 startup_timeout=self.startup_timeout,
                 request_timeout=self.request_timeout,
                 cancel_event=cancel_event,

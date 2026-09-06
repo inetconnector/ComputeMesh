@@ -17,6 +17,7 @@ from runtime.llama.shared_trial import (
     _write_failure,
     choose_local_device,
     choose_rpc_device,
+    choose_rpc_devices,
     discover_devices,
     load_trial_plan,
     parse_device_listing,
@@ -112,6 +113,20 @@ class SharedTrialTests(unittest.TestCase):
         with self.assertRaises(SharedTrialError):
             choose_rpc_device(many)
         self.assertEqual(choose_rpc_device(many, "RPC1"), "RPC1")
+
+    def test_n_stage_rpc_device_selection_is_exact_and_distinct(self):
+        devices = (
+            DeviceInfo("CUDA0", "local"),
+            DeviceInfo("RPC0", "remote-a"),
+            DeviceInfo("RPC1", "remote-b"),
+            DeviceInfo("RPC2", "remote-c"),
+        )
+        self.assertEqual(choose_rpc_devices(devices, 2), ("RPC0", "RPC1"))
+        self.assertEqual(choose_rpc_devices(devices, 2, ("RPC2", "RPC1")), ("RPC2", "RPC1"))
+        with self.assertRaises(SharedTrialError):
+            choose_rpc_devices(devices, 4)
+        with self.assertRaises(SharedTrialError):
+            choose_rpc_devices(devices, 2, ("RPC0", "RPC0"))
 
     def test_server_rpc_regression_is_distinguished_when_cli_still_sees_worker(self):
         server = Path("llama-server")

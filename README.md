@@ -85,6 +85,10 @@ For developers, this means:
 
 The sections below are more technical. They describe the boundaries, security rules and experiment paths for developers and operators.
 
+The public executor contract supports version-2 N-stage plans with ordered
+layer ranges, per-stage device indices and multiple RPC endpoints/devices.
+Real 3+ node and multi-GPU hardware validation is still a production gate.
+
 ### Public/private production boundary
 
 `services/scheduler/placement.py` remains the disclosed deterministic **research/reference** feasibility planner described below. It is not the production ranking engine.

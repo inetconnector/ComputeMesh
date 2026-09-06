@@ -53,6 +53,7 @@ class LiveExecutionPlan:
     trial_plan: TrialPlan
     model_path: Path
     worker_rpc: RpcEndpoint
+    worker_rpcs: tuple[RpcEndpoint, ...]
     network_result: dict[str, Any]
 
 
@@ -262,6 +263,8 @@ class LiveSharedRuntimeRegistry:
             raise LiveSharedRuntimeError("signed placement selected a node outside the submitted live snapshot")
         
         stage_nodes = [item[0] for item in plan.layer_ranges]
+        if not stage_nodes or stage_nodes[0] != plan.coordinator_node_id:
+            raise LiveSharedRuntimeError("signed N-stage placement must start at its coordinator")
         for node_id_elem in stage_nodes:
             if node_id_elem not in by_id:
                 raise LiveSharedRuntimeError(f"signed placement selected node {node_id_elem!r} outside submitted live snapshot")
@@ -288,6 +291,7 @@ class LiveSharedRuntimeRegistry:
             trial_plan=self._trial_from_plan(plan, model, coordinator),
             model_path=model.model_path,
             worker_rpc=worker.rpc_endpoint,
+            worker_rpcs=tuple(dict.fromkeys(by_id[node_id].rpc_endpoint for node_id in stage_nodes[1:])),
             network_result=dict(network_result),
         )
 

@@ -2317,3 +2317,15 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   bootstrap closes it immediately. The confidential sidecar retains ownership
   of its externally supplied store.
 - Targeted gateway/control-channel verification: 11 passed.
+
+## 83. Public N-Stage RPC Execution Path (2026-09-06)
+
+- Extended the live runner to accept multiple remote RPC endpoints, create one
+  measurement relay per endpoint, select exactly one distinct RPC device per
+  remote stage, and pass the complete device/tensor-split vector to
+  llama-server.
+- Extended live placement data to carry the selected remote endpoint set while
+  retaining the legacy worker_rpc compatibility field.
+- Added exact multi-device selection and live-plan endpoint regression tests.
+- Targeted verification: 30 passed. Real 3+ node/multi-GPU hardware and WAN
+  execution evidence remain outstanding.
