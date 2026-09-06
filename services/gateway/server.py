@@ -941,7 +941,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     )
                     self._send_json(data)
                 except Exception as exc:
-                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
+                    status = HTTPStatus.SERVICE_UNAVAILABLE if is_stripe_connect_platform_activation_error(exc) else HTTPStatus.BAD_REQUEST
+                    self._send_json({"error": str(exc)}, status)
                 return
 
             if clean_path == "/api/portal/fleet/payouts/refresh":

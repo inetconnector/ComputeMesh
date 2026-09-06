@@ -7,7 +7,12 @@ from unittest.mock import patch
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
-from services.billing.stripe_connect import SettlementExecutor, StripeConnectService, _format_stripe_v2_error
+from services.billing.stripe_connect import (
+    SettlementExecutor,
+    StripeConnectService,
+    _format_stripe_v2_error,
+    is_stripe_connect_platform_activation_error,
+)
 from services.billing.stripe_integration import StripePaymentService
 
 
@@ -129,6 +134,7 @@ class TestAccountingAndSettlement(unittest.TestCase):
         self.assertIn("platform activation is required", message)
         self.assertNotIn("request_log_url", message)
         self.assertNotIn("dashboard.stripe.com/internal", message)
+        self.assertTrue(is_stripe_connect_platform_activation_error(message))
 
     def test_provider_registration_and_connect_onboarding_link(self) -> None:
         provider = self.executor.create_or_refresh_provider_connect_account(

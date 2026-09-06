@@ -17,6 +17,8 @@ before they reach the portal. The `account_create_activation_required` error
 is reported as an actionable platform-activation prerequisite, without exposing
 Stripe request-log URLs or response payloads. The API cannot perform that
 account-level activation itself; it must be completed in the Stripe Dashboard.
+The portal and provider routes classify this condition as HTTP 503 while
+preserving HTTP 400 for ordinary onboarding input errors.
 
 ---
 

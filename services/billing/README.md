@@ -63,6 +63,8 @@ If Accounts v2 returns `account_create_activation_required`, the Stripe
 platform must first be activated in the Stripe Dashboard. The gateway reports
 this prerequisite without forwarding Stripe's raw response or request-log URL;
 the application API cannot perform the account-level activation.
+The portal and provider API expose this as temporary service unavailability
+(HTTP 503), not as a malformed user request.
 
 Set `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` when the platform's available Stripe balance is in a different test/live currency than the ledger's nominal display unit. The default remains `usd`; the current German Stripe sandbox settlement smoke uses `eur`.
 

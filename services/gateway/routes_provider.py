@@ -17,7 +17,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.accounting import AccountingStore, AccountingStoreError
 from services.billing.ledger import InsufficientBalanceError, Ledger, MICRO_UNIT_SCALE
-from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+from services.billing.stripe_connect import (
+    SettlementExecutor,
+    StripeConnectService,
+    is_stripe_connect_platform_activation_error,
+)
 from services.billing.stripe_integration import StripeIntegrationError
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token
@@ -114,7 +118,8 @@ class ProviderRoutesHandler:
                 "status": res.onboarding_status,
             }, None, HTTPStatus.OK)
         except StripeIntegrationError as exc:
-            return (None, str(exc), HTTPStatus.BAD_REQUEST)
+            status = HTTPStatus.SERVICE_UNAVAILABLE if is_stripe_connect_platform_activation_error(exc) else HTTPStatus.BAD_REQUEST
+            return (None, str(exc), status)
 
     def handle_stripe_refresh(self, headers: Any) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:
         provider_node_id, err_msg, status = self.auth_manager.authenticate_provider(headers)

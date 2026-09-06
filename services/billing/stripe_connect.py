@@ -25,6 +25,11 @@ from services.billing.ledger import (
 )
 from services.billing.stripe_integration import StripeIntegrationError, _load_stripe_module, _stripe_get
 
+STRIPE_CONNECT_PLATFORM_ACTIVATION_ERROR = (
+    "Stripe Connect platform activation is required in the Stripe Dashboard "
+    "before provider onboarding can start."
+)
+
 
 @dataclass(frozen=True)
 class ConnectedAccountResult:
@@ -395,14 +400,16 @@ def _format_stripe_v2_error(status_code: int, detail: str) -> str:
     except (TypeError, ValueError):
         pass
     if error_code == "account_create_activation_required":
-        return (
-            "Stripe Connect platform activation is required in the Stripe Dashboard "
-            "before provider onboarding can start."
-        )
+        return STRIPE_CONNECT_PLATFORM_ACTIVATION_ERROR
     if error_code in {"cannot_create_connected_account", "cannot_create_new_account_rejected"}:
         return "Stripe Connect currently does not allow connected-account creation for this platform."
     suffix = f" (code={error_code})" if error_code else ""
     return f"Stripe Accounts v2 API request failed: HTTP {status_code}{suffix}"
+
+
+def is_stripe_connect_platform_activation_error(error: BaseException | str) -> bool:
+    """Return whether an onboarding error is a platform-level activation gate."""
+    return STRIPE_CONNECT_PLATFORM_ACTIVATION_ERROR in str(error)
 
 
 class SettlementExecutor:

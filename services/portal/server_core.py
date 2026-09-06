@@ -41,6 +41,7 @@ from services.portal.passkey_routes import PasskeyAuthHandler, session_account_f
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
 from services.portal.mail_dispatcher import send_contact_inquiry
+from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
@@ -521,7 +522,8 @@ class PortalHandler(BaseHTTPRequestHandler):
                     )
                     self._send_json(data, credentialed=True)
                 except Exception as exc:
-                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
+                    status = HTTPStatus.SERVICE_UNAVAILABLE if is_stripe_connect_platform_activation_error(exc) else HTTPStatus.BAD_REQUEST
+                    self._send_json({"error": str(exc)}, status, credentialed=True)
                 return
 
             if clean_path == "/api/portal/fleet/payouts/refresh":
