@@ -90,14 +90,27 @@ def fetch_health(url: str, timeout: float = 10.0) -> dict[str, Any]:
     }
 
 
+def overall_ready(environment: dict[str, Any], health: dict[str, Any], *, require_local_config: bool) -> bool:
+    """Combine local configuration and deployed health without exposing secrets."""
+    return health.get("healthy") is True and (
+        environment.get("configuration_ready") is True or not require_local_config
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=os.environ.get("COMPUTEMESH_PUBLIC_BASE_URL", "https://mesh.inetconnector.com"))
+    parser.add_argument(
+        "--require-local-config",
+        action="store_true",
+        help="fail unless this shell also contains the Stripe runtime configuration",
+    )
     args = parser.parse_args(argv)
     environment = evaluate_environment(dict(os.environ))
     health = fetch_health(args.url)
     result = {"configuration": environment, "health": health}
-    result["ready"] = environment["configuration_ready"] and health.get("healthy") is True
+    result["configuration_scope"] = "local_required" if args.require_local_config else "deployed_gateway"
+    result["ready"] = overall_ready(environment, health, require_local_config=args.require_local_config)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["ready"] else 1
 

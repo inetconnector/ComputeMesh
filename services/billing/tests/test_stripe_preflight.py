@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tools.stripe_preflight import evaluate_environment, fetch_health
+from tools.stripe_preflight import evaluate_environment, fetch_health, overall_ready
 
 
 class TestStripePreflight(unittest.TestCase):
@@ -36,6 +36,12 @@ class TestStripePreflight(unittest.TestCase):
             result = fetch_health("https://example.test")
         self.assertTrue(result["healthy"])
         self.assertEqual(result["stripe"]["mode"], "live")
+
+    def test_health_only_mode_can_validate_service_without_shell_secrets(self) -> None:
+        environment = {"configuration_ready": False}
+        health = {"healthy": True}
+        self.assertTrue(overall_ready(environment, health, require_local_config=False))
+        self.assertFalse(overall_ready(environment, health, require_local_config=True))
 
 
 if __name__ == "__main__":

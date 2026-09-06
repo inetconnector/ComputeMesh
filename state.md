@@ -22,9 +22,12 @@ preserving HTTP 400 for ordinary onboarding input errors.
 
 Added `tools/stripe_preflight.py`, a secret-free operator check for Stripe
 configuration shape and the deployed `/healthz` contract. Its unit tests pass
-2/2; running it locally without production secrets correctly reports the
-gateway healthy but overall readiness false. It never creates Stripe resources
-or sends a webhook.
+3/3. It defaults to deployed-gateway readiness because systemd keeps service
+secrets out of interactive shells; `--require-local-config` enables a strict
+local-shell gate. It never creates Stripe resources or sends a webhook.
+The command defaults to validating the deployed gateway when service secrets
+are kept inside systemd; `--require-local-config` enables a strict local-shell
+configuration gate.
 
 ---
 

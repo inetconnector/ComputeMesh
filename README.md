@@ -225,6 +225,9 @@ mismatch fails closed before ledger crediting.
 `tools/stripe_preflight.py` provides a secret-free operator check for Stripe
 configuration shape and the deployed `/healthz` contract. It never creates
 Stripe resources or sends a webhook.
+Because systemd keeps service secrets out of the interactive shell, the normal
+command validates the deployed gateway; add `--require-local-config` when the
+Stripe environment is intentionally loaded into the current shell.
 
 Live provider sessions reserve capacity on the provider through the
 authenticated control channel before inference starts. Reservations are
