@@ -184,12 +184,60 @@ def launch_ollama_for_mesh(
     return proc
 
 
-def reset_ollama_to_default_environment() -> dict[str, str]:
+def stop_ollama_process() -> bool:
+    """Stops running Ollama instances gracefully or forcefully so configuration changes take effect."""
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/F", "/IM", "ollama.exe", "/T"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["pkill", "-f", "ollama"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.0)
+        return True
+    except Exception:
+        return False
+
+
+def reset_ollama_to_default_environment(restart_default: bool = False) -> dict[str, str]:
     """Removes ComputeMesh environment overrides so Ollama returns to standard standalone behavior."""
     # Reset local process environment
     for key in ["OLLAMA_HOST", "OLLAMA_ORIGINS", "OLLAMA_KEEP_ALIVE", "OLLAMA_NUM_PARALLEL"]:
         if key in os.environ:
             del os.environ[key]
+
+    # Clean Windows user environment registry if overrides were stored
+    if sys.platform == "win32":
+        try:
+            for key in ["OLLAMA_HOST", "OLLAMA_ORIGINS", "OLLAMA_KEEP_ALIVE", "OLLAMA_NUM_PARALLEL"]:
+                subprocess.run(
+                    ["reg", "delete", "HKCU\\Environment", "/v", key, "/f"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        except Exception:
+            pass
+
+    if restart_default:
+        stop_ollama_process()
+        exe = detect_ollama_executable()
+        if exe:
+            creation_flags = 0
+            if sys.platform == "win32":
+                creation_flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0x08000000
+            # Start cleanly with completely default environment
+            clean_env = os.environ.copy()
+            for k in ["OLLAMA_HOST", "OLLAMA_ORIGINS", "OLLAMA_KEEP_ALIVE", "OLLAMA_NUM_PARALLEL"]:
+                clean_env.pop(k, None)
+            subprocess.Popen(
+                [str(exe), "serve"],
+                env=clean_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=creation_flags,
+            )
+            for _ in range(10):
+                time.sleep(0.5)
+                if is_ollama_running():
+                    break
 
     return {
         "status": "ok",
@@ -221,9 +269,15 @@ def main() -> int:
             print(f"Error launching Ollama: {exc}")
             return 1
 
-    if action == "reset":
-        res = reset_ollama_to_default_environment()
+    if action in ("reset", "reset-restart", "restart-default"):
+        restart = action in ("reset-restart", "restart-default")
+        res = reset_ollama_to_default_environment(restart_default=restart)
         print(f"✓ {res['message']}")
+        return 0
+
+    if action == "stop":
+        stop_ollama_process()
+        print("✓ Ollama process stopped.")
         return 0
 
     if action == "models":
@@ -231,7 +285,7 @@ def main() -> int:
         print(json.dumps([m.to_dict() for m in models], indent=2))
         return 0
 
-    print(f"Unknown action: {action}. Valid options: status, launch, reset, models")
+    print(f"Unknown action: {action}. Valid options: status, launch, reset, restart-default, stop, models")
     return 1
 
 
