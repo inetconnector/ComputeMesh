@@ -12,11 +12,12 @@ class TestStripePreflight(unittest.TestCase):
     def test_environment_check_does_not_require_secret_values_in_result(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             checks = evaluate_environment({
-                "STRIPE_API_KEY": "sk_live_private-value",
-                "STRIPE_WEBHOOK_SECRET": "whsec_private-value",
+                "STRIPE_API_KEY": "sk_test_fixture",
+                "STRIPE_WEBHOOK_SECRET": "whsec_fixture",
                 "COMPUTEMESH_STRIPE_SESSION_STORE": str(Path(tempdir) / "sessions.json"),
             })
         self.assertTrue(checks["configuration_ready"])
+        self.assertEqual(checks["mode"], "test")
         self.assertNotIn("private", repr(checks))
 
     def test_health_check_accepts_only_ready_gateway_contract(self) -> None:
