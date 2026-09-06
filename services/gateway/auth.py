@@ -272,7 +272,7 @@ class GatewayAuthManager:
             # Fleet Owner Key authentication (e.g. inet-..., ok_..., cm_owner_...)
             if token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_") or token.startswith("owner_"):
                 try:
-                    from services.portal.fleet_accounts import FLEET_ACCOUNT_STORE
+                    from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                     resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(token) or token
                     acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(resolved)
                     if acct is not None:
