@@ -2248,3 +2248,15 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
    - Full unified public test suite (`run_all_tests.py`): **598/598 tests passed in 35.49s (100% OK)**.
    - Private control plane test suite (`pytest`): **148/148 tests passed in 4.96s (100% OK)**.
 
+## 76. Live Model Registry Gateway Boundary (2026-09-06)
+
+- Added `services/gateway/registry_client.py` with strict validation, bounded
+  last-known-good caching and fail-closed behavior for a configured private
+  registry endpoint.
+- `/v1/models`, Ollama tags and model resolution now consume the validated live
+  registry when `COMPUTEMESH_MODEL_REGISTRY_URL` is set; unavailable models are
+  not resolvable and no stale static catalogue is advertised.
+- The private registry public view now includes safe selected-artifact digest,
+  size and quantization metadata.
+- Added registry client cache/validation tests and synchronized English/German
+  README guidance. Full unified verification is being rerun before commit.

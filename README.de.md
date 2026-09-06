@@ -206,6 +206,14 @@ Die produktive **Policy-Grenze** existiert inzwischen privat, aber breite produk
 - echtes Upstream-Token-Streaming/TTFT-Messung, wo erforderlich;
 - abschließende HA-/Operations-Härtung für Billing, Verification, Telemetry und private Control-Plane-Persistenz.
 
+Wenn `COMPUTEMESH_MODEL_REGISTRY_URL` gesetzt ist, verwendet der Gateway die
+validierte öffentliche Sicht der privaten Model Registry für `/v1/models` und
+Ollama-Tags. `COMPUTEMESH_MODEL_REGISTRY_TOKEN` ist für authentifizierte
+Deployments optional; Timeout und Cache-Dauer werden durch die entsprechenden
+`COMPUTEMESH_MODEL_REGISTRY_*`-Einstellungen begrenzt. Eine konfigurierte
+Registry ist maßgeblich: Bei Nichterreichbarkeit schlagen Discovery und
+Auflösung fail-closed fehl.
+
 Payment-Grenze: Der vorgesehene Real-Money-Pfad für den Kauf von Rechenguthaben ist Stripe. Der Gateway besitzt einen fail-closed Stripe-Checkout-/Webhook-Pfad, der bei Konfiguration von `STRIPE_API_KEY` und einem dauerhaften `COMPUTEMESH_STRIPE_SESSION_STORE` das offizielle Stripe-SDK nutzt; signiertes Webhook-Crediting benötigt zusätzlich `STRIPE_WEBHOOK_SECRET`. Checkout-Metadaten und Session-Store bestimmen den gekauften Compute-Credit-Betrag, damit steuerbehaftete Stripe-Gesamtsummen nicht als zusätzliches Rechenguthaben verbucht werden. Provider-Auszahlungen besitzen einen Stripe-Connect-Accounts-v2-/Express-Recipient-Onboarding-Pfad mit dauerhaften Provider-Konten, Onboarding-Links, Settlement-Records, Transfer-Idempotenz, konfigurierbarer Transfer-Währung über `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` und interner Ledger-Ausbuchung der Provider-Verbindlichkeiten. Ohne Stripe-Konfiguration werden keine Fake-Live-Checkout- oder Connect-URLs ausgegeben. Echtes Stripe-Connect-Onboarding benötigt weiterhin die Rechtsform- und KYC-Daten des Providers/Betreibers. MetaMask/EVM-Wallets dienen in der aktuellen Provider-Oberfläche nur dazu, eine Auszahlungsadresse für Einnahmen aus bereitgestellter Rechenleistung festzulegen; Wallets werden nicht zum Kauf von Rechenguthaben oder zum Belasten von Kunden verwendet.
 
 ## Unmittelbarer Ablauf

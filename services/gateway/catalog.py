@@ -18,6 +18,7 @@ from services.common.pricing import (
     calculate_token_charge_micro,
     get_price_tier,
 )
+from services.gateway.registry_client import ModelRegistryClient, RegistryClientError, RegistryModel, build_registry_client_from_env
 
 PriceTier = ModelPriceTier
 
@@ -77,16 +78,37 @@ AVAILABLE_MODELS: list[ModelSpec] = [
     ),
 ]
 
+LIVE_MODEL_REGISTRY = build_registry_client_from_env()
+
+
+def current_models() -> list[ModelSpec | RegistryModel]:
+    """Return live public models when configured, otherwise dev catalogue models."""
+    if LIVE_MODEL_REGISTRY is None:
+        return list(AVAILABLE_MODELS)
+    try:
+        return list(LIVE_MODEL_REGISTRY.models())
+    except RegistryClientError:
+        # An explicitly configured registry is authoritative; never advertise
+        # stale static or synthetic models after it becomes unavailable.
+        return []
+
 
 def resolve_model_id(raw_model: str) -> str:
     """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, llama3.1:8b), or alias to canonical model ID."""
+    models = current_models()
+    live_registry = LIVE_MODEL_REGISTRY is not None
+    resolvable_models = [m for m in models if not isinstance(m, RegistryModel) or m.available]
     if not raw_model:
-        return AVAILABLE_MODELS[2].id  # default qwen2.5-7b
+        if live_registry and not resolvable_models:
+            raise ValueError("model registry unavailable")
+        return resolvable_models[0].id if live_registry else AVAILABLE_MODELS[2].id
 
     model_clean = raw_model.strip().lower()
 
     # 1. Exact match on full model ID
-    for m in AVAILABLE_MODELS:
+    if live_registry and not resolvable_models:
+        raise ValueError("model registry unavailable")
+    for m in resolvable_models:
         if model_clean == m.id.lower():
             return m.id
 
@@ -96,17 +118,19 @@ def resolve_model_id(raw_model: str) -> str:
     # 2. Tagged alias matching e.g. "qwen2.5:7b", "llama3.1:8b", "llama3.3:70b"
     if ":" in model_clean:
         base, tag = model_clean.split(":", 1)
-        for m in AVAILABLE_MODELS:
+        for m in resolvable_models:
             short_name = m.id.split("/")[-1].lower()
             if norm(base) in norm(short_name) and norm(tag) in norm(short_name):
                 return m.id
 
     # 3. Direct substring match on short name
-    for m in AVAILABLE_MODELS:
+    for m in resolvable_models:
         short_name = m.id.split("/")[-1].lower()
         if norm(model_clean) in norm(short_name):
             return m.id
 
+    if live_registry:
+        raise ValueError(f"model is not present in the live registry: {raw_model}")
     return AVAILABLE_MODELS[2].id
 
 

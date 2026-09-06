@@ -150,7 +150,7 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import AVAILABLE_MODELS, resolve_model_id
+from services.gateway.catalog import current_models, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     fresh_node_telemetry_entries,
@@ -1023,38 +1023,47 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def _handle_models(self) -> None:
+        models = current_models()
+        if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
+            self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
+            return
         models_data = [
             {
                 "id": m.id,
                 "object": "model",
-                "created": m.created,
-                "owned_by": m.owned_by,
+                "created": getattr(m, "created", 0),
+                "owned_by": getattr(m, "owned_by", "computemesh"),
                 "permission": [],
                 "root": m.id,
                 "parent": None,
             }
-            for m in AVAILABLE_MODELS
+            for m in models
         ]
         self._send_json({"object": "list", "data": models_data})
 
     def _handle_ollama_tags(self) -> None:
+        models = current_models()
+        if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
+            self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
+            return
         models_data = [
             {
                 "name": m.id,
                 "model": m.id,
                 "modified_at": datetime.now(timezone.utc).isoformat(),
-                "size": 4350000000 if "7b" in m.id or "8b" in m.id else 41000000000,
-                "digest": f"sha256:{secrets.token_hex(32)}",
+                "size": getattr(m, "artifact_size_bytes", 0) or (4350000000 if "7b" in m.id or "8b" in m.id else 41000000000),
+                "digest": getattr(m, "artifact_digest", "") or f"sha256:{secrets.token_hex(32)}",
                 "details": {
                     "parent_model": "",
                     "format": "computemesh-gateway",
                     "family": "llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek"),
                     "families": ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")],
                     "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else "70.6B",
-                    "quantization_level": "Q4_K_M",
+                    "quantization_level": getattr(m, "quantization", "") or "Q4_K_M",
+                    "availability": getattr(m, "availability", "available_warm"),
                 },
             }
-            for m in AVAILABLE_MODELS
+            for m in models
         ]
         self._send_json({"models": models_data})
 

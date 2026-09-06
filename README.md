@@ -221,6 +221,13 @@ The production **policy boundary** now exists privately, but broad production di
 - true upstream token streaming/TTFT measurement where required;
 - final HA/operations hardening for billing, verification, telemetry and private control-plane persistence.
 
+When `COMPUTEMESH_MODEL_REGISTRY_URL` is configured, the gateway consumes the
+private registry's validated public model view for `/v1/models` and Ollama
+tags. `COMPUTEMESH_MODEL_REGISTRY_TOKEN` is optional for authenticated
+deployments; timeout and cache duration are bounded by the corresponding
+`COMPUTEMESH_MODEL_REGISTRY_*` settings. A configured registry is authoritative:
+discovery and resolution fail closed if it is unavailable.
+
 Payment boundary: the intended real-money purchase path for compute credits is Stripe. The gateway now has a fail-closed Stripe Checkout/Webhook integration path that calls the official Stripe SDK when configured with `STRIPE_API_KEY` and a durable `COMPUTEMESH_STRIPE_SESSION_STORE`; signed webhook crediting additionally requires `STRIPE_WEBHOOK_SECRET`. Checkout metadata/session-store values define the purchased compute-credit amount, so tax-inclusive Stripe totals are not credited as extra compute balance. Provider payout operations now have a Stripe Connect Accounts v2 / Express recipient onboarding path with durable provider accounts, onboarding links, settlement records, transfer idempotency, configurable transfer currency through `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, and internal ledger payable clearing. Without Stripe configuration it will not issue fake live Checkout or Connect URLs. Real Stripe Connect onboarding still requires the provider/operator's legal entity and KYC details; a German UG cannot be truthfully completed in Stripe until it is founded and registered. MetaMask/EVM wallet handling in the current provider UI is only for selecting a provider payout destination address for earnings from contributed compute power; wallets are not used to buy compute credits or to charge customers.
 
 ## Immediate path
