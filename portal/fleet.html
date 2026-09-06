@@ -926,11 +926,6 @@
       el.innerHTML = `<div class="fleet-msg ${kind}"><span>${kind === 'ok' ? '✓' : '⚠️'}</span> <span>${text}</span></div>`;
     }
 
-    function switchAuthTab(tab) {
-      document.getElementById("tab-passkey-btn").classList.toggle("active", tab === 'passkey');
-      document.getElementById("tab-magic-btn").classList.toggle("active", tab === 'magic_link');
-      document.getElementById("tab-key-btn").classList.toggle("active", tab === 'owner_key');
-      document.getElementById("pane-passkey").style.display = tab === 'passkey' ? 'block' : 'none';
     function getErrorMessage(data, fallback = "Fehler") {
       if (!data) return fallback;
       if (typeof data === "string") return data;
