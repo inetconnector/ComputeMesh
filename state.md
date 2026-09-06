@@ -1,9 +1,9 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-03 23:03 CEST
-**Release Version:** `v1.2.22`
-**Test Suite Status:** `562/562 PASSED (100% OK in 28.17s)` across all 10 categories
-**Git Baseline:** Branch `main` with Unified Account Credits, Multi-Rig Ledger Aggregation, Public Executor v2 upgrade, and Portal Fleet Telemetry API
+**Last updated:** 2026-09-07
+**Release Version:** `v1.2.100`
+**Test Suite Status:** `615/615 PASSED` across all 10 harness categories; Stripe preflight `3/3 PASSED`
+**Git Baseline:** Branch `main` with Unified Account Credits, Multi-Rig Ledger Aggregation, Public Executor v2 upgrade, Portal Fleet Telemetry API, and secret-free Stripe production preflight
 
 ## Latest operational change
 
