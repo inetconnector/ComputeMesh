@@ -29,6 +29,7 @@ from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
+from services.portal.routes_downloads import get_download_file_response
 
 
 def _resolve_owner_account_store_path() -> Path:
@@ -522,6 +523,49 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_id = owner_id_for_key(owner_key)
             payload = _build_fleet_payload(owner_id, include_remote_urls=True)
             self._send_json(payload)
+            return
+
+        if clean_path in (
+            "/api/portal/download/ollama-starter",
+            "/api/portal/download/ollama-reset",
+            "/download/ollama-starter",
+            "/download/ollama-reset",
+            "/api/v1/download/ollama-starter",
+            "/api/v1/download/ollama-reset",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = (
+                    query.get("key", [""])[0].strip()
+                    or query.get("owner_key", [""])[0].strip()
+                    or self.headers.get("X-Owner-Key", "").strip()
+                )
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+
+            os_target = query.get("os", ["windows"])[0].strip()
+            script_type = "reset" if "reset" in clean_path else "starter"
+            content, filename, content_type = get_download_file_response(
+                script_type=script_type,
+                os_target=os_target,
+                owner_key=owner_key,
+            )
+            body = content.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):

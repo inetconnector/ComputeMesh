@@ -254,6 +254,34 @@ class TestFleetHttp(unittest.TestCase):
         self.assertFalse(stale_entry["is_online"])
         self.assertEqual(stale_entry["tflops"], 0.0)
 
+    def test_download_ollama_starter_and_reset_endpoints(self) -> None:
+        owner_key = "cm_owner_download_test_key_xyz"
+        # 1. Download Windows Starter
+        req = urllib.request.Request(f"{BASE}/api/portal/download/ollama-starter?os=windows&key={owner_key}")
+        resp = urllib.request.urlopen(req)
+        self.assertEqual(resp.status, HTTPStatus.OK)
+        self.assertIn("attachment", resp.headers.get("Content-Disposition", ""))
+        self.assertIn("OLLAMA-MESH-START.bat", resp.headers.get("Content-Disposition", ""))
+        content = resp.read().decode("utf-8")
+        self.assertIn(owner_key, content)
+        self.assertIn("OLLAMA_HOST=0.0.0.0:11434", content)
+
+        # 2. Download Linux Starter
+        req_sh = urllib.request.Request(f"{BASE}/api/portal/download/ollama-starter?os=linux&key={owner_key}")
+        resp_sh = urllib.request.urlopen(req_sh)
+        self.assertEqual(resp_sh.status, HTTPStatus.OK)
+        self.assertIn("ollama-mesh-start.sh", resp_sh.headers.get("Content-Disposition", ""))
+        content_sh = resp_sh.read().decode("utf-8")
+        self.assertIn(owner_key, content_sh)
+        self.assertIn('export OLLAMA_HOST="0.0.0.0:11434"', content_sh)
+
+        # 3. Download Reset script
+        req_res = urllib.request.Request(f"{BASE}/api/portal/download/ollama-reset?os=windows")
+        resp_res = urllib.request.urlopen(req_res)
+        self.assertEqual(resp_res.status, HTTPStatus.OK)
+        self.assertIn("OLLAMA-RESET-DEFAULT.bat", resp_res.headers.get("Content-Disposition", ""))
+
 
 if __name__ == "__main__":
     unittest.main()
+

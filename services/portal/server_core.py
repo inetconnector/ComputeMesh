@@ -38,6 +38,7 @@ from services.gateway.security import (
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
 from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
+from services.portal.routes_downloads import get_download_file_response
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
@@ -212,6 +213,50 @@ class PortalHandler(BaseHTTPRequestHandler):
             clean_path = "/"
 
         query_params = urllib.parse.parse_qs(parsed_url.query)
+
+        # Dynamic 1-Click Launch & Reset Script Downloads for Fleet Operators
+        if clean_path in (
+            "/api/portal/download/ollama-starter",
+            "/api/portal/download/ollama-reset",
+            "/download/ollama-starter",
+            "/download/ollama-reset",
+            "/api/v1/download/ollama-starter",
+            "/api/v1/download/ollama-reset",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = (
+                    query_params.get("key", [""])[0].strip()
+                    or query_params.get("owner_key", [""])[0].strip()
+                    or self.headers.get("X-Owner-Key", "").strip()
+                )
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+
+            os_target = query_params.get("os", ["windows"])[0].strip()
+            script_type = "reset" if "reset" in clean_path else "starter"
+            content, filename, content_type = get_download_file_response(
+                script_type=script_type,
+                os_target=os_target,
+                owner_key=owner_key,
+            )
+            body = content.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         # Authenticated Node Remote Dashboard Viewer
         if clean_path.startswith("/node/"):

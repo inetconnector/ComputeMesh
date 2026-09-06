@@ -714,26 +714,80 @@
             Sobald dein System im Leerlauf ist, monetarisiert ComputeMesh die ungenutzte GPU-Kapazität automatisch im dezentralen Netzwerk und zahlt dir Echtzeit-Credits aus!
           </p>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1.25rem;margin-bottom:1.5rem;">
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1.25rem;">
-              <h4 style="margin-top:0;margin-bottom:0.5rem;font-size:1.05rem;color:#f8fafc;">🚀 1-Klick Start (Windows)</h4>
-              <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">Führe die vorbereitete Start-Batch im Projektordner aus:</p>
-              <div style="background:#090d16;padding:0.75rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#38bdf8;margin-bottom:0.5rem;">
-                .\OLLAMA-MESH-START.bat
-              </div>
-              <p style="font-size:0.78rem;color:#64748b;">Startet Ollama mit Mesh-CORS (0.0.0.0:11434) und verknüpft deinen Provider-Daemon.</p>
-            </div>
+          <!-- 1-Click Download Section -->
+          <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+              <span>📥</span> <span>Vorkonfigurierte Start- & Reset-Skripte herunterladen</span>
+            </h4>
+            <p style="font-size:0.88rem;color:#94a3b8;margin-bottom:1.25rem;">
+              Die Skripte enthalten bereits automatisch deinen persönlichen <strong>Owner Key</strong> und verbinden deinen Ollama-Dienst direkt mit deiner Flotte.
+            </p>
 
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:1.25rem;">
-              <h4 style="margin-top:0;margin-bottom:0.5rem;font-size:1.05rem;color:#f8fafc;">🔄 Ursprungszustand zurücksetzen</h4>
-              <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">Setzt alle Ollama-Umgebungsvariablen wieder auf Standard:</p>
-              <div style="background:#090d16;padding:0.75rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#10b981;margin-bottom:0.5rem;">
-                .\OLLAMA-RESET-DEFAULT.bat
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;">
+              <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:700;color:#38bdf8;font-size:0.95rem;margin-bottom:0.35rem;">🪟 Windows (Batch Launcher)</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">1-Klick Start mit Mesh-Pool & Tray Daemon</div>
+                </div>
+                <button class="btn btn-primary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;" onclick="downloadOllamaScript('starter', 'windows')">
+                  ⬇️ OLLAMA-MESH-START.bat
+                </button>
               </div>
-              <p style="font-size:0.78rem;color:#64748b;">Bereinigt OLLAMA_HOST/ORIGINS und stellt den reinen Standardzustand wieder her.</p>
+
+              <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:700;color:#38bdf8;font-size:0.95rem;margin-bottom:0.35rem;">🐧 Linux / macOS (Shell Script)</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">Automatischer Hintergrund-Daemon für Server</div>
+                </div>
+                <button class="btn btn-primary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;" onclick="downloadOllamaScript('starter', 'linux')">
+                  ⬇️ ollama-mesh-start.sh
+                </button>
+              </div>
+
+              <div style="background:#090d16;border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:700;color:#10b981;font-size:0.95rem;margin-bottom:0.35rem;">🔄 Windows Reset (Ursprungszustand)</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">Setzt Ollama auf Standard-Standalone (127.0.0.1)</div>
+                </div>
+                <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;border-color:rgba(16,185,129,0.4);" onclick="downloadOllamaScript('reset', 'windows')">
+                  🔄 OLLAMA-RESET-DEFAULT.bat
+                </button>
+              </div>
+
+              <div style="background:#090d16;border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:700;color:#10b981;font-size:0.95rem;margin-bottom:0.35rem;">🔄 Linux / macOS Reset</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">Entfernt Mesh-Variablen & startet Standalone</div>
+                </div>
+                <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;border-color:rgba(16,185,129,0.4);" onclick="downloadOllamaScript('reset', 'linux')">
+                  🔄 ollama-reset-default.sh
+                </button>
+              </div>
             </div>
           </div>
 
+          <!-- Quick Terminal 1-Liners -->
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;">
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">⚡ Direkt per Terminal ausführen (cURL & PowerShell)</h4>
+            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+              <div>
+                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Linux / macOS (Terminal):</span>
+                <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
+                  <code id="curl-quick-cmd">curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=" | bash</code>
+                  <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('curl-quick-cmd')">📋 Kopieren</button>
+                </div>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Windows (PowerShell):</span>
+                <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
+                  <code id="ps-quick-cmd">irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=" -OutFile OLLAMA-START.bat; .\OLLAMA-START.bat</code>
+                  <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('ps-quick-cmd')">📋 Kopieren</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Developer SDK Settings -->
           <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
             <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">💻 Entwicklungsumgebungen (VS Code / Python / OpenAI SDK)</h4>
             <div style="background:#090d16;padding:1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;">
@@ -1080,11 +1134,39 @@
         document.getElementById("owner-key-val").textContent = data.owner_key;
         const hintEl = document.getElementById("ollama-owner-key-hint");
         if (hintEl) hintEl.textContent = data.owner_key;
+
+        const curlEl = document.getElementById("curl-quick-cmd");
+        if (curlEl) {
+          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${data.owner_key}" | bash`;
+        }
+        const psEl = document.getElementById("ps-quick-cmd");
+        if (psEl) {
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${data.owner_key}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+        }
       }
 
       loadFleet();
       if (refreshInterval) clearInterval(refreshInterval);
       refreshInterval = setInterval(() => loadFleet(false), 5000);
+    }
+
+    function downloadOllamaScript(type, os) {
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}&key=${encodeURIComponent(key)}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function copyCmd(elemId) {
+      const el = document.getElementById(elemId);
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+        alert(getLang() === 'de' ? "Befehl in Zwischenablage kopiert!" : "Command copied to clipboard!");
+      });
     }
 
     async function loadFleet(isManual = false) {
