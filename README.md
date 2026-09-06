@@ -299,3 +299,8 @@ For current public status read [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md) 
 ## License
 
 All rights reserved until an explicit license is selected and published. Repository visibility does not grant open-source rights.
+
+Provider Ed25519 private-key loading fails closed on POSIX when the key or its
+parent directory is group/world accessible, and key writes reject symlink paths
+while remaining atomic. The integrated control-plane sidecar connects identity
+revocation events to immediate termination of matching provider sessions.

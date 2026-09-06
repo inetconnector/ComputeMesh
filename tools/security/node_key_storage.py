@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import platform
 import secrets
+import stat
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
@@ -29,6 +30,33 @@ class KeyStorageError(RuntimeError):
 
 class KeyProtectionError(KeyStorageError):
     """Raised when OS protection (e.g. DPAPI) fails."""
+
+
+def _absolute_key_path(path: Path) -> Path:
+    """Return an absolute path without following a possibly existing key symlink."""
+    path = Path(path)
+    if path.is_symlink():
+        raise KeyStorageError(f"refusing to operate on symlinked key path: {path}")
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _assert_posix_permissions(path: Path) -> None:
+    """Fail closed when a key or its containing directory is group/world accessible."""
+    if platform.system().lower() == "windows":
+        return
+    try:
+        file_mode = stat.S_IMODE(path.stat().st_mode)
+        directory_mode = stat.S_IMODE(path.parent.stat().st_mode)
+    except OSError as exc:
+        raise KeyStorageError(f"cannot inspect private key permissions: {path}") from exc
+    if file_mode & 0o077:
+        raise KeyStorageError(
+            f"private key file permissions are too open ({oct(file_mode)}); expected owner-only access: {path}"
+        )
+    if directory_mode & 0o077:
+        raise KeyStorageError(
+            f"private key directory permissions are too open ({oct(directory_mode)}); expected owner-only access: {path.parent}"
+        )
 
 
 # Windows DPAPI structures and functions via ctypes
@@ -150,7 +178,7 @@ def save_node_private_key(
     if not isinstance(key, Ed25519PrivateKey):
         raise TypeError("key must be an instance of Ed25519PrivateKey")
 
-    path = path.resolve()
+    path = _absolute_key_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if platform.system().lower() != "windows":
         try:
@@ -181,6 +209,8 @@ def save_node_private_key(
             temp_path.write_bytes(content)
 
         temp_path.replace(path)
+        if platform.system().lower() != "windows":
+            os.chmod(path, 0o600)
     finally:
         if temp_path.exists():
             try:
@@ -191,8 +221,10 @@ def save_node_private_key(
 
 def load_node_private_key(path: Path) -> Ed25519PrivateKey:
     """Loads and decrypts (if necessary) an Ed25519 private key from disk."""
+    path = _absolute_key_path(path)
     if path.is_symlink() or not path.is_file():
         raise KeyStorageError(f"key file is missing or invalid symlink: {path}")
+    _assert_posix_permissions(path)
 
     raw_bytes = path.read_bytes()
     if not raw_bytes:
@@ -248,6 +280,7 @@ def load_node_private_key(path: Path) -> Ed25519PrivateKey:
 
 def shred_node_key(path: Path) -> bool:
     """Securely overwrites and unlinks the private key file."""
+    path = _absolute_key_path(path)
     if not path.exists():
         return False
     try:

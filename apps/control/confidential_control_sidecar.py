@@ -213,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         port=args.provider_port,
         cert_file=args.provider_tls_cert,
         key_file=args.provider_tls_key,
+        identity_store=identity,
     )
     sidecar = ConfidentialControlSidecar(
         registry=registry,

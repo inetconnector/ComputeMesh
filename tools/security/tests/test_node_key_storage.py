@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import platform
+import stat
 import tempfile
 import unittest
 
@@ -117,6 +118,38 @@ class TestNodeKeyStorage(unittest.TestCase):
         invalid_path.write_bytes(b"not-a-pem-or-key")
         with self.assertRaises(KeyStorageError):
             load_node_private_key(invalid_path)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission hardening only")
+    def test_load_rejects_group_or_world_readable_key(self) -> None:
+        key_path = self.root / "too-open.pem"
+        save_node_private_key(self.key, key_path, protect_os=False)
+        os.chmod(key_path, 0o644)
+        with self.assertRaises(KeyStorageError):
+            load_node_private_key(key_path)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission hardening only")
+    def test_load_rejects_group_or_world_accessible_directory(self) -> None:
+        key_dir = self.root / "too-open-dir"
+        key_dir.mkdir()
+        key_path = key_dir / "node.pem"
+        save_node_private_key(self.key, key_path, protect_os=False)
+        os.chmod(key_dir, 0o755)
+        with self.assertRaises(KeyStorageError):
+            load_node_private_key(key_path)
+
+    def test_save_rejects_existing_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks unavailable")
+        target = self.root / "target.pem"
+        target.write_bytes(b"must-not-be-overwritten")
+        link = self.root / "node.pem"
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+        with self.assertRaises(KeyStorageError):
+            save_node_private_key(self.key, link, protect_os=False)
+        self.assertEqual(target.read_bytes(), b"must-not-be-overwritten")
 
     def test_shred_node_key(self) -> None:
         key_path = self.root / "shred_me.pem"

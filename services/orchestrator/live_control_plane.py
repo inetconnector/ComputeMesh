@@ -11,6 +11,7 @@ from protocol.node_session import SessionSnapshot
 from protocol.session_wire import BenchmarkAcceptanceDecision
 from runtime.llama.gpu_promo_challenge import GPU_PROMO_CAPABILITY
 from services.compliance.policy import load_provider_compliance_registry_from_env
+from services.identity.store import SQLiteIdentityStore
 from services.orchestrator.live_provider_registration import (
     LiveProviderRegistration,
     accept_live_authenticated_provider,
@@ -50,6 +51,7 @@ class IntegratedLiveControlPlane:
         control_plane_id: str = "computemesh-control-plane",
         heartbeat_interval_seconds: float = 15.0,
         stale_after_seconds: float = 45.0,
+        identity_store: SQLiteIdentityStore | None = None,
     ) -> None:
         if heartbeat_interval_seconds <= 0 or stale_after_seconds <= heartbeat_interval_seconds:
             raise ValueError("heartbeat/stale intervals are invalid")
@@ -77,6 +79,8 @@ class IntegratedLiveControlPlane:
         self._listener: socket.socket | None = None
         self._stop = threading.Event()
         self.registry.set_control_client(self.control_client)
+        if identity_store is not None:
+            identity_store.register_revocation_listener(self.control_client.handle_revocation_event)
 
     @property
     def bound_port(self) -> int:

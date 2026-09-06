@@ -2294,3 +2294,14 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   release a newer reservation.
 - Added capacity and provider-agent coverage for limits, TTL, lease binding and
   retry behavior.
+
+## 81. Node Key and Revocation Hardening (2026-09-06)
+
+- Private node-key storage now rejects symlink paths, writes atomically with
+  owner-only permissions, and refuses to load POSIX keys when the file or its
+  parent directory is group/world accessible.
+- IntegratedLiveControlPlane can subscribe the persistent control client to
+  identity-store revocation events. The confidential control sidecar enables
+  this wiring, so node/key revocation closes matching live sessions.
+- Targeted verification: 20 passed, 3 skipped in the selected public tests;
+  full suite and production deployment are pending for this tranche.
