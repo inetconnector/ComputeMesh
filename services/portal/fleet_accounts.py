@@ -212,6 +212,31 @@ class FleetAccountStore:
                 raise FleetAccountStoreError(f"an account for {cleaned!r} already exists") from exc
         return FleetAccount(account_id=account_id, email=cleaned, owner_key=owner_key, display_name=display_name, created_at=now, updated_at=now)
 
+    def update_email(self, account_id: str, new_email: str) -> FleetAccount:
+        """Updates the registered email address for an existing fleet account."""
+        cleaned = _clean_email(new_email)
+        now = utc_now()
+        with self._connection() as conn:
+            existing = conn.execute("SELECT account_id FROM fleet_accounts WHERE email = ?", (cleaned,)).fetchone()
+            if existing and str(existing["account_id"]) != str(account_id):
+                raise FleetAccountStoreError(f"Die E-Mail-Adresse {cleaned!r} wird bereits von einem anderen Konto verwendet.")
+
+            acct_row = conn.execute("SELECT * FROM fleet_accounts WHERE account_id = ?", (account_id,)).fetchone()
+            if not acct_row:
+                raise FleetAccountStoreError(f"Account {account_id!r} wurde nicht gefunden.")
+
+            old_email = str(acct_row["email"])
+            conn.execute(
+                "UPDATE fleet_accounts SET email = ?, updated_at = ? WHERE account_id = ?",
+                (cleaned, now, account_id),
+            )
+            if old_email and old_email != cleaned:
+                conn.execute("UPDATE fleet_challenges SET email = ? WHERE email = ?", (cleaned, old_email))
+                conn.execute("UPDATE fleet_recovery_tokens SET email = ? WHERE email = ?", (cleaned, old_email))
+
+            updated_row = conn.execute("SELECT * FROM fleet_accounts WHERE account_id = ?", (account_id,)).fetchone()
+        return FleetAccount(**dict(updated_row))
+
     def rotate_owner_key(self, account_id: str, proposed_key: str | None = None) -> str:
         """Rotates the owner_key for a given fleet account.
 

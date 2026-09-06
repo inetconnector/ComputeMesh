@@ -729,6 +729,11 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
+        if clean_path in ("/api/auth/email/update", "/api/portal/auth/email/update"):
+            data, status, cookie = self.passkey_handler.update_email(self.headers, body, self.client_address)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
         if clean_path == "/api/auth/logout":
             data, status, cookie = self.passkey_handler.logout(self.headers)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)

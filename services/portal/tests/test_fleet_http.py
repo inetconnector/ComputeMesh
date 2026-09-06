@@ -53,10 +53,13 @@ class TestFleetHttp(unittest.TestCase):
         NODE_TELEMETRY_REGISTRY.clear()
         self.tmp_dir.cleanup()
 
-    def _post(self, path: str, body: dict, cookie: str | None = None):
+    def _post(self, path: str, body: dict, cookie: str | None = None, headers: dict | None = None):
         data = json.dumps(body).encode("utf-8")
+        req_headers = {"Content-Type": "application/json"}
+        if headers:
+            req_headers.update(headers)
         req = urllib.request.Request(
-            f"{BASE}{path}", data=data, method="POST", headers={"Content-Type": "application/json"}
+            f"{BASE}{path}", data=data, method="POST", headers=req_headers
         )
         if cookie:
             req.add_header("Cookie", cookie)
@@ -66,8 +69,11 @@ class TestFleetHttp(unittest.TestCase):
         except urllib.error.HTTPError as exc:
             return exc.code, json.loads(exc.read().decode("utf-8")), None
 
-    def _get(self, path: str, cookie: str | None = None):
+    def _get(self, path: str, cookie: str | None = None, headers: dict | None = None):
         req = urllib.request.Request(f"{BASE}{path}")
+        if headers:
+            for k, v in headers.items():
+                req.add_header(k, v)
         if cookie:
             req.add_header("Cookie", cookie)
         try:
@@ -281,7 +287,32 @@ class TestFleetHttp(unittest.TestCase):
         self.assertEqual(resp_res.status, HTTPStatus.OK)
         self.assertIn("OLLAMA-RESET-DEFAULT.bat", resp_res.headers.get("Content-Disposition", ""))
 
+    def test_update_email_endpoint(self) -> None:
+        owner_key = "inet-test-owner-key-email-update-12345"
+        # Direct owner key autoprovisions account
+        status, resp_me = self._get("/api/auth/me", headers={"X-Owner-Key": owner_key})
+        self.assertEqual(status, HTTPStatus.OK)
+        data_me = json.loads(resp_me.read().decode("utf-8"))
+        self.assertTrue(data_me["email"].endswith(".local"))
+
+        # Update to real email
+        status, data, _ = self._post(
+            "/api/auth/email/update",
+            {"email": "real-fleet-owner@example.com"},
+            headers={"X-Owner-Key": owner_key},
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["email"], "real-fleet-owner@example.com")
+
+        # Verify /api/auth/me now reflects the new email
+        status, resp_me_updated = self._get("/api/auth/me", headers={"X-Owner-Key": owner_key})
+        self.assertEqual(status, HTTPStatus.OK)
+        data_me_updated = json.loads(resp_me_updated.read().decode("utf-8"))
+        self.assertEqual(data_me_updated["email"], "real-fleet-owner@example.com")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

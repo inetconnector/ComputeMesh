@@ -133,6 +133,22 @@ class TestFleetAccountStore(unittest.TestCase):
         with self.assertRaises(FleetAccountStoreError):
             self.store.rotate_owner_key(acc2.account_id, custom_key)
 
+    def test_update_email_success_and_uniqueness(self) -> None:
+        acc1 = self.store.create_account("dummy@inetconnector.local")
+        acc2 = self.store.create_account("existing@example.com")
+
+        # Success update
+        updated = self.store.update_email(acc1.account_id, "Real-Owner@domain.com")
+        self.assertEqual(updated.email, "real-owner@domain.com")
+        self.assertEqual(self.store.get_account(acc1.account_id).email, "real-owner@domain.com")
+        self.assertIsNotNone(self.store.get_account_by_email("real-owner@domain.com"))
+        self.assertIsNone(self.store.get_account_by_email("dummy@inetconnector.local"))
+
+        # Collision update rejected
+        with self.assertRaises(FleetAccountStoreError):
+            self.store.update_email(acc1.account_id, "existing@example.com")
+
 
 if __name__ == "__main__":
     unittest.main()
+

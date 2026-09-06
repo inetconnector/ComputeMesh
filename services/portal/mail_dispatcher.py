@@ -67,14 +67,20 @@ def send_email(
         logger.error("Invalid recipient email: %s", to_address)
         return False
 
+    target_to = to_address.strip()
+    if target_to.endswith(".local") or "@inetconnector.local" in target_to:
+        fallback_inbox = get_mail_config("COMPUTEMESH_CONTACT_INBOX", "mesh@inetconnector.com")
+        logger.info("Redirecting email for placeholder/local address '%s' to fallback inbox '%s'", target_to, fallback_inbox)
+        target_to = fallback_inbox
+
     if MAIL_DISABLED:
-        logger.info("[MOCK MAIL] To: %s | Subject: %s | Content: %s", to_address, subject, text_content[:100])
+        logger.info("[MOCK MAIL] To: %s (orig: %s) | Subject: %s | Content: %s", target_to, to_address, subject, text_content[:100])
         return True
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = MAIL_FROM
-    msg["To"] = to_address
+    msg["To"] = target_to
     if reply_to:
         msg["Reply-To"] = reply_to
     msg["X-Auto-Response-Suppress"] = "All"

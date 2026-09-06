@@ -720,6 +720,26 @@
       <!-- VIEW 2: Security & Passkeys & Audit Log -->
       <div id="cockpit-view-security" style="display: none;">
         
+        <!-- Notification & Security Alert Email Manager -->
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+            <h3 style="margin:0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
+              <span>📧</span> <span>Benachrichtigungs- &amp; Sicherheits-Alarm E-Mail</span>
+            </h3>
+            <span id="email-status-badge" class="sec-badge sec-badge-warn">⚠️ Keine E-Mail hinterlegt</span>
+          </div>
+          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;line-height:1.5;">
+            An diese Adresse werden sicherheitskritische Ereignisse (Secret Master Key-Rotationen, Passkey-Änderungen, Server-Trennungen) sowie Magic-Link Logins gesendet.
+          </p>
+          <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+            <input id="notification-email-input" type="email" class="form-control-custom" style="max-width:340px;padding:0.6rem 0.85rem;" placeholder="deine-email@beispiel.de" spellcheck="false">
+            <button id="btn-save-email" class="btn btn-primary" style="font-size:0.85rem;padding:0.6rem 1.1rem;" onclick="saveNotificationEmail()">
+              💾 E-Mail speichern &amp; Test-Alarm senden
+            </button>
+          </div>
+          <div id="notification-email-msg" style="margin-top:0.75rem;font-size:0.85rem;font-weight:600;display:none;"></div>
+        </div>
+
         <!-- Multi-Passkey Manager -->
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
@@ -1057,6 +1077,7 @@
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
 
       if (view === 'security') {
+        updateEmailUI();
         loadPasskeys();
         loadAuditLog();
       }
@@ -1373,6 +1394,7 @@
       updateAuthNavBtn();
 
       if (data && data.email) activeEmail = data.email;
+      updateEmailUI();
       if (data && data.owner_key) {
         activeOwnerKey = data.owner_key;
         document.getElementById("owner-key-val").textContent = data.owner_key;
@@ -1776,6 +1798,95 @@
       });
     }
 
+    function updateEmailUI() {
+      const badge = document.getElementById("email-status-badge");
+      const input = document.getElementById("notification-email-input");
+      if (!badge || !input) return;
+
+      const isDe = (typeof getLang === 'function' ? getLang() : 'de') === 'de';
+      const isPlaceholder = !activeEmail || activeEmail.endsWith(".local") || activeEmail.includes("@inetconnector.local");
+
+      if (isPlaceholder) {
+        badge.className = "sec-badge sec-badge-warn";
+        badge.textContent = isDe
+          ? "⚠️ Keine echte E-Mail hinterlegt (Fallback: mesh@inetconnector.com)"
+          : "⚠️ No verified alert email (Fallback: mesh@inetconnector.com)";
+        if (!input.value || input.value.endsWith(".local") || input.value.includes("@inetconnector.local")) {
+          input.value = "";
+        }
+      } else {
+        badge.className = "sec-badge sec-badge-ok";
+        badge.textContent = isDe
+          ? `🟢 Aktiv: ${activeEmail}`
+          : `🟢 Active: ${activeEmail}`;
+        if (!input.value) {
+          input.value = activeEmail;
+        }
+      }
+    }
+
+    async function saveNotificationEmail() {
+      const isDe = (typeof getLang === 'function' ? getLang() : 'de') === 'de';
+      const input = document.getElementById("notification-email-input");
+      const msgEl = document.getElementById("notification-email-msg");
+      const btn = document.getElementById("btn-save-email");
+      if (!input) return;
+
+      const email = input.value.trim().toLowerCase();
+      if (!email || !email.includes("@") || email.endsWith(".local")) {
+        if (msgEl) {
+          msgEl.style.display = "block";
+          msgEl.style.color = "#f87171";
+          msgEl.textContent = isDe
+            ? "❌ Bitte gib eine gültige E-Mail-Adresse ein (z. B. name@domain.com)."
+            : "❌ Please enter a valid email address (e.g. name@domain.com).";
+        }
+        return;
+      }
+
+      if (msgEl) {
+        msgEl.style.display = "block";
+        msgEl.style.color = "var(--accent-cyan)";
+        msgEl.textContent = isDe ? "Speichere E-Mail-Adresse und versende Bestätigung..." : "Saving email and sending test alert...";
+      }
+      if (btn) btn.disabled = true;
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        const res = await fetch("/api/auth/email/update", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ email: email })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || (isDe ? "Fehler beim Speichern der E-Mail." : "Failed to update email."));
+        }
+
+        activeEmail = data.email || email;
+        updateEmailUI();
+        if (msgEl) {
+          msgEl.style.display = "block";
+          msgEl.style.color = "#10b981";
+          msgEl.textContent = isDe
+            ? `✅ E-Mail erfolgreich als ${activeEmail} gespeichert! Ein Test-Sicherheits-Alarm wurde versendet.`
+            : `✅ Email saved as ${activeEmail}! A confirmation test alert has been dispatched.`;
+        }
+        loadAuditLog();
+      } catch (e) {
+        if (msgEl) {
+          msgEl.style.display = "block";
+          msgEl.style.color = "#f87171";
+          msgEl.textContent = "❌ " + e.message;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     async function rotateOwnerKeyPrompt() {
       const isDe = (typeof getLang === 'function' ? getLang() : 'de') === 'de';
       const promptMsg = isDe
@@ -1827,10 +1938,18 @@
 
         if (statusEl) {
           statusEl.style.display = "block";
-          statusEl.style.color = "#10b981";
-          statusEl.textContent = isDe
-            ? "✅ Neuer Owner Key erfolgreich aktiv und Sicherheits-Warnung per E-Mail versendet!"
-            : "✅ New owner key activated and security alert sent via email!";
+          const hasRealEmail = activeEmail && !activeEmail.endsWith(".local") && !activeEmail.includes("@inetconnector.local");
+          if (hasRealEmail) {
+            statusEl.style.color = "#10b981";
+            statusEl.textContent = isDe
+              ? `✅ Neuer Owner Key aktiv! Sicherheits-Warnung wurde an ${activeEmail} gesendet.`
+              : `✅ New owner key activated! Security alert sent to ${activeEmail}.`;
+          } else {
+            statusEl.style.color = "#f59e0b";
+            statusEl.textContent = isDe
+              ? "✅ Neuer Owner Key aktiv! ⚠️ Hinweis: Keine Alarm-E-Mail hinterlegt (unter 'Sicherheit' kannst du deine E-Mail eintragen)."
+              : "✅ New owner key activated! ⚠️ Note: No alert email configured (you can add your email under 'Security').";
+          }
         }
 
         // Reload fleet and audit log
@@ -1868,6 +1987,14 @@
       if (savedKey) {
         activeOwnerKey = savedKey;
         document.getElementById("input-owner-key").value = savedKey;
+        try {
+          const res = await fetch("/api/auth/me", { headers: { "X-Owner-Key": savedKey } });
+          if (res.ok) {
+            const data = await res.json();
+            onLoggedIn(data);
+            return;
+          }
+        } catch (e) {}
         onLoggedIn({ owner_key: savedKey });
         return;
       }

@@ -523,6 +523,66 @@ class PasskeyAuthHandler:
             "message": "Owner Key wurde erfolgreich aktualisiert.",
         }, HTTPStatus.OK, None
 
+    def update_email(
+        self,
+        headers: Any,
+        body: dict[str, Any] | None = None,
+        client_address: tuple[str, int] | None = None,
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
+        account = session_account_from_headers(headers)
+        if account is None:
+            return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
+
+        ip = _client_ip(headers, client_address)
+        ua = str(headers.get("User-Agent", "")).strip() if headers else ""
+
+        if not RATE_LIMITER.is_allowed(f"email_update:{account.account_id}"):
+            return {
+                "error": "Zu viele Anfragen zur E-Mail-Änderung. Bitte versuche es später erneut."
+            }, HTTPStatus.TOO_MANY_REQUESTS, None
+
+        body_dict = body if isinstance(body, dict) else {}
+        new_email = str(body_dict.get("email", "")).strip().lower()
+        if not new_email or "@" not in new_email or new_email.endswith(".local"):
+            return {"error": "Bitte gib eine gültige E-Mail-Adresse ein."}, HTTPStatus.BAD_REQUEST, None
+
+        old_email = account.email
+        try:
+            updated_acct = FLEET_ACCOUNT_STORE.update_email(account.account_id, new_email)
+        except FleetAccountStoreError as exc:
+            return {"error": str(exc)}, HTTPStatus.BAD_REQUEST, None
+
+        # Record audit event
+        FLEET_ACCOUNT_STORE.record_audit_event(
+            updated_acct.account_id,
+            updated_acct.email,
+            "email_updated",
+            f"Alarm-E-Mail aktualisiert auf {new_email} (vorher: {old_email})",
+            ip,
+            ua,
+        )
+
+        # Dispatch immediate test security alert / confirmation to the new address
+        try:
+            send_security_alert(
+                updated_acct.email,
+                "Alarm- & Benachrichtigungs-E-Mail verknüpft",
+                f"Deine E-Mail-Adresse '{updated_acct.email}' wurde erfolgreich als primäre Benachrichtigungs- und Alarm-Adresse "
+                f"für deine ComputeMesh-Flotte hinterlegt. Ab sofort erhältst du alle Sicherheitswarnungen (wie z. B. Key-Rotationen) "
+                f"und Magic-Links direkt in dieses Postfach.",
+                ip,
+                ua,
+            )
+        except Exception as exc:
+            logger.warning("Failed to dispatch security confirmation email: %s", exc)
+
+        return {
+            "status": "ok",
+            "account_id": updated_acct.account_id,
+            "email": updated_acct.email,
+            "message": f"E-Mail-Adresse erfolgreich auf {updated_acct.email} aktualisiert und Bestätigungs-Alarm versendet.",
+        }, HTTPStatus.OK, None
+
     def logout(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         raw = headers.get("Cookie", "")
         cookie: SimpleCookie = SimpleCookie()
