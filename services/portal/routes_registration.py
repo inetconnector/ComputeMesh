@@ -8,6 +8,7 @@ production node eligibility is controlled by the server-owned provider registry.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hmac
 from http import HTTPStatus
 import json
 import os
@@ -25,6 +26,7 @@ from services.identity.vault import DEFAULT_VAULT
 
 CURRENT_TERMS_VERSION = "2.1"
 REGISTERED_ACCOUNTS: dict[str, dict[str, Any]] = {}
+_REGISTRATION_LOCK = __import__("threading").RLock()
 
 
 def _api_key_store_path() -> Path | None:
@@ -59,6 +61,20 @@ def _persist_api_key_record(path: Path | None, record: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps({"keys": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(path)
+
+
+def _stored_key_records(path: Path | None) -> list[dict[str, Any]]:
+    if path is None or not path.exists():
+        return []
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(parsed, dict) and isinstance(parsed.get("keys"), list):
+            return [item for item in parsed["keys"] if isinstance(item, dict)]
+        if isinstance(parsed, list):
+            return [item for item in parsed if isinstance(item, dict)]
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return []
+    return []
 
 
 class PortalRegistrationHandler:
@@ -97,41 +113,38 @@ class PortalRegistrationHandler:
             if not no_prompt_logging:
                 return (None, "Provider no-prompt-logging obligation must be accepted", HTTPStatus.BAD_REQUEST)
 
-        prefix = "cm_live_" if role == "consumer" else "cm_provider_"
-        token = prefix + secrets.token_hex(16)
-        account_id = f"acc_{secrets.token_hex(8)}"
-        created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        encrypted_wallet = DEFAULT_VAULT.encrypt(wallet) if wallet else None
-        encrypted_email = DEFAULT_VAULT.encrypt(email)
+        email_fingerprint = DEFAULT_VAULT.fingerprint(email, purpose="registration-email")
+        with _REGISTRATION_LOCK:
+            duplicate = any(
+                hmac.compare_digest(str(record.get("email_fingerprint", "")), email_fingerprint)
+                for record in self.store.values()
+                if isinstance(record, dict)
+            )
+            if not duplicate:
+                duplicate = any(
+                    hmac.compare_digest(str(record.get("email_fingerprint", "")), email_fingerprint)
+                    for record in _stored_key_records(_api_key_store_path())
+                )
+            if duplicate:
+                return (None, "An account for this email address already exists", HTTPStatus.CONFLICT)
 
-        record = {
-            "account_id": account_id,
-            "email_encrypted": encrypted_email,
-            "email_masked": DEFAULT_VAULT.mask_sensitive(email),
-            "role": role,
-            "wallet_encrypted": encrypted_wallet,
-            "wallet_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
-            "country_code": country_code if role == "provider" else None,
-            "balance_micro_credits": 10000000 if role == "consumer" else 0,
-            "created_at": created_at,
-            "terms_version": CURRENT_TERMS_VERSION,
-            "terms_accepted_at": created_at,
-            "privacy_acknowledged_at": created_at,
-            "business_user_confirmed": True,
-            "provider_data_processing_terms_accepted_at": created_at if role == "provider" else None,
-            "no_prompt_logging_attested_at": created_at if role == "provider" else None,
-            "production_node_eligible": False,
-        }
-        self.store[token] = record
+            prefix = "cm_live_" if role == "consumer" else "cm_provider_"
+            token = prefix + secrets.token_hex(16)
+            account_id = f"acc_{secrets.token_hex(8)}"
+            created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            encrypted_wallet = DEFAULT_VAULT.encrypt(wallet) if wallet else None
+            encrypted_email = DEFAULT_VAULT.encrypt(email)
 
-        _persist_api_key_record(
-            _api_key_store_path(),
-            {
-                "api_key": token,
+            record = {
                 "account_id": account_id,
-                "role": role,
+                "email_encrypted": encrypted_email,
                 "email_masked": DEFAULT_VAULT.mask_sensitive(email),
+                "email_fingerprint": email_fingerprint,
+                "role": role,
+                "wallet_encrypted": encrypted_wallet,
+                "wallet_masked": DEFAULT_VAULT.mask_sensitive(wallet) if wallet else None,
                 "country_code": country_code if role == "provider" else None,
+                "balance_micro_credits": 10000000 if role == "consumer" else 0,
                 "created_at": created_at,
                 "terms_version": CURRENT_TERMS_VERSION,
                 "terms_accepted_at": created_at,
@@ -140,8 +153,28 @@ class PortalRegistrationHandler:
                 "provider_data_processing_terms_accepted_at": created_at if role == "provider" else None,
                 "no_prompt_logging_attested_at": created_at if role == "provider" else None,
                 "production_node_eligible": False,
-            },
-        )
+            }
+            self.store[token] = record
+
+            _persist_api_key_record(
+                _api_key_store_path(),
+                {
+                    "api_key": token,
+                    "account_id": account_id,
+                    "role": role,
+                    "email_masked": DEFAULT_VAULT.mask_sensitive(email),
+                    "email_fingerprint": email_fingerprint,
+                    "country_code": country_code if role == "provider" else None,
+                    "created_at": created_at,
+                    "terms_version": CURRENT_TERMS_VERSION,
+                    "terms_accepted_at": created_at,
+                    "privacy_acknowledged_at": created_at,
+                    "business_user_confirmed": True,
+                    "provider_data_processing_terms_accepted_at": created_at if role == "provider" else None,
+                    "no_prompt_logging_attested_at": created_at if role == "provider" else None,
+                    "production_node_eligible": False,
+                },
+            )
 
         return (
             {

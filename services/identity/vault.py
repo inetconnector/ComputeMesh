@@ -7,6 +7,8 @@ SEPA IBANs, customer billing records, and API tokens.
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import os
 from pathlib import Path
 import re
@@ -113,6 +115,11 @@ class EncryptedVault:
                 masked_user = user[0] + ("*" * (len(user) - 2)) + user[-1]
             return f"{masked_user}@{domain}"
         return f"{clean[:2]}***{clean[-2:]}" if len(clean) > 4 else "***"
+
+    def fingerprint(self, value: str | None, *, purpose: str = "lookup") -> str:
+        """Return a keyed opaque lookup value without storing sensitive plaintext."""
+        clean = str(value or "").strip().lower()
+        return hmac.new(self._key, f"{purpose}:{clean}".encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 # Global singleton vault instance

@@ -2260,3 +2260,14 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   size and quantization metadata.
 - Added registry client cache/validation tests and synchronized English/German
   README guidance. Full unified verification is being rerun before commit.
+
+## 77. Registration Duplicate Protection (2026-09-06)
+
+- Portal registration now uses an opaque vault-keyed email fingerprint and a
+  process-wide lock to prevent repeated requests from issuing multiple
+  accounts/keys for one email address.
+- The fingerprint is persisted with API-key records so the duplicate check
+  survives a portal process restart without storing a plaintext lookup value.
+- The browser registration form disables submission while the request is in
+  flight; repeated submissions receive no additional request.
+- Added in-memory and durable-store duplicate-registration tests.

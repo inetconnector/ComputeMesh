@@ -191,6 +191,11 @@ Upstream-llama.cpp-RPC bleibt **nur für vertrauenswürdige Netze**. ComputeMesh
 
 `confidential_compute` ist keine zulässige Produktgarantie, solange keine konkrete Trusted-Execution-/GPU-Attestation-Technologie samt Verifier existiert. Die aktuelle `CONFIDENTIAL`-Policy-Klasse schlägt standardmäßig bewusst fail-closed fehl.
 
+Die Portal-Registrierung für API-Keys ist gegen wiederholte Einsendungen
+geschützt: Der Server lehnt eine bereits registrierte normalisierte
+Geschäfts-E-Mail mit HTTP 409 über einen opaken, vault-geschlüsselten
+Fingerprint ab; der Browser deaktiviert den Submit-Button während der Anfrage.
+
 ## Verbleibende Product-Readiness-Arbeit
 
 Die produktive **Policy-Grenze** existiert inzwischen privat, aber breite produktive Distributed Inference ist noch nicht validiert. Verbleibende Gates sind insbesondere:

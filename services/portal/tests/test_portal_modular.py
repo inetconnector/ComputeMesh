@@ -76,6 +76,32 @@ class TestPortalModular(unittest.TestCase):
         self.assertTrue(stored["business_user_confirmed"])
         self.assertEqual(stored["terms_version"], CURRENT_TERMS_VERSION)
 
+    def test_registration_is_idempotency_protected_for_repeated_email(self) -> None:
+        first, first_err, first_status = self.reg_handler.handle_register(accepted_registration())
+        second, second_err, second_status = self.reg_handler.handle_register(accepted_registration())
+        self.assertIsNone(first_err)
+        self.assertEqual(first_status, HTTPStatus.CREATED)
+        self.assertIsNone(second)
+        self.assertEqual(second_status, HTTPStatus.CONFLICT)
+        self.assertIn("already exists", second_err or "")
+        self.assertEqual(len(self.store), 1)
+
+    def test_registration_duplicate_is_detected_from_durable_key_store(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "api_keys.json"
+            os.environ["COMPUTEMESH_API_KEY_STORE_PATH"] = str(path)
+            try:
+                first, _, first_status = self.reg_handler.handle_register(accepted_registration())
+                restarted = PortalRegistrationHandler(store={})
+                second, second_err, second_status = restarted.handle_register(accepted_registration())
+            finally:
+                os.environ.pop("COMPUTEMESH_API_KEY_STORE_PATH", None)
+            self.assertEqual(first_status, HTTPStatus.CREATED)
+            self.assertIsNotNone(first)
+            self.assertIsNone(second)
+            self.assertEqual(second_status, HTTPStatus.CONFLICT)
+            self.assertIn("already exists", second_err or "")
+
     def test_provider_registration_requires_eea_and_data_obligations(self) -> None:
         res, err, status = self.reg_handler.handle_register(accepted_provider(country_code="US"))
         self.assertIsNone(res)

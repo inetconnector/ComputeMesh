@@ -206,6 +206,11 @@ Upstream llama.cpp RPC remains **trusted-network-only**. ComputeMesh provider/se
 
 `confidential_compute` is not a valid product guarantee until a concrete trusted-execution/GPU-attestation technology and verifier exist. The current `CONFIDENTIAL` policy class is intentionally fail-closed by default.
 
+Portal API-key registration is protected against repeated submissions: the
+server rejects an existing normalized business email with HTTP 409 using an
+opaque vault-keyed fingerprint, and the browser disables the submit button
+while the request is in flight.
+
 ## Remaining product-readiness work
 
 The production **policy boundary** now exists privately, but broad production distributed inference is not yet validated. Remaining gates include:

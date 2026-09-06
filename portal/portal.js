@@ -30,6 +30,9 @@
 
   async function compliantRegistration(event) {
     if (event && event.preventDefault) event.preventDefault();
+    const form = document.getElementById('registration-form');
+    const submitBtn = document.getElementById('modal-submit-btn');
+    if (form?.dataset.registrationBusy === '1') return;
     const lang = getLang();
     const role = document.getElementById('modal-role')?.value || 'consumer';
     const email = document.getElementById('modal-email')?.value?.trim() || '';
@@ -53,6 +56,12 @@
       if (keyInput) keyInput.value = msg;
       if (resBox) resBox.style.display = 'block';
       return;
+    }
+
+    if (form) form.dataset.registrationBusy = '1';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-busy', 'true');
     }
 
     if (keyInput) keyInput.value = lang === 'de' ? 'Zugangsdaten werden generiert…' : 'Generating API credentials…';
@@ -85,6 +94,12 @@
     } catch (error) {
       const prefix = lang === 'de' ? 'Registrierung fehlgeschlagen: ' : 'Registration failed: ';
       if (keyInput) keyInput.value = `${prefix}${String(error.message || error).slice(0, 160)}`;
+    } finally {
+      if (form) delete form.dataset.registrationBusy;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.removeAttribute('aria-busy');
+      }
     }
   }
 
