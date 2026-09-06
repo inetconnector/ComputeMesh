@@ -350,9 +350,9 @@ class StripeConnectService:
                 return json.loads(res.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
-            raise StripeIntegrationError(f"Stripe Accounts v2 API request failed: HTTP {exc.code} {detail}") from exc
+            raise StripeIntegrationError(_format_stripe_v2_error(exc.code, detail)) from exc
         except Exception as exc:
-            raise StripeIntegrationError(f"Stripe Accounts v2 API request failed: {exc}") from exc
+            raise StripeIntegrationError(f"Stripe Accounts v2 API request failed: {type(exc).__name__}") from exc
 
     @staticmethod
     def _account_result_v2(*, provider_node_id: str, account: dict[str, Any]) -> ConnectedAccountResult:
@@ -383,6 +383,26 @@ class StripeConnectService:
     def _should_fallback_to_v2(exc: Exception) -> bool:
         msg = str(exc)
         return "Accounts v2" in msg or "POST /v2/core/accounts" in msg or "Accounts v1" in msg
+
+
+def _format_stripe_v2_error(status_code: int, detail: str) -> str:
+    """Convert Stripe's raw API error into a safe, actionable operator message."""
+    error_code = ""
+    try:
+        payload = json.loads(detail)
+        error = payload.get("error", {}) if isinstance(payload, dict) else {}
+        error_code = str(error.get("code", "")) if isinstance(error, dict) else ""
+    except (TypeError, ValueError):
+        pass
+    if error_code == "account_create_activation_required":
+        return (
+            "Stripe Connect platform activation is required in the Stripe Dashboard "
+            "before provider onboarding can start."
+        )
+    if error_code in {"cannot_create_connected_account", "cannot_create_new_account_rejected"}:
+        return "Stripe Connect currently does not allow connected-account creation for this platform."
+    suffix = f" (code={error_code})" if error_code else ""
+    return f"Stripe Accounts v2 API request failed: HTTP {status_code}{suffix}"
 
 
 class SettlementExecutor:

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
-from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
+from services.billing.stripe_connect import SettlementExecutor, StripeConnectService, _format_stripe_v2_error
 from services.billing.stripe_integration import StripePaymentService
 
 
@@ -122,6 +122,13 @@ class TestAccountingAndSettlement(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
+
+    def test_accounts_v2_activation_error_is_safe_and_actionable(self) -> None:
+        raw = '{"error":{"code":"account_create_activation_required","request_log_url":"https://dashboard.stripe.com/internal"}}'
+        message = _format_stripe_v2_error(400, raw)
+        self.assertIn("platform activation is required", message)
+        self.assertNotIn("request_log_url", message)
+        self.assertNotIn("dashboard.stripe.com/internal", message)
 
     def test_provider_registration_and_connect_onboarding_link(self) -> None:
         provider = self.executor.create_or_refresh_provider_connect_account(

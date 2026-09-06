@@ -12,6 +12,12 @@ facts: configured mode, Checkout/session-store readiness and webhook-secret
 presence. Secret values are never returned. This is observability only; a
 real paid live webhook remains required before marking the payment gate passed.
 
+Stripe Connect Accounts v2 onboarding now sanitizes raw Stripe HTTP errors
+before they reach the portal. The `account_create_activation_required` error
+is reported as an actionable platform-activation prerequisite, without exposing
+Stripe request-log URLs or response payloads. The API cannot perform that
+account-level activation itself; it must be completed in the Stripe Dashboard.
+
 ---
 
 ## 0. CURRENT TRUTH BLOCK (Canonical System Snapshot)
