@@ -2329,3 +2329,8 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - Added exact multi-device selection and live-plan endpoint regression tests.
 - Targeted verification: 30 passed. Real 3+ node/multi-GPU hardware and WAN
   execution evidence remain outstanding.
+
+- Deployment: public commit 7c586b4 was deployed to /opt/computemesh after
+  backup /root/computemesh-backups/n-stage-rpc-20260906-222447. Remote
+  compilation, SHA-256 comparisons and computemesh-gateway.service restart/
+  active check passed.
