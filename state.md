@@ -5,6 +5,13 @@
 **Test Suite Status:** `562/562 PASSED (100% OK in 28.17s)` across all 10 categories
 **Git Baseline:** Branch `main` with Unified Account Credits, Multi-Rig Ledger Aggregation, Public Executor v2 upgrade, and Portal Fleet Telemetry API
 
+## Latest operational change
+
+The gateway `/healthz` response now includes non-sensitive Stripe readiness
+facts: configured mode, Checkout/session-store readiness and webhook-secret
+presence. Secret values are never returned. This is observability only; a
+real paid live webhook remains required before marking the payment gate passed.
+
 ---
 
 ## 0. CURRENT TRUTH BLOCK (Canonical System Snapshot)

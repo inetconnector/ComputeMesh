@@ -26,7 +26,7 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 
 ## Endpoints
 
-- `GET /healthz`: Service health check.
+- `GET /healthz`: Service health check with non-sensitive Stripe readiness facts (`mode`, Checkout/session-store readiness, and webhook-secret presence); it never returns secret values.
 - `GET /v1/models`: OpenAI-compatible list of available inference models.
 - `POST /v1/chat/completions`: Non-streaming and SSE streaming inference.
 - `GET /api/tags`: Ollama-compatible list of available inference models.

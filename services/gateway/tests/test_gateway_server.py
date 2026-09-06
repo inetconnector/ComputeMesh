@@ -168,6 +168,10 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["status"], "healthy")
+            self.assertEqual(data["stripe"]["status"], "ready")
+            self.assertEqual(data["stripe"]["mode"], "test")
+            self.assertTrue(data["stripe"]["webhook_configured"])
+            self.assertTrue(data["stripe"]["session_store_configured"])
 
     def test_unauthenticated_request_rejected(self) -> None:
         req = urllib.request.Request("http://127.0.0.1:18000/v1/billing/balance")

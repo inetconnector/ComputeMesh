@@ -205,6 +205,27 @@ def _build_stripe_service(ledger: Ledger, account_store: AccountingStore | None 
     )
 
 
+def _stripe_readiness(service: StripePaymentService) -> dict[str, Any]:
+    """Return non-sensitive Stripe readiness facts for operational health checks."""
+    api_key = service.stripe_api_key
+    mode = "live" if api_key.startswith("sk_live_") else "test" if api_key.startswith("sk_test_") else "unconfigured"
+    webhook_configured = bool(service._webhook_secrets())
+    session_store_configured = service.session_store is not None
+    if mode == "unconfigured":
+        status = "not_configured"
+    elif session_store_configured and webhook_configured:
+        status = "ready"
+    else:
+        status = "degraded"
+    return {
+        "status": status,
+        "mode": mode,
+        "checkout_configured": mode != "unconfigured" and session_store_configured,
+        "webhook_configured": webhook_configured,
+        "session_store_configured": session_store_configured,
+    }
+
+
 def _build_settlement_executor(ledger: Ledger, account_store: AccountingStore | None = None) -> SettlementExecutor | None:
     if not account_store:
         return None
@@ -391,7 +412,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path == "/healthz":
-            self._send_json({"status": "healthy", "service": "computemesh-gateway"})
+            self._send_json({
+                "status": "healthy",
+                "service": "computemesh-gateway",
+                "stripe": _stripe_readiness(self.stripe_svc),
+            })
             return
 
         if clean_path.startswith("/node/"):
