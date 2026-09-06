@@ -2307,3 +2307,13 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   full public suite: 611/611 passed; private pytest: 148 passed plus 3
   subtests. Deployed with remote compilation, hash comparison and active
   gateway-service checks passed.
+
+## 82. Canonical Live Gateway Revocation Wiring (2026-09-06)
+
+- The canonical live gateway now passes its SQLite identity store into the
+  integrated control plane, enabling immediate session termination on key/node
+  revocation in that production path too.
+- The control plane owns and closes that store when configured to do so; failed
+  bootstrap closes it immediately. The confidential sidecar retains ownership
+  of its externally supplied store.
+- Targeted gateway/control-channel verification: 11 passed.

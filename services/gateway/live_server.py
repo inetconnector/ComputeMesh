@@ -29,6 +29,7 @@ from services.gateway.gpu_promo_dispatch_runtime import (
 from services.gateway.live_bootstrap import build_live_shared_backend_from_env
 from services.gateway.server import DEFAULT_PORT
 from services.gateway.unified_live_handler import build_unified_live_protected_handler
+from services.identity.store import SQLiteIdentityStore
 from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
@@ -90,14 +91,21 @@ def _start_integrated_control_plane(
         raise LiveGatewayBootstrapError(
             "automatic provider registration requires control TLS cert/key and COMPUTEMESH_IDENTITY_STATE_PATH"
         )
-    plane = IntegratedLiveControlPlane(
-        registry=registry,
-        verifier=Ed25519ChallengeVerifier(SQLiteIdentityKeyResolver(identity_path)),
-        host=host,
-        port=port,
-        cert_file=cert_file,
-        key_file=key_file,
-    )
+    identity_store = SQLiteIdentityStore(identity_path)
+    try:
+        plane = IntegratedLiveControlPlane(
+            registry=registry,
+            verifier=Ed25519ChallengeVerifier(SQLiteIdentityKeyResolver(identity_path)),
+            host=host,
+            port=port,
+            cert_file=cert_file,
+            key_file=key_file,
+            identity_store=identity_store,
+            close_identity_store=True,
+        )
+    except Exception:
+        identity_store.close()
+        raise
     plane.start()
     return plane
 

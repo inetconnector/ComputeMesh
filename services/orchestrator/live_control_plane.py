@@ -52,6 +52,7 @@ class IntegratedLiveControlPlane:
         heartbeat_interval_seconds: float = 15.0,
         stale_after_seconds: float = 45.0,
         identity_store: SQLiteIdentityStore | None = None,
+        close_identity_store: bool = False,
     ) -> None:
         if heartbeat_interval_seconds <= 0 or stale_after_seconds <= heartbeat_interval_seconds:
             raise ValueError("heartbeat/stale intervals are invalid")
@@ -78,6 +79,8 @@ class IntegratedLiveControlPlane:
         self._context.load_cert_chain(certfile=cert_file, keyfile=key_file)
         self._listener: socket.socket | None = None
         self._stop = threading.Event()
+        self._identity_store = identity_store
+        self._close_identity_store = close_identity_store
         self.registry.set_control_client(self.control_client)
         if identity_store is not None:
             identity_store.register_revocation_listener(self.control_client.handle_revocation_event)
@@ -106,6 +109,9 @@ class IntegratedLiveControlPlane:
                 listener.close()
             except OSError:
                 pass
+        if self._close_identity_store and self._identity_store is not None:
+            self._identity_store.close()
+            self._identity_store = None
 
     def _accept_loop(self) -> None:
         assert self._listener is not None
