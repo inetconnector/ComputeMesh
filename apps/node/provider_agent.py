@@ -48,7 +48,11 @@ from services.orchestrator.persistent_control_channel import (
 )
 from tools.security.node_key_storage import load_node_private_key
 
-BASE_CAPABILITIES = ("execution_attestation_v1", "live_runtime_registration_v1")
+BASE_CAPABILITIES = (
+    "execution_attestation_v1",
+    "live_runtime_registration_v1",
+    "capacity_reservation_v1",
+)
 
 
 class ProviderAgentError(RuntimeError):
@@ -358,6 +362,29 @@ class ProviderAgent:
         payload: dict[str, Any],
         session: SessionSnapshot,
     ) -> dict[str, Any]:
+        if message_type == "CapacityReserveRequest":
+            SessionMessageContractValidator().validate(message_type, payload)
+            reservation = self.capacity_guard.acquire(
+                job_id=str(payload["job_id"]),
+                lease_id=str(payload["lease_id"]),
+                memory_mb=int(payload["memory_mb"]),
+                ttl_seconds=int(payload["ttl_seconds"]),
+                device_id=str(payload["device_id"]),
+            )
+            return {
+                "node_id": self.node_id,
+                "job_id": reservation.job_id,
+                "lease_id": reservation.lease_id,
+                "reservation_id": reservation.reservation_id,
+                "device_id": reservation.device_id,
+                "expires_at": reservation.expires_at.isoformat().replace("+00:00", "Z"),
+            }
+        if message_type == "CapacityReleaseRequest":
+            SessionMessageContractValidator().validate(message_type, payload)
+            released = self.capacity_guard.release(
+                str(payload["job_id"]), lease_id=str(payload["lease_id"])
+            )
+            return {"node_id": self.node_id, "job_id": str(payload["job_id"]), "released": released}
         if message_type == "GpuPromoChallengeRequest":
             return self._handle_gpu_promo_request(payload, session)
         if message_type != "ExecutionAttestationRequest":

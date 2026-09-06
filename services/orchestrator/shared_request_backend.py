@@ -29,6 +29,13 @@ class SharedRequestSettlementError(InferenceBackendError):
     pass
 
 
+class CapacityReservationTransport:
+    """Optional provider-side reservation transport implemented by live sessions."""
+
+    def reserve_capacity(self, **kwargs: Any) -> dict[str, Any]: ...
+    def release_capacity(self, **kwargs: Any) -> bool: ...
+
+
 def _canonical_digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
 
@@ -88,6 +95,7 @@ class SharedRequestOrchestratedBackend:
         work_root: Path,
         attestation_transport: NodeAttestationTransport,
         attestation_resolver: VerificationKeyResolver,
+        capacity_transport: CapacityReservationTransport | None = None,
         lease_seconds: int = 600,
         id_factory: Callable[[], str] | None = None,
         runner: Callable[..., SharedRequestResult] = run_shared_request,
@@ -107,6 +115,7 @@ class SharedRequestOrchestratedBackend:
         self.work_root = Path(work_root)
         self.attestation_transport = attestation_transport
         self.attestation_resolver = attestation_resolver
+        self.capacity_transport = capacity_transport
         self.lease_seconds = lease_seconds
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
         self.runner = runner
@@ -158,6 +167,44 @@ class SharedRequestOrchestratedBackend:
                 request_fingerprint=fingerprint,
             )
         return ids
+
+    def _reserve_provider_capacity(self, job_id: str) -> list[tuple[str, str]]:
+        if self.capacity_transport is None:
+            return []
+        unique_nodes = tuple(dict.fromkeys(self.placement.provider_node_ids))
+        ttl = max(1, self.lease_seconds)
+        acquired: list[tuple[str, str]] = []
+        try:
+            for node_id in unique_nodes:
+                lease_id = f"{self.placement.decision_id}:{node_id}"
+                self.capacity_transport.reserve_capacity(
+                    node_id=node_id,
+                    job_id=job_id,
+                    lease_id=lease_id,
+                    ttl_seconds=ttl,
+                    device_id="shared-inference",
+                    memory_mb=0,
+                )
+                acquired.append((node_id, lease_id))
+            return acquired
+        except Exception:
+            for node_id, lease_id in acquired:
+                try:
+                    self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
+                except Exception:
+                    pass
+            raise SharedRequestSettlementError("provider-side capacity reservation failed")
+
+    def _release_provider_capacity(self, job_id: str, reservations: list[tuple[str, str]]) -> None:
+        if self.capacity_transport is None:
+            return
+        for node_id, lease_id in reservations:
+            try:
+                self.capacity_transport.release_capacity(node_id=node_id, job_id=job_id, lease_id=lease_id)
+            except Exception:
+                # The private lease/evidence path still records the failure; a
+                # provider TTL prevents a lost release from lasting forever.
+                pass
 
     def _activate(self, job_id: str, ids: list[str]) -> None:
         for index, reservation_id in enumerate(ids):
@@ -213,11 +260,13 @@ class SharedRequestOrchestratedBackend:
         job_id = self.id_factory()
         self.store.ensure_job(job_id)
         reservations: list[str] = []
+        provider_reservations: list[tuple[str, str]] = []
         try:
             self._advance(job_id, JobState.VALIDATING)
             self._advance(job_id, JobState.PLANNING)
             self._advance(job_id, JobState.RESERVING)
             reservations = self._reserve(job_id)
+            provider_reservations = self._reserve_provider_capacity(job_id)
             self._advance(job_id, JobState.PREPARING)
             self._activate(job_id, reservations)
             self._advance(job_id, JobState.RUNNING)
@@ -294,3 +343,4 @@ class SharedRequestOrchestratedBackend:
             raise SharedRequestSettlementError("shared-request orchestration failed") from exc
         finally:
             self._release(job_id, reservations)
+            self._release_provider_capacity(job_id, provider_reservations)

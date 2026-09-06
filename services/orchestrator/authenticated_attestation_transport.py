@@ -14,6 +14,7 @@ from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.attestation_collection import NodeAttestationTransport
 
 ATTESTATION_CAPABILITY = "execution_attestation_v1"
+CAPACITY_RESERVATION_CAPABILITY = "capacity_reservation_v1"
 
 
 class AuthenticatedAttestationTransportError(RuntimeError):
@@ -101,3 +102,35 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         if not isinstance(attestation, dict):
             raise AuthenticatedAttestationTransportError("node response lacks an attestation")
         return attestation
+
+    def _require_capacity_session(self, node_id: str) -> SessionSnapshot:
+        session = self._require_authenticated_session(node_id)
+        if CAPACITY_RESERVATION_CAPABILITY not in session.negotiated_capabilities:
+            raise AuthenticatedAttestationTransportError(
+                f"node {node_id} did not negotiate {CAPACITY_RESERVATION_CAPABILITY}"
+            )
+        return session
+
+    def reserve_capacity(self, *, node_id: str, job_id: str, lease_id: str, ttl_seconds: int, device_id: str = "default", memory_mb: int = 0, timeout_seconds: float = 15.0) -> dict[str, Any]:
+        session = self._require_capacity_session(node_id)
+        response = self.client.request(
+            node_id=node_id,
+            message_type="CapacityReserveRequest",
+            payload={"job_id": job_id, "lease_id": lease_id, "ttl_seconds": ttl_seconds, "device_id": device_id, "memory_mb": memory_mb},
+            timeout_seconds=timeout_seconds,
+        )
+        if response.get("node_id") != node_id or response.get("job_id") != job_id or response.get("lease_id") != lease_id:
+            raise AuthenticatedAttestationTransportError("provider capacity reservation binding mismatch")
+        return response
+
+    def release_capacity(self, *, node_id: str, job_id: str, lease_id: str, timeout_seconds: float = 15.0) -> bool:
+        session = self._require_capacity_session(node_id)
+        response = self.client.request(
+            node_id=node_id,
+            message_type="CapacityReleaseRequest",
+            payload={"job_id": job_id, "lease_id": lease_id},
+            timeout_seconds=timeout_seconds,
+        )
+        if response.get("node_id") != node_id or response.get("job_id") != job_id:
+            raise AuthenticatedAttestationTransportError("provider capacity release binding mismatch")
+        return bool(response.get("released", False))

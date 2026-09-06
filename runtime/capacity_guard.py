@@ -113,6 +113,8 @@ class LocalCapacityGuard:
             if job_id in self._reservations:
                 existing = self._reservations[job_id]
                 if not existing.is_expired(now):
+                    if existing.lease_id == effective_lease_id:
+                        return existing
                     raise CapacityExceededError(f"job '{job_id}' already holds an active reservation")
 
             # Check concurrency slot limit
@@ -144,10 +146,11 @@ class LocalCapacityGuard:
             self._reservations[job_id] = reservation
             return reservation
 
-    def release(self, job_id: str) -> bool:
+    def release(self, job_id: str, lease_id: str | None = None) -> bool:
         """Release an active reservation by job_id."""
         with self._lock:
-            if job_id in self._reservations:
+            existing = self._reservations.get(job_id)
+            if existing is not None and (lease_id is None or existing.lease_id == lease_id):
                 del self._reservations[job_id]
                 return True
             return False
@@ -228,4 +231,4 @@ class LocalCapacityGuard:
         try:
             yield res
         finally:
-            self.release(job_id)
+            self.release(job_id, lease_id=res.lease_id)

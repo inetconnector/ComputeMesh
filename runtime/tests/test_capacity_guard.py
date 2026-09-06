@@ -78,6 +78,14 @@ class TestLocalCapacityGuard(unittest.TestCase):
             self.guard.acquire(job_id="job-1", memory_mb=2048)
         self.assertIn("already holds an active reservation", str(ctx.exception))
 
+    def test_same_explicit_lease_retry_is_idempotent_and_stale_release_is_ignored(self) -> None:
+        first = self.guard.acquire(job_id="job-retry", lease_id="lease-1", memory_mb=2048)
+        retry = self.guard.acquire(job_id="job-retry", lease_id="lease-1", memory_mb=2048)
+        self.assertEqual(retry.reservation_id, first.reservation_id)
+        self.assertFalse(self.guard.release("job-retry", lease_id="lease-other"))
+        self.assertEqual(self.guard.get_status()["active_jobs"], 1)
+        self.assertTrue(self.guard.release("job-retry", lease_id="lease-1"))
+
     def test_ttl_expiry_and_pruning(self) -> None:
         # Acquire with 1 second TTL
         self.guard.acquire(job_id="job-short", memory_mb=4096, ttl_seconds=1)

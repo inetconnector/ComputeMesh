@@ -2284,3 +2284,13 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   configured `sk_live_`/`sk_test_` secret mode before ledger crediting.
 - Cached session records are also rejected on cross-mode mismatch.
 - Added integration tests for Checkout and webhook mode mismatches.
+
+## 80. Provider-Enforced Capacity Reservations (2026-09-06)
+
+- Added authenticated provider capacity reserve/release messages backed by
+  `LocalCapacityGuard`.
+- Shared requests reserve all selected providers before runtime execution and
+  release them after completion; retries are idempotent and stale leases cannot
+  release a newer reservation.
+- Added capacity and provider-agent coverage for limits, TTL, lease binding and
+  retry behavior.

@@ -123,6 +123,7 @@ class LiveSharedInferenceBackend:
             worker_rpc=live.worker_rpc,
             work_root=self.work_root,
             attestation_transport=transport,
+            capacity_transport=transport,
             attestation_resolver=self.resolver,
             lease_seconds=self.lease_seconds,
             id_factory=lambda: attempt_job_id,

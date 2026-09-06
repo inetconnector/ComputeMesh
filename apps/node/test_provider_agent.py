@@ -167,6 +167,29 @@ def test_provider_agent_accepts_custom_capacity_guard(tmp_path: Path) -> None:
     assert agent.capacity_guard.get_status()["max_concurrent_jobs"] == 4
 
 
+def test_provider_agent_enforces_capacity_requests_on_authenticated_channel(tmp_path: Path) -> None:
+    agent = _agent(tmp_path)
+    session = _session(agent)
+    payload = {
+        "job_id": "job-capacity",
+        "lease_id": "lease-capacity",
+        "memory_mb": 1024,
+        "ttl_seconds": 30,
+        "device_id": "gpu:0",
+    }
+    reserved = agent.handle_request("CapacityReserveRequest", payload, session)
+    assert reserved["node_id"] == "node-a"
+    assert reserved["lease_id"] == "lease-capacity"
+    retry = agent.handle_request("CapacityReserveRequest", payload, session)
+    assert retry["reservation_id"] == reserved["reservation_id"]
+    released = agent.handle_request(
+        "CapacityReleaseRequest",
+        {"job_id": "job-capacity", "lease_id": "lease-capacity"},
+        session,
+    )
+    assert released["released"] is True
+
+
 class _GpuRunner:
     def run(self, challenge: dict[str, object]) -> GpuPromoWorkResult:
         assert challenge["challenge_id"] == "promo_ch_abc"

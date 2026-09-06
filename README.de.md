@@ -205,6 +205,11 @@ Stripe-Checkout und Webhook-Verarbeitung erzwingen die Modus-Konsistenz:
 ausschließlich Testmode. Abweichungen werden vor einer Ledger-Gutschrift
 fail-closed abgebrochen.
 
+Live-Provider-Sessions reservieren vor dem Inferenzstart Kapazität beim
+Provider über den authentifizierten Control Channel. Die Reservierung ist an
+die Lease gebunden, TTL-begrenzt, bei Retries idempotent und wird nach Abschluss
+freigegeben.
+
 ## Verbleibende Product-Readiness-Arbeit
 
 Die produktive **Policy-Grenze** existiert inzwischen privat, aber breite produktive Distributed Inference ist noch nicht validiert. Verbleibende Gates sind insbesondere:

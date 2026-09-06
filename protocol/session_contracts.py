@@ -23,6 +23,8 @@ _SCHEMA_BY_MESSAGE = {
     "ExecutionAttestationResponse": "execution_attestation_response_payload.schema.json",
     "GpuPromoChallengeRequest": "gpu_promo_challenge_request_payload.schema.json",
     "GpuPromoChallengeResponse": "gpu_promo_challenge_response_payload.schema.json",
+    "CapacityReserveRequest": "capacity_reserve_request_payload.schema.json",
+    "CapacityReleaseRequest": "capacity_release_request_payload.schema.json",
 }
 
 
