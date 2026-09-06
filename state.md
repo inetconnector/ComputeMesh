@@ -2271,3 +2271,9 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - The browser registration form disables submission while the request is in
   flight; repeated submissions receive no additional request.
 - Added in-memory and durable-store duplicate-registration tests.
+
+## 78. Multi-GPU Upstream RPC Bind Guard (2026-09-06)
+
+- `tools/appliance/multi_gpu_launcher.py` now defaults llama.cpp to loopback
+  and rejects non-loopback binds unless explicitly opted into by the operator.
+- Added tests for the safe default and explicit protected-network opt-in.

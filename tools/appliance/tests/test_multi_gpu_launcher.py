@@ -56,11 +56,41 @@ class TestMultiGpuLauncher(unittest.TestCase):
             plan=plan,
             host="0.0.0.0",
             port=8080,
+            allow_non_loopback=True,
         )
         self.assertIn("-ts", cmd)
         self.assertIn("0.200,0.200,0.200,0.200,0.200", cmd)
         self.assertIn("--devices", cmd)
         self.assertIn("CUDA0,CUDA1,CUDA2,CUDA3,CUDA4", cmd)
+
+    def test_rpc_bind_is_loopback_only_by_default(self) -> None:
+        plan = compute_multi_gpu_allocation(
+            RigInventory(
+                schema_version=1,
+                captured_at="2026-08-22T12:00:00Z",
+                host_architecture="linux",
+                total_gpus=1,
+                total_vram_bytes=8 * 1024 * 1024 * 1024,
+                gpus=[GpuDevice(
+                    index=0,
+                    pci_slot="0000:01:00.0",
+                    vendor="nvidia",
+                    model_name="Test GPU",
+                    vram_bytes=8 * 1024 * 1024 * 1024,
+                    pcie_gen=4,
+                    pcie_width=16,
+                    driver_backend="cuda",
+                    is_headless=False,
+                    healthy=True,
+                )],
+                pcie_riser_warning=False,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "loopback"):
+            build_llama_server_command("llama-server", "model.gguf", plan, host="0.0.0.0")
+
+        cmd = build_llama_server_command("llama-server", "model.gguf", plan)
+        self.assertEqual(cmd[cmd.index("--host") + 1], "127.0.0.1")
 
 
 if __name__ == "__main__":

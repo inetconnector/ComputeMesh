@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import ipaddress
 import json
 from pathlib import Path
 import sys
@@ -119,16 +120,29 @@ def build_llama_server_command(
     executable: str,
     model_path: str,
     plan: MultiGpuPlan,
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8080,
     context_size: int = 4096,
     extra_args: Sequence[str] = (),
+    allow_non_loopback: bool = False,
 ) -> list[str]:
-    """Generate commandline to launch llama-server utilizing all miner GPUs."""
+    """Generate a llama-server command, keeping the upstream RPC loopback-only by default."""
+    normalized_host = host.strip().lower()
+    is_loopback = normalized_host == "localhost"
+    if not is_loopback:
+        try:
+            is_loopback = ipaddress.ip_address(normalized_host).is_loopback
+        except ValueError:
+            is_loopback = False
+    if not is_loopback and not allow_non_loopback:
+        raise ValueError(
+            "llama-server must bind to loopback by default; use a protected tunnel "
+            "and explicitly set allow_non_loopback=True only for a trusted network"
+        )
     cmd = [
         executable,
         "-m", model_path,
-        "--host", host,
+        "--host", normalized_host,
         "--port", str(port),
         "-c", str(context_size),
         "-ngl", str(plan.total_model_layers),

@@ -196,6 +196,10 @@ geschützt: Der Server lehnt eine bereits registrierte normalisierte
 Geschäfts-E-Mail mit HTTP 409 über einen opaken, vault-geschlüsselten
 Fingerprint ab; der Browser deaktiviert den Submit-Button während der Anfrage.
 
+Der Multi-GPU-Launcher bindet llama.cpp standardmäßig nur an Loopback.
+Nicht-Loopback-Bindings erfordern eine ausdrückliche Freigabe für ein separat
+geschütztes Netzwerk.
+
 ## Verbleibende Product-Readiness-Arbeit
 
 Die produktive **Policy-Grenze** existiert inzwischen privat, aber breite produktive Distributed Inference ist noch nicht validiert. Verbleibende Gates sind insbesondere:
