@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any, Callable
@@ -324,6 +325,12 @@ class StripePaymentService:
         currency: str = "usd",
     ) -> CheckoutSessionResult:
         self._require_live_configuration()
+        try:
+            amount_usd = float(amount_usd)
+        except (TypeError, ValueError) as exc:
+            raise StripeIntegrationError("amount_usd must be a finite number") from exc
+        if not math.isfinite(amount_usd):
+            raise StripeIntegrationError("amount_usd must be a finite number")
         if amount_usd < 5.0:
             raise StripeIntegrationError("Minimum deposit amount is $5.00")
         if amount_usd > 10_000.0:

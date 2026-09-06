@@ -345,6 +345,12 @@ class TestStripeIntegration(unittest.TestCase):
                 customer_account_id="cust_invalid",
                 amount_usd=2.00,
             )
+        for invalid_amount in (float("nan"), float("inf"), float("-inf")):
+            with self.assertRaises(StripeIntegrationError):
+                self.stripe_svc.create_checkout_session(
+                    customer_account_id="cust_invalid",
+                    amount_usd=invalid_amount,
+                )
 
 
 if __name__ == "__main__":
