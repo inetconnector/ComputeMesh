@@ -956,6 +956,45 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res or {}, status)
             return
 
+        if clean_path in ("/api/v1/contact", "/api/contact", "/v1/contact"):
+            from services.portal.mail_dispatcher import send_contact_inquiry
+            name = str(body.get("name", "")).strip()
+            email = str(body.get("email", "")).strip()
+            topic = str(body.get("topic", "developer")).strip()
+            message = str(body.get("message", "")).strip()
+
+            if not name or len(name) < 2:
+                self._send_error_response("Name is required (min 2 characters)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            if not email or "@" not in email or "." not in email:
+                self._send_error_response("Valid email address is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            if not message or len(message) < 3:
+                self._send_error_response("Message is required (min 3 characters)", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+
+            client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
+            user_agent = self.headers.get("User-Agent", "")
+
+            success = send_contact_inquiry(
+                from_name=name,
+                from_email=email,
+                topic=topic,
+                message=message,
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+
+            if success:
+                self._send_json({"status": "ok", "message": "Inquiry sent successfully"})
+            else:
+                self._send_error_response(
+                    "Failed to send message. Please contact mesh@inetconnector.com directly.",
+                    "internal_error",
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+            return
+
         if clean_path in ("/v1/billing/topup", "/api/v1/billing/topup"):
             res, err, status = self.billing_routes.handle_post_topup(self.headers, body)
             if err:
