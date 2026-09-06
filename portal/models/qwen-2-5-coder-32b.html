@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen 2.5 Coder 32B Inferenz-API — ComputeMesh</title>
+  <meta name="description" content="Hochpräzise Code-Generierung und Refactoring mit Qwen 2.5 Coder 32B im dezentralen Mesh.">
+  <meta name="keywords" content="Qwen 2.5 Coder 32B, Qwen 2.5 Coder 32B API, GPU Mesh, LLM Inferenz, ComputeMesh, OpenAI kompatibel, DSGVO KI">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://mesh.inetconnector.com/models/qwen-2-5-coder-32b">
+  
+  <!-- Open Graph -->
+  <meta property="og:site_name" content="ComputeMesh">
+  <meta property="og:title" content="Qwen 2.5 Coder 32B Inferenz-API — ComputeMesh">
+  <meta property="og:description" content="Hochpräzise Code-Generierung und Refactoring mit Qwen 2.5 Coder 32B im dezentralen Mesh.">
+  <meta property="og:type" content="product">
+  <meta property="og:url" content="https://mesh.inetconnector.com/models/qwen-2-5-coder-32b">
+  <meta property="og:image" content="https://mesh.inetconnector.com/assets/viral/benchmark-cost-comparison.png">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Qwen 2.5 Coder 32B Inferenz-API — ComputeMesh">
+  <meta name="twitter:description" content="Hochpräzise Code-Generierung und Refactoring mit Qwen 2.5 Coder 32B im dezentralen Mesh.">
+  <meta name="twitter:image" content="https://mesh.inetconnector.com/assets/viral/benchmark-cost-comparison.png">
+
+  <link rel="stylesheet" href="../portal.css?v=2.9">
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Qwen 2.5 Coder 32B Inference API on ComputeMesh",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "All",
+        "description": "Hochpräzise Code-Generierung und Refactoring mit Qwen 2.5 Coder 32B im dezentralen Mesh.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0.25",
+          "priceCurrency": "USD",
+          "description": "Pro 1.000.000 generierte Tokens"
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://mesh.inetconnector.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Modelle",
+            "item": "https://mesh.inetconnector.com/#features"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Qwen 2.5 Coder 32B",
+            "item": "https://mesh.inetconnector.com/models/qwen-2-5-coder-32b"
+          }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Wie binde ich Qwen 2.5 Coder 32B über die OpenAI API ein?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Ändern Sie einfach die Base-URL in Ihrem OpenAI-Client auf https://mesh.inetconnector.com/v1 und übergeben Sie Ihren ComputeMesh API-Key."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Werden meine Daten beim Inferenz-Prozess von Qwen 2.5 Coder 32B gespeichert?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nein. ComputeMesh erzwingt Zero-Data-Retention. Prompts und Generierungen verbleiben flüchtig im GPU-Speicher und werden niemals auf Datenträgern protokolliert."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-top-row" style="display:flex; justify-content:space-between; align-items:center; padding: 0.75rem 1.5rem;">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">LIVE MESH</span>
+      </a>
+      <div class="nav-actions" style="display:flex; gap:0.75rem;">
+        <a href="/#pricing" class="btn btn-secondary">💳 Preise</a>
+        <a href="/#downloads" class="btn btn-primary">⚡ API-Key holen</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 3.5rem 1.5rem; max-width: 1000px;">
+    <div style="margin-bottom: 2rem;">
+      <a href="/" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.9rem;">← Zurück zur Übersicht</a>
+    </div>
+
+    <div class="section-header" style="text-align: left; margin-bottom: 2rem;">
+      <span class="section-tag">OPEN-SOURCE MODELL-PROFIL</span>
+      <h1 style="font-size: 2.4rem; margin-top: 0.5rem;">Qwen 2.5 Coder 32B Inferenz-API</h1>
+      <p style="font-size: 1.15rem; color: var(--text-muted);">Hochpräzise Code-Generierung und Refactoring mit Qwen 2.5 Coder 32B im dezentralen Mesh.</p>
+    </div>
+
+    <!-- Specs Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2.5rem;">
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="color: var(--text-muted); font-size: 0.85rem;">PREIS / 1M TOKENS</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-emerald); margin-top: 0.25rem;">$0.25</div>
+        <div style="font-size: 0.8rem; color: var(--accent-cyan);">Bis zu 70% Ersparnis</div>
+      </div>
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="color: var(--text-muted); font-size: 0.85rem;">DURCHSATZ</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-cyan); margin-top: 0.25rem;">50+ tok/s</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Verteiltes GPU-Streaming</div>
+      </div>
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="color: var(--text-muted); font-size: 0.85rem;">KONTEXTLÄNGE</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-top: 0.25rem;">128k Tokens</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Full Attention Window</div>
+      </div>
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="color: var(--text-muted); font-size: 0.85rem;">DATENSCHUTZ</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-emerald); margin-top: 0.25rem;">Zero-Retention</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">DSGVO-konform (EU)</div>
+      </div>
+    </div>
+
+    <!-- Quick Integration Code -->
+    <div style="background: #090e1a; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2.5rem;">
+      <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">⚡ Drop-in OpenAI Integration (Python)</h3>
+      <pre style="background: #040711; padding: 1rem; border-radius: 6px; overflow-x: auto; color: #e2e8f0; font-family: monospace; font-size: 0.9rem;"><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="DEIN_COMPUTEMESH_KEY"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5-coder-32b-instruct",
+    messages=[{"role": "user", "content": "Erkläre die Vorzüge eines dezentralen GPU-Mesh."}]
+)
+
+print(response.choices[0].message.content)</code></pre>
+    </div>
+
+    <!-- Features & Architecture -->
+    <div style="margin-bottom: 3rem; line-height: 1.7; color: var(--text-muted);">
+      <h2 style="color: #fff; margin-bottom: 0.75rem;">Architektur & Einsatzbereiche für Qwen 2.5 Coder 32B</h2>
+      <p><strong style="color: #fff;">Architektur-Typ:</strong> Dense Coder Transformer</p>
+      <p><strong style="color: #fff;">Empfohlener Einsatzzweck:</strong> Automatisierte Code-Reviews, Test-Generierung, IDE-Autovervollständigung</p>
+      <p>ComputeMesh verteilt die Inferenz-Pipelines automatisch über optimale Knoten mit NVLink- und PCIe-4.0-Anbindung, sodass höchste Token-Generierungsgeschwindigkeiten bei gleichzeitig minimaler Latenz erreicht werden.</p>
+    </div>
+
+    <!-- CTA Box -->
+    <div style="background: linear-gradient(135deg, rgba(0,242,254,0.1), rgba(59,130,246,0.1)); border: 1px solid var(--accent-cyan); border-radius: var(--radius-md); padding: 2rem; text-align: center;">
+      <h2 style="color: #fff; margin-bottom: 0.5rem;">Starte jetzt mit Qwen 2.5 Coder 32B im ComputeMesh</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Erhalte sofortigen Zugriff auf die API ohne Wartezeit oder Kreditkartenpflicht.</p>
+      <a href="/#downloads" class="btn btn-primary" style="padding: 0.85rem 2rem; font-size: 1.05rem;">Kostenlosen API-Key erstellen</a>
+    </div>
+  </main>
+
+  <footer class="site-footer" style="margin-top: 4rem; padding: 2rem 1.5rem; border-top: 1px solid var(--border-subtle); text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+    <div class="container">
+      <p>© 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten.</p>
+      <p style="margin-top: 0.5rem;">
+        <a href="/impressum" style="color: var(--text-muted); margin: 0 0.5rem;">Impressum</a> |
+        <a href="/privacy" style="color: var(--text-muted); margin: 0 0.5rem;">Datenschutz (DSGVO)</a> |
+        <a href="/terms" style="color: var(--text-muted); margin: 0 0.5rem;">AGB</a> |
+        <a href="/security" style="color: var(--text-muted); margin: 0 0.5rem;">Sicherheit</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

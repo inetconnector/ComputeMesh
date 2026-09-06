@@ -102,6 +102,43 @@
       </table>
     </div>
 
+    <!-- High-Resolution Infographics -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; padding: 1rem;">
+        <h4 style="color: var(--accent-cyan); margin-bottom: 0.75rem; font-size: 1.1rem;">📊 LLM Inferenz Kostenvergleich (1M Tokens)</h4>
+        <img src="/assets/viral/benchmark-cost-comparison.png" alt="LLM Inferenz Kostenvergleich ComputeMesh vs Hyperscaler" style="width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border-subtle);">
+        <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Format: 1200x630 (HD Card)</span>
+          <a href="/assets/viral/benchmark-cost-comparison.png" download class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">PNG herunterladen</a>
+        </div>
+      </div>
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; padding: 1rem;">
+        <h4 style="color: var(--accent-emerald); margin-bottom: 0.75rem; font-size: 1.1rem;">⚡ Durchsatz & TTFT Latenz</h4>
+        <img src="/assets/viral/benchmark-speed-throughput.png" alt="Inferenz Performance und Generierungstempo" style="width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border-subtle);">
+        <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Format: 1200x630 (HD Card)</span>
+          <a href="/assets/viral/benchmark-speed-throughput.png" download class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">PNG herunterladen</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Developer Badges Section -->
+    <div class="calc-box" style="margin-bottom: 3rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.75rem;">
+      <h3 style="color: #fff; margin-bottom: 0.5rem;">🛡️ Developer Badges für dein GitHub-Repository</h3>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.25rem;">Nutzt dein Open-Source-Projekt ComputeMesh? Binde einfach unsere SVG-Badges in dein README ein:</p>
+      
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+        <img src="/badges/powered-by.svg" alt="Powered by ComputeMesh Badge">
+        <img src="/badges/speed.svg" alt="Throughput Badge">
+        <img src="/badges/privacy-gdpr.svg" alt="Privacy Badge">
+        <img src="/badges/pricing.svg" alt="Pricing Badge">
+        <img src="/badges/deepseek-ready.svg" alt="DeepSeek Ready Badge">
+      </div>
+
+      <pre style="background: #040711; padding: 1rem; border-radius: 6px; overflow-x: auto; color: #e2e8f0; font-family: monospace; font-size: 0.85rem;"><code>[![Inference: ComputeMesh](https://mesh.inetconnector.com/badges/powered-by.svg)](https://mesh.inetconnector.com)
+[![Throughput](https://mesh.inetconnector.com/badges/speed.svg)](https://mesh.inetconnector.com/benchmarks)</code></pre>
+    </div>
+
     <div class="feature-card" style="margin-bottom: 3rem;">
       <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;" data-i18n="bench_net_h3">Netzwerk-Routing & Latenz</h3>
       <p style="color: var(--text-muted); line-height: 1.7;" data-i18n="bench_net_p">Unser binäres RPC-Wire-Protokoll und optimiertes Tensor-Streaming stellen sicher, dass verteilte Inferenz ohne spürbaren Netzwerk-Overhead läuft.</p>

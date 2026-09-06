@@ -53,18 +53,18 @@
     </div>
 
     <div class="calc-box">
-      <form onsubmit="handleContactSubmit(event)">
+      <form id="contact-form" onsubmit="handleContactSubmit(event)">
         <div class="form-group">
-          <label data-i18n="contact_name_lbl">Dein Name / Unternehmen</label>
-          <input type="text" class="form-control" required placeholder="Alexander Müller (Tech Corp)">
+          <label for="contact-name" data-i18n="contact_name_lbl">Dein Name / Unternehmen</label>
+          <input type="text" id="contact-name" name="name" class="form-control" required placeholder="Alexander Müller (Tech Corp)">
         </div>
         <div class="form-group">
-          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
-          <input type="email" class="form-control" required placeholder="alex@company.de">
+          <label for="contact-email" data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
+          <input type="email" id="contact-email" name="email" class="form-control" required placeholder="alex@company.de">
         </div>
         <div class="form-group">
-          <label data-i18n="contact_topic_lbl">Thema</label>
-          <select class="form-control">
+          <label for="contact-topic" data-i18n="contact_topic_lbl">Thema</label>
+          <select id="contact-topic" name="topic" class="form-control">
             <option value="provider" data-i18n="contact_opt_provider">Hardware-Provider & Mining-Rig Setup</option>
             <option value="developer" data-i18n="contact_opt_developer">Entwickler-API & Plattform-Integration</option>
             <option value="billing" data-i18n="contact_opt_billing">Abrechnung & Guthabenaufladung</option>
@@ -72,14 +72,15 @@
           </select>
         </div>
         <div class="form-group">
-          <label data-i18n="contact_msg_lbl">Nachricht</label>
-          <textarea class="form-control" rows="5" required placeholder="Beschreibe deine Frage oder gewünschte GPU-Konfiguration..."></textarea>
+          <label for="contact-message" data-i18n="contact_msg_lbl">Nachricht</label>
+          <textarea id="contact-message" name="message" class="form-control" rows="5" required placeholder="Beschreibe deine Frage oder gewünschte GPU-Konfiguration..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="contact_send_btn">Nachricht absenden</button>
+        <button type="submit" id="contact-submit-btn" class="btn btn-primary" style="width: 100%;" data-i18n="contact_send_btn">Nachricht absenden</button>
       </form>
       <div id="contact-success-msg" style="display: none; margin-top: 1.5rem; color: var(--accent-emerald); font-weight: 600; text-align: center;" data-i18n="contact_success">
         ✓ Vielen Dank! Deine Nachricht wurde empfangen. Unser Engineering-Team antwortet innerhalb von 24 Stunden.
       </div>
+      <div id="contact-error-msg" style="display: none; margin-top: 1.5rem; color: #ef4444; font-weight: 600; text-align: center;"></div>
     </div>
   </main>
 

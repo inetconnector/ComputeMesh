@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="165" height="20" role="img" aria-label="inference: ComputeMesh">
+  <title>inference: ComputeMesh</title>
+  <linearGradient id="b" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="a">
+    <rect width="165" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#a)">
+    <rect width="68" height="20" fill="#1e293b"/>
+    <rect x="68" width="97" height="20" fill="#0ea5e9"/>
+    <rect width="165" height="20" fill="url(#b)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+    <text aria-hidden="true" x="340.0" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="560">inference</text>
+    <text x="340.0" y="140" transform="scale(.1)" fill="#fff" textLength="560">inference</text>
+    <text aria-hidden="true" x="1165.0" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="850">ComputeMesh</text>
+    <text x="1165.0" y="140" transform="scale(.1)" fill="#fff" textLength="850">ComputeMesh</text>
+  </g>
+</svg>

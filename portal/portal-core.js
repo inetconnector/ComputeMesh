@@ -320,11 +320,13 @@ const translations = {
     contact_topic_lbl: "Topic",
     contact_msg_lbl: "Message",
     contact_send_btn: "Send Message",
+    contact_sending: "Sending message...",
     contact_opt_provider: "Hardware Provider & Mining Rig Setup",
     contact_opt_developer: "Developer API & Platform Integration",
     contact_opt_billing: "Billing & Enterprise Invoicing",
     contact_opt_enterprise: "Custom Enterprise GPU Clusters & SLAs",
     contact_success: "✓ Thank you! Your message has been received. Our engineering team will respond within 24 hours.",
+    contact_err_generic: "Failed to send message. Please try again later or email mesh@inetconnector.com directly.",
 
     // Security & GDPR Page (security.html)
     sec_page_tag: "ENTERPRISE COMPLIANCE & CRYPTOGRAPHY",
@@ -694,11 +696,13 @@ const translations = {
     contact_topic_lbl: "Thema",
     contact_msg_lbl: "Nachricht",
     contact_send_btn: "Nachricht absenden",
+    contact_sending: "Nachricht wird gesendet...",
     contact_opt_provider: "Hardware-Provider & Mining-Rig Setup",
     contact_opt_developer: "Entwickler-API & Plattform-Integration",
     contact_opt_billing: "Abrechnung & Guthabenaufladung",
     contact_opt_enterprise: "Individuelle Enterprise-GPU-Cluster & SLAs",
     contact_success: "✓ Vielen Dank! Deine Nachricht wurde empfangen. Unser Engineering-Team antwortet innerhalb von 24 Stunden.",
+    contact_err_generic: "Fehler beim Absenden. Bitte versuche es später erneut oder schreibe direkt an mesh@inetconnector.com.",
 
     // Security & GDPR Page (security.html)
     sec_page_tag: "ENTERPRISE COMPLIANCE & KRYPTOGRAFIE",
@@ -1344,11 +1348,94 @@ async function handleDepositSubmit(e) {
   }
 }
 
-function handleContactSubmit(e) {
+async function handleContactSubmit(e) {
   e.preventDefault();
-  const msgEl = document.getElementById('contact-success-msg');
-  if (msgEl) {
-    msgEl.style.display = 'block';
+  const form = e.target;
+  const nameEl = document.getElementById('contact-name');
+  const emailEl = document.getElementById('contact-email');
+  const topicEl = document.getElementById('contact-topic');
+  const messageEl = document.getElementById('contact-message');
+  const btn = document.getElementById('contact-submit-btn') || form.querySelector('button[type="submit"]');
+  const successEl = document.getElementById('contact-success-msg');
+  const errorEl = document.getElementById('contact-error-msg');
+
+  if (successEl) successEl.style.display = 'none';
+  if (errorEl) errorEl.style.display = 'none';
+
+  const name = nameEl ? nameEl.value.trim() : '';
+  const email = emailEl ? emailEl.value.trim() : '';
+  const topic = topicEl ? topicEl.value.trim() : 'developer';
+  const message = messageEl ? messageEl.value.trim() : '';
+
+  if (!name || !email || !message) {
+    return;
+  }
+
+  // Anti-double-click protection & in-flight state
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = currentLang === 'de' ? '⏳ Nachricht wird gesendet...' : '⏳ Sending message...';
+  }
+
+  try {
+    const res = await fetch('/api/v1/contact', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        topic,
+        message,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.status === 'ok') {
+      if (successEl) {
+        successEl.style.color = 'var(--accent-emerald)';
+        successEl.style.display = 'block';
+      }
+      form.reset();
+      if (btn) {
+        btn.textContent = currentLang === 'de' ? '✓ Nachricht gesendet' : '✓ Message sent';
+      }
+    } else {
+      const errMsg = data.error || (currentLang === 'de'
+        ? 'Fehler beim Absenden. Bitte versuche es später erneut oder schreibe direkt an mesh@inetconnector.com.'
+        : 'Failed to send message. Please try again later or email mesh@inetconnector.com directly.');
+      if (errorEl) {
+        errorEl.textContent = errMsg;
+        errorEl.style.display = 'block';
+      } else if (successEl) {
+        successEl.textContent = errMsg;
+        successEl.style.color = '#ef4444';
+        successEl.style.display = 'block';
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || (currentLang === 'de' ? 'Nachricht absenden' : 'Send Message');
+      }
+    }
+  } catch (err) {
+    const errMsg = currentLang === 'de'
+      ? `Netzwerkfehler: ${err.message}. Bitte schreibe direkt an mesh@inetconnector.com.`
+      : `Network error: ${err.message}. Please contact mesh@inetconnector.com directly.`;
+    if (errorEl) {
+      errorEl.textContent = errMsg;
+      errorEl.style.display = 'block';
+    } else if (successEl) {
+      successEl.textContent = errMsg;
+      successEl.style.color = '#ef4444';
+      successEl.style.display = 'block';
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText || (currentLang === 'de' ? 'Nachricht absenden' : 'Send Message');
+    }
   }
 }
 

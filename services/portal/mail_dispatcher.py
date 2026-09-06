@@ -55,7 +55,13 @@ MAIL_FROM = get_mail_config("COMPUTEMESH_MAIL_FROM", "ComputeMesh Security <mesh
 MAIL_DISABLED = os.environ.get("COMPUTEMESH_MAIL_DISABLE_SENDING", "").lower() in ("1", "true", "yes")
 
 
-def send_email(to_address: str, subject: str, text_content: str, html_content: str | None = None) -> bool:
+def send_email(
+    to_address: str,
+    subject: str,
+    text_content: str,
+    html_content: str | None = None,
+    reply_to: str | None = None,
+) -> bool:
     """Sends a transactional email via SMTP with STARTTLS."""
     if not to_address or "@" not in to_address:
         logger.error("Invalid recipient email: %s", to_address)
@@ -69,6 +75,8 @@ def send_email(to_address: str, subject: str, text_content: str, html_content: s
     msg["Subject"] = subject
     msg["From"] = MAIL_FROM
     msg["To"] = to_address
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg["X-Auto-Response-Suppress"] = "All"
     msg["Auto-Submitted"] = "auto-generated"
 
@@ -99,6 +107,72 @@ def send_email(to_address: str, subject: str, text_content: str, html_content: s
     except Exception as exc:
         logger.error("Failed to send email to %s: %s", to_address, exc)
         return False
+
+
+def send_contact_inquiry(
+    from_name: str,
+    from_email: str,
+    topic: str,
+    message: str,
+    ip_address: str = "",
+    user_agent: str = "",
+) -> bool:
+    """Dispatches a support/enterprise contact inquiry to mesh@inetconnector.com."""
+    inbox = get_mail_config("COMPUTEMESH_CONTACT_INBOX", "mesh@inetconnector.com")
+    topic_labels = {
+        "provider": "Hardware-Provider & Mining-Rig Setup",
+        "developer": "Entwickler-API & Plattform-Integration",
+        "billing": "Abrechnung & Guthabenaufladung",
+        "enterprise": "Individuelle Enterprise-GPU-Cluster & SLAs",
+    }
+    topic_display = topic_labels.get(topic.lower(), topic)
+
+    subject = f"[Kontaktanfrage] {topic_display}: {from_name}"
+    text = f"""Neue Kontaktanfrage über mesh.inetconnector.com/contact:
+
+Absender: {from_name} <{from_email}>
+Thema: {topic_display} ({topic})
+IP-Adresse: {ip_address or 'Unbekannt'}
+User-Agent: {user_agent or 'Unbekannt'}
+
+Nachricht:
+----------------------------------------------------------------------
+{message}
+----------------------------------------------------------------------
+
+Direkt antworten an: {from_email}
+"""
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #090d16; color: #f8fafc; margin: 0; padding: 20px; }}
+.card {{ max-width: 600px; margin: 0 auto; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 32px; }}
+.brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; margin-bottom: 20px; }}
+.meta-box {{ background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 20px; font-size: 13px; color: #cbd5e1; }}
+.msg-box {{ background: #070c18; border-left: 4px solid #38bdf8; border-radius: 4px; padding: 16px; font-size: 14px; line-height: 1.6; color: #f8fafc; white-space: pre-wrap; }}
+.footer {{ font-size: 12px; color: #64748b; margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">⚡ ComputeMesh &middot; Neue Kontaktanfrage</div>
+  <div class="meta-box">
+    <div><strong>Absender:</strong> {from_name} (&lt;<a href="mailto:{from_email}" style="color: #38bdf8;">{from_email}</a>&gt;)</div>
+    <div style="margin-top: 6px;"><strong>Thema:</strong> {topic_display}</div>
+    <div style="margin-top: 6px;"><strong>IP-Adresse:</strong> {ip_address or 'Unbekannt'}</div>
+  </div>
+  <h3 style="color: #f8fafc; font-size: 14px; margin-bottom: 8px;">Nachricht:</h3>
+  <div class="msg-box">{message}</div>
+  <div class="footer">
+    Eingegangen über <a href="https://mesh.inetconnector.com/contact" style="color: #38bdf8;">mesh.inetconnector.com/contact</a>.<br>
+    Antworten geht direkt an <a href="mailto:{from_email}" style="color: #38bdf8;">{from_email}</a>.
+  </div>
+</div>
+</body>
+</html>"""
+    return send_email(inbox, subject, text, html, reply_to=from_email)
 
 
 def send_magic_link(to_address: str, magic_url: str, expires_minutes: int = 15) -> bool:
