@@ -1271,6 +1271,12 @@ function openDepositModal() {
   const modal = document.getElementById('deposit-modal');
   if (modal) {
     modal.classList.add('active');
+    const btn = document.getElementById('deposit-submit-btn');
+    if (btn) {
+      delete btn.dataset.checkoutBusy;
+      delete btn.dataset.checkoutCompleted;
+      btn.disabled = false;
+    }
     const msgBox = document.getElementById('deposit-msg-box');
     if (msgBox) msgBox.style.display = 'none';
   } else {
@@ -1294,7 +1300,8 @@ async function handleDepositSubmit(e) {
   const msgBox = document.getElementById('deposit-msg-box');
   const btn = document.getElementById('deposit-submit-btn');
 
-  if (!keyInput || !amountSelect || !msgBox) return;
+  if (!keyInput || !amountSelect || !msgBox || !btn) return;
+  if (btn?.dataset.checkoutBusy === '1' || btn?.dataset.checkoutCompleted === '1') return;
 
   const apiKey = keyInput.value.trim();
   const amountUsd = parseFloat(amountSelect.value);
@@ -1304,6 +1311,7 @@ async function handleDepositSubmit(e) {
     return;
   }
 
+  btn.dataset.checkoutBusy = '1';
   btn.disabled = true;
   btn.textContent = currentLang === 'de' ? 'Erstelle Checkout-Session...' : 'Creating checkout session...';
   msgBox.style.display = 'block';
@@ -1335,6 +1343,8 @@ async function handleDepositSubmit(e) {
     msgBox.style.background = 'rgba(16, 185, 129, 0.15)';
     msgBox.style.color = 'var(--accent-emerald)';
     msgBox.innerHTML = `✓ Checkout Session created! <a href="${data.checkout_url}" target="_blank" style="color: #00f2fe; text-decoration: underline; font-weight: bold;">Click here to complete payment on Stripe →</a>`;
+    btn.dataset.checkoutCompleted = '1';
+    btn.textContent = currentLang === 'de' ? 'Checkout geöffnet' : 'Checkout opened';
 
     // Automatically open Stripe checkout in a new window/tab
     window.open(data.checkout_url, '_blank');
@@ -1343,8 +1353,11 @@ async function handleDepositSubmit(e) {
     msgBox.style.color = 'var(--accent-red)';
     msgBox.textContent = `Network Error: ${err.message}`;
   } finally {
-    btn.disabled = false;
-    btn.textContent = currentLang === 'de' ? 'Weiter zu Stripe Checkout →' : 'Proceed to Stripe Checkout →';
+    delete btn.dataset.checkoutBusy;
+    if (btn.dataset.checkoutCompleted !== '1') {
+      btn.disabled = false;
+      btn.textContent = currentLang === 'de' ? 'Weiter zu Stripe Checkout →' : 'Proceed to Stripe Checkout →';
+    }
   }
 }
 
