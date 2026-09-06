@@ -200,6 +200,11 @@ Der Multi-GPU-Launcher bindet llama.cpp standardmäßig nur an Loopback.
 Nicht-Loopback-Bindings erfordern eine ausdrückliche Freigabe für ein separat
 geschütztes Netzwerk.
 
+Stripe-Checkout und Webhook-Verarbeitung erzwingen die Modus-Konsistenz:
+`sk_live_` akzeptiert ausschließlich Live-Sessions/Events, `sk_test_`
+ausschließlich Testmode. Abweichungen werden vor einer Ledger-Gutschrift
+fail-closed abgebrochen.
+
 ## Verbleibende Product-Readiness-Arbeit
 
 Die produktive **Policy-Grenze** existiert inzwischen privat, aber breite produktive Distributed Inference ist noch nicht validiert. Verbleibende Gates sind insbesondere:

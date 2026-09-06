@@ -214,6 +214,10 @@ while the request is in flight.
 The multi-GPU launcher binds llama.cpp to loopback by default. Non-loopback
 binding requires an explicit protected-network opt-in.
 
+Stripe Checkout and webhook processing enforce mode consistency: `sk_live_`
+accepts only live-mode sessions/events and `sk_test_` only test mode. A
+mismatch fails closed before ledger crediting.
+
 ## Remaining product-readiness work
 
 The production **policy boundary** now exists privately, but broad production distributed inference is not yet validated. Remaining gates include:

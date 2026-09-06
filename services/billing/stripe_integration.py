@@ -273,6 +273,10 @@ class StripePaymentService:
         self.stripe_client = stripe_client
         self.webhook_verifier = webhook_verifier
         self.require_live_configuration = require_live_configuration
+        self._expected_livemode: bool | None = (
+            True if self.stripe_api_key.startswith("sk_live_") else
+            False if self.stripe_api_key.startswith("sk_test_") else None
+        )
 
         if self.stripe_api_key and self.stripe_client is None:
             stripe = _load_stripe_module()
@@ -379,6 +383,8 @@ class StripePaymentService:
         stripe_customer_id = str(_stripe_get(session, "customer", "") or "")
         payment_intent_id = str(_stripe_get(session, "payment_intent", "") or "")
         livemode = bool(_stripe_get(session, "livemode", False))
+        if self._expected_livemode is not None and livemode != self._expected_livemode:
+            raise StripeIntegrationError("Stripe Checkout returned a livemode state inconsistent with STRIPE_API_KEY")
 
         if self.session_store:
             self.session_store.upsert(
@@ -604,6 +610,8 @@ class StripePaymentService:
             stripe_customer_id = str(data_object.get("customer", "") or "")
             payment_intent_id = str(data_object.get("payment_intent", "") or "")
             livemode = bool(data_object.get("livemode", False))
+            if self._expected_livemode is not None and livemode != self._expected_livemode:
+                raise StripeIntegrationError("Stripe webhook livemode does not match STRIPE_API_KEY mode")
             amount_subtotal_cents = int(data_object.get("amount_subtotal", 0) or 0)
             amount_total_cents = int(data_object.get("amount_total", 0) or 0)
 
@@ -616,6 +624,8 @@ class StripePaymentService:
 
             cached = self.session_store.get(session_id) if self.session_store else None
             if cached:
+                if self._expected_livemode is not None and cached.livemode != self._expected_livemode:
+                    raise StripeIntegrationError(f"Session {session_id} livemode mismatch")
                 if cached.customer_account_id and customer_account_id and cached.customer_account_id != customer_account_id:
                     raise StripeIntegrationError(f"Session {session_id} customer mismatch")
                 if cached.amount_micro_units and amount_micro and cached.amount_micro_units != amount_micro:

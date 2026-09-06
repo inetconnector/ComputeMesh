@@ -92,6 +92,44 @@ class TestStripeIntegration(unittest.TestCase):
         self.assertEqual(call["line_items"][0]["price_data"]["unit_amount"], 5000)
         self.assertEqual(self.store.get(result.session_id).payment_intent_id, "pi_test_001")
 
+    def test_checkout_rejects_mode_mismatch(self) -> None:
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            stripe_api_key="sk_live_123",
+            session_store=self.store,
+            stripe_client=self.fake_stripe,
+            require_live_configuration=True,
+        )
+        with self.assertRaisesRegex(StripeIntegrationError, "livemode"):
+            svc.create_checkout_session(customer_account_id="cust_mode", amount_usd=10.00)
+
+    def test_webhook_rejects_mode_mismatch(self) -> None:
+        svc = StripePaymentService(
+            ledger=self.ledger,
+            webhook_secret="whsec_test",
+            stripe_api_key="sk_live_123",
+            session_store=self.store,
+            stripe_client=self.fake_stripe,
+            webhook_verifier=trusted_json_verifier,
+            require_live_configuration=False,
+        )
+        payload = {
+            "type": "checkout.session.completed",
+            "data": {"object": {
+                "id": "cs_live_mismatch",
+                "livemode": False,
+                "payment_status": "paid",
+                "currency": "usd",
+                "client_reference_id": "cust_mode",
+                "amount_total": 1000,
+            }},
+        }
+        with self.assertRaisesRegex(StripeIntegrationError, "livemode"):
+            svc.process_webhook_payload(
+                raw_payload=json.dumps(payload).encode("utf-8"),
+                signature_header="t=123,v1=testsig",
+            )
+
     def test_unconfigured_checkout_fails_closed(self) -> None:
         svc = StripePaymentService(ledger=self.ledger)
         with self.assertRaises(StripeIntegrationError):

@@ -2277,3 +2277,10 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - `tools/appliance/multi_gpu_launcher.py` now defaults llama.cpp to loopback
   and rejects non-loopback binds unless explicitly opted into by the operator.
 - Added tests for the safe default and explicit protected-network opt-in.
+
+## 79. Stripe Live/Test Mode Boundary (2026-09-06)
+
+- Checkout responses and signed webhook payloads are checked against the
+  configured `sk_live_`/`sk_test_` secret mode before ledger crediting.
+- Cached session records are also rejected on cross-mode mismatch.
+- Added integration tests for Checkout and webhook mode mismatches.
