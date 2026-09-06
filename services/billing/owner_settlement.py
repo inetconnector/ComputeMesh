@@ -190,6 +190,44 @@ class OwnerPayoutProfileStore:
         assert result is not None
         return result
 
+    def get_profile(self, owner_id: str) -> OwnerPayoutProfile | None:
+        return self.get(owner_id)
+
+    def upsert_profile(
+        self,
+        *,
+        owner_id: str,
+        stripe_connected_account_id: str = "",
+        stripe_onboarding_status: str = "not_started",
+        payouts_enabled: bool = False,
+        details_submitted: bool = False,
+    ) -> OwnerPayoutProfile:
+        self.ensure(owner_id)
+        if stripe_connected_account_id:
+            self.attach_stripe_account(
+                owner_id=owner_id,
+                stripe_connected_account_id=stripe_connected_account_id,
+                onboarding_status=stripe_onboarding_status,
+            )
+        return self.update_status(
+            owner_id=owner_id,
+            onboarding_status=stripe_onboarding_status,
+            payouts_enabled=payouts_enabled,
+            details_submitted=details_submitted,
+        )
+
+    def list_profiles(self, *, payouts_enabled_only: bool = False) -> list[OwnerPayoutProfile]:
+        with self._connection() as conn:
+            if payouts_enabled_only:
+                rows = conn.execute(
+                    "SELECT * FROM owner_payout_profiles WHERE payouts_enabled = 1 ORDER BY owner_id"
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM owner_payout_profiles ORDER BY owner_id"
+                ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     @staticmethod
     def _from_row(row: sqlite3.Row) -> OwnerPayoutProfile:
         return OwnerPayoutProfile(
@@ -235,14 +273,14 @@ class PayoutCapableOwnerLedger(GatewayOwnerCreditLedger):
         if amount_micro_units <= 0:
             raise BillingError("withdrawal amount must be positive")
         with self._lock:
+            event_id = f"owner-withdrawal-reserve:{reference}"
+            self._ensure_new_event(event_id)
             withdrawable = self.owner_withdrawable_micro_units(owner)
             if withdrawable < amount_micro_units:
                 raise InsufficientBalanceError(
                     f"owner {owner} withdrawable earned balance ({withdrawable}) "
                     f"is below requested withdrawal ({amount_micro_units})"
                 )
-            event_id = f"owner-withdrawal-reserve:{reference}"
-            self._ensure_new_event(event_id)
             tx = Transaction(
                 tx_id=_event_tx_id("owner_withdraw_reserve", event_id),
                 event_id=event_id,
@@ -276,14 +314,14 @@ class PayoutCapableOwnerLedger(GatewayOwnerCreditLedger):
         if amount_micro_units <= 0:
             raise BillingError("withdrawal amount must be positive")
         with self._lock:
+            event_id = f"owner-withdrawal-finalize:{reference}"
+            self._ensure_new_event(event_id)
             pending = self.owner_withdrawal_pending_micro_units(owner)
             if pending < amount_micro_units:
                 raise BillingError(
                     f"owner {owner} pending withdrawal balance ({pending}) is below "
                     f"settlement amount ({amount_micro_units})"
                 )
-            event_id = f"owner-withdrawal-finalize:{reference}"
-            self._ensure_new_event(event_id)
             tx = Transaction(
                 tx_id=_event_tx_id("owner_withdraw_final", event_id),
                 event_id=event_id,
@@ -317,11 +355,9 @@ class PayoutCapableOwnerLedger(GatewayOwnerCreditLedger):
         if amount_micro_units <= 0:
             raise BillingError("withdrawal amount must be positive")
         with self._lock:
-            pending = self.owner_withdrawal_pending_micro_units(owner)
-            if pending < amount_micro_units:
-                raise BillingError("insufficient pending withdrawal balance to cancel")
             event_id = f"owner-withdrawal-cancel:{reference}"
             self._ensure_new_event(event_id)
+            pending = self.owner_withdrawal_pending_micro_units(owner)
             tx = Transaction(
                 tx_id=_event_tx_id("owner_withdraw_cancel", event_id),
                 event_id=event_id,

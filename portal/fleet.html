@@ -599,6 +599,9 @@
         <button id="btn-cockpit-servers" class="cockpit-tab-btn active" onclick="switchCockpitView('servers')">
           <span data-i18n="fleet_nav_tab_servers">⚡ Verbundene Server</span>
         </button>
+        <button id="btn-cockpit-payouts" class="cockpit-tab-btn" onclick="switchCockpitView('payouts')">
+          <span>💳 Einnahmen & Auszahlungen</span>
+        </button>
         <button id="btn-cockpit-security" class="cockpit-tab-btn" onclick="switchCockpitView('security')">
           <span data-i18n="fleet_nav_tab_security">🛡️ Sicherheit & Passkeys</span>
         </button>
@@ -638,6 +641,78 @@
             <p style="color:#94a3b8;max-width:520px;margin:0 auto 1.5rem auto;font-size:0.9rem;" data-i18n="fleet_empty_desc">
               Trage deinen Owner Key oder einen Einmal-Pairing-Code in der Konfiguration deiner Server ein. Sie erscheinen hier automatisch innerhalb weniger Sekunden.
             </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Earnings & Stripe Connect Payouts -->
+      <div id="cockpit-view-payouts" style="display: none;">
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+            <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">💳 Einnahmen & Stripe Connect Auszahlungen</h3>
+            <span id="payout-stripe-status" class="sec-badge info">⚪ Lade Stripe-Status...</span>
+          </div>
+          <p style="color:#94a3b8;font-size:0.92rem;line-height:1.6;margin-bottom:1.5rem;">
+            Verdiene <strong>75% aller Inferenzgebühren</strong>, die auf deinen bereitgestellten GPU-Servern ausgeführt werden. Auszahlungen werden automatisch oder auf Knopfdruck über Stripe Express sicher direkt auf dein Bankkonto überwiesen.
+          </p>
+
+          <!-- Metrics Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+            <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1.25rem;">
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Verfügbares Auszahlungsguthaben</div>
+              <div id="payout-earned-val" style="font-size:1.8rem;font-weight:800;color:#10b981;">$0.00 USD</div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Echtzeit-Vergütung aus GPU-Rechenleistung</div>
+            </div>
+
+            <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Auszahlungs-Schwelle</div>
+              <div style="font-size:1.8rem;font-weight:800;color:#f8fafc;">$25.00 USD</div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Mindestbetrag für Sofort- oder Sammelauszahlung</div>
+            </div>
+
+            <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Auszahlungsmethode</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#38bdf8;padding-top:0.3rem;">Stripe Express (SEPA / IBAN)</div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Direktüberweisung auf dein Bankkonto</div>
+            </div>
+          </div>
+
+          <!-- Actions Box -->
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;">⚡ Stripe Express Kontoverwaltung</h4>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+              <button id="btn-stripe-onboard" class="btn btn-primary" onclick="startStripeOnboarding()">
+                🚀 Stripe Express Auszahlung einrichten (IBAN hinterlegen)
+              </button>
+              <button class="btn btn-secondary" onclick="refreshStripeStatus()">
+                🔄 Status prüfen
+              </button>
+              <button id="btn-stripe-withdraw" class="btn btn-secondary" style="border-color:rgba(16,185,129,0.5);color:#10b981;" onclick="requestSettlement()" disabled>
+                💸 Sofort-Auszahlung anfordern
+              </button>
+            </div>
+            <div id="payouts-msg" style="margin-top:0.75rem;font-size:0.85rem;font-weight:600;color:var(--accent-cyan);"></div>
+          </div>
+
+          <!-- Payout History Table -->
+          <div>
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.1rem;color:#f8fafc;">📜 Auszahlungshistorie</h4>
+            <div style="overflow-x:auto;">
+              <table class="passkey-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th>Auszahlungs-ID</th>
+                    <th>Betrag</th>
+                    <th>Status</th>
+                    <th>Stripe Transfer ID</th>
+                    <th>Datum</th>
+                  </tr>
+                </thead>
+                <tbody id="payouts-history-table">
+                  <tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.5rem;">Lade Auszahlungshistorie...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -949,21 +1024,25 @@
 
     function switchCockpitView(view) {
       const btnServers = document.getElementById("btn-cockpit-servers");
+      const btnPayouts = document.getElementById("btn-cockpit-payouts");
       const btnSec = document.getElementById("btn-cockpit-security");
       const btnSetup = document.getElementById("btn-cockpit-setup");
       const btnOllama = document.getElementById("btn-cockpit-ollama");
 
       if (btnServers) btnServers.classList.toggle("active", view === 'servers');
+      if (btnPayouts) btnPayouts.classList.toggle("active", view === 'payouts');
       if (btnSec) btnSec.classList.toggle("active", view === 'security');
       if (btnSetup) btnSetup.classList.toggle("active", view === 'setup');
       if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
 
       const vServers = document.getElementById("cockpit-view-servers");
+      const vPayouts = document.getElementById("cockpit-view-payouts");
       const vSec = document.getElementById("cockpit-view-security");
       const vSetup = document.getElementById("cockpit-view-setup");
       const vOllama = document.getElementById("cockpit-view-ollama");
 
       if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
+      if (vPayouts) vPayouts.style.display = view === 'payouts' ? 'block' : 'none';
       if (vSec) vSec.style.display = view === 'security' ? 'block' : 'none';
       if (vSetup) vSetup.style.display = view === 'setup' ? 'block' : 'none';
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
@@ -971,6 +1050,167 @@
       if (view === 'security') {
         loadPasskeys();
         loadAuditLog();
+      }
+      if (view === 'payouts') {
+        loadPayouts();
+      }
+    }
+
+    async function loadPayouts() {
+      const msgBox = document.getElementById("payouts-msg");
+      const headers = {};
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      if (key) headers["X-Owner-Key"] = key;
+
+      try {
+        const res = await fetch(`/api/portal/fleet/payouts?owner_key=${encodeURIComponent(key)}`, { headers });
+        if (!res.ok) {
+          const errData = await res.json();
+          if (msgBox) msgBox.textContent = "Fehler: " + getErrorMessage(errData, "Konnte Auszahlungsdaten nicht laden");
+          return;
+        }
+        const data = await res.json();
+        renderPayouts(data);
+      } catch (e) {
+        if (msgBox) msgBox.textContent = "Netzwerkfehler: " + e.message;
+      }
+    }
+
+    function renderPayouts(data) {
+      const earnedEl = document.getElementById("payout-earned-val");
+      if (earnedEl) earnedEl.textContent = `$${(data.earned_balance_usd || 0).toFixed(2)} USD`;
+
+      const statusBadge = document.getElementById("payout-stripe-status");
+      const onboardBtn = document.getElementById("btn-stripe-onboard");
+      const withdrawBtn = document.getElementById("btn-stripe-withdraw");
+
+      if (statusBadge && onboardBtn) {
+        if (data.payouts_enabled) {
+          statusBadge.className = "sec-badge success";
+          statusBadge.textContent = `🟢 Bereit für Auszahlungen (${data.stripe_connected_account_id || "Stripe Express"})`;
+          onboardBtn.textContent = "⚙️ Stripe Express Konto / Bankverbindung anpassen";
+        } else if (data.stripe_connected_account_id) {
+          statusBadge.className = "sec-badge warn";
+          statusBadge.textContent = `🟡 Onboarding ausstehend (${data.stripe_connected_account_id})`;
+          onboardBtn.textContent = "👉 Stripe Express Onboarding fortsetzen";
+        } else {
+          statusBadge.className = "sec-badge info";
+          statusBadge.textContent = "⚪ Noch kein Stripe Express Konto verknüpft";
+          onboardBtn.textContent = "🚀 Stripe Express Auszahlung einrichten (IBAN hinterlegen)";
+        }
+      }
+
+      if (withdrawBtn) {
+        withdrawBtn.disabled = !data.can_withdraw;
+      }
+
+      // Render settlements table
+      const listEl = document.getElementById("payouts-history-table");
+      if (listEl) {
+        const settlements = data.settlements || [];
+        if (settlements.length === 0) {
+          listEl.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.5rem;">Noch keine Auszahlungen durchgeführt.</td></tr>`;
+        } else {
+          let rows = "";
+          settlements.forEach(s => {
+            const badge = s.status === 'completed' ? 'success' : (s.status === 'failed' ? 'danger' : 'warn');
+            rows += `
+              <tr>
+                <td style="font-family:'JetBrains Mono', monospace;font-size:0.8rem;color:#cbd5e1;">${escapeHtml(s.settlement_id || '--')}</td>
+                <td style="color:#38bdf8;font-weight:700;">$${((s.amount_micro_units || 0) / 1000000).toFixed(2)} ${escapeHtml((s.currency || 'USD').toUpperCase())}</td>
+                <td><span class="sec-badge ${badge}">${escapeHtml(s.status || '--')}</span></td>
+                <td style="font-family:'JetBrains Mono', monospace;font-size:0.75rem;color:#94a3b8;">${escapeHtml(s.stripe_transfer_id || '--')}</td>
+                <td style="font-size:0.8rem;color:#94a3b8;">${escapeHtml(s.created_at ? s.created_at.substring(0, 19).replace('T', ' ') : '--')}</td>
+              </tr>
+            `;
+          });
+          listEl.innerHTML = rows;
+        }
+      }
+    }
+
+    async function startStripeOnboarding() {
+      const msgBox = document.getElementById("payouts-msg");
+      if (msgBox) msgBox.textContent = "Erstelle sicheren Stripe Express Link...";
+      const headers = { "Content-Type": "application/json" };
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      if (key) headers["X-Owner-Key"] = key;
+
+      try {
+        const res = await fetch("/api/portal/fleet/payouts/onboard", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            owner_key: key,
+            return_url: window.location.origin + "/fleet?stripe=success",
+            refresh_url: window.location.origin + "/fleet?stripe=refresh"
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (msgBox) msgBox.textContent = "Fehler: " + getErrorMessage(data, "Onboarding konnte nicht gestartet werden");
+          return;
+        }
+        if (data.onboarding_url) {
+          if (msgBox) msgBox.textContent = "Leite weiter zu Stripe Express...";
+          window.location.href = data.onboarding_url;
+        }
+      } catch (e) {
+        if (msgBox) msgBox.textContent = "Fehler: " + e.message;
+      }
+    }
+
+    async function refreshStripeStatus() {
+      const msgBox = document.getElementById("payouts-msg");
+      if (msgBox) msgBox.textContent = "Aktualisiere Status von Stripe...";
+      const headers = { "Content-Type": "application/json" };
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      if (key) headers["X-Owner-Key"] = key;
+
+      try {
+        const res = await fetch("/api/portal/fleet/payouts/refresh", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ owner_key: key })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          renderPayouts(data);
+          if (msgBox) {
+            msgBox.textContent = "✓ Status erfolgreich aktualisiert!";
+            setTimeout(() => { msgBox.textContent = ""; }, 3000);
+          }
+        } else {
+          if (msgBox) msgBox.textContent = "Fehler: " + getErrorMessage(data, "Status-Aktualisierung fehlgeschlagen");
+        }
+      } catch (e) {
+        if (msgBox) msgBox.textContent = "Fehler: " + e.message;
+      }
+    }
+
+    async function requestSettlement() {
+      if (!confirm("Möchtest du dein verfügbares Inferenz-Guthaben jetzt über Stripe Express auf dein Bankkonto auszahlen lassen?")) return;
+      const msgBox = document.getElementById("payouts-msg");
+      if (msgBox) msgBox.textContent = "Auszahlung wird ausgeführt...";
+      const headers = { "Content-Type": "application/json" };
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      if (key) headers["X-Owner-Key"] = key;
+
+      try {
+        const res = await fetch("/api/portal/fleet/payouts/settle", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ owner_key: key })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (msgBox) msgBox.textContent = `✓ Auszahlung erfolgreich eingeleitet! Transfer-ID: ${data.stripe_transfer_id || data.settlement_id}`;
+          loadPayouts();
+        } else {
+          if (msgBox) msgBox.textContent = "Fehler bei Auszahlung: " + getErrorMessage(data, "Auszahlung fehlgeschlagen");
+        }
+      } catch (e) {
+        if (msgBox) msgBox.textContent = "Fehler: " + e.message;
       }
     }
 

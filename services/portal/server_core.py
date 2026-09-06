@@ -39,6 +39,7 @@ from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
 from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
 from services.portal.routes_downloads import get_download_file_response
+from services.portal.routes_payouts import PortalPayoutsHandler
 
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 NODE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{3,64}$")
@@ -85,6 +86,7 @@ class PortalHandler(BaseHTTPRequestHandler):
     registration_handler: PortalRegistrationHandler = PortalRegistrationHandler()
     quotes_handler: PortalQuotesHandler = PortalQuotesHandler()
     passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
+    payouts_handler: PortalPayoutsHandler = PortalPayoutsHandler()
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
@@ -418,6 +420,31 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
+        if clean_path == "/api/portal/fleet/payouts":
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            data = self.payouts_handler.get_payout_overview(owner_id)
+            self._send_json(data, credentialed=True)
+            return
+
         if clean_path.startswith("/downloads/"):
             dl_name = clean_path.removeprefix("/downloads/")
             body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")
@@ -449,6 +476,67 @@ class PortalHandler(BaseHTTPRequestHandler):
             body = json.loads(raw_data.decode("utf-8"))
         except Exception:
             body = {}
+
+        if clean_path in (
+            "/api/portal/fleet/payouts/onboard",
+            "/api/portal/fleet/payouts/refresh",
+            "/api/portal/fleet/payouts/settle",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/onboard":
+                email = (account.email if account else "") or str(body.get("email", "")).strip()
+                country = str(body.get("country", "DE")).strip().upper()
+                return_url = str(body.get("return_url", "https://mesh.inetconnector.com/fleet?stripe=return")).strip()
+                refresh_url = str(body.get("refresh_url", "https://mesh.inetconnector.com/fleet?stripe=refresh")).strip()
+                try:
+                    data = self.payouts_handler.start_onboarding(
+                        owner_id=owner_id,
+                        email=email,
+                        country=country,
+                        return_url=return_url,
+                        refresh_url=refresh_url,
+                    )
+                    self._send_json(data, credentialed=True)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/refresh":
+                data = self.payouts_handler.refresh_status(owner_id)
+                self._send_json(data, credentialed=True)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/settle":
+                amount_micro = body.get("amount_micro_units")
+                try:
+                    data = self.payouts_handler.execute_settlement(owner_id, amount_micro)
+                    if "error" in data:
+                        self._send_json(data, HTTPStatus.BAD_REQUEST, credentialed=True)
+                    else:
+                        self._send_json(data, credentialed=True)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
+                return
 
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
@@ -519,7 +607,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/unbind_node", "/api/v1/mesh/fleet/unbind_node"):
-            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key, session_account_from_headers
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
             node_id = str(body.get("node_id", "")).strip()
             if not node_id:
                 self._send_json({"error": "node_id is required"}, HTTPStatus.BAD_REQUEST)

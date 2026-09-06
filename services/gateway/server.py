@@ -30,6 +30,7 @@ from services.billing.ledger import Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
 from services.portal.routes_downloads import get_download_file_response
+from services.portal.routes_payouts import PortalPayoutsHandler
 
 
 def _resolve_owner_account_store_path() -> Path:
@@ -171,11 +172,19 @@ DEFAULT_PORT = CONFIG.default_gateway_port
 
 
 
-def _build_account_store_from_env() -> AccountingStore | None:
-    store_path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH")
-    if not store_path_env:
-        return None
-    return AccountingStore(storage_path=Path(store_path_env))
+def _build_account_store_from_env() -> AccountingStore:
+    store_path_env = os.environ.get("COMPUTEMESH_ACCOUNTING_DB_PATH") or os.environ.get("COMPUTEMESH_ACCOUNT_STORE_PATH")
+    if store_path_env:
+        return AccountingStore(storage_path=Path(store_path_env))
+    if sys.platform == "win32":
+        p = Path.home() / ".computemesh" / "accounting.db"
+    else:
+        p = Path("/var/lib/computemesh/accounting.db")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return AccountingStore(storage_path=p)
 
 
 def _build_stripe_service(ledger: Ledger, account_store: AccountingStore | None = None) -> StripePaymentService:
@@ -210,7 +219,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
     sys_version = ""
 
     ledger: Ledger = _build_ledger_from_env()
-    account_store: AccountingStore | None = _build_account_store_from_env()
+    account_store: AccountingStore = _build_account_store_from_env()
     stripe_svc: StripePaymentService = _build_stripe_service(ledger, account_store)
     settlement_executor: SettlementExecutor | None = _build_settlement_executor(ledger, account_store)
     metrics: MetricsRegistry = MetricsRegistry()
@@ -224,6 +233,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
     provider_routes: ProviderRoutesHandler = ProviderRoutesHandler(account_store=account_store, settlement_executor=settlement_executor, auth_manager=auth_manager, ledger=ledger)
     inference_engine: InferenceEngine = InferenceEngine(ledger=ledger, metrics=metrics, teaser_manager=teaser_manager)
     passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
+    payouts_handler: PortalPayoutsHandler = PortalPayoutsHandler(ledger=ledger, account_store=account_store)
 
     @classmethod
     def sync_subsystems(cls) -> None:
@@ -231,6 +241,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         cls.auth_manager = GatewayAuthManager(ledger=cls.ledger, teaser_manager=cls.teaser_manager, api_keys=getattr(cls, "api_keys", {}), owner_account_store=OWNER_ACCOUNT_STORE)
         cls.billing_routes = BillingRoutesHandler(ledger=cls.ledger, stripe_svc=cls.stripe_svc, auth_manager=cls.auth_manager)
         cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
+        cls.payouts_handler = PortalPayoutsHandler(ledger=cls.ledger, account_store=cls.account_store)
         backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
         cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager, backend=backend)
 
@@ -523,6 +534,30 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_id = owner_id_for_key(owner_key)
             payload = _build_fleet_payload(owner_id, include_remote_urls=True)
             self._send_json(payload)
+            return
+
+        if clean_path == "/api/portal/fleet/payouts":
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
+                return
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+                return
+            data = self.payouts_handler.get_payout_overview(owner_id)
+            self._send_json(data)
             return
 
         if clean_path in (
@@ -836,6 +871,66 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             self._send_json({"status": "ok", "unbound": unbound, "node_id": node_id})
             return
+
+        if clean_path in (
+            "/api/portal/fleet/payouts/onboard",
+            "/api/portal/fleet/payouts/refresh",
+            "/api/portal/fleet/payouts/settle",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("owner_") or candidate.startswith("cm_owner_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
+                return
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/onboard":
+                email = (account.email if account else "") or str(body.get("email", "")).strip()
+                country = str(body.get("country", "DE")).strip().upper()
+                return_url = str(body.get("return_url", "https://mesh.inetconnector.com/fleet?stripe=return")).strip()
+                refresh_url = str(body.get("refresh_url", "https://mesh.inetconnector.com/fleet?stripe=refresh")).strip()
+                try:
+                    data = self.payouts_handler.start_onboarding(
+                        owner_id=owner_id,
+                        email=email,
+                        country=country,
+                        return_url=return_url,
+                        refresh_url=refresh_url,
+                    )
+                    self._send_json(data)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/refresh":
+                data = self.payouts_handler.refresh_status(owner_id)
+                self._send_json(data)
+                return
+
+            if clean_path == "/api/portal/fleet/payouts/settle":
+                amount_micro = body.get("amount_micro_units")
+                try:
+                    data = self.payouts_handler.execute_settlement(owner_id, amount_micro)
+                    if "error" in data:
+                        self._send_json(data, HTTPStatus.BAD_REQUEST)
+                    else:
+                        self._send_json(data)
+                except Exception as exc:
+                    self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
 
         if clean_path in ("/api/v1/billing/quote", "/v1/billing/quote"):
             from services.portal.routes_quotes import PortalQuotesHandler

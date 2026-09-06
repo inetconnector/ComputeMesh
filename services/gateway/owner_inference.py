@@ -125,10 +125,13 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
             foreign_compute_gross_micro_units - self.promo_foreign_cap_micro_units,
         )
         if nonpromo_reserved < required_nonpromo:
-            raise InsufficientBalanceError(
-                "Promo credits cannot fund this foreign-provider portion under the current policy; "
-                f"required non-promo={required_nonpromo} µ$, reserved non-promo={nonpromo_reserved} µ$"
-            )
+            balances = self.owner_ledger.get_owner_balances(hold.owner_id)
+            available_nonpromo = balances.earned_micro_units + balances.purchased_micro_units
+            if available_nonpromo < required_nonpromo:
+                raise InsufficientBalanceError(
+                    "Promo credits cannot fund this foreign-provider portion under the current policy; "
+                    f"required non-promo={required_nonpromo} µ$, reserved non-promo={nonpromo_reserved} µ$"
+                )
 
     def create_metered_completion(
         self,
@@ -159,18 +162,16 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
 
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
-        est_prompt_tokens = (
-            sum(
-                len(str(message.get("content", "")).split()) * 2
-                for message in messages
-                if isinstance(message, dict)
-            )
-            or 64
+        raw_est = sum(
+            len(str(message.get("content", "")).split()) * 2
+            for message in messages
+            if isinstance(message, dict)
         )
+        est_prompt_tokens = max(1024, raw_est)
         max_required_hold = calculate_max_charge_micro(
             canonical_model_id,
             est_prompt_tokens,
-            requested_max,
+            max(requested_max, 1024),
         )
         hold = self.owner_ledger.create_owner_hold(
             owner_id=owner_id,

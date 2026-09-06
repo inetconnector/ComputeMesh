@@ -452,6 +452,22 @@ class AccountingStore:
                 ).fetchall()
         return [self._settlement_from_row(row) for row in rows]
 
+    def list_settlements_for_owner(self, owner_id: str, limit: int = 100) -> list[SettlementRecord]:
+        limit = max(1, min(int(limit), 500))
+        owner = str(owner_id or "").strip()
+        with self._connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM settlement_records
+                WHERE (account_kind = 'owner' AND account_id = ?)
+                   OR (account_id = ?)
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (owner, owner, limit),
+            ).fetchall()
+        return [self._settlement_from_row(row) for row in rows]
+
     @staticmethod
     def _provider_from_row(row: sqlite3.Row) -> ProviderAccount:
         return ProviderAccount(
