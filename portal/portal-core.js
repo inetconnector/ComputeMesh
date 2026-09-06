@@ -1275,6 +1275,7 @@ function openDepositModal() {
     if (btn) {
       delete btn.dataset.checkoutBusy;
       delete btn.dataset.checkoutCompleted;
+      delete btn.dataset.checkoutIdempotencyKey;
       btn.disabled = false;
     }
     const msgBox = document.getElementById('deposit-msg-box');
@@ -1312,6 +1313,9 @@ async function handleDepositSubmit(e) {
   }
 
   btn.dataset.checkoutBusy = '1';
+  if (!btn.dataset.checkoutIdempotencyKey) {
+    btn.dataset.checkoutIdempotencyKey = (window.crypto?.randomUUID?.() || `cm_checkout_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  }
   btn.disabled = true;
   btn.textContent = currentLang === 'de' ? 'Erstelle Checkout-Session...' : 'Creating checkout session...';
   msgBox.style.display = 'block';
@@ -1324,7 +1328,8 @@ async function handleDepositSubmit(e) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'Idempotency-Key': btn.dataset.checkoutIdempotencyKey
       },
       body: JSON.stringify({ amount_usd: amountUsd })
     });

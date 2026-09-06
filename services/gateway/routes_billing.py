@@ -146,6 +146,7 @@ class BillingRoutesHandler:
                 amount_usd=amount_usd,
                 success_url=body.get("success_url", f"{CONFIG.endpoints.base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"),
                 cancel_url=body.get("cancel_url", f"{CONFIG.endpoints.base_url}/billing/cancel"),
+                idempotency_key=headers.get("Idempotency-Key", ""),
             )
             return (asdict(session), None, HTTPStatus.OK)
         except StripeIntegrationError as exc:

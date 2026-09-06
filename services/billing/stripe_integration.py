@@ -13,6 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import json
 import math
 import os
+import threading
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import quote, urlencode
@@ -72,6 +73,7 @@ class StripeSessionRecord:
     status: str = "created"
     created_at: str = ""
     updated_at: str = ""
+    idempotency_key: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +89,7 @@ class StripeSessionRecord:
             "status": self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "idempotency_key": self.idempotency_key,
         }
 
 
@@ -123,6 +126,7 @@ class StripeSessionStore:
                     status=str(record.get("status", "created")),
                     created_at=str(record.get("created_at", "")),
                     updated_at=str(record.get("updated_at", "")),
+                    idempotency_key=str(record.get("idempotency_key", "")),
                 )
 
     def _flush(self) -> None:
@@ -136,6 +140,15 @@ class StripeSessionStore:
 
     def get(self, session_id: str) -> StripeSessionRecord | None:
         return self._records.get(session_id)
+
+    def get_by_idempotency_key(self, idempotency_key: str) -> StripeSessionRecord | None:
+        """Find a previously created Checkout Session by client retry key."""
+        if not idempotency_key:
+            return None
+        return next(
+            (record for record in self._records.values() if record.idempotency_key == idempotency_key),
+            None,
+        )
 
     def upsert(self, record: StripeSessionRecord) -> None:
         self._records[record.session_id] = record
@@ -175,6 +188,7 @@ class StripeSessionStore:
                 status="credited",
                 created_at=existing.created_at,
                 updated_at=_utc_now(),
+                idempotency_key=existing.idempotency_key,
             )
         )
 
@@ -274,6 +288,7 @@ class StripePaymentService:
         self.stripe_client = stripe_client
         self.webhook_verifier = webhook_verifier
         self.require_live_configuration = require_live_configuration
+        self._checkout_lock = threading.Lock()
         self._expected_livemode: bool | None = (
             True if self.stripe_api_key.startswith("sk_live_") else
             False if self.stripe_api_key.startswith("sk_test_") else None
@@ -323,8 +338,15 @@ class StripePaymentService:
         success_url: str = "https://mesh.inetconnector.com/docs?status=success",
         cancel_url: str = "https://mesh.inetconnector.com/pricing?status=cancelled",
         currency: str = "usd",
+        idempotency_key: str | None = None,
     ) -> CheckoutSessionResult:
         self._require_live_configuration()
+        if idempotency_key is not None:
+            idempotency_key = idempotency_key.strip()
+            if not idempotency_key:
+                idempotency_key = None
+            elif len(idempotency_key) > 255 or any(ord(char) < 33 or ord(char) > 126 for char in idempotency_key):
+                raise StripeIntegrationError("Idempotency-Key must be a printable value of 1-255 characters")
         try:
             amount_usd = float(amount_usd)
         except (TypeError, ValueError) as exc:
@@ -343,6 +365,30 @@ class StripePaymentService:
         amount_cents = _amount_to_cents(amount_usd)
         amount_micro = _cents_to_micro_units(amount_cents)
         created_at = _utc_now()
+
+        with self._checkout_lock:
+            if idempotency_key and self.session_store:
+                existing = self.session_store.get_by_idempotency_key(idempotency_key)
+                if existing:
+                    if (
+                        existing.customer_account_id != customer_account_id
+                        or existing.amount_micro_units != amount_micro
+                        or existing.currency != currency
+                    ):
+                        raise StripeIntegrationError("Idempotency-Key was already used with different Checkout parameters")
+                    return CheckoutSessionResult(
+                        session_id=existing.session_id,
+                        checkout_url=existing.checkout_url,
+                        customer_account_id=existing.customer_account_id,
+                        amount_usd=existing.amount_micro_units / MICRO_UNIT_SCALE,
+                        amount_micro_units=existing.amount_micro_units,
+                        created_at=existing.created_at,
+                        currency=existing.currency,
+                        stripe_customer_id=existing.stripe_customer_id,
+                        payment_intent_id=existing.payment_intent_id,
+                        livemode=existing.livemode,
+                    )
+
         metadata = {
             "customer_account_id": customer_account_id,
             "amount_micro_units": str(amount_micro),
@@ -377,6 +423,8 @@ class StripePaymentService:
         }
         if os.environ.get("COMPUTEMESH_STRIPE_AUTOMATIC_TAX", "").strip() == "1":
             params["automatic_tax"] = {"enabled": True}
+        if idempotency_key:
+            params["idempotency_key"] = idempotency_key
 
         try:
             session = self.stripe_client.checkout.Session.create(**params)
@@ -407,6 +455,7 @@ class StripePaymentService:
                     status="created",
                     created_at=created_at,
                     updated_at=created_at,
+                    idempotency_key=idempotency_key or "",
                 )
             )
 

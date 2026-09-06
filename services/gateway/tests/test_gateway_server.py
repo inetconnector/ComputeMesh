@@ -371,6 +371,7 @@ class TestGatewayServer(unittest.TestCase):
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {key}",
+                "Idempotency-Key": "gateway-checkout-retry-001",
             },
         )
         with urllib.request.urlopen(checkout_req) as resp:
@@ -380,6 +381,10 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("checkout.stripe.com", data["checkout_url"])
             session_id = data["session_id"]
             cust_account_id = data["customer_account_id"]
+
+        with urllib.request.urlopen(checkout_req) as resp:
+            retry_data = json.loads(resp.read().decode("utf-8"))
+            self.assertEqual(retry_data["session_id"], session_id)
 
         # 2. Ingest Webhook Event
         webhook_req = urllib.request.Request(

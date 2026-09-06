@@ -170,6 +170,34 @@ class TestStripeIntegration(unittest.TestCase):
                 signature_header="t=123,v1=testsig",
             )
 
+    def test_checkout_idempotency_key_reuses_persisted_session(self) -> None:
+        first = self.stripe_svc.create_checkout_session(
+            customer_account_id="cust_idempotent",
+            amount_usd=25.00,
+            idempotency_key="checkout-retry-001",
+        )
+        second = self.stripe_svc.create_checkout_session(
+            customer_account_id="cust_idempotent",
+            amount_usd=25.00,
+            idempotency_key="checkout-retry-001",
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(len(self.fake_stripe.checkout_session_api.calls), 1)
+        self.assertEqual(self.fake_stripe.checkout_session_api.calls[0]["idempotency_key"], "checkout-retry-001")
+
+    def test_checkout_idempotency_key_cannot_change_parameters(self) -> None:
+        self.stripe_svc.create_checkout_session(
+            customer_account_id="cust_idempotent_conflict",
+            amount_usd=25.00,
+            idempotency_key="checkout-retry-002",
+        )
+        with self.assertRaises(StripeIntegrationError):
+            self.stripe_svc.create_checkout_session(
+                customer_account_id="cust_idempotent_conflict",
+                amount_usd=50.00,
+                idempotency_key="checkout-retry-002",
+            )
+
     def test_webhook_successful_deposit(self) -> None:
         sess = self.stripe_svc.create_checkout_session(
             customer_account_id="cust_stripe_02",
