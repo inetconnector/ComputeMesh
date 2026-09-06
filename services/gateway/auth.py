@@ -120,9 +120,17 @@ class AuthResult:
 
 
 def extract_bearer_token(headers: Any) -> str:
-    auth_header = str(headers.get("Authorization", "")).strip() if headers else ""
+    if not headers or not hasattr(headers, "get"):
+        return ""
+    auth_header = str(headers.get("Authorization", "")).strip()
     if auth_header.startswith("Bearer "):
         return auth_header.removeprefix("Bearer ").strip()
+    owner_key = str(headers.get("X-Owner-Key", "")).strip()
+    if owner_key:
+        return owner_key
+    api_key = str(headers.get("X-API-Key", "")).strip()
+    if api_key:
+        return api_key
     return ""
 
 
@@ -257,9 +265,43 @@ class GatewayAuthManager:
                 return AuthResult(
                     account_id=account_id,
                     is_teaser=False,
-                    is_provider_self_compute=token.startswith("cm_provider_"),
+                    is_provider_self_compute=token.startswith("cm_provider_") or token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_"),
                     is_quota_exceeded=False,
                 )
+
+            # Fleet Owner Key authentication (e.g. inet-..., ok_..., cm_owner_...)
+            if token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_") or token.startswith("owner_"):
+                try:
+                    from services.portal.fleet_accounts import FLEET_ACCOUNT_STORE
+                    resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(token) or token
+                    acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(resolved)
+                    if acct is not None:
+                        account_id = acct.account_id
+                        with self._lock:
+                            self._api_keys[token] = account_id
+                        if self.uses_owner_credits:
+                            self._bind_owner_credential(token, account_id)
+                            return AuthResult(
+                                account_id=account_id,
+                                owner_id=account_id,
+                                is_teaser=False,
+                                is_provider_self_compute=True,
+                                is_quota_exceeded=False,
+                            )
+                        if self.ledger.get_balance(account_id) == 0:
+                            self.ledger.deposit_customer_credits(
+                                customer_account_id=account_id,
+                                amount_micro_units=100_000_000,
+                                payment_reference=f"owner_grant_{account_id}",
+                            )
+                        return AuthResult(
+                            account_id=account_id,
+                            is_teaser=False,
+                            is_provider_self_compute=True,
+                            is_quota_exceeded=False,
+                        )
+                except Exception:
+                    pass
 
             # Lab/private appliance compatibility must be enabled explicitly.
             if token.startswith("cm_provider_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
