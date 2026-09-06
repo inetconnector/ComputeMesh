@@ -2304,4 +2304,6 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   identity-store revocation events. The confidential control sidecar enables
   this wiring, so node/key revocation closes matching live sessions.
 - Targeted verification: 20 passed, 3 skipped in the selected public tests;
-  full suite and production deployment are pending for this tranche.
+  full public suite: 611/611 passed; private pytest: 148 passed plus 3
+  subtests. Deployed with remote compilation, hash comparison and active
+  gateway-service checks passed.
