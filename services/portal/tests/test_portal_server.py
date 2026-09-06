@@ -61,7 +61,7 @@ class TestPortalServer(unittest.TestCase):
             self.assertIn("business-user-confirm", content)
 
     def test_serve_subpages(self) -> None:
-        subpages = ["/docs", "/status", "/benchmarks", "/terms", "/privacy", "/impressum", "/contact"]
+        subpages = ["/docs", "/status", "/benchmarks", "/terms", "/privacy", "/impressum", "/contact", "/billing/cancel", "/billing/success"]
         for page in subpages:
             with self.subTest(page=page):
                 with urllib.request.urlopen(f"http://127.0.0.1:13000{page}") as resp:
@@ -261,4 +261,3 @@ class TestPortalServer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

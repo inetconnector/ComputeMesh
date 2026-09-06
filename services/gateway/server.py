@@ -143,7 +143,11 @@ def _build_ledger_from_env() -> Ledger:
         return GatewayOwnerCreditLedger(storage_path=path)
     return ThreadSafeLedger(storage_path=path)
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
-from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
+from services.billing.stripe_integration import (
+    StripePaymentService,
+    StripeSessionStore,
+    stripe_session_store_path_from_env,
+)
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
 from services.gateway.catalog import AVAILABLE_MODELS, resolve_model_id
@@ -190,7 +194,7 @@ def _build_account_store_from_env() -> AccountingStore:
 def _build_stripe_service(ledger: Ledger, account_store: AccountingStore | None = None) -> StripePaymentService:
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
     stripe_api_key = os.environ.get("STRIPE_API_KEY", "").strip()
-    session_store_path_env = os.environ.get("COMPUTEMESH_STRIPE_SESSION_STORE_PATH")
+    session_store_path_env = stripe_session_store_path_from_env()
     session_store = StripeSessionStore(Path(session_store_path_env)) if session_store_path_env else None
     return StripePaymentService(
         ledger=ledger,

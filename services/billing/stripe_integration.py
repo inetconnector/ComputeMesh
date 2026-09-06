@@ -29,6 +29,20 @@ class StripeIntegrationError(Exception):
     """Raised on payment session or signature validation failures."""
 
 
+def stripe_session_store_path_from_env() -> str:
+    """Return the configured durable Checkout session store path.
+
+    ``COMPUTEMESH_STRIPE_SESSION_STORE`` is the original production variable
+    documented and deployed by the service.  ``..._PATH`` was introduced by
+    the gateway bootstrap later.  Accept both names while preferring the
+    explicit ``..._PATH`` spelling so existing deployments keep working.
+    """
+    return (
+        os.environ.get("COMPUTEMESH_STRIPE_SESSION_STORE_PATH", "").strip()
+        or os.environ.get("COMPUTEMESH_STRIPE_SESSION_STORE", "").strip()
+    )
+
+
 @dataclass(frozen=True)
 class CheckoutSessionResult:
     session_id: str
@@ -270,7 +284,7 @@ class StripePaymentService:
 
     @classmethod
     def from_env(cls, *, ledger: Ledger) -> "StripePaymentService":
-        session_store_path = os.environ.get("COMPUTEMESH_STRIPE_SESSION_STORE", "").strip()
+        session_store_path = stripe_session_store_path_from_env()
         session_store = StripeSessionStore(Path(session_store_path)) if session_store_path else None
         return cls(
             ledger=ledger,

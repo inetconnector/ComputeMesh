@@ -1,8 +1,11 @@
 """Unit tests for Stripe Checkout and signed webhook payment integration."""
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 from services.billing.ledger import Ledger
 from services.billing.stripe_integration import (
@@ -93,6 +96,25 @@ class TestStripeIntegration(unittest.TestCase):
         svc = StripePaymentService(ledger=self.ledger)
         with self.assertRaises(StripeIntegrationError):
             svc.create_checkout_session(customer_account_id="cust_unconfigured", amount_usd=25.00)
+
+    def test_from_env_accepts_documented_session_store_name(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            store_path = Path(td) / "stripe_sessions.json"
+            with patch.dict(
+                os.environ,
+                {
+                    "STRIPE_API_KEY": "sk_test_from_env",
+                    "COMPUTEMESH_STRIPE_SESSION_STORE": str(store_path),
+                },
+                clear=True,
+            ):
+                with patch(
+                    "services.billing.stripe_integration._load_stripe_module",
+                    return_value=SimpleNamespace(),
+                ):
+                    svc = StripePaymentService.from_env(ledger=self.ledger)
+            self.assertIsInstance(svc.session_store, StripeSessionStore)
+            self.assertEqual(svc.session_store.storage_path, store_path)
 
     def test_checkout_can_be_configured_before_webhook_secret(self) -> None:
         svc = StripePaymentService(

@@ -55,6 +55,8 @@ ROUTE_MAP: dict[str, str] = {
     "/impressum": "impressum.html",
     "/contact": "contact.html",
     "/fleet": "fleet.html",
+    "/billing/cancel": "billing/cancel.html",
+    "/billing/success": "billing/success.html",
     "/google55d49cbebf6659d4.html": "google55d49cbebf6659d4.html",
 }
 

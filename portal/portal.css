@@ -761,6 +761,14 @@ pre code {
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: 0.95rem;
+  color-scheme: dark;
+}
+
+/* Keep native select popovers readable in light-OS/browser themes. */
+.form-control option,
+.pg-select option {
+  background-color: #0f172a;
+  color: #f8fafc;
 }
 
 .form-control:focus {
@@ -880,6 +888,7 @@ footer.site-footer {
   font-family: var(--font-body);
   cursor: pointer;
   outline: none;
+  color-scheme: dark;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
