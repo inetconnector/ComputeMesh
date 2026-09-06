@@ -288,3 +288,9 @@ Für den aktuellen öffentlichen Status zuerst [docs/CURRENT_STATUS.de.md](docs/
 ## Lizenz
 
 Alle Rechte bleiben vorbehalten, bis ausdrücklich eine Lizenz ausgewählt und veröffentlicht wird. Die Repository-Sichtbarkeit gewährt keine Open-Source-Nutzungsrechte.
+
+Das Laden privater Ed25519-Provider-Schlüssel schlägt unter POSIX ab, wenn
+Schlüsseldatei oder Elternverzeichnis für Gruppe/Andere zugänglich sind.
+Schreibvorgänge lehnen Symlink-Pfade ab und bleiben atomar. Der integrierte
+Control-Plane-Sidecar verbindet Revocation-Ereignisse mit dem sofortigen
+Beenden betroffener Provider-Sitzungen.
