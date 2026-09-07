@@ -313,6 +313,20 @@ class OllamaHTTPBackend:
             normalized.insert(0, {"role": "system", "content": system_prompt})
         return normalized or [{"role": "user", "content": "Hello"}]
 
+    def _resolve_runtime_model(self, model_id: str, messages: list[dict[str, Any]]) -> str:
+        has_images = any(bool(m.get("images")) for m in messages)
+        if not has_images:
+            return self.model_override or model_id
+        # Multimodal request: bypass text-only model override unless override is explicitly a vision model
+        if self.model_override and any(k in self.model_override.lower() for k in ("vl", "vision", "llava", "moondream")):
+            return self.model_override
+        clean_mid = model_id.lower()
+        if "moondream" in clean_mid:
+            return "moondream:latest"
+        if "llava" in clean_mid:
+            return "llava:latest"
+        return "llava:latest"
+
     def complete(
         self,
         *,
@@ -320,8 +334,8 @@ class OllamaHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
     ) -> BackendResult:
-        runtime_model = self.model_override or model_id
         normalized = self._normalise_messages(messages, self.system_prompt)
+        runtime_model = self._resolve_runtime_model(model_id, normalized)
         predict_limit = max_tokens if max_tokens is not None else self.num_predict
         options: dict[str, int | float] = {"temperature": 0.2, "num_predict": predict_limit}
         if self.num_ctx is not None:
