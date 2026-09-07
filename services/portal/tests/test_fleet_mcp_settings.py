@@ -1,6 +1,12 @@
 import unittest
 import tempfile
+import sys
 from pathlib import Path
+
+_repo_root = Path(__file__).resolve().parent.parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 from services.portal.fleet_accounts import FleetAccountStore
 from services.billing.owner_accounts import OwnerAccountStore
 from services.mcp.agent_loop import AgentLoop
