@@ -1415,9 +1415,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if "enable_mcp" in body:
             enable_mcp = bool(body.get("enable_mcp"))
         elif "tools" in body:
-            enable_mcp = bool(body.get("tools"))
+            tools_val = body.get("tools")
+            enable_mcp = bool(tools_val) if isinstance(tools_val, list) else True
         else:
-            enable_mcp = bool(auth.is_provider_self_compute)
+            enable_mcp = True
         max_tokens_val = body.get("max_tokens") or body.get("max_completion_tokens")
         max_tokens = int(max_tokens_val) if max_tokens_val is not None and str(max_tokens_val).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))

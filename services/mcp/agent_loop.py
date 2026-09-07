@@ -16,6 +16,7 @@ from .tool_registry import ToolRegistry
 
 XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*({.*?})(?:\s*</tool_call>|\s*$)", re.DOTALL)
 JSON_CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{\s*\"(?:name|tool|function)\"\s*:\s*\"[a-zA-Z0-9_-]+\".*?\})\s*```", re.DOTALL)
+RAW_JSON_TOOL_RE = re.compile(r"\{\s*\"(?:name|tool|function)\"\s*:\s*\"([a-zA-Z0-9_-]+)\"\s*,\s*\"(?:arguments|parameters)\"\s*:\s*(\{.*?\})\s*\}", re.DOTALL)
 
 
 @dataclass
@@ -127,6 +128,41 @@ class AgentLoop:
                                 })
                         except Exception:
                             pass
+
+                # 3. Raw JSON tool call patterns
+                if not tool_calls:
+                    for match in RAW_JSON_TOOL_RE.finditer(content):
+                        try:
+                            fn_name = match.group(1)
+                            raw_args_str = match.group(2)
+                            if fn_name and self.registry.get_tool(fn_name):
+                                tool_calls.append({
+                                    "id": f"call_raw_{len(tool_calls)+1}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": fn_name,
+                                        "arguments": raw_args_str,
+                                    },
+                                })
+                        except Exception:
+                            pass
+
+                # 4. Direct JSON root object
+                if not tool_calls and content.strip().startswith("{") and content.strip().endswith("}"):
+                    try:
+                        parsed = json.loads(content.strip())
+                        fn_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
+                        if fn_name and self.registry.get_tool(fn_name):
+                            tool_calls.append({
+                                "id": f"call_direct_{len(tool_calls)+1}",
+                                "type": "function",
+                                "function": {
+                                    "name": fn_name,
+                                    "arguments": json.dumps(parsed.get("arguments", parsed.get("parameters", {}))),
+                                },
+                            })
+                    except Exception:
+                        pass
 
             # If no tools were called, this is the final answer
             if not tool_calls:

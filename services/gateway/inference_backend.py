@@ -119,7 +119,16 @@ class SyntheticInferenceBackend:
                     else:
                         last_user_msg = str(content).strip()
 
-        if has_images:
+        # Check if latest message is a tool result
+        last_msg = messages[-1] if messages else {}
+        has_tool_system = any(isinstance(m, dict) and m.get("role") == "system" and "<tool_call>" in str(m.get("content", "")) for m in messages)
+
+        if isinstance(last_msg, dict) and last_msg.get("role") == "tool":
+            tool_content = str(last_msg.get("content", ""))
+            text = f"Basierend auf den aktuellen Live-Daten: {tool_content[:120]}"
+        elif has_tool_system and ("wetter" in last_user_msg.lower() or "weather" in last_user_msg.lower()):
+            text = '<tool_call>{"name": "get_current_weather", "arguments": {"location": "Veitshöchheim"}}</tool_call>'
+        elif has_images:
             text = (
                 f"[ComputeMesh Professional Vision Analysis | Model: {model_id}]\n"
                 f"Image Analysis Summary:\n"

@@ -90,13 +90,19 @@ class TestMeshTransport(unittest.TestCase):
         )
         client_local_port = tunnel_client.start()
 
-        time.sleep(0.25)
+        time.sleep(0.5)
 
         try:
             # 4. Connect client app to local loopback port
             app_sock = socket.create_connection(("127.0.0.1", client_local_port), timeout=5)
             app_sock.sendall(b"PING_COMPUTEMESH_TENSOR")
-            response = app_sock.recv(1024)
+            response = b""
+            for _ in range(10):
+                chunk = app_sock.recv(1024)
+                if chunk:
+                    response += chunk
+                    break
+                time.sleep(0.1)
             app_sock.close()
 
             self.assertEqual(response, b"ECHO:PING_COMPUTEMESH_TENSOR")

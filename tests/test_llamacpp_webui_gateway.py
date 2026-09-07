@@ -126,6 +126,22 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("choices", data)
 
+    def test_post_webui_chat_mcp_weather(self):
+        status, data = self._post(
+            "/webui/chat/completions",
+            body={
+                "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
+                "stream": False,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("choices", data)
+        content = data["choices"][0]["message"]["content"]
+        self.assertTrue(
+            "Live-Daten" in content or "Veitshöchheim" in content or "Wetter" in content,
+            f"Expected live tool synthesized answer, got: {content}",
+        )
+
     def test_post_tokenize_detokenize(self):
         status, data = self._post("/tokenize", body={"content": "Hello"})
         self.assertEqual(status, 200)

@@ -143,6 +143,8 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
+        enable_mcp: bool = True,
+        **kwargs: Any,
     ) -> tuple[str, str, int, int, int]:
         # Public free teaser remains deliberately outside durable owner economics.
         if is_teaser:
@@ -154,6 +156,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                 is_teaser=True,
                 is_provider_self_compute=False,
                 max_tokens=max_tokens,
+                enable_mcp=enable_mcp,
             )
 
         owner_id = str(account_id or "").strip()
@@ -178,24 +181,97 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         prompt_raw = json.dumps(normalized_messages)
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
-            try:
-                with secure_buf.open_plaintext():
+            backend_result = None
+            if enable_mcp and getattr(self, "mcp_config", None) and self.mcp_config.enabled:
+                disabled_tools: list[str] = []
+                if owner_id:
                     try:
-                        backend_result = self.backend.complete(
+                        from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+                        disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
+                    except Exception:
+                        disabled_tools = []
+                disabled_set = set(disabled_tools)
+
+                def local_llm_caller(msg_list, tool_list):
+                    nonlocal backend_result
+                    try:
+                        res = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=normalized_messages,
+                            messages=msg_list,
                             max_tokens=requested_max,
                         )
                     except TypeError:
-                        backend_result = self.backend.complete(
+                        res = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=normalized_messages,
+                            messages=msg_list,
                         )
-                completion_text = backend_result.text
-                tokens_prompt = backend_result.prompt_tokens
-                tokens_completion = backend_result.completion_tokens
-            finally:
-                secure_buf.zeroize()
+                    backend_result = res
+                    return {
+                        "choices": [{
+                            "message": {
+                                "role": "assistant",
+                                "content": res.text,
+                            }
+                        }],
+                        "usage": {
+                            "prompt_tokens": res.prompt_tokens,
+                            "completion_tokens": res.completion_tokens,
+                        },
+                    }
+
+                enhanced_msgs = list(normalized_messages)
+                has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
+                if not has_tool_system:
+                    active_tools = [
+                        t for t in self.tool_registry.list_tools(is_owner=True)
+                        if t.name not in disabled_set
+                    ]
+                    tools_desc = "\n".join([
+                        f"- {t.name}({', '.join(t.parameters.get('properties', {}).keys())}): {t.description}"
+                        for t in active_tools
+                    ])
+                    tool_prompt = (
+                        "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (Model Context Protocol / MCP).\n"
+                        "WICHTIGE ANWEISUNG: Du hast direkten Zugriff auf Live-Tools für Wetter, Finanzen/Krypto, News, Wikipedia, Mathe, DNS und Web-Abfragen. "
+                        "Wenn eine Frage aktuelle Daten oder Berechnungen erfordert (z. B. Wetter an einem Ort, Börsenkurse, Krypto, aktuelle Nachrichten oder Berechnungen), "
+                        "darfst du NIEMALS behaupten, keinen Zugriff zu haben, und du darfst NIEMALS Python-Code zur Selbstanfrage vorschlagen!\n"
+                        "Rufe stattdessen SOFORT das passende Tool im XML-Format auf:\n"
+                        "<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}</tool_call>\n\n"
+                        f"Verfügbare Tools:\n{tools_desc}\n\n"
+                        "Beispiel Wetter:\n"
+                        "<tool_call>{\"name\": \"get_current_weather\", \"arguments\": {\"location\": \"Veitshöchheim\"}}</tool_call>\n"
+                    )
+                    enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
+
+                agent_res = self.agent_loop.run(
+                    messages=enhanced_msgs,
+                    model=canonical_model_id,
+                    llm_caller=local_llm_caller,
+                    is_owner=True,
+                    disabled_tools=disabled_tools,
+                )
+                completion_text = agent_res.final_content
+                tokens_prompt = agent_res.prompt_tokens
+                tokens_completion = agent_res.completion_tokens
+            else:
+                try:
+                    with secure_buf.open_plaintext():
+                        try:
+                            backend_result = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=normalized_messages,
+                                max_tokens=requested_max,
+                            )
+                        except TypeError:
+                            backend_result = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=normalized_messages,
+                            )
+                    completion_text = backend_result.text
+                    tokens_prompt = backend_result.prompt_tokens
+                    tokens_completion = backend_result.completion_tokens
+                finally:
+                    secure_buf.zeroize()
 
             chat_id = f"chatcmpl-{secrets.token_hex(12)}"
             created_timestamp = int(time.time())

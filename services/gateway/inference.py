@@ -73,7 +73,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
-        enable_mcp: bool = False,
+        enable_mcp: bool = True,
     ) -> tuple[str, str, int, int, int]:
         """Execute inference with atomic credit hold reservation and post-completion capture.
 
@@ -104,7 +104,7 @@ class InferenceEngine:
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
             backend_result = None
-            if enable_mcp and self.mcp_config.enabled and is_provider_self_compute:
+            if enable_mcp and self.mcp_config.enabled:
                 owner_id = None
                 if account_id:
                     cleaned_k = str(account_id).strip()
@@ -124,6 +124,7 @@ class InferenceEngine:
                 disabled_set = set(disabled_tools)
 
                 def local_llm_caller(msg_list, tool_list):
+                    nonlocal backend_result
                     try:
                         res = self.backend.complete(
                             model_id=canonical_model_id,
@@ -135,6 +136,7 @@ class InferenceEngine:
                             model_id=canonical_model_id,
                             messages=msg_list,
                         )
+                    backend_result = res
                     return {
                         "choices": [{
                             "message": {
@@ -160,11 +162,15 @@ class InferenceEngine:
                         for t in active_tools
                     ])
                     tool_prompt = (
-                        "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (MCP).\n"
-                        "Wenn du für die Beantwortung der Anfrage externe, aktuelle, rechnerische, wetter-, finanz- oder ortsbezogene Daten benötigst, "
-                        "rufe das passende Tool auf im Format:\n"
+                        "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (Model Context Protocol / MCP).\n"
+                        "WICHTIGE ANWEISUNG: Du hast direkten Zugriff auf Live-Tools für Wetter, Finanzen/Krypto, News, Wikipedia, Mathe, DNS und Web-Abfragen. "
+                        "Wenn eine Frage aktuelle Daten oder Berechnungen erfordert (z. B. Wetter an einem Ort, Börsenkurse, Krypto, aktuelle Nachrichten oder Berechnungen), "
+                        "darfst du NIEMALS behaupten, keinen Zugriff zu haben, und du darfst NIEMALS Python-Code zur Selbstanfrage vorschlagen!\n"
+                        "Rufe stattdessen SOFORT das passende Tool im XML-Format auf:\n"
                         "<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}</tool_call>\n\n"
-                        f"Verfügbare Tools:\n{tools_desc}\n"
+                        f"Verfügbare Tools:\n{tools_desc}\n\n"
+                        "Beispiel Wetter:\n"
+                        "<tool_call>{\"name\": \"get_current_weather\", \"arguments\": {\"location\": \"Veitshöchheim\"}}</tool_call>\n"
                     )
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 
@@ -494,7 +500,7 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
-        enable_mcp: bool = False,
+        enable_mcp: bool = True,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         try:
             chat_id, completion_text, created_ts, tok_p, tok_c = self.create_metered_completion(
@@ -533,7 +539,7 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
-        enable_mcp: bool = False,
+        enable_mcp: bool = True,
     ) -> Generator[bytes, None, None]:
         chat_id, completion_text, created_ts, _, _ = self.create_metered_completion(
             account_id=account_id,
@@ -572,6 +578,7 @@ class InferenceEngine:
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
+                enable_mcp=True,
             )
             res = self.format_ollama_chat_response(
                 model_id=model_id,
@@ -606,6 +613,7 @@ class InferenceEngine:
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
             max_tokens=max_tokens,
+            enable_mcp=True,
         )
         yield from self.stream_ollama_chat_ndjson(
             model_id=model_id,
@@ -639,6 +647,7 @@ class InferenceEngine:
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
+                enable_mcp=True,
             )
             res = self.format_ollama_generate_response(
                 model_id=model_id,
@@ -678,6 +687,7 @@ class InferenceEngine:
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
             max_tokens=max_tokens,
+            enable_mcp=True,
         )
         yield from self.stream_ollama_generate_ndjson(
             model_id=model_id,
@@ -685,4 +695,3 @@ class InferenceEngine:
             tokens_prompt=tok_p,
             tokens_completion=tok_c,
         )
-
