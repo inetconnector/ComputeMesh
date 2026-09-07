@@ -114,11 +114,17 @@ def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> Optional[Dict[s
         return None
 
 
-def execute_finance_quote(symbol: str, timeout: float = 10.0) -> Dict[str, Any]:
+def get_market_quote(
+    symbol: str = "",
+    stock: str = "",
+    crypto: str = "",
+    ticker: str = "",
+    timeout: float = 8.0,
+) -> Dict[str, Any]:
     """
-    Unified financial quote tool. Automatically resolves stocks, indices, and crypto.
+    Returns real-time quote for a stock, index, ETF, or cryptocurrency.
     """
-    raw_sym = (symbol or "").strip()
+    raw_sym = (symbol or stock or crypto or ticker or "").strip()
     if not raw_sym:
         return {"error": "Symbol darf nicht leer sein (z.B. AAPL, NVDA, BTC, DAX)"}
 
@@ -163,3 +169,8 @@ def execute_finance_quote(symbol: str, timeout: float = 10.0) -> Dict[str, Any]:
         "error": f"Keine aktuellen Marktdaten für '{raw_sym}' gefunden. Bitte Symbol prüfen (z. B. AAPL, NVDA, SAP.DE, BTC-USD).",
         "symbol": raw_sym,
     }
+
+
+# Backwards-compatible alias
+execute_finance_quote = get_market_quote
+

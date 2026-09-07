@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional
 from .config import MCPConfig, get_mcp_config
 from .tool_registry import ToolRegistry
 
-XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*({.*?})\s*</tool_call>", re.DOTALL)
+XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*({.*?})(?:\s*</tool_call>|\s*$)", re.DOTALL)
 
 
 @dataclass
