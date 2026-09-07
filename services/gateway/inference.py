@@ -186,10 +186,10 @@ class InferenceEngine:
             # financial event can be traced back to its reservation/evidence record.
             provider_shares = (
                 list(backend_result.provider_shares)
-                if backend_result.provider_shares is not None
+                if (backend_result and getattr(backend_result, "provider_shares", None) is not None)
                 else provider_shares_from_env()
             )
-            billing_job_id = backend_result.execution_job_id or chat_id
+            billing_job_id = (backend_result.execution_job_id if backend_result else None) or chat_id
             fee_bps = 0 if is_provider_self_compute else None
 
             if not is_teaser and not is_provider_self_compute:
