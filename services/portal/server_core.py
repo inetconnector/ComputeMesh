@@ -297,6 +297,55 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_bytes(target_file.read_bytes(), "text/html; charset=utf-8")
                 return
 
+        # llama.cpp WebUI & Chat Studio static assets
+        if clean_path in ("/webui", "/webui/", "/chat", "/chat/", "/llama", "/llama/"):
+            index_target = _safe_resolve_portal_file("webui/index.html")
+            if index_target and index_target.exists():
+                self._send_bytes(index_target.read_bytes(), "text/html; charset=utf-8")
+                return
+
+        if clean_path.startswith("/webui/"):
+            sub_rel = clean_path.removeprefix("/webui/")
+            target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                content_types = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".mjs": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".webmanifest": "application/manifest+json; charset=utf-8",
+                    ".svg": "image/svg+xml",
+                    ".png": "image/png",
+                    ".ico": "image/x-icon",
+                    ".wasm": "application/wasm",
+                }
+                ctype = content_types.get(suffix, "application/octet-stream")
+                self._send_bytes(target_f.read_bytes(), ctype)
+                return
+
+        if clean_path.startswith("/_app/") or clean_path.startswith("/workbox-") or clean_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
+            sub_rel = clean_path.lstrip("/")
+            target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                content_types = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".mjs": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".webmanifest": "application/manifest+json; charset=utf-8",
+                    ".svg": "image/svg+xml",
+                    ".png": "image/png",
+                    ".ico": "image/x-icon",
+                    ".wasm": "application/wasm",
+                }
+                ctype = content_types.get(suffix, "application/octet-stream")
+                self._send_bytes(target_f.read_bytes(), ctype)
+                return
+
         if clean_path in STATIC_TEXT_ROUTES:
             filename, content_type = STATIC_TEXT_ROUTES[clean_path]
             target_file = _safe_resolve_portal_file(filename)

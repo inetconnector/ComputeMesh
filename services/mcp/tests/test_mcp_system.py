@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 Comprehensive Unit Tests for ComputeMesh MCP Subsystem.
-Validates all tools, sandboxing security, tool registry, and agent loop execution.
+Validates all 21 tools, free database lookups, sandboxing security, tool registry, and agent loop execution.
 """
 
 import json
@@ -21,9 +21,17 @@ from services.mcp.builtin.wikipedia import get_wikipedia_summary
 from services.mcp.builtin.time_calendar import get_time_and_calendar, calculate_easter_sunday, get_german_holidays
 from services.mcp.builtin.currency import convert_currency
 from services.mcp.builtin.geo_routing import get_distance_route, _haversine_distance_km, _compass_direction
+from services.mcp.builtin.country_data import lookup_country_data
+from services.mcp.builtin.world_bank import get_world_bank_stats
+from services.mcp.builtin.arxiv_research import search_arxiv_papers
+from services.mcp.builtin.food_products import lookup_food_product
+from services.mcp.builtin.package_registry import lookup_software_package
+from services.mcp.builtin.earthquake_feed import get_recent_earthquakes
+from services.mcp.builtin.chemical_data import lookup_chemical_compound
+from services.mcp.builtin.dictionary_lookup import lookup_word_definition
+from services.mcp.builtin.train_transit import lookup_train_schedule
 from services.mcp.builtin.network_tools import lookup_network_host, _is_ip_blocked
 from services.mcp.builtin.system_tools import execute_system_info
-from services.mcp.mcp_client import MCPClient, MCPStdioClient
 
 
 class TestMCPConfig(unittest.TestCase):
@@ -171,7 +179,6 @@ class TestWikipediaAndCalendar(unittest.TestCase):
 
     def test_easter_and_holidays(self):
         easter_2026 = calculate_easter_sunday(2026)
-        # In 2026, Easter Sunday is on April 5
         self.assertEqual(str(easter_2026), "2026-04-05")
 
         holidays_by = get_german_holidays(2026, state="BY")
@@ -214,12 +221,10 @@ class TestCurrencyAndGeoRouting(unittest.TestCase):
             self.assertEqual(res["unit_price"], 60000.0)
 
     def test_haversine_distance(self):
-        # Distance between Berlin (52.52, 13.405) and Munich (48.137, 11.576) is approx 504 km
         dist = _haversine_distance_km(52.5200, 13.4050, 48.1371, 11.5761)
         self.assertTrue(500 < dist < 510)
 
     def test_compass_direction(self):
-        # Moving south from Berlin to Munich
         direction = _compass_direction(52.5200, 13.4050, 48.1371, 11.5761)
         self.assertIn(direction, ("SSW", "S", "SW"))
 
@@ -239,6 +244,195 @@ class TestCurrencyAndGeoRouting(unittest.TestCase):
         self.assertEqual(res["driving_distance_km"], 7.5)
         self.assertEqual(res["driving_duration_formatted"], "10 Min.")
         self.assertIn("summary", res)
+
+
+class TestFreeDatabaseIntelligence(unittest.TestCase):
+    @patch("urllib.request.urlopen")
+    def test_country_data_mocked(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps([{
+            "name": {"common": "Japan", "official": "State of Japan"},
+            "capital": ["Tokyo"],
+            "population": 125000000,
+            "region": "Asia",
+            "currencies": {"JPY": {"name": "Japanese yen", "symbol": "¥"}},
+            "languages": {"jpn": "Japanese"},
+            "borders": [],
+            "timezones": ["UTC+09:00"],
+            "area": 377975,
+        }]).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = lookup_country_data("Japan")
+        self.assertEqual(res["country_name"], "Japan")
+        self.assertEqual(res["capital"], "Tokyo")
+        self.assertEqual(res["population"], 125000000)
+
+    @patch("urllib.request.urlopen")
+    def test_world_bank_mocked(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps([
+            {"page": 1, "pages": 1, "per_page": 50, "total": 2},
+            [
+                {"indicator": {"id": "NY.GDP.MKTP.CD"}, "country": {"id": "DE", "value": "Germany"}, "date": "2023", "value": 4456000000000.0},
+                {"indicator": {"id": "NY.GDP.MKTP.CD"}, "country": {"id": "DE", "value": "Germany"}, "date": "2022", "value": 4082000000000.0},
+            ]
+        ]).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = get_world_bank_stats(country="DEU", indicator="gdp")
+        self.assertEqual(res["country"], "Germany")
+        self.assertEqual(res["latest_year"], "2023")
+        self.assertEqual(res["latest_value"], 4456000000000.0)
+
+    @patch("urllib.request.urlopen")
+    def test_arxiv_research_mocked(self, mock_urlopen):
+        sample_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry>
+            <id>http://arxiv.org/abs/2401.00001v1</id>
+            <title>Advances in Deep Reasoning Models</title>
+            <summary>This paper introduces new methods for multi-step reasoning.</summary>
+            <published>2026-01-01T12:00:00Z</published>
+            <author><name>Dr. Alice Smith</name></author>
+          </entry>
+        </feed>"""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = sample_xml
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = search_arxiv_papers("deep reasoning")
+        self.assertEqual(res["papers_found"], 1)
+        self.assertEqual(res["papers"][0]["title"], "Advances in Deep Reasoning Models")
+        self.assertIn("Dr. Alice Smith", res["papers"][0]["authors"])
+
+    @patch("services.mcp.builtin.food_products._search_by_name")
+    def test_food_product_mocked(self, mock_search):
+        mock_search.return_value = {
+            "product_name": "Nutella",
+            "brands": "Ferrero",
+            "code": "3017620422003",
+            "nutriscore_grade": "e",
+            "ecoscore_grade": "d",
+            "ingredients_text": "Zucker, Palmöl, Haselnüsse (13%), Magermilchpulver (8,7%), fettarmer Kakao (7,4%)",
+            "nutriments": {"energy-kcal_100g": 539, "fat_100g": 30.9, "sugars_100g": 56.3, "proteins_100g": 6.3},
+        }
+        res = lookup_food_product("Nutella")
+        self.assertEqual(res["product_name"], "Nutella")
+        self.assertEqual(res["brand"], "Ferrero")
+        self.assertEqual(res["nutriscore"], "E")
+        self.assertEqual(res["nutrition_per_100g"]["brennwert_kcal_100g"], 539)
+
+    @patch("services.mcp.builtin.package_registry._fetch_pypi")
+    @patch("services.mcp.builtin.package_registry._check_osv_vulnerabilities")
+    def test_software_package_mocked(self, mock_osv, mock_pypi):
+        mock_pypi.return_value = {
+            "ecosystem": "PyPI (Python)",
+            "name": "fastapi",
+            "version": "0.115.0",
+            "summary": "FastAPI framework, high performance",
+            "license": "MIT",
+            "dependencies_count": 5,
+        }
+        mock_osv.return_value = []
+        res = lookup_software_package("fastapi", ecosystem="pypi")
+        self.assertEqual(res["name"], "fastapi")
+        self.assertEqual(res["vulnerabilities_count"], 0)
+        self.assertIn("v0.115.0", res["summary_formatted"])
+
+    @patch("urllib.request.urlopen")
+    def test_earthquakes_mocked(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "features": [{
+                "properties": {
+                    "mag": 6.2,
+                    "place": "120 km E of Tokyo, Japan",
+                    "time": 1788800000000,
+                    "tsunami": 0,
+                    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us1000",
+                },
+                "geometry": {"coordinates": [141.5, 36.2, 25.0]},
+            }]
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = get_recent_earthquakes(min_magnitude=5.0)
+        self.assertEqual(res["earthquakes_count"], 1)
+        self.assertEqual(res["events"][0]["magnitude"], 6.2)
+        self.assertIn("Tokyo", res["events"][0]["place"])
+
+    @patch("urllib.request.urlopen")
+    def test_chemical_compound_mocked(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "PropertyTable": {
+                "Properties": [{
+                    "CID": 2244,
+                    "MolecularFormula": "C9H8O4",
+                    "MolecularWeight": "180.16",
+                    "IUPACName": "2-acetyloxybenzoic acid",
+                    "CanonicalSMILES": "CC(=O)OC1=CC=CC=C1C(=O)O",
+                    "InChIKey": "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",
+                }]
+            }
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = lookup_chemical_compound("Aspirin")
+        self.assertEqual(res["molecular_formula"], "C9H8O4")
+        self.assertEqual(res["pubchem_cid"], 2244)
+        self.assertEqual(res["molecular_weight_g_mol"], "180.16")
+
+    @patch("urllib.request.urlopen")
+    def test_word_definition_mocked(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps([{
+            "word": "serendipity",
+            "phonetic": "/ˌsɛr.ənˈdɪp.ɪ.ti/",
+            "meanings": [{
+                "partOfSpeech": "noun",
+                "definitions": [{"definition": "The occurrence and development of events by chance in a happy way."}],
+                "synonyms": ["chance", "fluke"],
+            }]
+        }]).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = lookup_word_definition("serendipity")
+        self.assertEqual(res["word"], "serendipity")
+        self.assertIn("/ˌsɛr.ənˈdɪp.ɪ.ti/", res["phonetic"])
+        self.assertEqual(res["meanings"][0]["part_of_speech"], "noun")
+
+    @patch("services.mcp.builtin.train_transit._find_station_id")
+    @patch("urllib.request.urlopen")
+    def test_train_transit_mocked(self, mock_urlopen, mock_station):
+        mock_station.return_value = {"id": "8000261", "name": "Würzburg Hbf"}
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "departures": [{
+                "line": {"name": "ICE 628"},
+                "direction": "Frankfurt(Main)Hbf",
+                "plannedWhen": "2026-09-07T14:30:00+02:00",
+                "when": "2026-09-07T14:32:00+02:00",
+                "delay": 120,
+                "platform": "5",
+                "cancelled": False,
+            }]
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = lookup_train_schedule("Würzburg Hbf")
+        self.assertEqual(res["station_name"], "Würzburg Hbf")
+        self.assertEqual(res["departures_count"], 1)
+        self.assertEqual(res["departures"][0]["line"], "ICE 628")
+        self.assertEqual(res["departures"][0]["delay_minutes"], 2)
 
 
 class TestNetworkDiagnosticsAndSSRF(unittest.TestCase):
@@ -280,6 +474,15 @@ class TestToolRegistry(unittest.TestCase):
             "get_time_and_calendar",
             "convert_currency",
             "get_distance_route",
+            "lookup_country_data",
+            "get_world_bank_stats",
+            "search_arxiv_papers",
+            "lookup_food_product",
+            "lookup_software_package",
+            "get_recent_earthquakes",
+            "lookup_chemical_compound",
+            "lookup_word_definition",
+            "lookup_train_schedule",
             "lookup_network_host",
             "get_system_info",
         ]
@@ -293,10 +496,12 @@ class TestToolRegistry(unittest.TestCase):
         self.assertNotIn("get_system_info", names)
         self.assertIn("calculate_math", names)
         self.assertIn("convert_currency", names)
+        self.assertIn("lookup_country_data", names)
+        self.assertIn("get_world_bank_stats", names)
 
     def test_openai_format(self):
         openai_tools = self.registry.get_openai_tools(is_owner=True)
-        self.assertTrue(len(openai_tools) >= 10)
+        self.assertTrue(len(openai_tools) >= 15)
         first = openai_tools[0]
         self.assertEqual(first.get("type"), "function")
         self.assertIn("name", first.get("function", {}))
@@ -349,7 +554,6 @@ class TestAgentLoop(unittest.TestCase):
             nonlocal calls_count
             calls_count += 1
             if calls_count == 1:
-                # Step 1: Model emits a tool call
                 return {
                     "choices": [{
                         "message": {
@@ -360,14 +564,13 @@ class TestAgentLoop(unittest.TestCase):
                                 "function": {
                                     "name": "get_stock_price",
                                     "arguments": json.dumps({"symbol": "NVDA"}),
-                                    },
+                                },
                             }]
                         }
                     }],
                     "usage": {"prompt_tokens": 15, "completion_tokens": 8},
                 }
             else:
-                # Step 2: Model sees tool result and emits final answer
                 return {
                     "choices": [{
                         "message": {"role": "assistant", "content": "Nvidia steht aktuell bei $180.0."}
@@ -422,4 +625,3 @@ class TestAgentLoop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

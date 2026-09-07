@@ -614,6 +614,9 @@
         <button id="btn-cockpit-mcp" class="cockpit-tab-btn" onclick="switchCockpitView('mcp')">
           <span>🔌 MCP &amp; Live-Tools</span>
         </button>
+        <button id="btn-cockpit-chatui" class="cockpit-tab-btn" onclick="switchCockpitView('chatui')">
+          <span>🖥️ llama.cpp WebUI &amp; Studio</span>
+        </button>
       </div>
 
       <!-- VIEW 1: Servers Grid -->
@@ -1113,7 +1116,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen (Börsenkurse, News-Feeds, Web-Recherche, Dokumente) oder eigene MCP-Server ansteuern.
           </p>
 
-          <!-- 11 Capabilities Cards Grid -->
+          <!-- 20 Capabilities Cards Grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:2rem;">
             <!-- Finance / Stocks -->
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
@@ -1172,6 +1175,114 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fbbf24;">
                 <code>get_wikipedia_summary</code>
+              </div>
+            </div>
+
+            <!-- Country Data (REST Countries) -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌍</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Länder- &amp; Geodatenbank</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Hauptstädte, Einwohnerzahlen, Amtssprachen, Währungen, Nachbarländer und Zeitzonen aller Staaten weltweit via REST Countries.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#38bdf8;">
+                <code>lookup_country_data</code>
+              </div>
+            </div>
+
+            <!-- World Bank Indicators -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🏛️</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">Weltbank &amp; Makroökonomie</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Offizielle Daten zu Bruttoinlandsprodukt (BIP), Inflation, Lebenserwartung, CO2-Emissionen und Bevölkerung über Jahrzehnte.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#34d399;">
+                <code>get_world_bank_stats</code>
+              </div>
+            </div>
+
+            <!-- arXiv Scientific Papers -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🔬</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">arXiv Forschung &amp; Paper</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Vollständige Suche nach neuesten wissenschaftlichen Preprints, KI-/ML-Forschung, Physik, Mathe und Informatik-Abstracts.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#c084fc;">
+                <code>search_arxiv_papers</code>
+              </div>
+            </div>
+
+            <!-- Open Food Facts -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(234,179,8,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🥗</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#facc15;font-size:1rem;">Lebensmittel &amp; Nutri-Score</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Inhaltsstoffe, Allergene, Nutri-Score (A-E), Eco-Score und Nährwerttabellen per Produktname oder EAN-Barcode (Open Food Facts).
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#facc15;">
+                <code>lookup_food_product</code>
+              </div>
+            </div>
+
+            <!-- Software Package & OSV.dev -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📦</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#f43f5e;font-size:1rem;">Pakete &amp; CVE-Sicherheit</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Prüfung von PyPI- und NPM-Paketen, Versionen, Lizenzen und direkter Abgleich bekannter Sicherheitslücken via OSV.dev.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f43f5e;">
+                <code>lookup_software_package</code>
+              </div>
+            </div>
+
+            <!-- USGS Earthquakes -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌋</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#fb923c;font-size:1rem;">USGS Live-Erdbebenfeed</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Weltweite seismische Live-Daten (Magnitude, Epizentrum, Tiefe, Tsunami-Warnungen) direkt vom United States Geological Survey.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fb923c;">
+                <code>get_recent_earthquakes</code>
+              </div>
+            </div>
+
+            <!-- PubChem Chemicals -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(99,102,241,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🧪</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#818cf8;font-size:1rem;">PubChem Chemie &amp; Stoffe</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Summenformeln, Molekulargewichte, IUPAC-Namen, SMILES und pharmakologische Eigenschaften von Stoffen via NIH PubChem.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#818cf8;">
+                <code>lookup_chemical_compound</code>
+              </div>
+            </div>
+
+            <!-- Dictionary & Phonetics -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(45,212,191,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📖</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#2dd4bf;font-size:1rem;">Wörterbuch &amp; Lautschrift</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Offizielle englische Wortdefinitionen, Lautschrift (Phonetics), Wortarten, Beispielsätze und Synonyme.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#2dd4bf;">
+                <code>lookup_word_definition</code>
+              </div>
+            </div>
+
+            <!-- Train & Transit Timetable -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🚆</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#f472b6;font-size:1rem;">Bahn- &amp; Zug-Fahrplan</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Live-Abfahrtszeiten der Deutschen Bahn (ICE, RE, S-Bahn), Gleise, Zielbahnhöfe und Echtzeit-Verspätungen via HAFAS.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f472b6;">
+                <code>lookup_train_schedule</code>
               </div>
             </div>
 
@@ -1246,18 +1357,6 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                 <code>lookup_network_host</code>
               </div>
             </div>
-
-            <!-- System Telemetry (Owner only) -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🖥️</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#f472b6;font-size:1rem;">Node- &amp; Host-Telemetrie</h4>
-              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Prüfung von GPU-Hardware, Speicherauslastung, VRAM und Systeminformationen deines Clusters (Owner Only).
-              </p>
-              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f472b6;">
-                <code>get_system_info</code>
-              </div>
-            </div>
           </div>
 
           <!-- Interactive Live-Agent Playground Studio -->
@@ -1277,6 +1376,30 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie ist das aktuelle Wetter in Veitshöchheim und was sind die wichtigsten aktuellen News von heute?')">
                 🌤️ Wetter &amp; News
               </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die Länderdaten von Japan (Hauptstadt, Einwohnerzahl, Währung)?')">
+                🌍 Länderdaten: Japan
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie hat sich das BIP von Deutschland laut der Weltbank in den letzten Jahren entwickelt?')">
+                🏛️ Weltbank: BIP Deutschland
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die neuesten Forschungspaper auf arXiv zum Thema Reasoning Models?')">
+                🔬 arXiv: KI-Forschung
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche Inhaltsstoffe und welchen Nutri-Score hat Nutella?')">
+                🥗 Open Food: Nutella
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche Version hat fastapi auf PyPI und gibt es bekannte Sicherheitslücken?')">
+                📦 PyPI &amp; CVE Check: FastAPI
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Gab es in den letzten Tagen schwere Erdbeben weltweit ab Stärke 5.0?')">
+                🌋 USGS Erdbeben
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was ist die chemische Summenformel und der IUPAC-Name von Aspirin?')">
+                🧪 PubChem: Aspirin
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wann fahren die nächsten Züge ab Würzburg Hbf und gibt es Verspätungen?')">
+                🚆 Deutsche Bahn: Würzburg Hbf
+              </button>
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie viel sind 250 EUR in USD und wie steht der Bitcoin Kurs?')">
                 💱 Währungsrechner &amp; BTC
               </button>
@@ -1285,15 +1408,6 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </button>
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Berechne mit Python das Endkapital bei 15.000 € Startguthaben nach 8 Jahren mit 4,2% Zinsen')">
                 🧮 Mathe: Zinsrechnung
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche gesetzlichen Feiertage gibt es 2026 in Bayern und wann ist Ostern?')">
-                🕒 Feiertage Bayern 2026
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was steht auf Wikipedia über den Ort Veitshöchheim?')">
-                📚 Wikipedia Veitshöchheim
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie steht die Nvidia Aktie (NVDA) heute und wie ist der aktuelle DAX Kurs?')">
-                📈 Nvidia &amp; DAX Kurs
               </button>
             </div>
 
@@ -1443,6 +1557,44 @@ for chunk in stream:
   }
 }</code></pre>
             </div>
+      <!-- VIEW 6: llama.cpp WebUI & Chat Studio -->
+      <div id="cockpit-view-chatui" style="display: none;">
+        <div class="fleet-card" style="padding: 1.5rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+            <div>
+              <h3 style="margin:0 0 0.25rem 0;font-size:1.3rem;display:flex;align-items:center;gap:0.5rem;">
+                <span>🖥️</span> <span>llama.cpp WebUI &amp; Local Client Studio</span>
+              </h3>
+              <p style="margin:0;color:#94a3b8;font-size:0.88rem;">
+                Offizielles, vollintegriertes llama.cpp Web-Interface. Verbinde dich direkt mit deinem lokalen GPU-Client, Ollama oder dem ComputeMesh-Gateway.
+              </p>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <a href="/webui/" target="_blank" class="btn btn-primary" style="font-size:0.85rem;padding:0.45rem 0.9rem;text-decoration:none;">
+                ↗️ Im neuen Vollbild-Tab öffnen
+              </a>
+            </div>
+          </div>
+
+          <!-- Quick Connection Info Bar -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.75rem;margin-bottom:1.25rem;background:rgba(15,23,42,0.8);padding:1rem;border-radius:10px;border:1px solid rgba(56,189,248,0.2);">
+            <div>
+              <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;font-weight:700;">Mesh Gateway Endpoint</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#38bdf8;">https://mesh.inetconnector.com/v1</div>
+            </div>
+            <div>
+              <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;font-weight:700;">Lokaler llama.cpp Server</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#34d399;">http://127.0.0.1:8080</div>
+            </div>
+            <div>
+              <div style="font-size:0.75rem;color:#64748b;text-transform:uppercase;font-weight:700;">Lokaler Ollama Server</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#fbbf24;">http://127.0.0.1:11434</div>
+            </div>
+          </div>
+
+          <!-- Responsive Embedded iframe Container -->
+          <div style="position:relative;width:100%;height:800px;border-radius:12px;overflow:hidden;border:1px solid rgba(148,163,184,0.15);background:#0f172a;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <iframe id="llamacpp-embedded-iframe" src="/webui/" style="width:100%;height:100%;border:none;" title="llama.cpp WebUI"></iframe>
           </div>
         </div>
       </div>
@@ -1599,6 +1751,7 @@ for chunk in stream:
       const btnSetup = document.getElementById("btn-cockpit-setup");
       const btnOllama = document.getElementById("btn-cockpit-ollama");
       const btnMcp = document.getElementById("btn-cockpit-mcp");
+      const btnChatui = document.getElementById("btn-cockpit-chatui");
 
       if (btnServers) btnServers.classList.toggle("active", view === 'servers');
       if (btnPayouts) btnPayouts.classList.toggle("active", view === 'payouts');
@@ -1606,6 +1759,7 @@ for chunk in stream:
       if (btnSetup) btnSetup.classList.toggle("active", view === 'setup');
       if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
       if (btnMcp) btnMcp.classList.toggle("active", view === 'mcp');
+      if (btnChatui) btnChatui.classList.toggle("active", view === 'chatui');
 
       const vServers = document.getElementById("cockpit-view-servers");
       const vPayouts = document.getElementById("cockpit-view-payouts");
@@ -1613,6 +1767,7 @@ for chunk in stream:
       const vSetup = document.getElementById("cockpit-view-setup");
       const vOllama = document.getElementById("cockpit-view-ollama");
       const vMcp = document.getElementById("cockpit-view-mcp");
+      const vChatui = document.getElementById("cockpit-view-chatui");
 
       if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
       if (vPayouts) vPayouts.style.display = view === 'payouts' ? 'block' : 'none';
@@ -1620,6 +1775,7 @@ for chunk in stream:
       if (vSetup) vSetup.style.display = view === 'setup' ? 'block' : 'none';
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
       if (vMcp) vMcp.style.display = view === 'mcp' ? 'block' : 'none';
+      if (vChatui) vChatui.style.display = view === 'chatui' ? 'block' : 'none';
 
       if (view === 'security') {
         updateEmailUI();

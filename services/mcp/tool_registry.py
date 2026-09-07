@@ -21,6 +21,15 @@ from .builtin.wikipedia import get_wikipedia_summary
 from .builtin.time_calendar import get_time_and_calendar
 from .builtin.currency import convert_currency
 from .builtin.geo_routing import get_distance_route
+from .builtin.country_data import lookup_country_data
+from .builtin.world_bank import get_world_bank_stats
+from .builtin.arxiv_research import search_arxiv_papers
+from .builtin.food_products import lookup_food_product
+from .builtin.package_registry import lookup_software_package
+from .builtin.earthquake_feed import get_recent_earthquakes
+from .builtin.chemical_data import lookup_chemical_compound
+from .builtin.dictionary_lookup import lookup_word_definition
+from .builtin.train_transit import lookup_train_schedule
 from .builtin.network_tools import lookup_network_host
 from .builtin.system_tools import execute_system_info
 
@@ -336,7 +345,204 @@ class ToolRegistry:
             source="builtin_geo",
         )
 
-        # 11. Safe Network & Host Diagnostics (Owner Key only)
+        # 11. Country & Demographic Database (REST Countries)
+        self.register_tool(
+            name="lookup_country_data",
+            description="Liefert verifizierte Länderdaten für alle Staaten weltweit (Hauptstadt, Einwohnerzahl, Fläche, Währungen, Amtssprachen, Nachbarländer, Zeitzonen).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "country": {
+                        "type": "string",
+                        "description": "Der Name des Landes (z. B. 'Deutschland', 'Japan', 'Brasilien', 'Schweiz').",
+                    },
+                },
+                "required": ["country"],
+            },
+            handler=lookup_country_data,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 12. World Bank Macroeconomic Indicators
+        self.register_tool(
+            name="get_world_bank_stats",
+            description="Liefert offizielle volkswirtschaftliche Indikatoren der Weltbank (BIP, BIP pro Kopf, Inflation, Bevölkerung, Lebenserwartung, CO2-Emissionen) über mehrere Jahre.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "country": {
+                        "type": "string",
+                        "description": "Ländercode oder Name (z. B. 'DEU', 'Deutschland', 'USA', 'CHE', 'AUT'). Standard: 'DEU'.",
+                        "default": "DEU",
+                    },
+                    "indicator": {
+                        "type": "string",
+                        "description": "Indikator: 'gdp' (BIP), 'gdp_per_capita', 'inflation', 'population' (Einwohner), 'life_expectancy', 'co2'. Standard: 'gdp'.",
+                        "default": "gdp",
+                    },
+                },
+                "required": ["country"],
+            },
+            handler=get_world_bank_stats,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 13. arXiv Scientific Research Paper Search
+        self.register_tool(
+            name="search_arxiv_papers",
+            description="Durchsucht arXiv nach wissenschaftlichen Forschungsarbeiten, aktuellen KI-Preprints, Physik-/Mathe-Artikeln und Abstracts.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Forschungsthema oder Suchbegriff (z. B. 'large language models', 'mixture of experts', 'quantum computing').",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximale Anzahl an Papern (1-10). Standard: 5.",
+                        "default": 5,
+                    },
+                },
+                "required": ["query"],
+            },
+            handler=search_arxiv_papers,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 14. Open Food Facts Nutrition & Ingredients Tool
+        self.register_tool(
+            name="lookup_food_product",
+            description="Liefert Inhaltsstoffe, Allergene, Nutri-Score, Eco-Score und Nährwerttabellen (Kalorien, Fett, Zucker, Eiweiß pro 100g) für Lebensmittelprodukte und Barcodes.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "product_name": {
+                        "type": "string",
+                        "description": "Produktname oder Barcode/EAN (z. B. 'Nutella', 'Hafermilch', '3017620422003').",
+                    },
+                },
+                "required": ["product_name"],
+            },
+            handler=lookup_food_product,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 15. Software Package Registry & Vulnerability (OSV/CVE) Inspection
+        self.register_tool(
+            name="lookup_software_package",
+            description="Liefert Paketinformationen, neueste Versionen, Abhängigkeiten und bekannte Sicherheitslücken (OSV/CVE) von PyPI (Python) und NPM (JavaScript).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "package_name": {
+                        "type": "string",
+                        "description": "Name des Software-Pakets (z. B. 'fastapi', 'torch', 'react', 'langchain').",
+                    },
+                    "ecosystem": {
+                        "type": "string",
+                        "description": "Ökosystem: 'pypi' (Python) oder 'npm' (Node.js). Standard: 'pypi'.",
+                        "default": "pypi",
+                    },
+                },
+                "required": ["package_name"],
+            },
+            handler=lookup_software_package,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 16. USGS Real-time Global Earthquake Feed
+        self.register_tool(
+            name="get_recent_earthquakes",
+            description="Liefert weltweite Live-Erdbebendaten der USGS (Magnitude, Ort, Epizentrum, Tiefe, Tsunami-Warnungen).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "min_magnitude": {
+                        "type": "number",
+                        "description": "Minimale Erdbebenstärke (z. B. 4.0 oder 5.5). Standard: 4.0.",
+                        "default": 4.0,
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximale Anzahl an Ereignissen (1-15). Standard: 5.",
+                        "default": 5,
+                    },
+                },
+            },
+            handler=get_recent_earthquakes,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 17. PubChem Chemical & Molecular Compound Database
+        self.register_tool(
+            name="lookup_chemical_compound",
+            description="Liefert chemische Eigenschaften (Summenformel, Molekulargewicht, IUPAC-Name, SMILES, PubChem CID) für chemische Stoffe und Medikamente.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "compound_name": {
+                        "type": "string",
+                        "description": "Name der chemischen Verbindung (z. B. 'Aspirin', 'Caffeine', 'Ethanol', 'Koffein').",
+                    },
+                },
+                "required": ["compound_name"],
+            },
+            handler=lookup_chemical_compound,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 18. Free Dictionary & Phonetics Tool
+        self.register_tool(
+            name="lookup_word_definition",
+            description="Liefert englische Wörterbuch-Definitionen, Lautschrift (Phonetics), Wortarten, Synonyme und Beispielsätze.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "word": {
+                        "type": "string",
+                        "description": "Das zu suchende Wort (z. B. 'serendipity', 'algorithm', 'intelligence').",
+                    },
+                },
+                "required": ["word"],
+            },
+            handler=lookup_word_definition,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 19. Rail & Transit Timetable Tool (Deutsche Bahn / European Rail)
+        self.register_tool(
+            name="lookup_train_schedule",
+            description="Liefert Live-Abfahrtszeiten, Zuglinien (ICE, RE, S-Bahn), Zielbahnhöfe, Gleise und Echtzeit-Verspätungen für deutsche und europäische Bahnhöfe.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "station": {
+                        "type": "string",
+                        "description": "Name des Bahnhofs (z. B. 'Würzburg Hbf', 'Frankfurt(Main)Hbf', 'München Hbf').",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximale Anzahl an Abfahrten (1-10). Standard: 5.",
+                        "default": 5,
+                    },
+                },
+                "required": ["station"],
+            },
+            handler=lookup_train_schedule,
+            owner_only=False,
+            source="builtin_open_data",
+        )
+
+        # 20. Safe Network & Host Diagnostics (Owner Key only)
         self.register_tool(
             name="lookup_network_host",
             description="Führt sichere Netzwerkdiagnosen für eine öffentliche Domain aus (DNS-Einträge, HTTP/HTTPS-Status & Latenz, SSL-Zertifikatslaufzeit).",
@@ -360,7 +566,7 @@ class ToolRegistry:
             source="builtin_network",
         )
 
-        # 12. Safe System Info Tool (Owner only)
+        # 21. Safe System Info Tool (Owner only)
         if self.config.system_tools_enabled:
             self.register_tool(
                 name="get_system_info",
