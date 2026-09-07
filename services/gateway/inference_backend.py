@@ -237,10 +237,18 @@ class OpenAICompatibleHTTPBackend:
             raise InferenceBackendError("Inference runtime response exceeded size limit")
         try:
             body = json.loads(raw.decode("utf-8"))
-            text = body["choices"][0]["message"]["content"]
-            usage = body["usage"]
-            prompt_tokens = int(usage["prompt_tokens"])
-            completion_tokens = int(usage["completion_tokens"])
+            msg = body["choices"][0]["message"]
+            text = str(msg.get("content") or "")
+            tool_calls = msg.get("tool_calls", [])
+            if tool_calls:
+                tool_calls_text = "\n".join([
+                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    for tc in tool_calls
+                ])
+                text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
+            usage = body.get("usage", {})
+            prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(normalized)) // 4, 1))
+            completion_tokens = int(usage.get("completion_tokens") or max(len(text) // 4, 1))
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise InferenceBackendError("Inference runtime returned an invalid response") from exc
         if not isinstance(text, str) or prompt_tokens < 0 or completion_tokens < 0:
@@ -380,13 +388,14 @@ class OllamaHTTPBackend:
         try:
             body = json.loads(raw.decode("utf-8"))
             msg = body.get("message", {})
-            text = str(msg.get("content", ""))
+            text = str(msg.get("content") or "")
             tool_calls = msg.get("tool_calls", [])
-            if tool_calls and not text.strip():
-                text = "\n".join([
+            if tool_calls:
+                tool_calls_text = "\n".join([
                     f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
                     for tc in tool_calls
                 ])
+                text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
             raise InferenceBackendError("Ollama inference runtime returned an invalid response") from exc
         if not isinstance(text, str) or not text.strip():
