@@ -133,11 +133,16 @@ class InferenceEngine:
                 enhanced_msgs = list(normalized_messages)
                 has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
                 if not has_tool_system:
-                    tools_desc = "\n".join([f"- {t.name}: {t.description}" for t in self.tool_registry.list_tools(is_owner=True)])
+                    tools_desc = "\n".join([
+                        f"- {t.name}({', '.join(t.parameters.get('properties', {}).keys())}): {t.description}"
+                        for t in self.tool_registry.list_tools(is_owner=True)
+                    ])
                     tool_prompt = (
-                        f"Du bist ComputeMesh AI mit Live-Tools und MCP-Unterstützung. Wenn du für die Beantwortung der Anfrage Echtzeitdaten benötigst (z. B. Live-Wetterdaten, aktuelle Börsen-/Kryptokurse, Websuche, Live-Nachrichten oder Webseiten-Inhalte), führe das passende Tool aus im Format:\n"
-                        f"<tool_call>{{\"name\": \"tool_name\", \"arguments\": {{\"param\": \"value\"}}}}</tool_call>\n\n"
-                        f"Verfügbare Tools:\n{tools_desc}"
+                        "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (MCP).\n"
+                        "Wenn du für die Beantwortung der Anfrage externe, aktuelle, rechnerische, wetter-, finanz- oder ortsbezogene Daten benötigst, "
+                        "rufe das passende Tool auf im Format:\n"
+                        "<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}</tool_call>\n\n"
+                        f"Verfügbare Tools:\n{tools_desc}\n"
                     )
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 
