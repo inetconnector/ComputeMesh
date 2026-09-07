@@ -77,6 +77,21 @@ def format_tool_content_if_json(content: str) -> str:
                 if change_24h is not None:
                     res += f"\n- **24h-Veränderung:** {change_24h:+.2f} %"
                 return res.strip()
+            # News Feed response
+            if "articles" in data or ("topic" in data and "items" in data):
+                articles = data.get("articles") or data.get("items") or []
+                topic = data.get("topic", "Aktuelle Nachrichten")
+                res = f"Aktuelle Nachrichten (**{topic}**):\n\n"
+                for i, art in enumerate(articles[:5], 1):
+                    t = art.get("title", "")
+                    s = art.get("source", "")
+                    u = art.get("link", "")
+                    src = f" *({s})*" if s else ""
+                    if u:
+                        res += f"{i}. [{t}]({u}){src}\n"
+                    else:
+                        res += f"{i}. **{t}**{src}\n"
+                return res.strip()
             # Wikipedia response
             if "title" in data and "summary" in data:
                 title = data.get("title", "")

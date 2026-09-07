@@ -393,19 +393,20 @@ class GatewayAuthManager:
         # Check if caller IP matches a registered active provider node in cluster
         try:
             client_ip = resolve_client_ip(headers, client_address)
-            from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
-            for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
-                if not n_data.get("is_peer_relay", False):
-                    n_owner = n_data.get("owner_id")
-                    # If this node has recent telemetry from this client IP
-                    if n_owner:
-                        return AuthResult(
-                            account_id=n_owner,
-                            owner_id=n_owner,
-                            is_teaser=False,
-                            is_provider_self_compute=True,
-                            is_quota_exceeded=False,
-                        )
+            if client_ip and client_ip not in ("127.0.0.1", "::1", "localhost"):
+                from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
+                for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                    if not n_data.get("is_peer_relay", False):
+                        n_owner = n_data.get("owner_id")
+                        node_ip = n_data.get("client_ip")
+                        if n_owner and node_ip and node_ip == client_ip:
+                            return AuthResult(
+                                account_id=n_owner,
+                                owner_id=n_owner,
+                                is_teaser=False,
+                                is_provider_self_compute=True,
+                                is_quota_exceeded=False,
+                            )
         except Exception:
             pass
 

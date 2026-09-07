@@ -90,6 +90,8 @@ class SyntheticInferenceBackend:
         model_id: str,
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
     ) -> BackendResult:
         last_user_msg = ""
         has_images = False
@@ -121,12 +123,13 @@ class SyntheticInferenceBackend:
 
         # Check if latest message is a tool result
         last_msg = messages[-1] if messages else {}
-        has_tool_system = any(isinstance(m, dict) and m.get("role") == "system" and "<tool_call>" in str(m.get("content", "")) for m in messages)
+        has_tool_system = any(isinstance(m, dict) and m.get("role") == "system" and ("<tool_call>" in str(m.get("content", "")) or "Live-Werkzeugen" in str(m.get("content", "")) or "Live-Tools" in str(m.get("content", ""))) for m in messages)
+        has_tools_param = bool(tools)
 
         if isinstance(last_msg, dict) and last_msg.get("role") == "tool":
             tool_content = str(last_msg.get("content", ""))
             text = f"Basierend auf den aktuellen Live-Daten: {tool_content[:120]}"
-        elif has_tool_system and ("wetter" in last_user_msg.lower() or "weather" in last_user_msg.lower()):
+        elif (has_tool_system or has_tools_param) and ("wetter" in last_user_msg.lower() or "weather" in last_user_msg.lower()):
             text = '<tool_call>{"name": "get_current_weather", "arguments": {"location": "Veitshöchheim"}}</tool_call>'
         elif has_images:
             text = (

@@ -159,26 +159,12 @@ class InferenceEngine:
                     }
 
                 enhanced_msgs = list(normalized_messages)
-                has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
+                has_tool_system = any(m.get("role") == "system" and "ComputeMesh AI" in str(m.get("content", "")) for m in enhanced_msgs)
                 if not has_tool_system:
-                    active_tools = [
-                        t for t in self.tool_registry.list_tools(is_owner=True)
-                        if t.name not in disabled_set
-                    ]
-                    tools_desc = "\n".join([
-                        f"- {t.name}({', '.join(t.parameters.get('properties', {}).keys())}): {t.description}"
-                        for t in active_tools
-                    ])
                     tool_prompt = (
-                        "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (Model Context Protocol / MCP).\n"
-                        "WICHTIGE ANWEISUNG: Du hast direkten Zugriff auf Live-Tools für Wetter, Finanzen/Krypto, News, Wikipedia, Mathe, DNS und Web-Abfragen. "
-                        "Wenn eine Frage aktuelle Daten oder Berechnungen erfordert (z. B. Wetter an einem Ort, Börsenkurse, Krypto, aktuelle Nachrichten oder Berechnungen), "
-                        "darfst du NIEMALS behaupten, keinen Zugriff zu haben, und du darfst NIEMALS Python-Code zur Selbstanfrage vorschlagen!\n"
-                        "Rufe stattdessen SOFORT das passende Tool im XML-Format auf:\n"
-                        "<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}</tool_call>\n\n"
-                        f"Verfügbare Tools:\n{tools_desc}\n\n"
-                        "Beispiel Wetter:\n"
-                        "<tool_call>{\"name\": \"get_current_weather\", \"arguments\": {\"location\": \"Veitshöchheim\"}}</tool_call>\n"
+                        "Du bist ComputeMesh AI mit integrierten Live-Werkzeugen (Model Context Protocol / MCP).\n"
+                        "Wenn eine Frage aktuelle Daten erfordert (z. B. Wetter an einem Ort, Börsenkurse, Krypto, aktuelle Nachrichten, Wikipedia oder Berechnungen), "
+                        "rufe direkt das passende Tool auf (z. B. `get_current_weather`, `get_live_news`, `get_market_price`, `get_wikipedia_summary`)."
                     )
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 
