@@ -145,6 +145,57 @@
       border-color: var(--accent-cyan);
     }
 
+    .mcp-tool-card {
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .mcp-tool-card.disabled-tool {
+      opacity: 0.45;
+      filter: grayscale(0.6);
+      border-color: rgba(255, 255, 255, 0.08) !important;
+    }
+    .mcp-switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .mcp-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .mcp-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155;
+      transition: .25s ease;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    .mcp-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #ffffff;
+      transition: .25s ease;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .mcp-switch input:checked + .mcp-slider {
+      background-color: #10b981;
+      border-color: #34d399;
+      box-shadow: 0 0 10px rgba(16,185,129,0.35);
+    }
+    .mcp-switch input:checked + .mcp-slider:before {
+      transform: translateX(20px);
+    }
+
     .form-group {
       margin-bottom: 1.25rem;
     }
@@ -614,8 +665,8 @@
         <button id="btn-cockpit-mcp" class="cockpit-tab-btn" onclick="switchCockpitView('mcp')">
           <span>🔌 MCP &amp; Live-Tools</span>
         </button>
-        <button id="btn-cockpit-chatui" class="cockpit-tab-btn" onclick="switchCockpitView('chatui')">
-          <span>🖥️ llama.cpp WebUI &amp; Studio</span>
+        <button id="btn-cockpit-chatui" class="cockpit-tab-btn" onclick="openChatWindow()">
+          <span>💬 AI-Chat</span>
         </button>
       </div>
 
@@ -1089,7 +1140,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                   <code id="curl-quick-cmd">curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=" | bash</code>
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('curl-quick-cmd')">📋 Kopieren</button>
                 </div>
-              </div>
+</div>
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Windows (PowerShell):</span>
                 <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
@@ -1109,43 +1160,88 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             <h3 style="margin:0;font-size:1.3rem;color:var(--accent-cyan);display:flex;align-items:center;gap:0.6rem;">
               <span>🔌</span> <span>Model Context Protocol (MCP) &amp; Live Agent Engine</span>
             </h3>
-            <span class="status-pill online"><span class="pulse-dot"></span> 🟢 MCP Subsystem Aktiv (v1.2.118)</span>
+            <span class="status-pill online"><span class="pulse-dot"></span> 🟢 MCP Subsystem Aktiv</span>
           </div>
 
-          <p style="color:#94a3b8;font-size:0.92rem;margin-bottom:1.5rem;line-height:1.6;">
-            Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen (Börsenkurse, News-Feeds, Web-Recherche, Dokumente) oder eigene MCP-Server ansteuern.
+          <p style="color:#94a3b8;font-size:0.92rem;margin-bottom:1.25rem;line-height:1.6;">
+            Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen oder eigene MCP-Server ansteuern.
           </p>
 
-          <!-- 20 Capabilities Cards Grid -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:2rem;">
-            <!-- Finance / Stocks -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📈</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">Live-Börsenkurse &amp; Krypto</h4>
+          <!-- Top Status & Toolbar: Active Count & Bulk Actions -->
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;background:rgba(15,23,42,0.85);padding:1rem 1.25rem;border-radius:12px;border:1px solid rgba(56,189,248,0.25);">
+            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+              <span style="font-weight:700;color:#f8fafc;font-size:0.95rem;">⚡ Flotten-Werkzeuge:</span>
+              <span id="mcp-active-badge" class="status-pill online" style="font-size:0.82rem;padding:0.25rem 0.75rem;">
+                <span class="pulse-dot"></span> <span id="mcp-active-count">20</span>/20 Tools aktiv für diese Flotte
+              </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="enableAllMcpTools(true)">
+                ✅ Alle aktivieren
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="enableAllMcpTools(false)">
+                ❌ Alle deaktivieren
+              </button>
+              <span id="mcp-save-indicator" style="font-size:0.82rem;color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:0.3rem;">
+                <span>💾</span> <span>Gespeichert pro Flotte</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- 20 Capabilities Cards Grid with Checkboxes -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:1rem;margin-bottom:2rem;">
+            <!-- 1. Finance / Stocks -->
+            <div id="mcp-card-get_market_quote" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📈</span>
+                  <h4 style="margin:0;color:#10b981;font-size:0.95rem;">Live-Börsenkurse &amp; Krypto</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_market_quote" checked onchange="onMcpToolToggle('get_market_quote', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Echtzeit Yahoo Finance &amp; CoinGecko Kurse für Aktien (NVDA, AAPL, MSFT, SAP), Krypto (BTC, ETH, SOL), Indizes (DAX, S&amp;P500) und Rohstoffe.
+                Echtzeit Yahoo Finance &amp; CoinGecko Kurse für Aktien (NVDA, AAPL, MSFT), Krypto (BTC, ETH, SOL) und Rohstoffe.
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#34d399;">
                 <code>get_market_quote</code>
               </div>
             </div>
 
-            <!-- Live News -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📰</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Live-Nachrichten &amp; RSS</h4>
+            <!-- 2. Live News -->
+            <div id="mcp-card-get_live_news" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📰</span>
+                  <h4 style="margin:0;color:#38bdf8;font-size:0.95rem;">Live-Nachrichten &amp; RSS</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_live_news" checked onchange="onMcpToolToggle('get_live_news', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Aktuelle Meldungen und Schlagzeilen in Echtzeit (Tech, KI, Wirtschaft, Krypto, Deutschland/Tagesschau, Weltpolitik oder Stichwort-Suche).
+                Aktuelle Meldungen und Schlagzeilen in Echtzeit (Tech, KI, Wirtschaft, Krypto, Tagesschau oder Stichwort-Suche).
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#38bdf8;">
                 <code>get_live_news</code>
               </div>
             </div>
 
-            <!-- Live Weather -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌤️</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Live-Wetterdaten weltweit</h4>
+            <!-- 3. Live Weather -->
+            <div id="mcp-card-get_current_weather" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🌤️</span>
+                  <h4 style="margin:0;color:#38bdf8;font-size:0.95rem;">Live-Wetterdaten weltweit</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_current_weather" checked onchange="onMcpToolToggle('get_current_weather', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Echtzeit-Wetter, Temperatur, Luftfeuchtigkeit, Wind und WMO-Bedingungen via Open-Meteo &amp; wttr.in für jeden Ort.
               </p>
@@ -1154,10 +1250,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Python Math Sandbox -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🧮</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Sichere Python Mathe-Sandbox</h4>
+            <!-- 4. Python Math Sandbox -->
+            <div id="mcp-card-calculate_math" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🧮</span>
+                  <h4 style="margin:0;color:#c084fc;font-size:0.95rem;">Python Mathe-Sandbox</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-calculate_math" checked onchange="onMcpToolToggle('calculate_math', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Präzise mathematische Berechnungen, Formeln, Zinseszins, Statistik &amp; Algorithmen im isolierten AST-Sandbox.
               </p>
@@ -1166,10 +1270,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Wikipedia Encyclopedia -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📚</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Wikipedia &amp; Wissensdatenbank</h4>
+            <!-- 5. Wikipedia Encyclopedia -->
+            <div id="mcp-card-get_wikipedia_summary" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📚</span>
+                  <h4 style="margin:0;color:#fbbf24;font-size:0.95rem;">Wikipedia &amp; Enzyklopädie</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_wikipedia_summary" checked onchange="onMcpToolToggle('get_wikipedia_summary', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Fundierte Zusammenfassungen, Definitionen, historische Daten und Biografien direkt über die offizielle Wikipedia-API.
               </p>
@@ -1178,10 +1290,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Country Data (REST Countries) -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌍</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Länder- &amp; Geodatenbank</h4>
+            <!-- 6. Country Data (REST Countries) -->
+            <div id="mcp-card-lookup_country_data" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🌍</span>
+                  <h4 style="margin:0;color:#38bdf8;font-size:0.95rem;">Länder- &amp; Geodatenbank</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_country_data" checked onchange="onMcpToolToggle('lookup_country_data', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Hauptstädte, Einwohnerzahlen, Amtssprachen, Währungen, Nachbarländer und Zeitzonen aller Staaten weltweit via REST Countries.
               </p>
@@ -1190,10 +1310,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- World Bank Indicators -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🏛️</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">Weltbank &amp; Makroökonomie</h4>
+            <!-- 7. World Bank Indicators -->
+            <div id="mcp-card-get_world_bank_stats" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🏛️</span>
+                  <h4 style="margin:0;color:#10b981;font-size:0.95rem;">Weltbank &amp; Makroökonomie</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_world_bank_stats" checked onchange="onMcpToolToggle('get_world_bank_stats', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Offizielle Daten zu Bruttoinlandsprodukt (BIP), Inflation, Lebenserwartung, CO2-Emissionen und Bevölkerung über Jahrzehnte.
               </p>
@@ -1202,10 +1330,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- arXiv Scientific Papers -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🔬</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">arXiv Forschung &amp; Paper</h4>
+            <!-- 8. arXiv Scientific Papers -->
+            <div id="mcp-card-search_arxiv_papers" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🔬</span>
+                  <h4 style="margin:0;color:#c084fc;font-size:0.95rem;">arXiv Forschung &amp; Paper</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-search_arxiv_papers" checked onchange="onMcpToolToggle('search_arxiv_papers', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Vollständige Suche nach neuesten wissenschaftlichen Preprints, KI-/ML-Forschung, Physik, Mathe und Informatik-Abstracts.
               </p>
@@ -1214,10 +1350,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Open Food Facts -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(234,179,8,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🥗</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#facc15;font-size:1rem;">Lebensmittel &amp; Nutri-Score</h4>
+            <!-- 9. Open Food Facts -->
+            <div id="mcp-card-lookup_food_product" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(234,179,8,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🥗</span>
+                  <h4 style="margin:0;color:#facc15;font-size:0.95rem;">Lebensmittel &amp; Nutri-Score</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_food_product" checked onchange="onMcpToolToggle('lookup_food_product', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Inhaltsstoffe, Allergene, Nutri-Score (A-E), Eco-Score und Nährwerttabellen per Produktname oder EAN-Barcode (Open Food Facts).
               </p>
@@ -1226,22 +1370,38 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Software Package & OSV.dev -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📦</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#f43f5e;font-size:1rem;">Pakete &amp; CVE-Sicherheit</h4>
+            <!-- 10. Software Package & OSV.dev -->
+            <div id="mcp-card-lookup_software_package" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📦</span>
+                  <h4 style="margin:0;color:#f43f5e;font-size:0.95rem;">Pakete &amp; CVE-Sicherheit</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_software_package" checked onchange="onMcpToolToggle('lookup_software_package', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Prüfung von PyPI- und NPM-Paketen, Versionen, Lizenzen und direkter Abgleich bekannter Sicherheitslücken via OSV.dev.
+                Prüfung von PyPI-, NPM- und Rust-Paketen, Versionen, Lizenzen und direkter Abgleich bekannter Sicherheitslücken via OSV.dev.
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f43f5e;">
                 <code>lookup_software_package</code>
               </div>
             </div>
 
-            <!-- USGS Earthquakes -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌋</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#fb923c;font-size:1rem;">USGS Live-Erdbebenfeed</h4>
+            <!-- 11. USGS Earthquakes -->
+            <div id="mcp-card-get_recent_earthquakes" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🌋</span>
+                  <h4 style="margin:0;color:#fb923c;font-size:0.95rem;">USGS Live-Erdbebenfeed</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_recent_earthquakes" checked onchange="onMcpToolToggle('get_recent_earthquakes', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Weltweite seismische Live-Daten (Magnitude, Epizentrum, Tiefe, Tsunami-Warnungen) direkt vom United States Geological Survey.
               </p>
@@ -1250,34 +1410,58 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- PubChem Chemicals -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(99,102,241,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🧪</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#818cf8;font-size:1rem;">PubChem Chemie &amp; Stoffe</h4>
+            <!-- 12. PubChem Chemicals -->
+            <div id="mcp-card-lookup_chemical_compound" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(99,102,241,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🧪</span>
+                  <h4 style="margin:0;color:#818cf8;font-size:0.95rem;">PubChem Chemie &amp; Stoffe</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_chemical_compound" checked onchange="onMcpToolToggle('lookup_chemical_compound', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Summenformeln, Molekulargewichte, IUPAC-Namen, SMILES und pharmakologische Eigenschaften von Stoffen via NIH PubChem.
+                Summenformeln, Molekulargewichte, IUPAC-Namen, SMILES und Eigenschaften von Stoffen via NIH PubChem.
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#818cf8;">
                 <code>lookup_chemical_compound</code>
               </div>
             </div>
 
-            <!-- Dictionary & Phonetics -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(45,212,191,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📖</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#2dd4bf;font-size:1rem;">Wörterbuch &amp; Lautschrift</h4>
+            <!-- 13. Dictionary & Phonetics -->
+            <div id="mcp-card-lookup_word_definition" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(45,212,191,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📖</span>
+                  <h4 style="margin:0;color:#2dd4bf;font-size:0.95rem;">Wörterbuch &amp; Lautschrift</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_word_definition" checked onchange="onMcpToolToggle('lookup_word_definition', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Offizielle englische Wortdefinitionen, Lautschrift (Phonetics), Wortarten, Beispielsätze und Synonyme.
+                Wortdefinitionen, Lautschrift (Phonetics), Wortarten, Beispielsätze und Synonyme via Free Dictionary API.
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#2dd4bf;">
                 <code>lookup_word_definition</code>
               </div>
             </div>
 
-            <!-- Train & Transit Timetable -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🚆</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#f472b6;font-size:1rem;">Bahn- &amp; Zug-Fahrplan</h4>
+            <!-- 14. Train & Transit Timetable -->
+            <div id="mcp-card-lookup_train_schedule" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🚆</span>
+                  <h4 style="margin:0;color:#f472b6;font-size:0.95rem;">Bahn- &amp; Zug-Fahrplan</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_train_schedule" checked onchange="onMcpToolToggle('lookup_train_schedule', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Live-Abfahrtszeiten der Deutschen Bahn (ICE, RE, S-Bahn), Gleise, Zielbahnhöfe und Echtzeit-Verspätungen via HAFAS.
               </p>
@@ -1286,10 +1470,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Currency & Crypto Converter -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">💱</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#34d399;font-size:1rem;">Währungs- &amp; Krypto-Umrechner</h4>
+            <!-- 15. Currency & Crypto Converter -->
+            <div id="mcp-card-convert_currency" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">💱</span>
+                  <h4 style="margin:0;color:#34d399;font-size:0.95rem;">Währungs- &amp; Krypto-Rechner</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-convert_currency" checked onchange="onMcpToolToggle('convert_currency', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Echtzeit-Wechselkurse (EUR, USD, GBP, CHF, JPY) via EZB/Frankfurter sowie Krypto-Umrechnungen (BTC, ETH, SOL).
               </p>
@@ -1298,10 +1490,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- World Time & Holidays -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(129,140,248,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🕒</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#818cf8;font-size:1rem;">Weltzeit, Kalender &amp; Feiertage</h4>
+            <!-- 16. World Time & Holidays -->
+            <div id="mcp-card-get_time_and_calendar" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(129,140,248,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🕒</span>
+                  <h4 style="margin:0;color:#818cf8;font-size:0.95rem;">Weltzeit &amp; Feiertage</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_time_and_calendar" checked onchange="onMcpToolToggle('get_time_and_calendar', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Genaue Uhrzeit aller Zeitzonen weltweit, Kalenderwochen und gesetzliche deutsche Feiertage pro Bundesland.
               </p>
@@ -1310,10 +1510,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Distance & Routing -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🗺️</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#fb923c;font-size:1rem;">Entfernungs- &amp; Routenrechner</h4>
+            <!-- 17. Distance & Routing -->
+            <div id="mcp-card-get_distance_route" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🗺️</span>
+                  <h4 style="margin:0;color:#fb923c;font-size:0.95rem;">Entfernungs- &amp; Routenrechner</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-get_distance_route" checked onchange="onMcpToolToggle('get_distance_route', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Berechnung von Luftlinie, Himmelsrichtung, Geokoordinaten und Fahrtstrecke/Fahrzeit zwischen Orten weltweit.
               </p>
@@ -1322,10 +1530,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Web Search -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌐</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Echtzeit Web-Suche</h4>
+            <!-- 18. Web Search -->
+            <div id="mcp-card-search_web" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🌐</span>
+                  <h4 style="margin:0;color:#c084fc;font-size:0.95rem;">Echtzeit Web-Suche</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-search_web" checked onchange="onMcpToolToggle('search_web', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Direkte Internet-Recherche via DuckDuckGo HTML &amp; Bing RSS mit intelligenter Textbereinigung und Snippet-Synthese.
               </p>
@@ -1334,10 +1550,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Web Fetch -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📄</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Web-Reader &amp; Scraper</h4>
+            <!-- 19. Web Fetch -->
+            <div id="mcp-card-fetch_web_content" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">📄</span>
+                  <h4 style="margin:0;color:#fbbf24;font-size:0.95rem;">Web-Reader &amp; Scraper</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-fetch_web_content" checked onchange="onMcpToolToggle('fetch_web_content', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Automatisches Auslesen und Formatieren von Online-Artikeln, Blogbeiträgen und Entwickler-Dokumentationen.
               </p>
@@ -1346,10 +1570,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- Network Diagnostics (Owner only) -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🛡️</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#f43f5e;font-size:1rem;">Netzwerk-Diagnose &amp; SSL</h4>
+            <!-- 20. Network Diagnostics (Owner only) -->
+            <div id="mcp-card-lookup_network_host" class="mcp-tool-card" style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-size:1.3rem;">🛡️</span>
+                  <h4 style="margin:0;color:#f43f5e;font-size:0.95rem;">Netzwerk-Diagnose &amp; SSL</h4>
+                </div>
+                <label class="mcp-switch" title="Tool aktivieren / deaktivieren">
+                  <input type="checkbox" id="mcp-toggle-lookup_network_host" checked onchange="onMcpToolToggle('lookup_network_host', this.checked)">
+                  <span class="mcp-slider"></span>
+                </label>
+              </div>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
                 Sichere DNS-Prüfung, HTTP-Status &amp; SSL-Zertifikatslaufzeit öffentlicher Domains mit SSRF-Schutzwall (Owner Only).
               </p>
@@ -1358,220 +1590,27 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Interactive Live-Agent Playground Studio -->
-          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:14px;padding:1.5rem;margin-bottom:2rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
-              <h4 style="margin:0;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-                <span>⚡</span> <span>Live MCP Agent Konsole (Direkt testen)</span>
-              </h4>
-            </div>
-
-            <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;">
-              Wähle eine Schnellabfrage oder tippe deinen eigenen Prompt ein. Der ComputeMesh Gateway führt den MCP-Agenten-Loop auf deinen Flotten-Nodes aus.
-            </p>
-
-            <!-- Quick Query Presets -->
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie ist das aktuelle Wetter in Veitshöchheim und was sind die wichtigsten aktuellen News von heute?')">
-                🌤️ Wetter &amp; News
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die Länderdaten von Japan (Hauptstadt, Einwohnerzahl, Währung)?')">
-                🌍 Länderdaten: Japan
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie hat sich das BIP von Deutschland laut der Weltbank in den letzten Jahren entwickelt?')">
-                🏛️ Weltbank: BIP Deutschland
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die neuesten Forschungspaper auf arXiv zum Thema Reasoning Models?')">
-                🔬 arXiv: KI-Forschung
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche Inhaltsstoffe und welchen Nutri-Score hat Nutella?')">
-                🥗 Open Food: Nutella
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche Version hat fastapi auf PyPI und gibt es bekannte Sicherheitslücken?')">
-                📦 PyPI &amp; CVE Check: FastAPI
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Gab es in den letzten Tagen schwere Erdbeben weltweit ab Stärke 5.0?')">
-                🌋 USGS Erdbeben
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was ist die chemische Summenformel und der IUPAC-Name von Aspirin?')">
-                🧪 PubChem: Aspirin
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wann fahren die nächsten Züge ab Würzburg Hbf und gibt es Verspätungen?')">
-                🚆 Deutsche Bahn: Würzburg Hbf
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie viel sind 250 EUR in USD und wie steht der Bitcoin Kurs?')">
-                💱 Währungsrechner &amp; BTC
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie weit ist es von Veitshöchheim nach München und wie lange fährt man mit dem Auto?')">
-                🗺️ Entfernung Veitshöchheim - München
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Berechne mit Python das Endkapital bei 15.000 € Startguthaben nach 8 Jahren mit 4,2% Zinsen')">
-                🧮 Mathe: Zinsrechnung
-              </button>
-            </div>
-
-            <!-- Input Form -->
-            <div class="form-group" style="margin-bottom:0.75rem;">
-              <textarea id="mcp-test-prompt" class="form-control-custom" rows="3" style="width:100%;font-size:0.9rem;resize:vertical;" placeholder="z. B.: Wie steht die Apple Aktie heute und was gibt es Neues aus dem Tech-Bereich?"></textarea>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
-              <label style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#cbd5e1;cursor:pointer;">
-                <input type="checkbox" id="mcp-enable-toggle" checked style="accent-color:var(--accent-cyan);">
-                <span>MCP Live-Tools aktivieren (<code>enable_mcp: true</code>)</span>
-              </label>
-
-              <button id="mcp-test-submit-btn" class="btn btn-primary" onclick="runMcpAgentTest()">
-                🚀 <span>Agent-Anfrage ausführen</span>
-              </button>
-            </div>
-
-            <!-- Live Agent Output Console -->
-            <div id="mcp-test-output-box" style="display:none;background:#090d16;border:1px solid rgba(56,189,248,0.25);border-radius:10px;padding:1.2rem;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.5rem;">
-                <div style="font-size:0.85rem;font-weight:700;color:var(--accent-cyan);display:flex;align-items:center;gap:0.5rem;">
-                  <span id="mcp-output-spinner" class="pulse-dot"></span>
-                  <span id="mcp-output-status">Warte auf Modell-Antwort...</span>
-                </div>
-                <button class="copy-btn" style="padding:0.25rem 0.55rem;font-size:0.75rem;" onclick="copyCmd('mcp-output-content')">📋 Antwort kopieren</button>
-              </div>
-
-              <!-- Tool Execution Badge Area -->
-              <div id="mcp-tool-events-list" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;"></div>
-
-              <!-- Streamed Markdown Content -->
-              <div id="mcp-output-content" style="color:#f8fafc;font-size:0.92rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;"></div>
-            </div>
-          </div>
-
-          <!-- Code Integration Snippets for MCP -->
-          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:1.4rem;">
-            <h4 style="margin-top:0;margin-bottom:1rem;font-size:1.1rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-              <span>💻</span> <span>MCP-Integration in eigene Skripte &amp; Tools</span>
-            </h4>
-
-            <div class="pg-snippet-tabs" style="margin:0 0 1rem 0;background:rgba(0,0,0,0.4);padding:0.25rem;border-radius:8px;display:flex;gap:0.3rem;flex-wrap:wrap;">
-              <button class="pg-tab-btn active" id="tab-btn-mcp-curl" onclick="switchMcpApiTab('curl')">🐧 cURL (Linux / Mac)</button>
-              <button class="pg-tab-btn" id="tab-btn-mcp-cmd" onclick="switchMcpApiTab('cmd')">🪟 Windows CMD (DOS)</button>
-              <button class="pg-tab-btn" id="tab-btn-mcp-powershell" onclick="switchMcpApiTab('powershell')">⚡ Windows PowerShell</button>
-              <button class="pg-tab-btn" id="tab-btn-mcp-python" onclick="switchMcpApiTab('python')">🐍 Python SDK</button>
-              <button class="pg-tab-btn" id="tab-btn-mcp-config" onclick="switchMcpApiTab('config')">🔌 Externe MCP-Server (mcp_config.json)</button>
-            </div>
-
-            <!-- Tab 1: cURL -->
-            <div id="pane-mcp-curl" class="mcp-api-pane">
-              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
-                <button class="copy-btn" onclick="copyCmd('code-mcp-curl')">📋 cURL kopieren</button>
-              </div>
-              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-curl">curl -X POST https://mesh.inetconnector.com/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer &lt;OWNER_KEY&gt;" \
-  -d '{
-    "model": "qwen2.5:7b",
-    "enable_mcp": true,
-    "messages": [
-      {"role": "user", "content": "Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?"}
-    ],
-    "stream": true
-  }'</code></pre>
-            </div>
-
-            <!-- Tab 2: CMD -->
-            <div id="pane-mcp-cmd" class="mcp-api-pane" style="display:none;">
-              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
-                <button class="copy-btn" onclick="copyCmd('code-mcp-cmd')">📋 CMD kopieren</button>
-              </div>
-              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-cmd">REM In jedem Windows CMD / DOS-Fenster direkt ausf&#252;hrbar mit Live-Tools:
-curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
-  -H "Content-Type: application/json" ^
-  -H "Authorization: Bearer &lt;OWNER_KEY&gt;" ^
-  -d "{\"model\": \"qwen2.5:7b\", \"enable_mcp\": true, \"messages\": [{\"role\": \"user\", \"content\": \"Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?\"}], \"stream\": true}"</code></pre>
-            </div>
-
-            <!-- Tab 3: PowerShell -->
-            <div id="pane-mcp-powershell" class="mcp-api-pane" style="display:none;">
-              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
-                <button class="copy-btn" onclick="copyCmd('code-mcp-powershell')">📋 PowerShell kopieren</button>
-              </div>
-              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-powershell"># Windows PowerShell (Native REST-Abfrage mit MCP)
-$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer &lt;OWNER_KEY&gt;" }
-$body = @{ 
-    model = "qwen2.5:7b"
-    enable_mcp = $true
-    messages = @(@{ role = "user"; content = "Wie steht der Bitcoin Kurs und was sind die aktuellen Krypto-News?" })
-    stream = $false 
-} | ConvertTo-Json
-Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body</code></pre>
-            </div>
-
-            <!-- Tab 4: Python -->
-            <div id="pane-mcp-python" class="mcp-api-pane" style="display:none;">
-              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
-                <button class="copy-btn" onclick="copyCmd('code-mcp-python')">📋 Python SDK kopieren</button>
-              </div>
-              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-python"># pip install openai
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://mesh.inetconnector.com/v1",
-    api_key="&lt;OWNER_KEY&gt;"
-)
-
-# Extra-Parameter enable_mcp aktiviert den autonomous agent loop auf deiner Flotte
-stream = client.chat.completions.create(
-    model="qwen2.5:7b",
-    extra_body={"enable_mcp": True},
-    messages=[
-        {"role": "user", "content": "Hole mir die aktuellen Top-Nachrichten aus Deutschland und den aktuellen DAX-Stand."}
-    ],
-    stream=True
-)
-
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
-            </div>
-
-            <!-- Tab 5: External MCP Config -->
-            <div id="pane-mcp-config" class="mcp-api-pane" style="display:none;">
-              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
-                <button class="copy-btn" onclick="copyCmd('code-mcp-config')">📋 JSON kopieren</button>
-              </div>
-              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-config">{
-  "mcpServers": {
-    "postgres": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@localhost:5432/mydb"]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/directory"]
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-      }
-    }
-  }
-}</code></pre>
-            </div>
-      <!-- VIEW 6: llama.cpp WebUI & Chat Studio -->
+      <!-- VIEW 6: ComputeMesh AI-Chat -->
       <div id="cockpit-view-chatui" style="display: none;">
         <div class="fleet-card" style="padding: 1.5rem;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
             <div>
-              <h3 style="margin:0 0 0.25rem 0;font-size:1.3rem;display:flex;align-items:center;gap:0.5rem;">
-                <span>🖥️</span> <span>llama.cpp WebUI &amp; Local Client Studio</span>
+              <h3 style="margin:0 0 0.25rem 0;font-size:1.3rem;display:flex;align-items:center;gap:0.5rem;color:var(--accent-cyan);">
+                <span>💬</span> <span>ComputeMesh AI-Chat (Dedizierte Oberfläche)</span>
               </h3>
               <p style="margin:0;color:#94a3b8;font-size:0.88rem;">
-                Offizielles, vollintegriertes llama.cpp Web-Interface. Verbinde dich direkt mit deinem lokalen GPU-Client, Ollama oder dem ComputeMesh-Gateway.
+                Vollwertige, moderne Chat-Oberfläche für deine lokale GPU-Flotte und Remote-Nodes. Öffne den Chat im eigenen sauberen Fenster für maximale Arbeitsfläche.
               </p>
             </div>
             <div style="display:flex;align-items:center;gap:0.75rem;">
-              <a href="/webui/" target="_blank" class="btn btn-primary" style="font-size:0.85rem;padding:0.45rem 0.9rem;text-decoration:none;">
-                ↗️ Im neuen Vollbild-Tab öffnen
+              <button onclick="openChatWindow()" class="btn btn-primary" style="font-size:0.9rem;padding:0.55rem 1.2rem;box-shadow:0 0 15px rgba(56,189,248,0.4);">
+                🚀 AI-Chat im eigenen Fenster öffnen
+              </button>
+              <a href="/webui/" target="_blank" class="btn btn-secondary" style="font-size:0.85rem;padding:0.55rem 0.9rem;text-decoration:none;">
+                ↗️ Im neuen Tab
               </a>
             </div>
           </div>
@@ -1593,8 +1632,8 @@ for chunk in stream:
           </div>
 
           <!-- Responsive Embedded iframe Container -->
-          <div style="position:relative;width:100%;height:800px;border-radius:12px;overflow:hidden;border:1px solid rgba(148,163,184,0.15);background:#0f172a;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-            <iframe id="llamacpp-embedded-iframe" src="/webui/" style="width:100%;height:100%;border:none;" title="llama.cpp WebUI"></iframe>
+          <div style="position:relative;width:100%;height:750px;border-radius:12px;overflow:hidden;border:1px solid rgba(148,163,184,0.15);background:#0f172a;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <iframe id="llamacpp-embedded-iframe" src="/webui/" style="width:100%;height:100%;border:none;" title="AI-Chat WebUI"></iframe>
           </div>
         </div>
       </div>
@@ -1784,6 +1823,9 @@ for chunk in stream:
       }
       if (view === 'payouts') {
         loadPayouts();
+      }
+      if (view === 'mcp') {
+        loadFleetMcpSettings();
       }
     }
 
@@ -2953,6 +2995,192 @@ for chunk in stream:
           statusEl.textContent = "❌ " + e.message;
         }
       }
+    function openChatWindow() {
+      const chatUrl = "/webui/";
+      const width = Math.min(1400, Math.floor(window.screen.availWidth * 0.9));
+      const height = Math.min(950, Math.floor(window.screen.availHeight * 0.9));
+      const left = Math.floor((window.screen.availWidth - width) / 2);
+      const top = Math.floor((window.screen.availHeight - height) / 2);
+
+      const win = window.open(
+        chatUrl,
+        "ComputeMeshAIChat",
+        `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
+      );
+      if (!win || win.closed || typeof win.closed === "undefined") {
+        window.open(chatUrl, "_blank");
+      } else {
+        win.focus();
+      }
+    }
+
+    const ALL_MCP_TOOLS = [
+      "get_market_quote",
+      "get_live_news",
+      "get_current_weather",
+      "calculate_math",
+      "get_wikipedia_summary",
+      "lookup_country_data",
+      "get_world_bank_stats",
+      "search_arxiv_papers",
+      "lookup_food_product",
+      "lookup_software_package",
+      "get_recent_earthquakes",
+      "lookup_chemical_compound",
+      "lookup_word_definition",
+      "lookup_train_schedule",
+      "convert_currency",
+      "get_time_and_calendar",
+      "get_distance_route",
+      "search_web",
+      "fetch_web_content",
+      "lookup_network_host"
+    ];
+
+    let currentFleetDisabledTools = [];
+
+    function getMcpStorageKey() {
+      return "cm_fleet_mcp_disabled_" + (activeOwnerKey || "default");
+    }
+
+    function updateMcpUI() {
+      const disabledSet = new Set(currentFleetDisabledTools);
+      let activeCount = 0;
+
+      ALL_MCP_TOOLS.forEach(toolName => {
+        const isEnabled = !disabledSet.has(toolName);
+        if (isEnabled) activeCount++;
+
+        const toggle = document.getElementById(`mcp-toggle-${toolName}`);
+        if (toggle) {
+          toggle.checked = isEnabled;
+        }
+
+        const card = document.getElementById(`mcp-card-${toolName}`);
+        if (card) {
+          if (isEnabled) {
+            card.classList.remove("disabled-tool");
+          } else {
+            card.classList.add("disabled-tool");
+          }
+        }
+      });
+
+      const countEl = document.getElementById("mcp-active-count");
+      if (countEl) countEl.textContent = activeCount;
+
+      const badgeEl = document.getElementById("mcp-active-badge");
+      if (badgeEl) {
+        if (activeCount === ALL_MCP_TOOLS.length) {
+          badgeEl.className = "status-pill online";
+          badgeEl.innerHTML = `<span class="pulse-dot"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} Tools aktiv für diese Flotte`;
+        } else if (activeCount > 0) {
+          badgeEl.className = "status-pill online";
+          badgeEl.style.borderColor = "rgba(245,158,11,0.5)";
+          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#f59e0b;"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} Tools aktiv (${ALL_MCP_TOOLS.length - activeCount} deaktiviert)`;
+        } else {
+          badgeEl.className = "status-pill offline";
+          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#64748b;"></span> <span id="mcp-active-count">0</span>/${ALL_MCP_TOOLS.length} Tools aktiv (Alle deaktiviert)`;
+        }
+      }
+    }
+
+    async function loadFleetMcpSettings() {
+      // 1. Initial load from localStorage for instant display
+      try {
+        const cached = localStorage.getItem(getMcpStorageKey());
+        if (cached) {
+          currentFleetDisabledTools = JSON.parse(cached) || [];
+          updateMcpUI();
+        }
+      } catch (e) {}
+
+      // 2. Fetch from backend API
+      try {
+        const headers = {};
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        let url = "/api/portal/fleet/mcp_settings";
+        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+
+        const res = await fetch(url, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.disabled_tools)) {
+            currentFleetDisabledTools = data.disabled_tools;
+            localStorage.setItem(getMcpStorageKey(), JSON.stringify(currentFleetDisabledTools));
+            updateMcpUI();
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch remote MCP settings:", err);
+      }
+    }
+
+    let mcpSaveTimeout = null;
+    async function saveFleetMcpSettings() {
+      // Update local storage immediately
+      try {
+        localStorage.setItem(getMcpStorageKey(), JSON.stringify(currentFleetDisabledTools));
+      } catch (e) {}
+
+      const indicator = document.getElementById("mcp-save-indicator");
+      if (indicator) {
+        indicator.style.display = "inline-flex";
+        indicator.style.color = "var(--accent-cyan)";
+        indicator.innerHTML = `<span>⏳</span> <span>Speichere für Flotte...</span>`;
+      }
+
+      if (mcpSaveTimeout) clearTimeout(mcpSaveTimeout);
+      mcpSaveTimeout = setTimeout(async () => {
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+          const payload = {
+            disabled_tools: currentFleetDisabledTools,
+            owner_key: activeOwnerKey || ""
+          };
+
+          const res = await fetch("/api/portal/fleet/mcp_settings", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok && indicator) {
+            indicator.style.color = "#10b981";
+            indicator.innerHTML = `<span>💾</span> <span>Gespeichert pro Flotte</span>`;
+          }
+        } catch (err) {
+          if (indicator) {
+            indicator.style.color = "#f59e0b";
+            indicator.innerHTML = `<span>⚠️</span> <span>Lokal gespeichert</span>`;
+          }
+        }
+      }, 300);
+    }
+
+    function onMcpToolToggle(toolName, isChecked) {
+      if (isChecked) {
+        currentFleetDisabledTools = currentFleetDisabledTools.filter(t => t !== toolName);
+      } else {
+        if (!currentFleetDisabledTools.includes(toolName)) {
+          currentFleetDisabledTools.push(toolName);
+        }
+      }
+      updateMcpUI();
+      saveFleetMcpSettings();
+    }
+
+    function enableAllMcpTools(enable) {
+      if (enable) {
+        currentFleetDisabledTools = [];
+      } else {
+        currentFleetDisabledTools = [...ALL_MCP_TOOLS];
+      }
+      updateMcpUI();
+      saveFleetMcpSettings();
     }
 
     function escapeHtml(str) {
@@ -2970,6 +3198,7 @@ for chunk in stream:
       const magicToken = urlParams.get("magic_token");
       if (magicToken) {
         await verifyMagicLink(magicToken);
+        loadFleetMcpSettings();
         return;
       }
 
@@ -2983,10 +3212,12 @@ for chunk in stream:
           if (res.ok) {
             const data = await res.json();
             onLoggedIn(data);
+            loadFleetMcpSettings();
             return;
           }
         } catch (e) {}
         onLoggedIn({ owner_key: savedKey });
+        loadFleetMcpSettings();
         return;
       }
 
@@ -2996,6 +3227,7 @@ for chunk in stream:
         if (res.ok) {
           const data = await res.json();
           onLoggedIn(data);
+          loadFleetMcpSettings();
           return;
         }
       } catch (e) {}

@@ -50,6 +50,7 @@ class AgentLoop:
         llm_caller: Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]],
         is_owner: bool = True,
         max_iterations: Optional[int] = None,
+        disabled_tools: Optional[List[str]] = None,
     ) -> AgentExecutionResult:
         """
         Executes the agent tool calling loop.
@@ -59,10 +60,13 @@ class AgentLoop:
         :param llm_caller: Function receiving (messages, tools) and returning OpenAI-compatible completion dict.
         :param is_owner: Whether the caller is authenticated with an Owner Key.
         :param max_iterations: Maximum loop iterations.
+        :param disabled_tools: Optional list of tool names disabled for this fleet.
         """
         max_iter = max_iterations or self.config.max_agent_iterations
         curr_messages = [dict(m) for m in messages]
-        tools = self.registry.get_openai_tools(is_owner=is_owner)
+        disabled_set = set(str(t).strip() for t in (disabled_tools or []) if str(t).strip())
+        all_tools = self.registry.get_openai_tools(is_owner=is_owner)
+        tools = [t for t in all_tools if t.get("function", {}).get("name") not in disabled_set]
 
         executed_records: List[ToolCallRecord] = []
         total_prompt_tok = 0
@@ -162,8 +166,11 @@ class AgentLoop:
                 else:
                     args = {}
 
-                # Execute in registry
-                tool_output = self.registry.execute_tool(fn_name, args, is_owner=is_owner)
+                # Execute in registry if allowed
+                if disabled_set and fn_name in disabled_set:
+                    tool_output = {"error": f"Tool '{fn_name}' ist für diese Flotte deaktiviert."}
+                else:
+                    tool_output = self.registry.execute_tool(fn_name, args, is_owner=is_owner)
                 executed_records.append(
                     ToolCallRecord(
                         id=call_id,

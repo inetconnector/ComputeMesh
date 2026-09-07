@@ -105,6 +105,24 @@ class InferenceEngine:
         try:
             backend_result = None
             if enable_mcp and self.mcp_config.enabled and is_provider_self_compute:
+                owner_id = None
+                if account_id:
+                    cleaned_k = str(account_id).strip()
+                    if cleaned_k.startswith("acct_"):
+                        owner_id = cleaned_k
+                    else:
+                        import hashlib
+                        owner_id = "acct_" + hashlib.sha256(cleaned_k.encode("utf-8")).hexdigest()[:24]
+
+                disabled_tools: list[str] = []
+                if owner_id:
+                    try:
+                        from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+                        disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
+                    except Exception:
+                        disabled_tools = []
+                disabled_set = set(disabled_tools)
+
                 def local_llm_caller(msg_list, tool_list):
                     try:
                         res = self.backend.complete(
@@ -133,9 +151,13 @@ class InferenceEngine:
                 enhanced_msgs = list(normalized_messages)
                 has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
                 if not has_tool_system:
+                    active_tools = [
+                        t for t in self.tool_registry.list_tools(is_owner=True)
+                        if t.name not in disabled_set
+                    ]
                     tools_desc = "\n".join([
                         f"- {t.name}({', '.join(t.parameters.get('properties', {}).keys())}): {t.description}"
-                        for t in self.tool_registry.list_tools(is_owner=True)
+                        for t in active_tools
                     ])
                     tool_prompt = (
                         "Du bist ComputeMesh AI mit integrierter Live-Tool-Engine (MCP).\n"
@@ -151,6 +173,7 @@ class InferenceEngine:
                     model=canonical_model_id,
                     llm_caller=local_llm_caller,
                     is_owner=True,
+                    disabled_tools=disabled_tools,
                 )
                 completion_text = agent_res.final_content
                 tokens_prompt = agent_res.prompt_tokens

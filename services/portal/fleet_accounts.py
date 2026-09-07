@@ -169,6 +169,12 @@ class FleetAccountStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_fleet_key_rot_acc
                     ON fleet_key_rotations(account_id);
+
+                CREATE TABLE IF NOT EXISTS fleet_mcp_settings (
+                    owner_id TEXT PRIMARY KEY,
+                    disabled_tools TEXT NOT NULL DEFAULT '[]',
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
             # Safe schema migration for existing databases
@@ -559,3 +565,43 @@ class FleetAccountStore:
                 (account_id, max(1, min(limit, 200))),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # -- mcp tool settings per fleet ------------------------------------------
+
+    def get_mcp_disabled_tools(self, owner_id: str) -> list[str]:
+        cleaned_id = str(owner_id or "").strip()
+        if not cleaned_id:
+            return []
+        import json
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT disabled_tools FROM fleet_mcp_settings WHERE owner_id = ?",
+                (cleaned_id,),
+            ).fetchone()
+            if not row:
+                return []
+            try:
+                res = json.loads(row["disabled_tools"])
+                return list(res) if isinstance(res, list) else []
+            except Exception:
+                return []
+
+    def set_mcp_disabled_tools(self, owner_id: str, disabled_tools: list[str]) -> None:
+        cleaned_id = str(owner_id or "").strip()
+        if not cleaned_id:
+            return
+        import json
+        clean_list = [str(t).strip() for t in (disabled_tools or []) if str(t).strip()]
+        payload = json.dumps(clean_list)
+        now = utc_now()
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO fleet_mcp_settings(owner_id, disabled_tools, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(owner_id) DO UPDATE SET
+                    disabled_tools = excluded.disabled_tools,
+                    updated_at = excluded.updated_at
+                """,
+                (cleaned_id, payload, now),
+            )

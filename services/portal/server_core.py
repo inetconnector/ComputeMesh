@@ -498,6 +498,41 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(data, credentialed=True)
             return
 
+        if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            disabled = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
+            from services.mcp.tool_registry import ToolRegistry
+            from services.mcp.config import get_mcp_config
+            reg = ToolRegistry(get_mcp_config())
+            all_tools = [t.name for t in reg.list_tools(is_owner=True)]
+            enabled_tools = [t for t in all_tools if t not in disabled]
+            self._send_json({
+                "owner_id": owner_id,
+                "disabled_tools": disabled,
+                "enabled_tools": enabled_tools,
+                "total_tools": len(all_tools),
+            }, credentialed=True)
+            return
+
         if clean_path.startswith("/downloads/"):
             dl_name = clean_path.removeprefix("/downloads/")
             body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")
@@ -823,6 +858,38 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/auth/email/update", "/api/portal/auth/email/update"):
             data, status, cookie = self.passkey_handler.update_email(self.headers, body, self.client_address)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+            if not owner_key and account is None:
+                self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key)
+            if not owner_id:
+                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            disabled_tools = body.get("disabled_tools", [])
+            if not isinstance(disabled_tools, list):
+                disabled_tools = []
+            FLEET_ACCOUNT_STORE.set_mcp_disabled_tools(owner_id, disabled_tools)
+            self._send_json({
+                "status": "ok",
+                "owner_id": owner_id,
+                "disabled_tools": disabled_tools,
+            }, credentialed=True)
             return
 
         if clean_path == "/api/auth/logout":
