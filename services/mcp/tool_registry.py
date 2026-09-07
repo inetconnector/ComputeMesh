@@ -15,6 +15,7 @@ from .builtin.web_search import execute_web_search
 from .builtin.finance_market import execute_finance_quote
 from .builtin.web_fetch import execute_web_fetch
 from .builtin.news_feed import execute_get_news
+from .builtin.weather import execute_get_weather
 from .builtin.system_tools import execute_system_info
 
 
@@ -186,7 +187,26 @@ class ToolRegistry:
             source="builtin_news",
         )
 
-        # 5. Safe System Info Tool (Owner only)
+        # 5. Live Weather Tool
+        self.register_tool(
+            name="get_current_weather",
+            description="Liefert aktuelle Live-Wetterdaten, Temperatur, Luftfeuchtigkeit, Windgeschwindigkeit und Wetterbedingungen für jeden Ort oder jede Stadt weltweit (z. B. 'Veitshöchheim', 'Würzburg', 'Berlin').",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "Der Name der Stadt oder des Ortes (z. B. 'Veitshöchheim', 'Würzburg', 'München', 'Berlin').",
+                    },
+                },
+                "required": ["location"],
+            },
+            handler=execute_get_weather,
+            owner_only=False,
+            source="builtin_weather",
+        )
+
+        # 6. Safe System Info Tool (Owner only)
         if self.config.system_tools_enabled:
             self.register_tool(
                 name="get_system_info",

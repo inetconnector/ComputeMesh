@@ -105,6 +105,11 @@ class TestBuiltinTools(unittest.TestCase):
         self.assertEqual(len(res["articles"]), 1)
         self.assertEqual(res["articles"][0]["title"], "Breaking News: AI Mesh Breakthrough")
 
+    def test_weather_tool(self):
+        from services.mcp.builtin.weather import get_current_weather
+        res = get_current_weather("")
+        self.assertIn("error", res)
+
     def test_system_info(self):
         info = execute_system_info()
         self.assertIn("os", info)
@@ -122,6 +127,8 @@ class TestToolRegistry(unittest.TestCase):
         self.assertIn("search_web", names)
         self.assertIn("get_market_quote", names)
         self.assertIn("fetch_web_content", names)
+        self.assertIn("get_live_news", names)
+        self.assertIn("get_current_weather", names)
         self.assertIn("get_system_info", names)
 
     def test_openai_format(self):

@@ -135,7 +135,7 @@ class InferenceEngine:
                 if not has_tool_system:
                     tools_desc = "\n".join([f"- {t.name}: {t.description}" for t in self.tool_registry.list_tools(is_owner=True)])
                     tool_prompt = (
-                        f"Du bist ComputeMesh AI mit Live-Tools und MCP-Unterstützung. Wenn du für die Beantwortung der Anfrage Echtzeitdaten benötigst (z. B. aktuelle Börsen-/Kryptokurse, Websuche, Live-Nachrichten oder Webseiten-Inhalte), verwende das Format:\n"
+                        f"Du bist ComputeMesh AI mit Live-Tools und MCP-Unterstützung. Wenn du für die Beantwortung der Anfrage Echtzeitdaten benötigst (z. B. Live-Wetterdaten, aktuelle Börsen-/Kryptokurse, Websuche, Live-Nachrichten oder Webseiten-Inhalte), führe das passende Tool aus im Format:\n"
                         f"<tool_call>{{\"name\": \"tool_name\", \"arguments\": {{\"param\": \"value\"}}}}</tool_call>\n\n"
                         f"Verfügbare Tools:\n{tools_desc}"
                     )

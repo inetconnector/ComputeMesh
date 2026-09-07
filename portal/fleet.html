@@ -1163,6 +1163,18 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
+            <!-- Live Weather -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(14,165,233,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌤️</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Live-Wetterdaten weltweit</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Echtzeit-Wetter, Temperatur, Luftfeuchtigkeit, Wind und WMO-Bedingungen via Open-Meteo &amp; wttr.in für jeden Ort.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#38bdf8;">
+                <code>get_current_weather</code>
+              </div>
+            </div>
+
             <!-- System Tools -->
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
               <div style="font-size:1.4rem;margin-bottom:0.4rem;">🖥️</div>
@@ -1191,6 +1203,9 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
             <!-- Quick Query Presets -->
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie ist das aktuelle Wetter in Veitshöchheim und was sind die wichtigsten aktuellen News von heute?')">
+                🌤️ Wetter &amp; News heute
+              </button>
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie steht die Nvidia Aktie (NVDA) heute und wie ist der aktuelle DAX Kurs?')">
                 📈 Nvidia &amp; DAX Kurs
               </button>
