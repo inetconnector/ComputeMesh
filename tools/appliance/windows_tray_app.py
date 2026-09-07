@@ -1032,6 +1032,15 @@ class ComputeMeshProviderApp:
                     pass
 
             if self.is_running:
+                # Sync live token and earnings accounting from local store & coordinator
+                try:
+                    from tools.appliance.token_metering import get_token_stats
+                    t_stats = get_token_stats()
+                    self.total_tokens_served = t_stats.get("tokens_processed", 0)
+                    self.total_earnings_usd = t_stats.get("earnings_usd", 0.0)
+                except Exception:
+                    pass
+
                 def _update_stats(toks=self.total_tokens_served, earn=self.total_earnings_usd):
                     try:
                         self.lbl_tokens.config(text=f"{toks:,}")

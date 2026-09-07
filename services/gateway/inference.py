@@ -172,6 +172,34 @@ class InferenceEngine:
                 cost_micro_units=cost_micro,
                 status_code=200,
             )
+
+            # Record tokens into local metering store (if running on provider) and gateway telemetry registry
+            try:
+                from tools.appliance.token_metering import record_tokens
+                record_tokens(prompt_tokens=tokens_prompt, completion_tokens=tokens_completion)
+            except Exception:
+                pass
+
+            try:
+                from services.gateway.server import NODE_TELEMETRY_REGISTRY
+                total_job_toks = tokens_prompt + tokens_completion
+                nodes_updated = False
+                for p_share in (provider_shares or []):
+                    p_node = getattr(p_share, "node_id", None) or (p_share.get("node_id") if isinstance(p_share, dict) else None)
+                    if p_node and p_node in NODE_TELEMETRY_REGISTRY:
+                        tel = NODE_TELEMETRY_REGISTRY[p_node].setdefault("telemetry", {})
+                        tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
+                        tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
+                        nodes_updated = True
+                if not nodes_updated:
+                    for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
+                        if not n_data.get("is_peer_relay", False) and n_data.get("updated_at"):
+                            tel = n_data.setdefault("telemetry", {})
+                            tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
+                            tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
+            except Exception:
+                pass
+
             return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
         except Exception:
             if hold and hasattr(self.ledger, "release_hold"):

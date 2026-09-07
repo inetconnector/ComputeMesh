@@ -260,12 +260,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "tflops": tf,
                 })
 
+            t_toks = self.tokens_served
+            t_earn = self.earnings_cm
+            try:
+                from tools.appliance.token_metering import get_token_stats
+                t_stats = get_token_stats()
+                t_toks = max(t_toks, int(t_stats.get("tokens_processed", 0) or 0))
+                t_earn = max(t_earn, float(t_stats.get("earnings_cm", 0.0) or 0.0))
+            except Exception:
+                pass
+
             local_payload = {
                 "node_id": self._current_node_id(),
                 "inventory": self.inventory.to_dict(),
                 "telemetry": {
-                    "tokens_processed": self.tokens_served,
-                    "earnings_cm": self.earnings_cm,
+                    "tokens_processed": t_toks,
+                    "earnings_cm": t_earn,
                     "local_compute_tflops": round(local_tflops, 1),
                 },
             }
@@ -293,8 +303,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 },
                 "global_mesh": mesh_stats,
                 "telemetry": {
-                    "tokens_processed": self.tokens_served,
-                    "earnings_cm": self.earnings_cm,
+                    "tokens_processed": t_toks,
+                    "earnings_cm": t_earn,
                     "local_compute_tflops": round(local_tflops, 1),
                     "gpu_thermals": thermals,
                     "uptime_seconds": 86400,

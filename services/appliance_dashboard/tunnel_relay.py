@@ -39,8 +39,8 @@ def get_default_node_id() -> str:
     try:
         from tools.appliance.appliance_config import load_appliance_config
         cfg = load_appliance_config()
-        if getattr(cfg, "rig_name", "") and getattr(cfg, "rig_name", "") not in ("cm-inference-node-01", "test-node-custom"):
-            return cfg.rig_name
+        if getattr(cfg, "rig_name", "") and getattr(cfg, "rig_name", "").strip():
+            return getattr(cfg, "rig_name", "").strip()
     except Exception:
         pass
     import socket
@@ -88,11 +88,20 @@ class CloudTunnelRelay:
                 from tools.appliance.appliance_config import load_appliance_config
                 from tools.appliance.hardware_detector import scan_rig_hardware
                 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+                from tools.appliance.token_metering import get_token_stats, sync_with_coordinator
 
                 try:
-                    owner_key = load_appliance_config().owner_key
+                    cfg_now = load_appliance_config()
+                    owner_key = cfg_now.owner_key
+                    if getattr(cfg_now, "rig_name", "") and getattr(cfg_now, "rig_name", "").strip():
+                        self.node_id = getattr(cfg_now, "rig_name", "").strip()
                 except Exception:
                     owner_key = ""
+
+                t_stats = get_token_stats()
+                toks_processed = int(t_stats.get("tokens_processed", 0) or 0)
+                earnings_cm = int(t_stats.get("earnings_cm", 0) or 0)
+                payout_usd = float(t_stats.get("earnings_usd", 0.0) or 0.0)
 
                 inv = scan_rig_hardware()
                 tf = self._calculate_tflops(inv)
@@ -102,8 +111,9 @@ class CloudTunnelRelay:
                     "status": "online",
                     "inventory": inv.to_dict(),
                     "telemetry": {
-                        "tokens_processed": 0,
-                        "earnings_cm": 0.0,
+                        "tokens_processed": toks_processed,
+                        "earnings_cm": earnings_cm,
+                        "payout_usd": payout_usd,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
                         "is_simulated": False,
@@ -123,8 +133,9 @@ class CloudTunnelRelay:
                     "owner_key": owner_key,
                     "inventory": inv.to_dict(),
                     "telemetry": {
-                        "tokens_processed": 0,
-                        "earnings_cm": 0.0,
+                        "tokens_processed": toks_processed,
+                        "earnings_cm": earnings_cm,
+                        "payout_usd": payout_usd,
                         "local_compute_tflops": tf,
                         "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
                         "is_simulated": False,
@@ -142,6 +153,10 @@ class CloudTunnelRelay:
                         raw_body = resp.read().decode("utf-8")
                         try:
                             resp_json = json.loads(raw_body)
+                            resp_tokens = int(resp_json.get("tokens_processed", 0) or 0)
+                            resp_earnings = float(resp_json.get("earnings_usd", 0.0) or 0.0)
+                            if resp_tokens > 0 or resp_earnings > 0:
+                                sync_with_coordinator(resp_tokens, resp_earnings)
                             server_key = str(resp_json.get("owner_key", "")).strip()
                             key_rotated = bool(resp_json.get("key_rotated", False))
                             if server_key and (key_rotated or (owner_key and server_key != owner_key)):

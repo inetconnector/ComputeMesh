@@ -583,12 +583,20 @@ class PortalHandler(BaseHTTPRequestHandler):
                         OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_id)
 
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
+            incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
+            final_tokens = max(existing_tokens, incoming_tokens)
+
+            telemetry_data = body.get("telemetry", {})
+            telemetry_data["tokens_processed"] = final_tokens
+            telemetry_data["earnings_cm"] = final_tokens
+
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
                 "inventory": body.get("inventory", {}),
-                "telemetry": body.get("telemetry", {}),
+                "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
                 "updated_at": now_iso,
@@ -637,6 +645,9 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "node_id": node_id,
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
+                "tokens_processed": final_tokens,
+                "earnings_cm": final_tokens,
+                "earnings_usd": round(final_tokens * (0.75 / 1_000_000.0), 6),
             }, HTTPStatus.OK)
             return
 
