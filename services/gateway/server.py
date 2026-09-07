@@ -426,6 +426,24 @@ class GatewayHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if clean_path in ("/health", "/webui/health", "/api/health", "/v1/health"):
+            self._send_json({
+                "status": "ok",
+                "slots_idle": 1,
+                "slots_processing": 0,
+                "service": "computemesh-gateway",
+                "stripe": _stripe_readiness(self.stripe_svc),
+            })
+            return
+
+        if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/api/v1/props"):
+            self._handle_props()
+            return
+
+        if clean_path in ("/slots", "/webui/slots", "/api/slots", "/v1/slots"):
+            self._handle_slots()
+            return
+
         if clean_path.startswith("/node/"):
             node_id = clean_path.removeprefix("/node/").strip()
             auth_token = query.get("auth", [""])[0].strip()
@@ -456,7 +474,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
-        if clean_path in ("/v1/models", "/models"):
+        if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             self._handle_models()
             return
 
@@ -1220,8 +1238,33 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res or {}, status)
             return
 
-        if clean_path in ("/v1/chat/completions", "/chat/completions"):
+        if clean_path in (
+            "/v1/chat/completions",
+            "/chat/completions",
+            "/completion",
+            "/completions",
+            "/v1/completions",
+            "/webui/chat/completions",
+            "/webui/completion",
+            "/webui/completions",
+            "/webui/v1/chat/completions",
+            "/webui/v1/completions",
+            "/infill",
+            "/webui/infill",
+        ):
             self._handle_chat_completions(body)
+            return
+
+        if clean_path in ("/tokenize", "/webui/tokenize", "/api/tokenize"):
+            content = str(body.get("content", ""))
+            tokens = [ord(c) for c in content]
+            self._send_json({"tokens": tokens})
+            return
+
+        if clean_path in ("/detokenize", "/webui/detokenize", "/api/detokenize"):
+            tokens = body.get("tokens", [])
+            content = "".join(chr(t) for t in tokens if isinstance(t, int) and 0 <= t < 0x110000)
+            self._send_json({"content": content})
             return
 
         if clean_path in ("/api/chat", "/api/v1/chat"):
@@ -1237,6 +1280,52 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
+
+    def _handle_props(self) -> None:
+        models = current_models()
+        default_model = models[0].id if models else "qwen2.5:7b"
+        props = {
+            "default_generation_settings": {
+                "n_ctx": 32768,
+                "n_predict": -1,
+                "model": default_model,
+                "params": {
+                    "temperature": 0.7,
+                    "top_k": 40,
+                    "top_p": 0.95,
+                    "min_p": 0.05,
+                    "n_predict": -1,
+                    "n_keep": 0,
+                    "stop": ["<|im_end|>", "<|endoftext|>"],
+                    "samplers": ["top_k", "top_p", "min_p", "temperature"],
+                },
+            },
+            "total_slots": 1,
+            "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}",
+            "modalities": ["text", "vision"],
+            "webui_settings": {
+                "theme": "Dark",
+                "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
+            },
+            "role": "model",
+            "build": f"computemesh-gateway-{CONFIG.appliance_version}",
+            "commit": "master",
+        }
+        self._send_json(props)
+
+    def _handle_slots(self) -> None:
+        models = current_models()
+        default_model = models[0].id if models else "qwen2.5:7b"
+        slots = [
+            {
+                "id": 0,
+                "state": 0,
+                "model": default_model,
+                "n_ctx": 32768,
+                "params": {},
+            }
+        ]
+        self._send_json(slots)
 
     def _handle_models(self) -> None:
         models = current_models()
@@ -1316,6 +1405,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
+        if not messages and "prompt" in body:
+            prompt_val = body.get("prompt")
+            if isinstance(prompt_val, str) and prompt_val:
+                messages = [{"role": "user", "content": prompt_val}]
+            elif isinstance(prompt_val, list):
+                messages = [{"role": "user", "content": " ".join(str(p) for p in prompt_val)}]
         stream = bool(body.get("stream", False))
         if "enable_mcp" in body:
             enable_mcp = bool(body.get("enable_mcp"))

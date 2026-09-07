@@ -220,6 +220,77 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         query_params = urllib.parse.parse_qs(parsed_url.query)
 
+        if clean_path in ("/healthz", "/health", "/webui/health", "/api/health", "/v1/health"):
+            self._send_json({
+                "status": "ok",
+                "slots_idle": 1,
+                "slots_processing": 0,
+                "service": "computemesh-portal",
+            })
+            return
+
+        if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/api/v1/props"):
+            props = {
+                "default_generation_settings": {
+                    "n_ctx": 32768,
+                    "n_predict": -1,
+                    "model": "qwen2.5:7b",
+                    "params": {
+                        "temperature": 0.7,
+                        "top_k": 40,
+                        "top_p": 0.95,
+                        "min_p": 0.05,
+                        "n_predict": -1,
+                        "n_keep": 0,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "samplers": ["top_k", "top_p", "min_p", "temperature"],
+                    },
+                },
+                "total_slots": 1,
+                "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}",
+                "modalities": ["text", "vision"],
+                "webui_settings": {
+                    "theme": "Dark",
+                    "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
+                },
+                "role": "model",
+                "build": f"computemesh-portal-{CONFIG.appliance_version}",
+                "commit": "master",
+            }
+            self._send_json(props)
+            return
+
+        if clean_path in ("/slots", "/webui/slots", "/api/slots", "/v1/slots"):
+            self._send_json([{
+                "id": 0,
+                "state": 0,
+                "model": "qwen2.5:7b",
+                "n_ctx": 32768,
+                "params": {},
+            }])
+            return
+
+        if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
+            try:
+                from services.gateway.catalog import current_models
+                models = current_models()
+                models_data = [
+                    {
+                        "id": m.id,
+                        "object": "model",
+                        "created": getattr(m, "created", 0),
+                        "owned_by": getattr(m, "owned_by", "computemesh"),
+                        "permission": [],
+                        "root": m.id,
+                        "parent": None,
+                    }
+                    for m in models
+                ]
+            except Exception:
+                models_data = [{"id": "qwen2.5:7b", "object": "model", "created": 0, "owned_by": "computemesh", "permission": [], "root": "qwen2.5:7b", "parent": None}]
+            self._send_json({"object": "list", "data": models_data})
+            return
+
         # Dynamic 1-Click Launch & Reset Script Downloads for Fleet Operators
         if clean_path in (
             "/api/portal/download/ollama-starter",
