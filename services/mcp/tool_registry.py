@@ -108,8 +108,39 @@ class ToolRegistry:
         if name in self._tools:
             del self._tools[name]
 
+    def _resolve_tool_name(self, name: str) -> str:
+        if not name:
+            return ""
+        if name in self._tools:
+            return name
+        if name in TOOL_ALIASES:
+            return TOOL_ALIASES[name]
+
+        lower_name = name.lower().replace("-", "_")
+        if lower_name in self._tools:
+            return lower_name
+        if lower_name in TOOL_ALIASES:
+            return TOOL_ALIASES[lower_name]
+
+        # Fuzzy category heuristics
+        if any(k in lower_name for k in ("weather", "wetter", "temperature", "forecast", "klima", "regen", "sonne")):
+            return "get_current_weather"
+        if any(k in lower_name for k in ("search", "google", "bing", "brave", "find", "suchen", "web_query")):
+            return "search_web"
+        if any(k in lower_name for k in ("stock", "crypto", "quote", "aktie", "kurs", "krypto", "bitcoin", "eth", "market", "ticker")):
+            return "get_market_quote"
+        if any(k in lower_name for k in ("calc", "math", "rechen", "eval", "berechne", "formel")):
+            return "calculate_math"
+        if any(k in lower_name for k in ("wiki", "wikipedia", "lexikon", "enzyklop", "biografie", "definition")):
+            return "get_wikipedia_summary"
+        if any(k in lower_name for k in ("dns", "nslookup", "domain", "resolve", "ip_lookup")):
+            return "lookup_dns"
+        if any(k in lower_name for k in ("news", "nachricht", "schlagzeile", "zeitung")):
+            return "get_top_news"
+        return name
+
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
-        resolved = TOOL_ALIASES.get(name, name)
+        resolved = self._resolve_tool_name(name)
         return self._tools.get(resolved) or self._tools.get(name)
 
     def list_tools(self, is_owner: bool = True) -> List[ToolDefinition]:
@@ -121,7 +152,7 @@ class ToolRegistry:
         return [t.to_openai_dict() for t in self.list_tools(is_owner=is_owner)]
 
     def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True) -> Any:
-        resolved = TOOL_ALIASES.get(name, name)
+        resolved = self._resolve_tool_name(name)
         tool = self._tools.get(resolved) or self._tools.get(name)
         if not tool:
             return {"error": f"Tool '{name}' nicht gefunden"}
