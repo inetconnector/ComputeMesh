@@ -54,6 +54,32 @@ class ToolDefinition:
         }
 
 
+TOOL_ALIASES: Dict[str, str] = {
+    "get_weather_forecast": "get_current_weather",
+    "get_weather": "get_current_weather",
+    "weather": "get_current_weather",
+    "current_weather": "get_current_weather",
+    "weather_forecast": "get_current_weather",
+    "web_search": "search_web",
+    "brave_web_search": "search_web",
+    "search": "search_web",
+    "web_search_query": "search_web",
+    "stock_quote": "get_market_quote",
+    "get_stock_quote": "get_market_quote",
+    "crypto_price": "get_market_quote",
+    "market_quote": "get_market_quote",
+    "calculator": "calculate_math",
+    "calc": "calculate_math",
+    "math": "calculate_math",
+    "calculate": "calculate_math",
+    "wikipedia": "get_wikipedia_summary",
+    "wiki": "get_wikipedia_summary",
+    "get_wikipedia": "get_wikipedia_summary",
+    "dns": "lookup_dns",
+    "dns_lookup": "lookup_dns",
+}
+
+
 class ToolRegistry:
     def __init__(self, config: Optional[MCPConfig] = None):
         self.config = config or get_mcp_config()
@@ -83,7 +109,8 @@ class ToolRegistry:
             del self._tools[name]
 
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
-        return self._tools.get(name)
+        resolved = TOOL_ALIASES.get(name, name)
+        return self._tools.get(resolved) or self._tools.get(name)
 
     def list_tools(self, is_owner: bool = True) -> List[ToolDefinition]:
         if is_owner:
@@ -94,7 +121,8 @@ class ToolRegistry:
         return [t.to_openai_dict() for t in self.list_tools(is_owner=is_owner)]
 
     def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True) -> Any:
-        tool = self._tools.get(name)
+        resolved = TOOL_ALIASES.get(name, name)
+        tool = self._tools.get(resolved) or self._tools.get(name)
         if not tool:
             return {"error": f"Tool '{name}' nicht gefunden"}
 
