@@ -879,7 +879,8 @@ class ComputeMeshProviderApp:
         try:
             log_file.parent.mkdir(parents=True, exist_ok=True)
             cfg = load_appliance_config()
-            nid = getattr(cfg, "node_id", "") or "test-node-custom"
+            from services.appliance_dashboard.tunnel_relay import get_default_node_id
+            nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
             server, actual_port = create_dashboard_server(
                 host="0.0.0.0",
                 port=8080,
