@@ -79,11 +79,18 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> Li
     return items
 
 
-def execute_get_news(topic: str = "general", max_results: int = 5, timeout: float = 10.0) -> Dict[str, Any]:
+def get_live_news(
+    topic: str = "",
+    category: str = "",
+    query: str = "",
+    search: str = "",
+    max_results: int = 5,
+    timeout: float = 10.0,
+) -> Dict[str, Any]:
     """
     Fetches real-time news articles by topic or custom search term.
     """
-    clean_topic = (topic or "general").strip().lower()
+    clean_topic = (topic or category or query or search or "general").strip().lower()
     max_results = max(1, min(max_results, 10))
 
     if clean_topic in NEWS_FEEDS:
@@ -100,3 +107,7 @@ def execute_get_news(topic: str = "general", max_results: int = 5, timeout: floa
         "total": len(results),
         "articles": results,
     }
+
+
+# Backwards-compatible alias
+execute_get_news = get_live_news
