@@ -128,10 +128,12 @@ def _acquire_single_instance_lock() -> bool:
                                 size = ctypes.c_uint32(1024)
                                 if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
                                     proc_name = buf.value.lower()
-                                    if "computemesh" in proc_name or "python" in proc_name:
+                                    if "computemesh.exe" in proc_name or "computemesh-setup" in proc_name or "computemesh" in proc_name:
                                         is_cm = True
+                                    else:
+                                        is_cm = False
                             except Exception:
-                                is_cm = True
+                                is_cm = False
                             kernel32.CloseHandle(h_proc)
                             if is_cm:
                                 try:

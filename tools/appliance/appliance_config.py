@@ -100,7 +100,7 @@ def load_appliance_config(
         or os.environ.get("RIG_NAME")
         or ""
     )
-    if not raw_rig or raw_rig == "test-node-custom":
+    if not raw_rig or raw_rig in ("unnamed-node", "windows-laptop"):
         import socket
         try:
             raw_host = socket.gethostname().lower().replace("_", "-").strip()

@@ -181,11 +181,20 @@ class InferenceEngine:
                 pass
 
             try:
-                from services.gateway.server import NODE_TELEMETRY_REGISTRY
+                from services.gateway.dashboard import (
+                    NODE_TELEMETRY_REGISTRY,
+                    save_node_telemetry_registry,
+                )
                 total_job_toks = tokens_prompt + tokens_completion
                 nodes_updated = False
                 for p_share in (provider_shares or []):
-                    p_node = getattr(p_share, "node_id", None) or (p_share.get("node_id") if isinstance(p_share, dict) else None)
+                    p_node = None
+                    if isinstance(p_share, (list, tuple)) and len(p_share) >= 1:
+                        p_node = str(p_share[0])
+                    elif isinstance(p_share, dict):
+                        p_node = str(p_share.get("node_id") or p_share.get("provider_id") or "")
+                    elif hasattr(p_share, "node_id"):
+                        p_node = str(getattr(p_share, "node_id", ""))
                     if p_node and p_node in NODE_TELEMETRY_REGISTRY:
                         tel = NODE_TELEMETRY_REGISTRY[p_node].setdefault("telemetry", {})
                         tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
@@ -197,6 +206,7 @@ class InferenceEngine:
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                             tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
+                save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             except Exception:
                 pass
 
