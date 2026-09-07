@@ -474,6 +474,23 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
+        if clean_path in ("/models/sse", "/webui/models/sse", "/v1/models/sse"):
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
+            self.end_headers()
+            self.wfile.write(b'data: {"status": "ok", "action": "ready"}\n\n')
+            self.wfile.flush()
+            self.close_connection = True
+            return
+
+        if clean_path in ("/models/load", "/webui/models/load", "/models/unload", "/webui/models/unload"):
+            self._send_json({"status": "ok", "message": "model ready"})
+            return
+
         if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             self._handle_models()
             return
@@ -1239,6 +1256,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in (
+            "/models/load",
+            "/webui/models/load",
+            "/models/unload",
+            "/webui/models/unload",
+            "/v1/models/load",
+            "/v1/models/unload",
+        ):
+            self._send_json({"status": "ok", "message": "model ready"})
+            return
+
+        if clean_path in (
             "/v1/chat/completions",
             "/chat/completions",
             "/completion",
@@ -1446,21 +1474,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         # SSE Streaming response
+        try:
+            stream_gen = self.inference_engine.stream_chat_completions(
+                account_id=auth.account_id or "cust_default",
+                model_id=model_id,
+                messages=messages,
+                is_teaser=auth.is_teaser,
+                is_provider_self_compute=auth.is_provider_self_compute,
+                client_ip=client_ip,
+                max_tokens=max_tokens,
+                enable_mcp=enable_mcp,
+            )
+            first_chunk = next(stream_gen, None)
+        except InsufficientBalanceError as exc:
+            self._send_error_response(str(exc), "insufficient_quota", HTTPStatus.PAYMENT_REQUIRED)
+            return
+        except InferenceBackendError as exc:
+            self._send_error_response(sanitize_error_message(exc), "inference_error", HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        except Exception as exc:
+            self._send_error_response(sanitize_error_message(exc), "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
+        for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
         self.end_headers()
-        for chunk in self.inference_engine.stream_chat_completions(
-            account_id=auth.account_id or "cust_default",
-            model_id=model_id,
-            messages=messages,
-            is_teaser=auth.is_teaser,
-            is_provider_self_compute=auth.is_provider_self_compute,
-            client_ip=client_ip,
-            max_tokens=max_tokens,
-            enable_mcp=enable_mcp,
-        ):
+        if first_chunk:
+            self.wfile.write(first_chunk)
+            self.wfile.flush()
+        for chunk in stream_gen:
             self.wfile.write(chunk)
             self.wfile.flush()
         self.close_connection = True
