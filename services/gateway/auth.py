@@ -399,9 +399,16 @@ class GatewayAuthManager:
                     if not n_data.get("is_peer_relay", False):
                         n_owner = n_data.get("owner_id")
                         node_ip = n_data.get("client_ip")
-                        if n_owner and node_ip and node_ip == client_ip:
+                        if node_ip and node_ip == client_ip:
+                            account_id = n_owner or f"provider_{n_id}"
+                            if self.ledger.get_balance(account_id) == 0:
+                                self.ledger.deposit_customer_credits(
+                                    customer_account_id=account_id,
+                                    amount_micro_units=100_000_000,
+                                    payment_reference=f"provider_grant_{account_id}",
+                                )
                             return AuthResult(
-                                account_id=n_owner,
+                                account_id=account_id,
                                 owner_id=n_owner,
                                 is_teaser=False,
                                 is_provider_self_compute=True,

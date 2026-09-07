@@ -770,10 +770,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             telemetry_data["tokens_processed"] = final_tokens
             telemetry_data["earnings_cm"] = final_tokens
 
+            client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
+                "client_ip": str(client_ip),
                 "inventory": body.get("inventory", {}),
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),

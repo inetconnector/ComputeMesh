@@ -910,7 +910,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response("Non-empty auth_token is required for node authentication", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
 
-            client_ip = self.headers.get("x-forwarded-for") or getattr(self, "client_address", None)
+            client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
             sys.stderr.write(f"[HEARTBEAT] node_id={node_id} client={client_ip}\n")
             sys.stderr.flush()
 
@@ -982,6 +982,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
+                "client_ip": str(client_ip),
                 "inventory": body.get("inventory", {}),
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
