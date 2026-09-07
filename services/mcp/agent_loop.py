@@ -15,6 +15,7 @@ from .config import MCPConfig, get_mcp_config
 from .tool_registry import ToolRegistry
 
 XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*({.*?})(?:\s*</tool_call>|\s*$)", re.DOTALL)
+JSON_CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{\s*\"(?:name|tool|function)\"\s*:\s*\"[a-zA-Z0-9_-]+\".*?\})\s*```", re.DOTALL)
 
 
 @dataclass
@@ -84,22 +85,44 @@ class AgentLoop:
             content = msg.get("content") or ""
             tool_calls = msg.get("tool_calls") or []
 
-            # Also parse XML fallback tool calls from text if model formatted as text <tool_call>
-            if not tool_calls and "<tool_call>" in content:
-                for match in XML_TOOL_CALL_RE.finditer(content):
-                    try:
-                        parsed = json.loads(match.group(1))
-                        if "name" in parsed:
-                            tool_calls.append({
-                                "id": f"call_xml_{len(tool_calls)+1}",
-                                "type": "function",
-                                "function": {
-                                    "name": parsed.get("name"),
-                                    "arguments": json.dumps(parsed.get("arguments", {})),
-                                },
-                            })
-                    except Exception:
-                        pass
+            # Also parse XML and JSON fallback tool calls from text if model formatted as markdown/text
+            if not tool_calls:
+                # 1. XML <tool_call> tags
+                if "<tool_call>" in content:
+                    for match in XML_TOOL_CALL_RE.finditer(content):
+                        try:
+                            parsed = json.loads(match.group(1))
+                            fn_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
+                            if fn_name:
+                                tool_calls.append({
+                                    "id": f"call_xml_{len(tool_calls)+1}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": fn_name,
+                                        "arguments": json.dumps(parsed.get("arguments", parsed.get("parameters", {}))),
+                                    },
+                                })
+                        except Exception:
+                            pass
+
+                # 2. Markdown ```json code blocks with {"name": "..."}
+                if not tool_calls and ("```json" in content or "```" in content):
+                    for match in JSON_CODE_BLOCK_RE.finditer(content):
+                        try:
+                            clean_json_str = re.sub(r"//.*", "", match.group(1))
+                            parsed = json.loads(clean_json_str)
+                            fn_name = parsed.get("name") or parsed.get("tool") or parsed.get("function")
+                            if fn_name and self.registry.get_tool(fn_name):
+                                tool_calls.append({
+                                    "id": f"call_json_{len(tool_calls)+1}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": fn_name,
+                                        "arguments": json.dumps(parsed.get("arguments", parsed.get("parameters", {}))),
+                                    },
+                                })
+                        except Exception:
+                            pass
 
             # If no tools were called, this is the final answer
             if not tool_calls:

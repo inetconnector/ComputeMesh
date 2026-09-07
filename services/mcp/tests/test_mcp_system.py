@@ -386,6 +386,40 @@ class TestAgentLoop(unittest.TestCase):
         self.assertEqual(res.tool_calls_executed[0].result, {"symbol": "NVDA", "price": 180.0})
         self.assertEqual(res.iterations, 2)
 
+    def test_agent_loop_with_markdown_json_block(self):
+        calls_count = 0
+
+        def fake_llm(messages, tools):
+            nonlocal calls_count
+            calls_count += 1
+            if calls_count == 1:
+                return {
+                    "choices": [{
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hier ist die Abfrage:\n```json\n{\n  \"name\": \"get_stock_price\",\n  \"arguments\": {\"symbol\": \"AAPL\"}\n}\n```",
+                        }
+                    }],
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 15},
+                }
+            else:
+                return {
+                    "choices": [{
+                        "message": {"role": "assistant", "content": "Apple steht bei $180.0."}
+                    }],
+                    "usage": {"prompt_tokens": 40, "completion_tokens": 8},
+                }
+
+        res = self.loop.run(
+            messages=[{"role": "user", "content": "Wie steht Apple?"}],
+            model="qwen2.5:7b",
+            llm_caller=fake_llm,
+        )
+        self.assertEqual(res.final_content, "Apple steht bei $180.0.")
+        self.assertEqual(len(res.tool_calls_executed), 1)
+        self.assertEqual(res.tool_calls_executed[0].name, "get_stock_price")
+
 
 if __name__ == "__main__":
     unittest.main()
+
