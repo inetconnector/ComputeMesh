@@ -321,11 +321,11 @@ class OllamaHTTPBackend:
         if self.model_override and any(k in self.model_override.lower() for k in ("vl", "vision", "llava", "moondream")):
             return self.model_override
         clean_mid = model_id.lower()
-        if "moondream" in clean_mid:
-            return "moondream:latest"
         if "llava" in clean_mid:
             return "llava:latest"
-        return "llava:latest"
+        if "moondream" in clean_mid:
+            return "moondream:latest"
+        return "moondream:latest"
 
     def complete(
         self,
