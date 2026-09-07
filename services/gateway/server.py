@@ -844,6 +844,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         owner_binding_error = str(exc)
                         owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
+            # If the same physical client (same auth_token) renamed its node_id, retire the previous alias
+            for old_id, old_node in list(NODE_TELEMETRY_REGISTRY.items()):
+                if old_id != node_id and old_node.get("auth_token") == auth_token and not old_node.get("is_peer_relay", False):
+                    NODE_TELEMETRY_REGISTRY.pop(old_id, None)
+                    if owner_id:
+                        OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_id)
+
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
