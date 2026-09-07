@@ -49,9 +49,11 @@ class RateLimiter:
         self,
         default_rate_per_min: float = 60.0,
         authenticated_rate_per_min: float = 600.0,
+        burst_seconds: float = 5.0,
     ) -> None:
         self.default_rate_per_sec = default_rate_per_min / 60.0
         self.auth_rate_per_sec = authenticated_rate_per_min / 60.0
+        self.burst_seconds = burst_seconds
         self._buckets: dict[str, TokenBucket] = {}
         self._lock = threading.RLock()
         self._last_cleanup = time.time()
@@ -66,7 +68,7 @@ class RateLimiter:
 
         now = time.time()
         refill_rate = self.auth_rate_per_sec if is_authenticated else self.default_rate_per_sec
-        capacity = refill_rate * 5.0
+        capacity = refill_rate * self.burst_seconds
 
         with self._lock:
             if now - self._last_cleanup > 300.0:
@@ -101,7 +103,7 @@ class RateLimiter:
         self._last_cleanup = now
 
 
-GLOBAL_RATE_LIMITER = RateLimiter()
+GLOBAL_RATE_LIMITER = RateLimiter(default_rate_per_min=120.0, authenticated_rate_per_min=1200.0, burst_seconds=20.0)
 
 
 def sanitize_error_message(error: Exception | str) -> str:
