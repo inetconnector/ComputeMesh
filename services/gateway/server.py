@@ -807,6 +807,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response("Non-empty auth_token is required for node authentication", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
 
+            client_ip = self.headers.get("x-forwarded-for") or getattr(self, "client_address", None)
+            sys.stderr.write(f"[HEARTBEAT] node_id={node_id} client={client_ip}\n")
+            sys.stderr.flush()
+
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
             if existing_node:
                 expected_token = str(existing_node.get("auth_token", "")).strip()

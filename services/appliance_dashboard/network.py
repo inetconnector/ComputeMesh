@@ -46,7 +46,13 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
     try:
         host_name = socket.gethostname()
         for ip in socket.gethostbyname_ex(host_name)[2]:
-            if not ip.startswith("127.") and ip not in seen_ips:
+            if ip.startswith("127.") or ip.startswith("169.254."):
+                continue
+            # Filter out WSL / Hyper-V / Docker host-only networks if we already have a physical LAN IP
+            is_virtual_subnet = any(ip.startswith(f"172.{i}.") for i in range(16, 32))
+            if is_virtual_subnet and len(seen_ips) > 0:
+                continue
+            if ip not in seen_ips:
                 seen_ips.add(ip)
                 interfaces.append({
                     "interface": "lan",
