@@ -556,7 +556,31 @@ class PortalHandler(BaseHTTPRequestHandler):
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
             if existing_node:
                 expected_token = str(existing_node.get("auth_token", "")).strip()
-                if expected_token and not hmac.compare_digest(auth_token, expected_token):
+                updated_at_str = str(existing_node.get("updated_at", "")).strip()
+                is_stale = False
+                if updated_at_str:
+                    try:
+                        ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                        if (datetime.now(timezone.utc) - ts).total_seconds() > 300:
+                            is_stale = True
+                    except Exception:
+                        is_stale = True
+
+                owner_authorized = False
+                sent_owner_key_pre = str(body.get("owner_key", "")).strip()
+                if sent_owner_key_pre:
+                    from services.gateway.server import owner_id_for_key
+                    sender_owner = owner_id_for_key(sent_owner_key_pre)
+                    existing_owner = existing_node.get("owner_id")
+                    if sender_owner and (not existing_owner or existing_owner == sender_owner):
+                        owner_authorized = True
+
+                is_dummy_override = (
+                    existing_node.get("is_peer_relay", False)
+                    or (int(existing_node.get("inventory", {}).get("total_gpus", 0) or 0) == 0 and int(body.get("inventory", {}).get("total_gpus", 0) or 0) > 0)
+                )
+
+                if expected_token and not is_stale and not owner_authorized and not is_dummy_override and not hmac.compare_digest(auth_token, expected_token):
                     self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
                     return
 

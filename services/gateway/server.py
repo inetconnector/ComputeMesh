@@ -819,7 +819,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             is_stale = True
                     except Exception:
                         is_stale = True
-                if expected_token and not is_stale and not hmac.compare_digest(auth_token, expected_token):
+
+                owner_authorized = False
+                sent_owner_key_pre = str(body.get("owner_key", "")).strip()
+                if sent_owner_key_pre:
+                    sender_owner = owner_id_for_key(sent_owner_key_pre)
+                    existing_owner = existing_node.get("owner_id")
+                    if sender_owner and (not existing_owner or existing_owner == sender_owner):
+                        owner_authorized = True
+
+                is_dummy_override = (
+                    existing_node.get("is_peer_relay", False)
+                    or (int(existing_node.get("inventory", {}).get("total_gpus", 0) or 0) == 0 and int(body.get("inventory", {}).get("total_gpus", 0) or 0) > 0)
+                )
+
+                if expected_token and not is_stale and not owner_authorized and not is_dummy_override and not hmac.compare_digest(auth_token, expected_token):
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
