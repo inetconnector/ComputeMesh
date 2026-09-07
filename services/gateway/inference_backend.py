@@ -342,6 +342,8 @@ class OllamaHTTPBackend:
         model_id: str,
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
     ) -> BackendResult:
         normalized = self._normalise_messages(messages, self.system_prompt)
         runtime_model = self._resolve_runtime_model(model_id, normalized)
@@ -351,15 +353,17 @@ class OllamaHTTPBackend:
             options["num_ctx"] = self.num_ctx
         if self.num_thread is not None:
             options["num_thread"] = self.num_thread
-        payload = json.dumps(
-            {
-                "model": runtime_model,
-                "messages": normalized,
-                "stream": False,
-                "options": options,
-            },
-            separators=(",", ":"),
-        ).encode("utf-8")
+        
+        req_payload: dict[str, Any] = {
+            "model": runtime_model,
+            "messages": normalized,
+            "stream": False,
+            "options": options,
+        }
+        if tools:
+            req_payload["tools"] = tools
+
+        payload = json.dumps(req_payload, separators=(",", ":")).encode("utf-8")
         req = request.Request(
             f"{self.base_url}/api/chat",
             data=payload,

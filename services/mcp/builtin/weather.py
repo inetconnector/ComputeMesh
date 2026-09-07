@@ -131,16 +131,32 @@ def fetch_wttr_weather(location_name: str, timeout: float = 6.0) -> Optional[Dic
 
 
 def get_current_weather(
-    location: str = "",
-    city: str = "",
-    place: str = "",
-    query: str = "",
+    location: Any = "",
+    city: Any = "",
+    place: Any = "",
+    query: Any = "",
     timeout: float = 8.0,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Returns real-time live weather information, temperature, humidity, wind, and conditions for any city or location worldwide.
     """
-    target = (location or city or place or query or "").strip()
+    candidates = [location, city, place, query]
+    for k, v in kwargs.items():
+        if k in ("name", "q", "target", "address", "town", "stadt", "ort"):
+            candidates.append(v)
+
+    target = ""
+    for c in candidates:
+        if isinstance(c, dict):
+            val = c.get("value") or c.get("name") or c.get("city") or c.get("location")
+            if val and isinstance(val, str) and not val.startswith("{"):
+                target = val.strip()
+                break
+        elif isinstance(c, str) and c.strip() and not c.startswith("{"):
+            target = c.strip()
+            break
+
     if not target:
         return {"error": "Ort oder Stadt darf nicht leer sein (z. B. 'Veitshöchheim', 'Würzburg', 'Berlin', 'München')."}
 

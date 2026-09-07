@@ -199,12 +199,20 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                             model_id=canonical_model_id,
                             messages=msg_list,
                             max_tokens=requested_max,
+                            tools=tool_list if tool_list else None,
                         )
                     except TypeError:
-                        res = self.backend.complete(
-                            model_id=canonical_model_id,
-                            messages=msg_list,
-                        )
+                        try:
+                            res = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=msg_list,
+                                max_tokens=requested_max,
+                            )
+                        except TypeError:
+                            res = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=msg_list,
+                            )
                     backend_result = res
                     return {
                         "choices": [{
