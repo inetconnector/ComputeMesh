@@ -132,6 +132,9 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_unified_live_protected_handler",
         "services.orchestrator.tests.test_remote_confidential_broker",
     ],
+    "Model Context Protocol & Live Tools": [
+        "services.mcp.tests.test_mcp_system",
+    ],
 }
 
 

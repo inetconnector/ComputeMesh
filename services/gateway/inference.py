@@ -38,6 +38,9 @@ from services.gateway.inference_backend import (
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
+from services.mcp.config import get_mcp_config
+from services.mcp.tool_registry import ToolRegistry
+from services.mcp.agent_loop import AgentLoop
 
 
 class InferenceEngine:
@@ -56,6 +59,9 @@ class InferenceEngine:
         self.backend = backend if backend is not None else build_inference_backend_from_env()
         self.blind_engine = BlindedPipelineEngine()
         self.vision_preprocessor = get_vision_preprocessor()
+        self.mcp_config = get_mcp_config()
+        self.tool_registry = ToolRegistry(self.mcp_config)
+        self.agent_loop = AgentLoop(registry=self.tool_registry, config=self.mcp_config)
 
     def create_metered_completion(
         self,
@@ -67,6 +73,7 @@ class InferenceEngine:
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
+        enable_mcp: bool = False,
     ) -> tuple[str, str, int, int, int]:
         """Execute inference with atomic credit hold reservation and post-completion capture.
 
@@ -96,26 +103,74 @@ class InferenceEngine:
         prompt_raw = json.dumps(normalized_messages)
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
-            try:
-                # Billing must never precede execution. A failed or malformed runtime response
-                # is not a billable job and therefore cannot credit a provider.
-                with secure_buf.open_plaintext():
+            backend_result = None
+            if enable_mcp and self.mcp_config.enabled and is_provider_self_compute:
+                def local_llm_caller(msg_list, tool_list):
                     try:
-                        backend_result = self.backend.complete(
+                        res = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=normalized_messages,
+                            messages=msg_list,
                             max_tokens=requested_max,
                         )
                     except TypeError:
-                        backend_result = self.backend.complete(
+                        res = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=normalized_messages,
+                            messages=msg_list,
                         )
-                completion_text = backend_result.text
-                tokens_prompt = backend_result.prompt_tokens
-                tokens_completion = backend_result.completion_tokens
-            finally:
-                secure_buf.zeroize()
+                    return {
+                        "choices": [{
+                            "message": {
+                                "role": "assistant",
+                                "content": res.text,
+                            }
+                        }],
+                        "usage": {
+                            "prompt_tokens": res.prompt_tokens,
+                            "completion_tokens": res.completion_tokens,
+                        },
+                    }
+
+                enhanced_msgs = list(normalized_messages)
+                has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
+                if not has_tool_system:
+                    tools_desc = "\n".join([f"- {t.name}: {t.description}" for t in self.tool_registry.list_tools(is_owner=True)])
+                    tool_prompt = (
+                        f"Du bist ComputeMesh AI mit Live-Tools und MCP-Unterstützung. Wenn du für die Beantwortung der Anfrage Echtzeitdaten benötigst (z. B. aktuelle Börsen-/Kryptokurse, Websuche, Live-Nachrichten oder Webseiten-Inhalte), verwende das Format:\n"
+                        f"<tool_call>{{\"name\": \"tool_name\", \"arguments\": {{\"param\": \"value\"}}}}</tool_call>\n\n"
+                        f"Verfügbare Tools:\n{tools_desc}"
+                    )
+                    enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
+
+                agent_res = self.agent_loop.run(
+                    messages=enhanced_msgs,
+                    model=canonical_model_id,
+                    llm_caller=local_llm_caller,
+                    is_owner=True,
+                )
+                completion_text = agent_res.final_content
+                tokens_prompt = agent_res.prompt_tokens
+                tokens_completion = agent_res.completion_tokens
+            else:
+                try:
+                    # Billing must never precede execution. A failed or malformed runtime response
+                    # is not a billable job and therefore cannot credit a provider.
+                    with secure_buf.open_plaintext():
+                        try:
+                            backend_result = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=normalized_messages,
+                                max_tokens=requested_max,
+                            )
+                        except TypeError:
+                            backend_result = self.backend.complete(
+                                model_id=canonical_model_id,
+                                messages=normalized_messages,
+                            )
+                    completion_text = backend_result.text
+                    tokens_prompt = backend_result.prompt_tokens
+                    tokens_completion = backend_result.completion_tokens
+                finally:
+                    secure_buf.zeroize()
 
             chat_id = f"chatcmpl-{secrets.token_hex(12)}"
             created_timestamp = int(time.time())
@@ -411,6 +466,7 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
+        enable_mcp: bool = False,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         try:
             chat_id, completion_text, created_ts, tok_p, tok_c = self.create_metered_completion(
@@ -421,6 +477,7 @@ class InferenceEngine:
                 is_provider_self_compute=is_provider_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
+                enable_mcp=enable_mcp,
             )
             res = self.format_openai_response(
                 chat_id=chat_id,
@@ -448,6 +505,7 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
+        enable_mcp: bool = False,
     ) -> Generator[bytes, None, None]:
         chat_id, completion_text, created_ts, _, _ = self.create_metered_completion(
             account_id=account_id,
@@ -457,6 +515,7 @@ class InferenceEngine:
             is_provider_self_compute=is_provider_self_compute,
             client_ip=client_ip,
             max_tokens=max_tokens,
+            enable_mcp=enable_mcp,
         )
         yield from self.stream_openai_sse(
             chat_id=chat_id,

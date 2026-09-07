@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "command": "python",
+      "args": ["-m", "services.mcp.builtin.web_fetch"]
+    }
+  }
+}

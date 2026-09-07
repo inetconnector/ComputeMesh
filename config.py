@@ -85,6 +85,7 @@ class ComputeMeshConfig:
     ports: PortConfig = field(default_factory=PortConfig)
     teaser: TeaserConfig = field(default_factory=TeaserConfig)
     appliance_version: str = "1.2.109"
+    mcp_enabled: bool = True
     default_dashboard_port: int = 8080
     default_gateway_port: int = 8000
     default_cluster_peers: list[str] = field(default_factory=lambda: [
@@ -98,6 +99,7 @@ class ComputeMeshConfig:
             ports=PortConfig(),
             teaser=TeaserConfig(),
             appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.109"),
+            mcp_enabled=os.environ.get("COMPUTEMESH_MCP_ENABLED", "true").lower() in ("1", "true", "yes", "on"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),
             default_gateway_port=int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000")),
         )

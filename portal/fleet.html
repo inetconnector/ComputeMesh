@@ -611,6 +611,9 @@
         <button id="btn-cockpit-ollama" class="cockpit-tab-btn" onclick="switchCockpitView('ollama')">
           <span>🦙 Ollama & Dev Pool</span>
         </button>
+        <button id="btn-cockpit-mcp" class="cockpit-tab-btn" onclick="switchCockpitView('mcp')">
+          <span>🔌 MCP &amp; Live-Tools</span>
+        </button>
       </div>
 
       <!-- VIEW 1: Servers Grid -->
@@ -1096,6 +1099,262 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
         </div>
       </div>
 
+      <!-- VIEW 5: Model Context Protocol (MCP) & Live Agent Tools -->
+      <div id="cockpit-view-mcp" style="display: none;">
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+            <h3 style="margin:0;font-size:1.3rem;color:var(--accent-cyan);display:flex;align-items:center;gap:0.6rem;">
+              <span>🔌</span> <span>Model Context Protocol (MCP) &amp; Live Agent Engine</span>
+            </h3>
+            <span class="status-pill online"><span class="pulse-dot"></span> 🟢 MCP Subsystem Aktiv (v1.2.118)</span>
+          </div>
+
+          <p style="color:#94a3b8;font-size:0.92rem;margin-bottom:1.5rem;line-height:1.6;">
+            Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen (Börsenkurse, News-Feeds, Web-Recherche, Dokumente) oder eigene MCP-Server ansteuern.
+          </p>
+
+          <!-- 5 Capabilities Cards Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:2rem;">
+            <!-- Finance / Stocks -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📈</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">Live-Börsenkurse &amp; Krypto</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Echtzeit Yahoo Finance &amp; CoinGecko Kurse für Aktien (NVDA, AAPL, MSFT, SAP), Krypto (BTC, ETH, SOL), Indizes (DAX, S&amp;P500) und Rohstoffe.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#34d399;">
+                <code>get_stock_quote</code> &middot; <code>get_crypto_quote</code>
+              </div>
+            </div>
+
+            <!-- Live News -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📰</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Live-Nachrichten &amp; RSS</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Aktuelle Meldungen und Schlagzeilen in Echtzeit (Tech, KI, Wirtschaft, Krypto, Deutschland/Tagesschau, Weltpolitik oder Stichwort-Suche).
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#38bdf8;">
+                <code>get_latest_news</code>
+              </div>
+            </div>
+
+            <!-- Web Search -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌐</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Echtzeit Web-Suche</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Direkte Internet-Recherche via DuckDuckGo HTML &amp; Bing RSS mit intelligenter Textbereinigung und Snippet-Synthese.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#c084fc;">
+                <code>web_search</code>
+              </div>
+            </div>
+
+            <!-- Web Fetch -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📄</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Web-Reader &amp; Scraper</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Automatisches Auslesen und Formatieren von Online-Artikeln, Blogbeiträgen und Entwickler-Dokumentationen.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fbbf24;">
+                <code>fetch_web_page</code>
+              </div>
+            </div>
+
+            <!-- System Tools -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🖥️</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#f472b6;font-size:1rem;">Node- &amp; Host-Telemetrie</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Prüfung von GPU-Hardware, Speicherauslastung, VRAM und Systeminformationen deines Clusters.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f472b6;">
+                <code>get_system_info</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Live-Agent Playground Studio -->
+          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:14px;padding:1.5rem;margin-bottom:2rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+              <h4 style="margin:0;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+                <span>⚡</span> <span>Live MCP Agent Konsole (Direkt testen)</span>
+              </h4>
+              <span class="sec-badge info" style="font-size:0.78rem;">Live Streaming &amp; Tool Loop</span>
+            </div>
+
+            <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;">
+              Wähle eine Schnellabfrage oder tippe deinen eigenen Prompt ein. Der ComputeMesh Gateway führt den MCP-Agenten-Loop auf deinen Flotten-Nodes aus.
+            </p>
+
+            <!-- Quick Query Presets -->
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie steht die Nvidia Aktie (NVDA) heute und wie ist der aktuelle DAX Kurs?')">
+                📈 Nvidia &amp; DAX Kurs
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die wichtigsten Tech- und KI-News von heute?')">
+                📰 Tech &amp; KI News
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die aktuellen Krypto-News und wie steht der Bitcoin Kurs?')">
+                🪙 Bitcoin &amp; Krypto News
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Hole mir die aktuellen Top-Nachrichten aus Deutschland')">
+                🇩🇪 Tagesschau / Deutschland
+              </button>
+            </div>
+
+            <!-- Input Form -->
+            <div class="form-group" style="margin-bottom:0.75rem;">
+              <textarea id="mcp-test-prompt" class="form-control-custom" rows="3" style="width:100%;font-size:0.9rem;resize:vertical;" placeholder="z. B.: Wie steht die Apple Aktie heute und was gibt es Neues aus dem Tech-Bereich?"></textarea>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+              <label style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#cbd5e1;cursor:pointer;">
+                <input type="checkbox" id="mcp-enable-toggle" checked style="accent-color:var(--accent-cyan);">
+                <span>MCP Live-Tools aktivieren (<code>enable_mcp: true</code>)</span>
+              </label>
+
+              <button id="mcp-test-submit-btn" class="btn btn-primary" onclick="runMcpAgentTest()">
+                🚀 <span>Agent-Anfrage ausführen</span>
+              </button>
+            </div>
+
+            <!-- Live Agent Output Console -->
+            <div id="mcp-test-output-box" style="display:none;background:#090d16;border:1px solid rgba(56,189,248,0.25);border-radius:10px;padding:1.2rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.5rem;">
+                <div style="font-size:0.85rem;font-weight:700;color:var(--accent-cyan);display:flex;align-items:center;gap:0.5rem;">
+                  <span id="mcp-output-spinner" class="pulse-dot"></span>
+                  <span id="mcp-output-status">Warte auf Modell-Antwort...</span>
+                </div>
+                <button class="copy-btn" style="padding:0.25rem 0.55rem;font-size:0.75rem;" onclick="copyCmd('mcp-output-content')">📋 Antwort kopieren</button>
+              </div>
+
+              <!-- Tool Execution Badge Area -->
+              <div id="mcp-tool-events-list" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;"></div>
+
+              <!-- Streamed Markdown Content -->
+              <div id="mcp-output-content" style="color:#f8fafc;font-size:0.92rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;"></div>
+            </div>
+          </div>
+
+          <!-- Code Integration Snippets for MCP -->
+          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:1.4rem;">
+            <h4 style="margin-top:0;margin-bottom:1rem;font-size:1.1rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+              <span>💻</span> <span>MCP-Integration in eigene Skripte &amp; Tools</span>
+            </h4>
+
+            <div class="pg-snippet-tabs" style="margin:0 0 1rem 0;background:rgba(0,0,0,0.4);padding:0.25rem;border-radius:8px;display:flex;gap:0.3rem;flex-wrap:wrap;">
+              <button class="pg-tab-btn active" id="tab-btn-mcp-curl" onclick="switchMcpApiTab('curl')">🐧 cURL (Linux / Mac)</button>
+              <button class="pg-tab-btn" id="tab-btn-mcp-cmd" onclick="switchMcpApiTab('cmd')">🪟 Windows CMD (DOS)</button>
+              <button class="pg-tab-btn" id="tab-btn-mcp-powershell" onclick="switchMcpApiTab('powershell')">⚡ Windows PowerShell</button>
+              <button class="pg-tab-btn" id="tab-btn-mcp-python" onclick="switchMcpApiTab('python')">🐍 Python SDK</button>
+              <button class="pg-tab-btn" id="tab-btn-mcp-config" onclick="switchMcpApiTab('config')">🔌 Externe MCP-Server (mcp_config.json)</button>
+            </div>
+
+            <!-- Tab 1: cURL -->
+            <div id="pane-mcp-curl" class="mcp-api-pane">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-mcp-curl')">📋 cURL kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-curl">curl -X POST https://mesh.inetconnector.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;OWNER_KEY&gt;" \
+  -d '{
+    "model": "qwen2.5:7b",
+    "enable_mcp": true,
+    "messages": [
+      {"role": "user", "content": "Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?"}
+    ],
+    "stream": true
+  }'</code></pre>
+            </div>
+
+            <!-- Tab 2: CMD -->
+            <div id="pane-mcp-cmd" class="mcp-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-mcp-cmd')">📋 CMD kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-cmd">REM In jedem Windows CMD / DOS-Fenster direkt ausf&#252;hrbar mit Live-Tools:
+curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer &lt;OWNER_KEY&gt;" ^
+  -d "{\"model\": \"qwen2.5:7b\", \"enable_mcp\": true, \"messages\": [{\"role\": \"user\", \"content\": \"Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?\"}], \"stream\": true}"</code></pre>
+            </div>
+
+            <!-- Tab 3: PowerShell -->
+            <div id="pane-mcp-powershell" class="mcp-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-mcp-powershell')">📋 PowerShell kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-powershell"># Windows PowerShell (Native REST-Abfrage mit MCP)
+$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer &lt;OWNER_KEY&gt;" }
+$body = @{ 
+    model = "qwen2.5:7b"
+    enable_mcp = $true
+    messages = @(@{ role = "user"; content = "Wie steht der Bitcoin Kurs und was sind die aktuellen Krypto-News?" })
+    stream = $false 
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body</code></pre>
+            </div>
+
+            <!-- Tab 4: Python -->
+            <div id="pane-mcp-python" class="mcp-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-mcp-python')">📋 Python SDK kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-python"># pip install openai
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="&lt;OWNER_KEY&gt;"
+)
+
+# Extra-Parameter enable_mcp aktiviert den autonomous agent loop auf deiner Flotte
+stream = client.chat.completions.create(
+    model="qwen2.5:7b",
+    extra_body={"enable_mcp": True},
+    messages=[
+        {"role": "user", "content": "Hole mir die aktuellen Top-Nachrichten aus Deutschland und den aktuellen DAX-Stand."}
+    ],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
+            </div>
+
+            <!-- Tab 5: External MCP Config -->
+            <div id="pane-mcp-config" class="mcp-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-mcp-config')">📋 JSON kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-mcp-config">{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@localhost:5432/mydb"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/directory"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  }
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -1247,24 +1506,28 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       const btnSec = document.getElementById("btn-cockpit-security");
       const btnSetup = document.getElementById("btn-cockpit-setup");
       const btnOllama = document.getElementById("btn-cockpit-ollama");
+      const btnMcp = document.getElementById("btn-cockpit-mcp");
 
       if (btnServers) btnServers.classList.toggle("active", view === 'servers');
       if (btnPayouts) btnPayouts.classList.toggle("active", view === 'payouts');
       if (btnSec) btnSec.classList.toggle("active", view === 'security');
       if (btnSetup) btnSetup.classList.toggle("active", view === 'setup');
       if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
+      if (btnMcp) btnMcp.classList.toggle("active", view === 'mcp');
 
       const vServers = document.getElementById("cockpit-view-servers");
       const vPayouts = document.getElementById("cockpit-view-payouts");
       const vSec = document.getElementById("cockpit-view-security");
       const vSetup = document.getElementById("cockpit-view-setup");
       const vOllama = document.getElementById("cockpit-view-ollama");
+      const vMcp = document.getElementById("cockpit-view-mcp");
 
       if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
       if (vPayouts) vPayouts.style.display = view === 'payouts' ? 'block' : 'none';
       if (vSec) vSec.style.display = view === 'security' ? 'block' : 'none';
       if (vSetup) vSetup.style.display = view === 'setup' ? 'block' : 'none';
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
+      if (vMcp) vMcp.style.display = view === 'mcp' ? 'block' : 'none';
 
       if (view === 'security') {
         updateEmailUI();
@@ -1273,6 +1536,120 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       }
       if (view === 'payouts') {
         loadPayouts();
+      }
+    }
+
+    function switchMcpApiTab(tab) {
+      const tabs = ['curl', 'cmd', 'powershell', 'python', 'config'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-mcp-${t}`);
+        const pane = document.getElementById(`pane-mcp-${t}`);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (pane) pane.style.display = t === tab ? 'block' : 'none';
+      });
+    }
+
+    function setMcpTestQuery(text) {
+      const promptEl = document.getElementById("mcp-test-prompt");
+      if (promptEl) {
+        promptEl.value = text;
+        promptEl.focus();
+      }
+    }
+
+    async function runMcpAgentTest() {
+      const promptEl = document.getElementById("mcp-test-prompt");
+      const outBox = document.getElementById("mcp-test-output-box");
+      const outContent = document.getElementById("mcp-output-content");
+      const outStatus = document.getElementById("mcp-output-status");
+      const outSpinner = document.getElementById("mcp-output-spinner");
+      const toolEventsList = document.getElementById("mcp-tool-events-list");
+      const submitBtn = document.getElementById("mcp-test-submit-btn");
+      const enableMcp = document.getElementById("mcp-enable-toggle") ? document.getElementById("mcp-enable-toggle").checked : true;
+
+      const userText = promptEl ? promptEl.value.trim() : "";
+      if (!userText) {
+        alert(getLang() === 'de' ? "Bitte eine Frage oder Suchanfrage eingeben!" : "Please enter a prompt or query!");
+        return;
+      }
+
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+
+      outBox.style.display = "block";
+      outContent.textContent = "";
+      toolEventsList.innerHTML = "";
+      outStatus.textContent = getLang() === 'de' ? "Modell & MCP-Tools werden initialisiert..." : "Initializing model & MCP tools...";
+      if (outSpinner) outSpinner.style.display = "inline-block";
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const headers = {
+          "Content-Type": "application/json"
+        };
+        if (key) {
+          headers["Authorization"] = "Bearer " + key;
+        }
+
+        const payload = {
+          model: "qwen2.5:7b",
+          messages: [{ role: "user", content: userText }],
+          stream: true,
+          enable_mcp: enableMcp
+        };
+
+        const response = await fetch("https://mesh.inetconnector.com/v1/chat/completions", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          outStatus.textContent = "Fehler (" + response.status + ")";
+          outContent.textContent = errText || "HTTP Error " + response.status;
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+        outStatus.textContent = getLang() === 'de' ? "Empfange Antwort..." : "Receiving response...";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data:")) continue;
+            const dataStr = trimmed.slice(5).trim();
+            if (dataStr === "[DONE]") {
+              outStatus.textContent = getLang() === 'de' ? "✓ Abgeschlossen" : "✓ Complete";
+              break;
+            }
+            try {
+              const chunk = JSON.parse(dataStr);
+              if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
+                const delta = chunk.choices[0].delta;
+                if (delta.content) {
+                  outContent.textContent += delta.content;
+                }
+              }
+            } catch (e) {
+              // Ignore non-JSON chunk
+            }
+          }
+        }
+        outStatus.textContent = getLang() === 'de' ? "✓ Generierung abgeschlossen" : "✓ Generation complete";
+      } catch (err) {
+        outStatus.textContent = "Fehler";
+        outContent.textContent = "Netzwerkfehler: " + err.message;
+      } finally {
+        if (outSpinner) outSpinner.style.display = "none";
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
@@ -1389,6 +1766,68 @@ export OPENAI_API_KEY="${effectiveKey}"
     }
   ]
 }`;
+      }
+
+      // Update MCP Code Snippets
+      const mcpCurlEl = document.getElementById("code-mcp-curl");
+      if (mcpCurlEl) {
+        mcpCurlEl.textContent = `curl -X POST https://mesh.inetconnector.com/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${effectiveKey}" \\
+  -d '{
+    "model": "qwen2.5:7b",
+    "enable_mcp": true,
+    "messages": [
+      {"role": "user", "content": "Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?"}
+    ],
+    "stream": true
+  }'`;
+      }
+
+      const mcpCmdEl = document.getElementById("code-mcp-cmd");
+      if (mcpCmdEl) {
+        mcpCmdEl.textContent = `REM In jedem Windows CMD / DOS-Fenster direkt ausführbar mit Live-Tools:
+curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer ${effectiveKey}" ^
+  -d "{\\"model\\": \\"qwen2.5:7b\\", \\"enable_mcp\\": true, \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Wie steht der Nvidia Kurs aktuell und was sind die Top-Tech-News heute?\\"}], \\"stream\\": true}"`;
+      }
+
+      const mcpPsEl = document.getElementById("code-mcp-powershell");
+      if (mcpPsEl) {
+        mcpPsEl.textContent = `# Windows PowerShell (Native REST-Abfrage mit MCP)
+$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer ${effectiveKey}" }
+$body = @{ 
+    model = "qwen2.5:7b"
+    enable_mcp = $true
+    messages = @(@{ role = "user"; content = "Wie steht der Bitcoin Kurs und was sind die aktuellen Krypto-News?" })
+    stream = $false 
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body`;
+      }
+
+      const mcpPyEl = document.getElementById("code-mcp-python");
+      if (mcpPyEl) {
+        mcpPyEl.textContent = `# pip install openai
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="${effectiveKey}"
+)
+
+# Extra-Parameter enable_mcp aktiviert den autonomous agent loop auf deiner Flotte
+stream = client.chat.completions.create(
+    model="qwen2.5:7b",
+    extra_body={"enable_mcp": True},
+    messages=[
+        {"role": "user", "content": "Hole mir die aktuellen Top-Nachrichten aus Deutschland und den aktuellen DAX-Stand."}
+    ],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)`;
       }
     }
 

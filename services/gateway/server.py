@@ -533,6 +533,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
+        if clean_path in ("/v1/mcp/tools", "/api/v1/mcp/tools", "/mcp/tools"):
+            tools = self.inference_engine.tool_registry.get_openai_tools(is_owner=True)
+            self._send_json({"object": "list", "data": tools})
+            return
+
         if clean_path == "/api/auth/me":
             account = session_account_from_headers(self.headers)
             if account is None:
@@ -1249,6 +1254,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", False))
+        enable_mcp = bool(body.get("enable_mcp", False)) or bool(body.get("tools"))
         max_tokens_val = body.get("max_tokens") or body.get("max_completion_tokens")
         max_tokens = int(max_tokens_val) if max_tokens_val is not None and str(max_tokens_val).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
@@ -1266,6 +1272,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 is_provider_self_compute=auth.is_provider_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
+                enable_mcp=enable_mcp,
             )
             if err:
                 self._send_error_response(err, "inference_error", status)
@@ -1288,6 +1295,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             is_provider_self_compute=auth.is_provider_self_compute,
             client_ip=client_ip,
             max_tokens=max_tokens,
+            enable_mcp=enable_mcp,
         ):
             self.wfile.write(chunk)
             self.wfile.flush()
