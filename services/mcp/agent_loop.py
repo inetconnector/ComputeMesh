@@ -39,6 +39,58 @@ class AgentExecutionResult:
     total_tokens: int = 0
 
 
+def format_tool_content_if_json(content: str) -> str:
+    """Formats raw JSON tool responses into clear natural language if echoed directly."""
+    cleaned = content.strip()
+    if cleaned.startswith("{") and cleaned.endswith("}"):
+        try:
+            data = json.loads(cleaned)
+            # Weather tool response
+            if "temperature_celsius" in data or "condition" in data:
+                loc = data.get("location", "Ort")
+                temp = data.get("temperature_celsius", "N/A")
+                app_temp = data.get("apparent_temperature_celsius")
+                cond = data.get("condition", "Unbekannt")
+                hum = data.get("humidity_percent", "N/A")
+                wind = data.get("wind_speed_kmh", "N/A")
+                reg = data.get("region")
+                country = data.get("country")
+                loc_str = f"{loc} ({reg}, {country})" if reg and country else loc
+                res = f"Aktuelles Live-Wetter für **{loc_str}**:\n"
+                res += f"- **Bedingungen:** {cond}\n"
+                res += f"- **Temperatur:** {temp} °C" + (f" (gefühlt {app_temp} °C)\n" if app_temp is not None else "\n")
+                res += f"- **Luftfeuchtigkeit:** {hum} %\n"
+                res += f"- **Windgeschwindigkeit:** {wind} km/h\n"
+                if "precipitation_mm" in data:
+                    res += f"- **Niederschlag:** {data['precipitation_mm']} mm\n"
+                if data.get("source"):
+                    res += f"- **Quelle:** {data['source']}"
+                return res.strip()
+            # Market / Stock / Crypto response
+            if "price_usd" in data or "symbol" in data:
+                sym = str(data.get("symbol", "")).upper()
+                name = data.get("name", sym)
+                price = data.get("price_usd") or data.get("price_eur") or data.get("price")
+                change_24h = data.get("change_24h_percent")
+                res = f"Aktueller Börsen-/Kryptokurs für **{name} ({sym})**:\n"
+                res += f"- **Preis:** ${price:,.2f}" if isinstance(price, (int, float)) else f"- **Preis:** {price}\n"
+                if change_24h is not None:
+                    res += f"\n- **24h-Veränderung:** {change_24h:+.2f} %"
+                return res.strip()
+            # Wikipedia response
+            if "title" in data and "summary" in data:
+                title = data.get("title", "")
+                summary = data.get("summary", "")
+                url = data.get("url", "")
+                res = f"**{title}** (Wikipedia):\n\n{summary}"
+                if url:
+                    res += f"\n\n*Quelle: [{url}]({url})*"
+                return res.strip()
+        except Exception:
+            pass
+    return content
+
+
 class AgentLoop:
     def __init__(self, registry: Optional[ToolRegistry] = None, config: Optional[MCPConfig] = None):
         self.config = config or get_mcp_config()
@@ -166,9 +218,10 @@ class AgentLoop:
 
             # If no tools were called, this is the final answer
             if not tool_calls:
-                curr_messages.append({"role": "assistant", "content": content})
+                formatted_final = format_tool_content_if_json(content)
+                curr_messages.append({"role": "assistant", "content": formatted_final})
                 return AgentExecutionResult(
-                    final_content=content,
+                    final_content=formatted_final,
                     messages=curr_messages,
                     tool_calls_executed=executed_records,
                     iterations=iteration,
@@ -227,8 +280,9 @@ class AgentLoop:
 
         # If loop reached max_iterations, return the latest content
         last_content = curr_messages[-1].get("content", "") if curr_messages else ""
+        formatted_final = format_tool_content_if_json(last_content)
         return AgentExecutionResult(
-            final_content=last_content,
+            final_content=formatted_final,
             messages=curr_messages,
             tool_calls_executed=executed_records,
             iterations=max_iter,
