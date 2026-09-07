@@ -88,8 +88,7 @@ class VisionPreprocessor:
         patch_size: int = DEFAULT_PATCH_SIZE,
         patch_overhead_tokens: int = DEFAULT_PATCH_OVERHEAD,
     ) -> None:
-        if not _HAS_PIL:  # pragma: no cover
-            raise RuntimeError("Pillow (PIL) is required for ComputeMesh Vision Preprocessor")
+        self._has_pil = _HAS_PIL
         self.max_edge = max(64, min(int(max_edge), 4096))
         self.min_edge = max(14, min(int(min_edge), 512))
         self.jpeg_quality = max(50, min(int(jpeg_quality), 100))
@@ -181,6 +180,9 @@ class VisionPreprocessor:
         min_edge: int | None = None,
     ) -> ProcessedImage:
         """Loads, rotates, normalizes color space, resizes, and encodes an image."""
+        if not self._has_pil:
+            raise VisionPreprocessingError("Pillow (PIL) is required to process and resize images.")
+
         raw_bytes = self._load_raw_bytes(raw_input)
         target_max_edge = max_edge if max_edge is not None else self.max_edge
         target_min_edge = min_edge if min_edge is not None else self.min_edge
