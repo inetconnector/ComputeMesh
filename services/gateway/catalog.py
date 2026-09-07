@@ -76,6 +76,24 @@ AVAILABLE_MODELS: list[ModelSpec] = [
         created=int(time.time()),
         price_tier=DEFAULT_PRICE_TIERS["mistralai/mistral-large-2407"],
     ),
+    ModelSpec(
+        id="qwen/qwen2.5-vl-7b-instruct",
+        context_window=32768,
+        created=int(time.time()),
+        price_tier=DEFAULT_PRICE_TIERS["qwen/qwen2.5-vl-7b-instruct"],
+    ),
+    ModelSpec(
+        id="meta-llama/llama-3.2-11b-vision-instruct",
+        context_window=131072,
+        created=int(time.time()),
+        price_tier=DEFAULT_PRICE_TIERS["meta-llama/llama-3.2-11b-vision-instruct"],
+    ),
+    ModelSpec(
+        id="llava/llava-1.6-7b",
+        context_window=32768,
+        created=int(time.time()),
+        price_tier=DEFAULT_PRICE_TIERS["llava/llava-1.6-7b"],
+    ),
 ]
 
 LIVE_MODEL_REGISTRY = build_registry_client_from_env()
@@ -94,7 +112,7 @@ def current_models() -> list[ModelSpec | RegistryModel]:
 
 
 def resolve_model_id(raw_model: str) -> str:
-    """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, llama3.1:8b), or alias to canonical model ID."""
+    """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, qwen2.5-vl:7b, llama3.1:8b), or alias to canonical model ID."""
     models = current_models()
     live_registry = LIVE_MODEL_REGISTRY is not None
     resolvable_models = [m for m in models if not isinstance(m, RegistryModel) or m.available]
@@ -115,7 +133,21 @@ def resolve_model_id(raw_model: str) -> str:
     def norm(s: str) -> str:
         return s.replace(".", "").replace("-", "").replace("_", "").lower()
 
-    # 2. Tagged alias matching e.g. "qwen2.5:7b", "llama3.1:8b", "llama3.3:70b"
+    # 2. Vision model specific aliases (e.g. "qwen2.5-vl:7b", "qwen2.5-vl", "vision", "vision-default", "llava:7b")
+    if model_clean in {"vision", "vision-default", "qwen-vl", "qwen2.5-vl", "qwen2.5-vl:7b", "qwen2-vl:7b", "qwen2-vl"}:
+        for m in resolvable_models:
+            if "vl" in m.id.lower() and "qwen" in m.id.lower():
+                return m.id
+    if model_clean in {"llama-vision", "llama3.2-vision", "llama3.2-vision:11b", "llama-3.2-vision"}:
+        for m in resolvable_models:
+            if "vision" in m.id.lower() and "llama" in m.id.lower():
+                return m.id
+    if model_clean in {"llava", "llava:7b", "llava-1.6", "llava-1.6:7b"}:
+        for m in resolvable_models:
+            if "llava" in m.id.lower():
+                return m.id
+
+    # 3. Tagged alias matching e.g. "qwen2.5:7b", "llama3.1:8b", "llama3.3:70b"
     if ":" in model_clean:
         base, tag = model_clean.split(":", 1)
         for m in resolvable_models:
@@ -123,7 +155,7 @@ def resolve_model_id(raw_model: str) -> str:
             if norm(base) in norm(short_name) and norm(tag) in norm(short_name):
                 return m.id
 
-    # 3. Direct substring match on short name
+    # 4. Direct substring match on short name
     for m in resolvable_models:
         short_name = m.id.split("/")[-1].lower()
         if norm(model_clean) in norm(short_name):

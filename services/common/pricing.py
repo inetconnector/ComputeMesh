@@ -131,6 +131,31 @@ DEFAULT_PRICE_TIERS: dict[str, ModelPriceTier] = {
         completion_micro_per_million=6_000_000, # $6.00 / 1M
         cloud_reference_usd_per_million=8.00,
     ),
+    # Multimodal Vision AI Models
+    "qwen/qwen2.5-vl-7b-instruct": ModelPriceTier(
+        model_id="qwen/qwen2.5-vl-7b-instruct",
+        prompt_micro_per_million=200_000,      # $0.20 / 1M
+        completion_micro_per_million=350_000,  # $0.35 / 1M
+        cloud_reference_usd_per_million=0.85,
+    ),
+    "qwen/qwen2-vl-7b-instruct": ModelPriceTier(
+        model_id="qwen/qwen2-vl-7b-instruct",
+        prompt_micro_per_million=200_000,      # $0.20 / 1M
+        completion_micro_per_million=350_000,  # $0.35 / 1M
+        cloud_reference_usd_per_million=0.85,
+    ),
+    "meta-llama/llama-3.2-11b-vision-instruct": ModelPriceTier(
+        model_id="meta-llama/llama-3.2-11b-vision-instruct",
+        prompt_micro_per_million=250_000,      # $0.25 / 1M
+        completion_micro_per_million=400_000,  # $0.40 / 1M
+        cloud_reference_usd_per_million=1.10,
+    ),
+    "llava/llava-1.6-7b": ModelPriceTier(
+        model_id="llava/llava-1.6-7b",
+        prompt_micro_per_million=200_000,      # $0.20 / 1M
+        completion_micro_per_million=350_000,  # $0.35 / 1M
+        cloud_reference_usd_per_million=0.85,
+    ),
 }
 
 DEFAULT_TIER = DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"]

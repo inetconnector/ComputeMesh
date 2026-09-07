@@ -92,21 +92,58 @@ class SyntheticInferenceBackend:
         max_tokens: int | None = None,
     ) -> BackendResult:
         last_user_msg = ""
+        has_images = False
+        img_count = 0
+        total_vision_tokens = 0
+
         for message in reversed(messages):
-            if isinstance(message, dict) and message.get("role") == "user":
-                last_user_msg = str(message.get("content", ""))
-                break
-        text = (
-            f"ComputeMesh distributed response for: {last_user_msg[:60]}"
-            if last_user_msg
-            else "Hello from ComputeMesh decentralized inference!"
-        )
+            if isinstance(message, dict):
+                imgs = message.get("images") or []
+                proc_objs = message.get("_processed_images") or []
+                if imgs or proc_objs:
+                    has_images = True
+                    img_count += len(imgs) or len(proc_objs)
+                    for p in proc_objs:
+                        toks = p.get("estimated_tokens", 576) if isinstance(p, dict) else getattr(p, "estimated_tokens", 576)
+                        total_vision_tokens += toks
+
+                if not last_user_msg and message.get("role") == "user":
+                    content = message.get("content", "")
+                    if isinstance(content, list):
+                        parts = [
+                            str(p.get("text", ""))
+                            for p in content
+                            if isinstance(p, dict) and p.get("type") == "text"
+                        ]
+                        last_user_msg = " ".join(parts).strip()
+                    else:
+                        last_user_msg = str(content).strip()
+
+        if has_images:
+            text = (
+                f"[ComputeMesh Professional Vision Analysis | Model: {model_id}]\n"
+                f"Image Analysis Summary:\n"
+                f"- Processed Media: {max(1, img_count)} image(s) normalized and optimized via Lanczos patch grid.\n"
+                f"- Scene Overview & Subjects: Clear high-fidelity subject recognition, balanced dynamic range, natural color gamut.\n"
+                f"- Layout & Composition: Foreground elements clearly separated from background with sharp structural boundaries.\n"
+                f"- Optical Character Recognition (OCR): Text elements, diagrammatic structures, and visual tokens accurately parsed."
+            )
+            if last_user_msg:
+                text += f"\n- Contextual Response: In response to '{last_user_msg[:80]}', the visual evidence confirms detailed salient features."
+        else:
+            text = (
+                f"ComputeMesh distributed response for: {last_user_msg[:60]}"
+                if last_user_msg
+                else "Hello from ComputeMesh decentralized inference!"
+            )
+
         gen_tokens = max(len(text) // 4, 12)
         if max_tokens is not None:
             gen_tokens = min(gen_tokens, max_tokens)
+        prompt_tokens = max(len(json.dumps([m for m in messages if isinstance(m, dict)])) // 4, 8) + total_vision_tokens
         return BackendResult(
             text=text,
-            prompt_tokens=max(len(json.dumps(messages)) // 4, 8),
+            prompt_tokens=prompt_tokens,
             completion_tokens=gen_tokens,
         )
 
@@ -134,6 +171,32 @@ class OpenAICompatibleHTTPBackend:
         self.max_response_bytes = max_response_bytes
         self.model_override = model_override.strip() if model_override else ""
 
+    @staticmethod
+    def _format_openai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        formatted: list[dict[str, Any]] = []
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            role = str(msg.get("role", "user")).strip() or "user"
+            raw_content = msg.get("content", "")
+            images = msg.get("images", [])
+
+            if images and isinstance(raw_content, str):
+                content_blocks: list[dict[str, Any]] = []
+                if raw_content:
+                    content_blocks.append({"type": "text", "text": raw_content})
+                for img in images:
+                    img_str = str(img)
+                    if not img_str.startswith("data:"):
+                        img_str = f"data:image/jpeg;base64,{img_str}"
+                    content_blocks.append({"type": "image_url", "image_url": {"url": img_str}})
+                formatted.append({"role": role, "content": content_blocks})
+            else:
+                # Strip private internal attributes if any
+                clean_msg = {k: v for k, v in msg.items() if not k.startswith("_")}
+                formatted.append(clean_msg)
+        return formatted or [{"role": "user", "content": "Hello"}]
+
     def complete(
         self,
         *,
@@ -142,7 +205,8 @@ class OpenAICompatibleHTTPBackend:
         max_tokens: int | None = None,
     ) -> BackendResult:
         runtime_model = self.model_override or model_id
-        payload_data: dict[str, Any] = {"model": runtime_model, "messages": messages, "stream": False}
+        formatted_messages = self._format_openai_messages(messages)
+        payload_data: dict[str, Any] = {"model": runtime_model, "messages": formatted_messages, "stream": False}
         if max_tokens is not None:
             payload_data["max_tokens"] = max_tokens
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
@@ -208,18 +272,43 @@ class OllamaHTTPBackend:
     def _normalise_messages(
         messages: list[dict[str, Any]],
         system_prompt: str = "",
-    ) -> list[dict[str, str]]:
-        normalized: list[dict[str, str]] = []
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
         has_system = False
         for message in messages:
             if not isinstance(message, dict):
                 continue
             role = str(message.get("role", "user")).strip() or "user"
-            content = str(message.get("content", ""))
-            if content:
+            raw_content = message.get("content", "")
+            raw_images = message.get("images", [])
+
+            images_list: list[str] = []
+            if isinstance(raw_images, list):
+                images_list.extend([str(img) for img in raw_images if img])
+
+            if isinstance(raw_content, list):
+                # Handle OpenAI multimodal format
+                text_parts: list[str] = []
+                for part in raw_content:
+                    if isinstance(part, dict):
+                        if part.get("type") == "text":
+                            text_parts.append(str(part.get("text", "")))
+                        elif part.get("type") == "image_url":
+                            url_val = str(part.get("image_url", {}).get("url", ""))
+                            if "base64," in url_val:
+                                images_list.append(url_val.split("base64,", 1)[1])
+                content = " ".join(tp for tp in text_parts if tp)
+            else:
+                content = str(raw_content)
+
+            if content or images_list:
                 if role == "system":
                     has_system = True
-                normalized.append({"role": role, "content": content})
+                msg_entry: dict[str, Any] = {"role": role, "content": content}
+                if images_list:
+                    msg_entry["images"] = images_list
+                normalized.append(msg_entry)
+
         if system_prompt and not has_system:
             normalized.insert(0, {"role": "system", "content": system_prompt})
         return normalized or [{"role": "user", "content": "Hello"}]

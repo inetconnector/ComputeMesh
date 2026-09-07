@@ -162,12 +162,8 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
 
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
-        raw_est = sum(
-            len(str(message.get("content", "")).split()) * 2
-            for message in messages
-            if isinstance(message, dict)
-        )
-        est_prompt_tokens = max(1024, raw_est)
+        normalized_messages, norm_prompt_tokens = self.vision_preprocessor.normalize_multimodal_messages(messages)
+        est_prompt_tokens = max(1024, norm_prompt_tokens)
         max_required_hold = calculate_max_charge_micro(
             canonical_model_id,
             est_prompt_tokens,
@@ -179,7 +175,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
             purpose=f"inference:{canonical_model_id}",
         )
 
-        prompt_raw = json.dumps(messages)
+        prompt_raw = json.dumps(normalized_messages)
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
             try:
@@ -187,13 +183,13 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                     try:
                         backend_result = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=messages,
+                            messages=normalized_messages,
                             max_tokens=requested_max,
                         )
                     except TypeError:
                         backend_result = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=messages,
+                            messages=normalized_messages,
                         )
                 completion_text = backend_result.text
                 tokens_prompt = backend_result.prompt_tokens

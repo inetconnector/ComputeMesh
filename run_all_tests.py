@@ -34,6 +34,8 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_cancellable_inference",
         "services.gateway.tests.test_owner_promo_routes",
         "services.gateway.tests.test_server_driven_gpu_promo",
+        "services.common.tests.test_vision_preprocessor",
+        "services.gateway.tests.test_gateway_vision_multimodal",
         "tests.test_security_audit_fixes",
         "tests.test_gateway_passkey_auth",
     ],

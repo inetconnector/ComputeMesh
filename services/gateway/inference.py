@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
 from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
+from services.common.vision_preprocessor import get_vision_preprocessor
 from services.gateway.blind_inference import BlindedPipelineEngine
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
@@ -54,6 +55,7 @@ class InferenceEngine:
         self.teaser_manager = teaser_manager
         self.backend = backend if backend is not None else build_inference_backend_from_env()
         self.blind_engine = BlindedPipelineEngine()
+        self.vision_preprocessor = get_vision_preprocessor()
 
     def create_metered_completion(
         self,
@@ -73,9 +75,10 @@ class InferenceEngine:
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
 
+        normalized_messages, est_prompt_tokens = self.vision_preprocessor.normalize_multimodal_messages(messages)
+
         hold = None
         if not is_teaser and not is_provider_self_compute:
-            est_prompt_tokens = sum(len(str(m.get("content", "")).split()) * 2 for m in messages if isinstance(m, dict)) or 64
             max_required_hold = calculate_max_charge_micro(canonical_model_id, est_prompt_tokens, requested_max)
             if hasattr(self.ledger, "create_hold"):
                 hold = self.ledger.create_hold(
@@ -90,7 +93,7 @@ class InferenceEngine:
                         f"Account '{account_id}' has insufficient balance ({bal} µ$) for completion (min hold {max_required_hold} µ$)"
                     )
 
-        prompt_raw = json.dumps(messages)
+        prompt_raw = json.dumps(normalized_messages)
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
             try:
@@ -100,13 +103,13 @@ class InferenceEngine:
                     try:
                         backend_result = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=messages,
+                            messages=normalized_messages,
                             max_tokens=requested_max,
                         )
                     except TypeError:
                         backend_result = self.backend.complete(
                             model_id=canonical_model_id,
-                            messages=messages,
+                            messages=normalized_messages,
                         )
                 completion_text = backend_result.text
                 tokens_prompt = backend_result.prompt_tokens
@@ -492,12 +495,16 @@ class InferenceEngine:
         account_id: str,
         model_id: str,
         prompt: str,
+        images: list[str] | None = None,
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
-        messages = [{"role": "user", "content": prompt}]
+        user_msg: dict[str, Any] = {"role": "user", "content": prompt}
+        if images:
+            user_msg["images"] = images
+        messages = [user_msg]
         try:
             _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
                 account_id=account_id,
@@ -528,12 +535,16 @@ class InferenceEngine:
         account_id: str,
         model_id: str,
         prompt: str,
+        images: list[str] | None = None,
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
     ) -> Generator[bytes, None, None]:
-        messages = [{"role": "user", "content": prompt}]
+        user_msg: dict[str, Any] = {"role": "user", "content": prompt}
+        if images:
+            user_msg["images"] = images
+        messages = [user_msg]
         _, completion_text, _, tok_p, tok_c = self.create_metered_completion(
             account_id=account_id,
             model_id=model_id,
@@ -549,3 +560,4 @@ class InferenceEngine:
             tokens_prompt=tok_p,
             tokens_completion=tok_c,
         )
+

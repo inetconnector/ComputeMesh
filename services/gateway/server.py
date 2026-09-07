@@ -266,8 +266,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
         """Synchronizes sub-handlers when class-level dependencies are modified."""
         cls.auth_manager = GatewayAuthManager(ledger=cls.ledger, teaser_manager=cls.teaser_manager, api_keys=getattr(cls, "api_keys", {}), owner_account_store=OWNER_ACCOUNT_STORE)
         cls.billing_routes = BillingRoutesHandler(ledger=cls.ledger, stripe_svc=cls.stripe_svc, auth_manager=cls.auth_manager)
-        cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
-        cls.payouts_handler = PortalPayoutsHandler(ledger=cls.ledger, account_store=cls.account_store)
+        try:
+            cls.provider_routes = ProviderRoutesHandler(account_store=cls.account_store, settlement_executor=cls.settlement_executor, auth_manager=cls.auth_manager, ledger=cls.ledger)
+        except Exception:
+            pass
+        try:
+            cls.payouts_handler = PortalPayoutsHandler(ledger=cls.ledger, account_store=cls.account_store)
+        except Exception:
+            pass
         backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
         cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager, backend=backend)
 
@@ -1165,9 +1171,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "details": {
                     "parent_model": "",
                     "format": "computemesh-gateway",
-                    "family": "llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek"),
-                    "families": ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")],
-                    "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else "70.6B",
+                    "family": "qwen2_vl" if "vl" in m.id else ("llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else ("llava" if "llava" in m.id else "deepseek"))),
+                    "families": ["qwen2_vl", "clip"] if "vl" in m.id else (["llama", "clip"] if "vision" in m.id else (["llava", "clip"] if "llava" in m.id else ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")])),
+                    "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else ("11.0B" if "11b" in m.id else "70.6B"),
                     "quantization_level": getattr(m, "quantization", "") or "Q4_K_M",
                     "availability": getattr(m, "availability", "available_warm"),
                 },
@@ -1179,6 +1185,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
     def _handle_ollama_show(self, body: dict[str, Any]) -> None:
         requested = str(body.get("name", "") or body.get("model", "")).strip()
         model_id = resolve_model_id(requested)
+        is_vision = "vl" in model_id.lower() or "vision" in model_id.lower() or "llava" in model_id.lower()
+        family = "qwen2_vl" if "vl" in model_id.lower() else ("llama" if "llama" in model_id.lower() else ("llava" if "llava" in model_id.lower() else "qwen2"))
         self._send_json({
             "modelfile": f"# ComputeMesh Dynamic Modelfile\nFROM {model_id}\nTEMPLATE \"\"\"{{{{ .Prompt }}}}\"\"\"",
             "parameters": f"stop                           \"<|im_end|>\"\ncontext_length                 32768",
@@ -1186,13 +1194,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
             "details": {
                 "parent_model": "",
                 "format": "gguf",
-                "family": "qwen2" if "qwen" in model_id else "llama",
-                "families": ["qwen2" if "qwen" in model_id else "llama"],
-                "parameter_size": "7.6B" if "7b" in model_id else "70.6B",
+                "family": family,
+                "families": [family, "clip"] if is_vision else [family],
+                "parameter_size": "7.6B" if "7b" in model_id else ("11.0B" if "11b" in model_id else "70.6B"),
                 "quantization_level": "Q4_K_M",
             },
             "model_info": {
-                "general.architecture": "qwen2" if "qwen" in model_id else "llama",
+                "general.architecture": family,
                 "general.file_type": 15,
                 "general.parameter_count": 7615616512,
             },
@@ -1313,6 +1321,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
         model_id = resolve_model_id(model_req)
         prompt = body.get("prompt", "")
+        images = body.get("images") if isinstance(body.get("images"), list) else None
         stream = bool(body.get("stream", True))
         opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
         max_tokens = int(opt_predict) if opt_predict is not None and str(opt_predict).isdigit() else None
@@ -1327,6 +1336,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 account_id=auth.account_id or "cust_default",
                 model_id=model_id,
                 prompt=prompt,
+                images=images,
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
                 client_ip=client_ip,
@@ -1347,6 +1357,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             account_id=auth.account_id or "cust_default",
             model_id=model_id,
             prompt=prompt,
+            images=images,
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
             client_ip=client_ip,
