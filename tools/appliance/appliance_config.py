@@ -93,13 +93,24 @@ def load_appliance_config(
         except Exception:
             pass
 
-    rig_name = (
+    raw_rig = (
         env_vars.get("NODE_NAME")
         or env_vars.get("RIG_NAME")
         or system_data.get("rig_name")
         or os.environ.get("RIG_NAME")
-        or "cm-inference-node-01"
+        or ""
     )
+    if not raw_rig or raw_rig == "test-node-custom":
+        import socket
+        try:
+            raw_host = socket.gethostname().lower().replace("_", "-").strip()
+        except Exception:
+            raw_host = "node"
+        if sys.platform == "win32":
+            raw_rig = f"cm-win-{raw_host}"
+        else:
+            raw_rig = "cm-inference-node-01"
+    rig_name = raw_rig
     provider_account = (
         env_vars.get("PROVIDER_ACCOUNT_ID")
         or system_data.get("provider_account_id")
@@ -153,7 +164,7 @@ def load_appliance_config(
         env_vars.get("OWNER_KEY")
         or system_data.get("owner_key")
         or os.environ.get("OWNER_KEY")
-        or "inetconnector"
+        or "inet-89d428edbdf525ce956f34d622bba1faf8f38701"
     )
 
     return ApplianceConfig(
