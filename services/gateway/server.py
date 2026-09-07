@@ -1254,7 +1254,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
         model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", False))
-        enable_mcp = bool(body.get("enable_mcp", False)) or bool(body.get("tools"))
+        if "enable_mcp" in body:
+            enable_mcp = bool(body.get("enable_mcp"))
+        elif "tools" in body:
+            enable_mcp = bool(body.get("tools"))
+        else:
+            enable_mcp = bool(auth.is_provider_self_compute)
         max_tokens_val = body.get("max_tokens") or body.get("max_completion_tokens")
         max_tokens = int(max_tokens_val) if max_tokens_val is not None and str(max_tokens_val).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
