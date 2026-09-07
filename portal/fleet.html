@@ -1113,7 +1113,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen (Börsenkurse, News-Feeds, Web-Recherche, Dokumente) oder eigene MCP-Server ansteuern.
           </p>
 
-          <!-- 5 Capabilities Cards Grid -->
+          <!-- 11 Capabilities Cards Grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:2rem;">
             <!-- Finance / Stocks -->
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
@@ -1123,7 +1123,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                 Echtzeit Yahoo Finance &amp; CoinGecko Kurse für Aktien (NVDA, AAPL, MSFT, SAP), Krypto (BTC, ETH, SOL), Indizes (DAX, S&amp;P500) und Rohstoffe.
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#34d399;">
-                <code>get_stock_quote</code> &middot; <code>get_crypto_quote</code>
+                <code>get_market_quote</code>
               </div>
             </div>
 
@@ -1135,31 +1135,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                 Aktuelle Meldungen und Schlagzeilen in Echtzeit (Tech, KI, Wirtschaft, Krypto, Deutschland/Tagesschau, Weltpolitik oder Stichwort-Suche).
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#38bdf8;">
-                <code>get_latest_news</code>
-              </div>
-            </div>
-
-            <!-- Web Search -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌐</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Echtzeit Web-Suche</h4>
-              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Direkte Internet-Recherche via DuckDuckGo HTML &amp; Bing RSS mit intelligenter Textbereinigung und Snippet-Synthese.
-              </p>
-              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#c084fc;">
-                <code>web_search</code>
-              </div>
-            </div>
-
-            <!-- Web Fetch -->
-            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
-              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📄</div>
-              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Web-Reader &amp; Scraper</h4>
-              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Automatisches Auslesen und Formatieren von Online-Artikeln, Blogbeiträgen und Entwickler-Dokumentationen.
-              </p>
-              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fbbf24;">
-                <code>fetch_web_page</code>
+                <code>get_live_news</code>
               </div>
             </div>
 
@@ -1175,12 +1151,108 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               </div>
             </div>
 
-            <!-- System Tools -->
+            <!-- Python Math Sandbox -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🧮</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Sichere Python Mathe-Sandbox</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Präzise mathematische Berechnungen, Formeln, Zinseszins, Statistik &amp; Algorithmen im isolierten AST-Sandbox.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#c084fc;">
+                <code>calculate_math</code>
+              </div>
+            </div>
+
+            <!-- Wikipedia Encyclopedia -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📚</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Wikipedia &amp; Wissensdatenbank</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Fundierte Zusammenfassungen, Definitionen, historische Daten und Biografien direkt über die offizielle Wikipedia-API.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fbbf24;">
+                <code>get_wikipedia_summary</code>
+              </div>
+            </div>
+
+            <!-- Currency & Crypto Converter -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">💱</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#34d399;font-size:1rem;">Währungs- &amp; Krypto-Umrechner</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Echtzeit-Wechselkurse (EUR, USD, GBP, CHF, JPY) via EZB/Frankfurter sowie Krypto-Umrechnungen (BTC, ETH, SOL).
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#34d399;">
+                <code>convert_currency</code>
+              </div>
+            </div>
+
+            <!-- World Time & Holidays -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(129,140,248,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🕒</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#818cf8;font-size:1rem;">Weltzeit, Kalender &amp; Feiertage</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Genaue Uhrzeit aller Zeitzonen weltweit, Kalenderwochen und gesetzliche deutsche Feiertage pro Bundesland.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#818cf8;">
+                <code>get_time_and_calendar</code>
+              </div>
+            </div>
+
+            <!-- Distance & Routing -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(251,146,60,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🗺️</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#fb923c;font-size:1rem;">Entfernungs- &amp; Routenrechner</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Berechnung von Luftlinie, Himmelsrichtung, Geokoordinaten und Fahrtstrecke/Fahrzeit zwischen Orten weltweit.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fb923c;">
+                <code>get_distance_route</code>
+              </div>
+            </div>
+
+            <!-- Web Search -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🌐</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Echtzeit Web-Suche</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Direkte Internet-Recherche via DuckDuckGo HTML &amp; Bing RSS mit intelligenter Textbereinigung und Snippet-Synthese.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#c084fc;">
+                <code>search_web</code>
+              </div>
+            </div>
+
+            <!-- Web Fetch -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">📄</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#fbbf24;font-size:1rem;">Web-Reader &amp; Scraper</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Automatisches Auslesen und Formatieren von Online-Artikeln, Blogbeiträgen und Entwickler-Dokumentationen.
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#fbbf24;">
+                <code>fetch_web_content</code>
+              </div>
+            </div>
+
+            <!-- Network Diagnostics (Owner only) -->
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(244,63,94,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🛡️</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#f43f5e;font-size:1rem;">Netzwerk-Diagnose &amp; SSL</h4>
+              <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
+                Sichere DNS-Prüfung, HTTP-Status &amp; SSL-Zertifikatslaufzeit öffentlicher Domains mit SSRF-Schutzwall (Owner Only).
+              </p>
+              <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f43f5e;">
+                <code>lookup_network_host</code>
+              </div>
+            </div>
+
+            <!-- System Telemetry (Owner only) -->
             <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(236,72,153,0.3);border-radius:12px;padding:1.2rem;">
               <div style="font-size:1.4rem;margin-bottom:0.4rem;">🖥️</div>
               <h4 style="margin:0 0 0.35rem 0;color:#f472b6;font-size:1rem;">Node- &amp; Host-Telemetrie</h4>
               <p style="margin:0;font-size:0.83rem;color:#94a3b8;line-height:1.5;">
-                Prüfung von GPU-Hardware, Speicherauslastung, VRAM und Systeminformationen deines Clusters.
+                Prüfung von GPU-Hardware, Speicherauslastung, VRAM und Systeminformationen deines Clusters (Owner Only).
               </p>
               <div style="margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#f472b6;">
                 <code>get_system_info</code>
@@ -1194,7 +1266,6 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <h4 style="margin:0;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
                 <span>⚡</span> <span>Live MCP Agent Konsole (Direkt testen)</span>
               </h4>
-              <span class="sec-badge info" style="font-size:0.78rem;">Live Streaming &amp; Tool Loop</span>
             </div>
 
             <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;">
@@ -1204,19 +1275,25 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             <!-- Quick Query Presets -->
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie ist das aktuelle Wetter in Veitshöchheim und was sind die wichtigsten aktuellen News von heute?')">
-                🌤️ Wetter &amp; News heute
+                🌤️ Wetter &amp; News
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie viel sind 250 EUR in USD und wie steht der Bitcoin Kurs?')">
+                💱 Währungsrechner &amp; BTC
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie weit ist es von Veitshöchheim nach München und wie lange fährt man mit dem Auto?')">
+                🗺️ Entfernung Veitshöchheim - München
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Berechne mit Python das Endkapital bei 15.000 € Startguthaben nach 8 Jahren mit 4,2% Zinsen')">
+                🧮 Mathe: Zinsrechnung
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Welche gesetzlichen Feiertage gibt es 2026 in Bayern und wann ist Ostern?')">
+                🕒 Feiertage Bayern 2026
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was steht auf Wikipedia über den Ort Veitshöchheim?')">
+                📚 Wikipedia Veitshöchheim
               </button>
               <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Wie steht die Nvidia Aktie (NVDA) heute und wie ist der aktuelle DAX Kurs?')">
                 📈 Nvidia &amp; DAX Kurs
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die wichtigsten Tech- und KI-News von heute?')">
-                📰 Tech &amp; KI News
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Was sind die aktuellen Krypto-News und wie steht der Bitcoin Kurs?')">
-                🪙 Bitcoin &amp; Krypto News
-              </button>
-              <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;" onclick="setMcpTestQuery('Hole mir die aktuellen Top-Nachrichten aus Deutschland')">
-                🇩🇪 Tagesschau / Deutschland
               </button>
             </div>
 

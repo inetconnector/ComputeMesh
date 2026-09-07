@@ -16,6 +16,12 @@ from .builtin.finance_market import execute_finance_quote
 from .builtin.web_fetch import execute_web_fetch
 from .builtin.news_feed import execute_get_news
 from .builtin.weather import execute_get_weather
+from .builtin.python_calc import run_python_calc
+from .builtin.wikipedia import get_wikipedia_summary
+from .builtin.time_calendar import get_time_and_calendar
+from .builtin.currency import convert_currency
+from .builtin.geo_routing import get_distance_route
+from .builtin.network_tools import lookup_network_host
 from .builtin.system_tools import execute_system_info
 
 
@@ -206,7 +212,155 @@ class ToolRegistry:
             source="builtin_weather",
         )
 
-        # 6. Safe System Info Tool (Owner only)
+        # 6. Safe Python Math Evaluator
+        self.register_tool(
+            name="calculate_math",
+            description="Führt präzise mathematische Berechnungen, Finanzformeln, Zinsrechnungen, Statistiken oder Algorithmen in einer isolierten Python-Sandbox aus.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "Der mathematische Ausdruck oder Python-Code (z. B. '150000 * (0.038 / 12) / (1 - (1 + 0.038 / 12) ** -180)' oder 'math.sqrt(42)').",
+                    },
+                },
+                "required": ["expression"],
+            },
+            handler=run_python_calc,
+            owner_only=False,
+            source="builtin_math",
+        )
+
+        # 7. Wikipedia Reference Tool
+        self.register_tool(
+            name="get_wikipedia_summary",
+            description="Liefert fundierte lexikalische Zusammenfassungen, Definitionen, historische Fakten und Biografien direkt aus Wikipedia.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Das Thema, der Begriff oder die Person (z. B. 'Veitshöchheim', 'Quantencomputer', 'Alan Turing').",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Sprachcode ('de', 'en', 'fr', 'es'). Standard: 'de'.",
+                        "default": "de",
+                    },
+                },
+                "required": ["query"],
+            },
+            handler=get_wikipedia_summary,
+            owner_only=False,
+            source="builtin_wiki",
+        )
+
+        # 8. World Time, Calendar & German Holidays
+        self.register_tool(
+            name="get_time_and_calendar",
+            description="Liefert die exakte aktuelle Uhrzeit, Zeitzonen-Umrechnung, Kalenderwoche, Schaltjahr-Prüfung und gesetzliche Feiertage (z. B. für Bayern BY).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "timezone_name": {
+                        "type": "string",
+                        "description": "Name der Zeitzone oder Stadt (z. B. 'Europe/Berlin', 'Tokyo', 'New York', 'London'). Standard: 'Europe/Berlin'.",
+                        "default": "Europe/Berlin",
+                    },
+                    "target_date": {
+                        "type": "string",
+                        "description": "Optionales Zieldatum im Format 'YYYY-MM-DD' oder 'DD.MM.YYYY' zur Berechnung der Tage bis zum Datum.",
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "Bundesland-Kürzel für Feiertage (z. B. 'BY' für Bayern, 'BW', 'NW'). Standard: 'BY'.",
+                        "default": "BY",
+                    },
+                },
+            },
+            handler=get_time_and_calendar,
+            owner_only=False,
+            source="builtin_time",
+        )
+
+        # 9. Currency & Crypto Converter
+        self.register_tool(
+            name="convert_currency",
+            description="Rechnet Geldbeträge live zwischen weltweiten Währungen (EUR, USD, GBP, CHF, JPY etc.) oder Kryptowährungen (BTC, ETH, SOL) um.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "number",
+                        "description": "Der umzurechnende Betrag (z. B. 100).",
+                        "default": 1.0,
+                    },
+                    "from_currency": {
+                        "type": "string",
+                        "description": "Ausgangswährung (z. B. 'EUR', 'USD', 'BTC'). Standard: 'EUR'.",
+                        "default": "EUR",
+                    },
+                    "to_currency": {
+                        "type": "string",
+                        "description": "Zielwährung (z. B. 'USD', 'EUR', 'CHF'). Standard: 'USD'.",
+                        "default": "USD",
+                    },
+                },
+                "required": ["amount", "from_currency", "to_currency"],
+            },
+            handler=convert_currency,
+            owner_only=False,
+            source="builtin_currency",
+        )
+
+        # 10. Geographic Distance & Route Tool
+        self.register_tool(
+            name="get_distance_route",
+            description="Berechnet die exakte Entfernung (Luftlinie & Fahrtstrecke), Himmelsrichtung, Geokoordinaten und geschätzte Fahrzeit zwischen zwei Orten weltweit.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "origin": {
+                        "type": "string",
+                        "description": "Startort oder Startadresse (z. B. 'Veitshöchheim' oder 'Würzburg').",
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Zielort oder Zieladresse (z. B. 'München' oder 'Frankfurt am Main').",
+                    },
+                },
+                "required": ["origin", "destination"],
+            },
+            handler=get_distance_route,
+            owner_only=False,
+            source="builtin_geo",
+        )
+
+        # 11. Safe Network & Host Diagnostics (Owner Key only)
+        self.register_tool(
+            name="lookup_network_host",
+            description="Führt sichere Netzwerkdiagnosen für eine öffentliche Domain aus (DNS-Einträge, HTTP/HTTPS-Status & Latenz, SSL-Zertifikatslaufzeit).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Der öffentliche Hostname oder die Domain (z. B. 'inetconnector.com' oder 'github.com').",
+                    },
+                    "check_type": {
+                        "type": "string",
+                        "description": "Art der Diagnose: 'all' (DNS, HTTP & SSL), 'dns_only', 'http', 'ssl'. Standard: 'all'.",
+                        "default": "all",
+                    },
+                },
+                "required": ["host"],
+            },
+            handler=lookup_network_host,
+            owner_only=True,
+            source="builtin_network",
+        )
+
+        # 12. Safe System Info Tool (Owner only)
         if self.config.system_tools_enabled:
             self.register_tool(
                 name="get_system_info",
