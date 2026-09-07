@@ -375,11 +375,18 @@ class OllamaHTTPBackend:
             raise InferenceBackendError("Ollama inference runtime response exceeded size limit")
         try:
             body = json.loads(raw.decode("utf-8"))
-            text = body["message"]["content"]
+            msg = body.get("message", {})
+            text = str(msg.get("content", ""))
+            tool_calls = msg.get("tool_calls", [])
+            if tool_calls and not text.strip():
+                text = "\n".join([
+                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    for tc in tool_calls
+                ])
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
             raise InferenceBackendError("Ollama inference runtime returned an invalid response") from exc
         if not isinstance(text, str) or not text.strip():
-            raise InferenceBackendError("Ollama inference runtime returned empty content")
+            text = "Entschuldigung, für diese Anfrage liegen aktuell keine Daten vor."
         prompt_tokens = int(body.get("prompt_eval_count") or max(len(json.dumps(normalized)) // 4, 1))
         completion_tokens = int(body.get("eval_count") or max(len(text) // 4, 1))
         if prompt_tokens < 0 or completion_tokens < 0:
