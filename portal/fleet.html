@@ -806,22 +806,200 @@
         </div>
       </div>
 
-      <!-- VIEW 4: Ollama & Developer Mesh Pool Integration -->
+      <!-- VIEW 4: OpenAI-Compatible API & Developer Mesh Pool Integration -->
       <div id="cockpit-view-ollama" style="display: none;">
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
-            <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">🦙 Ollama Mesh-Pool & Developer API</h3>
-            <span class="status-pill online"><span class="pulse-dot"></span> 100% Eigennutzung + Automatischer Mesh-Verkauf</span>
+            <h3 style="margin:0;font-size:1.3rem;color:var(--accent-cyan);display:flex;align-items:center;gap:0.6rem;">
+              <span>⚡</span> <span>OpenAI-kompatible Web-API &amp; Ollama Dev Pool</span>
+            </h3>
+            <span class="status-pill online"><span class="pulse-dot"></span> 100% Eigennutzung (0% Fee) + Mesh-Monetarisierung</span>
           </div>
-          <p style="color:#94a3b8;font-size:0.92rem;line-height:1.6;margin-bottom:1.5rem;">
-            Nutze deine eigene GPU mit voller Rechenleistung für lokale KI-Entwicklung (z. B. LocalCode, VS Code, Cursor, Cline, Ollama CLI).
-            Sobald dein System im Leerlauf ist, monetarisiert ComputeMesh die ungenutzte GPU-Kapazität automatisch im dezentralen Netzwerk und zahlt dir Echtzeit-Credits aus!
-          </p>
 
-          <!-- 1-Click Download Section -->
+          <!-- 3 Architecture Value Cards -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">💎</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#10b981;font-size:1rem;">100% Kostenlose Eigennutzung (0% Fee)</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+                Alle API-Aufrufe mit deinem Owner Key (<code style="color:#38bdf8;">inet-...</code>) laufen als <strong>Provider Self-Compute</strong> ohne Gebühren direkt über deine eigene Hardware.
+              </p>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">💰</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#38bdf8;font-size:1rem;">Automatischer Mesh-Verkauf bei Leerlauf</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+                Sobald deine GPU im Leerlauf ist, stellt das Netzwerk ungenutzten VRAM zahlenden Kunden bereit. Du erhältst <strong>75% Netto-Auszahlung</strong> in Echtzeit.
+              </p>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(168,85,247,0.3);border-radius:12px;padding:1.2rem;">
+              <div style="font-size:1.4rem;margin-bottom:0.4rem;">🔌</div>
+              <h4 style="margin:0 0 0.35rem 0;color:#c084fc;font-size:1rem;">Universelle Tool-Kompatibilität</h4>
+              <p style="margin:0;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+                Drop-In Ersatz für OpenAI in <strong>Cursor, VS Code, LocalCode, Cline, Python, TypeScript, LangChain</strong> und der <strong>Ollama CLI</strong>.
+              </p>
+            </div>
+          </div>
+
+          <!-- Live Endpoint & Credentials Card -->
+          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:14px;padding:1.4rem;margin-bottom:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.75rem;">
+              <div style="font-size:1rem;font-weight:700;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+                <span>🌐</span> <span>Deine persönlichen API-Verbindungsdaten</span>
+              </div>
+              <span class="sec-badge success" style="font-size:0.78rem;">🟢 Inferenz-Gateway Online</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1rem;">
+              <div>
+                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">OpenAI Base URL:</span>
+                <div style="background:#090d16;padding:0.6rem 0.85rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;">
+                  <code id="api-base-url-text">https://mesh.inetconnector.com/v1</code>
+                  <button class="copy-btn" style="padding:0.25rem 0.55rem;font-size:0.75rem;" onclick="copyCmd('api-base-url-text')">📋 Kopieren</button>
+                </div>
+              </div>
+
+              <div>
+                <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.3rem;">Dein API / Owner Key (Kostenlos für dich):</span>
+                <div style="background:#090d16;padding:0.6rem 0.85rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#10b981;display:flex;justify-content:space-between;align-items:center;">
+                  <code id="api-owner-key-text" style="word-break:break-all;">owner_...</code>
+                  <button class="copy-btn" style="padding:0.25rem 0.55rem;font-size:0.75rem;" onclick="copyCmd('api-owner-key-text')">📋 Kopieren</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Code Snippets Studio -->
+          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:1.4rem;margin-bottom:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+              <h4 style="margin:0;font-size:1.1rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
+                <span>💻</span> <span>1-Klick Code-Integrationen (OpenAI-kompatibel)</span>
+              </h4>
+              
+              <!-- Tab Switcher -->
+              <div class="pg-snippet-tabs" style="margin:0;background:rgba(0,0,0,0.4);padding:0.25rem;border-radius:8px;display:flex;gap:0.3rem;flex-wrap:wrap;">
+                <button class="pg-tab-btn active" id="tab-btn-dev-curl" onclick="switchDevApiTab('curl')">🐧 cURL</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-python" onclick="switchDevApiTab('python')">🐍 Python (OpenAI SDK)</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-node" onclick="switchDevApiTab('node')">⚡ Node.js / TypeScript</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-cursor" onclick="switchDevApiTab('cursor')">🧩 Cursor / VS Code</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-ollama" onclick="switchDevApiTab('ollama')">🦙 Ollama CLI</button>
+              </div>
+            </div>
+
+            <!-- Tab 1: cURL -->
+            <div id="pane-dev-curl" class="dev-api-pane">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-curl')">📋 cURL Befehl kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-curl">curl -X POST https://mesh.inetconnector.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <OWNER_KEY>" \
+  -d '{
+    "model": "qwen2.5:7b",
+    "messages": [
+      {"role": "user", "content": "Hallo ComputeMesh! Wie ist mein Inferenz-Status?"}
+    ],
+    "stream": true
+  }'</code></pre>
+            </div>
+
+            <!-- Tab 2: Python -->
+            <div id="pane-dev-python" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-python')">📋 Python Code kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-python"># pip install openai
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="<OWNER_KEY>"
+)
+
+stream = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[
+        {"role": "system", "content": "Du bist ein hochperformanter AI-Assistent."},
+        {"role": "user", "content": "Schreibe eine performante async Python-Funktion."}
+    ],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)</code></pre>
+            </div>
+
+            <!-- Tab 3: Node.js -->
+            <div id="pane-dev-node" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-node')">📋 Node.js Code kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-node">// npm install openai
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://mesh.inetconnector.com/v1",
+  apiKey: "<OWNER_KEY>"
+});
+
+async function main() {
+  const stream = await client.chat.completions.create({
+    model: "qwen2.5:7b",
+    messages: [{ role: "user", content: "Erkläre Pipeline-Layer-Sharding in 2 Sätzen." }],
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+  }
+}
+
+main();</code></pre>
+            </div>
+
+            <!-- Tab 4: Cursor / VS Code -->
+            <div id="pane-dev-cursor" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-cursor')">📋 VS Code Config kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-cursor"># Option 1: Terminal / Umgebungsvariablen für VS Code & Cursor:
+export OPENAI_BASE_URL="https://mesh.inetconnector.com/v1"
+export OPENAI_API_KEY="<OWNER_KEY>"
+
+# Option 2: In Cursor AI / Cline / Continue settings.json:
+{
+  "models": [
+    {
+      "title": "ComputeMesh Qwen 2.5 7B",
+      "provider": "openai",
+      "model": "qwen2.5:7b",
+      "apiBase": "https://mesh.inetconnector.com/v1",
+      "apiKey": "<OWNER_KEY>"
+    }
+  ]
+}</code></pre>
+            </div>
+
+            <!-- Tab 5: Ollama CLI -->
+            <div id="pane-dev-ollama" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-ollama')">📋 Ollama CLI kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-ollama"># Direkte Anbindung an dein ComputeMesh-Cluster über die Standard Ollama CLI:
+export OLLAMA_HOST="mesh.inetconnector.com:443"
+
+# Sofort einsatzbereit mit deinen Flotten-Modellen:
+ollama list
+ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
+            </div>
+          </div>
+
+          <!-- 1-Click Starter & Reset Skripte (Ollama Mesh Pool) -->
           <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:1.5rem;margin-bottom:1.5rem;">
             <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.15rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
-              <span>📥</span> <span>Vorkonfigurierte Start- & Reset-Skripte herunterladen</span>
+              <span>📥</span> <span>Vorkonfigurierte Start- &amp; Reset-Skripte (Lokale GPU-Monetarisierung)</span>
             </h4>
             <p style="font-size:0.88rem;color:#94a3b8;margin-bottom:1.25rem;">
               Die Skripte enthalten bereits automatisch deinen persönlichen <strong>Owner Key</strong> und verbinden deinen Ollama-Dienst direkt mit deiner Flotte.
@@ -831,7 +1009,7 @@
               <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
                 <div>
                   <div style="font-weight:700;color:#38bdf8;font-size:0.95rem;margin-bottom:0.35rem;">🪟 Windows (Batch Launcher)</div>
-                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">1-Klick Start mit Mesh-Pool & Tray Daemon</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">1-Klick Start mit Mesh-Pool &amp; Tray Daemon</div>
                 </div>
                 <button class="btn btn-primary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;" onclick="downloadOllamaScript('starter', 'windows')">
                   ⬇️ OLLAMA-MESH-START.bat
@@ -861,7 +1039,7 @@
               <div style="background:#090d16;border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:1.1rem;display:flex;flex-direction:column;justify-content:space-between;">
                 <div>
                   <div style="font-weight:700;color:#10b981;font-size:0.95rem;margin-bottom:0.35rem;">🔄 Linux / macOS Reset</div>
-                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">Entfernt Mesh-Variablen & startet Standalone</div>
+                  <div style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.8rem;">Entfernt Mesh-Variablen &amp; startet Standalone</div>
                 </div>
                 <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 0.9rem;width:100%;border-color:rgba(16,185,129,0.4);" onclick="downloadOllamaScript('reset', 'linux')">
                   🔄 ollama-reset-default.sh
@@ -871,8 +1049,8 @@
           </div>
 
           <!-- Quick Terminal 1-Liners -->
-          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;">
-            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">⚡ Direkt per Terminal ausführen (cURL & PowerShell)</h4>
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
+            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">⚡ Direkt per Terminal ausführen (cURL &amp; PowerShell)</h4>
             <div style="display:flex;flex-direction:column;gap:0.75rem;">
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Linux / macOS (Terminal):</span>
@@ -888,19 +1066,6 @@
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('ps-quick-cmd')">📋 Kopieren</button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Developer SDK Settings -->
-          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
-            <h4 style="margin-top:0;margin-bottom:0.75rem;font-size:1.05rem;color:#f8fafc;">💻 Entwicklungsumgebungen (VS Code / Python / OpenAI SDK)</h4>
-            <div style="background:#090d16;padding:1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;">
-              <span style="color:#64748b;"># Verbindung zu deinem ComputeMesh-Cluster über OpenAI SDK:</span><br>
-              export OPENAI_BASE_URL="https://mesh.inetconnector.com/v1"<br>
-              export OPENAI_API_KEY="<span id="ollama-owner-key-hint">owner_...</span>"<br><br>
-              <span style="color:#64748b;"># Oder direkt über die Standard Ollama CLI:</span><br>
-              export OLLAMA_HOST="mesh.inetconnector.com:443"<br>
-              ollama list
             </div>
           </div>
         </div>
@@ -1083,6 +1248,105 @@
       }
       if (view === 'payouts') {
         loadPayouts();
+      }
+    }
+
+    function switchDevApiTab(tab) {
+      const tabs = ['curl', 'python', 'node', 'cursor', 'ollama'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-dev-${t}`);
+        const pane = document.getElementById(`pane-dev-${t}`);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (pane) pane.style.display = t === tab ? 'block' : 'none';
+      });
+    }
+
+    function updateDevApiSnippets(key) {
+      const effectiveKey = key || activeOwnerKey || "<OWNER_KEY>";
+      
+      const ownerKeyEl = document.getElementById("api-owner-key-text");
+      if (ownerKeyEl) ownerKeyEl.textContent = effectiveKey;
+
+      const curlEl = document.getElementById("code-dev-curl");
+      if (curlEl) {
+        curlEl.textContent = `curl -X POST https://mesh.inetconnector.com/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${effectiveKey}" \\
+  -d '{
+    "model": "qwen2.5:7b",
+    "messages": [
+      {"role": "user", "content": "Hallo ComputeMesh! Wie ist mein Inferenz-Status?"}
+    ],
+    "stream": true
+  }'`;
+      }
+
+      const pyEl = document.getElementById("code-dev-python");
+      if (pyEl) {
+        pyEl.textContent = `# pip install openai
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="${effectiveKey}"
+)
+
+stream = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[
+        {"role": "system", "content": "Du bist ein hochperformanter AI-Assistent."},
+        {"role": "user", "content": "Schreibe eine performante async Python-Funktion."}
+    ],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)`;
+      }
+
+      const nodeEl = document.getElementById("code-dev-node");
+      if (nodeEl) {
+        nodeEl.textContent = `// npm install openai
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://mesh.inetconnector.com/v1",
+  apiKey: "${effectiveKey}"
+});
+
+async function main() {
+  const stream = await client.chat.completions.create({
+    model: "qwen2.5:7b",
+    messages: [{ role: "user", content: "Erkläre Pipeline-Layer-Sharding in 2 Sätzen." }],
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+  }
+}
+
+main();`;
+      }
+
+      const cursorEl = document.getElementById("code-dev-cursor");
+      if (cursorEl) {
+        cursorEl.textContent = `# Option 1: Terminal / Umgebungsvariablen für VS Code & Cursor:
+export OPENAI_BASE_URL="https://mesh.inetconnector.com/v1"
+export OPENAI_API_KEY="${effectiveKey}"
+
+# Option 2: In Cursor AI / Cline / Continue settings.json:
+{
+  "models": [
+    {
+      "title": "ComputeMesh Qwen 2.5 7B",
+      "provider": "openai",
+      "model": "qwen2.5:7b",
+      "apiBase": "https://mesh.inetconnector.com/v1",
+      "apiKey": "${effectiveKey}"
+    }
+  ]
+}`;
       }
     }
 
@@ -1409,6 +1673,9 @@
         if (psEl) {
           psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${data.owner_key}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
+        updateDevApiSnippets(data.owner_key);
+      } else {
+        updateDevApiSnippets(activeOwnerKey);
       }
 
       loadFleet();
@@ -1929,6 +2196,7 @@
         if (psEl) {
           psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${newKey}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
+        updateDevApiSnippets(newKey);
 
         if (statusEl) {
           statusEl.style.display = "block";
