@@ -880,7 +880,9 @@
               
               <!-- Tab Switcher -->
               <div class="pg-snippet-tabs" style="margin:0;background:rgba(0,0,0,0.4);padding:0.25rem;border-radius:8px;display:flex;gap:0.3rem;flex-wrap:wrap;">
-                <button class="pg-tab-btn active" id="tab-btn-dev-curl" onclick="switchDevApiTab('curl')">🐧 cURL</button>
+                <button class="pg-tab-btn active" id="tab-btn-dev-curl" onclick="switchDevApiTab('curl')">🐧 cURL (Linux / macOS)</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-cmd" onclick="switchDevApiTab('cmd')">🪟 Windows CMD (DOS)</button>
+                <button class="pg-tab-btn" id="tab-btn-dev-powershell" onclick="switchDevApiTab('powershell')">⚡ Windows PowerShell</button>
                 <button class="pg-tab-btn" id="tab-btn-dev-python" onclick="switchDevApiTab('python')">🐍 Python (OpenAI SDK)</button>
                 <button class="pg-tab-btn" id="tab-btn-dev-node" onclick="switchDevApiTab('node')">⚡ Node.js / TypeScript</button>
                 <button class="pg-tab-btn" id="tab-btn-dev-cursor" onclick="switchDevApiTab('cursor')">🧩 Cursor / VS Code</button>
@@ -888,7 +890,7 @@
               </div>
             </div>
 
-            <!-- Tab 1: cURL -->
+            <!-- Tab 1: cURL (Linux / macOS) -->
             <div id="pane-dev-curl" class="dev-api-pane">
               <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
                 <button class="copy-btn" onclick="copyCmd('code-dev-curl')">📋 cURL Befehl kopieren</button>
@@ -903,6 +905,29 @@
     ],
     "stream": true
   }'</code></pre>
+            </div>
+
+            <!-- Tab 2: Windows CMD (DOS) -->
+            <div id="pane-dev-cmd" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-cmd')">📋 CMD Befehl kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-cmd">REM In jedem Windows CMD / DOS-Fenster direkt ausf&#252;hrbar:
+curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer <OWNER_KEY>" ^
+  -d "{\"model\": \"qwen2.5:7b\", \"messages\": [{\"role\": \"user\", \"content\": \"Hallo ComputeMesh! Wie ist mein Inferenz-Status?\"}], \"stream\": true}"</code></pre>
+            </div>
+
+            <!-- Tab 3: Windows PowerShell -->
+            <div id="pane-dev-powershell" class="dev-api-pane" style="display:none;">
+              <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem;">
+                <button class="copy-btn" onclick="copyCmd('code-dev-powershell')">📋 PowerShell REST kopieren</button>
+              </div>
+              <pre style="margin:0;background:#090d16;padding:1.1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.83rem;color:#e2e8f0;line-height:1.6;overflow-x:auto;"><code id="code-dev-powershell"># Windows PowerShell (Native REST-Abfrage)
+$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer <OWNER_KEY>" }
+$body = @{ model = "qwen2.5:7b"; messages = @(@{ role = "user"; content = "Hallo ComputeMesh! Wie ist mein Inferenz-Status?" }); stream = $false } | ConvertTo-Json
+Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body</code></pre>
             </div>
 
             <!-- Tab 2: Python -->
@@ -1252,7 +1277,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     }
 
     function switchDevApiTab(tab) {
-      const tabs = ['curl', 'python', 'node', 'cursor', 'ollama'];
+      const tabs = ['curl', 'cmd', 'powershell', 'python', 'node', 'cursor', 'ollama'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-dev-${t}`);
         const pane = document.getElementById(`pane-dev-${t}`);
@@ -1279,6 +1304,23 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     ],
     "stream": true
   }'`;
+      }
+
+      const cmdEl = document.getElementById("code-dev-cmd");
+      if (cmdEl) {
+        cmdEl.textContent = `REM In jedem Windows CMD / DOS-Fenster direkt ausführbar:
+curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer ${effectiveKey}" ^
+  -d "{\\"model\\": \\"qwen2.5:7b\\", \\"messages\\": [{\\"role\\": \\"user\\", \\"content\\": \\"Hallo ComputeMesh! Wie ist mein Inferenz-Status?\\"}], \\"stream\\": true}"`;
+      }
+
+      const psDevEl = document.getElementById("code-dev-powershell");
+      if (psDevEl) {
+        psDevEl.textContent = `# Windows PowerShell (Native REST-Abfrage)
+$headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer ${effectiveKey}" }
+$body = @{ model = "qwen2.5:7b"; messages = @(@{ role = "user"; content = "Hallo ComputeMesh! Wie ist mein Inferenz-Status?" }); stream = $false } | ConvertTo-Json
+Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body`;
       }
 
       const pyEl = document.getElementById("code-dev-python");
