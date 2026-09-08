@@ -1,0 +1,22 @@
+[Unit]
+Description=ComputeMesh Concert Research daily indexer
+After=network-online.target computemesh-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/ComputeMesh
+EnvironmentFile=-/etc/computemesh/concert-research.env
+ExecStart=/usr/bin/python3 -m services.concert_research.scheduler --bootstrap-seeds
+Restart=on-failure
+RestartSec=10
+User=computemesh
+Group=computemesh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/computemesh
+
+[Install]
+WantedBy=multi-user.target

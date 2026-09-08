@@ -34,6 +34,9 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q apps deploy models protocol runtime sdk services setup tests tools
 
+      - name: Concert research tests
+        run: python -m unittest services.concert_research.tests.test_concert_research -v
+
       - name: Gateway backend tests
         run: |
           python -m unittest services.gateway.tests.test_inference_backend -v
