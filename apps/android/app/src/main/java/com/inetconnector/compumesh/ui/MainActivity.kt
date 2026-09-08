@@ -9,9 +9,13 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.util.Log
 import android.webkit.*
 import android.widget.Toast
+import org.json.JSONObject
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -81,6 +85,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var engine: MiniCpmEngine
     private lateinit var lanDiscovery: DirectLanDiscovery
     private var localChatServer: LocalChatServer? = null
+    private val chatServerPortState = mutableIntStateOf(CHAT_SERVER_PORT)
+
+    // Reactive Compose state for instant multi-tab synchronization
+    private val ownerKeyState = mutableStateOf("")
+    private val gatewayUrlState = mutableStateOf("https://mesh.inetconnector.com")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,23 +97,17 @@ class MainActivity : ComponentActivity() {
         engine = MiniCpmEngine.getInstance(this)
         lanDiscovery = DirectLanDiscovery(this)
 
-        // Start LocalChatServer hosting embedded AHSMA WebUI
-        try {
-            localChatServer = LocalChatServer(this, CHAT_SERVER_PORT).apply {
-                start()
-            }
-        } catch (e: Throwable) {
-            android.util.Log.w("MainActivity", "LocalChatServer start on $CHAT_SERVER_PORT: ${e.message}")
-        }
+        // Start LocalChatServer hosting embedded AHSMA WebUI with resilient fallback ports
+        startLocalChatServer()
 
         // Restore saved fleet credentials
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedKey = prefs.getString(PREF_OWNER_KEY, "") ?: ""
         val savedGateway = prefs.getString(PREF_GATEWAY_URL, "https://mesh.inetconnector.com") ?: "https://mesh.inetconnector.com"
-        if (savedKey.isNotBlank()) {
-            MeshNodeService.ownerKey = savedKey
-        }
+        MeshNodeService.ownerKey = savedKey
         MeshNodeService.gatewayUrl = savedGateway
+        ownerKeyState.value = savedKey
+        gatewayUrlState.value = savedGateway
 
         // Handle possible deep link QR code pairing on launch
         handlePairingIntent(intent)
@@ -115,7 +118,9 @@ class MainActivity : ComponentActivity() {
                     guard = batteryGuard,
                     engine = engine,
                     lanDiscovery = lanDiscovery,
-                    chatServerPort = CHAT_SERVER_PORT,
+                    chatServerPort = chatServerPortState.intValue,
+                    currentOwnerKey = ownerKeyState.value,
+                    currentGatewayUrl = gatewayUrlState.value,
                     onStartNode = { startNodeService() },
                     onStopNode = { stopNodeService() },
                     onSaveFleetConfig = { key, gateway ->
@@ -126,11 +131,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (localChatServer == null || !localChatServer!!.isAlive) {
+            startLocalChatServer()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try {
             localChatServer?.stop()
         } catch (_: Throwable) {}
+    }
+
+    private fun startLocalChatServer(): Int {
+        try {
+            localChatServer?.stop()
+        } catch (_: Throwable) {}
+
+        val portsToTry = listOf(8089, 8090, 8091, 8092, 8093, 8094, 8095)
+        for (port in portsToTry) {
+            try {
+                val server = LocalChatServer(this, port)
+                server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+                localChatServer = server
+                chatServerPortState.intValue = port
+                android.util.Log.i("MainActivity", "LocalChatServer successfully started on port $port")
+                return port
+            } catch (e: Throwable) {
+                android.util.Log.w("MainActivity", "Port $port busy: ${e.message}, trying next...")
+            }
+        }
+        return CHAT_SERVER_PORT
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -154,12 +187,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun saveFleetConfig(key: String, gateway: String) {
-        MeshNodeService.ownerKey = key
-        MeshNodeService.gatewayUrl = gateway
+        val cleanKey = key.trim()
+        val cleanGateway = gateway.trim()
+        val (effectiveKey, effectiveGateway) = if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
+            Pair("", cleanKey)
+        } else {
+            Pair(cleanKey, cleanGateway.ifBlank { "https://mesh.inetconnector.com" })
+        }
+
+        MeshNodeService.ownerKey = effectiveKey
+        MeshNodeService.gatewayUrl = effectiveGateway
+        ownerKeyState.value = effectiveKey
+        gatewayUrlState.value = effectiveGateway
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(PREF_OWNER_KEY, key)
-            .putString(PREF_GATEWAY_URL, gateway)
+            .putString(PREF_OWNER_KEY, effectiveKey)
+            .putString(PREF_GATEWAY_URL, effectiveGateway)
             .apply()
     }
 
@@ -185,6 +228,8 @@ fun ComputeMeshMainScreen(
     engine: MiniCpmEngine,
     lanDiscovery: DirectLanDiscovery,
     chatServerPort: Int = MainActivity.CHAT_SERVER_PORT,
+    currentOwnerKey: String,
+    currentGatewayUrl: String,
     onStartNode: () -> Unit,
     onStopNode: () -> Unit,
     onSaveFleetConfig: (String, String) -> Unit
@@ -268,7 +313,7 @@ fun ComputeMeshMainScreen(
                 tonalElevation = 8.dp
             ) {
                 val tabs = listOf(
-                    Triple(0, "KI Chat", Icons.Default.Chat),
+                    Triple(0, "KI Chat", Icons.Default.ChatBubble),
                     Triple(1, "Edge Node", Icons.Default.ElectricBolt),
                     Triple(2, "LAN Mesh", Icons.Default.Hub),
                     Triple(3, "Setup", Icons.Default.Settings)
@@ -297,9 +342,109 @@ fun ComputeMeshMainScreen(
             when (selectedTab) {
                 0 -> MiniCpmChatTab(serverPort = chatServerPort)
                 1 -> EdgeNodeTab(guardStatus, onStartNode, onStopNode)
-                2 -> LanMeshTab(lanDiscovery)
-                3 -> SetupTab(onSaveFleetConfig = onSaveFleetConfig)
+                2 -> LanMeshTab(
+                    lanDiscovery = lanDiscovery,
+                    currentGatewayUrl = currentGatewayUrl,
+                    onSaveFleetConfig = onSaveFleetConfig
+                )
+                3 -> SetupTab(
+                    currentOwnerKey = currentOwnerKey,
+                    currentGatewayUrl = currentGatewayUrl,
+                    onSaveFleetConfig = onSaveFleetConfig
+                )
             }
+        }
+    }
+}
+
+class AndroidSpeechBridge(
+    private val activity: Activity,
+    private val webView: WebView,
+    private val onRequestAudioPermission: (() -> Unit) -> Unit
+) {
+    private var speechRecognizer: SpeechRecognizer? = null
+
+    @JavascriptInterface
+    fun startSpeechRecognition(lang: String?) {
+        activity.runOnUiThread {
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                onRequestAudioPermission {
+                    startSpeechRecognition(lang)
+                }
+                return@runOnUiThread
+            }
+
+            try {
+                speechRecognizer?.destroy()
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(activity).apply {
+                    setRecognitionListener(object : RecognitionListener {
+                        override fun onReadyForSpeech(params: Bundle?) {
+                            notifyJs("onstart")
+                        }
+                        override fun onBeginningOfSpeech() {}
+                        override fun onRmsChanged(rmsdB: Float) {}
+                        override fun onBufferReceived(buffer: ByteArray?) {}
+                        override fun onEndOfSpeech() {}
+                        override fun onError(error: Int) {
+                            val msg = when (error) {
+                                SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                                SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                                SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                                SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service busy"
+                                SpeechRecognizer.ERROR_SERVER -> "Server error"
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
+                                else -> "Error code $error"
+                            }
+                            Log.w("SpeechBridge", "Recognition error: $msg")
+                            notifyJs("onerror", msg)
+                        }
+                        override fun onResults(results: Bundle?) {
+                            val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            val text = matches?.firstOrNull() ?: ""
+                            Log.i("SpeechBridge", "Recognized text: $text")
+                            notifyJs("onresult", text)
+                            notifyJs("onend")
+                        }
+                        override fun onPartialResults(partialResults: Bundle?) {
+                            val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            val text = matches?.firstOrNull() ?: ""
+                            notifyJs("onpartialresult", text)
+                        }
+                        override fun onEvent(eventType: Int, params: Bundle?) {}
+                    })
+                }
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (!lang.isNullOrBlank()) lang else Locale.getDefault().toLanguageTag())
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                speechRecognizer?.startListening(intent)
+            } catch (e: Throwable) {
+                Log.e("SpeechBridge", "Failed to start speech recognizer: ${e.message}")
+                notifyJs("onerror", e.message ?: "Failed to start speech recognizer")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopSpeechRecognition() {
+        activity.runOnUiThread {
+            try {
+                speechRecognizer?.stopListening()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun notifyJs(event: String, data: String = "") {
+        activity.runOnUiThread {
+            val safeData = JSONObject.quote(data)
+            val script = "window.__onAndroidSpeechEvent && window.__onAndroidSpeechEvent('$event', $safeData);"
+            webView.evaluateJavascript(script, null)
         }
     }
 }
@@ -310,13 +455,30 @@ fun MiniCpmChatTab(
     serverPort: Int = MainActivity.CHAT_SERVER_PORT
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     var fileChooserCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
+    var pendingPermissionRequest by remember { mutableStateOf<PermissionRequest?>(null) }
+    var pendingAudioCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         fileChooserCallback?.onReceiveValue(uris.toTypedArray())
         fileChooserCallback = null
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            pendingPermissionRequest?.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+            pendingAudioCallback?.invoke()
+        } else {
+            pendingPermissionRequest?.deny()
+            Toast.makeText(context, "Mikrofon-Berechtigung verweigert", Toast.LENGTH_SHORT).show()
+        }
+        pendingPermissionRequest = null
+        pendingAudioCallback = null
     }
 
     val chatUrl = "http://127.0.0.1:$serverPort/?restore_chat=true&lang=de"
@@ -345,6 +507,16 @@ fun MiniCpmChatTab(
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
 
+                    if (activity != null) {
+                        addJavascriptInterface(
+                            AndroidSpeechBridge(activity, this) { onGranted ->
+                                pendingAudioCallback = onGranted
+                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            },
+                            "AndroidSpeechBridge"
+                        )
+                    }
+
                     webChromeClient = object : WebChromeClient() {
                         override fun onShowFileChooser(
                             webView: WebView?,
@@ -358,7 +530,17 @@ fun MiniCpmChatTab(
                         }
 
                         override fun onPermissionRequest(request: PermissionRequest?) {
-                            request?.grant(request.resources)
+                            val resources = request?.resources ?: emptyArray()
+                            if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    request?.grant(resources)
+                                } else {
+                                    pendingPermissionRequest = request
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            } else {
+                                request?.grant(resources)
+                            }
                         }
 
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
@@ -424,6 +606,11 @@ fun MiniCpmChatTab(
                         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                             super.onReceivedError(view, request, error)
                             android.util.Log.e("WebViewChat", "Error loading ${request?.url}: ${error?.description} (${error?.errorCode})")
+                            if (request?.isForMainFrame == true) {
+                                view?.postDelayed({
+                                    view.loadUrl(chatUrl)
+                                }, 1500)
+                            }
                         }
 
                         override fun onPageFinished(view: WebView?, url: String?) {
@@ -435,7 +622,11 @@ fun MiniCpmChatTab(
                     loadUrl(chatUrl)
                 }
             },
-            update = { /* no-op */ }
+            update = { webView ->
+                if (webView.url != chatUrl && !webView.url.orEmpty().startsWith("http://127.0.0.1:$serverPort")) {
+                    webView.loadUrl(chatUrl)
+                }
+            }
         )
     }
 }
@@ -596,16 +787,38 @@ fun StatusRow(label: String, value: String, statusGood: Boolean) {
 }
 
 @Composable
-fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
+fun LanMeshTab(
+    lanDiscovery: DirectLanDiscovery,
+    currentGatewayUrl: String,
+    onSaveFleetConfig: (String, String) -> Unit = { _, _ -> }
+) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isScanning by remember { mutableStateOf(false) }
     val discoveredPeers = remember { mutableStateListOf<LocalMeshPeer>() }
+    var currentGateway by remember(currentGatewayUrl) { mutableStateOf(currentGatewayUrl) }
+
+    fun runDiscovery() {
+        if (isScanning) return
+        isScanning = true
+        scope.launch {
+            val peers = lanDiscovery.discoverLocalPeers(timeoutMs = 3500)
+            discoveredPeers.clear()
+            discoveredPeers.addAll(peers)
+            isScanning = false
+        }
+    }
+
+    // Auto-scan upon opening the LAN Mesh tab
+    LaunchedEffect(Unit) {
+        runDiscovery()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("P2P LAN Mesh Radar", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Text(
@@ -614,16 +827,49 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
             fontSize = 13.sp
         )
 
-        Button(
-            onClick = {
-                isScanning = true
-                scope.launch {
-                    val peers = lanDiscovery.discoverLocalPeers()
-                    discoveredPeers.clear()
-                    discoveredPeers.addAll(peers)
-                    isScanning = false
+        // Active Connection Status Card
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = CardSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (currentGateway.startsWith("http://192.") || currentGateway.startsWith("http://10.") || currentGateway.startsWith("http://172.")) Icons.Default.Router else Icons.Default.Cloud,
+                    contentDescription = null,
+                    tint = if (currentGateway.startsWith("http://192.") || currentGateway.startsWith("http://10.") || currentGateway.startsWith("http://172.")) EmeraldSuccess else CyanAccent,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Aktiver Inferenz-Endpunkt:", color = TextSecondary, fontSize = 11.sp)
+                    Text(
+                        currentGateway.ifBlank { "Cloud Gateway (https://mesh.inetconnector.com)" },
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
-            },
+                if (currentGateway != "https://mesh.inetconnector.com" && currentGateway.isNotBlank()) {
+                    TextButton(
+                        onClick = {
+                            currentGateway = "https://mesh.inetconnector.com"
+                            onSaveFleetConfig(MeshNodeService.ownerKey, "https://mesh.inetconnector.com")
+                            Toast.makeText(context, "Auf Cloud Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
+                        Text("Reset", color = AmberWarning, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Button(
+            onClick = { runDiscovery() },
             colors = ButtonDefaults.buttonColors(containerColor = IndigoAccent),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -631,7 +877,7 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
             if (isScanning) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), color = DeepVoidBg, strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scanne Heimnetzwerk...", color = DeepVoidBg, fontWeight = FontWeight.Bold)
+                Text("Scanne Heimnetzwerk (UDP 13379)...", color = DeepVoidBg, fontWeight = FontWeight.Bold)
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = DeepVoidBg)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -659,27 +905,64 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(discoveredPeers) { peer ->
+                    val peerTargetUrl = "http://${peer.ipAddress}:${peer.port}"
+                    val isConnected = currentGateway.trimEnd('/') == peerTargetUrl.trimEnd('/')
+
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = CardSurface,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, CyanAccent.copy(alpha = 0.3f)),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isConnected) EmeraldSuccess.copy(alpha = 0.6f) else CyanAccent.copy(alpha = 0.3f)
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Computer, contentDescription = null, tint = CyanAccent)
+                            Icon(
+                                Icons.Default.Computer,
+                                contentDescription = null,
+                                tint = if (isConnected) EmeraldSuccess else CyanAccent,
+                                modifier = Modifier.size(28.dp)
+                            )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(peer.nodeId, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text(peer.nodeId, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("${peer.ipAddress}:${peer.port} • ${peer.gpuSummary}", color = TextSecondary, fontSize = 12.sp)
                             }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = EmeraldSuccess.copy(alpha = 0.15f)
-                            ) {
-                                Text("P2P Direct", color = EmeraldSuccess, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(6.dp, 2.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (isConnected) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = EmeraldSuccess.copy(alpha = 0.18f)
+                                ) {
+                                    Text(
+                                        "✓ Verbunden",
+                                        color = EmeraldSuccess,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        currentGateway = peerTargetUrl
+                                        onSaveFleetConfig(MeshNodeService.ownerKey, peerTargetUrl)
+                                        Toast.makeText(
+                                            context,
+                                            "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Verbinden", color = DeepVoidBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -690,16 +973,35 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
 }
 
 @Composable
-fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
-    var ownerKeyInput by remember { mutableStateOf(MeshNodeService.ownerKey) }
-    var gatewayUrlInput by remember { mutableStateOf(MeshNodeService.gatewayUrl) }
+fun SetupTab(
+    currentOwnerKey: String,
+    currentGatewayUrl: String,
+    onSaveFleetConfig: (String, String) -> Unit
+) {
+    var ownerKeyInput by remember(currentOwnerKey) { mutableStateOf(currentOwnerKey) }
+    var gatewayUrlInput by remember(currentGatewayUrl) { mutableStateOf(currentGatewayUrl) }
     var directTrafficOnly by remember { mutableStateOf(true) }
-    var showQrScanDialog by remember { mutableStateOf(false) }
-    var scanInputText by remember { mutableStateOf("") }
+    var showQrCameraScanner by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    val isBound = ownerKeyInput.isNotBlank()
+    val isLanConnected = currentGatewayUrl.isNotBlank() && currentGatewayUrl != "https://mesh.inetconnector.com"
+    val isFleetBound = currentOwnerKey.isNotBlank()
+    val isCoupled = isFleetBound || isLanConnected
+
+    val pairingBadgeText = when {
+        isFleetBound && isLanConnected -> "✓ Flotte & LAN gekoppelt"
+        isFleetBound -> "✓ Flotte gekoppelt"
+        isLanConnected -> "✓ LAN Node verbunden"
+        else -> "Nicht gekoppelt"
+    }
+
+    val pairingStatusSubtitle = when {
+        isFleetBound && isLanConnected -> "Flotten-Key aktiv • Inferenz über lokales Gateway ($currentGatewayUrl)"
+        isFleetBound -> "Gekoppelt mit ComputeMesh Flotte für Telemetrie & Earnings."
+        isLanConnected -> "Verbunden mit lokalem Inferenz-Knoten ($currentGatewayUrl). Telemetrie & Inferenz laufen direkt über dein Heimnetzwerk."
+        else -> "Scanne den Barcode / QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen."
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -721,7 +1023,10 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = CardSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (isBound) EmeraldSuccess.copy(alpha = 0.5f) else CyanAccent.copy(alpha = 0.5f)),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isCoupled) EmeraldSuccess.copy(alpha = 0.6f) else CyanAccent.copy(alpha = 0.5f)
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
@@ -731,17 +1036,22 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(24.dp))
+                            Icon(
+                                Icons.Default.QrCodeScanner,
+                                contentDescription = null,
+                                tint = if (isCoupled) EmeraldSuccess else CyanAccent,
+                                modifier = Modifier.size(24.dp)
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("1-Klick Flotten QR-Code", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isBound) EmeraldSuccess.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f)
+                            color = if (isCoupled) EmeraldSuccess.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                text = if (isBound) "✓ Gekoppelt" else "Nicht gekoppelt",
-                                color = if (isBound) EmeraldSuccess else AmberWarning,
+                                text = pairingBadgeText,
+                                color = if (isCoupled) EmeraldSuccess else AmberWarning,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -751,7 +1061,7 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "Scanne den Barcode / QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen.",
+                        pairingStatusSubtitle,
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
@@ -761,7 +1071,7 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
 
                     Button(
                         onClick = {
-                            showQrScanDialog = true
+                            showQrCameraScanner = true
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
                         shape = RoundedCornerShape(12.dp),
@@ -797,13 +1107,12 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
                     IconButton(onClick = {
                         val clip = clipboardManager.getText()?.text
                         if (!clip.isNullOrBlank()) {
-                            val parsedKey = if (clip.contains("owner_key=")) {
-                                Uri.parse(clip).getQueryParameter("owner_key") ?: clip
-                            } else {
-                                clip.trim()
+                            val parsed = parseQrPayload(clip.toString(), gatewayUrlInput)
+                            ownerKeyInput = parsed.ownerKey
+                            if (parsed.gatewayUrl != "https://mesh.inetconnector.com") {
+                                gatewayUrlInput = parsed.gatewayUrl
                             }
-                            ownerKeyInput = parsedKey
-                            onSaveFleetConfig(parsedKey, gatewayUrlInput)
+                            onSaveFleetConfig(parsed.ownerKey, gatewayUrlInput)
                             Toast.makeText(context, "Owner Key aus Zwischenablage eingefügt!", Toast.LENGTH_SHORT).show()
                         }
                     }) {
@@ -822,7 +1131,7 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
                     gatewayUrlInput = it
                     onSaveFleetConfig(ownerKeyInput, it)
                 },
-                label = { Text("Control-Plane Gateway") },
+                label = { Text("Control-Plane Gateway / Inferenz-Endpunkt") },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
@@ -831,6 +1140,17 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
                     focusedContainerColor = CardSurface,
                     unfocusedContainerColor = CardSurface
                 ),
+                trailingIcon = {
+                    if (gatewayUrlInput != "https://mesh.inetconnector.com" && gatewayUrlInput.isNotBlank()) {
+                        IconButton(onClick = {
+                            gatewayUrlInput = "https://mesh.inetconnector.com"
+                            onSaveFleetConfig(ownerKeyInput, "https://mesh.inetconnector.com")
+                            Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = AmberWarning)
+                        }
+                    }
+                },
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -865,97 +1185,24 @@ fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
         }
     }
 
-    // QR Scan / Pairing Dialog
-    if (showQrScanDialog) {
-        AlertDialog(
-            onDismissRequest = { showQrScanDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = CyanAccent)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Flotten QR-Code einlesen", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
+    // Live Camera QR Scanner Dialog
+    if (showQrCameraScanner) {
+        QrCameraScannerDialog(
+            currentGateway = gatewayUrlInput,
+            onCodeScanned = { result ->
+                showQrCameraScanner = false
+                ownerKeyInput = result.ownerKey
+                gatewayUrlInput = result.gatewayUrl
+                onSaveFleetConfig(result.ownerKey, result.gatewayUrl)
+                Toast.makeText(
+                    context,
+                    "🎉 Erfolgreich gekoppelt: ${if (result.ownerKey.isNotBlank()) result.ownerKey.take(12) + "..." else result.gatewayUrl}",
+                    Toast.LENGTH_LONG
+                ).show()
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Scanne den Barcode im ComputeMesh Cockpit oder füge den Link / Key ein:",
-                        color = TextSecondary,
-                        fontSize = 13.sp
-                    )
-
-                    OutlinedTextField(
-                        value = scanInputText,
-                        onValueChange = { scanInputText = it },
-                        placeholder = { Text("computemesh://pair?owner_key=...", color = TextMuted, fontSize = 12.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedBorderColor = CyanAccent,
-                            unfocusedBorderColor = CardSurfaceBorder,
-                            focusedContainerColor = DeepVoidBg,
-                            unfocusedContainerColor = DeepVoidBg
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                val clip = clipboardManager.getText()?.text
-                                if (!clip.isNullOrBlank()) {
-                                    scanInputText = clip.trim()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceBorder),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("📋 Einfügen", color = TextPrimary, fontSize = 12.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val input = scanInputText.trim()
-                        if (input.isNotBlank()) {
-                            val parsedKey = if (input.contains("owner_key=")) {
-                                Uri.parse(input).getQueryParameter("owner_key") ?: input
-                            } else if (input.startsWith("computemesh://")) {
-                                Uri.parse(input).getQueryParameter("owner_key") ?: input
-                            } else {
-                                input
-                            }
-
-                            val parsedGateway = if (input.contains("gateway=")) {
-                                Uri.parse(input).getQueryParameter("gateway") ?: "https://mesh.inetconnector.com"
-                            } else {
-                                "https://mesh.inetconnector.com"
-                            }
-
-                            ownerKeyInput = parsedKey
-                            onSaveFleetConfig(parsedKey, parsedGateway)
-                            showQrScanDialog = false
-                            scanInputText = ""
-                            Toast.makeText(context, "🎉 Gerät erfolgreich mit Flotte gekoppelt!", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Koppeln", color = DeepVoidBg, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showQrScanDialog = false }) {
-                    Text("Abbrechen", color = TextSecondary)
-                }
-            },
-            containerColor = CardSurface,
-            shape = RoundedCornerShape(16.dp)
+            onDismiss = {
+                showQrCameraScanner = false
+            }
         )
     }
 }

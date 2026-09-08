@@ -109,4 +109,41 @@ def start_lan_discovery_responder(
             _GLOBAL_RESPONDER.start()
         else:
             _GLOBAL_RESPONDER.update_status(node_id, gpu_summary, port)
+            if not _GLOBAL_RESPONDER._running:
+                _GLOBAL_RESPONDER.start()
         return _GLOBAL_RESPONDER
+
+
+def stop_lan_discovery_responder() -> None:
+    """Stops the global LAN discovery responder."""
+    global _GLOBAL_RESPONDER
+    with _LOCK:
+        if _GLOBAL_RESPONDER is not None:
+            _GLOBAL_RESPONDER.stop()
+            _GLOBAL_RESPONDER = None
+
+
+if __name__ == "__main__":
+    import time
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+    try:
+        from tools.appliance.hardware_detector import scan_rig_hardware_stable
+        from services.appliance_dashboard.tunnel_relay import get_default_node_id
+        inv = scan_rig_hardware_stable()
+        nid = get_default_node_id()
+        gpu_name = inv.gpus[0].model_name if getattr(inv, "gpus", None) else "Windows AI Node"
+    except Exception:
+        nid = "windows-pc"
+        gpu_name = "ComputeMesh GPU Node"
+
+    responder = LanDiscoveryResponder(node_id=nid, port=8080, gpu_summary=gpu_name)
+    if responder.start():
+        logger.info("Serving ComputeMesh LAN discovery for '%s' (port 8080, GPU: %s)...", nid, gpu_name)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            responder.stop()
+
+

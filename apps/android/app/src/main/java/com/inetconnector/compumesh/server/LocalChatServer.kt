@@ -87,14 +87,9 @@ class LocalChatServer(
                     }
                 )
 
-                uri in listOf("/api/tags", "/tags") -> jsonResponse(
-                    JSONObject().apply {
-                        put("models", JSONArray().apply {
-                            put(JSONObject().put("name", "qwen2.5:7b").put("model", "qwen2.5:7b"))
-                            put(JSONObject().put("name", "openbmb/minicpm5-2b").put("model", "openbmb/minicpm5-2b"))
-                        })
-                    }
-                )
+                uri in listOf("/api/tags", "/tags") -> {
+                    handleModelsProxy(session, true)
+                }
 
                 uri in listOf("/models/sse", "/v1/models/sse") -> {
                     val sseText = "data: {\"status\":\"ready\"}\n\n"
@@ -103,18 +98,7 @@ class LocalChatServer(
 
                 uri in listOf("/v1/models", "/models", "/api/models", "/v1/models/load", "/models/load", "/models/unload", "/v1/models/unload") -> {
                     if (method == Method.GET) {
-                        jsonResponse(
-                            JSONObject().apply {
-                                put("object", "list")
-                                put("data", JSONArray().apply {
-                                    put(JSONObject().put("id", "qwen2.5:7b").put("object", "model").put("owned_by", "computemesh"))
-                                    put(JSONObject().put("id", "openbmb/minicpm5-2b").put("object", "model").put("owned_by", "computemesh"))
-                                    put(JSONObject().put("id", "qwen2.5-vl:7b").put("object", "model").put("owned_by", "computemesh"))
-                                    put(JSONObject().put("id", "deepseek-coder:6.7b").put("object", "model").put("owned_by", "computemesh"))
-                                    put(JSONObject().put("id", "llama3.1:8b").put("object", "model").put("owned_by", "computemesh"))
-                                })
-                            }
-                        )
+                        handleModelsProxy(session, false)
                     } else {
                         jsonResponse(JSONObject().put("status", "ok").put("message", "model ready"))
                     }
@@ -139,10 +123,108 @@ class LocalChatServer(
         }
     }
 
+    private fun handleModelsProxy(session: IHTTPSession, isTags: Boolean): Response {
+        val rawGateway = MeshNodeService.gatewayUrl.trim()
+        val rawKey = MeshNodeService.ownerKey.trim()
+
+        val gateway = when {
+            rawGateway.isNotBlank() && rawGateway != "https://mesh.inetconnector.com" -> rawGateway
+            rawKey.startsWith("http://") || rawKey.startsWith("https://") -> rawKey
+            rawGateway.isNotBlank() -> rawGateway
+            else -> "https://mesh.inetconnector.com"
+        }
+
+        val targetPath = if (isTags) "/api/tags" else "/v1/models"
+        val targetUrl = "${gateway.trimEnd('/')}$targetPath"
+
+        try {
+            val url = URL(targetUrl)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                connectTimeout = 3000
+                readTimeout = 4000
+            }
+            if (conn.responseCode in 200..299) {
+                val bytes = conn.inputStream.use { it.readBytes() }
+                return addCorsHeaders(newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", ByteArrayInputStream(bytes), bytes.size.toLong()))
+            }
+        } catch (_: Throwable) {}
+
+        // Fallback default model list
+        return if (isTags) {
+            jsonResponse(
+                JSONObject().apply {
+                    put("models", JSONArray().apply {
+                        put(JSONObject().put("name", "gemma3:4b").put("model", "gemma3:4b"))
+                        put(JSONObject().put("name", "qwen2.5-coder:14b").put("model", "qwen2.5-coder:14b"))
+                        put(JSONObject().put("name", "qwen2.5:7b").put("model", "qwen2.5:7b"))
+                    })
+                }
+            )
+        } else {
+            jsonResponse(
+                JSONObject().apply {
+                    put("object", "list")
+                    put("data", JSONArray().apply {
+                        put(JSONObject().put("id", "gemma3:4b").put("object", "model").put("owned_by", "computemesh"))
+                        put(JSONObject().put("id", "qwen2.5-coder:14b").put("object", "model").put("owned_by", "computemesh"))
+                        put(JSONObject().put("id", "qwen2.5:7b").put("object", "model").put("owned_by", "computemesh"))
+                    })
+                }
+            )
+        }
+    }
+
+    private fun sanitizeErrorMessage(rawError: String): String {
+        if (rawError.isBlank()) return "Unbekannter Inferenz-Fehler"
+        var clean = rawError.replace(Regex("<[^>]*>"), " ")
+        clean = clean.replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+        clean = clean.replace(Regex("\\s+"), " ").trim()
+        if (clean.contains("404") || clean.contains("Not Found") || clean.contains("Nothing matches")) {
+            return "Inferenz-Endpunkt nicht gefunden (404)"
+        }
+        if (clean.contains("502") || clean.contains("Bad Gateway")) {
+            return "Inferenz-Server überlastet oder offline (502)"
+        }
+        if (clean.contains("503") || clean.contains("Service Unavailable")) {
+            return "Inferenz-Dienst vorübergehend nicht erreichbar (503)"
+        }
+        return clean.take(150)
+    }
+
     private fun handleChatCompletionProxy(session: IHTTPSession): Response {
-        val files = HashMap<String, String>()
-        session.parseBody(files)
-        val postData = files["postData"] ?: ""
+        // Accurately read UTF-8 body without NanoHTTPD ISO-8859-1 corruption
+        val contentLength = session.headers["content-length"]?.toIntOrNull() ?: -1
+        val postData = if (contentLength > 0) {
+            val buf = ByteArray(contentLength)
+            var totalRead = 0
+            while (totalRead < contentLength) {
+                val r = session.inputStream.read(buf, totalRead, contentLength - totalRead)
+                if (r <= 0) break
+                totalRead += r
+            }
+            String(buf, 0, totalRead, StandardCharsets.UTF_8)
+        } else {
+            val baos = ByteArrayOutputStream()
+            val buf = ByteArray(4096)
+            var r: Int
+            while (session.inputStream.read(buf).also { r = it } > 0) {
+                baos.write(buf, 0, r)
+            }
+            if (baos.size() > 0) {
+                baos.toString(StandardCharsets.UTF_8.name())
+            } else {
+                val files = HashMap<String, String>()
+                try { session.parseBody(files) } catch (_: Throwable) {}
+                files["postData"] ?: ""
+            }
+        }
 
         val rootJson = try {
             JSONObject(postData)
@@ -151,75 +233,166 @@ class LocalChatServer(
         }
 
         val isStream = rootJson.optBoolean("stream", true)
-        val gateway = MeshNodeService.gatewayUrl.ifBlank { "https://mesh.inetconnector.com" }
-        val targetUrl = "${gateway.trimEnd('/')}/v1/chat/completions"
-        val key = MeshNodeService.ownerKey.ifBlank { "cm_live_demo_mobile" }
+        val rawGateway = MeshNodeService.gatewayUrl.trim()
+        val rawKey = MeshNodeService.ownerKey.trim()
+
+        // Build list of candidate endpoints in priority order
+        val candidates = mutableListOf<String>()
+
+        // 1. Custom LAN / Fleet Gateway if configured
+        if (rawGateway.isNotBlank() && rawGateway != "https://mesh.inetconnector.com") {
+            val target = if (rawGateway.endsWith("/v1/chat/completions")) rawGateway else "${rawGateway.trimEnd('/')}/v1/chat/completions"
+            if (!candidates.contains(target)) candidates.add(target)
+            if (rawGateway.contains(":8080")) {
+                val ollamaPortUrl = rawGateway.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
+                if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
+            }
+        }
+
+        // 2. If rawKey is a URL
+        if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) {
+            val keyUrl = if (rawKey.endsWith("/v1/chat/completions")) rawKey else "${rawKey.trimEnd('/')}/v1/chat/completions"
+            if (!candidates.contains(keyUrl)) candidates.add(keyUrl)
+            if (rawKey.contains(":8080")) {
+                val ollamaPortUrl = rawKey.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
+                if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
+            }
+        }
+
+        // 3. Primary Production Cloud AI Backend (Ollama cluster)
+        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
+
+        // 4. Mesh ControlPlane Fallback
+        candidates.add("https://mesh.inetconnector.com/v1/chat/completions")
+
+        val key = if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) "cm_live_demo_mobile" else rawKey.ifBlank { "cm_live_demo_mobile" }
 
         // Sanitize and compress any large base64 image data to prevent 502 Bad Gateway
         sanitizeMultimodalPayload(rootJson)
 
         val targetPayloadBytes = rootJson.toString().toByteArray(StandardCharsets.UTF_8)
 
-        val url = URL(targetUrl)
-        val conn = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("Authorization", "Bearer $key")
-            setRequestProperty("Accept", if (isStream) "text/event-stream" else "application/json")
-            setRequestProperty("Accept-Encoding", "identity")
-            setRequestProperty("Cache-Control", "no-cache")
-            setRequestProperty("User-Agent", "ComputeMesh-Android/1.2")
-            doOutput = true
-            connectTimeout = 15000
-            readTimeout = 90000
-        }
+        var successfulConn: HttpURLConnection? = null
+        var lastErrorCode = -1
+        var lastErrorMessage = ""
 
-        conn.outputStream.use { os ->
-            os.write(targetPayloadBytes)
-            os.flush()
-        }
-
-        val respCode = conn.responseCode
-        if (respCode !in 200..299) {
-            val errStream = conn.errorStream ?: conn.inputStream
-            val errText = errStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $respCode"
-            return jsonResponse(
-                JSONObject().put("error", JSONObject().put("message", "Gateway Error ($respCode): $errText")),
-                Response.Status.lookup(respCode) ?: Response.Status.INTERNAL_ERROR
-            )
-        }
-
-        if (!isStream) {
-            val responseText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-            return addCorsHeaders(newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", responseText))
-        }
-
-        // Streaming SSE via PipedStream
-        val pipedIn = PipedInputStream(64 * 1024)
-        val pipedOut = PipedOutputStream(pipedIn)
-
-        EXECUTOR.execute {
+        for (candidateUrl in candidates) {
+            var conn: HttpURLConnection? = null
             try {
-                conn.inputStream.use { netIn ->
-                    val buffer = ByteArray(4096)
-                    var read: Int
-                    while (netIn.read(buffer).also { read = it } != -1) {
-                        pipedOut.write(buffer, 0, read)
-                        pipedOut.flush()
-                    }
+                Log.d(TAG, "Trying inference candidate: $candidateUrl")
+                conn = (URL(candidateUrl).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("Authorization", "Bearer $key")
+                    setRequestProperty("Accept", if (isStream) "text/event-stream" else "application/json")
+                    setRequestProperty("Accept-Encoding", "identity")
+                    setRequestProperty("Cache-Control", "no-cache")
+                    setRequestProperty("User-Agent", "ComputeMesh-Android/1.2")
+                    doOutput = true
+                    connectTimeout = if (candidateUrl.contains("192.168.") || candidateUrl.contains("127.0.0.1") || candidateUrl.contains("10.")) 3500 else 8000
+                    readTimeout = 90000
+                }
+                conn.outputStream.use { os ->
+                    os.write(targetPayloadBytes)
+                    os.flush()
+                }
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    successfulConn = conn
+                    Log.i(TAG, "Successfully connected to inference candidate: $candidateUrl (HTTP $code)")
+                    break
+                } else {
+                    lastErrorCode = code
+                    val errStream = conn.errorStream ?: conn.inputStream
+                    val rawErr = errStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
+                    lastErrorMessage = sanitizeErrorMessage(rawErr)
+                    Log.w(TAG, "Candidate $candidateUrl returned HTTP $code: $lastErrorMessage")
+                    try { conn.disconnect() } catch (_: Throwable) {}
                 }
             } catch (e: Throwable) {
-                Log.w(TAG, "Streaming pump finished: ${e.message}")
-            } finally {
-                try { pipedOut.close() } catch (_: Throwable) {}
-                try { conn.disconnect() } catch (_: Throwable) {}
+                lastErrorMessage = e.message ?: "Verbindungsfehler"
+                Log.w(TAG, "Candidate $candidateUrl failed: ${e.message}")
+                try { conn?.disconnect() } catch (_: Throwable) {}
             }
         }
 
-        val streamResp = newChunkedResponse(Response.Status.OK, "text/event-stream; charset=utf-8", pipedIn)
-        streamResp.addHeader("Cache-Control", "no-cache")
-        streamResp.addHeader("Connection", "close")
-        return addCorsHeaders(streamResp)
+        val conn = successfulConn
+        if (conn == null) {
+            val cleanErr = if (lastErrorMessage.isNotBlank()) lastErrorMessage else "Inferenz-Gateway nicht erreichbar. Bitte prüfe deine Verbindung."
+            return jsonResponse(
+                JSONObject().put("error", JSONObject().put("message", "Inferenz-Fehler: $cleanErr")),
+                Response.Status.INTERNAL_ERROR
+            )
+        }
+
+        val contentType = conn.contentType ?: ""
+        val isEventStreamResponse = contentType.contains("event-stream")
+
+        if (!isStream) {
+            val responseBytes = conn.inputStream.use { it.readBytes() }
+            val resp = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", ByteArrayInputStream(responseBytes), responseBytes.size.toLong())
+            return addCorsHeaders(resp)
+        }
+
+        // If client requested stream and server returned text/event-stream
+        if (isEventStreamResponse) {
+            val pipedIn = PipedInputStream(64 * 1024)
+            val pipedOut = PipedOutputStream(pipedIn)
+
+            EXECUTOR.execute {
+                try {
+                    conn.inputStream.use { netIn ->
+                        val buffer = ByteArray(4096)
+                        var read: Int
+                        while (netIn.read(buffer).also { read = it } != -1) {
+                            pipedOut.write(buffer, 0, read)
+                            pipedOut.flush()
+                        }
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Streaming pump finished: ${e.message}")
+                } finally {
+                    try { pipedOut.close() } catch (_: Throwable) {}
+                    try { conn.disconnect() } catch (_: Throwable) {}
+                }
+            }
+
+            val streamResp = newChunkedResponse(Response.Status.OK, "text/event-stream; charset=utf-8", pipedIn)
+            streamResp.addHeader("Cache-Control", "no-cache")
+            streamResp.addHeader("Connection", "close")
+            return addCorsHeaders(streamResp)
+        } else {
+            // Upstream returned application/json: synthesize SSE chunk stream so WebUI receives stream seamlessly
+            val responseBytes = conn.inputStream.use { it.readBytes() }
+            val jsonStr = String(responseBytes, StandardCharsets.UTF_8)
+            val jsonResp = try { JSONObject(jsonStr) } catch (_: Throwable) { JSONObject() }
+            val choices = jsonResp.optJSONArray("choices")
+            val contentText = choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
+                ?: choices?.optJSONObject(0)?.optJSONObject("delta")?.optString("content")
+                ?: jsonStr
+
+            val chunkObj = JSONObject().apply {
+                put("id", jsonResp.optString("id", "chatcmpl-stream"))
+                put("object", "chat.completion.chunk")
+                put("created", System.currentTimeMillis() / 1000)
+                put("model", jsonResp.optString("model", "qwen2.5:7b"))
+                put("choices", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("index", 0)
+                        put("delta", JSONObject().apply {
+                            put("content", contentText)
+                        })
+                        put("finish_reason", "stop")
+                    })
+                })
+            }
+            val sseData = "data: ${chunkObj}\n\ndata: [DONE]\n\n"
+            val sseBytes = sseData.toByteArray(StandardCharsets.UTF_8)
+            val resp = newFixedLengthResponse(Response.Status.OK, "text/event-stream; charset=utf-8", ByteArrayInputStream(sseBytes), sseBytes.size.toLong())
+            resp.addHeader("Cache-Control", "no-cache")
+            resp.addHeader("Connection", "close")
+            return addCorsHeaders(resp)
+        }
     }
 
     private fun sanitizeMultimodalPayload(root: JSONObject) {
@@ -324,7 +497,9 @@ class LocalChatServer(
     }
 
     private fun jsonResponse(json: Any, status: Response.Status = Response.Status.OK): Response {
-        return addCorsHeaders(newFixedLengthResponse(status, "application/json; charset=utf-8", json.toString()))
+        val bytes = json.toString().toByteArray(StandardCharsets.UTF_8)
+        val resp = newFixedLengthResponse(status, "application/json; charset=utf-8", ByteArrayInputStream(bytes), bytes.size.toLong())
+        return addCorsHeaders(resp)
     }
 
     private fun addCorsHeaders(response: Response): Response {

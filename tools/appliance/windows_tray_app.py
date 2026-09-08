@@ -270,6 +270,22 @@ class ComputeMeshProviderApp:
         self.http_thread = threading.Thread(target=self._run_embedded_server, daemon=True)
         self.http_thread.start()
 
+        # Explicitly start LAN P2P UDP Discovery Responder on port 13379 for Android & LAN pairing
+        try:
+            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+            from services.appliance_dashboard.tunnel_relay import get_default_node_id
+            cfg = load_appliance_config()
+            nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
+            gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
+            start_lan_discovery_responder(
+                node_id=nid,
+                port=self.dashboard_port,
+                gpu_summary=f"{gpu_desc} ({self._calculate_local_tflops()} TFLOPS)"
+            )
+            _log_crash(f"LAN Discovery Responder active on UDP 13379 (Node: {nid}, Port: {self.dashboard_port})")
+        except Exception as e:
+            _log_crash(f"Error starting LAN discovery responder: {e}")
+
         # Background cloud tunnel relay to stream live node telemetry & hardware to gateway
         try:
             from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
@@ -395,6 +411,11 @@ class ComputeMeshProviderApp:
 
     def _quit_app(self, icon=None, item=None) -> None:
         """Completely exit application and stop daemon."""
+        try:
+            from tools.appliance.lan_discovery_responder import stop_lan_discovery_responder
+            stop_lan_discovery_responder()
+        except Exception:
+            pass
         if self.tray_icon:
             try:
                 self.tray_icon.stop()
@@ -999,6 +1020,19 @@ class ComputeMeshProviderApp:
             self.btn_toggle.config(text="⏹ Stop / Pause Daemon", bg="#ef4444", activebackground="#dc2626")
             if self.tray_icon:
                 self.tray_icon.title = "ComputeMesh AI Provider Node (Serving)"
+            try:
+                from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+                from services.appliance_dashboard.tunnel_relay import get_default_node_id
+                cfg = load_appliance_config()
+                nid = getattr(cfg, "rig_name", "") or getattr(cfg, "node_id", "") or get_default_node_id()
+                gpu_desc = self.inventory.gpus[0].model_name if getattr(self.inventory, "gpus", None) else "Windows AI Node"
+                start_lan_discovery_responder(
+                    node_id=nid,
+                    port=self.dashboard_port,
+                    gpu_summary=f"{gpu_desc} ({self._calculate_local_tflops()} TFLOPS)"
+                )
+            except Exception:
+                pass
         else:
             self.lbl_status.config(text="IDLE", foreground="#f59e0b")
             self.btn_toggle.config(text="▶ Start Providing Compute", bg="#10b981", activebackground="#059669")

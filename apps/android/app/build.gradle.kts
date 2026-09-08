@@ -117,6 +117,16 @@ dependencies {
     // NanoHTTPD for hosting embedded AHSMA WebUI
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 
+    // CameraX for Live QR Code Camera Scanning
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // ML Kit Barcode Scanning (bundled, runs on-device without Google Play Services requirement)
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

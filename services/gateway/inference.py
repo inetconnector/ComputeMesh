@@ -360,7 +360,7 @@ class InferenceEngine:
                     }
                 ],
             }
-            yield f"data: {json.dumps(chunk)}\n\n".encode("utf-8")
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
             time.sleep(0.01)
 
         final_chunk = {
@@ -376,7 +376,7 @@ class InferenceEngine:
                 }
             ],
         }
-        yield f"data: {json.dumps(final_chunk)}\n\n".encode("utf-8")
+        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n".encode("utf-8")
         yield b"data: [DONE]\n\n"
 
     @staticmethod
@@ -419,7 +419,7 @@ class InferenceEngine:
                 "message": {"role": "assistant", "content": token_str},
                 "done": False,
             }
-            yield (json.dumps(chunk) + "\n").encode("utf-8")
+            yield (json.dumps(chunk, ensure_ascii=False) + "\n").encode("utf-8")
             time.sleep(0.01)
 
         final_chunk = {
@@ -431,7 +431,7 @@ class InferenceEngine:
             "prompt_eval_count": tokens_prompt,
             "eval_count": tokens_completion,
         }
-        yield (json.dumps(final_chunk) + "\n").encode("utf-8")
+        yield (json.dumps(final_chunk, ensure_ascii=False) + "\n").encode("utf-8")
 
     @staticmethod
     def format_ollama_generate_response(
@@ -470,7 +470,7 @@ class InferenceEngine:
                 "response": token_str,
                 "done": False,
             }
-            yield (json.dumps(chunk) + "\n").encode("utf-8")
+            yield (json.dumps(chunk, ensure_ascii=False) + "\n").encode("utf-8")
             time.sleep(0.01)
 
         final_chunk = {
@@ -482,7 +482,7 @@ class InferenceEngine:
             "prompt_eval_count": tokens_prompt,
             "eval_count": tokens_completion,
         }
-        yield (json.dumps(final_chunk) + "\n").encode("utf-8")
+        yield (json.dumps(final_chunk, ensure_ascii=False) + "\n").encode("utf-8")
 
     def execute_chat_completion(
         self,

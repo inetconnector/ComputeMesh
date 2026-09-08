@@ -72,25 +72,386 @@
 			html, body {
 				overflow-x: hidden;
 				-webkit-tap-highlight-color: transparent;
+				background-color: #0b0f19;
 			}
-			/* Ensure all modals, dialogs, drawers and sheets fit comfortably on mobile screen */
-			[role="dialog"], [role="alertdialog"], .modal, .drawer, [data-dialog], .dialog-content {
+
+			/* Backdrop Overlay for all sheets, drawers and dialogs */
+			[data-slot="sheet-overlay"], [data-bits-dialog-overlay], [data-radix-portal] > [data-state="open"]:not([data-slot="sheet-content"]):not([role="dialog"]) {
+				position: fixed !important;
+				inset: 0 !important;
+				background: rgba(3, 7, 18, 0.85) !important;
+				backdrop-filter: blur(12px) !important;
+				-webkit-backdrop-filter: blur(12px) !important;
+				z-index: 99990 !important;
+			}
+
+			/* Bottom Sheets & Drawers (Add to Chat / Attachments / Tools) */
+			[data-slot="sheet-content"], [data-vaul-drawer], .drawer-content {
+				position: fixed !important;
+				top: auto !important;
+				bottom: 0px !important;
+				left: 0px !important;
+				right: 0px !important;
+				width: 100% !important;
+				max-width: 100vw !important;
+				min-height: auto !important;
+				height: auto !important;
+				max-height: 85vh !important;
+				max-height: 85dvh !important;
+				transform: none !important;
+				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
+				border-top: 2px solid rgba(56, 189, 248, 0.7) !important;
+				border-left: 1px solid rgba(56, 189, 248, 0.25) !important;
+				border-right: 1px solid rgba(56, 189, 248, 0.25) !important;
+				border-radius: 24px 24px 0 0 !important;
+				box-shadow: 0 -12px 50px rgba(0, 0, 0, 0.98), 0 0 40px rgba(56, 189, 248, 0.25) !important;
+				z-index: 99999 !important;
+				padding: 20px 18px max(24px, env(safe-area-inset-bottom, 24px)) 18px !important;
+				overflow-y: auto !important;
+				overscroll-behavior: contain !important;
+				display: flex !important;
+				flex-direction: column !important;
+			}
+
+			/* Top Drag Handle Indicator */
+			[data-slot="sheet-content"]::before {
+				content: '';
+				display: block;
+				width: 48px;
+				height: 5px;
+				background: rgba(255, 255, 255, 0.3);
+				border-radius: 3px;
+				margin: -8px auto 14px auto;
+			}
+
+			/* Sheet header */
+			[data-slot="sheet-header"] {
+				font-size: 18px !important;
+				font-weight: 700 !important;
+				color: #ffffff !important;
+				letter-spacing: -0.01em !important;
+				margin-bottom: 14px !important;
+				padding-bottom: 10px !important;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+			}
+
+			/* Close button */
+			[data-slot="sheet-content"] button:has(svg.size-4),
+			[data-slot="sheet-content"] [role="button"]:has(svg.size-4) {
+				background: rgba(255, 255, 255, 0.08) !important;
+				border: 1px solid rgba(255, 255, 255, 0.12) !important;
+				border-radius: 12px !important;
+				min-height: 38px !important;
+				width: 38px !important;
+				padding: 0 !important;
+				display: flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+			}
+
+			/* Sheet action items & buttons */
+			[data-slot="sheet-content"] button:not(:has(svg.size-4)),
+			[data-slot="sheet-content"] [role="button"]:not(:has(svg.size-4)),
+			[data-slot="sheet-content"] .cursor-pointer {
+				min-height: 48px !important;
+				font-size: 15px !important;
+				font-weight: 600 !important;
+				color: #f8fafc !important;
+				background: rgba(30, 41, 59, 0.8) !important;
+				border: 1px solid rgba(56, 189, 248, 0.18) !important;
+				border-radius: 14px !important;
+				padding: 10px 16px !important;
+				margin-bottom: 8px !important;
+				display: flex !important;
+				align-items: center !important;
+				gap: 12px !important;
+				transition: all 0.15s ease !important;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+			}
+
+			[data-slot="sheet-content"] button:not(:has(svg.size-4)):active,
+			[data-slot="sheet-content"] [role="button"]:not(:has(svg.size-4)):active {
+				background: rgba(56, 189, 248, 0.25) !important;
+				border-color: rgba(56, 189, 248, 0.7) !important;
+				transform: scale(0.985);
+			}
+
+			/* Force high contrast text and vibrant cyan icons */
+			[data-slot="sheet-content"] button span,
+			[data-slot="sheet-content"] [role="button"] span,
+			[data-slot="sheet-content"] .cursor-pointer span {
+				color: #ffffff !important;
+				font-weight: 600 !important;
+				opacity: 1 !important;
+			}
+
+			[data-slot="sheet-content"] svg {
+				color: #38bdf8 !important;
+				stroke: #38bdf8 !important;
+				width: 20px !important;
+				height: 20px !important;
+				opacity: 1 !important;
+				flex-shrink: 0 !important;
+			}
+
+			/* Ensure collapsible content in sheet is always cleanly rendered */
+			[data-slot="sheet-content"] [data-slot="collapsible-content"] {
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 6px !important;
+				padding: 4px 0 10px 0 !important;
+			}
+
+			/* Dropdown Menus, Popovers, Context Menus (Fork Conversation, Copy, Delete, etc.) */
+			[role="menu"], [role="listbox"], [data-bits-dropdown-menu-content], [data-bits-popover-content], [data-slot="dropdown-menu-content"], [data-slot="popover-content"], [data-slot="context-menu-content"], [data-floating-content], [data-radix-popper-content-wrapper], [data-slot="popover"] {
+				background: #0f172a !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 16px !important;
+				box-shadow: 0 16px 48px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
+				z-index: 999999 !important;
+				max-height: calc(100vh - 120px) !important;
+				max-height: calc(100dvh - 120px) !important;
+				overflow-y: auto !important;
+				overscroll-behavior: contain !important;
+				padding: 8px !important;
+			}
+
+			[role="menuitem"], [role="option"], [data-slot="dropdown-menu-item"], [data-slot="context-menu-item"] {
+				padding: 10px 14px !important;
+				font-size: 14.5px !important;
+				color: #f8fafc !important;
+				border-radius: 10px !important;
+				display: flex !important;
+				align-items: center !important;
+				gap: 10px !important;
+				cursor: pointer !important;
+			}
+
+			[role="menuitem"]:hover, [role="menuitem"]:focus, [role="menuitem"]:active,
+			[role="option"]:hover, [role="option"]:focus, [role="option"]:active {
+				background: rgba(56, 189, 248, 0.2) !important;
+				color: #ffffff !important;
+			}
+
+			/* Dialogs & Modal Windows (Delete confirm, settings, etc.) */
+			[role="dialog"]:not([data-slot="sheet-content"]), [role="alertdialog"], .modal, [data-dialog], .dialog-content {
+				background: #0f172a !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 22px !important;
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
+				z-index: 99999 !important;
 				max-height: 85vh !important;
 				max-height: 85dvh !important;
 				overflow-y: auto !important;
 				overscroll-behavior: contain !important;
-				padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)) !important;
-				z-index: 9999 !important;
+				padding: 24px 22px !important;
 			}
-			.fixed.bottom-0 {
-				padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+
+			/* Active recording pulsing indicator */
+			.speech-recording-active [aria-label*="mic"],
+			.speech-recording-active [aria-label*="record"],
+			.speech-recording-active [title*="mic"],
+			.speech-recording-active [title*="record"] {
+				animation: pulseMic 1.2s infinite ease-in-out !important;
+				background-color: rgba(239, 68, 68, 0.35) !important;
+				color: #ef4444 !important;
 			}
+
+			@keyframes pulseMic {
+				0%, 100% { transform: scale(1); opacity: 1; }
+				50% { transform: scale(1.15); opacity: 0.8; }
+			}
+		
+			/* =========================================================
+			   COMPUTEMESH TOAST & CHAT ACTION BUTTON CLEANUP STYLES
+			   ========================================================= */
+
+			/* Toast alerts styling: Glassmorphic dark card with cyan accent */
+			[data-sonner-toast], .toast, [role="status"], [role="alert"], [data-slot="toast"] {
+				background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96)) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 14px !important;
+				color: #f8fafc !important;
+				font-size: 13.5px !important;
+				font-weight: 500 !important;
+				line-height: 1.4 !important;
+				padding: 12px 16px !important;
+				box-shadow: 0 12px 36px rgba(0, 0, 0, 0.9), 0 0 20px rgba(56, 189, 248, 0.2) !important;
+				backdrop-filter: blur(16px) !important;
+				-webkit-backdrop-filter: blur(16px) !important;
+				max-width: calc(100vw - 32px) !important;
+				word-break: break-word !important;
+			}
+
+			/* Chat Message Actions: Clean row alignment, no floating orphaned bars */
+			.message-actions, [data-slot="message-actions"], .chat-actions {
+				display: flex !important;
+				flex-wrap: wrap !important;
+				align-items: center !important;
+				gap: 6px !important;
+				margin-top: 6px !important;
+				opacity: 0.85 !important;
+			}
+
+			/* If a message bubble is completely empty or contains only the action icons without text, hide it */
+			.chat-message:has(> .message-actions:only-child),
+			div:empty + .message-actions,
+			.message-row:empty {
+				display: none !important;
+			}
+
 		</style>
 	</head>
 
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">
 			<script>
+				// Android Native SpeechRecognizer Bridge & Web Speech API Polyfill
+				(function() {
+					window.__activeSpeechInstance = null;
+
+				// Global Toast, Error & HTML Sanitizer
+				(function() {
+					function cleanHtmlError(text) {
+						if (!text || typeof text !== 'string') return text;
+						if (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('<head') || text.includes('Error response') || text.includes('Error code:')) {
+							if (text.includes('404') || text.includes('Not Found')) {
+								return 'Inferenz-Endpunkt nicht gefunden (404). Automatischer Fallback aktiv.';
+							}
+							if (text.includes('502') || text.includes('Bad Gateway')) {
+								return 'Inferenz-Server überlastet (502).';
+							}
+							if (text.includes('503')) {
+								return 'Inferenz-Dienst vorübergehend nicht erreichbar (503).';
+							}
+							return 'Inferenz-Gateway nicht erreichbar. Bitte Verbindung prüfen.';
+						}
+						return text;
+					}
+
+					function sanitizeNode(el) {
+						if (!el || !el.innerText) return;
+						const text = el.innerText;
+						if (text && (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('<head') || text.includes('Error response') || text.includes('Error code:'))) {
+							el.innerText = cleanHtmlError(text);
+						}
+					}
+
+					// DOM Observer to sanitize any rendered toasts or error banners
+					const observer = new MutationObserver(function(mutations) {
+						for (const m of mutations) {
+							for (const node of m.addedNodes) {
+								if (node.nodeType === 1) {
+									if (node.hasAttribute('data-sonner-toast') || node.classList.contains('toast') || node.getAttribute('role') === 'status' || node.getAttribute('role') === 'alert') {
+										sanitizeNode(node);
+									}
+									const alerts = node.querySelectorAll ? node.querySelectorAll('[data-sonner-toast], .toast, [role="status"], [role="alert"]') : [];
+									for (let i = 0; i < alerts.length; i++) {
+										sanitizeNode(alerts[i]);
+									}
+								}
+							}
+						}
+					});
+
+					if (document.body) {
+						observer.observe(document.body, { childList: true, subtree: true });
+					} else {
+						document.addEventListener('DOMContentLoaded', function() {
+							observer.observe(document.body, { childList: true, subtree: true });
+						});
+					}
+				})();
+
+
+					class AndroidSpeechRecognition extends EventTarget {
+						constructor() {
+							super();
+							this.continuous = false;
+							this.interimResults = true;
+							this.lang = navigator.language || 'de-DE';
+							this.onstart = null;
+							this.onresult = null;
+							this.onerror = null;
+							this.onend = null;
+						}
+
+						start() {
+							window.__activeSpeechInstance = this;
+							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
+								window.AndroidSpeechBridge.startSpeechRecognition(this.lang);
+							}
+						}
+
+						stop() {
+							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.stopSpeechRecognition === 'function') {
+								window.AndroidSpeechBridge.stopSpeechRecognition();
+							}
+						}
+
+						abort() {
+							this.stop();
+						}
+					}
+
+					window.SpeechRecognition = window.SpeechRecognition || AndroidSpeechRecognition;
+					window.webkitSpeechRecognition = window.webkitSpeechRecognition || AndroidSpeechRecognition;
+
+					window.__onAndroidSpeechEvent = function(type, text) {
+						const inst = window.__activeSpeechInstance;
+						if (type === 'onstart') {
+							if (inst && inst.onstart) inst.onstart();
+							document.body.classList.add('speech-recording-active');
+						} else if (type === 'onresult' || type === 'onpartialresult') {
+							const isFinal = (type === 'onresult');
+							const event = {
+								resultIndex: 0,
+								results: [[{ transcript: text, confidence: 1.0 }]]
+							};
+							event.results[0].isFinal = isFinal;
+							if (inst && inst.onresult) inst.onresult(event);
+
+							// Automatically update active textarea in DOM
+							const textarea = document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
+							if (textarea) {
+								if (textarea.tagName === 'TEXTAREA' || textarea.tagName === 'INPUT') {
+									if (isFinal) {
+										const prev = textarea.value || '';
+										textarea.value = (prev.trim() ? prev.trim() + ' ' : '') + text;
+									} else {
+										textarea.placeholder = text + '...';
+									}
+									textarea.dispatchEvent(new Event('input', { bubbles: true }));
+									textarea.dispatchEvent(new Event('change', { bubbles: true }));
+								}
+							}
+						} else if (type === 'onerror') {
+							if (inst && inst.onerror) inst.onerror({ error: text });
+							document.body.classList.remove('speech-recording-active');
+						} else if (type === 'onend') {
+							if (inst && inst.onend) inst.onend();
+							document.body.classList.remove('speech-recording-active');
+						}
+					};
+
+					// Global tap listener for microphone button
+					document.addEventListener('click', function(e) {
+						const btn = e.target.closest('button, [role="button"]');
+						if (!btn) return;
+						const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+						const title = (btn.getAttribute('title') || '').toLowerCase();
+						const isMic = label.includes('mic') || label.includes('record') || label.includes('sprache') ||
+						              title.includes('mic') || title.includes('record') || title.includes('sprache') ||
+						              btn.className.includes('mic');
+						if (isMic) {
+							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
+								e.stopPropagation();
+								window.AndroidSpeechBridge.startSpeechRecognition(navigator.language || 'de-DE');
+							}
+						}
+					}, true);
+				})();
+
 				{
 					__sveltekit_na4fmg = {
 						base: new URL('.', location).pathname.slice(0, -1)
@@ -99,7 +460,7 @@
 					const element = document.currentScript.parentElement;
 
 					import("./_app/immutable/bundle.Z__83NAY.js").then((app) => {
-						app.start(element)
+						app.start(element);
 					});
 				}
 			</script>

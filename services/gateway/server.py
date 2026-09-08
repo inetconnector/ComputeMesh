@@ -299,9 +299,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "code": 429,
             }
         }
-        body = json.dumps(payload, indent=2).encode("utf-8")
+        body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
         self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         for h_name, h_val in SECURITY_HEADERS.items():
             self.send_header(h_name, h_val)
         self.send_header("Retry-After", str(int(retry_after) + 1))
@@ -317,9 +317,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
         status: HTTPStatus = HTTPStatus.OK,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
-        body = json.dumps(data, indent=2).encode("utf-8")
+        body = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         for h_name, h_val in SECURITY_HEADERS.items():
             self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")

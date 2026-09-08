@@ -15,6 +15,7 @@ import subprocess
 import sys
 from typing import Any
 import urllib.parse
+import urllib.request
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -122,14 +123,135 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Node-Auth-Token")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, Accept")
         self.send_header("Connection", "close")
         self.end_headers()
         self.close_connection = True
 
+    def _proxy_ollama_request(self, req_path: str, method: str, post_body: bytes = b"") -> bool:
+        """Proxies OpenAI/Ollama inference requests to local Ollama (11434) or Gateway."""
+        raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
+        if not raw_ollama.startswith("http://") and not raw_ollama.startswith("https://"):
+            ollama_url = f"http://{raw_ollama}"
+        else:
+            ollama_url = raw_ollama
+        clean_path = req_path.rstrip("/")
+
+        # 1. Models & Tags listing
+        if clean_path in ("/v1/models", "/models", "/api/tags", "/tags"):
+            try:
+                target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
+                req = urllib.request.Request(target, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    data = resp.read()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return True
+            except Exception:
+                payload = {
+                    "object": "list",
+                    "data": [
+                        {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
+                        {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
+                        {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
+                    ]
+                }
+                self._send_json(payload)
+                return True
+
+        if clean_path in ("/props", "/slots", "/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
+            if clean_path in ("/props",):
+                self._send_json({"default_generation_settings": {"n_predict": 2048, "temperature": 0.7}, "total_slots": 1})
+            elif clean_path in ("/slots",):
+                self._send_json([{"id": 0, "is_processing": False}])
+            elif clean_path in ("/api/version", "/version"):
+                self._send_json({"version": APPLIANCE_VERSION})
+            else:
+                self._send_json([])
+            return True
+
+        # 2. Chat completions & Generation
+        if method == "POST" and clean_path in ("/v1/chat/completions", "/chat/completions", "/completions", "/api/chat", "/api/generate"):
+            try:
+                payload = json.loads(post_body.decode("utf-8")) if post_body else {}
+            except Exception:
+                payload = {}
+
+            # Discover available models from Ollama to match requested model
+            available_models = []
+            try:
+                tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+                with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
+                    tags_data = json.loads(tags_resp.read().decode("utf-8"))
+                    available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
+            except Exception:
+                pass
+
+            requested_model = str(payload.get("model", "")).strip()
+            if available_models:
+                if requested_model not in available_models:
+                    # Smart matching (e.g. "qwen2.5:7b" -> "qwen2.5-coder:14b", "gemma" -> "gemma3:4b")
+                    matched = None
+                    for m in available_models:
+                        if requested_model.lower() in m.lower() or m.lower() in requested_model.lower():
+                            matched = m
+                            break
+                        if "qwen" in requested_model.lower() and "qwen" in m.lower():
+                            matched = m
+                            break
+                        if "gemma" in requested_model.lower() and "gemma" in m.lower():
+                            matched = m
+                            break
+                    payload["model"] = matched if matched else available_models[0]
+
+            is_stream = payload.get("stream", True)
+            target_endpoint = f"{ollama_url}{clean_path}" if clean_path.startswith("/api/") else f"{ollama_url}/v1/chat/completions"
+
+            forward_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            forward_req = urllib.request.Request(
+                target_endpoint,
+                data=forward_bytes,
+                headers={
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Accept": "text/event-stream" if is_stream else "application/json"
+                },
+                method="POST"
+            )
+
+            try:
+                with urllib.request.urlopen(forward_req, timeout=120) as backend_resp:
+                    self.send_response(HTTPStatus.OK)
+                    ct = backend_resp.headers.get("Content-Type", "text/event-stream; charset=utf-8" if is_stream else "application/json; charset=utf-8")
+                    self.send_header("Content-Type", ct)
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+
+                    while True:
+                        chunk = backend_resp.read(1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                        self.tokens_served += 1
+                    return True
+            except Exception as e:
+                err_msg = f"Fehler bei Inferenz auf {target_endpoint}: {str(e)}"
+                self._send_json({"error": {"message": err_msg, "code": 502}}, HTTPStatus.BAD_GATEWAY)
+                return True
+
+        return False
+
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
+
+        if self._proxy_ollama_request(req_path, "GET"):
+            return
 
         if req_path in ("", "/", "/index.html"):
             html = get_dashboard_html()
@@ -368,6 +490,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         content_len = int(self.headers.get("Content-Length", 0))
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
+        if self._proxy_ollama_request(req_path, "POST", post_body):
+            return
+
         if not self._verify_action_auth():
             self._send_unauthorized()
             return
@@ -575,15 +700,28 @@ def create_dashboard_server(
     except Exception:
         pass
 
+    server_inst = None
+    actual_port = port
     for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
         try:
-            server = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
-            return server, candidate_port
+            server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
+            actual_port = candidate_port
+            break
         except OSError:
             continue
 
-    server = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
-    return server, server.server_address[1]
+    if server_inst is None:
+        server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
+        actual_port = server_inst.server_address[1]
+
+    try:
+        from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+        gpu_name = inventory.gpus[0].model_name if getattr(inventory, "gpus", None) else "ComputeMesh AI Node"
+        start_lan_discovery_responder(node_id=effective_node_id, port=actual_port, gpu_summary=gpu_name)
+    except Exception:
+        pass
+
+    return server_inst, actual_port
 
 
 def run_dashboard_server(
