@@ -25,6 +25,7 @@ class TestCatalogAndPricing(unittest.TestCase):
         self.assertIn("qwen/qwen2.5-7b-instruct", model_ids)
         self.assertIn("meta-llama/llama-3.1-8b-instruct", model_ids)
         self.assertIn("deepseek-ai/deepseek-r1", model_ids)
+        self.assertIn("openbmb/minicpm5-2b", model_ids)
 
         for m in AVAILABLE_MODELS:
             self.assertIsInstance(m, ModelSpec)
@@ -36,12 +37,15 @@ class TestCatalogAndPricing(unittest.TestCase):
     def test_resolve_model_id_aliases(self) -> None:
         # Exact match
         self.assertEqual(resolve_model_id("qwen/qwen2.5-7b-instruct"), "qwen/qwen2.5-7b-instruct")
+        self.assertEqual(resolve_model_id("openbmb/minicpm5-2b"), "openbmb/minicpm5-2b")
 
         # Ollama style tags
         self.assertEqual(resolve_model_id("qwen2.5:7b"), "qwen/qwen2.5-7b-instruct")
         self.assertEqual(resolve_model_id("llama3.1:8b"), "meta-llama/llama-3.1-8b-instruct")
         self.assertEqual(resolve_model_id("llama3.3:70b"), "meta-llama/llama-3.3-70b-instruct")
         self.assertEqual(resolve_model_id("deepseek-r1"), "deepseek-ai/deepseek-r1")
+        self.assertEqual(resolve_model_id("minicpm5-2b"), "openbmb/minicpm5-2b")
+        self.assertEqual(resolve_model_id("minicpm:2b"), "openbmb/minicpm5-2b")
 
         # Fallback to default
         self.assertEqual(resolve_model_id(""), "qwen/qwen2.5-7b-instruct")

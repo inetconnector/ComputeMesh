@@ -89,6 +89,12 @@ AVAILABLE_MODELS: list[ModelSpec] = [
         price_tier=DEFAULT_PRICE_TIERS["meta-llama/llama-3.2-11b-vision-instruct"],
     ),
     ModelSpec(
+        id="openbmb/minicpm5-2b",
+        context_window=32768,
+        created=int(time.time()),
+        price_tier=DEFAULT_PRICE_TIERS["openbmb/minicpm5-2b"],
+    ),
+    ModelSpec(
         id="llava/llava-1.6-7b",
         context_window=32768,
         created=int(time.time()),
@@ -145,6 +151,10 @@ def resolve_model_id(raw_model: str) -> str:
     if model_clean in {"llava", "llava:7b", "llava-1.6", "llava-1.6:7b"}:
         for m in resolvable_models:
             if "llava" in m.id.lower():
+                return m.id
+    if model_clean in {"minicpm", "minicpm5", "minicpm5-2b", "minicpm-2b", "minicpm5:2b", "minicpm:2b", "openbmb/minicpm5-2b", "openbmb/minicpm-2b"}:
+        for m in resolvable_models:
+            if "minicpm" in m.id.lower():
                 return m.id
 
     # 3. Tagged alias matching e.g. "qwen2.5:7b", "llama3.1:8b", "llama3.3:70b"

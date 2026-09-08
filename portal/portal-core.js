@@ -960,6 +960,7 @@ window.currentLang = currentLang;
 
 // Canonical Pricing State
 let CM_PRICING = {
+  '2b': { blended: 0.105, cloud: 0.40 },
   '8b': { blended: 0.175, cloud: 0.75 },
   '14b': { blended: 0.375, cloud: 1.50 },
   '32b': { blended: 0.60, cloud: 2.50 },
@@ -972,6 +973,10 @@ async function loadCanonicalPricing() {
     if (res.ok) {
       const data = await res.json();
       if (data && data.tiers) {
+        if (data.tiers['openbmb/minicpm5-2b']) {
+          CM_PRICING['2b'].blended = data.tiers['openbmb/minicpm5-2b'].blended_usd_per_million;
+          CM_PRICING['2b'].cloud = data.tiers['openbmb/minicpm5-2b'].cloud_reference_usd_per_million;
+        }
         if (data.tiers['meta-llama/llama-3.1-8b-instruct']) {
           CM_PRICING['8b'].blended = data.tiers['meta-llama/llama-3.1-8b-instruct'].blended_usd_per_million;
           CM_PRICING['8b'].cloud = data.tiers['meta-llama/llama-3.1-8b-instruct'].cloud_reference_usd_per_million;

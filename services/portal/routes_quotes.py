@@ -12,6 +12,8 @@ from typing import Any
 from services.common.pricing import get_price_tier
 
 TIER_MAP: dict[str, str] = {
+    "2b": "openbmb/minicpm5-2b",
+    "minicpm": "openbmb/minicpm5-2b",
     "8b": "meta-llama/llama-3.1-8b-instruct",
     "7b": "qwen/qwen2.5-7b-instruct",
     "14b": "qwen/qwen2.5-14b-instruct",

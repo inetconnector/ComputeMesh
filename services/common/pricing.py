@@ -67,6 +67,19 @@ DEFAULT_PRICE_TIERS: dict[str, ModelPriceTier] = {
         completion_micro_per_million=180_000,  # $0.18 / 1M
         cloud_reference_usd_per_million=0.40,
     ),
+    # 2B Lightweight / Edge models (e.g., MiniCPM5 2B, MiniCPM 2B)
+    "openbmb/minicpm5-2b": ModelPriceTier(
+        model_id="openbmb/minicpm5-2b",
+        prompt_micro_per_million=80_000,       # $0.08 / 1M
+        completion_micro_per_million=180_000,  # $0.18 / 1M (~$0.105/1M blended)
+        cloud_reference_usd_per_million=0.40,
+    ),
+    "openbmb/minicpm-2b": ModelPriceTier(
+        model_id="openbmb/minicpm-2b",
+        prompt_micro_per_million=80_000,       # $0.08 / 1M
+        completion_micro_per_million=180_000,  # $0.18 / 1M
+        cloud_reference_usd_per_million=0.40,
+    ),
     # 7B - 8B Standard models (e.g., Qwen 2.5 7B, LLaMA 3.1 8B)
     "qwen/qwen2.5-7b-instruct": ModelPriceTier(
         model_id="qwen/qwen2.5-7b-instruct",
