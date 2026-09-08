@@ -91,9 +91,24 @@ class FakeRegistry:
                 negotiated_capabilities=frozenset(),
             ),
         }
+        self.profiles = {
+            "node-a": {
+                "node_id": "node-a",
+                "fleet_id": "fleet-east",
+                "machine_identity": {
+                    "machine_id": "hw1:" + "a" * 64,
+                    "identity_version": 1,
+                    "sources": ["system_uuid", "mac"],
+                },
+            },
+            "node-b": {"node_id": "node-b"},
+        }
 
     def get_session(self, node_id):
         return self.sessions[node_id]
+
+    def get_node_profile(self, node_id):
+        return dict(self.profiles[node_id])
 
     def is_node_control_healthy(self, node_id):
         return self.control_client.is_connected(node_id)
@@ -163,7 +178,7 @@ class TestRemoteConfidentialBroker(unittest.TestCase):
         )
         return broker, registry
 
-    def test_broker_submits_only_live_confidential_sessions_and_dispatches_selected_node(self):
+    def test_broker_submits_live_confidential_session_with_governance_identity(self):
         broker, registry = self._broker()
         provision = broker.provision(
             account_id="owner-a",
@@ -176,10 +191,20 @@ class TestRemoteConfidentialBroker(unittest.TestCase):
         _, private_body = broker.private_requests[0]
         self.assertEqual(
             private_body["candidates"],
-            [{"node_id": "node-a", "session_id": "session-a", "session_revision": 7}],
+            [{
+                "node_id": "node-a",
+                "session_id": "session-a",
+                "session_revision": 7,
+                "fleet_id": "fleet-east",
+                "machine_id": "hw1:" + "a" * 64,
+                "identity_version": 1,
+                "identity_sources": ["system_uuid", "mac"],
+            }],
         )
+        serialized = repr(private_body)
         self.assertNotIn("messages", private_body)
         self.assertNotIn("content", private_body)
+        self.assertNotIn("raw serial", serialized.lower())
         node_id, message_type, provider_body, _ = registry.control_client.requests[0]
         self.assertEqual(node_id, "node-a")
         self.assertEqual(message_type, "ConfidentialSessionProvisionRequest")
@@ -230,4 +255,3 @@ class TestRemoteConfidentialBroker(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
