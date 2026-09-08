@@ -16,6 +16,14 @@ dist/
 build/
 .next/
 
+# Android / Gradle
+.gradle/
+**/build/
+*.apk
+*.aab
+local.properties
+.cxx/
+
 # C/C++ / CMake
 cmake-build-*/
 CMakeFiles/
