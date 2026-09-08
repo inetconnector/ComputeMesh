@@ -183,8 +183,8 @@ def build_and_sign_release() -> tuple[Path, Optional[Path]]:
     metadata = {
         "app_name": "ComputeMesh",
         "package_name": "com.inetconnector.compumesh",
-        "version_name": "1.2.143",
-        "version_code": 103,
+        "version_name": "1.2.154",
+        "version_code": 114,
         "target_sdk": 34,
         "min_sdk": 29,
         "supported_models": ["openbmb/minicpm5-2b"],
