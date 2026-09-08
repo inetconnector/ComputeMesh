@@ -532,8 +532,8 @@ fun MiniCpmChatTab(
                         allowFileAccess = true
                         allowContentAccess = true
                         databaseEnabled = true
-                        useWideViewPort = true
-                        loadWithOverviewMode = true
+                        useWideViewPort = false
+                        loadWithOverviewMode = false
                         mediaPlaybackRequiresUserGesture = false
                         javaScriptCanOpenWindowsAutomatically = true
                         setSupportMultipleWindows(false)

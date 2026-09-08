@@ -70,9 +70,12 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-2048x2732.png">
 		<style>
 			html, body {
-				height: 100% !important;
-				min-height: 100% !important;
-				overflow-x: hidden;
+				height: var(--app-height, 100%) !important;
+				min-height: var(--app-height, 100%) !important;
+				margin: 0 !important;
+				padding: 0 !important;
+				overflow-x: hidden !important;
+				overflow-y: auto !important;
 				-webkit-tap-highlight-color: transparent;
 				background-color: #0b0f19;
 			}
@@ -405,6 +408,47 @@
 				opacity: 0.85 !important;
 			}
 
+			/* Chat Message Visibility & Flow: Ensure all messages are ALWAYS 100% visible */
+			.chat-message,
+			.chat-message *,
+			.chat-message-assistant,
+			.chat-message-user,
+			.chat-message-user-bubble,
+			[data-role="assistant"],
+			[data-role="user"] {
+				opacity: 1 !important;
+				visibility: visible !important;
+			}
+
+			.chat-message {
+				transform: none !important;
+				transition: none !important;
+			}
+
+			.chat-message-user-bubble {
+				background: #1e293b !important;
+				border: 1px solid rgba(56, 189, 248, 0.4) !important;
+				color: #ffffff !important;
+				border-radius: 18px !important;
+				padding: 12px 16px !important;
+				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+			}
+
+			.chat-message-assistant {
+				background: rgba(15, 23, 42, 0.85) !important;
+				border: 1px solid rgba(56, 189, 248, 0.25) !important;
+				color: #f8fafc !important;
+				border-radius: 18px !important;
+				padding: 14px 16px !important;
+				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+			}
+
+			/* Chat Screen Layout */
+			.chat-screen {
+				min-height: 100% !important;
+				padding-bottom: calc(var(--chat-form-height, 120px) + 36px) !important;
+			}
+
 			/* If a message bubble is completely empty or contains only the action icons without text, hide it */
 			.chat-message:has(> .message-actions:only-child),
 			div:empty + .message-actions,
@@ -418,6 +462,78 @@
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">
 			<script>
+				// Viewport height synchronization & Auto-reveal and auto-scroll chat messages
+				(function() {
+					function syncViewportHeight() {
+						const h = window.innerHeight;
+						if (h > 0) {
+							document.documentElement.style.setProperty('--app-height', h + 'px');
+							document.documentElement.style.setProperty('height', h + 'px', 'important');
+							document.documentElement.style.setProperty('min-height', h + 'px', 'important');
+							if (document.body) {
+								document.body.style.setProperty('height', h + 'px', 'important');
+								document.body.style.setProperty('min-height', h + 'px', 'important');
+							}
+						}
+					}
+					window.addEventListener('resize', syncViewportHeight);
+					window.addEventListener('orientationchange', syncViewportHeight);
+					syncViewportHeight();
+
+					function ensureMessagesVisibleAndScrolled() {
+						syncViewportHeight();
+						const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble');
+						if (msgs.length > 0) {
+							for (let i = 0; i < msgs.length; i++) {
+								const m = msgs[i];
+								if (m.style.opacity === '0' || m.style.visibility === 'hidden') {
+									m.style.setProperty('opacity', '1', 'important');
+									m.style.setProperty('visibility', 'visible', 'important');
+									m.style.setProperty('transform', 'none', 'important');
+								}
+							}
+						}
+					}
+
+					let scrollTimeout = null;
+					function scrollToLatestMessage() {
+						if (scrollTimeout) clearTimeout(scrollTimeout);
+						scrollTimeout = setTimeout(function() {
+							const allMsgs = document.querySelectorAll('.chat-message');
+							if (allMsgs.length > 0) {
+								const last = allMsgs[allMsgs.length - 1];
+								last.scrollIntoView({ behavior: 'smooth', block: 'end' });
+							}
+						}, 50);
+					}
+
+					const chatObserver = new MutationObserver(function(mutations) {
+						let hasNewNodes = false;
+						for (let i = 0; i < mutations.length; i++) {
+							if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+								hasNewNodes = true;
+								break;
+							}
+						}
+						if (hasNewNodes) {
+							ensureMessagesVisibleAndScrolled();
+							scrollToLatestMessage();
+						}
+					});
+
+					if (document.body) {
+						chatObserver.observe(document.body, { childList: true, subtree: true });
+						ensureMessagesVisibleAndScrolled();
+					} else {
+						document.addEventListener('DOMContentLoaded', function() {
+							chatObserver.observe(document.body, { childList: true, subtree: true });
+							ensureMessagesVisibleAndScrolled();
+						});
+					}
+
+					setInterval(ensureMessagesVisibleAndScrolled, 400);
+				})();
+
 				// Global Toast, Error & HTML Sanitizer
 				(function() {
 					function cleanHtmlError(text) {
