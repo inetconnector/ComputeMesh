@@ -48,9 +48,17 @@ def import_seed_directory(path: Path, crawler: ConcertCrawler) -> dict[str,int]:
 
 
 def discover_default_seed_dir() -> Path | None:
-    here=Path(__file__).resolve()
-    candidates=[here.parents[3]/"Today"/"HeuteUndMorgen"/"Data"/"crawler-seedlists",here.parents[4]/"Today"/"HeuteUndMorgen"/"Data"/"crawler-seedlists",Path.cwd().parent/"Today"/"HeuteUndMorgen"/"Data"/"crawler-seedlists"]
-    return next((p for p in candidates if p.is_dir()),None)
+    here = Path(__file__).resolve()
+    candidates = [
+        Path.home() / "Projekte" / "heuteundmorgen" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+        Path.home() / "Projekte" / "heuteundmorgen" / "App_Data" / "crawler-seedlists",
+        here.parents[3] / "heuteundmorgen" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+        here.parents[4] / "heuteundmorgen" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+        here.parents[3] / "Today" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+        here.parents[4] / "Today" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+        Path.cwd().parent / "Today" / "HeuteUndMorgen" / "Data" / "crawler-seedlists",
+    ]
+    return next((p for p in candidates if p.is_dir()), None)
 
 
 def main() -> int:
