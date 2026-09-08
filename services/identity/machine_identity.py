@@ -3,6 +3,10 @@
 The fingerprint supplements — never replaces — the Ed25519 node identity. Raw
 serials, MAC addresses and processor identifiers stay local; only the SHA-256
 fingerprint and the names of contributing source classes are transmitted.
+
+Identity sources are selected by stability tier. Firmware/chassis identifiers win;
+OS machine-id, processor-id and MAC are fallbacks. This avoids changing a machine ID
+merely because a NIC is added or replaced when stronger hardware identity exists.
 """
 from __future__ import annotations
 
@@ -23,6 +27,10 @@ _PLACEHOLDERS = {
     "", "none", "unknown", "not specified", "not applicable", "default string",
     "to be filled by o.e.m.", "system serial number", "00000000-0000-0000-0000-000000000000",
 }
+_FIRMWARE_UUID_SOURCES = ("dmi_product_uuid", "system_uuid", "platform_uuid")
+_CHASSIS_SERIAL_SOURCES = (
+    "dmi_board_serial", "dmi_product_serial", "board_serial", "platform_serial"
+)
 
 
 class MachineIdentityError(RuntimeError):
@@ -122,7 +130,7 @@ def _portable_signals() -> dict[str, str]:
     result: dict[str, str] = {}
     mac = uuid.getnode()
     # uuid.getnode() marks generated fallbacks with the multicast bit. Such values
-    # are process/host implementation fallbacks, not a trustworthy durable NIC ID.
+    # are implementation fallbacks, not a trustworthy durable NIC ID.
     if isinstance(mac, int) and 0 < mac < (1 << 48) and not (mac & (1 << 40)):
         result["mac"] = f"{mac:012x}"
     processor = _normal(platform.processor())
@@ -132,6 +140,25 @@ def _portable_signals() -> dict[str, str]:
     if architecture:
         result["architecture"] = architecture
     return result
+
+
+def _select_identity_signals(signals: dict[str, str]) -> dict[str, str]:
+    """Choose the most stable available identity tier, excluding descriptive CPU data."""
+    firmware = {name: signals[name] for name in _FIRMWARE_UUID_SOURCES if name in signals}
+    serials = {name: signals[name] for name in _CHASSIS_SERIAL_SOURCES if name in signals}
+    if firmware:
+        # Board/chassis serials may strengthen a firmware UUID but MAC/CPU changes
+        # must not re-identify an otherwise stable machine.
+        return {**firmware, **serials}
+    if serials:
+        return serials
+    if "machine_id" in signals:
+        return {"machine_id": signals["machine_id"]}
+    if "processor_id" in signals:
+        return {"processor_id": signals["processor_id"]}
+    if "mac" in signals:
+        return {"mac": signals["mac"]}
+    raise MachineIdentityError("no stable host-specific machine identity source is available")
 
 
 def collect_machine_identity(*, signal_provider: Callable[[], dict[str, str]] | None = None) -> MachineIdentity:
@@ -153,11 +180,9 @@ def collect_machine_identity(*, signal_provider: Callable[[], dict[str, str]] | 
         for name, raw_value in raw.items()
         if (value := _normal(raw_value)) is not None
     }
-    host_specific = set(signals) - {"processor_model", "architecture"}
-    if not host_specific:
-        raise MachineIdentityError("no stable host-specific machine identity source is available")
+    selected = _select_identity_signals(signals)
     canonical = json.dumps(
-        {"version": IDENTITY_VERSION, "signals": signals},
+        {"version": IDENTITY_VERSION, "signals": selected},
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
@@ -166,7 +191,7 @@ def collect_machine_identity(*, signal_provider: Callable[[], dict[str, str]] | 
     return MachineIdentity(
         machine_id=_MACHINE_ID_PREFIX + digest,
         identity_version=IDENTITY_VERSION,
-        sources=tuple(sorted(signals)),
+        sources=tuple(sorted(selected)),
     )
 
 
