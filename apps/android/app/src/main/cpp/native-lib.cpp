@@ -3,6 +3,7 @@
  *
  * Implements low-overhead JNI interfaces for GGUF model execution (MiniCPM5-2B, Qwen),
  * vectorized SIMD dot products (ARM_NEON / DotProd / FP16), and hardware capability detection.
+ * Package: com.inetconnector.compumesh.engine.MiniCpmEngine
  */
 
 #include <jni.h>
@@ -38,7 +39,7 @@ std::unique_ptr<ModelContext> g_context = nullptr;
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_com_computemesh_engine_MiniCpmEngine_nativeLoadModel(
+Java_com_inetconnector_compumesh_engine_MiniCpmEngine_nativeLoadModel(
         JNIEnv* env,
         jobject /* this */,
         jstring j_model_path,
@@ -75,7 +76,7 @@ Java_com_computemesh_engine_MiniCpmEngine_nativeLoadModel(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_computemesh_engine_MiniCpmEngine_nativeIsModelLoaded(
+Java_com_inetconnector_compumesh_engine_MiniCpmEngine_nativeIsModelLoaded(
         JNIEnv* /* env */,
         jobject /* this */) {
     std::lock_guard<std::mutex> lock(g_engine_mutex);
@@ -83,7 +84,7 @@ Java_com_computemesh_engine_MiniCpmEngine_nativeIsModelLoaded(
 }
 
 JNIEXPORT void JNICALL
-Java_com_computemesh_engine_MiniCpmEngine_nativeUnloadModel(
+Java_com_inetconnector_compumesh_engine_MiniCpmEngine_nativeUnloadModel(
         JNIEnv* /* env */,
         jobject /* this */) {
     std::lock_guard<std::mutex> lock(g_engine_mutex);
@@ -96,7 +97,7 @@ Java_com_computemesh_engine_MiniCpmEngine_nativeUnloadModel(
 }
 
 JNIEXPORT void JNICALL
-Java_com_computemesh_engine_MiniCpmEngine_nativeAbortGeneration(
+Java_com_inetconnector_compumesh_engine_MiniCpmEngine_nativeAbortGeneration(
         JNIEnv* /* env */,
         jobject /* this */) {
     if (g_context) {
@@ -105,10 +106,10 @@ Java_com_computemesh_engine_MiniCpmEngine_nativeAbortGeneration(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_computemesh_engine_MiniCpmEngine_nativeGetHardwareCapabilities(
+Java_com_inetconnector_compumesh_engine_MiniCpmEngine_nativeGetHardwareCapabilities(
         JNIEnv* env,
         jobject /* this */) {
-    std::string caps = "{\"arch\":\"arm64-v8a\",\"cores\":" + std::to_string(std::thread::hardware_concurrency());
+    std::string caps = "{\"arch\":\"android_arm64\",\"cores\":" + std::to_string(std::thread::hardware_concurrency());
 
 #if defined(__ARM_NEON)
     caps += ",\"neon\":true";
@@ -128,6 +129,7 @@ Java_com_computemesh_engine_MiniCpmEngine_nativeGetHardwareCapabilities(
     caps += ",\"fp16\":false";
 #endif
 
+    caps += ",\"package\":\"com.inetconnector.compumesh\"";
     caps += "}";
     return env->NewStringUTF(caps.c_str());
 }

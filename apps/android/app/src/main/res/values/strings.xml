@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">ComputeMesh</string>
+    <string name="app_description">Dezentrale On-Device KI &amp; Distributed Compute Mesh für Android</string>
+    <string name="service_name">ComputeMesh Edge Node Service</string>
+    <string name="service_desc">Hintergrunddienst für dezentrale MiniCPM5-2B Inferenz und Flotten-Telemetrie</string>
+    <string name="channel_name">ComputeMesh Node Status</string>
+    <string name="channel_desc">Zeigt aktuellen Status, Token-Berechnungen und Akku-Schutz des Mesh-Knotens an</string>
+    
+    <!-- UI Strings -->
+    <string name="tab_chat">MiniCPM KI</string>
+    <string name="tab_node">Edge Node</string>
+    <string name="tab_mesh">P2P Mesh</string>
+    <string name="tab_settings">Setup</string>
+    
+    <string name="status_ready">Bereit für MiniCPM5-2B Jobs</string>
+    <string name="status_paused">Pausiert</string>
+    <string name="status_active">🟢 Aktiv</string>
+    <string name="status_standby">🟡 Standby</string>
+    
+    <string name="privacy_badge">100% Private - On-Device / LAN Only</string>
+    <string name="privacy_subtext">Kein LLM-Traffic wird an zentrale Server übertragen. Modellgewichte werden direkt vom HuggingFace CDN bezogen.</string>
+</resources>

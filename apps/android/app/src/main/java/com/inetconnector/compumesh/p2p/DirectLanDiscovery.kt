@@ -1,4 +1,4 @@
-package com.computemesh.p2p
+package com.inetconnector.compumesh.p2p
 
 import android.content.Context
 import android.util.Log

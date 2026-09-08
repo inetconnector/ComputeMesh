@@ -1,4 +1,4 @@
-package com.computemesh.guard
+package com.inetconnector.compumesh.guard
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -19,9 +19,9 @@ data class BatteryGuardStatus(
 )
 
 /**
- * Hardware & Battery Protection Guard for Mobile ComputeMesh Nodes.
+ * Hardware, Battery & Thermal Protection Guard for Mobile ComputeMesh Nodes.
  *
- * Ensures compute workloads NEVER drain battery, overheat the device, or use mobile data.
+ * Enforces zero-drain battery rules, thermal limits (< 42°C), and unmetered Wi-Fi constraints.
  */
 class BatteryPolicyGuard(private val context: Context) {
 

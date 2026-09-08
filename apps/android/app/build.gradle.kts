@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.computemesh"
+    namespace = "com.inetconnector.compumesh"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.computemesh"
+        applicationId = "com.inetconnector.compumesh"
         minSdk = 29
         targetSdk = 34
-        versionCode = 102
-        versionName = "1.2.142"
+        versionCode = 103
+        versionName = "1.2.143"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

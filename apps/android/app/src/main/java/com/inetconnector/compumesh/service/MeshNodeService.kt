@@ -1,4 +1,4 @@
-package com.computemesh.service
+package com.inetconnector.compumesh.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,8 +10,9 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.computemesh.engine.MiniCpmEngine
-import com.computemesh.guard.BatteryPolicyGuard
+import com.inetconnector.compumesh.R
+import com.inetconnector.compumesh.engine.MiniCpmEngine
+import com.inetconnector.compumesh.guard.BatteryPolicyGuard
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,8 +32,8 @@ class MeshNodeService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "computemesh_node_channel"
 
-        const val ACTION_START = "com.computemesh.START_NODE"
-        const val ACTION_STOP = "com.computemesh.STOP_NODE"
+        const val ACTION_START = "com.inetconnector.compumesh.START_NODE"
+        const val ACTION_STOP = "com.inetconnector.compumesh.STOP_NODE"
 
         var isRunning: Boolean = false
             private set
@@ -103,7 +104,7 @@ class MeshNodeService : Service() {
                         put("global_mesh", JSONObject())
                         put("software", JSONObject().apply {
                             put("model", "openbmb/minicpm5-2b")
-                            put("version", "1.2.142")
+                            put("version", "1.2.143")
                             put("client", "ComputeMesh-Android")
                         })
                     }
@@ -174,7 +175,7 @@ class MeshNodeService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ComputeMesh Edge Node")
             .setContentText(statusText)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_stat_computemesh)
             .setOngoing(true)
             .build()
     }
