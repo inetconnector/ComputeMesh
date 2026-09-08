@@ -180,11 +180,25 @@ def build_and_sign_release() -> tuple[Path, Optional[Path]]:
     sha256_apk = hashlib.sha256(target_apk.read_bytes()).hexdigest()
     sha256_aab = hashlib.sha256(target_aab.read_bytes()).hexdigest()
 
+    # Read version directly from build.gradle.kts to avoid drift
+    gradle_file = ANDROID_PROJECT_ROOT / "app" / "build.gradle.kts"
+    v_name = "1.2.155"
+    v_code = 115
+    if gradle_file.exists():
+        content = gradle_file.read_text(encoding="utf-8")
+        import re
+        m_code = re.search(r'versionCode\s*=\s*(\d+)', content)
+        m_name = re.search(r'versionName\s*=\s*"([^"]+)"', content)
+        if m_code:
+            v_code = int(m_code.group(1))
+        if m_name:
+            v_name = m_name.group(1)
+
     metadata = {
         "app_name": "ComputeMesh",
         "package_name": "com.inetconnector.compumesh",
-        "version_name": "1.2.154",
-        "version_code": 114,
+        "version_name": v_name,
+        "version_code": v_code,
         "target_sdk": 34,
         "min_sdk": 29,
         "supported_models": ["openbmb/minicpm5-2b"],

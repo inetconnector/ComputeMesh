@@ -305,7 +305,7 @@
 				stroke: #38bdf8 !important;
 			}
 
-			/* Dialogs & Modal Windows (MCP quickstart, settings, etc.) */
+			/* Dialogs & Modal Windows (MCP quickstart, settings, model info, etc.) */
 			[data-slot="dialog-content"]:not([data-state="closed"]),
 			[role="dialog"]:not([data-slot="sheet-content"]):not([data-state="closed"]),
 			[role="alertdialog"]:not([data-state="closed"]),
@@ -315,7 +315,13 @@
 				border-radius: 24px !important;
 				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
 				z-index: 99999 !important;
-				max-height: calc(100% - 40px) !important;
+				position: fixed !important;
+				top: 50% !important;
+				left: 50% !important;
+				transform: translate(-50%, -50%) !important;
+				width: min(94vw, 560px) !important;
+				max-width: 560px !important;
+				max-height: min(85dvh, calc(100vh - 40px)) !important;
 				height: auto !important;
 				overflow-y: auto !important;
 				overscroll-behavior: contain !important;
@@ -534,7 +540,7 @@
 					setInterval(ensureMessagesVisibleAndScrolled, 400);
 				})();
 
-				// Global Toast, Error & HTML Sanitizer
+				// Global Toast, Error & Structured JSON Response Sanitizer
 				(function() {
 					function cleanHtmlError(text) {
 						if (!text || typeof text !== 'string') return text;
@@ -553,25 +559,47 @@
 						return text;
 					}
 
-					function sanitizeNode(el) {
+					function sanitizeStructuredJson(el) {
 						if (!el || !el.innerText) return;
-						const text = el.innerText;
-						if (text && (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('<head') || text.includes('Error response') || text.includes('Error code:'))) {
-							el.innerText = cleanHtmlError(text);
+						const text = el.innerText.trim();
+						if (text.startsWith('{"') && text.endsWith('}') && (text.includes('"report"') || text.includes('"summary"') || text.includes('"title"'))) {
+							try {
+								const obj = JSON.parse(text);
+								if (obj.report && typeof obj.report === 'string') {
+									let cleanReport = obj.report.replace(/\\n/g, '\n');
+									if (obj.title && !cleanReport.includes(obj.title)) {
+										cleanReport = '## ' + obj.title + '\n\n' + cleanReport;
+									}
+									if (obj.summary && !cleanReport.includes(obj.summary)) {
+										cleanReport = '> ' + obj.summary + '\n\n' + cleanReport;
+									}
+									el.innerText = cleanReport;
+								} else if (obj.summary && typeof obj.summary === 'string') {
+									el.innerText = (obj.title ? '## ' + obj.title + '\n\n' : '') + obj.summary.replace(/\\n/g, '\n');
+								}
+							} catch (e) {}
 						}
 					}
 
-					// DOM Observer to sanitize any rendered toasts or error banners
+					function sanitizeNode(el) {
+						if (!el) return;
+						if (el.innerText && (el.innerText.includes('<html') || el.innerText.includes('<!DOCTYPE') || el.innerText.includes('<head') || el.innerText.includes('Error response') || el.innerText.includes('Error code:'))) {
+							el.innerText = cleanHtmlError(el.innerText);
+						}
+						sanitizeStructuredJson(el);
+					}
+
+					// DOM Observer to sanitize any rendered toasts, error banners or raw JSON responses
 					const observer = new MutationObserver(function(mutations) {
 						for (const m of mutations) {
 							for (const node of m.addedNodes) {
 								if (node.nodeType === 1) {
-									if (node.hasAttribute('data-sonner-toast') || node.classList.contains('toast') || node.getAttribute('role') === 'status' || node.getAttribute('role') === 'alert') {
+									if (node.hasAttribute('data-sonner-toast') || node.classList.contains('toast') || node.classList.contains('chat-message') || node.getAttribute('role') === 'status' || node.getAttribute('role') === 'alert') {
 										sanitizeNode(node);
 									}
-									const alerts = node.querySelectorAll ? node.querySelectorAll('[data-sonner-toast], .toast, [role="status"], [role="alert"]') : [];
-									for (let i = 0; i < alerts.length; i++) {
-										sanitizeNode(alerts[i]);
+									const targets = node.querySelectorAll ? node.querySelectorAll('[data-sonner-toast], .toast, .chat-message, [role="status"], [role="alert"]') : [];
+									for (let i = 0; i < targets.length; i++) {
+										sanitizeNode(targets[i]);
 									}
 								}
 							}
@@ -585,6 +613,9 @@
 							observer.observe(document.body, { childList: true, subtree: true });
 						});
 					}
+					setInterval(function() {
+						document.querySelectorAll('.chat-message').forEach(sanitizeStructuredJson);
+					}, 500);
 				})();
 
 				// Android Native SpeechRecognizer Bridge & Web Speech API Polyfill
