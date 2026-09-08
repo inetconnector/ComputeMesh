@@ -70,13 +70,26 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-2048x2732.png">
 		<style>
 			html, body {
+				height: 100% !important;
+				min-height: 100% !important;
 				overflow-x: hidden;
 				-webkit-tap-highlight-color: transparent;
 				background-color: #0b0f19;
 			}
 
+			/* Ensure closed dialogs, sheets and overlays are completely hidden */
+			[data-state="closed"],
+			[data-status="closed"],
+			[hidden] {
+				display: none !important;
+				visibility: hidden !important;
+				pointer-events: none !important;
+			}
+
 			/* Backdrop Overlay for all sheets, drawers and dialogs */
-			[data-slot="sheet-overlay"], [data-bits-dialog-overlay], [data-radix-portal] > [data-state="open"]:not([data-slot="sheet-content"]):not([role="dialog"]) {
+			[data-slot="sheet-overlay"]:not([data-state="closed"]),
+			[data-bits-dialog-overlay]:not([data-state="closed"]),
+			[data-radix-portal] > [data-state="open"]:not([data-slot="sheet-content"]):not([role="dialog"]) {
 				position: fixed !important;
 				inset: 0 !important;
 				background: rgba(3, 7, 18, 0.85) !important;
@@ -86,7 +99,9 @@
 			}
 
 			/* Bottom Sheets & Drawers (Add to Chat / Attachments / Tools) */
-			[data-slot="sheet-content"], [data-vaul-drawer], .drawer-content {
+			[data-slot="sheet-content"]:not([data-side="left"]):not([data-state="closed"]),
+			[data-vaul-drawer]:not([data-state="closed"]),
+			.drawer-content:not([data-state="closed"]) {
 				position: fixed !important;
 				top: auto !important;
 				bottom: 0px !important;
@@ -96,8 +111,7 @@
 				max-width: 100vw !important;
 				min-height: auto !important;
 				height: auto !important;
-				max-height: 85vh !important;
-				max-height: 85dvh !important;
+				max-height: 85% !important;
 				transform: none !important;
 				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
 				border-top: 2px solid rgba(56, 189, 248, 0.7) !important;
@@ -202,15 +216,133 @@
 				padding: 4px 0 10px 0 !important;
 			}
 
+			/* Base aside when collapsed on mobile */
+			@media (max-width: 767px) {
+				aside:not(.is-expanded) {
+					background: transparent !important;
+					border: none !important;
+					box-shadow: none !important;
+					width: auto !important;
+					height: auto !important;
+					pointer-events: none !important;
+				}
+				aside:not(.is-expanded) button,
+				aside:not(.is-expanded) a,
+				aside:not(.is-expanded) [role="button"] {
+					pointer-events: auto !important;
+				}
+				aside:not(.is-expanded) > div:nth-child(n+2) {
+					display: none !important;
+				}
+				aside:not(.is-expanded) .px-2 {
+					padding: 0 !important;
+					width: auto !important;
+				}
+			}
+
+			/* Expanded Sidebar Navigation Drawer */
+			aside.is-expanded,
+			aside[data-state="expanded"] {
+				position: fixed !important;
+				top: 8px !important;
+				left: 8px !important;
+				right: 8px !important;
+				bottom: 8px !important;
+				width: auto !important;
+				height: auto !important;
+				max-height: none !important;
+				background: linear-gradient(180deg, #0f172a 0%, #0b0f19 100%) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 24px !important;
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
+				z-index: 99995 !important;
+				pointer-events: auto !important;
+				display: flex !important;
+				flex-direction: column !important;
+				justify-content: flex-start !important;
+				overflow: hidden !important;
+				padding: 16px 14px !important;
+			}
+
+			aside.is-expanded > div,
+			aside[data-state="expanded"] > div {
+				display: flex !important;
+				width: 100% !important;
+			}
+
+			aside.is-expanded .overflow-y-auto,
+			aside[data-state="expanded"] .overflow-y-auto {
+				flex: 1 1 0% !important;
+				min-height: 0 !important;
+				height: auto !important;
+				max-height: none !important;
+				overflow-y: auto !important;
+				-webkit-overflow-scrolling: touch !important;
+			}
+
+			aside a[data-slot="button"],
+			aside button[data-slot="button"] {
+				color: #f8fafc !important;
+				font-size: 15px !important;
+				font-weight: 500 !important;
+				min-height: 44px !important;
+				border-radius: 12px !important;
+				padding: 8px 12px !important;
+				margin-bottom: 4px !important;
+			}
+
+			aside a[data-slot="button"]:active,
+			aside button[data-slot="button"]:active {
+				background: rgba(56, 189, 248, 0.2) !important;
+				color: #ffffff !important;
+			}
+
+			aside svg {
+				color: #38bdf8 !important;
+				stroke: #38bdf8 !important;
+			}
+
+			/* Dialogs & Modal Windows (MCP quickstart, settings, etc.) */
+			[data-slot="dialog-content"]:not([data-state="closed"]),
+			[role="dialog"]:not([data-slot="sheet-content"]):not([data-state="closed"]),
+			[role="alertdialog"]:not([data-state="closed"]),
+			.dialog-content:not([data-state="closed"]) {
+				background: #0f172a !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 24px !important;
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
+				z-index: 99999 !important;
+				max-height: calc(100% - 40px) !important;
+				height: auto !important;
+				overflow-y: auto !important;
+				overscroll-behavior: contain !important;
+				padding: 22px 18px !important;
+			}
+
+			[data-slot="dialog-content"] [class*="max-h-"],
+			[role="dialog"] [class*="max-h-"] {
+				max-height: 420px !important;
+				height: auto !important;
+				overflow-y: auto !important;
+			}
+
 			/* Dropdown Menus, Popovers, Context Menus (Fork Conversation, Copy, Delete, etc.) */
-			[role="menu"], [role="listbox"], [data-bits-dropdown-menu-content], [data-bits-popover-content], [data-slot="dropdown-menu-content"], [data-slot="popover-content"], [data-slot="context-menu-content"], [data-floating-content], [data-radix-popper-content-wrapper], [data-slot="popover"] {
+			[role="menu"]:not([data-state="closed"]),
+			[role="listbox"]:not([data-state="closed"]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
+			[data-bits-popover-content]:not([data-state="closed"]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
+			[data-slot="popover-content"]:not([data-state="closed"]),
+			[data-slot="context-menu-content"]:not([data-state="closed"]),
+			[data-floating-content]:not([data-state="closed"]),
+			[data-radix-popper-content-wrapper]:not([data-state="closed"]),
+			[data-slot="popover"]:not([data-state="closed"]) {
 				background: #0f172a !important;
 				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
 				border-radius: 16px !important;
 				box-shadow: 0 16px 48px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
 				z-index: 999999 !important;
-				max-height: calc(100vh - 120px) !important;
-				max-height: calc(100dvh - 120px) !important;
+				max-height: calc(100% - 120px) !important;
 				overflow-y: auto !important;
 				overscroll-behavior: contain !important;
 				padding: 8px !important;
@@ -233,54 +365,34 @@
 				color: #ffffff !important;
 			}
 
-			/* Dialogs & Modal Windows (Delete confirm, settings, etc.) */
-			[role="dialog"]:not([data-slot="sheet-content"]), [role="alertdialog"], .modal, [data-dialog], .dialog-content {
-				background: #0f172a !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
-				border-radius: 22px !important;
-				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
-				z-index: 99999 !important;
-				max-height: 85vh !important;
-				max-height: 85dvh !important;
-				overflow-y: auto !important;
-				overscroll-behavior: contain !important;
-				padding: 24px 22px !important;
-			}
-
 			/* Active recording pulsing indicator */
-			.speech-recording-active [aria-label*="mic"],
-			.speech-recording-active [aria-label*="record"],
-			.speech-recording-active [title*="mic"],
-			.speech-recording-active [title*="record"] {
-				animation: pulseMic 1.2s infinite ease-in-out !important;
-				background-color: rgba(239, 68, 68, 0.35) !important;
-				color: #ef4444 !important;
+			.speech-recording-active .speech-active-btn,
+			.speech-recording-active button:has(.lucide-mic),
+			.speech-active-btn {
+				animation: pulseMic 1.1s infinite ease-in-out !important;
+				background-color: #ef4444 !important;
+				color: #ffffff !important;
+				box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.4), 0 0 16px rgba(239, 68, 68, 0.7) !important;
 			}
 
 			@keyframes pulseMic {
-				0%, 100% { transform: scale(1); opacity: 1; }
-				50% { transform: scale(1.15); opacity: 0.8; }
+				0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+				50% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
 			}
 		
-			/* =========================================================
-			   COMPUTEMESH TOAST & CHAT ACTION BUTTON CLEANUP STYLES
-			   ========================================================= */
-
 			/* Toast alerts styling: Glassmorphic dark card with cyan accent */
 			[data-sonner-toast], .toast, [role="status"], [role="alert"], [data-slot="toast"] {
 				background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96)) !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border: 1px solid rgba(56, 189, 248, 0.3) !important;
 				border-radius: 14px !important;
 				color: #f8fafc !important;
+				box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 16px rgba(56, 189, 248, 0.15) !important;
 				font-size: 13.5px !important;
-				font-weight: 500 !important;
-				line-height: 1.4 !important;
-				padding: 12px 16px !important;
-				box-shadow: 0 12px 36px rgba(0, 0, 0, 0.9), 0 0 20px rgba(56, 189, 248, 0.2) !important;
-				backdrop-filter: blur(16px) !important;
-				-webkit-backdrop-filter: blur(16px) !important;
+				line-height: 1.45 !important;
 				max-width: calc(100vw - 32px) !important;
 				word-break: break-word !important;
+				overflow-wrap: break-word !important;
+				padding: 12px 16px !important;
 			}
 
 			/* Chat Message Actions: Clean row alignment, no floating orphaned bars */
@@ -306,10 +418,6 @@
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">
 			<script>
-				// Android Native SpeechRecognizer Bridge & Web Speech API Polyfill
-				(function() {
-					window.__activeSpeechInstance = null;
-
 				// Global Toast, Error & HTML Sanitizer
 				(function() {
 					function cleanHtmlError(text) {
@@ -363,6 +471,11 @@
 					}
 				})();
 
+				// Android Native SpeechRecognizer Bridge & Web Speech API Polyfill
+				(function() {
+					window.__activeSpeechInstance = null;
+					window.__isSpeechActive = false;
+					window.__speechBaseText = '';
 
 					class AndroidSpeechRecognition extends EventTarget {
 						constructor() {
@@ -397,40 +510,136 @@
 					window.SpeechRecognition = window.SpeechRecognition || AndroidSpeechRecognition;
 					window.webkitSpeechRecognition = window.webkitSpeechRecognition || AndroidSpeechRecognition;
 
+					function findChatTextarea() {
+						return document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
+					}
+
+					function getMicButtons() {
+						const allBtns = Array.from(document.querySelectorAll('button, [role="button"]'));
+						return allBtns.filter(isMicButton);
+					}
+
+					function isMicButton(btn) {
+						if (!btn) return false;
+						// Explicitly exclude submit / send button and model selector
+						const type = (btn.getAttribute('type') || btn.type || '').toLowerCase();
+						if (type === 'submit') return false;
+						
+						const html = btn.innerHTML || '';
+						if (html.includes('lucide-arrow-up') || html.includes('lucide-package') || html.includes('Senden')) return false;
+						if (btn.querySelector('.lucide-arrow-up, .lucide-package')) return false;
+
+						// Explicitly match mic button
+						if (btn.classList.contains('speech-active-btn')) return true;
+						if (btn.querySelector('.lucide-mic') || html.includes('lucide-mic')) return true;
+						if (html.includes('M12 2a3 3') || html.includes('19 10v2a7')) return true;
+						
+						const srOnly = btn.querySelector('.sr-only');
+						if (srOnly && srOnly.textContent.toLowerCase().includes('aufnahme')) return true;
+						
+						const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+						if (label.includes('aufnahme') || label.includes('record') || label.includes('mic') || label.includes('dikt')) return true;
+
+						return false;
+					}
+
+					function updateTextareaValue(textarea, text) {
+						if (!textarea) return;
+						if (textarea.tagName === 'TEXTAREA' || textarea.tagName === 'INPUT') {
+							const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
+							                     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+							if (nativeSetter) {
+								nativeSetter.call(textarea, text);
+							} else {
+								textarea.value = text;
+							}
+							textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+							textarea.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+						} else {
+							textarea.innerText = text;
+							textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+						}
+					}
+
+					function autoSubmitChatForm() {
+						const textarea = findChatTextarea();
+						if (!textarea) return;
+						const val = (textarea.value || textarea.innerText || '').trim();
+						if (!val) return;
+
+						setTimeout(() => {
+							const form = textarea.closest('form');
+							if (form && typeof form.requestSubmit === 'function') {
+								try {
+									form.requestSubmit();
+									return;
+								} catch (e) {
+									console.warn('requestSubmit error:', e);
+								}
+							}
+							const submitBtn = form ? form.querySelector('button[type="submit"]') : document.querySelector('button[type="submit"]');
+							if (submitBtn && !submitBtn.disabled) {
+								submitBtn.click();
+							}
+						}, 120);
+					}
+
+					window.__speechHasResult = false;
+
 					window.__onAndroidSpeechEvent = function(type, text) {
 						const inst = window.__activeSpeechInstance;
+						const textarea = findChatTextarea();
+						const micBtns = getMicButtons();
+
 						if (type === 'onstart') {
-							if (inst && inst.onstart) inst.onstart();
+							window.__isSpeechActive = true;
+							window.__speechHasResult = false;
 							document.body.classList.add('speech-recording-active');
+							if (textarea) {
+								window.__speechBaseText = (textarea.value || textarea.innerText || '').trim();
+								textarea.setAttribute('data-prev-placeholder', textarea.placeholder || '');
+								textarea.placeholder = '🎙️ Sprechen Sie jetzt... (Spracheingabe aktiv)';
+							}
+							micBtns.forEach(b => {
+								b.classList.add('speech-active-btn');
+							});
+							if (inst && inst.onstart) inst.onstart();
 						} else if (type === 'onresult' || type === 'onpartialresult') {
 							const isFinal = (type === 'onresult');
-							const event = {
-								resultIndex: 0,
-								results: [[{ transcript: text, confidence: 1.0 }]]
-							};
-							event.results[0].isFinal = isFinal;
-							if (inst && inst.onresult) inst.onresult(event);
-
-							// Automatically update active textarea in DOM
-							const textarea = document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
-							if (textarea) {
-								if (textarea.tagName === 'TEXTAREA' || textarea.tagName === 'INPUT') {
-									if (isFinal) {
-										const prev = textarea.value || '';
-										textarea.value = (prev.trim() ? prev.trim() + ' ' : '') + text;
-									} else {
-										textarea.placeholder = text + '...';
-									}
-									textarea.dispatchEvent(new Event('input', { bubbles: true }));
-									textarea.dispatchEvent(new Event('change', { bubbles: true }));
+							if (textarea && text && text.trim()) {
+								const combinedText = window.__speechBaseText ? (window.__speechBaseText + ' ' + text.trim()) : text.trim();
+								updateTextareaValue(textarea, combinedText);
+								if (isFinal) {
+									window.__speechBaseText = combinedText;
+									window.__speechHasResult = true;
 								}
+							}
+							if (inst && inst.onresult) {
+								inst.onresult({
+									resultIndex: 0,
+									results: [[{ transcript: text, confidence: 1.0 }]],
+									isFinal: isFinal
+								});
 							}
 						} else if (type === 'onerror') {
 							if (inst && inst.onerror) inst.onerror({ error: text });
-							document.body.classList.remove('speech-recording-active');
 						} else if (type === 'onend') {
-							if (inst && inst.onend) inst.onend();
+							const shouldAutoSubmit = window.__speechHasResult;
+							window.__isSpeechActive = false;
 							document.body.classList.remove('speech-recording-active');
+							if (textarea) {
+								const prev = textarea.getAttribute('data-prev-placeholder');
+								if (prev) textarea.placeholder = prev;
+							}
+							micBtns.forEach(b => {
+								b.classList.remove('speech-active-btn');
+							});
+							if (inst && inst.onend) inst.onend();
+
+							if (shouldAutoSubmit) {
+								window.__speechHasResult = false;
+								autoSubmitChatForm();
+							}
 						}
 					};
 
@@ -438,15 +647,20 @@
 					document.addEventListener('click', function(e) {
 						const btn = e.target.closest('button, [role="button"]');
 						if (!btn) return;
-						const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-						const title = (btn.getAttribute('title') || '').toLowerCase();
-						const isMic = label.includes('mic') || label.includes('record') || label.includes('sprache') ||
-						              title.includes('mic') || title.includes('record') || title.includes('sprache') ||
-						              btn.className.includes('mic');
-						if (isMic) {
-							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
-								e.stopPropagation();
-								window.AndroidSpeechBridge.startSpeechRecognition(navigator.language || 'de-DE');
+						if (isMicButton(btn)) {
+							e.preventDefault();
+							e.stopPropagation();
+							e.stopImmediatePropagation();
+							if (window.AndroidSpeechBridge) {
+								if (window.__isSpeechActive) {
+									if (typeof window.AndroidSpeechBridge.stopSpeechRecognition === 'function') {
+										window.AndroidSpeechBridge.stopSpeechRecognition();
+									}
+								} else {
+									if (typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
+										window.AndroidSpeechBridge.startSpeechRecognition(navigator.language || 'de-DE');
+									}
+								}
 							}
 						}
 					}, true);

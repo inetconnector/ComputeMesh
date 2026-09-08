@@ -71,9 +71,7 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
             val json = JSONObject(trimmed)
             val key = json.optString("owner_key", json.optString("key", ""))
             val gateway = json.optString("gateway", json.optString("gateway_url", fallbackGateway))
-            if (key.isNotBlank()) {
-                return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
-            }
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
         }
     } catch (_: Throwable) {}
 
@@ -86,11 +84,9 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
                 ?: ""
             val gateway = uri.getQueryParameter("gateway")
                 ?: uri.getQueryParameter("gateway_url")
-                ?: if (trimmed.startsWith("http") && !trimmed.contains("?")) trimmed else fallbackGateway
+                ?: if ((trimmed.startsWith("http://") || trimmed.startsWith("https://")) && !trimmed.contains("?")) trimmed else fallbackGateway
 
-            if (key.isNotBlank()) {
-                return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
-            }
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
         }
     } catch (_: Throwable) {}
 
@@ -100,6 +96,14 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
             val keyVal = parts[1].split("&")[0].trim()
             return QrPairResult(ownerKey = keyVal, gatewayUrl = fallbackGateway)
         }
+    }
+
+    // Direct URL or IP:Port string (e.g. http://192.168.1.94:8080/ or 192.168.1.94:8080)
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return QrPairResult(ownerKey = "", gatewayUrl = trimmed)
+    }
+    if (trimmed.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))) {
+        return QrPairResult(ownerKey = "", gatewayUrl = "http://$trimmed")
     }
 
     // Direct key string (e.g. inet-... or owner_...)

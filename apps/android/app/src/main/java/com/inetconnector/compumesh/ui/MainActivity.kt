@@ -189,10 +189,19 @@ class MainActivity : ComponentActivity() {
     private fun saveFleetConfig(key: String, gateway: String) {
         val cleanKey = key.trim()
         val cleanGateway = gateway.trim()
-        val (effectiveKey, effectiveGateway) = if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
-            Pair("", cleanKey)
-        } else {
-            Pair(cleanKey, cleanGateway.ifBlank { "https://mesh.inetconnector.com" })
+
+        val isKeyUrl = cleanKey.startsWith("http://") || cleanKey.startsWith("https://") ||
+                cleanKey.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))
+
+        val effectiveGateway = when {
+            isKeyUrl -> if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) cleanKey else "http://$cleanKey"
+            cleanGateway.isNotBlank() -> cleanGateway
+            else -> "https://mesh.inetconnector.com"
+        }.trimEnd('/')
+
+        val effectiveKey = when {
+            isKeyUrl -> ""
+            else -> cleanKey
         }
 
         MeshNodeService.ownerKey = effectiveKey
@@ -345,6 +354,7 @@ fun ComputeMeshMainScreen(
                 2 -> LanMeshTab(
                     lanDiscovery = lanDiscovery,
                     currentGatewayUrl = currentGatewayUrl,
+                    currentOwnerKey = currentOwnerKey,
                     onSaveFleetConfig = onSaveFleetConfig
                 )
                 3 -> SetupTab(
@@ -376,15 +386,27 @@ class AndroidSpeechBridge(
 
             try {
                 speechRecognizer?.destroy()
+                if (!SpeechRecognizer.isRecognitionAvailable(activity)) {
+                    Log.w("SpeechBridge", "SpeechRecognizer service not available on device")
+                    notifyJs("onerror", "SpeechRecognizer not available")
+                    notifyJs("onend")
+                    return@runOnUiThread
+                }
+
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(activity).apply {
                     setRecognitionListener(object : RecognitionListener {
                         override fun onReadyForSpeech(params: Bundle?) {
+                            Log.i("SpeechBridge", "onReadyForSpeech")
                             notifyJs("onstart")
                         }
-                        override fun onBeginningOfSpeech() {}
+                        override fun onBeginningOfSpeech() {
+                            Log.i("SpeechBridge", "onBeginningOfSpeech")
+                        }
                         override fun onRmsChanged(rmsdB: Float) {}
                         override fun onBufferReceived(buffer: ByteArray?) {}
-                        override fun onEndOfSpeech() {}
+                        override fun onEndOfSpeech() {
+                            Log.i("SpeechBridge", "onEndOfSpeech")
+                        }
                         override fun onError(error: Int) {
                             val msg = when (error) {
                                 SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
@@ -398,35 +420,46 @@ class AndroidSpeechBridge(
                                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
                                 else -> "Error code $error"
                             }
-                            Log.w("SpeechBridge", "Recognition error: $msg")
+                            Log.w("SpeechBridge", "Recognition error: $msg ($error)")
                             notifyJs("onerror", msg)
+                            notifyJs("onend")
                         }
                         override fun onResults(results: Bundle?) {
                             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             val text = matches?.firstOrNull() ?: ""
                             Log.i("SpeechBridge", "Recognized text: $text")
-                            notifyJs("onresult", text)
+                            if (text.isNotBlank()) {
+                                notifyJs("onresult", text)
+                            }
                             notifyJs("onend")
                         }
                         override fun onPartialResults(partialResults: Bundle?) {
                             val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             val text = matches?.firstOrNull() ?: ""
-                            notifyJs("onpartialresult", text)
+                            if (text.isNotBlank()) {
+                                notifyJs("onpartialresult", text)
+                            }
                         }
                         override fun onEvent(eventType: Int, params: Bundle?) {}
                     })
                 }
 
+                val targetLang = if (!lang.isNullOrBlank()) lang else Locale.getDefault().toLanguageTag()
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (!lang.isNullOrBlank()) lang else Locale.getDefault().toLanguageTag())
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLang)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLang)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, activity.packageName)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
                 }
                 speechRecognizer?.startListening(intent)
             } catch (e: Throwable) {
                 Log.e("SpeechBridge", "Failed to start speech recognizer: ${e.message}")
                 notifyJs("onerror", e.message ?: "Failed to start speech recognizer")
+                notifyJs("onend")
             }
         }
     }
@@ -509,10 +542,14 @@ fun MiniCpmChatTab(
 
                     if (activity != null) {
                         addJavascriptInterface(
-                            AndroidSpeechBridge(activity, this) { onGranted ->
-                                pendingAudioCallback = onGranted
-                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            },
+                            AndroidSpeechBridge(
+                                activity,
+                                this,
+                                onRequestAudioPermission = { onGranted ->
+                                    pendingAudioCallback = onGranted
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            ),
                             "AndroidSpeechBridge"
                         )
                     }
@@ -790,13 +827,13 @@ fun StatusRow(label: String, value: String, statusGood: Boolean) {
 fun LanMeshTab(
     lanDiscovery: DirectLanDiscovery,
     currentGatewayUrl: String,
+    currentOwnerKey: String = "",
     onSaveFleetConfig: (String, String) -> Unit = { _, _ -> }
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var isScanning by remember { mutableStateOf(false) }
     val discoveredPeers = remember { mutableStateListOf<LocalMeshPeer>() }
-    var currentGateway by remember(currentGatewayUrl) { mutableStateOf(currentGatewayUrl) }
 
     fun runDiscovery() {
         if (isScanning) return
@@ -814,6 +851,16 @@ fun LanMeshTab(
         runDiscovery()
     }
 
+    val cleanActiveGateway = currentGatewayUrl.trim().trimEnd('/')
+    val isLanActive = cleanActiveGateway.isNotBlank() && cleanActiveGateway != "https://mesh.inetconnector.com"
+
+    fun isPeerConnected(peer: LocalMeshPeer): Boolean {
+        val peerHttp = "http://${peer.ipAddress}:${peer.port}".trimEnd('/')
+        val peerHttps = "https://${peer.ipAddress}:${peer.port}".trimEnd('/')
+        return cleanActiveGateway == peerHttp || cleanActiveGateway == peerHttps ||
+                (cleanActiveGateway.contains(peer.ipAddress) && !cleanActiveGateway.contains("inetconnector.com"))
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -829,40 +876,45 @@ fun LanMeshTab(
 
         // Active Connection Status Card
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             color = CardSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isLanActive) EmeraldSuccess.copy(alpha = 0.6f) else CardSurfaceBorder
+            ),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (currentGateway.startsWith("http://192.") || currentGateway.startsWith("http://10.") || currentGateway.startsWith("http://172.")) Icons.Default.Router else Icons.Default.Cloud,
+                    imageVector = if (isLanActive) Icons.Default.Router else Icons.Default.Cloud,
                     contentDescription = null,
-                    tint = if (currentGateway.startsWith("http://192.") || currentGateway.startsWith("http://10.") || currentGateway.startsWith("http://172.")) EmeraldSuccess else CyanAccent,
-                    modifier = Modifier.size(24.dp)
+                    tint = if (isLanActive) EmeraldSuccess else CyanAccent,
+                    modifier = Modifier.size(26.dp)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Aktiver Inferenz-Endpunkt:", color = TextSecondary, fontSize = 11.sp)
                     Text(
-                        currentGateway.ifBlank { "Cloud Gateway (https://mesh.inetconnector.com)" },
-                        color = TextPrimary,
-                        fontSize = 12.sp,
+                        if (isLanActive) currentGatewayUrl else "Cloud Gateway (https://mesh.inetconnector.com)",
+                        color = if (isLanActive) EmeraldSuccess else TextPrimary,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                    if (isLanActive) {
+                        Text("✓ 100% lokaler P2P Heimnetzwerk-Traffic", color = EmeraldSuccess.copy(alpha = 0.85f), fontSize = 10.5.sp)
+                    }
                 }
-                if (currentGateway != "https://mesh.inetconnector.com" && currentGateway.isNotBlank()) {
+                if (isLanActive) {
                     TextButton(
                         onClick = {
-                            currentGateway = "https://mesh.inetconnector.com"
-                            onSaveFleetConfig(MeshNodeService.ownerKey, "https://mesh.inetconnector.com")
-                            Toast.makeText(context, "Auf Cloud Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                            onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
+                            Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
                         }
                     ) {
-                        Text("Reset", color = AmberWarning, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Trennen", color = AmberWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -906,7 +958,7 @@ fun LanMeshTab(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(discoveredPeers) { peer ->
                     val peerTargetUrl = "http://${peer.ipAddress}:${peer.port}"
-                    val isConnected = currentGateway.trimEnd('/') == peerTargetUrl.trimEnd('/')
+                    val isConnected = isPeerConnected(peer)
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
@@ -949,8 +1001,7 @@ fun LanMeshTab(
                             } else {
                                 Button(
                                     onClick = {
-                                        currentGateway = peerTargetUrl
-                                        onSaveFleetConfig(MeshNodeService.ownerKey, peerTargetUrl)
+                                        onSaveFleetConfig(currentOwnerKey, peerTargetUrl)
                                         Toast.makeText(
                                             context,
                                             "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
@@ -985,22 +1036,23 @@ fun SetupTab(
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    val isLanConnected = currentGatewayUrl.isNotBlank() && currentGatewayUrl != "https://mesh.inetconnector.com"
+    val cleanActiveGateway = currentGatewayUrl.trim().trimEnd('/')
+    val isLanConnected = cleanActiveGateway.isNotBlank() && cleanActiveGateway != "https://mesh.inetconnector.com"
     val isFleetBound = currentOwnerKey.isNotBlank()
     val isCoupled = isFleetBound || isLanConnected
 
     val pairingBadgeText = when {
         isFleetBound && isLanConnected -> "✓ Flotte & LAN gekoppelt"
-        isFleetBound -> "✓ Flotte gekoppelt"
         isLanConnected -> "✓ LAN Node verbunden"
-        else -> "Nicht gekoppelt"
+        isFleetBound -> "✓ Flotte gekoppelt"
+        else -> "Standard Cloud"
     }
 
     val pairingStatusSubtitle = when {
-        isFleetBound && isLanConnected -> "Flotten-Key aktiv • Inferenz über lokales Gateway ($currentGatewayUrl)"
-        isFleetBound -> "Gekoppelt mit ComputeMesh Flotte für Telemetrie & Earnings."
+        isFleetBound && isLanConnected -> "Gekoppelt mit ComputeMesh Flotte • Inferenz über lokales LAN Gateway ($currentGatewayUrl)"
         isLanConnected -> "Verbunden mit lokalem Inferenz-Knoten ($currentGatewayUrl). Telemetrie & Inferenz laufen direkt über dein Heimnetzwerk."
-        else -> "Scanne den Barcode / QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen."
+        isFleetBound -> "Gekoppelt mit ComputeMesh Flotte für Telemetrie & Earnings."
+        else -> "Scanne den QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen."
     }
 
     LazyColumn(
@@ -1089,11 +1141,21 @@ fun SetupTab(
             // Manual Key Input
             OutlinedTextField(
                 value = ownerKeyInput,
-                onValueChange = {
-                    ownerKeyInput = it
-                    onSaveFleetConfig(it, gatewayUrlInput)
+                onValueChange = { input ->
+                    val clean = input.trim()
+                    if (clean.startsWith("http://") || clean.startsWith("https://") || clean.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))) {
+                        // User entered a URL/IP into OwnerKey -> intelligently route it directly to gatewayUrl!
+                        val url = if (clean.startsWith("http://") || clean.startsWith("https://")) clean else "http://$clean"
+                        ownerKeyInput = ""
+                        gatewayUrlInput = url
+                        onSaveFleetConfig("", url)
+                        Toast.makeText(context, "Inferenz-Gateway aktualisiert: $url", Toast.LENGTH_SHORT).show()
+                    } else {
+                        ownerKeyInput = input
+                        onSaveFleetConfig(input, gatewayUrlInput)
+                    }
                 },
-                label = { Text("Owner Key / Flotten-Secret") },
+                label = { Text("Owner Key / Flotten-Secret (Optional für Cloud)") },
                 placeholder = { Text("inet-... oder owner_...") },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
@@ -1109,11 +1171,11 @@ fun SetupTab(
                         if (!clip.isNullOrBlank()) {
                             val parsed = parseQrPayload(clip.toString(), gatewayUrlInput)
                             ownerKeyInput = parsed.ownerKey
-                            if (parsed.gatewayUrl != "https://mesh.inetconnector.com") {
+                            if (parsed.gatewayUrl.isNotBlank()) {
                                 gatewayUrlInput = parsed.gatewayUrl
                             }
-                            onSaveFleetConfig(parsed.ownerKey, gatewayUrlInput)
-                            Toast.makeText(context, "Owner Key aus Zwischenablage eingefügt!", Toast.LENGTH_SHORT).show()
+                            onSaveFleetConfig(parsed.ownerKey, parsed.gatewayUrl)
+                            Toast.makeText(context, "Konfiguration aus Zwischenablage übernommen!", Toast.LENGTH_SHORT).show()
                         }
                     }) {
                         Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = CyanAccent)
@@ -1127,15 +1189,16 @@ fun SetupTab(
         item {
             OutlinedTextField(
                 value = gatewayUrlInput,
-                onValueChange = {
-                    gatewayUrlInput = it
-                    onSaveFleetConfig(ownerKeyInput, it)
+                onValueChange = { input ->
+                    gatewayUrlInput = input
+                    onSaveFleetConfig(ownerKeyInput, input)
                 },
                 label = { Text("Control-Plane Gateway / Inferenz-Endpunkt") },
+                placeholder = { Text("https://mesh.inetconnector.com oder http://192.168.1.x:8080") },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
-                    focusedBorderColor = CyanAccent,
+                    focusedBorderColor = if (isLanConnected) EmeraldSuccess else CyanAccent,
                     unfocusedBorderColor = CardSurfaceBorder,
                     focusedContainerColor = CardSurface,
                     unfocusedContainerColor = CardSurface

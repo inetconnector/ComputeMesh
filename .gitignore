@@ -1,5 +1,6 @@
 # Local and generated files
 tmp/
+scratch/
 *.log
 *.tmp
 
