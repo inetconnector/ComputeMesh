@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MiniCPM5-2B Inferenz-API &amp; Mobile Edge — ComputeMesh</title>
+  <meta name="description" content="Ultra-effiziente 2.5B Parameter On-Device KI für Android Smartphones, CPUs und Edge-Nodes im dezentralen ComputeMesh.">
+  <meta name="keywords" content="MiniCPM5-2B, MiniCPM-2B, On-Device KI, Mobile LLM, ARM NEON, Android KI, GPU Mesh, LLM Inferenz, ComputeMesh, OpenAI kompatibel, DSGVO KI">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://mesh.inetconnector.com/models/minicpm5-2b">
+  
+  <!-- Open Graph -->
+  <meta property="og:site_name" content="ComputeMesh">
+  <meta property="og:title" content="MiniCPM5-2B Inferenz-API &amp; Mobile Edge — ComputeMesh">
+  <meta property="og:description" content="Ultra-effiziente 2.5B Parameter On-Device KI für Android Smartphones, CPUs und Edge-Nodes im dezentralen ComputeMesh.">
+  <meta property="og:type" content="product">
+  <meta property="og:url" content="https://mesh.inetconnector.com/models/minicpm5-2b">
+  <meta property="og:image" content="https://mesh.inetconnector.com/assets/viral/benchmark-cost-comparison.png">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MiniCPM5-2B Inferenz-API &amp; Mobile Edge — ComputeMesh">
+  <meta name="twitter:description" content="Ultra-effiziente 2.5B Parameter On-Device KI für Android Smartphones, CPUs und Edge-Nodes im dezentralen ComputeMesh.">
+  <meta name="twitter:image" content="https://mesh.inetconnector.com/assets/viral/benchmark-cost-comparison.png">
+
+  <link rel="stylesheet" href="../portal.css?v=2.9">
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "MiniCPM5-2B Inference API on ComputeMesh",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Android, Linux, Windows, macOS",
+        "description": "Ultra-effiziente 2.5B Parameter On-Device KI für Android Smartphones, CPUs und Edge-Nodes.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0.05",
+          "priceCurrency": "USD",
+          "description": "Pro 1.000.000 generierte Tokens"
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://mesh.inetconnector.com/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Modelle",
+            "item": "https://mesh.inetconnector.com/#features"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "MiniCPM5-2B",
+            "item": "https://mesh.inetconnector.com/models/minicpm5-2b"
+          }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Was macht MiniCPM5-2B ideal für Smartphones und CPU-Nodes?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "MiniCPM5-2B wurde von OpenBMB speziell für ressourceneffiziente On-Device-Ausführung entwickelt. Mit 2.52B Parametern und Q4_K_M-Quantisierung benötigt das Modell nur ca. 1.5–2 GB RAM und erreicht auf ARM64 CPUs extrem schnelle Inferenz ohne Hitzeprobleme."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Wie schützt ComputeMesh die Privatsphäre auf Android?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "In der ComputeMesh Android-App läuft die Inferenz 100% on-device oder im lokalen LAN über P2P UDP Discovery (Port 13379). Es fließen keinerlei Prompt- oder Token-Daten über zentrale Server."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-top-row" style="display:flex; justify-content:space-between; align-items:center; padding: 0.75rem 1.5rem;">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge">LIVE MESH</span>
+      </a>
+      <nav class="nav-links" style="display:flex; gap:1.5rem; align-items:center;">
+        <a href="/#features">Modelle</a>
+        <a href="/fleet.html">Flotte</a>
+        <a href="/docs.html">Dokumentation</a>
+        <a href="/#calculator">Preise</a>
+        <a href="/#downloads" class="btn btn-secondary btn-sm">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="max-width: 1000px; margin: 3rem auto; padding: 0 1.5rem;">
+    <!-- Breadcrumbs -->
+    <nav style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 2rem;">
+      <a href="/" style="color: #38bdf8; text-decoration: none;">Home</a> &gt;
+      <a href="/#features" style="color: #38bdf8; text-decoration: none;">Modelle</a> &gt;
+      <span>MiniCPM5-2B</span>
+    </nav>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 2.5rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: #38bdf8; padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem;">
+          <span>📱</span> <span>ON-DEVICE &amp; CPU EDGE MODEL</span>
+        </div>
+        <h1 style="font-size: 2.4rem; font-weight: 800; margin: 0 0 0.75rem 0; color: #f8fafc;">
+          MiniCPM5-2B <span class="gradient-text">Inferenz</span>
+        </h1>
+        <p style="font-size: 1.1rem; color: #94a3b8; max-width: 650px; margin: 0; line-height: 1.6;">
+          Ultra-kompaktes 2.5B Flaggschiff-Edge-Modell von OpenBMB. Optimiert für On-Device Inferenz auf Smartphone-CPUs, ARM64 Vektorisierung, Mini-PCs und ressourcensparende Mesh-Nodes.
+        </p>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 14px; padding: 1.25rem 1.75rem; text-align: right; min-width: 200px;">
+        <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Mesh-Preis</div>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #10b981; margin: 0.25rem 0;">$0.05</div>
+        <div style="font-size: 0.75rem; color: #64748b;">pro 1.000.000 Tokens (~0.05 CM)</div>
+      </div>
+    </div>
+
+    <!-- Specs Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 3rem;">
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Parameter</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #f8fafc;">2.52 Milliarden</div>
+        <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Standard Llama-Architektur</div>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">RAM-Bedarf</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #38bdf8;">~1.5 – 2.0 GB</div>
+        <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Q4_K_M GGUF Quantisierung</div>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Hardware-Fokus</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #10b981;">ARM64 &amp; x86 CPU</div>
+        <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">NEON / DotProd / FP16 SIMD</div>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 1.25rem;">
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Datenschutz</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #818cf8;">Zero-Server Traffic</div>
+        <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">100% On-Device / LAN P2P</div>
+      </div>
+    </div>
+
+    <!-- Code Integration Section -->
+    <section style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; padding: 2rem; margin-bottom: 3rem;">
+      <h2 style="font-size: 1.4rem; font-weight: 700; color: #f8fafc; margin-top: 0; margin-bottom: 1rem;">
+        ⚡ 1-Klick OpenAI-kompatible Einbindung
+      </h2>
+      <p style="font-size: 0.95rem; color: #94a3b8; margin-bottom: 1.5rem;">
+        Binde MiniCPM5-2B mit minimaler Latenz in bestehende Python-, Node.js- oder cURL-Pipelines ein:
+      </p>
+
+      <div style="background: #090d16; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #f8fafc; overflow-x: auto; line-height: 1.6;">
+<span style="color: #64748b;"># Python OpenAI SDK Integration</span>
+<span style="color: #818cf8;">from</span> openai <span style="color: #818cf8;">import</span> OpenAI
+
+client = OpenAI(
+    base_url=<span style="color: #10b981;">"https://mesh.inetconnector.com/v1"</span>,
+    api_key=<span style="color: #10b981;">"cm_live_your_api_key_here"</span>
+)
+
+response = client.chat.completions.create(
+    model=<span style="color: #38bdf8;">"openbmb/minicpm5-2b"</span>,
+    messages=[
+        {<span style="color: #38bdf8;">"role"</span>: <span style="color: #10b981;">"system"</span>, <span style="color: #38bdf8;">"content"</span>: <span style="color: #10b981;">"Du bist ein hilfsbereiter, präziser KI-Assistent."</span>},
+        {<span style="color: #38bdf8;">"role"</span>: <span style="color: #10b981;">"user"</span>, <span style="color: #38bdf8;">"content"</span>: <span style="color: #10b981;">"Erkläre mir dezentrales Edge-Computing in 2 Sätzen."</span>}
+    ],
+    temperature=<span style="color: #f59e0b;">0.7</span>,
+    max_tokens=<span style="color: #f59e0b;">256</span>
+)
+
+print(response.choices[<span style="color: #f59e0b;">0</span>].message.content)
+      </div>
+    </section>
+
+    <!-- Mobile App Download Banner -->
+    <section style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08)); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 2.25rem; text-align: center; margin-bottom: 3rem;">
+      <h2 style="font-size: 1.6rem; font-weight: 800; color: #f8fafc; margin-top: 0; margin-bottom: 0.75rem;">
+        📱 Erlebe MiniCPM5-2B direkt auf deinem Android Smartphone
+      </h2>
+      <p style="font-size: 1rem; color: #94a3b8; max-width: 680px; margin: 0 auto 1.75rem auto; line-height: 1.6;">
+        Installiere die offizielle ComputeMesh Android App für On-Device KI-Chat, P2P LAN Discovery und passives Token-Mining bei angeschlossenem Ladekabel.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-primary" style="padding: 0.75rem 1.75rem; font-weight: 700; font-size: 1rem; text-decoration: none;">
+          ⬇️ Android APK herunterladen
+        </a>
+        <a href="/downloads/ComputeMesh-Android.aab" class="btn btn-secondary" style="padding: 0.75rem 1.5rem; font-size: 0.95rem; text-decoration: none;">
+          📦 Play Store AAB Bundle
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 2.5rem 1.5rem; margin-top: 4rem; text-align: center; color: #64748b; font-size: 0.85rem;">
+    <div class="container">
+      <p>&copy; 2026 ComputeMesh &middot; <a href="/privacy.html" style="color: #94a3b8;">Datenschutz</a> &middot; <a href="/terms.html" style="color: #94a3b8;">AGB</a> &middot; <a href="/impressum.html" style="color: #94a3b8;">Impressum</a></p>
+    </div>
+  </footer>
+</body>
+</html>

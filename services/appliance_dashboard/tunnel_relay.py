@@ -60,6 +60,11 @@ class CloudTunnelRelay:
         self.node_id = node_id or get_default_node_id()
         self.auth_token = auth_token or NODE_AUTH_TOKEN
         self._running = True
+        try:
+            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+            start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
+        except Exception:
+            pass
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
 
