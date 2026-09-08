@@ -40,6 +40,7 @@ from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegis
 from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
+from services.portal.routes_provider_identity import PortalProviderIdentityHandler
 from services.portal.mail_dispatcher import send_contact_inquiry
 from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
 
@@ -91,6 +92,7 @@ class PortalHandler(BaseHTTPRequestHandler):
     quotes_handler: PortalQuotesHandler = PortalQuotesHandler()
     passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
     payouts_handler: PortalPayoutsHandler = PortalPayoutsHandler()
+    provider_handler: PortalProviderIdentityHandler = PortalProviderIdentityHandler()
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
@@ -510,6 +512,17 @@ class PortalHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
+        if clean_path in ("/api/portal/fleet/provider-identity", "/api/fleet/provider-identity"):
+            data, status, cookie = self.provider_handler.get_provider_identity(self.headers)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path.startswith("/api/traders/") and clean_path.endswith("/public"):
+            prv_id = clean_path.removeprefix("/api/traders/").removesuffix("/public").strip()
+            data, status, cookie = self.provider_handler.get_public_trader_profile(prv_id)
+            self._send_json(data, status, set_cookie=cookie)
+            return
+
         if clean_path == "/api/portal/fleet":
             account = session_account_from_headers(self.headers)
             owner_key = ""
@@ -635,6 +648,18 @@ class PortalHandler(BaseHTTPRequestHandler):
             body = json.loads(raw_data.decode("utf-8"))
         except Exception:
             body = {}
+
+        if clean_path in ("/api/portal/fleet/provider-identity", "/api/fleet/provider-identity"):
+            data, status, cookie = self.provider_handler.update_provider_identity(self.headers, body)
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path in ("/api/portal/fleet/provider-identity/declaration", "/api/fleet/provider-identity/declaration"):
+            data, status, cookie = self.provider_handler.accept_trader_declaration(
+                self.headers, body, getattr(self, "client_address", None)
+            )
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
 
         if clean_path in (
             "/api/portal/fleet/payouts/onboard",

@@ -659,6 +659,9 @@
         <button id="btn-cockpit-payouts" class="cockpit-tab-btn" onclick="switchCockpitView('payouts')">
           <span data-i18n="fleet_nav_tab_payouts">💳 Einnahmen & Auszahlungen</span>
         </button>
+        <button id="btn-cockpit-compliance" class="cockpit-tab-btn" onclick="switchCockpitView('compliance')">
+          <span>⚖️ Betreiber &amp; Compliance (DSA Art. 30)</span>
+        </button>
         <button id="btn-cockpit-security" class="cockpit-tab-btn" onclick="switchCockpitView('security')">
           <span data-i18n="fleet_nav_tab_security">🛡️ Sicherheit & Passkeys</span>
         </button>
@@ -770,6 +773,165 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Betreiber & Compliance (DSA Art. 30/31) -->
+      <div id="cockpit-view-compliance" style="display: none;">
+        <!-- Status & Requirements Overview -->
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+            <div>
+              <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">⚖️ Anbieter- &amp; Betreiberidentität</h3>
+              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;">
+                Erfüllung der gesetzlichen Betreiberpflichten gem. Digital Services Act (DSA Art. 30/31) &amp; DSGVO
+              </p>
+            </div>
+            <span id="compliance-status-badge" class="sec-badge info">⚪ Lade Compliance-Status...</span>
+          </div>
+
+          <div id="compliance-missing-box" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:1rem;margin-bottom:1.25rem;">
+            <h4 style="margin:0 0 0.5rem 0;color:#fca5a5;font-size:0.95rem;">⚠️ Erforderliche Angaben für den Marketplace:</h4>
+            <ul id="compliance-missing-list" style="margin:0;padding-left:1.25rem;color:#fca5a5;font-size:0.88rem;"></ul>
+          </div>
+
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1rem;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
+            💡 <strong>Warum wird das benötigt?</strong> Als Anbieter von Rechenleistung am ComputeMesh-Marketplace treten Sie gegenüber Auftraggebern als gewerblicher oder privater Leistungserbringer auf. Die Verordnung (EU) 2022/2065 (Digital Services Act) verpflichtet Plattformbetreiber zur Rückverfolgbarkeit von Händlern (Art. 30 DSA). Ihre Daten werden sicher nach Art. 5/6 DSGVO verarbeitet. Finanzielle Auszahlungen und Bank-KYC werden separat über Stripe Connect abgewickelt.
+          </div>
+        </div>
+
+        <!-- Provider Profile Edit Form -->
+        <div class="fleet-card">
+          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:1rem;">📝 Rechtliche Anbieterinformationen</h3>
+          
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label style="font-weight:600;margin-bottom:0.4rem;display:block;">Anbieter-Rechtsform / Typ:</label>
+            <div style="display:flex;gap:1.5rem;align-items:center;">
+              <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                <input type="radio" name="entity_type" value="individual" id="entity-individual" checked onchange="toggleComplianceEntityType('individual')" style="accent-color:var(--accent-cyan);">
+                <span>Natürliche Person / Einzelunternehmer</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                <input type="radio" name="entity_type" value="business" id="entity-business" onchange="toggleComplianceEntityType('business')" style="accent-color:var(--accent-cyan);">
+                <span>Unternehmen / Organisation (GmbH, AG, UG etc.)</span>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1rem;">
+            <div class="form-group">
+              <label id="lbl-legal-name">Vollständiger Name (Vor- &amp; Nachname):</label>
+              <input id="prv-legal-name" type="text" class="form-control-custom" placeholder="z. B. Max Mustermann" spellcheck="false">
+            </div>
+            <div class="form-group">
+              <label>Geschäftsname / Brand (optional):</label>
+              <input id="prv-trade-name" type="text" class="form-control-custom" placeholder="z. B. Mustermann Computing" spellcheck="false">
+            </div>
+          </div>
+
+          <!-- Business specific fields -->
+          <div id="compliance-business-fields" style="display:none;background:rgba(15,23,42,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:1rem;">
+              <div class="form-group">
+                <label>Vertretungsberechtigte Person (z. B. GF):</label>
+                <input id="prv-legal-rep" type="text" class="form-control-custom" placeholder="z. B. Max Mustermann (Geschäftsführer)">
+              </div>
+              <div class="form-group">
+                <label>Handelsregister / Registergericht:</label>
+                <input id="prv-reg-name" type="text" class="form-control-custom" placeholder="z. B. Amtsgericht München">
+              </div>
+              <div class="form-group">
+                <label>Handelsregisternummer:</label>
+                <input id="prv-reg-num" type="text" class="form-control-custom" placeholder="z. B. HRB 123456">
+              </div>
+              <div class="form-group">
+                <label>Umsatzsteuer-ID / VAT-ID (optional):</label>
+                <input id="prv-vat-id" type="text" class="form-control-custom" placeholder="z. B. DE123456789">
+              </div>
+            </div>
+          </div>
+
+          <!-- Address Fields -->
+          <div style="margin-bottom:1rem;">
+            <h4 style="font-size:0.95rem;margin:0 0 0.75rem 0;color:#cbd5e1;">Ladungsfähige Geschäftsanschrift</h4>
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:0.75rem;">
+              <div class="form-group">
+                <label>Straße und Hausnummer:</label>
+                <input id="prv-addr-line1" type="text" class="form-control-custom" placeholder="Musterstraße 42">
+              </div>
+              <div class="form-group">
+                <label>Adresszusatz (optional):</label>
+                <input id="prv-addr-line2" type="text" class="form-control-custom" placeholder="Gebäude B, 2. OG">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:1rem;">
+              <div class="form-group">
+                <label>Postleitzahl:</label>
+                <input id="prv-addr-postal" type="text" class="form-control-custom" placeholder="10115">
+              </div>
+              <div class="form-group">
+                <label>Ort / Stadt:</label>
+                <input id="prv-addr-city" type="text" class="form-control-custom" placeholder="Berlin">
+              </div>
+              <div class="form-group">
+                <label>Land (ISO 2-stellig):</label>
+                <input id="prv-addr-country" type="text" class="form-control-custom" value="DE" maxlength="2" style="text-transform:uppercase;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact Channels -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+            <div class="form-group">
+              <label>Offizielle geschäftliche E-Mail:</label>
+              <input id="prv-email" type="email" class="form-control-custom" placeholder="contact@example.com">
+            </div>
+            <div class="form-group">
+              <label>Telefonnummer (optional):</label>
+              <input id="prv-phone" type="tel" class="form-control-custom" placeholder="+49 30 12345678">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:1rem;align-items:center;">
+            <button class="btn btn-primary" onclick="saveProviderProfile()">
+              💾 Anbieterprofil speichern
+            </button>
+            <span id="prv-save-msg" style="font-size:0.85rem;font-weight:600;"></span>
+          </div>
+        </div>
+
+        <!-- DSA Art. 30 Trader Self-Declaration -->
+        <div class="fleet-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+            <h3 style="margin:0;font-size:1.15rem;">📜 Gesetzliche Händler-Selbsterklärung (DSA Art. 30 Abs. 1 lit. e)</h3>
+            <span class="sec-badge info">Version: dsa_art30_v1.0</span>
+          </div>
+          <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;font-size:0.88rem;line-height:1.6;color:#e2e8f0;margin-bottom:1rem;">
+            „Ich verpflichte mich hiermit im Sinne von Artikel 30 Abs. 1 lit. e der Verordnung (EU) 2022/2065 (Digital Services Act), auf dem ComputeMesh-Marketplace ausschließlich rechtmäßige Produkte, IT-Ressourcen und Rechenleistungen anzubieten, die den anwendbaren Vorschriften des Unionsrechts entsprechen.“
+          </div>
+          <div style="margin-bottom:1rem;">
+            <label style="display:inline-flex;align-items:center;gap:0.6rem;cursor:pointer;font-size:0.9rem;">
+              <input type="checkbox" id="chk-dsa-declaration" style="accent-color:var(--accent-cyan);transform:scale(1.2);">
+              <span>Ich habe die Erklärung gelesen und bestätige diese rechtsverbindlich für alle von mir betriebenen Flotten.</span>
+            </label>
+          </div>
+          <div style="display:flex;gap:1rem;align-items:center;">
+            <button id="btn-submit-declaration" class="btn btn-primary" onclick="submitTraderDeclaration()">
+              ✍️ Selbsterklärung abgeben
+            </button>
+            <span id="prv-decl-msg" style="font-size:0.85rem;font-weight:600;"></span>
+          </div>
+        </div>
+
+        <!-- Public Disclosure Transparency Preview -->
+        <div class="fleet-card">
+          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:0.75rem;">👁️ Öffentliche Händlertransparenz-Vorschau (Art. 30 DSA)</h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem;">
+            So sehen Auftraggeber und Marketplace-Nutzer Ihr verifiziertes Anbieterprofil. Private Identifikatoren, Passkeys und genaue Wohnanschriften bleiben geschützt.
+          </p>
+          <div id="prv-public-preview" style="background:#090d16;border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.25rem;">
+            <div style="color:#64748b;font-size:0.85rem;">Lade Vorschau...</div>
           </div>
         </div>
       </div>
@@ -1828,6 +1990,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     function switchCockpitView(view) {
       const btnServers = document.getElementById("btn-cockpit-servers");
       const btnPayouts = document.getElementById("btn-cockpit-payouts");
+      const btnCompliance = document.getElementById("btn-cockpit-compliance");
       const btnSec = document.getElementById("btn-cockpit-security");
       const btnSetup = document.getElementById("btn-cockpit-setup");
       const btnOllama = document.getElementById("btn-cockpit-ollama");
@@ -1836,6 +1999,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
       if (btnServers) btnServers.classList.toggle("active", view === 'servers');
       if (btnPayouts) btnPayouts.classList.toggle("active", view === 'payouts');
+      if (btnCompliance) btnCompliance.classList.toggle("active", view === 'compliance');
       if (btnSec) btnSec.classList.toggle("active", view === 'security');
       if (btnSetup) btnSetup.classList.toggle("active", view === 'setup');
       if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
@@ -1844,6 +2008,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
       const vServers = document.getElementById("cockpit-view-servers");
       const vPayouts = document.getElementById("cockpit-view-payouts");
+      const vCompliance = document.getElementById("cockpit-view-compliance");
       const vSec = document.getElementById("cockpit-view-security");
       const vSetup = document.getElementById("cockpit-view-setup");
       const vOllama = document.getElementById("cockpit-view-ollama");
@@ -1852,6 +2017,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
       if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
       if (vPayouts) vPayouts.style.display = view === 'payouts' ? 'block' : 'none';
+      if (vCompliance) vCompliance.style.display = view === 'compliance' ? 'block' : 'none';
       if (vSec) vSec.style.display = view === 'security' ? 'block' : 'none';
       if (vSetup) vSetup.style.display = view === 'setup' ? 'block' : 'none';
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
@@ -1865,6 +2031,9 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       }
       if (view === 'payouts') {
         loadPayouts();
+      }
+      if (view === 'compliance') {
+        loadProviderCompliance();
       }
       if (view === 'mcp') {
         loadFleetMcpSettings();
@@ -3246,14 +3415,266 @@ for chunk in stream:
       saveFleetMcpSettings();
     }
 
-    function enableAllMcpTools(enable) {
-      if (enable) {
-        currentFleetDisabledTools = [];
-      } else {
-        currentFleetDisabledTools = [...ALL_MCP_TOOLS];
+    function toggleComplianceEntityType(type) {
+      const isBiz = type === 'business';
+      const bizFields = document.getElementById("compliance-business-fields");
+      if (bizFields) bizFields.style.display = isBiz ? "block" : "none";
+      const lblName = document.getElementById("lbl-legal-name");
+      if (lblName) {
+        lblName.textContent = isBiz 
+          ? "Vollständiger registrierter Firmenname (inkl. Rechtsform, z.B. GmbH):"
+          : "Vollständiger Name (Vor- & Nachname):";
       }
-      updateMcpUI();
-      saveFleetMcpSettings();
+    }
+
+    async function loadProviderCompliance() {
+      const badge = document.getElementById("compliance-status-badge");
+      const missingBox = document.getElementById("compliance-missing-box");
+      const missingList = document.getElementById("compliance-missing-list");
+      const previewBox = document.getElementById("prv-public-preview");
+
+      try {
+        const headers = {};
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        let url = "/api/portal/fleet/provider-identity";
+        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          if (res.status === 401 && badge) {
+            badge.className = "sec-badge sec-badge-warn";
+            badge.textContent = "🔒 Nicht angemeldet";
+          }
+          return;
+        }
+
+        const data = await res.json();
+        const evaluation = data.evaluation || {};
+        const identity = data.identity || {};
+
+        if (badge) {
+          const state = evaluation.state || "UNVERIFIED";
+          if (state === "VERIFIED") {
+            badge.className = "sec-badge sec-badge-ok";
+            badge.textContent = "✅ Verifiziert (Marketplace-Berechtigt)";
+          } else if (state === "PENDING") {
+            badge.className = "sec-badge info";
+            badge.textContent = "⏳ Prüfung ausstehend (Pending)";
+          } else if (state === "NEEDS_INFORMATION") {
+            badge.className = "sec-badge sec-badge-warn";
+            badge.textContent = "⚠️ Angaben erforderlich (Incomplete)";
+          } else if (state === "SUSPENDED" || state === "REJECTED") {
+            badge.className = "sec-badge sec-badge-err";
+            badge.textContent = "🚫 Gesperrt / Abgelehnt";
+          } else {
+            badge.className = "sec-badge sec-badge-warn";
+            badge.textContent = "⚪ Unvollständig / Nicht verifiziert";
+          }
+        }
+
+        const missing = evaluation.missing_requirements || [];
+        if (missingBox && missingList) {
+          if (missing.length > 0) {
+            missingBox.style.display = "block";
+            missingList.innerHTML = missing.map(m => `<li><strong>${escapeHtml(m.field || '')}:</strong> ${escapeHtml(m.message || m.code || '')}</li>`).join("");
+          } else {
+            missingBox.style.display = "none";
+            missingList.innerHTML = "";
+          }
+        }
+
+        if (data.has_profile && identity) {
+          const isBiz = identity.entity_type === "business";
+          const radInd = document.getElementById("entity-individual");
+          const radBiz = document.getElementById("entity-business");
+          if (isBiz && radBiz) radBiz.checked = true;
+          if (!isBiz && radInd) radInd.checked = true;
+          toggleComplianceEntityType(identity.entity_type);
+
+          if (document.getElementById("prv-legal-name")) document.getElementById("prv-legal-name").value = identity.legal_name || "";
+          if (document.getElementById("prv-trade-name")) document.getElementById("prv-trade-name").value = identity.trade_name || "";
+          if (document.getElementById("prv-legal-rep")) document.getElementById("prv-legal-rep").value = identity.legal_representative || "";
+
+          if (identity.registry_info) {
+            if (document.getElementById("prv-reg-name")) document.getElementById("prv-reg-name").value = identity.registry_info.registry_name || "";
+            if (document.getElementById("prv-reg-num")) document.getElementById("prv-reg-num").value = identity.registry_info.registration_number || "";
+          }
+          if (document.getElementById("prv-vat-id")) document.getElementById("prv-vat-id").value = identity.vat_id || "";
+
+          if (identity.address) {
+            if (document.getElementById("prv-addr-line1")) document.getElementById("prv-addr-line1").value = identity.address.line1 || "";
+            if (document.getElementById("prv-addr-line2")) document.getElementById("prv-addr-line2").value = identity.address.line2 || "";
+            if (document.getElementById("prv-addr-postal")) document.getElementById("prv-addr-postal").value = identity.address.postal_code || "";
+            if (document.getElementById("prv-addr-city")) document.getElementById("prv-addr-city").value = identity.address.city || "";
+            if (document.getElementById("prv-addr-country")) document.getElementById("prv-addr-country").value = identity.address.country_code || "DE";
+          }
+
+          if (document.getElementById("prv-email")) document.getElementById("prv-email").value = identity.email || "";
+          if (document.getElementById("prv-phone")) document.getElementById("prv-phone").value = identity.phone || "";
+        }
+
+        const declarations = data.declarations || [];
+        const targetVer = data.dsa_declaration_version || "dsa_art30_v1.0";
+        const hasActiveDecl = declarations.some(d => d.legal_text_version === targetVer);
+        const chkDecl = document.getElementById("chk-dsa-declaration");
+        const btnDecl = document.getElementById("btn-submit-declaration");
+        const declMsg = document.getElementById("prv-decl-msg");
+        if (hasActiveDecl) {
+          if (chkDecl) { chkDecl.checked = true; chkDecl.disabled = true; }
+          if (btnDecl) { btnDecl.disabled = true; btnDecl.textContent = "✓ Erklärung abgegeben"; }
+          if (declMsg) { declMsg.style.color = "#34d399"; declMsg.textContent = "Gültig für Art. 30 DSA (Version " + targetVer + ")"; }
+        } else {
+          if (chkDecl) { chkDecl.disabled = false; chkDecl.checked = false; }
+          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = "✍️ Selbsterklärung abgeben"; }
+          if (declMsg) { declMsg.textContent = ""; }
+        }
+
+        if (previewBox) {
+          if (!data.has_profile || !identity || !identity.legal_name) {
+            previewBox.innerHTML = `<span style="color:#94a3b8;font-size:0.88rem;">Profil noch nicht angelegt. Füllen Sie die rechtlichen Anbieterinformationen aus.</span>`;
+          } else {
+            const addr = identity.address || {};
+            const reg = identity.registry_info || {};
+            const isVer = evaluation.state === "VERIFIED";
+            previewBox.innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+                <div>
+                  <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;">${escapeHtml(identity.trade_name || identity.legal_name)}</div>
+                  <div style="font-size:0.85rem;color:#94a3b8;">${escapeHtml(identity.legal_name)} · <span style="text-transform:uppercase;">${escapeHtml(identity.entity_type || 'individual')}</span></div>
+                </div>
+                <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
+                  ${isVer ? '✅ Geprüfter DSA-Händler' : '⚠️ Identität unvollständig'}
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.75rem;font-size:0.85rem;color:#cbd5e1;background:rgba(255,255,255,0.03);padding:0.75rem;border-radius:8px;">
+                <div><strong>Standort:</strong> ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.country_code || '')} (${escapeHtml(addr.postal_code || '')})</div>
+                <div><strong>Kontakt:</strong> ${escapeHtml(identity.email || '')}</div>
+                ${reg.registration_number ? `<div><strong>Register:</strong> ${escapeHtml(reg.registry_name || '')} (${escapeHtml(reg.registration_number || '')})</div>` : ''}
+                ${identity.vat_id ? `<div><strong>USt-ID:</strong> ${escapeHtml(identity.vat_id)}</div>` : ''}
+                <div><strong>DSA Selbsterklärung:</strong> ${hasActiveDecl ? '✅ Liegt vor (' + escapeHtml(targetVer) + ')' : '❌ Ausstehend'}</div>
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading provider compliance:", err);
+      }
+    }
+
+    async function saveProviderProfile() {
+      const msgEl = document.getElementById("prv-save-msg");
+      if (msgEl) { msgEl.style.color = "#38bdf8"; msgEl.textContent = "Speichere..."; }
+
+      const radBiz = document.getElementById("entity-business");
+      const entityType = radBiz && radBiz.checked ? "business" : "individual";
+      const legalName = (document.getElementById("prv-legal-name")?.value || "").trim();
+      const tradeName = (document.getElementById("prv-trade-name")?.value || "").trim();
+      const legalRep = (document.getElementById("prv-legal-rep")?.value || "").trim();
+      const regName = (document.getElementById("prv-reg-name")?.value || "").trim();
+      const regNum = (document.getElementById("prv-reg-num")?.value || "").trim();
+      const vatId = (document.getElementById("prv-vat-id")?.value || "").trim();
+
+      const line1 = (document.getElementById("prv-addr-line1")?.value || "").trim();
+      const line2 = (document.getElementById("prv-addr-line2")?.value || "").trim();
+      const postalCode = (document.getElementById("prv-addr-postal")?.value || "").trim();
+      const city = (document.getElementById("prv-addr-city")?.value || "").trim();
+      const countryCode = (document.getElementById("prv-addr-country")?.value || "DE").trim().toUpperCase();
+
+      const email = (document.getElementById("prv-email")?.value || "").trim();
+      const phone = (document.getElementById("prv-phone")?.value || "").trim();
+
+      if (!legalName) {
+        if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Bitte rechtlichen Namen eingeben."; }
+        return;
+      }
+      if (!line1 || !postalCode || !city) {
+        if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Bitte vollständige Anschrift (Straße, PLZ, Ort) eingeben."; }
+        return;
+      }
+
+      const payload = {
+        entity_type: entityType,
+        legal_name: legalName,
+        trade_name: tradeName || null,
+        legal_representative: legalRep || null,
+        address: {
+          line1: line1,
+          line2: line2 || null,
+          postal_code: postalCode,
+          city: city,
+          country_code: countryCode
+        },
+        email: email,
+        phone: phone || null,
+        vat_id: vatId || null,
+        registry_info: entityType === "business" ? {
+          registry_country: countryCode,
+          registry_name: regName,
+          registration_number: regNum
+        } : null
+      };
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        let url = "/api/portal/fleet/provider-identity";
+        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          if (msgEl) { msgEl.style.color = "#34d399"; msgEl.textContent = "✓ Anbieterprofil erfolgreich gespeichert!"; }
+          setTimeout(() => { if (msgEl) msgEl.textContent = ""; }, 3500);
+          loadProviderCompliance();
+        } else {
+          if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Fehler: " + (data.error || "Speichern fehlgeschlagen"); }
+        }
+      } catch (err) {
+        if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Netzwerkfehler: " + err.message; }
+      }
+    }
+
+    async function submitTraderDeclaration() {
+      const chk = document.getElementById("chk-dsa-declaration");
+      const msgEl = document.getElementById("prv-decl-msg");
+
+      if (!chk || !chk.checked) {
+        if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Bitte die Bestätigungs-Checkbox aktivieren."; }
+        return;
+      }
+
+      if (msgEl) { msgEl.style.color = "#38bdf8"; msgEl.textContent = "Übermittle..."; }
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
+
+        let url = "/api/portal/fleet/provider-identity/declaration";
+        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ legal_text_version: "dsa_art30_v1.0", locale: "de" })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.status === "accepted") {
+          if (msgEl) { msgEl.style.color = "#34d399"; msgEl.textContent = "✓ Selbsterklärung erfolgreich hinterlegt!"; }
+          loadProviderCompliance();
+        } else {
+          if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Fehler: " + (data.error || "Übermittlung fehlgeschlagen"); }
+        }
+      } catch (err) {
+        if (msgEl) { msgEl.style.color = "#f87171"; msgEl.textContent = "Netzwerkfehler: " + err.message; }
+      }
     }
 
     function escapeHtml(str) {
