@@ -340,6 +340,8 @@ fun MiniCpmChatTab(
                         useWideViewPort = true
                         loadWithOverviewMode = true
                         mediaPlaybackRequiresUserGesture = false
+                        javaScriptCanOpenWindowsAutomatically = true
+                        setSupportMultipleWindows(false)
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
 
@@ -361,6 +363,42 @@ fun MiniCpmChatTab(
 
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                             android.util.Log.d("WebConsole", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (at ${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})")
+                            return true
+                        }
+
+                        override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                            android.app.AlertDialog.Builder(view?.context)
+                                .setTitle("ComputeMesh")
+                                .setMessage(message ?: "")
+                                .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                                .setOnCancelListener { result?.cancel() }
+                                .show()
+                            return true
+                        }
+
+                        override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                            android.app.AlertDialog.Builder(view?.context)
+                                .setTitle("ComputeMesh")
+                                .setMessage(message ?: "")
+                                .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                                .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                                .setOnCancelListener { result?.cancel() }
+                                .show()
+                            return true
+                        }
+
+                        override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
+                            val input = android.widget.EditText(view?.context).apply {
+                                setText(defaultValue ?: "")
+                            }
+                            android.app.AlertDialog.Builder(view?.context)
+                                .setTitle("ComputeMesh")
+                                .setMessage(message ?: "")
+                                .setView(input)
+                                .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm(input.text.toString()) }
+                                .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                                .setOnCancelListener { result?.cancel() }
+                                .show()
                             return true
                         }
                     }

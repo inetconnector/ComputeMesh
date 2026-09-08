@@ -72,7 +72,36 @@ class LocalChatServer(
                     JSONArray().put(JSONObject().put("id", 0).put("is_processing", false))
                 )
 
-                uri in listOf("/v1/models", "/models", "/api/models", "/v1/models/load", "/models/load") -> {
+                uri in listOf("/tools", "/api/tools", "/v1/tools") -> jsonResponse(
+                    JSONArray()
+                )
+
+                uri in listOf("/v1/streams/lookup", "/streams/lookup", "/api/streams/lookup") -> jsonResponse(
+                    JSONArray()
+                )
+
+                uri in listOf("/version", "/api/version", "/v1/version") -> jsonResponse(
+                    JSONObject().apply {
+                        put("version", "1.2.143")
+                        put("commit", "7371d49")
+                    }
+                )
+
+                uri in listOf("/api/tags", "/tags") -> jsonResponse(
+                    JSONObject().apply {
+                        put("models", JSONArray().apply {
+                            put(JSONObject().put("name", "qwen2.5:7b").put("model", "qwen2.5:7b"))
+                            put(JSONObject().put("name", "openbmb/minicpm5-2b").put("model", "openbmb/minicpm5-2b"))
+                        })
+                    }
+                )
+
+                uri in listOf("/models/sse", "/v1/models/sse") -> {
+                    val sseText = "data: {\"status\":\"ready\"}\n\n"
+                    addCorsHeaders(newFixedLengthResponse(Response.Status.OK, "text/event-stream; charset=utf-8", sseText))
+                }
+
+                uri in listOf("/v1/models", "/models", "/api/models", "/v1/models/load", "/models/load", "/models/unload", "/v1/models/unload") -> {
                     if (method == Method.GET) {
                         jsonResponse(
                             JSONObject().apply {
@@ -93,6 +122,10 @@ class LocalChatServer(
 
                 uri in listOf("/v1/chat/completions", "/chat/completions", "/completions", "/v1/completions", "/completion", "/api/chat") && method == Method.POST -> {
                     handleChatCompletionProxy(session)
+                }
+
+                uri.startsWith("/v1/") || uri.startsWith("/api/") || uri.startsWith("/models/") -> {
+                    jsonResponse(JSONObject().put("status", "ok"))
                 }
 
                 else -> serveStaticAsset(uri)
