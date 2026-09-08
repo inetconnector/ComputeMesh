@@ -205,6 +205,164 @@ class ConcertResearchTests(unittest.TestCase):
             self.assertGreater(lon, 5.8, f"Lon out of range for {c}: {lon}")
             self.assertLess(lon, 15.5, f"Lon out of range for {c}: {lon}")
 
+    def test_event_classification_rules_and_live_music(self):
+        from services.concert_research.classifier import classify_event
+
+        # 1. Yoga != concert (fitness_course)
+        cls_yoga = classify_event("Vinyasa Yoga Flow", "Yogainsel", "Entspannender Yoga-Kurs für alle Level")
+        self.assertEqual(cls_yoga.primary_category, "fitness_course")
+        self.assertFalse(cls_yoga.is_live_music)
+
+        # 2. Lauftreff != concert (fitness_course)
+        cls_lauf = classify_event("Lauftreff Laufen macht Freude", "Sportzentrum Hubland", "Gemeinsames Joggen im Park")
+        self.assertEqual(cls_lauf.primary_category, "fitness_course")
+        self.assertFalse(cls_lauf.is_live_music)
+
+        # 3. Party / Disko != concert (party_club)
+        for party_title in [
+            "Normale Donnerstagsdisko", "That escalated quickly", "Thirsty Thursday",
+            "Students Night", "Mädelsabend", "Mittwochs Double", "90er Party Clubnacht"
+        ]:
+            cls_p = classify_event(party_title, "Kurt & Komisch", "Party mit DJ Shmurda bis in die Morgenstunden")
+            self.assertEqual(cls_p.primary_category, "party_club", f"Failed for {party_title}")
+            self.assertFalse(cls_p.is_live_music, f"Party should not be live music for {party_title}")
+
+        # 4. Liveband == concert
+        cls_live = classify_event("The Exploited + Support Live on Stage", "B-Hof", "Punkrock live in Würzburg", genre_hint="punk")
+        self.assertEqual(cls_live.primary_category, "concert")
+        self.assertTrue(cls_live.is_live_music)
+        self.assertIn("punk", cls_live.genres)
+
+        # 5. Jazz Trio == concert
+        cls_jazz = classify_event("Miles Davis Tribute Jazz Trio", "Cairo", "Live Jazz Standards und Improvisation")
+        self.assertEqual(cls_jazz.primary_category, "concert")
+        self.assertTrue(cls_jazz.is_live_music)
+        self.assertIn("jazz", cls_jazz.genres)
+
+        # 6. Orchester == concert
+        cls_orch = classify_event("Bamberger Symphoniker Orchesterkonzert", "Konzerthalle", "Klassische Sinfonie Nr. 5")
+        self.assertEqual(cls_orch.primary_category, "concert")
+        self.assertTrue(cls_orch.is_live_music)
+        self.assertIn("classical", cls_orch.genres)
+
+        # 7. Singer/Songwriter == concert
+        cls_sing = classify_event("Acoustic Singer-Songwriter Night", "Kellerperle", "Akustik-Set mit eigenen Songs")
+        self.assertEqual(cls_sing.primary_category, "concert")
+        self.assertTrue(cls_sing.is_live_music)
+        self.assertIn("singer_songwriter", cls_sing.genres)
+
+        # 8. Kabarett == comedy_cabaret (with potential music secondary tag)
+        cls_kab = classify_event("Kabarett: Pigor singt. Eichhorn muss begleiten.", "Disharmonie", "Musikkabarett und Chansons")
+        self.assertEqual(cls_kab.primary_category, "comedy_cabaret")
+        self.assertIn("concert", cls_kab.secondary_categories)
+        self.assertTrue(cls_kab.is_live_music)
+
+        # 9. Musikfestival == festival + concert tag
+        cls_fest = classify_event("Würzburger Hafensommer Festival", "Mainkai", "Großes Musikfestival mit vielen Livebands")
+        self.assertEqual(cls_fest.primary_category, "festival")
+        self.assertIn("concert", cls_fest.secondary_categories)
+        self.assertTrue(cls_fest.is_live_music)
+
+        # 10. Weinfest mit Liveband == food_wine / festival + live music
+        cls_wein = classify_event("Würzburger Weindorf mit Liveband", "Marktplatz", "Wein, Kulinarik und Livemusik")
+        self.assertEqual(cls_wein.primary_category, "food_wine")
+        self.assertIn("concert", cls_wein.secondary_categories)
+        self.assertTrue(cls_wein.is_live_music)
+
+        # 11. Kunstausstellung == exhibition_art
+        cls_art = classify_event("Von Menschen-, Tier- & Bilderwelten", "Spitäle", "Ausstellung zeitgenössischer Malerei")
+        self.assertEqual(cls_art.primary_category, "exhibition_art")
+        self.assertFalse(cls_art.is_live_music)
+
+        # 12. Politik == politics_civic
+        cls_pol = classify_event("Meet & Greet Volt Würzburg", "Sternbäck", "Politisches Treffen und Kennenlernen")
+        self.assertEqual(cls_pol.primary_category, "politics_civic")
+        self.assertFalse(cls_pol.is_live_music)
+
+    def test_research_concerts_filters_out_parties_and_fitness(self):
+        today = date.today().isoformat()
+        sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
+
+        # 1. Insert Yoga
+        self.store.upsert_event(EventObservation("Vinyasa Yoga Flow", "Yogainsel", today, "https://v.example/1", "Venue", "https://v.example/1", description="Yoga Kurs"), city="Würzburg", source_id=sid)
+        # 2. Insert Party
+        self.store.upsert_event(EventObservation("Normale Donnerstagsdisko", "Kurt & Komisch", today, "https://v.example/2", "Venue", "https://v.example/2", description="DJ Party bis 4 Uhr"), city="Würzburg", source_id=sid)
+        # 3. Insert Real Concert
+        self.store.upsert_event(EventObservation("The Exploited + Support Live in Concert", "B-Hof", today, "https://v.example/3", "Venue", "https://v.example/3", description="Punkband live", genre="punk"), city="Würzburg", source_id=sid)
+
+        # Query research_concerts
+        res_concerts = self.engine.research_concerts(ResearchRequest(city="Würzburg", date_from=today, date_to=today))
+        titles_concerts = [e["title"] for e in res_concerts["today"]["events"]]
+
+        self.assertIn("The Exploited + Support Live in Concert", titles_concerts)
+        self.assertNotIn("Vinyasa Yoga Flow", titles_concerts)
+        self.assertNotIn("Normale Donnerstagsdisko", titles_concerts)
+
+        # Query research_events (Must contain all of them!)
+        res_events = self.engine.research_events(ResearchRequest(city="Würzburg", date_from=today, date_to=today))
+        titles_events = [e["title"] for e in res_events["today"]["events"]]
+
+        self.assertIn("The Exploited + Support Live in Concert", titles_events)
+        self.assertIn("Vinyasa Yoga Flow", titles_events)
+        self.assertIn("Normale Donnerstagsdisko", titles_events)
+
+        # Verify rubrized structure in research_events
+        rubrics = res_events["today"]["rubrics"]
+        self.assertIn("KONZERTE & LIVE-MUSIK", rubrics)
+        self.assertIn("PARTY & CLUB", rubrics)
+        self.assertIn("SPORT & FITNESS", rubrics)
+
+    def test_reclassify_events_tool_and_engine(self):
+        today = date.today().isoformat()
+        sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
+        self.store.upsert_event(EventObservation("Thirsty Thursday Club Party", "Das Boot", today, "https://v.example/boot", "Venue", "https://v.example/boot"), city="Würzburg", source_id=sid)
+
+        reclass_res = self.engine.reclassify_events(100)
+        self.assertGreaterEqual(reclass_res["reclassified"], 1)
+
+        # Verify through MCP application
+        app = MCPApplication(self.engine)
+        call_reclass = app.handle({
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "tools/call",
+            "params": {"name": "reclassify_events", "arguments": {"limit": 100}}
+        })
+        self.assertNotIn("error", call_reclass)
+        self.assertIn("reclassified", call_reclass["result"]["structuredContent"])
+
+    def test_mcp_new_tools_registration_and_calls(self):
+        today = date.today().isoformat()
+        sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
+        self.store.upsert_event(EventObservation("Indie Rock Night Live", "Cairo", today, "https://v.example/cairo", "Venue", "https://v.example/cairo", genre="indie"), city="Würzburg", source_id=sid)
+        self.store.upsert_event(EventObservation("Students Night", "Beerhouse", today, "https://v.example/beer", "Venue", "https://v.example/beer"), city="Würzburg", source_id=sid)
+
+        app = MCPApplication(self.engine)
+        tools_res = app.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+        tool_names = [t["name"] for t in tools_res["result"]["tools"]]
+        self.assertIn("research_events", tool_names)
+        self.assertIn("research_concerts", tool_names)
+        self.assertIn("research_parties", tool_names)
+        self.assertIn("research_culture", tool_names)
+        self.assertIn("reclassify_events", tool_names)
+
+        # Test research_parties
+        party_call = app.handle({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "research_parties",
+                "arguments": {"city": "Würzburg"}
+            }
+        })
+        self.assertNotIn("error", party_call)
+        party_events = party_call["result"]["structuredContent"]["today"]["events"]
+        party_titles = [e["title"] for e in party_events]
+        self.assertIn("Students Night", party_titles)
+        self.assertNotIn("Indie Rock Night Live", party_titles)
+
 
 if __name__=="__main__": unittest.main()
+
 

@@ -21,8 +21,14 @@ class ResearchRequest:
     date_to: str | None = None
     query_date: str | None = None
     day_scope: str = "today_tomorrow"
+    categories: list[str] = field(default_factory=list)
+    genres: list[str] = field(default_factory=list)
     genre_profile_key: str | None = None
     genre_terms: list[str] = field(default_factory=list)
+    include_adjacent_genres: bool = False
+    only_live_music: bool = False
+    sort: str = "recommended"  # "recommended" | "date" | "quality"
+    taste_profile: str | None = None
     force_refresh: bool = False
     max_events: int = 50
 
