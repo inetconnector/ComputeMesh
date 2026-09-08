@@ -9,6 +9,7 @@ from pathlib import Path
 import sqlite3
 from typing import Iterator
 
+from .geocoding import geocode_city
 from .models import EventObservation, SourceRecord, utc_now_iso
 from .security import normalize_url
 
@@ -96,6 +97,22 @@ class ConcertStore:
             if v.endswith(" " + city):
                 v = v[:-(len(city)+1)].strip()
         return v or "unknown venue"
+
+    def get_city(self, name: str) -> sqlite3.Row | None:
+        key = self.city_key(name)
+        with self.connection() as con:
+            return con.execute("SELECT * FROM cities WHERE city_key=?", (key,)).fetchone()
+
+    def resolve_city_coordinates(self, name: str) -> tuple[float, float] | tuple[None, None]:
+        """Resolves coordinates for a city from DB or built-in/remote geocoder, persisting them."""
+        row = self.get_city(name)
+        if row and row["latitude"] is not None and row["longitude"] is not None:
+            return float(row["latitude"]), float(row["longitude"])
+        lat, lon = geocode_city(name)
+        if lat is not None and lon is not None:
+            self.upsert_city(name, lat, lon)
+            return lat, lon
+        return (None, None)
 
     def upsert_city(self, name: str, latitude: float | None = None, longitude: float | None = None, timezone_name: str = "Europe/Berlin") -> str:
         key, now = self.city_key(name), utc_now_iso()
@@ -252,16 +269,54 @@ class ConcertStore:
                 con.execute("UPDATE sources SET event_yield=event_yield+? WHERE source_id=?",(1 if existing is None else 0,source_id))
             return event_id, existing is None
 
-    def research_rows(self, city: str, date_from: str, date_to: str, max_events: int) -> list[sqlite3.Row]:
+    def research_rows(
+        self,
+        city: str,
+        date_from: str,
+        date_to: str,
+        max_events: int,
+        *,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_km: float | None = None,
+    ) -> list[sqlite3.Row]:
+        city_key = self.city_key(city)
         with self.connection() as con:
-            return list(con.execute("""SELECT e.*,v.latitude venue_latitude,v.longitude venue_longitude,
-              COALESCE((SELECT alias FROM venue_aliases a WHERE a.venue_id=v.venue_id ORDER BY length(alias) DESC LIMIT 1),v.canonical_name) venue_name,
-              (SELECT es.event_url FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_url,
-              (SELECT es.source_name FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_name,
-              (SELECT COUNT(DISTINCT source_id) FROM event_sources es WHERE es.event_id=e.event_id) corroboration_count
-              FROM events e JOIN venues v ON v.venue_id=e.venue_id WHERE v.city_key=? AND e.date_iso BETWEEN ? AND ?
-              ORDER BY e.date_iso,COALESCE(e.start_time,'99:99'),e.confidence DESC LIMIT ?""",
-              (self.city_key(city),date_from,date_to,max_events)))
+            if latitude is not None and longitude is not None and radius_km and radius_km > 0:
+                import math
+                d_lat = (radius_km + 10.0) / 111.0
+                rad_lat = math.radians(latitude)
+                cos_lat = max(0.1, math.cos(rad_lat))
+                d_lon = (radius_km + 10.0) / (111.0 * cos_lat)
+                min_lat, max_lat = latitude - d_lat, latitude + d_lat
+                min_lon, max_lon = longitude - d_lon, longitude + d_lon
+
+                query = """SELECT e.*,v.latitude venue_latitude,v.longitude venue_longitude,v.city_key venue_city_key,
+                  COALESCE((SELECT alias FROM venue_aliases a WHERE a.venue_id=v.venue_id ORDER BY length(alias) DESC LIMIT 1),v.canonical_name) venue_name,
+                  (SELECT es.event_url FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_url,
+                  (SELECT es.source_name FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_name,
+                  (SELECT COUNT(DISTINCT source_id) FROM event_sources es WHERE es.event_id=e.event_id) corroboration_count
+                  FROM events e JOIN venues v ON v.venue_id=e.venue_id
+                  WHERE e.date_iso BETWEEN ? AND ?
+                    AND (
+                      v.city_key = ?
+                      OR (v.latitude BETWEEN ? AND ? AND v.longitude BETWEEN ? AND ?)
+                      OR v.city_key IN (
+                          SELECT city_key FROM cities
+                          WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
+                      )
+                    )
+                  ORDER BY e.date_iso,COALESCE(e.start_time,'99:99'),e.confidence DESC LIMIT ?"""
+                return list(con.execute(query, (date_from, date_to, city_key, min_lat, max_lat, min_lon, max_lon, min_lat, max_lat, min_lon, max_lon, max_events)))
+            else:
+                query = """SELECT e.*,v.latitude venue_latitude,v.longitude venue_longitude,v.city_key venue_city_key,
+                  COALESCE((SELECT alias FROM venue_aliases a WHERE a.venue_id=v.venue_id ORDER BY length(alias) DESC LIMIT 1),v.canonical_name) venue_name,
+                  (SELECT es.event_url FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_url,
+                  (SELECT es.source_name FROM event_sources es JOIN sources s ON s.source_id=es.source_id WHERE es.event_id=e.event_id ORDER BY CASE s.tier WHEN 'primary' THEN 0 ELSE 1 END,s.priority LIMIT 1) source_name,
+                  (SELECT COUNT(DISTINCT source_id) FROM event_sources es WHERE es.event_id=e.event_id) corroboration_count
+                  FROM events e JOIN venues v ON v.venue_id=e.venue_id WHERE v.city_key=? AND e.date_iso BETWEEN ? AND ?
+                  ORDER BY e.date_iso,COALESCE(e.start_time,'99:99'),e.confidence DESC LIMIT ?"""
+                return list(con.execute(query, (city_key, date_from, date_to, max_events)))
 
     def sources_for_city(self, city: str) -> list[sqlite3.Row]:
         with self.connection() as con:

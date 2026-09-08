@@ -77,5 +77,134 @@ class ConcertResearchTests(unittest.TestCase):
         self.store.record_query_stats("Würzburg Punk Konzert","genre",results=10,new_domains=2,new_events=3); self.store.record_query_stats("Würzburg foo","explore",results=10,new_domains=0,new_events=0,irrelevant=8)
         self.assertEqual(self.store.ranked_queries(10)[0]['query'],"Würzburg Punk Konzert")
 
+    def test_automatic_geocoding_and_radius_filtering(self):
+        # 1. Test automatic geocoding of Würzburg
+        lat, lon = self.store.resolve_city_coordinates("Würzburg")
+        self.assertIsNotNone(lat)
+        self.assertIsNotNone(lon)
+        self.assertAlmostEqual(lat, 49.793912, places=3)
+        self.assertAlmostEqual(lon, 9.951214, places=3)
+
+        # Verify persisted in cities table
+        city_row = self.store.get_city("Würzburg")
+        self.assertIsNotNone(city_row)
+        self.assertAlmostEqual(float(city_row["latitude"]), 49.793912, places=3)
+
+        # 2. Insert sources and events in different cities:
+        # Würzburg (0 km), Schweinfurt (~36 km -> inside 100km), München (~220 km -> outside 100km)
+        today = date.today().isoformat()
+        s_wue, _ = self.store.upsert_source(SourceRecord("WueClub", "https://wue.example/events", tier="primary", city="Würzburg"))
+        s_sw, _ = self.store.upsert_source(SourceRecord("SWClub", "https://sw.example/events", tier="primary", city="Schweinfurt"))
+        s_muc, _ = self.store.upsert_source(SourceRecord("MUCClub", "https://muc.example/events", tier="primary", city="München"))
+
+        self.store.resolve_city_coordinates("Schweinfurt")
+        self.store.resolve_city_coordinates("München")
+
+        # Event in Würzburg
+        self.store.upsert_event(
+            EventObservation("Würzburg Local Band", "B-Hof", today, "https://wue.example/events", "WueClub", "https://wue.example/1", venue_latitude=49.7939, venue_longitude=9.9512),
+            city="Würzburg",
+            source_id=s_wue,
+        )
+        # Event in Schweinfurt (~36 km from Würzburg)
+        self.store.upsert_event(
+            EventObservation("Schweinfurt Rock Band", "Stattbahnhof", today, "https://sw.example/events", "SWClub", "https://sw.example/2", venue_latitude=50.0454, venue_longitude=10.2334),
+            city="Schweinfurt",
+            source_id=s_sw,
+        )
+        # Event in München (~220 km from Würzburg)
+        self.store.upsert_event(
+            EventObservation("München Arena Concert", "Olympiahalle", today, "https://muc.example/events", "MUCClub", "https://muc.example/3", venue_latitude=48.1351, venue_longitude=11.5820),
+            city="München",
+            source_id=s_muc,
+        )
+
+        # Query Würzburg with radius 100 km (WITHOUT passing latitude/longitude)
+        req = ResearchRequest(city="Würzburg", radius_km=100.0, date_from=today, date_to=today)
+        res = self.engine.research(req)
+
+        # Coordinates should have been automatically populated on req
+        self.assertIsNotNone(req.latitude)
+        self.assertIsNotNone(req.longitude)
+
+        titles = [e["title"] for e in res["today"]["events"]]
+        self.assertIn("Würzburg Local Band", titles)
+        self.assertIn("Schweinfurt Rock Band", titles)
+        self.assertNotIn("München Arena Concert", titles)
+
+        # Query Würzburg with strict 20 km radius (should exclude Schweinfurt)
+        req2 = ResearchRequest(city="Würzburg", radius_km=20.0, date_from=today, date_to=today)
+        res2 = self.engine.research(req2)
+        titles2 = [e["title"] for e in res2["today"]["events"]]
+        self.assertIn("Würzburg Local Band", titles2)
+        self.assertNotIn("Schweinfurt Rock Band", titles2)
+        self.assertNotIn("München Arena Concert", titles2)
+
+    def test_mcp_research_concerts_with_city_and_radius(self):
+        today = date.today().isoformat()
+        sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
+        self.store.upsert_event(EventObservation("Jazz Night", "Cairo Würzburg", today, "https://venue.example/events", "Venue", "https://venue.example/jazz", start_time="20:00", venue_latitude=49.7939, venue_longitude=9.9512), city="Würzburg", source_id=sid)
+
+        app = MCPApplication(self.engine)
+        call_res = app.handle({
+            "jsonrpc": "2.0",
+            "id": 42,
+            "method": "tools/call",
+            "params": {
+                "name": "research_concerts",
+                "arguments": {
+                    "city": "Würzburg",
+                    "radius_km": 100,
+                    "force_refresh": False,
+                }
+            }
+        })
+
+        self.assertIsNotNone(call_res)
+        self.assertNotIn("error", call_res)
+        structured = call_res["result"]["structuredContent"]
+        self.assertEqual(structured["city"], "Würzburg")
+        self.assertEqual(structured["requestedCity"], "Würzburg")
+        self.assertIn("today", structured)
+        self.assertIn("tomorrow", structured)
+        self.assertEqual(len(structured["today"]["events"]), 1)
+        self.assertEqual(structured["today"]["events"][0]["title"], "Jazz Night")
+        self.assertEqual(structured["today"]["events"][0]["venue"], "Cairo Würzburg")
+
+    def test_comprehensive_germany_city_geocoding(self):
+        sample_cities = [
+            "Berlin", "Hamburg", "München", "Köln", "Frankfurt am Main",
+            "Stuttgart", "Düsseldorf", "Leipzig", "Dortmund", "Essen",
+            "Bremen", "Dresden", "Hannover", "Nürnberg", "Duisburg",
+            "Bochum", "Wuppertal", "Bielefeld", "Bonn", "Münster",
+            "Karlsruhe", "Mannheim", "Augsburg", "Wiesbaden", "Gelsenkirchen",
+            "Mönchengladbach", "Braunschweig", "Chemnitz", "Kiel", "Aachen",
+            "Halle (Saale)", "Magdeburg", "Freiburg im Breisgau", "Krefeld", "Mainz",
+            "Lübeck", "Erfurt", "Oberhausen", "Rostock", "Kassel",
+            "Hagen", "Potsdam", "Saarbrücken", "Hamm", "Ludwigshafen am Rhein",
+            "Mülheim an der Ruhr", "Oldenburg", "Osnabrück", "Leverkusen", "Heidelberg",
+            "Darmstadt", "Solingen", "Herne", "Regensburg", "Paderborn",
+            "Ingolstadt", "Offenbach am Main", "Fürth", "Würzburg", "Ulm",
+            "Heilbronn", "Pforzheim", "Wolfsburg", "Göttingen", "Bottrop",
+            "Reutlingen", "Koblenz", "Recklinghausen", "Bremerhaven", "Bergisch Gladbach",
+            "Jena", "Remscheid", "Erlangen", "Moers", "Siegen",
+            "Hildesheim", "Salzgitter", "Cottbus", "Kaiserslautern", "Gütersloh",
+            "Schwerin", "Witten", "Gera", "Iserlohn", "Ludwigsburg",
+            "Hanau", "Esslingen am Neckar", "Zwickau", "Düren", "Ratingen",
+            "Tübingen", "Flensburg", "Lünen", "Villingen-Schwenningen", "Gießen",
+            "Marl", "Dessau-Roßlau", "Konstanz", "Worms", "Minden",
+            "Aschaffenburg", "Schweinfurt", "Bamberg", "Bayreuth", "Coburg",
+            "Stralsund", "Greifswald", "Wismar", "Görlitz", "Plauen",
+        ]
+        for c in sample_cities:
+            lat, lon = self.store.resolve_city_coordinates(c)
+            self.assertIsNotNone(lat, f"Coordinates missing for {c}")
+            self.assertIsNotNone(lon, f"Coordinates missing for {c}")
+            self.assertGreater(lat, 47.0, f"Lat out of range for {c}: {lat}")
+            self.assertLess(lat, 55.5, f"Lat out of range for {c}: {lat}")
+            self.assertGreater(lon, 5.8, f"Lon out of range for {c}: {lon}")
+            self.assertLess(lon, 15.5, f"Lon out of range for {c}: {lon}")
+
 
 if __name__=="__main__": unittest.main()
+
