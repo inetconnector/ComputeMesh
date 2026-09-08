@@ -62,6 +62,26 @@ def _canonical_unsigned(value: Mapping[str, Any]) -> bytes:
     return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
+def _candidate_governance(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract only bounded governance metadata from the authenticated NodeProfile."""
+    result: dict[str, Any] = {}
+    fleet_id = profile.get("fleet_id")
+    if isinstance(fleet_id, str) and fleet_id:
+        result["fleet_id"] = fleet_id
+    identity = profile.get("machine_identity")
+    if isinstance(identity, Mapping):
+        machine_id = identity.get("machine_id")
+        identity_version = identity.get("identity_version")
+        sources = identity.get("sources")
+        if isinstance(machine_id, str) and machine_id:
+            result["machine_id"] = machine_id
+        if isinstance(identity_version, int) and not isinstance(identity_version, bool):
+            result["identity_version"] = identity_version
+        if isinstance(sources, list) and all(isinstance(item, str) for item in sources):
+            result["identity_sources"] = list(sources)
+    return result
+
+
 class RemoteConfidentialSessionBroker:
     """Fail-closed broker spanning private selection and the live provider channel."""
 
@@ -229,12 +249,12 @@ class RemoteConfidentialSessionBroker:
             raise RemoteConfidentialBrokerError("private confidential decision payload is invalid")
         return payload
 
-    def _live_candidates(self) -> tuple[tuple[str, Any], ...]:
+    def _live_candidates(self) -> tuple[tuple[str, Any, dict[str, Any]], ...]:
         client = self.registry.control_client
         live_ids = getattr(client, "live_node_ids", None)
         if not callable(live_ids):
             raise RemoteConfidentialBrokerError("live node control client cannot enumerate confidential providers")
-        candidates: list[tuple[str, Any]] = []
+        candidates: list[tuple[str, Any, dict[str, Any]]] = []
         try:
             node_ids = tuple(live_ids())
         except Exception as exc:
@@ -242,13 +262,14 @@ class RemoteConfidentialSessionBroker:
         for node_id in node_ids:
             try:
                 session = self.registry.get_session(node_id)
+                profile = self.registry.get_node_profile(node_id)
             except KeyError:
                 continue
             if CONFIDENTIAL_PROVISION_CAPABILITY not in session.negotiated_capabilities:
                 continue
             if not self.registry.is_node_control_healthy(node_id):
                 continue
-            candidates.append((node_id, session))
+            candidates.append((node_id, session, profile))
         candidates.sort(key=lambda item: item[0])
         if not candidates:
             raise RemoteConfidentialBrokerError("no authenticated confidential provider is live")
@@ -273,8 +294,17 @@ class RemoteConfidentialSessionBroker:
         if privacy_class != "CONFIDENTIAL":
             raise RemoteConfidentialBrokerError("remote protected broker currently accepts CONFIDENTIAL only")
         candidates = self._live_candidates()
-        candidate_by_node = {node_id: session for node_id, session in candidates}
+        candidate_by_node = {node_id: (session, profile) for node_id, session, profile in candidates}
         admission_id = "confidential-admission-" + secrets.token_hex(16)
+        request_candidates: list[dict[str, Any]] = []
+        for node_id, session, profile in candidates:
+            candidate = {
+                "node_id": node_id,
+                "session_id": session.session_id,
+                "session_revision": session.revision,
+            }
+            candidate.update(_candidate_governance(profile))
+            request_candidates.append(candidate)
         request_body = {
             "schema_version": 1,
             "admission_id": admission_id,
@@ -284,14 +314,7 @@ class RemoteConfidentialSessionBroker:
             "operation": operation,
             "max_prompt_tokens": max_prompt_tokens,
             "max_completion_tokens": max_completion_tokens,
-            "candidates": [
-                {
-                    "node_id": node_id,
-                    "session_id": session.session_id,
-                    "session_revision": session.revision,
-                }
-                for node_id, session in candidates
-            ],
+            "candidates": request_candidates,
         }
         decision = self._post(self.endpoint, request_body)
         payload = self._verify_decision(decision)
@@ -325,7 +348,7 @@ class RemoteConfidentialSessionBroker:
         node_id = payload.get("node_id")
         if not isinstance(node_id, str) or node_id not in candidate_by_node:
             raise RemoteConfidentialBrokerError("private confidential decision selected an unsubmitted node")
-        session = candidate_by_node[node_id]
+        session, _profile = candidate_by_node[node_id]
         if payload.get("session_id") != session.session_id or payload.get("session_revision") != session.revision:
             raise RemoteConfidentialBrokerError("private confidential decision selected a stale NodeSession")
         decision_id = decision.get("decision_id")

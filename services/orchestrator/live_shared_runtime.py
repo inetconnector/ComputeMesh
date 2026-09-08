@@ -119,6 +119,14 @@ class LiveSharedRuntimeRegistry:
             except KeyError as exc:
                 raise KeyError(node_id) from exc
 
+    def get_node_profile(self, node_id: str) -> dict[str, Any]:
+        """Return a defensive copy of the profile bound to the authenticated node session."""
+        with self._lock:
+            try:
+                return dict(self._nodes[node_id].profile)
+            except KeyError as exc:
+                raise KeyError(node_id) from exc
+
     @staticmethod
     def _session_ready(session: SessionSnapshot, *, now: datetime | None = None) -> bool:
         current = (now or datetime.now(UTC)).astimezone(UTC)
@@ -261,7 +269,7 @@ class LiveSharedRuntimeRegistry:
         worker = by_id.get(plan.worker_node_id)
         if coordinator is None or worker is None:
             raise LiveSharedRuntimeError("signed placement selected a node outside the submitted live snapshot")
-        
+
         stage_nodes = [item[0] for item in plan.layer_ranges]
         if not stage_nodes or stage_nodes[0] != plan.coordinator_node_id:
             raise LiveSharedRuntimeError("signed N-stage placement must start at its coordinator")
@@ -280,7 +288,7 @@ class LiveSharedRuntimeRegistry:
         network_result = networks.get((plan.coordinator_node_id, plan.worker_node_id)) or {}
         if plan.model_id != model_id:
             raise LiveSharedRuntimeError("signed placement model mismatch")
-        
+
         stage_node_set = frozenset(stage_nodes)
         for avoided in avoid_provider_sets:
             if avoided.issubset(stage_node_set):
