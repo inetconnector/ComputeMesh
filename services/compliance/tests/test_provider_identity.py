@@ -5,12 +5,23 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.provider_identity import (
     BusinessRegistryInfo,
+    ContractCounterpartyModel,
+    CustomerAudience,
     DSA_TRADER_DECLARATION_VERSION,
+    DSAArticle30PublicDisclosure,
     EntityType,
+    EvidenceConfidence,
     EvidenceSource,
     IdentityEvidence,
+    IdentityVerificationState,
+    LegalDeclaration,
+    MarketplaceEligibilityState,
+    MarketplaceMode,
+    MinimalProviderPublicProfile,
+    PaymentVerificationState,
     ProviderIdentity,
     StructuredAddress,
     TraderDeclaration,
@@ -51,7 +62,8 @@ class ProviderIdentityModelTests(unittest.TestCase):
         self.assertEqual(reg.registry_name, "Amtsgericht Charlottenburg")
         self.assertEqual(reg.registration_number, "HRB 998877 B")
 
-    def test_public_trader_profile_allowlist_does_not_leak_private_data(self) -> None:
+    def test_minimal_public_profile_preserves_natural_person_privacy(self) -> None:
+        """In minimal public profile mode, private address and phone are never exposed."""
         addr = StructuredAddress(
             line1="Private Street 123",
             city="Munich",
@@ -59,44 +71,66 @@ class ProviderIdentityModelTests(unittest.TestCase):
             country_code="DE",
         )
         identity = ProviderIdentity(
-            provider_identity_id="prv_test123",
-            account_id="facc_user123",
+            provider_identity_id="prv_individual1",
+            account_id="facc_user1",
+            entity_type=EntityType.INDIVIDUAL,
+            legal_name="Max Mustermann",
+            address=addr,
+            email="max@example.com",
+            phone="+491701234567",
+            identity_state=IdentityVerificationState.VERIFIED,
+        )
+
+        public = identity.to_minimal_public_profile()
+        pub_dict = public.to_dict()
+
+        self.assertEqual(pub_dict["country_code"], "DE")
+        self.assertNotIn("Private Street 123", json.dumps(pub_dict))
+        self.assertNotIn("+491701234567", json.dumps(pub_dict))
+        self.assertNotIn("max@example.com", json.dumps(pub_dict))
+
+    def test_dsa_public_disclosure_allowlist(self) -> None:
+        """DSA Art. 30 public disclosure outputs only statutory fields."""
+        addr = StructuredAddress(
+            line1="Private Street 123",
+            city="Munich",
+            postal_code="80331",
+            country_code="DE",
+        )
+        identity = ProviderIdentity(
+            provider_identity_id="prv_biz1",
+            account_id="facc_biz1",
             entity_type=EntityType.BUSINESS,
             legal_name="Mustermann Compute GmbH",
             trade_name="MusterCloud",
             legal_representative="Max Mustermann",
-            acting_person_relationship="Geschäftsführer",
             address=addr,
             email="contact@mustercloud.de",
-            phone="+491701234567",
+            phone="+4989123456",
             registry_info=BusinessRegistryInfo(
                 registry_country="DE",
                 registry_name="AG München",
                 registration_number="HRB 12345",
             ),
             vat_id="DE123456789",
-            verification_state=VerificationState.VERIFIED,
+            identity_state=IdentityVerificationState.VERIFIED,
             stripe_account_id="acct_stripe123",
         )
 
-        public = identity.to_public_profile(declaration_accepted=True)
+        public = identity.to_dsa_public_disclosure(declaration_accepted=True)
         pub_dict = public.to_dict()
 
-        # Public allowlist checks
         self.assertEqual(pub_dict["trade_or_legal_name"], "MusterCloud")
-        self.assertEqual(pub_dict["city"], "Munich")
-        self.assertEqual(pub_dict["country_code"], "DE")
+        self.assertEqual(pub_dict["postal_address_public"]["city"], "Munich")
         self.assertEqual(pub_dict["contact_email"], "contact@mustercloud.de")
-        self.assertTrue(pub_dict["trader_declaration_active"])
+        self.assertTrue(pub_dict["dsa_declaration_active"])
 
-        # Private fields strictly excluded
-        self.assertNotIn("Private Street 123", json.dumps(pub_dict))
-        self.assertNotIn("+491701234567", json.dumps(pub_dict))
+        # Stripe ID and internal account ID are strictly private
         self.assertNotIn("acct_stripe123", json.dumps(pub_dict))
-        self.assertNotIn("facc_user123", json.dumps(pub_dict))
-        self.assertNotIn("Geschäftsführer", json.dumps(pub_dict))
+        self.assertNotIn("facc_biz1", json.dumps(pub_dict))
 
-    def test_evaluate_provider_requirements_individual(self) -> None:
+    def test_state_separation_in_evaluation(self) -> None:
+        """Identity verified does not imply Stripe payouts enabled or DSA applicability."""
         addr = StructuredAddress(line1="Main St 1", city="Berlin", postal_code="10115", country_code="DE")
         identity = ProviderIdentity(
             provider_identity_id="prv_1",
@@ -105,26 +139,23 @@ class ProviderIdentityModelTests(unittest.TestCase):
             legal_name="John Doe",
             address=addr,
             email="john@example.com",
-            verification_state=VerificationState.PENDING_REVIEW,
+            identity_state=IdentityVerificationState.VERIFIED,
         )
 
-        # Without DSA declaration -> Incomplete
-        eval1 = evaluate_provider_requirements(identity, [], [])
-        self.assertFalse(eval1.eligible)
-        self.assertEqual(eval1.state, VerificationState.INCOMPLETE)
-        self.assertTrue(any(r.code == "trader_declaration_missing" for r in eval1.missing_requirements))
-
-        # With active DSA declaration -> Pending Review or Verified
-        decl = TraderDeclaration(
-            declaration_id="decl_1",
-            provider_identity_id="prv_1",
-            account_id="facc_1",
-            legal_text_version=DSA_TRADER_DECLARATION_VERSION,
-            accepted_at="2026-09-08T12:00:00Z",
+        # In B2B mode: DSA is not applicable, stripe is unconfigured, identity is verified
+        evaluation = evaluate_provider_requirements(
+            identity,
+            [],
+            [],
+            marketplace_mode=MarketplaceMode.B2B_INTERMEDIARY,
+            customer_audience=CustomerAudience.BUSINESS_ONLY,
         )
-        eval2 = evaluate_provider_requirements(identity, [decl], [])
-        self.assertEqual(len(eval2.missing_requirements), 0)
-        self.assertEqual(eval2.state, VerificationState.PENDING_REVIEW)
+
+        self.assertTrue(evaluation.eligible)
+        self.assertEqual(evaluation.identity_state, IdentityVerificationState.VERIFIED)
+        self.assertEqual(evaluation.payment_state, PaymentVerificationState.UNCONFIGURED)
+        self.assertEqual(evaluation.marketplace_state, MarketplaceEligibilityState.B2B_ELIGIBLE)
+        self.assertFalse(evaluation.applicability_decision.article_30_applicable)
 
 
 class ProviderIdentityStoreTests(unittest.TestCase):
@@ -147,7 +178,7 @@ class ProviderIdentityStoreTests(unittest.TestCase):
         )
         self.assertTrue(identity.provider_identity_id.startswith("prv_"))
         self.assertEqual(identity.legal_name, "Anna Schmidt")
-        self.assertEqual(identity.verification_state, VerificationState.PENDING_REVIEW)
+        self.assertEqual(identity.identity_state, IdentityVerificationState.PENDING_REVIEW)
 
         fetched = self.store.get_identity_by_account("facc_abc")
         self.assertIsNotNone(fetched)
@@ -164,24 +195,12 @@ class ProviderIdentityStoreTests(unittest.TestCase):
         )
         self.store.update_verification_state(
             identity.provider_identity_id,
-            VerificationState.VERIFIED,
+            IdentityVerificationState.VERIFIED,
             actor="admin",
             reason="Approved manually",
         )
         verified = self.store.get_identity(identity.provider_identity_id)
-        self.assertEqual(verified.verification_state, VerificationState.VERIFIED)
-
-        # Update non-material field (e.g. trade_name) -> stays VERIFIED
-        self.store.upsert_identity(
-            account_id="facc_abc",
-            entity_type=EntityType.INDIVIDUAL,
-            legal_name="Anna Schmidt",
-            address=addr,
-            email="anna@schmidt.de",
-            trade_name="Anna Cloud",
-        )
-        non_material = self.store.get_identity(identity.provider_identity_id)
-        self.assertEqual(non_material.verification_state, VerificationState.VERIFIED)
+        self.assertEqual(verified.identity_state, IdentityVerificationState.VERIFIED)
 
         # Update material field (e.g. legal_name) -> triggers REVERIFICATION_REQUIRED
         self.store.upsert_identity(
@@ -192,7 +211,7 @@ class ProviderIdentityStoreTests(unittest.TestCase):
             email="anna@schmidt.de",
         )
         material = self.store.get_identity(identity.provider_identity_id)
-        self.assertEqual(material.verification_state, VerificationState.REVERIFICATION_REQUIRED)
+        self.assertEqual(material.identity_state, IdentityVerificationState.REVERIFICATION_REQUIRED)
 
     def test_declaration_and_evidence_recording(self) -> None:
         addr = StructuredAddress(line1="Torstr. 1", city="Berlin", postal_code="10119", country_code="DE")
@@ -207,21 +226,24 @@ class ProviderIdentityStoreTests(unittest.TestCase):
             provider_identity_id=identity.provider_identity_id,
             account_id="facc_abc",
             legal_text_version=DSA_TRADER_DECLARATION_VERSION,
+            declaration_type="DSA_ART30_TRADER_COMMITMENT",
             client_ip="192.168.1.1",
         )
-        self.assertEqual(decl.legal_text_version, DSA_TRADER_DECLARATION_VERSION)
+        self.assertEqual(decl.version, DSA_TRADER_DECLARATION_VERSION)
 
         declarations = self.store.list_declarations(identity.provider_identity_id)
         self.assertEqual(len(declarations), 1)
 
         ev = self.store.add_evidence(
             provider_identity_id=identity.provider_identity_id,
-            field_scope="payout_account",
-            source=EvidenceSource.STRIPE_CONNECT,
+            field_scope="legal_name",
+            source=EvidenceSource.COMMERCIAL_REGISTER,
             status="valid",
-            evidence_reference="acct_12345",
+            confidence=EvidenceConfidence.REGISTER_CONFIRMED,
+            evidence_reference="HRB 12345",
         )
-        self.assertEqual(ev.source, EvidenceSource.STRIPE_CONNECT)
+        self.assertEqual(ev.source, EvidenceSource.COMMERCIAL_REGISTER)
+        self.assertEqual(ev.confidence, EvidenceConfidence.REGISTER_CONFIRMED)
 
         evidence_list = self.store.list_evidence(identity.provider_identity_id)
         self.assertEqual(len(evidence_list), 1)
@@ -240,9 +262,10 @@ class ProviderIdentityStoreTests(unittest.TestCase):
             provider_identity_id=identity.provider_identity_id,
             account_id="facc_abc",
             status="active",
+            marketplace_mode=MarketplaceMode.B2B_INTERMEDIARY,
         )
         self.assertEqual(binding["fleet_id"], "fleet-berlin-01")
-        self.assertEqual(binding["provider_identity_id"], identity.provider_identity_id)
+        self.assertEqual(binding["marketplace_mode"], "B2B_INTERMEDIARY")
 
         retrieved = self.store.get_fleet_binding("fleet-berlin-01")
         self.assertIsNotNone(retrieved)

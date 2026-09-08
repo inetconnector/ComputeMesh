@@ -513,13 +513,22 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/provider-identity", "/api/fleet/provider-identity"):
-            data, status, cookie = self.provider_handler.get_provider_identity(self.headers)
+            mode = query.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
+            cpty = query.get("counterparty", ["CUSTOMER_PROVIDER"])[0].strip() or "CUSTOMER_PROVIDER"
+            aud = query.get("audience", ["CONSUMER_ALLOWED"])[0].strip() or "CONSUMER_ALLOWED"
+            data, status, cookie = self.provider_handler.get_provider_identity(
+                self.headers,
+                marketplace_mode=mode,
+                counterparty_model=cpty,
+                customer_audience=aud,
+            )
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 
         if clean_path.startswith("/api/traders/") and clean_path.endswith("/public"):
             prv_id = clean_path.removeprefix("/api/traders/").removesuffix("/public").strip()
-            data, status, cookie = self.provider_handler.get_public_trader_profile(prv_id)
+            mode = query.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
+            data, status, cookie = self.provider_handler.get_public_trader_profile(prv_id, marketplace_mode=mode)
             self._send_json(data, status, set_cookie=cookie)
             return
 
@@ -658,6 +667,11 @@ class PortalHandler(BaseHTTPRequestHandler):
             data, status, cookie = self.provider_handler.accept_trader_declaration(
                 self.headers, body, getattr(self, "client_address", None)
             )
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path in ("/api/admin/compliance/review", "/api/portal/admin/compliance/review"):
+            data, status, cookie = self.provider_handler.admin_review_provider(self.headers, body)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
             return
 

@@ -1,11 +1,11 @@
-"""HTTP route handlers for ComputeMesh Provider & Trader Identity Compliance.
+"""HTTP route handlers for ComputeMesh Provider Identity & Multi-Tier EU Digital Regulation Compliance.
 
 Exposes REST APIs for:
-- Viewing authenticated provider compliance status & missing requirements
+- Viewing authenticated provider compliance status, applicability decisions & requirements
 - Updating legal provider profile (Individual vs Business)
-- Accepting DSA Art. 30 versioned Trader Declarations
-- Public Trader Disclosure endpoint (PublicTraderProfile DTO allowlist)
-- Admin compliance reviews with mandatory audit logging
+- Accepting versioned Legal & DSA Declarations
+- Dynamic Public Trader / Provider Disclosure endpoint (Allowlisted Minimal vs DSA Art. 30 DTO)
+- Admin compliance reviews and platform operator profile configuration
 """
 from __future__ import annotations
 
@@ -16,14 +16,19 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
+from services.compliance.dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from services.compliance.fleet_gatekeeper import FleetGatekeeper
 from services.compliance.provider_identity import (
+    ContractCounterpartyModel,
+    CustomerAudience,
     DSA_TRADER_DECLARATION_VERSION,
     EntityType,
     EvidenceSource,
+    IdentityVerificationState,
+    LegalDeclaration,
+    MarketplaceMode,
     ProviderIdentity,
     StructuredAddress,
-    VerificationState,
     evaluate_provider_requirements,
 )
 from services.compliance.provider_identity_store import (
@@ -57,7 +62,7 @@ GATEKEEPER = FleetGatekeeper(PROVIDER_IDENTITY_STORE)
 
 
 class PortalProviderIdentityHandler:
-    """REST API Handlers for Provider Identity and EU Compliance."""
+    """REST API Handlers for Provider Identity and Multi-Tier EU Compliance."""
 
     def __init__(
         self,
@@ -67,37 +72,47 @@ class PortalProviderIdentityHandler:
         self.store = store or PROVIDER_IDENTITY_STORE
         self.gatekeeper = gatekeeper or GATEKEEPER
 
-    def get_provider_identity(self, headers: Any) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+    def get_provider_identity(
+        self,
+        headers: Any,
+        marketplace_mode: str = "PUBLIC_INTERMEDIARY",
+        counterparty_model: str = "CUSTOMER_PROVIDER",
+        customer_audience: str = "CONSUMER_ALLOWED",
+    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
 
+        operator_profile = self.store.get_operator_profile()
         identity = self.store.get_identity_by_account(account.account_id)
+
         if identity is None:
+            evaluation = evaluate_provider_requirements(
+                None, [], [],
+                marketplace_mode=marketplace_mode,
+                counterparty_model=counterparty_model,
+                customer_audience=customer_audience,
+                operator_profile=operator_profile,
+            )
             return {
                 "has_profile": False,
                 "identity": None,
-                "evaluation": {
-                    "eligible": False,
-                    "state": VerificationState.UNVERIFIED.value,
-                    "missing_requirements": [
-                        {
-                            "code": "provider_identity_missing",
-                            "field": "identity",
-                            "blocking": True,
-                            "message": "Es wurde noch kein rechtliches Anbieterprofil angelegt.",
-                        }
-                    ],
-                    "field_statuses": {},
-                    "active_declaration_version": None,
-                    "stripe_payouts_ready": False,
-                },
+                "evaluation": evaluation.to_dict(),
+                "operator_profile": operator_profile.to_dict(),
                 "dsa_declaration_version": DSA_TRADER_DECLARATION_VERSION,
             }, HTTPStatus.OK, None
 
         declarations = self.store.list_declarations(identity.provider_identity_id)
         evidence = self.store.list_evidence(identity.provider_identity_id)
-        evaluation = evaluate_provider_requirements(identity, declarations, evidence)
+        evaluation = evaluate_provider_requirements(
+            identity,
+            declarations,
+            evidence,
+            marketplace_mode=marketplace_mode,
+            counterparty_model=counterparty_model,
+            customer_audience=customer_audience,
+            operator_profile=operator_profile,
+        )
 
         return {
             "has_profile": True,
@@ -105,6 +120,7 @@ class PortalProviderIdentityHandler:
             "evaluation": evaluation.to_dict(),
             "declarations": [d.to_dict() for d in declarations],
             "evidence": [e.to_dict() for e in evidence],
+            "operator_profile": operator_profile.to_dict(),
             "dsa_declaration_version": DSA_TRADER_DECLARATION_VERSION,
         }, HTTPStatus.OK, None
 
@@ -162,7 +178,10 @@ class PortalProviderIdentityHandler:
 
             declarations = self.store.list_declarations(identity.provider_identity_id)
             evidence = self.store.list_evidence(identity.provider_identity_id)
-            evaluation = evaluate_provider_requirements(identity, declarations, evidence)
+            operator_profile = self.store.get_operator_profile()
+            evaluation = evaluate_provider_requirements(
+                identity, declarations, evidence, operator_profile=operator_profile
+            )
 
             return {
                 "status": "ok",
@@ -192,63 +211,113 @@ class PortalProviderIdentityHandler:
         if identity is None:
             return {"error": "Bitte erstelle zuerst ein Anbieterprofil, bevor du die Erklärung abgibst."}, HTTPStatus.BAD_REQUEST, None
 
-        version = str(body.get("legal_text_version", DSA_TRADER_DECLARATION_VERSION)).strip()
-        if version != DSA_TRADER_DECLARATION_VERSION:
-            return {"error": f"Ungültige Deklarationsversion: {version!r}. Erwartet: {DSA_TRADER_DECLARATION_VERSION}"}, HTTPStatus.BAD_REQUEST, None
-
+        version = str(body.get("legal_text_version", body.get("version", DSA_TRADER_DECLARATION_VERSION))).strip()
+        decl_type = str(body.get("declaration_type", "DSA_ART30_TRADER_COMMITMENT")).strip()
         locale = str(body.get("locale", "de")).strip()[:5]
+        context = str(body.get("applicability_context", "PUBLIC_MARKETPLACE")).strip()
+
         client_ip = ""
-        if headers and hasattr(headers, "get"):
-            client_ip = str(headers.get("X-Forwarded-For", "")).split(",")[0].strip()
-        if not client_ip and client_address:
-            client_ip = client_address[0]
+        if client_address and isinstance(client_address, tuple) and len(client_address) >= 1:
+            client_ip = str(client_address[0])
 
         decl = self.store.record_declaration(
             provider_identity_id=identity.provider_identity_id,
             account_id=account.account_id,
             legal_text_version=version,
+            declaration_type=decl_type,
             locale=locale,
             client_ip=client_ip,
+            applicability_context=context,
         )
 
-        # Re-evaluate compliance
         declarations = self.store.list_declarations(identity.provider_identity_id)
         evidence = self.store.list_evidence(identity.provider_identity_id)
-        evaluation = evaluate_provider_requirements(identity, declarations, evidence)
-
-        # If fully complete and in pending review -> transition to verified
-        if not evaluation.missing_requirements and identity.verification_state in {
-            VerificationState.PENDING_REVIEW,
-            VerificationState.UNVERIFIED,
-            VerificationState.INCOMPLETE,
-        }:
-            identity = self.store.update_verification_state(
-                identity.provider_identity_id,
-                VerificationState.VERIFIED,
-                actor=f"system:declaration_complete",
-                reason="All legal requirements satisfied and DSA declaration accepted",
-            )
-            evaluation = evaluate_provider_requirements(identity, declarations, evidence)
+        operator_profile = self.store.get_operator_profile()
+        evaluation = evaluate_provider_requirements(
+            identity, declarations, evidence, operator_profile=operator_profile
+        )
 
         return {
-            "status": "ok",
+            "status": "accepted",
             "declaration": decl.to_dict(),
-            "identity": identity.to_dict(),
             "evaluation": evaluation.to_dict(),
         }, HTTPStatus.OK, None
 
-    def get_public_trader_profile(self, provider_identity_id: str) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
-        """Public DSA Art. 30 Marketplace transparency endpoint."""
+    def get_public_trader_profile(
+        self,
+        provider_identity_id: str,
+        marketplace_mode: str = "PUBLIC_INTERMEDIARY",
+    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+        """Public Marketplace transparency endpoint returning filtered allowlist DTO."""
         clean_id = str(provider_identity_id or "").strip()
         if not clean_id:
             return {"error": "provider_identity_id is required"}, HTTPStatus.BAD_REQUEST, None
 
         identity = self.store.get_identity(clean_id)
         if identity is None:
-            return {"error": "Trader profile not found"}, HTTPStatus.NOT_FOUND, None
+            return {"error": "Provider not found"}, HTTPStatus.NOT_FOUND, None
 
         declarations = self.store.list_declarations(identity.provider_identity_id)
-        has_decl = any(d.legal_text_version == DSA_TRADER_DECLARATION_VERSION for d in declarations)
+        evidence = self.store.list_evidence(identity.provider_identity_id)
+        operator_profile = self.store.get_operator_profile()
+        evaluation = evaluate_provider_requirements(
+            identity, declarations, evidence,
+            marketplace_mode=marketplace_mode,
+            operator_profile=operator_profile,
+        )
 
-        public_profile = identity.to_public_profile(declaration_accepted=has_decl)
-        return public_profile.to_dict(), HTTPStatus.OK, None
+        dsa_applicable = evaluation.applicability_decision.article_30_applicable
+        has_decl = any(
+            d.version == DSA_TRADER_DECLARATION_VERSION and d.accepted_at
+            for d in declarations
+        )
+
+        public_dto = identity.to_public_profile(
+            declaration_accepted=has_decl,
+            dsa_applicable=dsa_applicable,
+        )
+
+        return {
+            "profile": public_dto.to_dict(),
+            "disclosure_type": "DSA_ARTICLE_30" if dsa_applicable else "MINIMAL_PROVIDER",
+            "dsa_applicable": dsa_applicable,
+        }, HTTPStatus.OK, None
+
+    def admin_review_provider(
+        self,
+        headers: Any,
+        body: dict[str, Any],
+    ) -> Tuple[dict[str, Any], HTTPStatus, str | None]:
+        """Admin manual review endpoint with mandatory audit reasoning."""
+        account = session_account_from_headers(headers)
+        if account is None:
+            return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
+
+        if getattr(account, "role", "") != "admin":
+            return {"error": "forbidden: requires admin capability"}, HTTPStatus.FORBIDDEN, None
+
+        provider_identity_id = str(body.get("provider_identity_id", "")).strip()
+        new_state_raw = str(body.get("new_state", "")).strip().upper()
+        reason = str(body.get("reason", "")).strip()
+
+        if not provider_identity_id:
+            return {"error": "provider_identity_id is required"}, HTTPStatus.BAD_REQUEST, None
+        if new_state_raw not in IdentityVerificationState.__members__:
+            return {"error": f"Invalid verification state: {new_state_raw}"}, HTTPStatus.BAD_REQUEST, None
+        if not reason or len(reason) < 5:
+            return {"error": "A clear statement of reason (min 5 chars) is mandatory for audit trail"}, HTTPStatus.BAD_REQUEST, None
+
+        target_state = IdentityVerificationState[new_state_raw]
+        try:
+            updated = self.store.update_verification_state(
+                provider_identity_id,
+                target_state,
+                actor=f"admin:{account.account_id}",
+                reason=reason,
+            )
+            return {
+                "status": "ok",
+                "identity": updated.to_dict(),
+            }, HTTPStatus.OK, None
+        except ProviderIdentityStoreError as exc:
+            return {"error": str(exc)}, HTTPStatus.BAD_REQUEST, None

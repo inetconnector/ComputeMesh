@@ -1,111 +1,130 @@
-# ComputeMesh Provider & Trader Identity Compliance
+# ComputeMesh Provider Identity & Multi-Tier EU Digital Regulation Compliance
 
-This document specifies the privacy-preserving, EU-compliant identity and operator verification layer for the **ComputeMesh Fleet Management & Marketplace**.
+## 1. Executive Summary & Core Architectural Principle
 
----
+ComputeMesh implements a robust, privacy-preserving, and legally grounded identity and governance architecture for fleet operators and compute providers. 
 
-## 1. Domain Separation & Architecture
-
-ComputeMesh strictly separates five distinct functional layers:
+The architecture strictly separates platform domain identity from payment regulatory KYC and evaluates digital regulation compliance dynamically according to the concrete product and transaction context.
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. ComputeMesh Account                                       │
-│ Login, WebAuthn Passkeys, Magic-Link (facc_...)             │
-│ Authenticates the natural person / operator logging in      │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ operates on behalf of
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. ComputeMesh Provider / Trader Identity                    │
-│ - Natural Person (Individual) or Legal Entity (Business)    │
-│ - Structured serviceable address (ISO 3166-1 alpha-2)       │
-│ - Commercial register info & registration number             │
-│ - Field-Level Verification Evidence (IdentityEvidence)      │
-│ - Versioned DSA Art. 30 Trader Self-Declaration              │
-│ - Strict PublicTraderProfile allowlist (Zero PII leakage)   │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                ┌──────────────┴──────────────┐
-                │ owns (1 Provider : N Fleets)│ payout status / references only
-                ▼                             ▼
-┌───────────────────────────────┐ ┌───────────────────────────┐
-│ 3. Fleet(s)                   │ │ 4. Stripe Connect         │
-│ - Operational compute units   │ │ - Payouts & Payments      │
-│ - Server-Side Marketplace Gate│ │ - Financial KYC / AML     │
-│ - Legacy Migration Support    │ │   managed by Stripe       │
-└───────────────┬───────────────┘ └───────────────────────────┘
-                │ minimal status sync (fleet_id, compliance_state)
-                ▼
-┌───────────────────────────────┐
-│ 5. ControlPlane Governance    │
-│ - Fleet Policies & Placement  │
-│ - Zero raw PII in ControlPlane│
-└───────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ ComputeMesh Account (facc_...)                         │
+│ User Login / Passkeys / WebAuthn Authentication        │
+└───────────────────────────┬────────────────────────────┘
+                            │ 1 : 1
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│ Provider Identity (prv_...)                            │
+│ Legal Identity & Verification Domain (General Platform)│
+│ - Natural Person (Individual) vs Business Entity       │
+│ - Structured Address (ISO 3166-1 alpha-2)              │
+│ - Commercial / Business Registry Reference             │
+│ - Field-Level Verification Evidence                    │
+└─────────────┬───────────────────────────┬──────────────┘
+              │                           │
+              ▼                           ▼
+┌───────────────────────────┐ ┌──────────────────────────┐
+│ Stripe Connect (PSP)      │ │ DSA Applicability Policy │
+│ Payment & Payout Gateway  │ │ Dynamic Scope Evaluation │
+│ - Bank accounts & IBANs   │ │ - Mode: Intermediary/B2B │
+│ - Regulated AML / KYC     │ │ - Reseller vs Private    │
+│ - Payment processing      │ │ - Art. 29 SME Exemption  │
+└───────────────────────────┘ └───────────┬──────────────┘
+                                          │
+              ┌───────────────────────────┴──────────────┐
+              │                                          │
+              ▼ (1 : N)                                  ▼
+┌───────────────────────────┐               ┌──────────────────────────┐
+│ Fleet A, B, C             │               │ Public Transparency DTO  │
+│ ControlPlane Governance   │               │ - MinimalProviderProfile │
+│ - Hardware Attestation    │               │ - DSAArt30Disclosure     │
+│ - Scheduling (Zero PII)   │               │   (Only when applicable) │
+└───────────────────────────┘               └──────────────────────────┘
 ```
 
-> [!IMPORTANT]
-> **Stripe Separation:** Stripe is responsible for payment processing, payouts, and financial regulatory KYC/AML. ComputeMesh does **not** duplicate an AML/Payment-KYC system. ComputeMesh manages provider traceability and operator accountability under European digital platform law.
+---
+
+## 2. Product, Marketplace & Contract Counterparty Models
+
+Compliance obligations (particularly under the Digital Services Act) depend strictly on the contractual and operational relationship between the parties. ComputeMesh distinguishes between four distinct marketplace modes:
+
+| Marketplace Mode | Counterparty Model | Customer Audience | DSA Art. 30 Applicability | Primary Legal Basis |
+| :--- | :--- | :--- | :--- | :--- |
+| **`PUBLIC_INTERMEDIARY`** | Customer ↔ Provider | `CONSUMER_ALLOWED` | **Applicable** (unless Art. 29 SME applies) | DSA Art. 30(1), Art. 31 |
+| **`PUBLIC_RESELLER`** | Customer ↔ ComputeMesh | `CONSUMER_ALLOWED` | **Exempt** (Customer contracts with platform) | DSA Art. 30(1) |
+| **`B2B_INTERMEDIARY`** | Business ↔ Provider | `BUSINESS_ONLY` | **Exempt** (No consumer distance contracts) | DSA Art. 30(1), GDPR Art. 6(1)(b) |
+| **`PRIVATE_CLUSTER`** | Direct Private Member | `PRIVATE_MEMBERS` | **Exempt** (Closed infrastructure, no public offer) | DSA Art. 3(i), GDPR Art. 6(1)(b) |
+| **`ENTERPRISE_PRIVATE`** | Direct Private Member | `PRIVATE_MEMBERS` | **Exempt** (Dedicated internal capacity) | DSA Art. 3(i), GDPR Art. 6(1)(b) |
 
 ---
 
-## 2. Legal Analysis & Assumptions
+## 3. Digital Services Act (Regulation (EU) 2022/2065) Evaluation
 
-### A. Regulation (EU) 2022/2065 – Digital Services Act (DSA)
-- **Art. 30 (Traceability of Traders):** Platforms enabling distance contracts between traders and consumers/businesses must obtain and verify key trader details (name, address, email, telephone, company register, registration number, and self-certification) before allowing marketplace activities.
-- **Art. 31 (Compliance by Design):** Interfaces are structured to allow traders to provide and maintain required information and declarations seamlessly.
+### A. Article 29: Micro and Small Enterprise Operator Exemption
+Under **DSA Article 29(1)**, online platforms that qualify as micro or small enterprises within the meaning of **Recommendation 2003/361/EC** (< 50 staff, annual turnover or balance sheet total ≤ EUR 10 million) are **exempt** from the obligations of Chapter III Section 3, including:
+- Article 30 (Traceability of Traders)
+- Article 31 (Compliance by Design)
 
-### B. Regulation (EU) 2016/679 – General Data Protection Regulation (GDPR)
-- **Art. 5 (Principles):** Data minimization, purpose limitation, storage limitation, integrity, and confidentiality.
-- **Art. 6 (Lawfulness):**
-  - Art. 6(1)(c) GDPR: Legal obligation under DSA Art. 30 for mandatory provider transparency.
-  - Art. 6(1)(b) GDPR: Performance of contract for fleet account management and payouts.
-  - Art. 6(1)(f) GDPR: Legitimate interest in preventing fraud, abuse, and platform manipulation.
-- **Art. 25 (Data Protection by Design & by Default):** Public endpoints expose only filtered `PublicTraderProfile` allowlists. Raw sensitive documents (ID scans, selfies, residential addresses of company representatives) are strictly not collected or stored.
+ComputeMesh models this via `PlatformOperatorLegalProfile`:
+- If `enterprise_size` is `MICRO_ENTERPRISE` or `SMALL_ENTERPRISE`, Article 30 is legally not enforced.
+- If `enterprise_size` is `UNKNOWN`, the system triggers `LEGAL_REVIEW_REQUIRED` / `APPLICABILITY_UNKNOWN` and avoids unlawful over-collection of personal data.
 
-### C. Regulation (EU) 2019/1150 – Platform-to-Business (P2B) Regulation
-- Requires transparent, reasoned communication for any restriction, suspension, or termination of business provider services.
-
-### D. Directive (EU) 2021/514 – DAC7 Evaluation
-- **Scope Analysis:** ComputeMesh provides decentralized automated compute infrastructure capacity. Pure IT compute capacity leasing does not constitute a relevant activity under DAC7 (which covers sale of goods, rental of real estate, personal services, or rental of transport). No redundant tax reporting fields are unnecessarily forced on users.
+### B. Article 30: Traceability of Traders
+When Article 30 applies (e.g. non-exempt platform operating a public consumer marketplace):
+1. **Required Information (Art. 30(1)):** Name, address, email, phone number, copy of identification or other electronic identification, payment account details, commercial register name and registration number, and self-certification (Art. 30(1)(e)).
+2. **Best-Effort Verification (Art. 30(2)):** Verified using official online databases (commercial registers, VIES) or trustworthy electronic identification.
+3. **Storage Limitation (Art. 30(5)):** Traceability records must be stored for **at most 6 months** after the contractual relationship with the trader has ended, and thereafter erased.
+4. **Online Interface Transparency (Art. 30(7)):** The platform must publish on its online interface the trader's name, address, phone number, email, and commercial register details in a clear and easily accessible manner.
 
 ---
 
-## 3. Data Inventory Matrix
+## 4. GDPR (Regulation (EU) 2016/679) & Data Inventory Matrix
 
-| Field | Purpose | Legal Basis | Role | Source | Verification Method | Public / Private | Retention Rule |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `provider_identity_id` | Domain identifier | Art. 6(1)(b) GDPR | All | System | Generated | Public | Active + 5 yrs statutory |
-| `entity_type` | Individual vs Business | Art. 6(1)(c) GDPR (DSA Art. 30) | Provider | User | Self-attestation | Public | Active + 5 yrs statutory |
-| `legal_name` | Legal name of trader/entity | Art. 6(1)(c) GDPR (DSA Art. 30) | Provider | User / Register | Register / Review | Public | Active + 5 yrs statutory |
-| `trade_name` | Public business name | Art. 6(1)(b) GDPR | Business | User | User | Public | Active + 5 yrs statutory |
-| `legal_representative` | Authorized officer (GmbH GF) | Art. 6(1)(c) GDPR | Business | User | Register | Private | Active + 5 yrs statutory |
-| `acting_person_relationship` | Connection to business | Art. 6(1)(f) GDPR | Business | User | Self-attestation | Private | Active + 5 yrs statutory |
-| `address` (`line1`, `line2`, `postal_code`, `city`, `state`, `country_code`) | Serviceable address | Art. 6(1)(c) GDPR (DSA Art. 30) | Provider | User | Register / Review | Partial (City/Postal/Country public) | Active + 5 yrs statutory |
-| `email` | Official business contact | Art. 6(1)(c) GDPR (DSA Art. 30) | Provider | User | Account verification | Public | Active + 5 yrs statutory |
-| `phone` | Direct contact channel | Art. 6(1)(c) GDPR (DSA Art. 30) | Provider | User | User attestation | Private | Active + 5 yrs statutory |
-| `registry_info` (`country`, `name`, `number`) | Company registration | Art. 6(1)(c) GDPR (DSA Art. 30) | Business | User | Register check | Public | Active + 5 yrs statutory |
-| `vat_id` | Tax identifier | Art. 6(1)(c) GDPR | If applicable | User | VIES / Self | Public | Active + 5 yrs statutory |
-| `stripe_account_id` | Stripe Connected Account | Art. 6(1)(b) GDPR | Payout recipient | Stripe Connect | Stripe OAuth / Webhook | Private | Active account duration |
-| `trader_declaration` (`version`, `accepted_at`, `locale`, `ip_hash`) | DSA Art. 30 Self-Declaration | Art. 6(1)(c) GDPR (DSA Art. 30) | Marketplace Provider | User | Cryptographic record | Private (status public) | 5 yrs after termination |
+Each personal data field is processed under a documented lawful basis pursuant to GDPR Article 6(1):
+
+| Field | Purpose | Legal Basis (Public Intermediary) | Legal Basis (B2B / Private Cluster) | Visibility | Retention Rule |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `legal_name` | Identity & contract execution | Art. 6(1)(c) GDPR (DSA Art. 30) | Art. 6(1)(b) GDPR (Contract) | Public (Trade name or Legal name) | Contract + 6 mo (DSA) / Commercial law |
+| `address` (`line1`, `postal_code`, `city`, `country_code`) | Serviceable business address | Art. 6(1)(c) GDPR (DSA Art. 30) | Art. 6(1)(b) GDPR (Billing/Tax routing) | Natural Person: City/Postal public; Line1 protected.<br>Business: Public | Contract + 6 mo (DSA) / Commercial law |
+| `email` | Operational contact & notices | Art. 6(1)(c) GDPR (DSA Art. 30) | Art. 6(1)(b) GDPR (Contract) | Public | Contract + 6 mo |
+| `phone` | Direct contact channel | Art. 6(1)(c) GDPR (DSA Art. 30) | Art. 6(1)(b) GDPR (Optional) | Business: Public.<br>Natural Person: Private unless explicitly designated | Contract + 6 mo |
+| `registry_info` | Entity verification | Art. 6(1)(c) GDPR (DSA Art. 30) | Art. 6(1)(b) GDPR (Business verification) | Public | Contract + 6 mo |
+| `vat_id` | Tax compliance | Art. 6(1)(c) GDPR (Fiscal obligations) | Art. 6(1)(c) GDPR (Tax law) | Public if applicable | Statutory fiscal (10 yrs) |
+| `stripe_account_id` | Payout routing reference | Art. 6(1)(b) GDPR (Payment execution) | Art. 6(1)(b) GDPR (Payment execution) | **Strictly Private** | Managed by Stripe / PSP |
+| `prompt_stream_data` | AI token generation | Art. 6(1)(b) GDPR | Art. 6(1)(b) GDPR | In-Memory Volatile RAM only | **Zero-Disk Retention** (Purged immediately) |
 
 ---
 
-## 4. REST API Contract
+## 5. Stripe Connect & Financial AML/KYC Boundaries
 
-### Provider Profile & Compliance
-- `GET /api/portal/fleet/provider-identity`: Returns the authenticated account's `PrivateComplianceView`, including field statuses, missing requirements, and active declarations.
-- `POST /api/portal/fleet/provider-identity`: Creates or updates the provider profile. If a `VERIFIED` profile modifies material fields (legal name, entity type, country, address, or registry number), it automatically transitions to `REVERIFICATION_REQUIRED`.
-- `POST /api/portal/fleet/provider-identity/declaration`: Records an accepted versioned DSA Art. 30 self-declaration (`dsa_art30_v1.0`).
-
-### Public Marketplace Transparency
-- `GET /api/traders/{provider_identity_id}/public`: Returns `PublicTraderProfile` containing only the legally required public transparency disclosure.
+- **Stripe is the regulated Payment Service Provider (PSP)** responsible for financial AML/KYC, customer bank verification, sanctions screening, and payout processing.
+- ComputeMesh **does not store** bank account numbers, IBANs, passports, ID document scans, or biometric data.
+- Stripe payout verification status is received via signed webhooks and stored as an `IdentityEvidence` record (`source = STRIPE_CONNECT`, `field_scope = payout_account`).
+- A verified Stripe account indicates payout readiness, but is evaluated independently from platform trader traceability.
 
 ---
 
-## 5. Migration Strategy for Existing Fleets
+## 6. DAC7 (Directive (EU) 2021/514) Product Scope Trigger
 
-1. Existing fleets created before identity enforcement are classified as `LEGACY_UNVERIFIED`.
-2. Hardware bindings and existing credits are preserved without disruption.
-3. Operators are prompted in the cockpit to complete their provider profile and DSA Art. 30 declaration.
-4. Upon completing verification, fleets transition to `ACTIVE` marketplace state.
+- **Current Scope Evaluation:** ComputeMesh provides automated computational GPU/CPU capacity. Under current EU DAC7 rules, pure automated compute capacity provisioning does not constitute a "Relevant Activity" (which covers sale of goods, personal services, rental of immovable property, or rental of transport).
+- **Dynamic Scope Trigger:** If ComputeMesh introduces human consulting, manual data annotation, or personal services in the future, DAC7 reporting triggers will be activated accordingly.
+
+---
+
+## 7. Category-Based Retention Engine
+
+Retention rules are managed by `RetentionEngine` ([retention_policy.py](file:///c:/Users/frede/Projekte/ComputeMesh-ControlPlane/ComputeMesh/services/compliance/retention_policy.py)):
+
+1. **`PROMPT_INFERENCE_DATA`**: 0 days duration (`PURGE_IMMEDIATELY`). Zero-disk retention in volatile RAM.
+2. **`DSA_TRADER_RECORDS`**: 180 days (6 months) post-contract termination under DSA Art. 30(5), then deleted.
+3. **`INACTIVE_DRAFT_PROFILES`**: 90 days after creation if incomplete with no bound fleets, then deleted.
+4. **`SECURITY_AUDIT_LOGS`**: 365 days after event, then account identifiers are anonymized.
+5. **`ACCOUNTING_TAX_RECORDS`**: 10 years statutory fiscal retention under applicable commercial law.
+
+---
+
+## 8. Dynamic Public Disclosure
+
+Public profiles are strictly allowlisted via dedicated DTOs:
+- **`MinimalProviderPublicProfile`**: Exposes only `provider_identity_id`, `trade_or_legal_name`, `country_code`, and `verification_status`. Natural person residential addresses and phone numbers are completely shielded.
+- **`DSAArticle30PublicDisclosure`**: Generated **only** when `DSAApplicabilityPolicy` determines that Article 30 is legally applicable. Contains public trader disclosures mandated by Art. 30(7).

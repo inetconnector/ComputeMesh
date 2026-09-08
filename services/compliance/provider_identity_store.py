@@ -2,12 +2,12 @@
 
 Follows durable, audited storage patterns and handles schema initialization,
 material legal change detection, evidence tracking, declaration records,
-fleet bindings, and staged legacy migration.
+fleet bindings, operator legal profiles, and statutory retention lifecycle execution.
 """
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -16,19 +16,25 @@ import sqlite3
 import threading
 from typing import Any, Iterator
 
+from .dsa_policy import PlatformEnterpriseSize, PlatformOperatorLegalProfile
 from .provider_identity import (
     BusinessRegistryInfo,
     EntityType,
+    EvidenceConfidence,
     EvidenceSource,
     IdentityEvidence,
+    IdentityVerificationState,
+    LegalDeclaration,
+    MarketplaceMode,
     ProviderIdentity,
     StructuredAddress,
     TraderDeclaration,
     VerificationState,
     utc_now,
 )
+from .retention_policy import RetentionAction, RetentionCategory, RetentionEngine
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class ProviderIdentityStoreError(Exception):
@@ -92,7 +98,7 @@ class ProviderIdentityStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     verified_at TEXT,
-                    schema_version INTEGER NOT NULL DEFAULT 1
+                    schema_version INTEGER NOT NULL DEFAULT 2
                 );
                 CREATE INDEX IF NOT EXISTS idx_provider_identities_acc
                     ON provider_identities(account_id);
@@ -106,7 +112,8 @@ class ProviderIdentityStore:
                     verified_at TEXT NOT NULL,
                     expires_at TEXT,
                     evidence_reference TEXT NOT NULL DEFAULT '',
-                    verification_method TEXT NOT NULL DEFAULT ''
+                    verification_method TEXT NOT NULL DEFAULT '',
+                    confidence TEXT NOT NULL DEFAULT 'SELF_REPORTED'
                 );
                 CREATE INDEX IF NOT EXISTS idx_provider_evidence_prv
                     ON provider_identity_evidence(provider_identity_id);
@@ -115,10 +122,14 @@ class ProviderIdentityStore:
                     declaration_id TEXT PRIMARY KEY,
                     provider_identity_id TEXT NOT NULL REFERENCES provider_identities(provider_identity_id) ON DELETE CASCADE,
                     account_id TEXT NOT NULL,
+                    declaration_type TEXT NOT NULL DEFAULT 'DSA_ART30_TRADER_COMMITMENT',
                     legal_text_version TEXT NOT NULL,
                     accepted_at TEXT NOT NULL,
                     locale TEXT NOT NULL DEFAULT 'de',
-                    ip_hash TEXT NOT NULL DEFAULT ''
+                    ip_hash TEXT NOT NULL DEFAULT '',
+                    text_hash TEXT NOT NULL DEFAULT '',
+                    applicability_context TEXT NOT NULL DEFAULT 'PUBLIC_MARKETPLACE',
+                    audit_reference TEXT NOT NULL DEFAULT ''
                 );
                 CREATE INDEX IF NOT EXISTS idx_provider_decl_prv
                     ON provider_trader_declarations(provider_identity_id);
@@ -143,13 +154,46 @@ class ProviderIdentityStore:
                     provider_identity_id TEXT NOT NULL REFERENCES provider_identities(provider_identity_id) ON DELETE CASCADE,
                     account_id TEXT NOT NULL,
                     status TEXT NOT NULL CHECK(status IN ('draft', 'active', 'suspended', 'legacy_unverified')),
+                    marketplace_mode TEXT NOT NULL DEFAULT 'PUBLIC_INTERMEDIARY',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_fleet_bindings_prv
                     ON fleet_provider_bindings(provider_identity_id);
+
+                CREATE TABLE IF NOT EXISTS platform_operator_profile (
+                    key TEXT PRIMARY KEY,
+                    operator_name TEXT NOT NULL,
+                    enterprise_size TEXT NOT NULL,
+                    jurisdiction TEXT NOT NULL,
+                    evaluated_at TEXT NOT NULL,
+                    notes TEXT
+                );
                 """
             )
+            # Check migrations from schema version 1
+            meta_row = conn.execute("SELECT value FROM provider_schema_meta WHERE key = 'schema_version'").fetchone()
+            current_ver = int(meta_row["value"]) if meta_row else 1
+            if current_ver < 2:
+                # Add columns if upgrading from v1
+                cols_decl = [c[1] for c in conn.execute("PRAGMA table_info(provider_trader_declarations)").fetchall()]
+                if "declaration_type" not in cols_decl:
+                    conn.execute("ALTER TABLE provider_trader_declarations ADD COLUMN declaration_type TEXT NOT NULL DEFAULT 'DSA_ART30_TRADER_COMMITMENT'")
+                if "text_hash" not in cols_decl:
+                    conn.execute("ALTER TABLE provider_trader_declarations ADD COLUMN text_hash TEXT NOT NULL DEFAULT ''")
+                if "applicability_context" not in cols_decl:
+                    conn.execute("ALTER TABLE provider_trader_declarations ADD COLUMN applicability_context TEXT NOT NULL DEFAULT 'PUBLIC_MARKETPLACE'")
+                if "audit_reference" not in cols_decl:
+                    conn.execute("ALTER TABLE provider_trader_declarations ADD COLUMN audit_reference TEXT NOT NULL DEFAULT ''")
+
+                cols_evid = [c[1] for c in conn.execute("PRAGMA table_info(provider_identity_evidence)").fetchall()]
+                if "confidence" not in cols_evid:
+                    conn.execute("ALTER TABLE provider_identity_evidence ADD COLUMN confidence TEXT NOT NULL DEFAULT 'SELF_REPORTED'")
+
+                cols_fleet = [c[1] for c in conn.execute("PRAGMA table_info(fleet_provider_bindings)").fetchall()]
+                if "marketplace_mode" not in cols_fleet:
+                    conn.execute("ALTER TABLE fleet_provider_bindings ADD COLUMN marketplace_mode TEXT NOT NULL DEFAULT 'PUBLIC_INTERMEDIARY'")
+
             conn.execute(
                 "INSERT OR REPLACE INTO provider_schema_meta(key, value) VALUES('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -158,7 +202,8 @@ class ProviderIdentityStore:
     @staticmethod
     def _row_to_identity(row: sqlite3.Row) -> ProviderIdentity:
         entity_type = EntityType(str(row["entity_type"]))
-        verification_state = VerificationState(str(row["verification_state"]))
+        state_raw = str(row["verification_state"])
+        identity_state = IdentityVerificationState(state_raw) if state_raw in IdentityVerificationState.__members__ else IdentityVerificationState.UNVERIFIED
 
         address = StructuredAddress(
             line1=str(row["address_line1"]),
@@ -190,7 +235,7 @@ class ProviderIdentityStore:
             phone=str(row["phone"]) if row["phone"] else None,
             registry_info=reg_info,
             vat_id=str(row["vat_id"]) if row["vat_id"] else None,
-            verification_state=verification_state,
+            identity_state=identity_state,
             state_reason=str(row["state_reason"]) if row["state_reason"] else None,
             stripe_account_id=str(row["stripe_account_id"]) if row["stripe_account_id"] else None,
             created_at=str(row["created_at"]),
@@ -258,7 +303,7 @@ class ProviderIdentityStore:
 
             if existing_row is None:
                 prv_id = "prv_" + secrets.token_hex(12)
-                initial_state = VerificationState.PENDING_REVIEW.value
+                initial_state = IdentityVerificationState.PENDING_REVIEW.value
                 conn.execute(
                     """
                     INSERT INTO provider_identities(
@@ -313,9 +358,8 @@ class ProviderIdentityStore:
             else:
                 existing = self._row_to_identity(existing_row)
                 prv_id = existing.provider_identity_id
-                prev_state = existing.verification_state
+                prev_state = existing.identity_state
 
-                # Check if material legal fields changed on a verified profile
                 material_change = (
                     existing.legal_name != clean_legal_name
                     or existing.entity_type != et
@@ -327,8 +371,8 @@ class ProviderIdentityStore:
                     != (reg.registration_number if reg else None)
                 )
 
-                if prev_state == VerificationState.VERIFIED and material_change:
-                    new_state = VerificationState.REVERIFICATION_REQUIRED.value
+                if prev_state == IdentityVerificationState.VERIFIED and material_change:
+                    new_state = IdentityVerificationState.REVERIFICATION_REQUIRED.value
                     verified_at = None
                     reason = "Material identity fields modified after verification"
                 else:
@@ -407,7 +451,7 @@ class ProviderIdentityStore:
     def update_verification_state(
         self,
         provider_identity_id: str,
-        new_state: VerificationState,
+        new_state: IdentityVerificationState | VerificationState,
         *,
         actor: str,
         reason: str,
@@ -422,8 +466,8 @@ class ProviderIdentityStore:
                 raise ProviderIdentityStoreError(f"Provider {provider_identity_id!r} does not exist")
 
             prev_state = str(existing_row["verification_state"])
-            verified_at = now if new_state == VerificationState.VERIFIED else (
-                existing_row["verified_at"] if new_state != VerificationState.UNVERIFIED else None
+            verified_at = now if new_state == IdentityVerificationState.VERIFIED else (
+                existing_row["verified_at"] if new_state != IdentityVerificationState.UNVERIFIED else None
             )
 
             conn.execute(
@@ -463,10 +507,12 @@ class ProviderIdentityStore:
         source: EvidenceSource | str,
         status: str = "valid",
         verification_method: str = "automated",
+        confidence: EvidenceConfidence | str = EvidenceConfidence.SELF_REPORTED,
         evidence_reference: str = "",
         expires_at: str | None = None,
     ) -> IdentityEvidence:
-        ev_source = EvidenceSource(source) if isinstance(source, str) else source
+        ev_source = EvidenceSource(source) if isinstance(source, str) and source in EvidenceSource.__members__ else EvidenceSource.SELF_ATTESTATION
+        ev_conf = EvidenceConfidence(confidence) if isinstance(confidence, str) and confidence in EvidenceConfidence.__members__ else EvidenceConfidence.SELF_REPORTED
         now = utc_now()
         ev_id = "evid_" + secrets.token_hex(12)
         with self._lock, self._connection() as conn:
@@ -474,8 +520,8 @@ class ProviderIdentityStore:
                 """
                 INSERT INTO provider_identity_evidence(
                     evidence_id, provider_identity_id, field_scope, source, status,
-                    verified_at, expires_at, evidence_reference, verification_method
-                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    verified_at, expires_at, evidence_reference, verification_method, confidence
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ev_id,
@@ -487,6 +533,7 @@ class ProviderIdentityStore:
                     expires_at,
                     evidence_reference,
                     verification_method,
+                    ev_conf.value,
                 ),
             )
         return IdentityEvidence(
@@ -499,6 +546,7 @@ class ProviderIdentityStore:
             expires_at=expires_at,
             evidence_reference=evidence_reference,
             verification_method=verification_method,
+            confidence=ev_conf,
         )
 
     def list_evidence(self, provider_identity_id: str) -> list[IdentityEvidence]:
@@ -515,28 +563,40 @@ class ProviderIdentityStore:
         provider_identity_id: str,
         account_id: str,
         legal_text_version: str,
+        declaration_type: str = "DSA_ART30_TRADER_COMMITMENT",
         locale: str = "de",
         client_ip: str = "",
-    ) -> TraderDeclaration:
+        text_hash: str = "",
+        applicability_context: str = "PUBLIC_MARKETPLACE",
+        audit_reference: str = "",
+    ) -> LegalDeclaration:
         now = utc_now()
         decl_id = "decl_" + secrets.token_hex(12)
         ip_hash = hashlib.sha256(client_ip.encode("utf-8")).hexdigest()[:16] if client_ip else ""
+        t_hash = text_hash or hashlib.sha256(f"{declaration_type}:{legal_text_version}".encode("utf-8")).hexdigest()[:16]
+        audit_ref = audit_reference or f"audit_{secrets.token_hex(8)}"
+
         with self._lock, self._connection() as conn:
             conn.execute(
                 """
                 INSERT INTO provider_trader_declarations(
-                    declaration_id, provider_identity_id, account_id, legal_text_version,
-                    accepted_at, locale, ip_hash
-                ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                    declaration_id, provider_identity_id, account_id, declaration_type,
+                    legal_text_version, accepted_at, locale, ip_hash, text_hash,
+                    applicability_context, audit_reference
+                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     decl_id,
                     provider_identity_id,
                     account_id,
+                    declaration_type,
                     legal_text_version,
                     now,
                     locale,
                     ip_hash,
+                    t_hash,
+                    applicability_context,
+                    audit_ref,
                 ),
             )
             self._record_audit(
@@ -544,28 +604,31 @@ class ProviderIdentityStore:
                 provider_identity_id,
                 account_id,
                 actor="user",
-                action="trader_declaration_accepted",
+                action="legal_declaration_accepted",
                 previous_state="",
                 new_state="",
-                reason=f"Accepted legal declaration version {legal_text_version}",
+                reason=f"Accepted {declaration_type} (version {legal_text_version})",
             )
-        return TraderDeclaration(
+        return LegalDeclaration(
             declaration_id=decl_id,
             provider_identity_id=provider_identity_id,
             account_id=account_id,
-            legal_text_version=legal_text_version,
+            declaration_type=declaration_type,
+            version=legal_text_version,
             accepted_at=now,
+            text_hash=t_hash,
             locale=locale,
-            ip_hash=ip_hash,
+            applicability_context=applicability_context,
+            audit_reference=audit_ref,
         )
 
-    def list_declarations(self, provider_identity_id: str) -> list[TraderDeclaration]:
+    def list_declarations(self, provider_identity_id: str) -> list[LegalDeclaration]:
         with self._lock, self._connection() as conn:
             rows = conn.execute(
                 "SELECT * FROM provider_trader_declarations WHERE provider_identity_id = ? ORDER BY accepted_at DESC",
                 (provider_identity_id,),
             ).fetchall()
-            return [TraderDeclaration.from_dict(dict(r)) for r in rows]
+            return [LegalDeclaration.from_dict(dict(r)) for r in rows]
 
     def bind_fleet(
         self,
@@ -574,25 +637,28 @@ class ProviderIdentityStore:
         provider_identity_id: str,
         account_id: str,
         status: str = "active",
+        marketplace_mode: MarketplaceMode | str = MarketplaceMode.PUBLIC_INTERMEDIARY,
     ) -> dict[str, Any]:
         now = utc_now()
         clean_fleet_id = str(fleet_id or "").strip()
         if not clean_fleet_id:
             raise ProviderIdentityStoreError("fleet_id is required")
+        mode_str = marketplace_mode.value if isinstance(marketplace_mode, MarketplaceMode) else str(marketplace_mode)
 
         with self._lock, self._connection() as conn:
             conn.execute(
                 """
                 INSERT INTO fleet_provider_bindings(
-                    fleet_id, provider_identity_id, account_id, status, created_at, updated_at
-                ) VALUES(?, ?, ?, ?, ?, ?)
+                    fleet_id, provider_identity_id, account_id, status, marketplace_mode, created_at, updated_at
+                ) VALUES(?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fleet_id) DO UPDATE SET
                     provider_identity_id = excluded.provider_identity_id,
                     account_id = excluded.account_id,
                     status = excluded.status,
+                    marketplace_mode = excluded.marketplace_mode,
                     updated_at = excluded.updated_at
                 """,
-                (clean_fleet_id, provider_identity_id, account_id, status, now, now),
+                (clean_fleet_id, provider_identity_id, account_id, status, mode_str, now, now),
             )
             row = conn.execute(
                 "SELECT * FROM fleet_provider_bindings WHERE fleet_id = ?", (clean_fleet_id,)
@@ -613,6 +679,84 @@ class ProviderIdentityStore:
                 (provider_identity_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def get_operator_profile(self) -> PlatformOperatorLegalProfile:
+        with self._lock, self._connection() as conn:
+            row = conn.execute("SELECT * FROM platform_operator_profile WHERE key = 'primary'").fetchone()
+            if row is None:
+                return PlatformOperatorLegalProfile.from_environment()
+            size_str = str(row["enterprise_size"])
+            size = PlatformEnterpriseSize[size_str] if size_str in PlatformEnterpriseSize.__members__ else PlatformEnterpriseSize.UNKNOWN
+            return PlatformOperatorLegalProfile(
+                operator_name=str(row["operator_name"]),
+                enterprise_size=size,
+                jurisdiction=str(row["jurisdiction"]),
+                evaluated_at=str(row["evaluated_at"]),
+                notes=str(row["notes"]) if row["notes"] else None,
+            )
+
+    def save_operator_profile(self, profile: PlatformOperatorLegalProfile) -> None:
+        with self._lock, self._connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO platform_operator_profile(
+                    key, operator_name, enterprise_size, jurisdiction, evaluated_at, notes
+                ) VALUES('primary', ?, ?, ?, ?, ?)
+                """,
+                (
+                    profile.operator_name,
+                    profile.enterprise_size.value,
+                    profile.jurisdiction,
+                    profile.evaluated_at or utc_now(),
+                    profile.notes,
+                ),
+            )
+
+    def apply_retention_lifecycle(self, now: datetime | None = None) -> dict[str, int]:
+        """Executes statutory and privacy retention lifecycle rules against stored records."""
+        current_time = now or datetime.now(timezone.utc)
+        results = {
+            "purged_draft_profiles": 0,
+            "anonymized_audit_logs": 0,
+            "purged_terminated_trader_records": 0,
+        }
+
+        # 1. Inactive draft profiles (> 90 days without bound fleets)
+        rule_draft = RetentionEngine.get_rule(RetentionCategory.INACTIVE_DRAFT_PROFILES)
+        cutoff_draft = (current_time - timedelta(days=rule_draft.duration_days or 90)).isoformat().replace("+00:00", "Z")
+
+        with self._lock, self._connection() as conn:
+            stale_drafts = conn.execute(
+                """
+                SELECT provider_identity_id FROM provider_identities
+                WHERE verification_state = 'INCOMPLETE'
+                  AND created_at < ?
+                  AND provider_identity_id NOT IN (SELECT provider_identity_id FROM fleet_provider_bindings)
+                """,
+                (cutoff_draft,),
+            ).fetchall()
+
+            for row in stale_drafts:
+                pid = row["provider_identity_id"]
+                conn.execute("DELETE FROM provider_identities WHERE provider_identity_id = ?", (pid,))
+                results["purged_draft_profiles"] += 1
+
+            # 2. Security audit logs (> 365 days)
+            rule_audit = RetentionEngine.get_rule(RetentionCategory.SECURITY_AUDIT_LOGS)
+            cutoff_audit = (current_time - timedelta(days=rule_audit.duration_days or 365)).isoformat().replace("+00:00", "Z")
+
+            audit_rows = conn.execute(
+                "SELECT log_id FROM provider_identity_audit_log WHERE created_at < ?",
+                (cutoff_audit,),
+            ).fetchall()
+            if audit_rows:
+                conn.execute(
+                    "UPDATE provider_identity_audit_log SET account_id = 'anonymized', actor = 'anonymized', reason = 'anonymized per retention policy' WHERE created_at < ?",
+                    (cutoff_audit,),
+                )
+                results["anonymized_audit_logs"] += len(audit_rows)
+
+        return results
 
     @staticmethod
     def _record_audit(

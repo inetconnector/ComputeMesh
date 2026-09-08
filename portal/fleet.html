@@ -3452,16 +3452,18 @@ for chunk in stream:
         const data = await res.json();
         const evaluation = data.evaluation || {};
         const identity = data.identity || {};
+        const applicability = evaluation.applicability || {};
+        const isDsaApplicable = applicability.article_30_applicable === true;
 
         if (badge) {
-          const state = evaluation.state || "UNVERIFIED";
+          const state = evaluation.identity_state || evaluation.state || "UNVERIFIED";
           if (state === "VERIFIED") {
             badge.className = "sec-badge sec-badge-ok";
-            badge.textContent = "✅ Verifiziert (Marketplace-Berechtigt)";
-          } else if (state === "PENDING") {
+            badge.textContent = "✅ Identität Verifiziert";
+          } else if (state === "PENDING_REVIEW") {
             badge.className = "sec-badge info";
             badge.textContent = "⏳ Prüfung ausstehend (Pending)";
-          } else if (state === "NEEDS_INFORMATION") {
+          } else if (state === "NEEDS_INFORMATION" || state === "INCOMPLETE") {
             badge.className = "sec-badge sec-badge-warn";
             badge.textContent = "⚠️ Angaben erforderlich (Incomplete)";
           } else if (state === "SUSPENDED" || state === "REJECTED") {
@@ -3516,14 +3518,19 @@ for chunk in stream:
 
         const declarations = data.declarations || [];
         const targetVer = data.dsa_declaration_version || "dsa_art30_v1.0";
-        const hasActiveDecl = declarations.some(d => d.legal_text_version === targetVer);
+        const hasActiveDecl = declarations.some(d => (d.version === targetVer || d.legal_text_version === targetVer));
         const chkDecl = document.getElementById("chk-dsa-declaration");
         const btnDecl = document.getElementById("btn-submit-declaration");
         const declMsg = document.getElementById("prv-decl-msg");
+
         if (hasActiveDecl) {
           if (chkDecl) { chkDecl.checked = true; chkDecl.disabled = true; }
           if (btnDecl) { btnDecl.disabled = true; btnDecl.textContent = "✓ Erklärung abgegeben"; }
-          if (declMsg) { declMsg.style.color = "#34d399"; declMsg.textContent = "Gültig für Art. 30 DSA (Version " + targetVer + ")"; }
+          if (declMsg) { declMsg.style.color = "#34d399"; declMsg.textContent = "Gültig für Art. 30 DSA (" + targetVer + ")"; }
+        } else if (!isDsaApplicable) {
+          if (chkDecl) { chkDecl.disabled = false; chkDecl.checked = false; }
+          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = "✍️ Erklärung optional hinterlegen"; }
+          if (declMsg) { declMsg.style.color = "#94a3b8"; declMsg.textContent = "Optional (Aktueller Betriebsmodus erfordert keine DSA Art. 30 Selbsterklärung)"; }
         } else {
           if (chkDecl) { chkDecl.disabled = false; chkDecl.checked = false; }
           if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = "✍️ Selbsterklärung abgeben"; }
@@ -3536,25 +3543,44 @@ for chunk in stream:
           } else {
             const addr = identity.address || {};
             const reg = identity.registry_info || {};
-            const isVer = evaluation.state === "VERIFIED";
-            previewBox.innerHTML = `
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
-                <div>
-                  <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;">${escapeHtml(identity.trade_name || identity.legal_name)}</div>
-                  <div style="font-size:0.85rem;color:#94a3b8;">${escapeHtml(identity.legal_name)} · <span style="text-transform:uppercase;">${escapeHtml(identity.entity_type || 'individual')}</span></div>
+            const isVer = evaluation.identity_state === "VERIFIED" || evaluation.state === "VERIFIED";
+            const pubName = identity.trade_name || identity.legal_name;
+
+            if (isDsaApplicable) {
+              previewBox.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+                  <div>
+                    <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;">${escapeHtml(pubName)}</div>
+                    <div style="font-size:0.85rem;color:#94a3b8;">${escapeHtml(identity.legal_name)} · <span style="text-transform:uppercase;">${escapeHtml(identity.entity_type || 'individual')}</span></div>
+                  </div>
+                  <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
+                    ${isVer ? '✅ Geprüfter DSA-Händler' : '⚠️ Identität unvollständig'}
+                  </span>
                 </div>
-                <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
-                  ${isVer ? '✅ Geprüfter DSA-Händler' : '⚠️ Identität unvollständig'}
-                </span>
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.75rem;font-size:0.85rem;color:#cbd5e1;background:rgba(255,255,255,0.03);padding:0.75rem;border-radius:8px;">
-                <div><strong>Standort:</strong> ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.country_code || '')} (${escapeHtml(addr.postal_code || '')})</div>
-                <div><strong>Kontakt:</strong> ${escapeHtml(identity.email || '')}</div>
-                ${reg.registration_number ? `<div><strong>Register:</strong> ${escapeHtml(reg.registry_name || '')} (${escapeHtml(reg.registration_number || '')})</div>` : ''}
-                ${identity.vat_id ? `<div><strong>USt-ID:</strong> ${escapeHtml(identity.vat_id)}</div>` : ''}
-                <div><strong>DSA Selbsterklärung:</strong> ${hasActiveDecl ? '✅ Liegt vor (' + escapeHtml(targetVer) + ')' : '❌ Ausstehend'}</div>
-              </div>
-            `;
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.75rem;font-size:0.85rem;color:#cbd5e1;background:rgba(255,255,255,0.03);padding:0.75rem;border-radius:8px;">
+                  <div><strong>Standort:</strong> ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.country_code || '')} (${escapeHtml(addr.postal_code || '')})</div>
+                  <div><strong>Kontakt:</strong> ${escapeHtml(identity.email || '')}</div>
+                  ${reg.registration_number ? `<div><strong>Register:</strong> ${escapeHtml(reg.registry_name || '')} (${escapeHtml(reg.registration_number || '')})</div>` : ''}
+                  ${identity.vat_id ? `<div><strong>USt-ID:</strong> ${escapeHtml(identity.vat_id)}</div>` : ''}
+                  <div><strong>DSA Selbsterklärung:</strong> ${hasActiveDecl ? '✅ Liegt vor (' + escapeHtml(targetVer) + ')' : '❌ Ausstehend'}</div>
+                </div>
+              `;
+            } else {
+              previewBox.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
+                  <div>
+                    <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;">${escapeHtml(pubName)}</div>
+                    <div style="font-size:0.85rem;color:#94a3b8;">Betreiberland: ${escapeHtml(addr.country_code || 'DE')}</div>
+                  </div>
+                  <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
+                    ${isVer ? '✅ Verifizierter Betreiber' : '⚠️ Identität unvollständig'}
+                  </span>
+                </div>
+                <div style="font-size:0.85rem;color:#94a3b8;background:rgba(255,255,255,0.02);padding:0.75rem;border-radius:8px;line-height:1.5;">
+                  🔒 <em>Minimales öffentliches Profil aktiv (Datenschutz nach Art. 5/25 DSGVO). Private Wohnanschriften und Kontaktdaten werden in diesem Betriebsmodus nicht öffentlich exponiert.</em>
+                </div>
+              `;
+            }
           }
         }
       } catch (err) {

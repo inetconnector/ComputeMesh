@@ -1,8 +1,8 @@
-"""Server-side gatekeeper enforcing Provider & Trader verification before Fleet Marketplace operation.
+"""Server-side gatekeeper enforcing Provider verification and context-aware Fleet Governance.
 
-Complies with DSA Art. 30/31 by ensuring that no fleet may enter the active
-marketplace without a verified ProviderIdentity and an accepted versioned
-DSA Art. 30 Trader Declaration.
+Ensures that no fleet may enter the active marketplace or receive compute workloads
+without satisfying the specific requirements applicable to the target marketplace mode
+(Public Intermediary, Reseller, B2B, or Private Cluster).
 """
 from __future__ import annotations
 
@@ -10,8 +10,11 @@ from typing import Any, Callable
 
 from .provider_identity import (
     ComplianceEvaluation,
+    ContractCounterpartyModel,
+    CustomerAudience,
+    IdentityVerificationState,
+    MarketplaceMode,
     ProviderIdentity,
-    VerificationState,
     evaluate_provider_requirements,
 )
 from .provider_identity_store import ProviderIdentityStore
@@ -25,7 +28,7 @@ class FleetGatekeeperError(Exception):
 
 
 class FleetGatekeeper:
-    """Centralized enforcement gatekeeper for Fleet creation and Marketplace operation."""
+    """Centralized context-aware enforcement gatekeeper for Fleet creation and Marketplace operation."""
 
     def __init__(
         self,
@@ -39,14 +42,29 @@ class FleetGatekeeper:
         """Validates whether an account can create a new fleet (draft or active)."""
         if not account_id or not isinstance(account_id, str):
             return False, "invalid_account_id", []
-        # Fleet draft creation is permitted; full marketplace operation requires verified identity
+        # Fleet draft creation is permitted; operational activation is gated by mode
         return True, None, []
 
-    def evaluate_account_compliance(self, account_id: str) -> ComplianceEvaluation:
-        """Returns the full compliance evaluation for an account."""
+    def evaluate_account_compliance(
+        self,
+        account_id: str,
+        *,
+        marketplace_mode: MarketplaceMode | str = MarketplaceMode.PUBLIC_INTERMEDIARY,
+        counterparty_model: ContractCounterpartyModel | str = ContractCounterpartyModel.CUSTOMER_PROVIDER,
+        customer_audience: CustomerAudience | str = CustomerAudience.CONSUMER_ALLOWED,
+    ) -> ComplianceEvaluation:
+        """Returns the full compliance evaluation for an account under the given marketplace mode."""
         identity = self.identity_store.get_identity_by_account(account_id)
+        operator_profile = self.identity_store.get_operator_profile()
+
         if identity is None:
-            return evaluate_provider_requirements(None, [], [])
+            return evaluate_provider_requirements(
+                None, [], [],
+                marketplace_mode=marketplace_mode,
+                counterparty_model=counterparty_model,
+                customer_audience=customer_audience,
+                operator_profile=operator_profile,
+            )
 
         declarations = self.identity_store.list_declarations(identity.provider_identity_id)
         evidence = self.identity_store.list_evidence(identity.provider_identity_id)
@@ -58,25 +76,43 @@ class FleetGatekeeper:
             except Exception:
                 stripe_profile = None
 
-        return evaluate_provider_requirements(identity, declarations, evidence, stripe_profile)
+        return evaluate_provider_requirements(
+            identity,
+            declarations,
+            evidence,
+            stripe_profile,
+            marketplace_mode=marketplace_mode,
+            counterparty_model=counterparty_model,
+            customer_audience=customer_audience,
+            operator_profile=operator_profile,
+        )
 
     def can_operate_marketplace(
         self,
         account_id: str,
         fleet_id: str,
+        *,
+        marketplace_mode: MarketplaceMode | str = MarketplaceMode.PUBLIC_INTERMEDIARY,
+        counterparty_model: ContractCounterpartyModel | str = ContractCounterpartyModel.CUSTOMER_PROVIDER,
+        customer_audience: CustomerAudience | str = CustomerAudience.CONSUMER_ALLOWED,
     ) -> tuple[bool, str | None, list[dict[str, Any]]]:
         """Strict server-side gatekeeper check before a fleet can receive marketplace jobs."""
-        evaluation = self.evaluate_account_compliance(account_id)
+        evaluation = self.evaluate_account_compliance(
+            account_id,
+            marketplace_mode=marketplace_mode,
+            counterparty_model=counterparty_model,
+            customer_audience=customer_audience,
+        )
 
         if not evaluation.eligible:
-            state = evaluation.state
-            if state == VerificationState.SUSPENDED:
+            state = evaluation.identity_state
+            if state == IdentityVerificationState.SUSPENDED:
                 code = "PROVIDER_SUSPENDED"
                 msg = "Anbieterkonto ist derzeit suspendiert."
-            elif state == VerificationState.REJECTED:
+            elif state == IdentityVerificationState.REJECTED:
                 code = "PROVIDER_VERIFICATION_FAILED"
                 msg = "Anbieterverifikation wurde abgelehnt."
-            elif state == VerificationState.UNVERIFIED:
+            elif state == IdentityVerificationState.UNVERIFIED:
                 code = "PROVIDER_IDENTITY_REQUIRED"
                 msg = "Für die Marketplace-Teilnahme ist ein vollständiges rechtliches Anbieterprofil erforderlich."
             elif any(r.code == "trader_declaration_missing" for r in evaluation.missing_requirements):
@@ -90,9 +126,37 @@ class FleetGatekeeper:
 
         return True, None, []
 
-    def require_marketplace_eligibility(self, account_id: str, fleet_id: str) -> None:
+    def can_operate_private_cluster(self, account_id: str, fleet_id: str) -> tuple[bool, str | None, list[dict[str, Any]]]:
+        """Evaluates private cluster operation (requires verified provider identity, exempt from DSA Art. 30 declaration)."""
+        return self.can_operate_marketplace(
+            account_id,
+            fleet_id,
+            marketplace_mode=MarketplaceMode.PRIVATE_CLUSTER,
+            counterparty_model=ContractCounterpartyModel.DIRECT_PRIVATE_MEMBER,
+            customer_audience=CustomerAudience.PRIVATE_MEMBERS,
+        )
+
+    def can_operate_b2b_marketplace(self, account_id: str, fleet_id: str) -> tuple[bool, str | None, list[dict[str, Any]]]:
+        """Evaluates B2B marketplace operation."""
+        return self.can_operate_marketplace(
+            account_id,
+            fleet_id,
+            marketplace_mode=MarketplaceMode.B2B_INTERMEDIARY,
+            counterparty_model=ContractCounterpartyModel.CUSTOMER_PROVIDER,
+            customer_audience=CustomerAudience.BUSINESS_ONLY,
+        )
+
+    def require_marketplace_eligibility(
+        self,
+        account_id: str,
+        fleet_id: str,
+        *,
+        marketplace_mode: MarketplaceMode | str = MarketplaceMode.PUBLIC_INTERMEDIARY,
+    ) -> None:
         """Raises FleetGatekeeperError if the fleet cannot operate in the marketplace."""
-        allowed, code, missing = self.can_operate_marketplace(account_id, fleet_id)
+        allowed, code, missing = self.can_operate_marketplace(
+            account_id, fleet_id, marketplace_mode=marketplace_mode
+        )
         if not allowed:
             raise FleetGatekeeperError(
                 code=code or "PROVIDER_IDENTITY_INCOMPLETE",
