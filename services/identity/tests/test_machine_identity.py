@@ -21,11 +21,24 @@ def test_machine_identity_is_stable_under_order_case_and_whitespace() -> None:
         "system_uuid": "abc-123",
     })
     assert first == second
+    assert first.sources == ("system_uuid",)
     assert first.machine_id.startswith("hw1:")
     assert len(first.machine_id) == len("hw1:") + 64
 
 
-def test_machine_identity_changes_when_host_specific_identity_changes() -> None:
+def test_nic_change_does_not_change_identity_when_firmware_uuid_exists() -> None:
+    first = collect_machine_identity(signal_provider=lambda: {
+        "system_uuid": "host-a",
+        "mac": "001122334455",
+    })
+    second = collect_machine_identity(signal_provider=lambda: {
+        "system_uuid": "host-a",
+        "mac": "aabbccddeeff",
+    })
+    assert first == second
+
+
+def test_machine_identity_changes_when_firmware_identity_changes() -> None:
     first = collect_machine_identity(signal_provider=lambda: {
         "system_uuid": "host-a",
         "processor_model": "same cpu",
@@ -46,10 +59,27 @@ def test_public_machine_identity_never_contains_raw_hardware_values() -> None:
     public = identity.to_public_dict()
     assert raw_serial not in repr(public)
     assert "001122334455" not in repr(public)
-    assert public["sources"] == ["dmi_board_serial", "mac"]
+    assert public["sources"] == ["dmi_board_serial"]
 
 
-def test_processor_and_architecture_alone_are_not_unique_enough() -> None:
+def test_machine_id_precedes_processor_and_mac_fallbacks() -> None:
+    identity = collect_machine_identity(signal_provider=lambda: {
+        "machine_id": "installation-a",
+        "processor_id": "cpu-a",
+        "mac": "001122334455",
+    })
+    assert identity.sources == ("machine_id",)
+
+
+def test_processor_id_is_used_before_mac_when_stronger_sources_are_missing() -> None:
+    identity = collect_machine_identity(signal_provider=lambda: {
+        "processor_id": "cpu-a",
+        "mac": "001122334455",
+    })
+    assert identity.sources == ("processor_id",)
+
+
+def test_processor_model_and_architecture_alone_are_not_unique_enough() -> None:
     with pytest.raises(MachineIdentityError, match="host-specific"):
         collect_machine_identity(signal_provider=lambda: {
             "processor_model": "common cpu",
