@@ -59,10 +59,11 @@ def test_processor_and_architecture_alone_are_not_unique_enough() -> None:
 
 def test_attach_governance_identity_is_additive_and_validates_fleet() -> None:
     source = {"node_id": "node-a", "profile_revision": 1}
-    governed = attach_governance_identity(source, fleet_id="fleet-east")
+    identity = collect_machine_identity(signal_provider=lambda: {"system_uuid": "host-a"})
+    governed = attach_governance_identity(source, fleet_id="fleet-east", identity=identity)
     assert source == {"node_id": "node-a", "profile_revision": 1}
     assert governed["fleet_id"] == "fleet-east"
-    assert governed["machine_identity"]["machine_id"].startswith("hw1:")
+    assert governed["machine_identity"] == identity.to_public_dict()
 
     with pytest.raises(MachineIdentityError, match="fleet_id"):
-        attach_governance_identity(source, fleet_id="bad fleet id")
+        attach_governance_identity(source, fleet_id="bad fleet id", identity=identity)
