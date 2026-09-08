@@ -1,0 +1,14 @@
+[Unit]
+Description=ComputeMesh Statutory Data Retention Lifecycle Service
+Documentation=https://mesh.inetconnector.com/docs
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mesh.inetconnector.com
+Environment=PYTHONPATH=/var/www/mesh.inetconnector.com:/var/www/mesh.inetconnector.com/ControlPlane
+ExecStart=/usr/bin/python3 /var/www/mesh.inetconnector.com/scripts/run_retention_lifecycle.py --verbose
+StandardOutput=journal
+StandardError=journal

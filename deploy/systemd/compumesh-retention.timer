@@ -1,0 +1,11 @@
+[Unit]
+Description=ComputeMesh Statutory Data Retention Daily Timer
+Documentation=https://mesh.inetconnector.com/docs
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

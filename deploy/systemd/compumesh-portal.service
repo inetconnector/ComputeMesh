@@ -1,0 +1,22 @@
+[Unit]
+Description=ComputeMesh Web Portal & Fleet Management Service
+Documentation=https://mesh.inetconnector.com/docs
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mesh.inetconnector.com
+Environment=PYTHONPATH=/var/www/mesh.inetconnector.com:/var/www/mesh.inetconnector.com/ControlPlane
+Environment=COMPUTEMESH_PORT=8000
+Environment=COMPUTEMESH_ENV=production
+ExecStart=/usr/bin/python3 -m services.portal.server --port 8000 --host 127.0.0.1
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
