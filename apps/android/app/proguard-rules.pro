@@ -32,5 +32,14 @@
 -dontwarn org.apache.logging.**
 -dontwarn org.conscrypt.**
 -dontwarn org.eclipse.jetty.**
--dontwarn reactor.blockhound.**
+# NanoHTTPD Embedded Web Server
+-keep class fi.iki.elonen.** { *; }
+-dontwarn fi.iki.elonen.**
+
+# WebView & Javascript Interface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
 -ignorewarnings
+

@@ -69,6 +69,11 @@ android {
         prefab = true
     }
 
+    androidResources {
+        noCompress.addAll(listOf("js", "css", "html", "json", "wasm", "svg", "png", "webmanifest", "ico", "woff2", "woff", "ttf"))
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!_*"
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -108,6 +113,9 @@ dependencies {
 
     // JSON serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+
+    // NanoHTTPD for hosting embedded AHSMA WebUI
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

@@ -40,6 +40,7 @@ def verify_project_structure() -> bool:
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "guard" / "BatteryPolicyGuard.kt",
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "p2p" / "DirectLanDiscovery.kt",
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "service" / "MeshNodeService.kt",
+        ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "server" / "LocalChatServer.kt",
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "ui" / "MainActivity.kt",
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "java" / "com" / "inetconnector" / "compumesh" / "ui" / "theme" / "Theme.kt",
         ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "res" / "drawable" / "ic_launcher_background.xml",
