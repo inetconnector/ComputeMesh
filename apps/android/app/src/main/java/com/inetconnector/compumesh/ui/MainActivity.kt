@@ -1,7 +1,10 @@
 package com.inetconnector.compumesh.ui
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
@@ -21,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +43,12 @@ data class ChatMessage(val role: String, val content: String, val speed: String 
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val PREFS_NAME = "computemesh_prefs"
+        private const val PREF_OWNER_KEY = "fleet_owner_key"
+        private const val PREF_GATEWAY_URL = "gateway_url"
+    }
+
     private lateinit var batteryGuard: BatteryPolicyGuard
     private lateinit var engine: MiniCpmEngine
     private lateinit var lanDiscovery: DirectLanDiscovery
@@ -48,6 +59,18 @@ class MainActivity : ComponentActivity() {
         engine = MiniCpmEngine.getInstance(this)
         lanDiscovery = DirectLanDiscovery(this)
 
+        // Restore saved fleet credentials
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedKey = prefs.getString(PREF_OWNER_KEY, "") ?: ""
+        val savedGateway = prefs.getString(PREF_GATEWAY_URL, "https://mesh.inetconnector.com") ?: "https://mesh.inetconnector.com"
+        if (savedKey.isNotBlank()) {
+            MeshNodeService.ownerKey = savedKey
+        }
+        MeshNodeService.gatewayUrl = savedGateway
+
+        // Handle possible deep link QR code pairing on launch
+        handlePairingIntent(intent)
+
         setContent {
             ComputeMeshTheme {
                 ComputeMeshMainScreen(
@@ -55,10 +78,42 @@ class MainActivity : ComponentActivity() {
                     engine = engine,
                     lanDiscovery = lanDiscovery,
                     onStartNode = { startNodeService() },
-                    onStopNode = { stopNodeService() }
+                    onStopNode = { stopNodeService() },
+                    onSaveFleetConfig = { key, gateway ->
+                        saveFleetConfig(key, gateway)
+                    }
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handlePairingIntent(intent)
+    }
+
+    private fun handlePairingIntent(intent: Intent?) {
+        val uri: Uri? = intent?.data
+        if (uri != null) {
+            val ownerKey = uri.getQueryParameter("owner_key") ?: uri.getQueryParameter("key") ?: ""
+            val gateway = uri.getQueryParameter("gateway") ?: "https://mesh.inetconnector.com"
+
+            if (ownerKey.isNotBlank()) {
+                saveFleetConfig(ownerKey, gateway)
+                Toast.makeText(this, "✓ Erfolgreich mit ComputeMesh Flotte gekoppelt!", Toast.LENGTH_LONG).show()
+                startNodeService()
+            }
+        }
+    }
+
+    private fun saveFleetConfig(key: String, gateway: String) {
+        MeshNodeService.ownerKey = key
+        MeshNodeService.gatewayUrl = gateway
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(PREF_OWNER_KEY, key)
+            .putString(PREF_GATEWAY_URL, gateway)
+            .apply()
     }
 
     private fun startNodeService() {
@@ -83,7 +138,8 @@ fun ComputeMeshMainScreen(
     engine: MiniCpmEngine,
     lanDiscovery: DirectLanDiscovery,
     onStartNode: () -> Unit,
-    onStopNode: () -> Unit
+    onStopNode: () -> Unit,
+    onSaveFleetConfig: (String, String) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
@@ -194,7 +250,7 @@ fun ComputeMeshMainScreen(
                 0 -> MiniCpmChatTab(engine)
                 1 -> EdgeNodeTab(guardStatus, onStartNode, onStopNode)
                 2 -> LanMeshTab(lanDiscovery)
-                3 -> SetupTab()
+                3 -> SetupTab(onSaveFleetConfig = onSaveFleetConfig)
             }
         }
     }
@@ -320,12 +376,11 @@ fun MiniCpmChatTab(engine: MiniCpmEngine) {
 
                         scope.launch {
                             val startTime = System.currentTimeMillis()
-                            // Local on-device execution
                             val isLoaded = engine.ensureModelLoaded()
                             val responseText = if (isLoaded) {
                                 "MiniCPM5-2B analysierte die Anfrage vollständig on-device. Berechnete Inferenz mit voller ARM-NEON Vektorisierung abgeschlossen."
                             } else {
-                                "Modell MiniCPM5-2B bereit für On-Device Inferenz. Gewichte werden direkt vom HuggingFace CDN gestreamt."
+                                "Modell MiniCPM5-2B bereit für On-Device Inferenz. Gewichte werden direkt vom HuggingFace CDN bezogen."
                             }
                             val durationSec = ((System.currentTimeMillis() - startTime) / 1000.0).coerceAtLeast(0.1)
                             val tokenSpeed = "⚡ 18.4 tokens/s (ARM64 FP16)"
@@ -602,87 +657,272 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
 }
 
 @Composable
-fun SetupTab() {
+fun SetupTab(onSaveFleetConfig: (String, String) -> Unit) {
     var ownerKeyInput by remember { mutableStateOf(MeshNodeService.ownerKey) }
     var gatewayUrlInput by remember { mutableStateOf(MeshNodeService.gatewayUrl) }
     var directTrafficOnly by remember { mutableStateOf(true) }
+    var showQrScanDialog by remember { mutableStateOf(false) }
+    var scanInputText by remember { mutableStateOf("") }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
-    Column(
+    val isBound = ownerKeyInput.isNotBlank()
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Flotten-Kopplung & Sicherheit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text(
-            "Verbinde dieses Gerät mit deinem ComputeMesh Portal für Telemetrie- und Verdienst-Übersichten.",
-            color = TextSecondary,
-            fontSize = 13.sp
-        )
+        item {
+            Text("Flotten-Kopplung & Sicherheit", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                "Verbinde dieses Smartphone mit deiner ComputeMesh Flotte für Echtzeit-Telemetrie und Earnings.",
+                color = TextSecondary,
+                fontSize = 13.sp
+            )
+        }
 
-        OutlinedTextField(
-            value = ownerKeyInput,
-            onValueChange = {
-                ownerKeyInput = it
-                MeshNodeService.ownerKey = it
-            },
-            label = { Text("Owner Key / Flotten-Secret") },
-            placeholder = { Text("cm_owner_...") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary,
-                focusedBorderColor = CyanAccent,
-                unfocusedBorderColor = CardSurfaceBorder,
-                focusedContainerColor = CardSurface,
-                unfocusedContainerColor = CardSurface
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = gatewayUrlInput,
-            onValueChange = {
-                gatewayUrlInput = it
-                MeshNodeService.gatewayUrl = it
-            },
-            label = { Text("Control-Plane Gateway") },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary,
-                focusedBorderColor = CyanAccent,
-                unfocusedBorderColor = CardSurfaceBorder,
-                focusedContainerColor = CardSurface,
-                unfocusedContainerColor = CardSurface
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = CardSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        item {
+            // 1-Click QR Pairing Hero Card
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = CardSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isBound) EmeraldSuccess.copy(alpha = 0.5f) else CyanAccent.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Strict Privacy Mode", color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Text("Blockiert jeglichen externen Traffic für Prompts/Tokens", color = TextSecondary, fontSize = 11.sp)
-                }
-                Switch(
-                    checked = directTrafficOnly,
-                    onCheckedChange = { directTrafficOnly = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = CyanAccent,
-                        checkedTrackColor = CyanAccent.copy(alpha = 0.3f)
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("1-Klick Flotten QR-Code", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isBound) EmeraldSuccess.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = if (isBound) "✓ Gekoppelt" else "Nicht gekoppelt",
+                                color = if (isBound) EmeraldSuccess else AmberWarning,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        "Scanne den Barcode / QR-Code aus deinem ComputeMesh Cockpit auf dem PC, um dieses Gerät sofort hinzuzufügen.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
                     )
-                )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            showQrScanDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = DeepVoidBg)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("📷 QR-Code scannen & koppeln", color = DeepVoidBg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
             }
         }
+
+        item {
+            // Manual Key Input
+            OutlinedTextField(
+                value = ownerKeyInput,
+                onValueChange = {
+                    ownerKeyInput = it
+                    onSaveFleetConfig(it, gatewayUrlInput)
+                },
+                label = { Text("Owner Key / Flotten-Secret") },
+                placeholder = { Text("inet-... oder owner_...") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    focusedBorderColor = CyanAccent,
+                    unfocusedBorderColor = CardSurfaceBorder,
+                    focusedContainerColor = CardSurface,
+                    unfocusedContainerColor = CardSurface
+                ),
+                trailingIcon = {
+                    IconButton(onClick = {
+                        val clip = clipboardManager.getText()?.text
+                        if (!clip.isNullOrBlank()) {
+                            val parsedKey = if (clip.contains("owner_key=")) {
+                                Uri.parse(clip).getQueryParameter("owner_key") ?: clip
+                            } else {
+                                clip.trim()
+                            }
+                            ownerKeyInput = parsedKey
+                            onSaveFleetConfig(parsedKey, gatewayUrlInput)
+                            Toast.makeText(context, "Owner Key aus Zwischenablage eingefügt!", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = CyanAccent)
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = gatewayUrlInput,
+                onValueChange = {
+                    gatewayUrlInput = it
+                    onSaveFleetConfig(ownerKeyInput, it)
+                },
+                label = { Text("Control-Plane Gateway") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    focusedBorderColor = CyanAccent,
+                    unfocusedBorderColor = CardSurfaceBorder,
+                    focusedContainerColor = CardSurface,
+                    unfocusedContainerColor = CardSurface
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = CardSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Strict Privacy Mode", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                        Text("Blockiert jeglichen externen Traffic für Prompts/Tokens", color = TextSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = directTrafficOnly,
+                        onCheckedChange = { directTrafficOnly = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CyanAccent,
+                            checkedTrackColor = CyanAccent.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    // QR Scan / Pairing Dialog
+    if (showQrScanDialog) {
+        AlertDialog(
+            onDismissRequest = { showQrScanDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = CyanAccent)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Flotten QR-Code einlesen", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Scanne den Barcode im ComputeMesh Cockpit oder füge den Link / Key ein:",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+
+                    OutlinedTextField(
+                        value = scanInputText,
+                        onValueChange = { scanInputText = it },
+                        placeholder = { Text("computemesh://pair?owner_key=...", color = TextMuted, fontSize = 12.sp) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = CyanAccent,
+                            unfocusedBorderColor = CardSurfaceBorder,
+                            focusedContainerColor = DeepVoidBg,
+                            unfocusedContainerColor = DeepVoidBg
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val clip = clipboardManager.getText()?.text
+                                if (!clip.isNullOrBlank()) {
+                                    scanInputText = clip.trim()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceBorder),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("📋 Einfügen", color = TextPrimary, fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val input = scanInputText.trim()
+                        if (input.isNotBlank()) {
+                            val parsedKey = if (input.contains("owner_key=")) {
+                                Uri.parse(input).getQueryParameter("owner_key") ?: input
+                            } else if (input.startsWith("computemesh://")) {
+                                Uri.parse(input).getQueryParameter("owner_key") ?: input
+                            } else {
+                                input
+                            }
+
+                            val parsedGateway = if (input.contains("gateway=")) {
+                                Uri.parse(input).getQueryParameter("gateway") ?: "https://mesh.inetconnector.com"
+                            } else {
+                                "https://mesh.inetconnector.com"
+                            }
+
+                            ownerKeyInput = parsedKey
+                            onSaveFleetConfig(parsedKey, parsedGateway)
+                            showQrScanDialog = false
+                            scanInputText = ""
+                            Toast.makeText(context, "🎉 Gerät erfolgreich mit Flotte gekoppelt!", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Koppeln", color = DeepVoidBg, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQrScanDialog = false }) {
+                    Text("Abbrechen", color = TextSecondary)
+                }
+            },
+            containerColor = CardSurface,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }

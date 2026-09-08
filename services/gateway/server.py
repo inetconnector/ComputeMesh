@@ -499,6 +499,31 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._handle_ollama_tags()
             return
 
+        if clean_path in ("/api/portal/qr", "/api/v1/qr"):
+            query_params = urllib.parse.parse_qs(parsed_path.query)
+            text = query_params.get("data", [""])[0].strip() or query_params.get("text", [""])[0].strip()
+            if not text:
+                text = "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk"
+            try:
+                import io
+                import qrcode
+                import qrcode.image.svg
+                factory = qrcode.image.svg.SvgPathImage
+                img = qrcode.make(text, image_factory=factory, box_size=8, border=2)
+                bio = io.BytesIO()
+                img.save(bio)
+                svg_bytes = bio.getvalue()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(len(svg_bytes)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "public, max-age=3600")
+                self.end_headers()
+                self.wfile.write(svg_bytes)
+            except Exception as exc:
+                self._send_error_response(f"QR generation failed: {exc}", "internal_error", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         if clean_path in ("/api/version", "/api/v1/version"):
             self._send_json({"version": f"0.5.7-computemesh-{CONFIG.appliance_version}"})
             return

@@ -860,6 +860,33 @@
             </div>
           </div>
           <div id="owner-key-rotate-status" style="margin-top:0.75rem;font-size:0.85rem;font-weight:600;display:none;"></div>
+
+          <!-- 1-Click Smartphone QR Pairing Box -->
+          <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.35);border-radius:14px;padding:1.25rem;margin-top:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:240px;">
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                <span style="font-size:1.3rem;">📱</span>
+                <h4 style="margin:0;color:#f8fafc;font-size:1.05rem;font-weight:700;">1-Klick Smartphone Flotten-Kopplung</h4>
+              </div>
+              <p style="margin:0 0 0.8rem 0;color:#94a3b8;font-size:0.85rem;line-height:1.5;">
+                Scanne diesen Barcode direkt mit der <strong>ComputeMesh Android App</strong> auf deinem Smartphone. Dein Handy wird sofort ohne manuelle Passworteingabe mit deiner Flotte gekoppelt!
+              </p>
+              <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;text-decoration:none;" download>
+                  📥 Android APK laden
+                </a>
+                <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="updateFleetPairQr()">
+                  🔄 QR aktualisieren
+                </button>
+              </div>
+            </div>
+            <div style="text-align:center;background:#090d16;border:1px solid rgba(56,189,248,0.4);border-radius:12px;padding:0.85rem;">
+              <div style="background:#ffffff;padding:6px;border-radius:8px;display:inline-block;">
+                <img id="fleet-pair-qr-img" src="/assets/qr-android-apk.svg" alt="Fleet Pair QR Code" style="width:125px;height:125px;display:block;">
+              </div>
+              <div style="font-size:0.72rem;color:#38bdf8;margin-top:0.4rem;font-weight:600;">📷 In Android App scannen</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2460,6 +2487,7 @@ for chunk in stream:
           psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${data.owner_key}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(data.owner_key);
+        updateFleetPairQr();
       } else {
         updateDevApiSnippets(activeOwnerKey);
       }
@@ -2862,6 +2890,15 @@ for chunk in stream:
       navigator.clipboard.writeText(key).then(() => {
         alert(getLang() === 'de' ? "Owner Key in die Zwischenablage kopiert!" : "Owner Key copied to clipboard!");
       });
+    }
+
+    function updateFleetPairQr() {
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "");
+      const qrImg = document.getElementById("fleet-pair-qr-img");
+      if (qrImg && key && key !== "owner_..." && !key.includes("<")) {
+        const pairPayload = `computemesh://pair?owner_key=${encodeURIComponent(key)}&gateway=https://mesh.inetconnector.com`;
+        qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
+      }
     }
 
     function updateEmailUI() {
