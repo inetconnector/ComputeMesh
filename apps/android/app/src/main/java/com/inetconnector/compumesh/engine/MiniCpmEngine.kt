@@ -70,6 +70,16 @@ class MiniCpmEngine private constructor(private val context: Context) {
         nativeLoadModel(modelFile.absolutePath, threads, contextSize, 512)
     }
 
+    suspend fun ensureModelLoaded(): Boolean = withContext(Dispatchers.IO) {
+        if (isLoaded()) return@withContext true
+        val modelFile = File(context.filesDir, DEFAULT_MODEL_FILENAME)
+        if (modelFile.exists() && modelFile.length() > 100_000_000) {
+            loadModel(modelFile)
+        } else {
+            false
+        }
+    }
+
     fun unload() {
         try {
             nativeUnloadModel()

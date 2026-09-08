@@ -22,6 +22,15 @@
     public static final ** Companion;
 }
 
-# Ktor Network Client & Server Rules
+# Ktor & Netty Network Client & Server Rules
 -keep class io.ktor.** { *; }
 -dontwarn io.ktor.**
+-dontwarn io.netty.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.slf4j.**
+-dontwarn org.apache.log4j.**
+-dontwarn org.apache.logging.**
+-dontwarn org.conscrypt.**
+-dontwarn org.eclipse.jetty.**
+-dontwarn reactor.blockhound.**
+-ignorewarnings

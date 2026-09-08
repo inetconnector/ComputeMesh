@@ -87,8 +87,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handlePairingIntent(intent)
     }
 
@@ -615,7 +616,7 @@ fun LanMeshTab(lanDiscovery: DirectLanDiscovery) {
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(Icons.Default.WifiTethering, contentDescription = null, tint = TextMuted, modifier = Modifier.size(36.dp))
                     Spacer(modifier = Modifier.height(10.dp))

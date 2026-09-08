@@ -107,7 +107,7 @@ def find_signing_keystore() -> Optional[Path]:
 
 
 def build_and_sign_release() -> tuple[Path, Optional[Path]]:
-    """Compiles resources, aligns binary package, and signs release APK and AAB."""
+    """Compiles Android release APK and AAB with Gradle, and signs them using the production keystore."""
     PORTAL_DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
     target_apk = PORTAL_DOWNLOADS_DIR / "ComputeMesh-Android.apk"
     target_aab = PORTAL_DOWNLOADS_DIR / "ComputeMesh-Android.aab"
@@ -115,70 +115,66 @@ def build_and_sign_release() -> tuple[Path, Optional[Path]]:
     tools = find_android_tools()
     keystore_path = find_signing_keystore()
 
-    app_res = ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "res"
-    app_manifest = ANDROID_PROJECT_ROOT / "app" / "src" / "main" / "AndroidManifest.xml"
+    gradle_bin = Path(r"C:\Users\frede\.gradle\wrapper\dists\gradle-8.9-bin\90cnw93cvbtalezasaz0blq0a\gradle-8.9\bin\gradle.bat")
+    java_home = r"C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot"
+    android_home = r"C:\Users\frede\AppData\Local\Android\Sdk"
 
-    if "aapt2" in tools and "android_jar" in tools and "zipalign" in tools:
-        logger.info("Building production APK using Android SDK Build-Tools: %s", tools["build_tools"])
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir)
-            compiled_res = tmp / "compiled_res.zip"
-            unaligned_apk = tmp / "app-unaligned.apk"
-            aligned_apk = tmp / "app-aligned.apk"
-            signed_apk = tmp / "app-signed.apk"
+    env = os.environ.copy()
+    env["JAVA_HOME"] = java_home
+    env["ANDROID_HOME"] = android_home
 
-            # 1. Compile resources
-            logger.info("Compiling adaptive icons and XML resources with AAPT2...")
-            cmd_compile = [str(tools["aapt2"]), "compile", "--dir", str(app_res), "-o", str(compiled_res)]
-            subprocess.run(cmd_compile, check=True, capture_output=True)
+    if gradle_bin.exists():
+        logger.info("Building production APK & AAB with Gradle: %s", gradle_bin)
+        cmd_gradle = [str(gradle_bin), ":app:assembleRelease", ":app:bundleRelease", "--no-daemon"]
+        subprocess.run(cmd_gradle, cwd=str(ANDROID_PROJECT_ROOT), env=env, check=True)
 
-            # 2. Link manifest and resources
-            logger.info("Linking binary AndroidManifest and resources...")
-            cmd_link = [
-                str(tools["aapt2"]), "link",
-                "-I", str(tools["android_jar"]),
-                "--manifest", str(app_manifest),
-                "-o", str(unaligned_apk),
-                "--auto-add-overlay",
-                str(compiled_res)
+        built_apk = ANDROID_PROJECT_ROOT / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk"
+        built_aab = ANDROID_PROJECT_ROOT / "app" / "build" / "outputs" / "bundle" / "release" / "app-release.aab"
+
+        # Sign APK with apksigner
+        if keystore_path and "apksigner" in tools and built_apk.exists():
+            logger.info("Signing release APK with production keystore (v1, v2, v3)...")
+            ks_pass = keystore_path.stem
+            cmd_sign = [
+                str(tools["apksigner"]), "sign",
+                "--ks", str(keystore_path),
+                "--ks-pass", f"pass:{ks_pass}",
+                "--ks-key-alias", "key0",
+                "--min-sdk-version", "29",
+                "--v1-signing-enabled", "true",
+                "--v2-signing-enabled", "true",
+                "--v3-signing-enabled", "true",
+                "--out", str(target_apk),
+                str(built_apk)
             ]
-            subprocess.run(cmd_link, check=True, capture_output=True)
+            subprocess.run(cmd_sign, check=True, capture_output=True)
 
-            # 3. Zipalign 4-byte boundary
-            logger.info("Aligning package with Zipalign (4-byte alignment)...")
-            cmd_align = [str(tools["zipalign"]), "-v", "-p", "4", str(unaligned_apk), str(aligned_apk)]
-            subprocess.run(cmd_align, check=True, capture_output=True)
+            cmd_verify = [str(tools["apksigner"]), "verify", "--min-sdk-version", "29", "--verbose", str(target_apk)]
+            res_verify = subprocess.run(cmd_verify, check=True, capture_output=True, text=True)
+            logger.info("Apksigner verification verified successfully: %s", "Verifies" in res_verify.stdout)
+        elif built_apk.exists():
+            shutil.copy2(built_apk, target_apk)
 
-            # 4. Sign APK with production keystore
-            if keystore_path and "apksigner" in tools:
-                logger.info("Signing release APK with production keystore (v1, v2, v3 schemes)...")
-                # Password equals the keystore filename stem - handled strictly in memory
-                ks_pass = keystore_path.stem
-                cmd_sign = [
-                    str(tools["apksigner"]), "sign",
-                    "--ks", str(keystore_path),
-                    "--ks-pass", f"pass:{ks_pass}",
-                    "--ks-key-alias", "key0",
-                    "--min-sdk-version", "29",
-                    "--out", str(signed_apk),
-                    str(aligned_apk)
-                ]
-                subprocess.run(cmd_sign, check=True, capture_output=True)
-
-                # 5. Verify signature
-                cmd_verify = [str(tools["apksigner"]), "verify", "--min-sdk-version", "29", "--verbose", str(signed_apk)]
-                res_verify = subprocess.run(cmd_verify, check=True, capture_output=True, text=True)
-                logger.info("Apksigner verification verified successfully: %s", "Verifies" in res_verify.stdout)
-
-                shutil.copy2(signed_apk, target_apk)
-                shutil.copy2(signed_apk, target_aab) # AAB bundle companion
-            else:
-                shutil.copy2(aligned_apk, target_apk)
-                shutil.copy2(aligned_apk, target_aab)
+        # Sign AAB with jarsigner
+        jarsigner = Path(java_home) / "bin" / "jarsigner.exe"
+        if keystore_path and jarsigner.exists() and built_aab.exists():
+            logger.info("Signing release AAB with jarsigner...")
+            shutil.copy2(built_aab, target_aab)
+            ks_pass = keystore_path.stem
+            cmd_jar = [
+                str(jarsigner),
+                "-keystore", str(keystore_path),
+                "-storepass", ks_pass,
+                "-keypass", ks_pass,
+                str(target_aab),
+                "key0"
+            ]
+            subprocess.run(cmd_jar, check=True, capture_output=True)
+            logger.info("AAB signed successfully.")
+        elif built_aab.exists():
+            shutil.copy2(built_aab, target_aab)
     else:
-        logger.warning("Android SDK tools not fully found; packaging standalone signed binary container.")
-        target_apk.write_bytes(b"PK\x03\x04" + b"\x00" * 1024)
-        target_aab.write_bytes(b"PK\x03\x04" + b"\x00" * 1024)
+        logger.error("Gradle not found.")
 
     sha256_apk = hashlib.sha256(target_apk.read_bytes()).hexdigest()
     sha256_aab = hashlib.sha256(target_aab.read_bytes()).hexdigest()
