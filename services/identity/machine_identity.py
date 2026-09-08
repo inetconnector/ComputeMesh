@@ -121,9 +121,9 @@ def _darwin_signals() -> dict[str, str]:
 def _portable_signals() -> dict[str, str]:
     result: dict[str, str] = {}
     mac = uuid.getnode()
-    # uuid.getnode may synthesize a value when no NIC address is available. It is
-    # therefore only one contributor and is never treated as an authentication key.
-    if isinstance(mac, int) and 0 < mac < (1 << 48):
+    # uuid.getnode() marks generated fallbacks with the multicast bit. Such values
+    # are process/host implementation fallbacks, not a trustworthy durable NIC ID.
+    if isinstance(mac, int) and 0 < mac < (1 << 48) and not (mac & (1 << 40)):
         result["mac"] = f"{mac:012x}"
     processor = _normal(platform.processor())
     if processor:
@@ -153,8 +153,6 @@ def collect_machine_identity(*, signal_provider: Callable[[], dict[str, str]] | 
         for name, raw_value in raw.items()
         if (value := _normal(raw_value)) is not None
     }
-    # Require at least one host-specific source. Processor model/architecture alone
-    # would collapse many machines to the same fingerprint.
     host_specific = set(signals) - {"processor_model", "architecture"}
     if not host_specific:
         raise MachineIdentityError("no stable host-specific machine identity source is available")
@@ -172,12 +170,17 @@ def collect_machine_identity(*, signal_provider: Callable[[], dict[str, str]] | 
     )
 
 
-def attach_governance_identity(profile: dict[str, object], *, fleet_id: str) -> dict[str, object]:
+def attach_governance_identity(
+    profile: dict[str, object],
+    *,
+    fleet_id: str,
+    identity: MachineIdentity | None = None,
+) -> dict[str, object]:
     """Return a copy of a node profile with validated fleet and hardware metadata."""
     fleet_id = str(fleet_id).strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", fleet_id):
         raise MachineIdentityError("fleet_id is invalid")
-    identity = collect_machine_identity()
+    identity = identity or collect_machine_identity()
     result = dict(profile)
     result["fleet_id"] = fleet_id
     result["machine_identity"] = identity.to_public_dict()
