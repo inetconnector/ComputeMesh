@@ -74,8 +74,14 @@ def run_stdio(app: MCPApplication) -> None:
 
 
 class HTTPHandler(BaseHTTPRequestHandler):
-    app=MCPApplication(); server_version="ComputeMesh-Concert-MCP/1.0"; sys_version=""
+    app: MCPApplication | None = None
+    server_version="ComputeMesh-Concert-MCP/1.0"; sys_version=""
     def log_message(self,*_): pass
+    @classmethod
+    def require_app(cls) -> MCPApplication:
+        if cls.app is None:
+            raise RuntimeError("Concert MCP application is not initialized")
+        return cls.app
     def do_GET(self):
         if self.path=="/healthz": self._json({"status":"healthy","service":"concert-research","protocolVersion":PROTOCOL_VERSION})
         else: self.send_error(404)
@@ -83,7 +89,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
         if self.path not in {"/mcp","/"}: self.send_error(404); return
         try:
             length=min(int(self.headers.get("Content-Length","0")),2*1024*1024); payload=json.loads(self.rfile.read(length).decode())
-            response=self.app.handle(payload)
+            response=self.require_app().handle(payload)
             if response is None: self.send_response(202); self.end_headers(); return
             self._json(response)
         except Exception as exc: self._json({"jsonrpc":"2.0","id":None,"error":{"code":-32700,"message":str(exc)}},400)
