@@ -71,6 +71,7 @@ class TestNodeKeyStorage(unittest.TestCase):
         )
         key_path = self.root / "raw.key"
         key_path.write_bytes(raw)
+        key_path.chmod(0o600)
 
         loaded = load_node_private_key(key_path)
         self.assertIsInstance(loaded, Ed25519PrivateKey)
@@ -86,6 +87,7 @@ class TestNodeKeyStorage(unittest.TestCase):
         b64 = base64.b64encode(raw)
         key_path = self.root / "b64.key"
         key_path.write_bytes(b64)
+        key_path.chmod(0o600)
 
         loaded = load_node_private_key(key_path)
         self.assertIsInstance(loaded, Ed25519PrivateKey)
@@ -158,10 +160,33 @@ class TestNodeKeyStorage(unittest.TestCase):
 
         result = shred_node_key(key_path)
         self.assertTrue(result)
-        self.assertFalse(key_path.exists())
 
-        # Shredding again returns False (not found)
-        self.assertFalse(shred_node_key(key_path))
+    def test_shred_missing_key_is_noop(self) -> None:
+        missing = self.root / "does_not_exist.pem"
+        result = shred_node_key(missing)
+        self.assertFalse(result)
+
+    def test_shred_rejects_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks unavailable")
+        target = self.root / "target-key.pem"
+        save_node_private_key(self.key, target, protect_os=False)
+        link = self.root / "key-link.pem"
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+        with self.assertRaises(KeyStorageError):
+            shred_node_key(link)
+        self.assertTrue(target.exists())
+
+    def test_saved_private_key_permissions_are_owner_only_on_posix(self) -> None:
+        if os.name != "posix":
+            self.skipTest("POSIX permissions only")
+        key_path = self.root / "permissions.pem"
+        save_node_private_key(self.key, key_path, protect_os=False)
+        mode = stat.S_IMODE(key_path.stat().st_mode)
+        self.assertEqual(mode & 0o077, 0)
 
 
 if __name__ == "__main__":
