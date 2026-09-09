@@ -30,6 +30,7 @@ MATH_FUNCTIONS = {
     "ldexp", "lgamma", "log", "log10", "log1p", "log2", "modf",
     "radians", "remainder", "sin", "sinh", "sqrt", "tan", "tanh", "trunc",
 }
+MATH_CONSTANTS = {"pi", "e", "tau", "inf", "nan"}
 STATISTICS_FUNCTIONS = {
     "mean", "fmean", "geometric_mean", "harmonic_mean", "median", "median_low",
     "median_high", "median_grouped", "mode", "multimode", "pstdev", "pvariance",
@@ -152,9 +153,12 @@ class SecurityValidator(ast.NodeVisitor):
         if not isinstance(node.value, ast.Name) or node.value.id not in {"math", "statistics"}:
             self.reject("Attributzugriff ist nur auf math/statistics erlaubt")
             return
-        allowed = MATH_FUNCTIONS if node.value.id == "math" else STATISTICS_FUNCTIONS
+        if node.value.id == "math":
+            allowed = MATH_FUNCTIONS | MATH_CONSTANTS
+        else:
+            allowed = STATISTICS_FUNCTIONS
         if node.attr not in allowed:
-            self.reject(f"Funktion '{node.value.id}.{node.attr}' ist nicht freigegeben")
+            self.reject(f"Attribut '{node.value.id}.{node.attr}' ist nicht freigegeben")
             return
         self.generic_visit(node)
 
@@ -170,8 +174,14 @@ class SecurityValidator(ast.NodeVisitor):
                 self.reject(f"Funktionsaufruf '{node.func.id}' ist nicht freigegeben")
                 return
         elif isinstance(node.func, ast.Attribute):
-            # Attribute validation is handled in visit_Attribute.
-            pass
+            if not isinstance(node.func.value, ast.Name):
+                self.reject("Dynamische Methodenaufrufe sind nicht erlaubt")
+                return
+            module = node.func.value.id
+            allowed_calls = MATH_FUNCTIONS if module == "math" else STATISTICS_FUNCTIONS if module == "statistics" else set()
+            if node.func.attr not in allowed_calls:
+                self.reject(f"Funktionsaufruf '{module}.{node.func.attr}' ist nicht freigegeben")
+                return
         else:
             self.reject("Dynamische Funktionsaufrufe sind nicht erlaubt")
             return
