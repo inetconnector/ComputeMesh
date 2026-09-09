@@ -7,14 +7,31 @@ across the entire ComputeMesh repository with granular category reporting and be
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import sys
+import tempfile
 import time
 import unittest
 
 REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# The unified suite imports modules that intentionally default durable production
+# stores to /var/lib/computemesh on Linux. Tests must never touch production state.
+# Respect explicit caller-provided paths; otherwise isolate import-time singletons
+# in one temporary directory for the lifetime of this test process.
+_TEST_STATE = tempfile.TemporaryDirectory(prefix="computemesh-tests-")
+_TEST_STATE_ROOT = Path(_TEST_STATE.name)
+os.environ.setdefault(
+    "COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH",
+    str(_TEST_STATE_ROOT / "owner_accounts.db"),
+)
+os.environ.setdefault(
+    "COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH",
+    str(_TEST_STATE_ROOT / "fleet_accounts.db"),
+)
 
 CATEGORIES: dict[str, list[str]] = {
     "Protocol & Session Wire": [
@@ -208,4 +225,7 @@ def run_test_suite() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(run_test_suite())
+    try:
+        sys.exit(run_test_suite())
+    finally:
+        _TEST_STATE.cleanup()
