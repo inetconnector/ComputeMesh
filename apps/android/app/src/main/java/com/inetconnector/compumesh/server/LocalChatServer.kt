@@ -44,8 +44,9 @@ class LocalChatServer(
                         .put("model", "qwen2.5:7b")
                 )
 
-                uri == "/props" || uri == "/api/props" -> jsonResponse(
+                uri == "/props" || uri == "/api/props" || uri == "/properties" -> jsonResponse(
                     JSONObject().apply {
+                        put("role", "router")
                         put("default_generation_settings", JSONObject().apply {
                             put("n_ctx", 32768)
                             put("n_predict", 2048)
@@ -58,7 +59,7 @@ class LocalChatServer(
                                 put("<|endoftext|>")
                             })
                         })
-                        put("total_slots", 1)
+                        put("total_slots", 4)
                         put("chat_template", "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>' + '\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}")
                         put("modalities", JSONObject().apply {
                             put("text", true)
@@ -92,11 +93,19 @@ class LocalChatServer(
                 }
 
                 uri in listOf("/models/sse", "/v1/models/sse") -> {
-                    val sseText = "data: {\"status\":\"ready\"}\n\n"
-                    addCorsHeaders(newFixedLengthResponse(Response.Status.OK, "text/event-stream; charset=utf-8", sseText))
+                    val sseText = "data: {\"event\":\"models_reload\"}\n\n"
+                    val bytes = sseText.toByteArray(StandardCharsets.UTF_8)
+                    val resp = newFixedLengthResponse(Response.Status.OK, "text/event-stream; charset=utf-8", ByteArrayInputStream(bytes), bytes.size.toLong())
+                    resp.addHeader("Cache-Control", "no-cache")
+                    resp.addHeader("Connection", "keep-alive")
+                    addCorsHeaders(resp)
                 }
 
-                uri in listOf("/v1/models", "/models", "/api/models", "/v1/models/load", "/models/load", "/models/unload", "/v1/models/unload") -> {
+                uri in listOf("/v1/models/load", "/models/load", "/models/unload", "/v1/models/unload") -> {
+                    jsonResponse(JSONObject().put("status", "ok").put("message", "model ready"))
+                }
+
+                uri in listOf("/v1/models", "/models", "/api/models") -> {
                     if (method == Method.GET) {
                         handleModelsProxy(session, false)
                     } else {
@@ -146,33 +155,72 @@ class LocalChatServer(
                 readTimeout = 4000
             }
             if (conn.responseCode in 200..299) {
-                val bytes = conn.inputStream.use { it.readBytes() }
-                return addCorsHeaders(newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", ByteArrayInputStream(bytes), bytes.size.toLong()))
+                val rawBytes = conn.inputStream.use { it.readBytes() }
+                val rawStr = String(rawBytes, StandardCharsets.UTF_8)
+                val json = JSONObject(rawStr)
+
+                if (isTags) {
+                    val models = json.optJSONArray("models") ?: JSONArray()
+                    val enriched = JSONArray()
+                    for (i in 0 until models.length()) {
+                        val m = models.getJSONObject(i)
+                        m.put("status", JSONObject().put("value", "loaded"))
+                        enriched.put(m)
+                    }
+                    return jsonResponse(JSONObject().put("models", enriched))
+                } else {
+                    val data = json.optJSONArray("data") ?: JSONArray()
+                    val enriched = JSONArray()
+                    for (i in 0 until data.length()) {
+                        val m = data.getJSONObject(i)
+                        m.put("status", JSONObject().put("value", "loaded"))
+                        m.put("object", "model")
+                        m.put("owned_by", "computemesh")
+                        enriched.put(m)
+                    }
+                    return jsonResponse(JSONObject().put("object", "list").put("data", enriched))
+                }
             }
         } catch (_: Throwable) {}
 
-        // Fallback default model list
+        // High quality fallback models with complete metadata and loaded status
+        val fallbackModels = listOf(
+            Triple("gemma3:4b", "Gemma 3 4B (Multimodal Vision/Text)", "google"),
+            Triple("qwen2.5-coder:14b", "Qwen 2.5 Coder 14B (Code & Tool Calling)", "alibaba"),
+            Triple("qwen2.5:7b", "Qwen 2.5 7B (Fast General Assistant)", "alibaba"),
+            Triple("deepseek-r1:14b", "DeepSeek R1 14B (Advanced Reasoning)", "deepseek"),
+            Triple("llama3.3:70b", "Llama 3.3 70B (High Capacity Fleet Cluster)", "meta"),
+            Triple("computemesh-cluster-default", "ComputeMesh Fleet Cluster (Adaptive Mesh)", "computemesh")
+        )
+
         return if (isTags) {
-            jsonResponse(
-                JSONObject().apply {
-                    put("models", JSONArray().apply {
-                        put(JSONObject().put("name", "gemma3:4b").put("model", "gemma3:4b"))
-                        put(JSONObject().put("name", "qwen2.5-coder:14b").put("model", "qwen2.5-coder:14b"))
-                        put(JSONObject().put("name", "qwen2.5:7b").put("model", "qwen2.5:7b"))
+            val modelsArr = JSONArray()
+            for ((id, desc, family) in fallbackModels) {
+                modelsArr.put(JSONObject().apply {
+                    put("name", id)
+                    put("model", id)
+                    put("description", desc)
+                    put("status", JSONObject().put("value", "loaded"))
+                    put("details", JSONObject().apply {
+                        put("format", "gguf")
+                        put("family", family)
+                        put("parameter_size", id.substringAfterLast(':'))
                     })
-                }
-            )
+                })
+            }
+            jsonResponse(JSONObject().put("models", modelsArr))
         } else {
-            jsonResponse(
-                JSONObject().apply {
-                    put("object", "list")
-                    put("data", JSONArray().apply {
-                        put(JSONObject().put("id", "gemma3:4b").put("object", "model").put("owned_by", "computemesh"))
-                        put(JSONObject().put("id", "qwen2.5-coder:14b").put("object", "model").put("owned_by", "computemesh"))
-                        put(JSONObject().put("id", "qwen2.5:7b").put("object", "model").put("owned_by", "computemesh"))
-                    })
-                }
-            )
+            val dataArr = JSONArray()
+            for ((id, desc, _) in fallbackModels) {
+                dataArr.put(JSONObject().apply {
+                    put("id", id)
+                    put("object", "model")
+                    put("owned_by", "computemesh")
+                    put("description", desc)
+                    put("status", JSONObject().put("value", "loaded"))
+                })
+            }
+            jsonResponse(JSONObject().put("object", "list").put("data", dataArr))
         }
     }
 

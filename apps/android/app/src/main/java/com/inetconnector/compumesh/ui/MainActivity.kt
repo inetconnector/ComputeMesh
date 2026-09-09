@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
         const val PREF_GATEWAY_URL = "gateway_url"
         const val PREF_SELECTED_MODEL = "selected_model"
         const val CHAT_SERVER_PORT = 8089
+        var isColdStart = true
     }
 
     private lateinit var batteryGuard: BatteryPolicyGuard
@@ -359,6 +360,8 @@ fun ComputeMeshMainScreen(
     ) { padding ->
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = pagerState.currentPage != 0,
+            beyondBoundsPageCount = 3,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -529,7 +532,15 @@ fun MiniCpmChatTab(
         pendingAudioCallback = null
     }
 
-    val chatUrl = "http://127.0.0.1:$serverPort/?new_chat=true&lang=de#/"
+    val initialChatUrl = remember(serverPort) {
+        if (MainActivity.isColdStart) {
+            MainActivity.isColdStart = false
+            "http://127.0.0.1:$serverPort/?new_chat=true&lang=de#/"
+        } else {
+            "http://127.0.0.1:$serverPort/?lang=de#/"
+        }
+    }
+    val fallbackUrl = "http://127.0.0.1:$serverPort/?lang=de#/"
 
     Box(
         modifier = Modifier
@@ -660,7 +671,7 @@ fun MiniCpmChatTab(
                             android.util.Log.e("WebViewChat", "Error loading ${request?.url}: ${error?.description} (${error?.errorCode})")
                             if (request?.isForMainFrame == true) {
                                 view?.postDelayed({
-                                    view.loadUrl(chatUrl)
+                                    view.loadUrl(fallbackUrl)
                                 }, 1500)
                             }
                         }
@@ -671,12 +682,13 @@ fun MiniCpmChatTab(
                         }
                     }
 
-                    loadUrl(chatUrl)
+                    loadUrl(initialChatUrl)
                 }
             },
             update = { webView ->
-                if (webView.url != chatUrl && !webView.url.orEmpty().startsWith("http://127.0.0.1:$serverPort")) {
-                    webView.loadUrl(chatUrl)
+                val currentUrl = webView.url.orEmpty()
+                if (currentUrl.isBlank() || currentUrl == "about:blank") {
+                    webView.loadUrl(fallbackUrl)
                 }
             }
         )
