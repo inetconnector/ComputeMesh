@@ -35,9 +35,14 @@ CATEGORIES: dict[str, list[str]] = {
         "services.gateway.tests.test_owner_promo_routes",
         "services.gateway.tests.test_server_driven_gpu_promo",
         "services.common.tests.test_vision_preprocessor",
-        "services.gateway.tests.test_gateway_vision_multimodal",
         "tests.test_security_audit_fixes",
         "tests.test_gateway_passkey_auth",
+        "tests.test_llamacpp_webui_gateway",
+        "tests.test_fleet_ai_chat_mcp",
+    ],
+    "AI-Chat & MCP Tools Subsystem": [
+        "tests.test_llamacpp_webui_gateway",
+        "tests.test_fleet_ai_chat_mcp",
     ],
     "Portal & Web Subsystem": [
         "services.portal.tests.test_portal_server",
