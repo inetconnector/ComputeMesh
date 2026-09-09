@@ -71,6 +71,7 @@ class TestNodeKeyStorage(unittest.TestCase):
         )
         key_path = self.root / "raw.key"
         key_path.write_bytes(raw)
+        key_path.chmod(0o600)
 
         loaded = load_node_private_key(key_path)
         self.assertIsInstance(loaded, Ed25519PrivateKey)
@@ -86,6 +87,7 @@ class TestNodeKeyStorage(unittest.TestCase):
         b64 = base64.b64encode(raw)
         key_path = self.root / "b64.key"
         key_path.write_bytes(b64)
+        key_path.chmod(0o600)
 
         loaded = load_node_private_key(key_path)
         self.assertIsInstance(loaded, Ed25519PrivateKey)

@@ -82,6 +82,7 @@ class AuthenticatedAttestationTransportTests(unittest.TestCase):
             key = Ed25519PrivateKey.generate()
             path = Path(self.tmp.name) / f"{node}.key"
             path.write_bytes(key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()))
+            path.chmod(0o600)
             services[node] = NodeAttestationService(node_id=node, private_key_path=path)
         self.services = services
 

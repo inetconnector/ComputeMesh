@@ -1,37 +1,44 @@
 # SPDX-License-Identifier: Apache-2.0
-"""
-Central Tool Registry for ComputeMesh MCP Subsystem.
-Formats tools for OpenAI API (`tools` / function calling schema) and handles execution.
+"""Central Tool Registry for the ComputeMesh MCP subsystem.
+
+The registry exposes built-in live-data tools in OpenAI function-calling format,
+resolves backwards-compatible aliases, enforces owner-only tools, and performs a
+small fail-closed validation pass for schemas that set ``additionalProperties``
+to ``False``.
 """
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from .config import MCPConfig, get_mcp_config
-from .builtin.web_search import execute_web_search
-from .builtin.finance_market import execute_finance_quote
-from .builtin.web_fetch import execute_web_fetch
-from .builtin.news_feed import execute_get_news
-from .builtin.weather import execute_get_weather
-from .builtin.python_calc import run_python_calc
-from .builtin.wikipedia import get_wikipedia_summary
-from .builtin.time_calendar import get_time_and_calendar
-from .builtin.currency import convert_currency
-from .builtin.geo_routing import get_distance_route
-from .builtin.country_data import lookup_country_data
-from .builtin.world_bank import get_world_bank_stats
 from .builtin.arxiv_research import search_arxiv_papers
-from .builtin.food_products import lookup_food_product
-from .builtin.package_registry import lookup_software_package
-from .builtin.earthquake_feed import get_recent_earthquakes
 from .builtin.chemical_data import lookup_chemical_compound
+from .builtin.company_lookup import lookup_company
+from .builtin.country_data import lookup_country_data
+from .builtin.currency import convert_currency
 from .builtin.dictionary_lookup import lookup_word_definition
-from .builtin.train_transit import lookup_train_schedule
+from .builtin.earthquake_feed import get_recent_earthquakes
+from .builtin.events import search_events
+from .builtin.finance_market import execute_finance_quote
+from .builtin.food_products import lookup_food_product
+from .builtin.geo_routing import get_distance_route
 from .builtin.network_tools import lookup_network_host
+from .builtin.news_feed import execute_get_news
+from .builtin.package_registry import lookup_software_package
+from .builtin.places import search_places
+from .builtin.python_calc import run_python_calc
+from .builtin.sports_data import get_sports_data
 from .builtin.system_tools import execute_system_info
+from .builtin.time_calendar import get_time_and_calendar
+from .builtin.train_transit import lookup_train_schedule
+from .builtin.weather import execute_get_weather
+from .builtin.weather_forecast import get_weather_forecast
+from .builtin.web_fetch import execute_web_fetch
+from .builtin.web_search import execute_web_search
+from .builtin.wikipedia import get_wikipedia_summary
+from .builtin.world_bank import get_world_bank_stats
 
 
 @dataclass
@@ -55,11 +62,11 @@ class ToolDefinition:
 
 
 TOOL_ALIASES: Dict[str, str] = {
-    "get_weather_forecast": "get_current_weather",
     "get_weather": "get_current_weather",
     "weather": "get_current_weather",
     "current_weather": "get_current_weather",
-    "weather_forecast": "get_current_weather",
+    "weather_forecast": "get_weather_forecast",
+    "forecast": "get_weather_forecast",
     "web_search": "search_web",
     "brave_web_search": "search_web",
     "search": "search_web",
@@ -75,9 +82,71 @@ TOOL_ALIASES: Dict[str, str] = {
     "wikipedia": "get_wikipedia_summary",
     "wiki": "get_wikipedia_summary",
     "get_wikipedia": "get_wikipedia_summary",
-    "dns": "lookup_dns",
-    "dns_lookup": "lookup_dns",
+    "dns": "lookup_network_host",
+    "dns_lookup": "lookup_network_host",
+    "get_top_news": "get_live_news",
+    "news": "get_live_news",
+    "events": "search_events",
+    "event_search": "search_events",
+    "places": "search_places",
+    "place_search": "search_places",
+    "sports": "get_sports_data",
+    "company": "lookup_company",
+    "company_lookup": "lookup_company",
 }
+
+
+def _matches_type(value: Any, expected: Any) -> bool:
+    expected_types = expected if isinstance(expected, list) else [expected]
+    for item in expected_types:
+        if item == "null" and value is None:
+            return True
+        if item == "string" and isinstance(value, str):
+            return True
+        if item == "boolean" and isinstance(value, bool):
+            return True
+        if item == "integer" and isinstance(value, int) and not isinstance(value, bool):
+            return True
+        if item == "number" and isinstance(value, (int, float)) and not isinstance(value, bool):
+            return True
+        if item == "array" and isinstance(value, list):
+            return True
+        if item == "object" and isinstance(value, dict):
+            return True
+    return False
+
+
+def _validate_strict_arguments(schema: Dict[str, Any], arguments: Any) -> Optional[str]:
+    """Validate the subset needed by strict built-in schemas without a dependency."""
+    if not isinstance(arguments, dict):
+        return "Tool-Parameter müssen ein JSON-Objekt sein."
+    if schema.get("additionalProperties") is not False:
+        return None
+
+    properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+    unknown = sorted(set(arguments) - set(properties))
+    if unknown:
+        return f"Unbekannte Tool-Parameter: {', '.join(unknown)}"
+
+    missing = [name for name in schema.get("required", []) if name not in arguments]
+    if missing:
+        return f"Fehlende Pflichtparameter: {', '.join(missing)}"
+
+    for name, value in arguments.items():
+        spec = properties.get(name)
+        if not isinstance(spec, dict):
+            continue
+        expected = spec.get("type")
+        if expected is not None and not _matches_type(value, expected):
+            return f"Parameter '{name}' hat einen ungültigen Typ."
+        if "enum" in spec and value not in spec["enum"]:
+            return f"Parameter '{name}' hat einen ungültigen Wert."
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if "minimum" in spec and value < spec["minimum"]:
+                return f"Parameter '{name}' liegt unter dem Minimum {spec['minimum']}."
+            if "maximum" in spec and value > spec["maximum"]:
+                return f"Parameter '{name}' liegt über dem Maximum {spec['maximum']}."
+    return None
 
 
 class ToolRegistry:
@@ -105,8 +174,7 @@ class ToolRegistry:
         )
 
     def unregister_tool(self, name: str) -> None:
-        if name in self._tools:
-            del self._tools[name]
+        self._tools.pop(name, None)
 
     def _resolve_tool_name(self, name: str) -> str:
         if not name:
@@ -122,9 +190,18 @@ class ToolRegistry:
         if lower_name in TOOL_ALIASES:
             return TOOL_ALIASES[lower_name]
 
-        # Fuzzy category heuristics
-        if any(k in lower_name for k in ("weather", "wetter", "temperature", "forecast", "klima", "regen", "sonne")):
+        if "forecast" in lower_name or "vorhersage" in lower_name:
+            return "get_weather_forecast"
+        if any(k in lower_name for k in ("weather", "wetter", "temperature", "klima", "regen", "sonne")):
             return "get_current_weather"
+        if any(k in lower_name for k in ("event", "veranstaltung", "concert", "konzert")):
+            return "search_events"
+        if any(k in lower_name for k in ("place", "poi", "restaurant", "hotel", "geschäft", "business_near")):
+            return "search_places"
+        if any(k in lower_name for k in ("sport", "score", "spielplan", "fixture", "league")):
+            return "get_sports_data"
+        if any(k in lower_name for k in ("company", "unternehmen", "firma", "legal_entity", "lei")):
+            return "lookup_company"
         if any(k in lower_name for k in ("search", "google", "bing", "brave", "find", "suchen", "web_query")):
             return "search_web"
         if any(k in lower_name for k in ("stock", "crypto", "quote", "aktie", "kurs", "krypto", "bitcoin", "eth", "market", "ticker")):
@@ -134,9 +211,9 @@ class ToolRegistry:
         if any(k in lower_name for k in ("wiki", "wikipedia", "lexikon", "enzyklop", "biografie", "definition")):
             return "get_wikipedia_summary"
         if any(k in lower_name for k in ("dns", "nslookup", "domain", "resolve", "ip_lookup")):
-            return "lookup_dns"
+            return "lookup_network_host"
         if any(k in lower_name for k in ("news", "nachricht", "schlagzeile", "zeitung")):
-            return "get_top_news"
+            return "get_live_news"
         return name
 
     def get_tool(self, name: str) -> Optional[ToolDefinition]:
@@ -146,495 +223,318 @@ class ToolRegistry:
     def list_tools(self, is_owner: bool = True) -> List[ToolDefinition]:
         if is_owner:
             return list(self._tools.values())
-        return [t for t in self._tools.values() if not t.owner_only]
+        return [tool for tool in self._tools.values() if not tool.owner_only]
 
     def get_openai_tools(self, is_owner: bool = True) -> List[Dict[str, Any]]:
-        return [t.to_openai_dict() for t in self.list_tools(is_owner=is_owner)]
+        return [tool.to_openai_dict() for tool in self.list_tools(is_owner=is_owner)]
 
     def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True) -> Any:
         resolved = self._resolve_tool_name(name)
         tool = self._tools.get(resolved) or self._tools.get(name)
         if not tool:
             return {"error": f"Tool '{name}' nicht gefunden"}
-
         if tool.owner_only and not is_owner:
             return {"error": f"Tool '{name}' erfordert Authentifizierung mit Owner Key"}
 
+        validation_error = _validate_strict_arguments(tool.parameters, arguments)
+        if validation_error:
+            return {"error": f"Ungültige Tool-Parameter für '{name}': {validation_error}"}
+        if not isinstance(arguments, dict):
+            return {"error": f"Ungültige Tool-Parameter für '{name}': JSON-Objekt erwartet"}
+
         try:
             return tool.handler(**arguments)
-        except TypeError as te:
-            # If arguments structure differs slightly, attempt with raw dictionary or fallback
-            try:
-                return tool.handler(arguments)
-            except Exception:
-                return {"error": f"Ungültige Tool-Parameter für '{name}': {str(te)}"}
-        except Exception as e:
-            return {"error": f"Fehler bei Ausführung von Tool '{name}': {str(e)}"}
+        except TypeError as exc:
+            return {"error": f"Ungültige Tool-Parameter für '{name}': {exc}"}
+        except Exception as exc:
+            return {"error": f"Fehler bei Ausführung von Tool '{name}': {exc}"}
 
     def _register_default_tools(self) -> None:
-        # 1. Live Web Search Tool
+        def schema(properties: Dict[str, Any], required: List[str] | None = None, *, strict: bool = False) -> Dict[str, Any]:
+            value: Dict[str, Any] = {"type": "object", "properties": properties}
+            if required:
+                value["required"] = required
+            if strict:
+                value["additionalProperties"] = False
+            return value
+
         if self.config.web_search_enabled:
             self.register_tool(
-                name="search_web",
-                description="Sucht live im Web nach aktuellen Informationen, Nachrichten, Dokumentationen oder Fakten.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Die Suchanfrage für die Websuche.",
-                        },
-                        "max_results": {
-                            "type": "integer",
-                            "description": "Maximale Anzahl an Suchergebnissen (1-10). Standard: 5.",
-                            "default": 5,
-                        },
-                    },
-                    "required": ["query"],
-                },
-                handler=execute_web_search,
-                owner_only=False,
+                "search_web",
+                "Sucht live im Web nach aktuellen Informationen, Nachrichten, Dokumentationen oder Fakten.",
+                schema({
+                    "query": {"type": "string", "description": "Suchanfrage."},
+                    "max_results": {"type": "integer", "description": "Maximal 1-10 Ergebnisse.", "default": 5},
+                }, ["query"]),
+                execute_web_search,
                 source="builtin_web",
             )
 
-        # 2. Financial & Stock Quotes Tool
         if self.config.finance_enabled:
             self.register_tool(
-                name="get_market_quote",
-                description="Liefert aktuelle Live-Börsenkurse, Aktienpreise, Indizes (DAX, S&P500), Rohstoffe (Gold, Öl) und Kryptowährungen (BTC, ETH, SOL).",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "symbol": {
-                            "type": "string",
-                            "description": "Das Tickersymbol (z. B. AAPL, NVDA, SAP.DE, BTC, ETH, DAX, GOLD).",
-                        },
-                    },
-                    "required": ["symbol"],
-                },
-                handler=execute_finance_quote,
-                owner_only=False,
+                "get_market_quote",
+                "Liefert aktuelle Kurse für Aktien, Indizes, Rohstoffe und Kryptowährungen.",
+                schema({"symbol": {"type": "string", "description": "Ticker, z. B. AAPL, SAP.DE, BTC, DAX."}}, ["symbol"]),
+                execute_finance_quote,
                 source="builtin_finance",
             )
 
-        # 3. Web Page Content Fetcher
         if self.config.web_fetch_enabled:
             self.register_tool(
-                name="fetch_web_content",
-                description="Lädt den vollständigen Textinhalt einer Webseite oder eines Online-Artikels anhand einer URL herunter.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "Die vollständige URL der Webseite (z. B. https://example.com/artikel).",
-                        },
-                    },
-                    "required": ["url"],
-                },
-                handler=execute_web_fetch,
-                owner_only=False,
+                "fetch_web_content",
+                "Lädt Textinhalt einer Webseite anhand einer URL.",
+                schema({"url": {"type": "string", "description": "Vollständige https/http URL."}}, ["url"]),
+                execute_web_fetch,
                 source="builtin_web",
             )
 
-        # 4. Live News & Current Events Feed
         self.register_tool(
-            name="get_live_news",
-            description="Liefert aktuelle Live-Nachrichten und Schlagzeilen zu Themen wie 'tech', 'business', 'crypto', 'germany', 'world' oder beliebigen Suchbegriffen.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "Thema oder Suchbegriff (z. B. 'tech', 'business', 'crypto', 'germany', 'world' oder 'Nvidia'). Standard: 'general'.",
-                        "default": "general",
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Maximale Anzahl an Nachrichtenartikeln (1-10). Standard: 5.",
-                        "default": 5,
-                    },
-                },
-            },
-            handler=execute_get_news,
-            owner_only=False,
+            "get_live_news",
+            "Liefert aktuelle Nachrichten und Schlagzeilen zu einem Thema.",
+            schema({
+                "topic": {"type": "string", "default": "general"},
+                "max_results": {"type": "integer", "default": 5},
+            }),
+            execute_get_news,
             source="builtin_news",
         )
 
-        # 5. Live Weather Tool
         self.register_tool(
-            name="get_current_weather",
-            description="Liefert aktuelle Live-Wetterdaten, Temperatur, Luftfeuchtigkeit, Windgeschwindigkeit und Wetterbedingungen für jeden Ort oder jede Stadt weltweit (z. B. 'Veitshöchheim', 'Würzburg', 'Berlin').",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "Der Name der Stadt oder des Ortes (z. B. 'Veitshöchheim', 'Würzburg', 'München', 'Berlin').",
-                    },
-                },
-                "required": ["location"],
-            },
-            handler=execute_get_weather,
-            owner_only=False,
+            "get_current_weather",
+            "Liefert aktuelle Wetterdaten für einen Ort weltweit.",
+            schema({"location": {"type": "string", "description": "Stadt oder Ort."}}, ["location"]),
+            execute_get_weather,
             source="builtin_weather",
         )
 
-        # 6. Safe Python Math Evaluator
         self.register_tool(
-            name="calculate_math",
-            description="Führt präzise mathematische Berechnungen, Finanzformeln, Zinsrechnungen, Statistiken oder Algorithmen in einer isolierten Python-Sandbox aus.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "Der mathematische Ausdruck oder Python-Code (z. B. '150000 * (0.038 / 12) / (1 - (1 + 0.038 / 12) ** -180)' oder 'math.sqrt(42)').",
-                    },
-                },
-                "required": ["expression"],
-            },
-            handler=run_python_calc,
-            owner_only=False,
+            "get_weather_forecast",
+            "Liefert eine echte 1- bis 16-Tage-Wettervorhersage mit Temperatur, Niederschlag, Wind, Sonnenauf- und -untergang.",
+            schema({
+                "location": {"type": "string", "description": "Stadt oder Ort."},
+                "days": {"type": "integer", "minimum": 1, "maximum": 16, "default": 7},
+            }, ["location"], strict=True),
+            get_weather_forecast,
+            source="builtin_weather",
+        )
+
+        self.register_tool(
+            "search_events",
+            "Durchsucht den ComputeMesh Event-Index nach lokalen Veranstaltungen und liefert kategorisierte Treffer im Radius.",
+            schema({
+                "city": {"type": "string", "description": "Stadt oder Gemeinde."},
+                "radius_km": {"type": "number", "minimum": 1, "maximum": 300, "default": 50},
+                "categories": {"type": "array", "items": {"type": "string"}},
+                "date_from": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+                "date_to": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+                "query_date": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+                "day_scope": {"type": "string", "enum": ["today", "today_tomorrow", "range"], "default": "today_tomorrow"},
+                "sort": {"type": "string", "enum": ["recommended", "date", "quality"], "default": "recommended"},
+                "max_events": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+            }, ["city"], strict=True),
+            search_events,
+            source="builtin_events",
+        )
+
+        self.register_tool(
+            "search_places",
+            "Sucht strukturierte Orte, POIs und benannte lokale Betriebe über OpenStreetMap.",
+            schema({
+                "query": {"type": "string", "description": "Name oder Art des gesuchten Ortes/Betriebs."},
+                "location": {"type": "string", "description": "Optionaler Orts-/Regionskontext."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+            }, ["query"], strict=True),
+            search_places,
+            source="builtin_places",
+        )
+
+        self.register_tool(
+            "get_sports_data",
+            "Liefert aktuelle Team- und Spielplandaten aus der freien TheSportsDB-API.",
+            schema({
+                "query": {"type": "string", "description": "Teamname für mode=teams."},
+                "mode": {"type": "string", "enum": ["teams", "events", "next_league", "previous_league"], "default": "teams"},
+                "date": {"type": "string", "description": "YYYY-MM-DD für mode=events."},
+                "sport": {"type": "string", "description": "Optionaler Sportfilter."},
+                "league": {"type": "string", "description": "Optionaler Ligafilter."},
+                "league_id": {"type": "string", "description": "Numerische TheSportsDB League-ID."},
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+            }, strict=True),
+            get_sports_data,
+            source="builtin_sports",
+        )
+
+        self.register_tool(
+            "lookup_company",
+            "Sucht Rechtsträger im globalen GLEIF-LEI-Register und liefert standardisierte Registrierungs- und Adressdaten.",
+            schema({
+                "name": {"type": "string", "description": "Unternehmens-/Rechtsträgername."},
+                "country": {"type": "string", "description": "Optionaler ISO-2-Ländercode, z. B. DE."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+            }, ["name"], strict=True),
+            lookup_company,
+            source="builtin_company",
+        )
+
+        self.register_tool(
+            "calculate_math",
+            "Führt mathematische Berechnungen in der eingeschränkten Python-Rechenumgebung aus.",
+            schema({"expression": {"type": "string"}}, ["expression"]),
+            run_python_calc,
             source="builtin_math",
         )
 
-        # 7. Wikipedia Reference Tool
         self.register_tool(
-            name="get_wikipedia_summary",
-            description="Liefert fundierte lexikalische Zusammenfassungen, Definitionen, historische Fakten und Biografien direkt aus Wikipedia.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Das Thema, der Begriff oder die Person (z. B. 'Veitshöchheim', 'Quantencomputer', 'Alan Turing').",
-                    },
-                    "language": {
-                        "type": "string",
-                        "description": "Sprachcode ('de', 'en', 'fr', 'es'). Standard: 'de'.",
-                        "default": "de",
-                    },
-                },
-                "required": ["query"],
-            },
-            handler=get_wikipedia_summary,
-            owner_only=False,
+            "get_wikipedia_summary",
+            "Liefert lexikalische Zusammenfassungen und Fakten aus Wikipedia.",
+            schema({
+                "query": {"type": "string"},
+                "language": {"type": "string", "default": "de"},
+            }, ["query"]),
+            get_wikipedia_summary,
             source="builtin_wiki",
         )
 
-        # 8. World Time, Calendar & German Holidays
         self.register_tool(
-            name="get_time_and_calendar",
-            description="Liefert die exakte aktuelle Uhrzeit, Zeitzonen-Umrechnung, Kalenderwoche, Schaltjahr-Prüfung und gesetzliche Feiertage (z. B. für Bayern BY).",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "timezone_name": {
-                        "type": "string",
-                        "description": "Name der Zeitzone oder Stadt (z. B. 'Europe/Berlin', 'Tokyo', 'New York', 'London'). Standard: 'Europe/Berlin'.",
-                        "default": "Europe/Berlin",
-                    },
-                    "target_date": {
-                        "type": "string",
-                        "description": "Optionales Zieldatum im Format 'YYYY-MM-DD' oder 'DD.MM.YYYY' zur Berechnung der Tage bis zum Datum.",
-                    },
-                    "state": {
-                        "type": "string",
-                        "description": "Bundesland-Kürzel für Feiertage (z. B. 'BY' für Bayern, 'BW', 'NW'). Standard: 'BY'.",
-                        "default": "BY",
-                    },
-                },
-            },
-            handler=get_time_and_calendar,
-            owner_only=False,
+            "get_time_and_calendar",
+            "Liefert aktuelle Uhrzeit, Zeitzonen-, Kalender- und deutsche Feiertagsdaten.",
+            schema({
+                "timezone_name": {"type": "string", "default": "Europe/Berlin"},
+                "target_date": {"type": "string"},
+                "state": {"type": "string", "default": "BY"},
+            }),
+            get_time_and_calendar,
             source="builtin_time",
         )
 
-        # 9. Currency & Crypto Converter
         self.register_tool(
-            name="convert_currency",
-            description="Rechnet Geldbeträge live zwischen weltweiten Währungen (EUR, USD, GBP, CHF, JPY etc.) oder Kryptowährungen (BTC, ETH, SOL) um.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "amount": {
-                        "type": "number",
-                        "description": "Der umzurechnende Betrag (z. B. 100).",
-                        "default": 1.0,
-                    },
-                    "from_currency": {
-                        "type": "string",
-                        "description": "Ausgangswährung (z. B. 'EUR', 'USD', 'BTC'). Standard: 'EUR'.",
-                        "default": "EUR",
-                    },
-                    "to_currency": {
-                        "type": "string",
-                        "description": "Zielwährung (z. B. 'USD', 'EUR', 'CHF'). Standard: 'USD'.",
-                        "default": "USD",
-                    },
-                },
-                "required": ["amount", "from_currency", "to_currency"],
-            },
-            handler=convert_currency,
-            owner_only=False,
+            "convert_currency",
+            "Rechnet Geldbeträge live zwischen Fiat- und unterstützten Kryptowährungen um.",
+            schema({
+                "amount": {"type": "number", "default": 1.0},
+                "from_currency": {"type": "string", "default": "EUR"},
+                "to_currency": {"type": "string", "default": "USD"},
+            }, ["amount", "from_currency", "to_currency"]),
+            convert_currency,
             source="builtin_currency",
         )
 
-        # 10. Geographic Distance & Route Tool
         self.register_tool(
-            name="get_distance_route",
-            description="Berechnet die exakte Entfernung (Luftlinie & Fahrtstrecke), Himmelsrichtung, Geokoordinaten und geschätzte Fahrzeit zwischen zwei Orten weltweit.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "origin": {
-                        "type": "string",
-                        "description": "Startort oder Startadresse (z. B. 'Veitshöchheim' oder 'Würzburg').",
-                    },
-                    "destination": {
-                        "type": "string",
-                        "description": "Zielort oder Zieladresse (z. B. 'München' oder 'Frankfurt am Main').",
-                    },
-                },
-                "required": ["origin", "destination"],
-            },
-            handler=get_distance_route,
-            owner_only=False,
+            "get_distance_route",
+            "Berechnet Luftlinie, Fahrtstrecke, Koordinaten und Fahrzeit zwischen zwei Orten.",
+            schema({
+                "origin": {"type": "string"},
+                "destination": {"type": "string"},
+            }, ["origin", "destination"]),
+            get_distance_route,
             source="builtin_geo",
         )
 
-        # 11. Country & Demographic Database (REST Countries)
         self.register_tool(
-            name="lookup_country_data",
-            description="Liefert verifizierte Länderdaten für alle Staaten weltweit (Hauptstadt, Einwohnerzahl, Fläche, Währungen, Amtssprachen, Nachbarländer, Zeitzonen).",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "country": {
-                        "type": "string",
-                        "description": "Der Name des Landes (z. B. 'Deutschland', 'Japan', 'Brasilien', 'Schweiz').",
-                    },
-                },
-                "required": ["country"],
-            },
-            handler=lookup_country_data,
-            owner_only=False,
+            "lookup_country_data",
+            "Liefert strukturierte Länder- und Demografiedaten.",
+            schema({"country": {"type": "string"}}, ["country"]),
+            lookup_country_data,
             source="builtin_open_data",
         )
 
-        # 12. World Bank Macroeconomic Indicators
         self.register_tool(
-            name="get_world_bank_stats",
-            description="Liefert offizielle volkswirtschaftliche Indikatoren der Weltbank (BIP, BIP pro Kopf, Inflation, Bevölkerung, Lebenserwartung, CO2-Emissionen) über mehrere Jahre.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "country": {
-                        "type": "string",
-                        "description": "Ländercode oder Name (z. B. 'DEU', 'Deutschland', 'USA', 'CHE', 'AUT'). Standard: 'DEU'.",
-                        "default": "DEU",
-                    },
-                    "indicator": {
-                        "type": "string",
-                        "description": "Indikator: 'gdp' (BIP), 'gdp_per_capita', 'inflation', 'population' (Einwohner), 'life_expectancy', 'co2'. Standard: 'gdp'.",
-                        "default": "gdp",
-                    },
-                },
-                "required": ["country"],
-            },
-            handler=get_world_bank_stats,
-            owner_only=False,
+            "get_world_bank_stats",
+            "Liefert offizielle makroökonomische Indikatoren der Weltbank.",
+            schema({
+                "country": {"type": "string", "default": "DEU"},
+                "indicator": {"type": "string", "default": "gdp"},
+            }, ["country"]),
+            get_world_bank_stats,
             source="builtin_open_data",
         )
 
-        # 13. arXiv Scientific Research Paper Search
         self.register_tool(
-            name="search_arxiv_papers",
-            description="Durchsucht arXiv nach wissenschaftlichen Forschungsarbeiten, aktuellen KI-Preprints, Physik-/Mathe-Artikeln und Abstracts.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Forschungsthema oder Suchbegriff (z. B. 'large language models', 'mixture of experts', 'quantum computing').",
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Maximale Anzahl an Papern (1-10). Standard: 5.",
-                        "default": 5,
-                    },
-                },
-                "required": ["query"],
-            },
-            handler=search_arxiv_papers,
-            owner_only=False,
+            "search_arxiv_papers",
+            "Durchsucht arXiv nach wissenschaftlichen Arbeiten und Preprints.",
+            schema({
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 5},
+            }, ["query"]),
+            search_arxiv_papers,
             source="builtin_open_data",
         )
 
-        # 14. Open Food Facts Nutrition & Ingredients Tool
         self.register_tool(
-            name="lookup_food_product",
-            description="Liefert Inhaltsstoffe, Allergene, Nutri-Score, Eco-Score und Nährwerttabellen (Kalorien, Fett, Zucker, Eiweiß pro 100g) für Lebensmittelprodukte und Barcodes.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "product_name": {
-                        "type": "string",
-                        "description": "Produktname oder Barcode/EAN (z. B. 'Nutella', 'Hafermilch', '3017620422003').",
-                    },
-                },
-                "required": ["product_name"],
-            },
-            handler=lookup_food_product,
-            owner_only=False,
+            "lookup_food_product",
+            "Liefert Inhaltsstoffe, Allergene und Nährwerte aus Open Food Facts.",
+            schema({"product_name": {"type": "string"}}, ["product_name"]),
+            lookup_food_product,
             source="builtin_open_data",
         )
 
-        # 15. Software Package Registry & Vulnerability (OSV/CVE) Inspection
         self.register_tool(
-            name="lookup_software_package",
-            description="Liefert Paketinformationen, neueste Versionen, Abhängigkeiten und bekannte Sicherheitslücken (OSV/CVE) von PyPI (Python) und NPM (JavaScript).",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "package_name": {
-                        "type": "string",
-                        "description": "Name des Software-Pakets (z. B. 'fastapi', 'torch', 'react', 'langchain').",
-                    },
-                    "ecosystem": {
-                        "type": "string",
-                        "description": "Ökosystem: 'pypi' (Python) oder 'npm' (Node.js). Standard: 'pypi'.",
-                        "default": "pypi",
-                    },
-                },
-                "required": ["package_name"],
-            },
-            handler=lookup_software_package,
-            owner_only=False,
+            "lookup_software_package",
+            "Liefert Paketinformationen und bekannte OSV/CVE-Sicherheitslücken für PyPI/NPM.",
+            schema({
+                "package_name": {"type": "string"},
+                "ecosystem": {"type": "string", "default": "pypi"},
+            }, ["package_name"]),
+            lookup_software_package,
             source="builtin_open_data",
         )
 
-        # 16. USGS Real-time Global Earthquake Feed
         self.register_tool(
-            name="get_recent_earthquakes",
-            description="Liefert weltweite Live-Erdbebendaten der USGS (Magnitude, Ort, Epizentrum, Tiefe, Tsunami-Warnungen).",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "min_magnitude": {
-                        "type": "number",
-                        "description": "Minimale Erdbebenstärke (z. B. 4.0 oder 5.5). Standard: 4.0.",
-                        "default": 4.0,
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximale Anzahl an Ereignissen (1-15). Standard: 5.",
-                        "default": 5,
-                    },
-                },
-            },
-            handler=get_recent_earthquakes,
-            owner_only=False,
+            "get_recent_earthquakes",
+            "Liefert aktuelle weltweite Erdbebendaten der USGS.",
+            schema({
+                "min_magnitude": {"type": "number", "default": 4.0},
+                "limit": {"type": "integer", "default": 5},
+            }),
+            get_recent_earthquakes,
             source="builtin_open_data",
         )
 
-        # 17. PubChem Chemical & Molecular Compound Database
         self.register_tool(
-            name="lookup_chemical_compound",
-            description="Liefert chemische Eigenschaften (Summenformel, Molekulargewicht, IUPAC-Name, SMILES, PubChem CID) für chemische Stoffe und Medikamente.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "compound_name": {
-                        "type": "string",
-                        "description": "Name der chemischen Verbindung (z. B. 'Aspirin', 'Caffeine', 'Ethanol', 'Koffein').",
-                    },
-                },
-                "required": ["compound_name"],
-            },
-            handler=lookup_chemical_compound,
-            owner_only=False,
+            "lookup_chemical_compound",
+            "Liefert chemische Eigenschaften aus PubChem.",
+            schema({"compound_name": {"type": "string"}}, ["compound_name"]),
+            lookup_chemical_compound,
             source="builtin_open_data",
         )
 
-        # 18. Free Dictionary & Phonetics Tool
         self.register_tool(
-            name="lookup_word_definition",
-            description="Liefert englische Wörterbuch-Definitionen, Lautschrift (Phonetics), Wortarten, Synonyme und Beispielsätze.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "word": {
-                        "type": "string",
-                        "description": "Das zu suchende Wort (z. B. 'serendipity', 'algorithm', 'intelligence').",
-                    },
-                },
-                "required": ["word"],
-            },
-            handler=lookup_word_definition,
-            owner_only=False,
+            "lookup_word_definition",
+            "Liefert englische Definitionen, Phonetik, Wortarten und Synonyme.",
+            schema({"word": {"type": "string"}}, ["word"]),
+            lookup_word_definition,
             source="builtin_open_data",
         )
 
-        # 19. Rail & Transit Timetable Tool (Deutsche Bahn / European Rail)
         self.register_tool(
-            name="lookup_train_schedule",
-            description="Liefert Live-Abfahrtszeiten, Zuglinien (ICE, RE, S-Bahn), Zielbahnhöfe, Gleise und Echtzeit-Verspätungen für deutsche und europäische Bahnhöfe.",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "station": {
-                        "type": "string",
-                        "description": "Name des Bahnhofs (z. B. 'Würzburg Hbf', 'Frankfurt(Main)Hbf', 'München Hbf').",
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Maximale Anzahl an Abfahrten (1-10). Standard: 5.",
-                        "default": 5,
-                    },
-                },
-                "required": ["station"],
-            },
-            handler=lookup_train_schedule,
-            owner_only=False,
+            "lookup_train_schedule",
+            "Liefert Bahn-Abfahrten, Linien, Gleise und Echtzeit-Verspätungen.",
+            schema({
+                "station": {"type": "string"},
+                "max_results": {"type": "integer", "default": 5},
+            }, ["station"]),
+            lookup_train_schedule,
             source="builtin_open_data",
         )
 
-        # 20. Safe Network & Host Diagnostics (Owner Key only)
         self.register_tool(
-            name="lookup_network_host",
-            description="Führt sichere Netzwerkdiagnosen für eine öffentliche Domain aus (DNS-Einträge, HTTP/HTTPS-Status & Latenz, SSL-Zertifikatslaufzeit).",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "host": {
-                        "type": "string",
-                        "description": "Der öffentliche Hostname oder die Domain (z. B. 'inetconnector.com' oder 'github.com').",
-                    },
-                    "check_type": {
-                        "type": "string",
-                        "description": "Art der Diagnose: 'all' (DNS, HTTP & SSL), 'dns_only', 'http', 'ssl'. Standard: 'all'.",
-                        "default": "all",
-                    },
-                },
-                "required": ["host"],
-            },
-            handler=lookup_network_host,
+            "lookup_network_host",
+            "Führt sichere Netzwerkdiagnosen für eine öffentliche Domain aus.",
+            schema({
+                "host": {"type": "string"},
+                "check_type": {"type": "string", "default": "all"},
+            }, ["host"]),
+            lookup_network_host,
             owner_only=True,
             source="builtin_network",
         )
 
-        # 21. Safe System Info Tool (Owner only)
         if self.config.system_tools_enabled:
             self.register_tool(
-                name="get_system_info",
-                description="Liefert Host- und Systeminformationen des Compute-Knotens (Betriebssystem, CPU-Kerne, Server-Zeit).",
-                parameters={
-                    "type": "object",
-                    "properties": {},
-                },
-                handler=execute_system_info,
+                "get_system_info",
+                "Liefert Host- und Systeminformationen des Compute-Knotens.",
+                schema({}),
+                execute_system_info,
                 owner_only=True,
                 source="builtin_system",
             )

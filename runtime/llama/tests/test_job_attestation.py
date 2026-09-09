@@ -130,6 +130,7 @@ class JobAttestationTests(unittest.TestCase):
         )
         path = self.root / f"{name}.key"
         path.write_bytes(raw)
+        path.chmod(0o600)
         public = private.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
