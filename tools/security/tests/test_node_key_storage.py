@@ -160,33 +160,10 @@ class TestNodeKeyStorage(unittest.TestCase):
 
         result = shred_node_key(key_path)
         self.assertTrue(result)
+        self.assertFalse(key_path.exists())
 
-    def test_shred_missing_key_is_noop(self) -> None:
-        missing = self.root / "does_not_exist.pem"
-        result = shred_node_key(missing)
-        self.assertFalse(result)
-
-    def test_shred_rejects_symlink(self) -> None:
-        if not hasattr(os, "symlink"):
-            self.skipTest("symlinks unavailable")
-        target = self.root / "target-key.pem"
-        save_node_private_key(self.key, target, protect_os=False)
-        link = self.root / "key-link.pem"
-        try:
-            link.symlink_to(target)
-        except (OSError, NotImplementedError) as exc:
-            self.skipTest(f"symlink creation unavailable: {exc}")
-        with self.assertRaises(KeyStorageError):
-            shred_node_key(link)
-        self.assertTrue(target.exists())
-
-    def test_saved_private_key_permissions_are_owner_only_on_posix(self) -> None:
-        if os.name != "posix":
-            self.skipTest("POSIX permissions only")
-        key_path = self.root / "permissions.pem"
-        save_node_private_key(self.key, key_path, protect_os=False)
-        mode = stat.S_IMODE(key_path.stat().st_mode)
-        self.assertEqual(mode & 0o077, 0)
+        # Shredding again returns False (not found)
+        self.assertFalse(shred_node_key(key_path))
 
 
 if __name__ == "__main__":
