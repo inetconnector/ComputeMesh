@@ -139,6 +139,11 @@ CATEGORIES: dict[str, list[str]] = {
     ],
     "Model Context Protocol & Live Tools": [
         "services.mcp.tests.test_mcp_system",
+        "services.mcp.tests.test_mcp_completion",
+        "services.mcp.tests.test_mcp_url_security",
+        "services.mcp.tests.test_mcp_client_hardening",
+        "services.mcp.tests.test_mcp_agent_hardening",
+        "services.mcp.tests.test_mcp_calc_hardening",
     ],
 }
 
