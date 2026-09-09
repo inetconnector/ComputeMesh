@@ -9,8 +9,8 @@
     "openbmb/minicpm5-2b"
   ],
   "apk_path": "portal/downloads/ComputeMesh-Android.apk",
-  "apk_sha256": "49fa6890941a0897ac24188dffd2c3904418eb2d6e1174aea05b67225769c5ab",
+  "apk_sha256": "474c52e7930f0bf2a21e5077cc0897bef502e2cc26623c6c568c692b2eee2764",
   "aab_path": "portal/downloads/ComputeMesh-Android.aab",
-  "aab_sha256": "d38ff03e7251e3e3021a382dc42f1f9d2a82d96b4d4c081af76b75ba0bb2b7fe",
+  "aab_sha256": "f640d8c66cc26713adda58eddd1a51358f634557db1f5a8fcd2f29ead3d48695",
   "signed": true
 }

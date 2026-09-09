@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.inetconnector.compumesh.ui
 
 import android.Manifest
@@ -21,6 +23,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +32,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -230,7 +235,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ComputeMeshMainScreen(
     guard: BatteryPolicyGuard,
@@ -243,7 +248,8 @@ fun ComputeMeshMainScreen(
     onStopNode: () -> Unit,
     onSaveFleetConfig: (String, String) -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
+    val coroutineScope = rememberCoroutineScope()
     var guardStatus by remember { mutableStateOf(guard.getStatus()) }
     val context = LocalContext.current
 
@@ -329,12 +335,16 @@ fun ComputeMeshMainScreen(
                 )
 
                 tabs.forEach { (index, label, icon) ->
-                    val isSelected = selectedTab == index
+                    val isSelected = pagerState.currentPage == index
                     NavigationBarItem(
                         icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         selected = isSelected,
-                        onClick = { selectedTab = index },
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = CyanAccent,
                             selectedTextColor = CyanAccent,
@@ -347,8 +357,13 @@ fun ComputeMeshMainScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (selectedTab) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) { page ->
+            when (page) {
                 0 -> MiniCpmChatTab(serverPort = chatServerPort)
                 1 -> EdgeNodeTab(guardStatus, onStartNode, onStopNode)
                 2 -> LanMeshTab(
@@ -514,7 +529,7 @@ fun MiniCpmChatTab(
         pendingAudioCallback = null
     }
 
-    val chatUrl = "http://127.0.0.1:$serverPort/?restore_chat=true&lang=de"
+    val chatUrl = "http://127.0.0.1:$serverPort/?new_chat=true&lang=de#/"
 
     Box(
         modifier = Modifier
@@ -908,13 +923,27 @@ fun LanMeshTab(
                     }
                 }
                 if (isLanActive) {
-                    TextButton(
-                        onClick = {
-                            onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
-                            Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cleanActiveGateway))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
+                            Text("Dashboard ↗", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                    ) {
-                        Text("Trennen", color = AmberWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = {
+                                onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
+                                Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("Trennen", color = AmberWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -929,13 +958,19 @@ fun LanMeshTab(
             if (isScanning) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), color = DeepVoidBg, strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scanne Heimnetzwerk (UDP 13379)...", color = DeepVoidBg, fontWeight = FontWeight.Bold)
+                Text("Scanne Heimnetzwerk (UDP & Subnetz)...", color = DeepVoidBg, fontWeight = FontWeight.Bold)
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = DeepVoidBg)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Lokale LAN-Knoten suchen", color = DeepVoidBg, fontWeight = FontWeight.Bold)
             }
         }
+
+        Text(
+            "💡 Tippe auf eine Node-Kachel oder 'Dashboard ↗', um die Node-Oberfläche direkt im Browser zu öffnen.",
+            color = TextMuted,
+            fontSize = 11.5.sp
+        )
 
         if (discoveredPeers.isEmpty() && !isScanning) {
             Surface(
@@ -967,7 +1002,16 @@ fun LanMeshTab(
                             1.dp,
                             if (isConnected) EmeraldSuccess.copy(alpha = 0.6f) else CyanAccent.copy(alpha = 0.3f)
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
@@ -986,33 +1030,65 @@ fun LanMeshTab(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             if (isConnected) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = EmeraldSuccess.copy(alpha = 0.18f)
-                                ) {
-                                    Text(
-                                        "✓ Verbunden",
-                                        color = EmeraldSuccess,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = EmeraldSuccess.copy(alpha = 0.18f)
+                                    ) {
+                                        Text(
+                                            "✓ Verbunden",
+                                            color = EmeraldSuccess,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    TextButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Dashboard ↗", color = CyanAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             } else {
-                                Button(
-                                    onClick = {
-                                        onSaveFleetConfig(currentOwnerKey, peerTargetUrl)
-                                        Toast.makeText(
-                                            context,
-                                            "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Text("Verbinden", color = DeepVoidBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Button(
+                                        onClick = {
+                                            onSaveFleetConfig(currentOwnerKey, peerTargetUrl)
+                                            Toast.makeText(
+                                                context,
+                                                "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Verbinden", color = DeepVoidBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    TextButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Dashboard ↗", color = TextSecondary, fontSize = 11.sp)
+                                    }
                                 }
                             }
                         }

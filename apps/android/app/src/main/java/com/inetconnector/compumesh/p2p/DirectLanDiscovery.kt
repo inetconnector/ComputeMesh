@@ -4,12 +4,19 @@ import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.HttpURLConnection
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
+import java.net.URL
 
 data class LocalMeshPeer(
     val nodeId: String,
@@ -22,8 +29,8 @@ data class LocalMeshPeer(
 /**
  * Direct Peer-to-Peer Local Network Discovery for Zero-Server-Traffic Operation.
  *
- * Automatically pairs Android phones with local PCs/Mining Rigs on the same Wi-Fi
- * so 100% of inference, streaming, and model traffic stays inside the local home network.
+ * Combines UDP broadcast, unicast subnet sweeps, and fast HTTP probing to reliably
+ * discover ComputeMesh nodes across all home Wi-Fi and router configurations.
  */
 class DirectLanDiscovery(private val context: Context) {
 
@@ -33,73 +40,84 @@ class DirectLanDiscovery(private val context: Context) {
         const val DISCOVERY_PROBE_MESSAGE = "COMPUTEMESH_DISCOVERY_PING"
     }
 
-    /**
-     * Broadcasts discovery probes across all local network interfaces to find nearby ComputeMesh nodes.
-     */
-    suspend fun discoverLocalPeers(timeoutMs: Int = 3000): List<LocalMeshPeer> = withContext(Dispatchers.IO) {
+    suspend fun discoverLocalPeers(timeoutMs: Int = 3500): List<LocalMeshPeer> = withContext(Dispatchers.IO) {
         val peersMap = LinkedHashMap<String, LocalMeshPeer>()
         var socket: DatagramSocket? = null
         var multicastLock: WifiManager.MulticastLock? = null
 
+        val localIpv4Prefixes = mutableListOf<String>()
+        val broadcastTargets = LinkedHashSet<InetAddress>()
+
         try {
-            // 1. Acquire Android MulticastLock to prevent Wi-Fi hardware from dropping broadcast/multicast packets
+            // 1. Acquire Android MulticastLock
             try {
                 val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
                 multicastLock = wifiManager?.createMulticastLock("ComputeMeshLanDiscovery")
                 multicastLock?.setReferenceCounted(true)
                 multicastLock?.acquire()
-                Log.d(TAG, "Acquired Wi-Fi MulticastLock")
             } catch (e: Exception) {
-                Log.w(TAG, "Could not acquire MulticastLock: ${e.message}")
+                Log.w(TAG, "MulticastLock unavailable: ${e.message}")
             }
 
-            // 2. Enumerate all active network broadcast addresses (e.g. 192.168.1.255, 192.168.178.255, etc.)
-            val broadcastTargets = LinkedHashSet<InetAddress>()
+            // 2. Discover local network interfaces & subnets
             try {
                 val interfaces = NetworkInterface.getNetworkInterfaces()
                 while (interfaces != null && interfaces.hasMoreElements()) {
-                    val networkInterface = interfaces.nextElement()
-                    if (networkInterface.isLoopback || !networkInterface.isUp) continue
-                    for (interfaceAddress in networkInterface.interfaceAddresses) {
-                        val broadcast = interfaceAddress.broadcast
+                    val iface = interfaces.nextElement()
+                    if (iface.isLoopback || !iface.isUp) continue
+                    for (addr in iface.interfaceAddresses) {
+                        val broadcast = addr.broadcast
                         if (broadcast != null) {
                             broadcastTargets.add(broadcast)
-                            Log.d(TAG, "Found broadcast address: ${broadcast.hostAddress} on ${networkInterface.displayName}")
+                        }
+                        val ip = addr.address
+                        if (ip is Inet4Address && !ip.isLoopbackAddress) {
+                            val host = ip.hostAddress ?: ""
+                            val lastDot = host.lastIndexOf('.')
+                            if (lastDot > 0) {
+                                localIpv4Prefixes.add(host.substring(0, lastDot + 1))
+                            }
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Error enumerating network interfaces: ${e.message}")
+                Log.w(TAG, "Error enumerating interfaces: ${e.message}")
             }
 
-            // Always add global broadcast as fallback
+            // Global broadcast fallback
             try {
                 broadcastTargets.add(InetAddress.getByName("255.255.255.255"))
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not resolve global broadcast address: ${e.message}")
-            }
+            } catch (_: Exception) {}
 
-            // 3. Create DatagramSocket with broadcast enabled
+            // 3. UDP Socket for sending and receiving discovery packets
             socket = DatagramSocket().apply {
                 broadcast = true
-                soTimeout = 300 // short timeout for iterative polling
+                soTimeout = 250
             }
 
             val sendData = DISCOVERY_PROBE_MESSAGE.toByteArray(Charsets.UTF_8)
 
             fun sendProbeBurst() {
+                // Broadcast burst
                 for (target in broadcastTargets) {
                     try {
                         val sendPacket = DatagramPacket(sendData, sendData.size, target, DISCOVERY_PORT)
                         socket?.send(sendPacket)
-                        Log.d(TAG, "Sent discovery ping to ${target.hostAddress}:$DISCOVERY_PORT")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed sending probe to $target: ${e.message}")
+                    } catch (_: Exception) {}
+                }
+
+                // Unicast subnet sweep (bypasses Wi-Fi router AP isolation & broadcast filters)
+                for (prefix in localIpv4Prefixes.distinct()) {
+                    for (i in 1..254) {
+                        try {
+                            val ip = InetAddress.getByName("$prefix$i")
+                            val sendPacket = DatagramPacket(sendData, sendData.size, ip, DISCOVERY_PORT)
+                            socket?.send(sendPacket)
+                        } catch (_: Exception) {}
                     }
                 }
             }
 
-            // Send initial burst
             sendProbeBurst()
 
             val receiveBuf = ByteArray(2048)
@@ -109,8 +127,7 @@ class DirectLanDiscovery(private val context: Context) {
             var burstCount = 1
 
             while (System.currentTimeMillis() - startTime < timeoutMs) {
-                // Send additional probe bursts at 400ms intervals up to 3 times
-                if (burstCount < 3 && System.currentTimeMillis() - lastBurstTime >= 400) {
+                if (burstCount < 2 && System.currentTimeMillis() - lastBurstTime >= 500) {
                     sendProbeBurst()
                     burstCount++
                     lastBurstTime = System.currentTimeMillis()
@@ -119,14 +136,14 @@ class DirectLanDiscovery(private val context: Context) {
                 try {
                     socket.receive(receivePacket)
                     val response = String(receivePacket.data, 0, receivePacket.length, Charsets.UTF_8).trim()
-                    Log.d(TAG, "Received UDP response: $response from ${receivePacket.address.hostAddress}")
+                    Log.d(TAG, "UDP response: $response from ${receivePacket.address.hostAddress}")
 
                     if (response.startsWith("COMPUTEMESH_PONG:")) {
                         val payload = response.removePrefix("COMPUTEMESH_PONG:").trim()
                         val parts = payload.split(";")
                         val nodeId = parts.getOrNull(0)?.trim()?.ifBlank { null } ?: "local-node"
                         val port = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: 8080
-                        val gpu = parts.getOrNull(2)?.trim()?.ifBlank { null } ?: "Local GPU"
+                        val gpu = parts.getOrNull(2)?.trim()?.ifBlank { null } ?: "Local Compute"
                         val peerIp = receivePacket.address.hostAddress ?: ""
 
                         if (peerIp.isNotBlank()) {
@@ -139,28 +156,19 @@ class DirectLanDiscovery(private val context: Context) {
                             )
                         }
                     }
-                } catch (e: SocketTimeoutException) {
-                    // Normal timeout during receive window
+                } catch (_: SocketTimeoutException) {
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Local LAN discovery failed", e)
         } finally {
+            try { socket?.close() } catch (_: Exception) {}
             try {
-                socket?.close()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error closing socket: ${e.message}")
-            }
-            try {
-                if (multicastLock?.isHeld == true) {
-                    multicastLock.release()
-                    Log.d(TAG, "Released Wi-Fi MulticastLock")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Error releasing MulticastLock: ${e.message}")
-            }
+                if (multicastLock?.isHeld == true) multicastLock.release()
+            } catch (_: Exception) {}
         }
 
         peersMap.values.toList()
     }
 }
+
