@@ -16,7 +16,7 @@ class MeshRegistryAggregator:
         if raw_peers:
             self.known_peers = [p.strip() for p in raw_peers.split(",") if p.strip()]
         else:
-            self.known_peers = ["http://192.168.1.27:8080"]
+            self.known_peers = ["http://192.168.1.35:8080", "http://192.168.1.94:8080", "http://192.168.1.27:8080"]
         self._peer_nodes: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         self._running = False
@@ -36,6 +36,7 @@ class MeshRegistryAggregator:
 
     def _background_poller(self) -> None:
         while self._running:
+            # 1. Direct LAN peer polling
             for peer in self.known_peers:
                 try:
                     url = peer.rstrip("/") + "/api/status"
@@ -43,16 +44,51 @@ class MeshRegistryAggregator:
                     with urllib.request.urlopen(req, timeout=1.5) as resp:
                         if resp.status == 200:
                             d = json.loads(resp.read().decode("utf-8"))
+                            nid = d.get("node_id", peer)
                             with self._lock:
-                                self._peer_nodes[peer] = {
-                                    "node_id": d.get("node_id", peer),
+                                self._peer_nodes[nid] = {
+                                    "node_id": nid,
                                     "status": "online",
                                     "inventory": d.get("inventory", {}),
                                     "telemetry": d.get("telemetry", {}),
                                 }
                 except Exception:
-                    with self._lock:
-                        self._peer_nodes.pop(peer, None)
+                    pass
+
+            # 2. Coordinator Fleet Sync via owner_key
+            try:
+                from tools.appliance.appliance_config import load_appliance_config
+                from config import CONFIG
+                cfg = load_appliance_config()
+                owner_key = getattr(cfg, "owner_key", "")
+                if owner_key:
+                    fleet_url = f"{CONFIG.endpoints.base_url}/api/v1/mesh/fleet?owner_key={owner_key}"
+                    req = urllib.request.Request(fleet_url, headers={"User-Agent": "ComputeMesh-Aggregator/1.2"})
+                    with urllib.request.urlopen(req, timeout=3.0) as resp:
+                        if resp.status == 200:
+                            fleet_data = json.loads(resp.read().decode("utf-8"))
+                            nodes = fleet_data.get("nodes", [])
+                            local_nid = str(getattr(self, "_local_status", {}).get("node_id", ""))
+                            for n in nodes:
+                                nid = n.get("node_id", "")
+                                if nid and nid != local_nid and n.get("is_online", False):
+                                    with self._lock:
+                                        if nid not in self._peer_nodes:
+                                            self._peer_nodes[nid] = {
+                                                "node_id": nid,
+                                                "status": "online",
+                                                "inventory": {
+                                                    "total_vram_bytes": int(float(n.get("vram_gb", 0) or 0) * (1024**3)),
+                                                    "gpus": [{"model_name": g, "vram_bytes": int(float(n.get("vram_gb", 0) or 0) * (1024**3)), "healthy": True} for g in n.get("gpus", [])],
+                                                },
+                                                "telemetry": {
+                                                    "local_compute_tflops": float(n.get("tflops", 0.0) or 0.0),
+                                                    "tokens_processed": 0,
+                                                },
+                                            }
+            except Exception:
+                pass
+
             time.sleep(5)
 
     def get_mesh_stats(self, local_status: dict[str, Any] | None = None) -> dict[str, Any]:

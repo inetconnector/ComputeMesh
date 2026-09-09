@@ -104,7 +104,7 @@ class MeshNodeService : Service() {
                         put("global_mesh", JSONObject())
                         put("software", JSONObject().apply {
                             put("model", "openbmb/minicpm5-2b")
-                            put("version", "1.2.143")
+                            put("version", "1.2.156")
                             put("client", "ComputeMesh-Android")
                         })
                     }

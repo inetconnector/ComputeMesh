@@ -164,7 +164,7 @@ def load_appliance_config(
         env_vars.get("OWNER_KEY")
         or system_data.get("owner_key")
         or os.environ.get("OWNER_KEY")
-        or "inet-89d428edbdf525ce956f34d622bba1faf8f38701"
+        or ""
     )
 
     return ApplianceConfig(

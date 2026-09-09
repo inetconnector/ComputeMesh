@@ -1,16 +1,16 @@
 {
   "app_name": "ComputeMesh",
   "package_name": "com.inetconnector.compumesh",
-  "version_name": "1.2.155",
-  "version_code": 115,
+  "version_name": "1.2.156",
+  "version_code": 116,
   "target_sdk": 34,
   "min_sdk": 29,
   "supported_models": [
     "openbmb/minicpm5-2b"
   ],
   "apk_path": "portal/downloads/ComputeMesh-Android.apk",
-  "apk_sha256": "94c186ae78d65938c9175787ed6b7df62e7c2a4c87bc67eda39acf261079e717",
+  "apk_sha256": "49fa6890941a0897ac24188dffd2c3904418eb2d6e1174aea05b67225769c5ab",
   "aab_path": "portal/downloads/ComputeMesh-Android.aab",
-  "aab_sha256": "58b2a46a62ea92c70e3bfae57f088d4a56bc613c485be79f9e302d65e8e5b138",
+  "aab_sha256": "d38ff03e7251e3e3021a382dc42f1f9d2a82d96b4d4c081af76b75ba0bb2b7fe",
   "signed": true
 }

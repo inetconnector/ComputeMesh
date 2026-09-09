@@ -95,6 +95,30 @@ class TestDiskCloneSafety(unittest.TestCase):
         self.assertFalse(accepted)
         self.assertIn("already in progress", message)
 
+    @patch("tools.appliance.disk_clone.subprocess.run")
+    def test_post_clone_fixup_runs_safely(self, mock_subproc) -> None:
+        mock_subproc.return_value.returncode = 0
+        disk_clone._post_clone_fixup("/dev/sda")
+        self.assertTrue(mock_subproc.called)
+
+    @patch("tools.appliance.disk_clone._is_removable")
+    @patch("tools.appliance.disk_clone.Path.exists")
+    @patch("tools.appliance.disk_clone.Path.iterdir")
+    @patch("tools.appliance.disk_clone._block_disk_size_bytes")
+    def test_list_clone_targets_includes_existing_os_flag(self, mock_size, mock_iter, mock_exists, mock_removable) -> None:
+        mock_exists.return_value = True
+        mock_removable.return_value = False
+        mock_size.return_value = 128_000_000_000
+
+        entry = Path("/sys/block/sda")
+        mock_iter.return_value = [entry]
+
+        targets = disk_clone.list_clone_targets("sdb", min_bytes=10_000_000)
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0]["device"], "/dev/sda")
+        self.assertIn("size_formatted", targets[0])
+        self.assertIn("has_existing_os", targets[0])
+
 
 if __name__ == "__main__":
     unittest.main()

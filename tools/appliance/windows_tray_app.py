@@ -20,8 +20,6 @@ from pathlib import Path
 import sys
 import threading
 import time
-import tkinter as tk
-from tkinter import messagebox, ttk
 
 # Ensure PyInstaller Windows child process bootloader compatibility
 multiprocessing.freeze_support()
@@ -38,11 +36,23 @@ if sys.stderr is None:
 
 if getattr(sys, "frozen", False):
     REPO_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    # Ensure Tcl/Tk data directories are found in frozen environments
+    for _tcl_cand in [REPO_ROOT / "_tcl_data", REPO_ROOT / "tcl" / "tcl8.6", REPO_ROOT / "tcl"]:
+        if _tcl_cand.exists() and (_tcl_cand / "init.tcl").exists():
+            os.environ["TCL_LIBRARY"] = str(_tcl_cand)
+            break
+    for _tk_cand in [REPO_ROOT / "_tk_data", REPO_ROOT / "tcl" / "tk8.6", REPO_ROOT / "tk"]:
+        if _tk_cand.exists() and (_tk_cand / "tk.tcl").exists():
+            os.environ["TK_LIBRARY"] = str(_tk_cand)
+            break
 else:
     REPO_ROOT = Path(__file__).resolve().parents[2]
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+import tkinter as tk
+from tkinter import messagebox, ttk
 
 from PIL import Image, ImageDraw, ImageTk, IcoImagePlugin
 try:
@@ -120,22 +130,24 @@ def _acquire_single_instance_lock() -> bool:
                         import ctypes
                         kernel32 = ctypes.windll.kernel32
                         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                        STILL_ACTIVE = 259
                         h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, old_pid)
                         if h_proc:
+                            exit_code = ctypes.c_ulong()
+                            is_running = kernel32.GetExitCodeProcess(h_proc, ctypes.byref(exit_code)) and (exit_code.value == STILL_ACTIVE)
                             is_cm = False
-                            try:
-                                buf = ctypes.create_unicode_buffer(1024)
-                                size = ctypes.c_uint32(1024)
-                                if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
-                                    proc_name = buf.value.lower()
-                                    if "computemesh.exe" in proc_name or "computemesh-setup" in proc_name or "computemesh" in proc_name:
-                                        is_cm = True
-                                    else:
-                                        is_cm = False
-                            except Exception:
-                                is_cm = False
+                            if is_running:
+                                try:
+                                    buf = ctypes.create_unicode_buffer(1024)
+                                    size = ctypes.c_uint32(1024)
+                                    if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
+                                        proc_name = buf.value.lower()
+                                        if "computemesh.exe" in proc_name or "computemesh" in proc_name:
+                                            is_cm = True
+                                except Exception:
+                                    pass
                             kernel32.CloseHandle(h_proc)
-                            if is_cm:
+                            if is_running and is_cm:
                                 try:
                                     user32 = ctypes.windll.user32
                                     hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
@@ -329,6 +341,9 @@ class ComputeMeshProviderApp:
     def _setup_tray_icon(self) -> None:
         try:
             if self.tray_icon is not None:
+                t_thread = getattr(self.tray_icon, "_thread", None)
+                if t_thread is not None and t_thread.is_alive() and getattr(self.tray_icon, "visible", False):
+                    return
                 try:
                     self.tray_icon.stop()
                 except Exception:
@@ -364,12 +379,13 @@ class ComputeMeshProviderApp:
         """Periodic watchdog to ensure System Tray Icon stays active continuously."""
         try:
             if HAS_PYSTRAY:
-                if self.tray_icon is None or not getattr(self.tray_icon, "visible", False):
+                t_thread = getattr(self.tray_icon, "_thread", None)
+                if self.tray_icon is None or (t_thread is not None and not t_thread.is_alive()):
                     self._setup_tray_icon()
         except Exception:
             pass
         try:
-            self.root.after(3000, self._tray_watchdog)
+            self.root.after(5000, self._tray_watchdog)
         except Exception:
             pass
 
@@ -1130,16 +1146,20 @@ def main() -> int:
     if not _acquire_single_instance_lock():
         sys.exit(0)
 
-    root = tk.Tk()
-    app = ComputeMeshProviderApp(root)
-    if "--tray" in sys.argv:
-        root.withdraw()
-    else:
-        root.deiconify()
-        root.state("normal")
-        root.lift()
-        root.focus_force()
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = ComputeMeshProviderApp(root)
+        if "--tray" in sys.argv:
+            root.withdraw()
+        else:
+            root.deiconify()
+            root.state("normal")
+            root.lift()
+            root.focus_force()
+        root.mainloop()
+    except Exception as exc:
+        _log_crash(f"Fatal error in main GUI loop: {exc}\n{traceback.format_exc()}")
+        return 1
     return 0
 
 

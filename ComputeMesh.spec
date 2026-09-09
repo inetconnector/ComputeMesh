@@ -1,15 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+import sys
+
+
+_tcl_root = Path(sys.base_prefix) / 'tcl'
+_tcl_dir = next(path for path in sorted(_tcl_root.glob('tcl*'), reverse=True) if path.is_dir())
+_tk_dir = next(path for path in sorted(_tcl_root.glob('tk*'), reverse=True) if path.is_dir())
+
 
 a = Analysis(
     ['tools/appliance/windows_tray_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('services/appliance_dashboard/static', 'services/appliance_dashboard/static'), ('services/common', 'services/common')],
+    datas=[('services/appliance_dashboard/static', 'services/appliance_dashboard/static'), ('services/common', 'services/common'), (str(_tcl_dir), '_tcl_data'), (str(_tk_dir), '_tk_data')],
     hiddenimports=['PIL', 'PIL.Image', 'pystray', 'tkinter', 'urllib.request'],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['deploy/windows/pyi_rth_tkinter.py'],
     excludes=[],
     noarchive=False,
     optimize=0,

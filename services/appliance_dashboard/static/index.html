@@ -841,8 +841,8 @@
 
           <div class="form-group">
             <label class="form-label">Owner Key (Fleet Grouping)</label>
-            <input type="text" id="cfg-owner-key" class="form-input" placeholder="Default: inetconnector — paste a shared key to move this node to your own fleet">
-            <span class="form-desc">Enter the exact same key on every machine you own to group them into one fleet and enable cheaper self-compute pricing. Leave empty to keep this node standalone.</span>
+            <input type="text" id="cfg-owner-key" class="form-input" placeholder="z. B. inet-89d428ed... (Leer lassen für Standalone-Betrieb)">
+            <span class="form-desc">Trage deinen privaten Flotten-Schlüssel von mesh.inetconnector.com/fleet ein, um diesen Node deiner Flotte zuzuordnen. Bleibt das Feld leer, läuft der Node als eigenständiger Provider ohne Flotten-Bindung.</span>
           </div>
         </div>
       </div>
@@ -920,33 +920,55 @@
         </span>
       </div>
 
-      <div class="config-card linux-only" id="usb-clone-section" style="display:none; border: 1px solid rgba(244, 63, 94, 0.35);">
-        <div class="section-title" style="color: var(--accent-rose);">⚠️ Von USB gebootet: Auf interne SSD spiegeln</div>
-        <span class="badge" style="display:inline-block; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.4); color: var(--accent-rose); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 700; margin-bottom: 0.6rem;">
-          UNWIDERRUFLICH — ÜBERSCHREIBT ALLE DATEN AUF DEM ZIEL
+      <div class="config-card linux-only" id="usb-clone-section" style="display:none; border: 1px solid rgba(245, 158, 11, 0.45); background: rgba(15, 23, 42, 0.65);">
+        <div class="section-title" style="color: #fb923c; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚡</span> <span>Von USB gebootet: Auf interne Festplatte/SSD spiegeln</span>
+        </div>
+        <span class="badge" style="display:inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; font-size: 0.78rem; padding: 0.25rem 0.65rem; border-radius: 9999px; font-weight: 700; margin-bottom: 0.75rem;">
+          ⚠️ HINWEIS — ÜBERSCHREIBT ALLE DATEN AUF DER GEWÄHLTEN FESTPLATTE
         </span>
-        <p class="form-desc" id="usb-clone-source-desc"></p>
-        <p class="form-desc">
-          Nach dem Spiegeln musst du im BIOS/UEFI selbst von der SSD statt USB booten (das kann diese Software nicht automatisch umstellen).
+        <p class="form-desc" id="usb-clone-source-desc" style="color: #e2e8f0;"></p>
+        <p class="form-desc" style="color: #94a3b8;">
+          Diese Funktion kopiert NodeOS 1:1 auf deine interne HDD/SSD, repariert automatisch die GPT-Partitionstabelle und richtet den UEFI/GRUB-Bootloader ein. Nach Abschluss einfach den USB-Stick entfernen und neu starten.
         </p>
-        <div class="form-group">
-          <label class="form-label">Zielgerät</label>
-          <select id="usb-clone-target" class="form-select"></select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Blockgröße (MB) — Standard 4, bei langsamem USB-Bridge-Chip anderen Wert probieren</label>
-          <input type="number" id="usb-clone-blocksize" class="form-input" value="4" min="1" max="64">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Zur Bestätigung eintippen: <code>ERASE AND CLONE</code></label>
-          <input type="text" id="usb-clone-confirm" class="form-input" placeholder="ERASE AND CLONE">
-        </div>
-        <button class="btn btn-danger" id="btn-usb-clone-start" onclick="startUsbClone()">🔥 Spiegeln starten (unwiderruflich)</button>
-        <div id="usb-clone-progress" style="display:none; margin-top: 1rem;">
-          <div style="background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; height: 20px;">
-            <div id="usb-clone-progress-bar" style="background: var(--accent-rose); height: 100%; width: 0%; transition: width 0.5s;"></div>
+
+        <div id="usb-clone-form-body">
+          <div class="form-group">
+            <label class="form-label" style="color: #f1f5f9;">Zielgerät (Interne HDD / SSD)</label>
+            <select id="usb-clone-target" class="form-select"></select>
           </div>
-          <span id="usb-clone-progress-text" class="form-desc"></span>
+          <div class="form-group">
+            <label class="form-label" style="color: #cbd5e1;">Blockgröße (MB) — Standard 4</label>
+            <input type="number" id="usb-clone-blocksize" class="form-input" value="4" min="1" max="64">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: #f1f5f9;">Zur Bestätigung eintippen: <code style="color: #fbbf24; background: rgba(0,0,0,0.4); padding: 0.2rem 0.4rem; border-radius: 4px;">ERASE AND CLONE</code></label>
+            <input type="text" id="usb-clone-confirm" class="form-input" placeholder="ERASE AND CLONE">
+          </div>
+          <button class="btn" id="btn-usb-clone-start" onclick="startUsbClone()" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #020617; font-weight: 700; border: none; padding: 0.75rem 1.5rem; font-size: 0.95rem; cursor: pointer;">
+            🔥 Spiegeln &amp; Bootloader einrichten
+          </button>
+        </div>
+
+        <div id="usb-clone-progress" style="display:none; margin-top: 1rem;">
+          <div style="background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; height: 22px;">
+            <div id="usb-clone-progress-bar" style="background: linear-gradient(90deg, #f59e0b, #fbbf24); height: 100%; width: 0%; transition: width 0.5s;"></div>
+          </div>
+          <span id="usb-clone-progress-text" class="form-desc" style="color: #fbbf24; font-weight: 600; margin-top: 0.5rem; display: block;"></span>
+        </div>
+
+        <div id="usb-clone-success-box" style="display:none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 1.5rem; margin-top: 1rem; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎉</div>
+          <h3 style="color: var(--accent-emerald, #10b981); font-size: 1.3rem; margin-bottom: 0.5rem; font-weight: 700;">
+            Image erfolgreich auf interne Festplatte (HDD/SSD) gespiegelt!
+          </h3>
+          <p style="color: #e2e8f0; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.25rem;">
+            NodeOS und der UEFI/GRUB-Bootloader wurden vollständig eingerichtet und repariert.
+            <br><strong style="color: #fbbf24;">Bitte jetzt den USB-Stick abziehen</strong> und den Miner neu starten.
+          </p>
+          <button class="btn" onclick="rebootNode()" style="background: var(--accent-emerald, #10b981); color: #020617; font-weight: 800; padding: 0.85rem 2rem; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer;">
+            ⚡ Miner jetzt neu starten (Reboot)
+          </button>
         </div>
       </div>
     </div>
@@ -1524,9 +1546,10 @@
           `Aktuelles Bootmedium: ${data.source_model || data.source_disk} (${formatGB(data.source_size_bytes)} Nennkapazität). ` +
           `Tatsächlich kopiert werden nur ${formatGB(data.clone_bytes)} (belegte Partitionen + Sicherheitsabstand), nicht der leere Rest.`;
         const select = document.getElementById('usb-clone-target');
-        select.innerHTML = usbCloneTargets.map(t =>
-          `<option value="${t.device}">${t.device} — ${t.model} (${formatGB(t.size_bytes)})</option>`
-        ).join('');
+        select.innerHTML = usbCloneTargets.map(t => {
+          const overwriteBadge = t.has_existing_os ? ' [Bestehende Partitionen/OS werden überschrieben]' : ' [Leer/Bereit]';
+          return `<option value="${t.device}">${t.device} — ${t.model} (${t.size_formatted || formatGB(t.size_bytes)})${overwriteBadge}</option>`;
+        }).join('');
         section.style.display = 'block';
       } catch (e) {
         section.style.display = 'none';
@@ -1585,40 +1608,54 @@
       try {
         const res = await fetch('/api/action/clone_status');
         const s = await res.json();
+        const formBody = document.getElementById('usb-clone-form-body');
         const progressEl = document.getElementById('usb-clone-progress');
         const bar = document.getElementById('usb-clone-progress-bar');
         const text = document.getElementById('usb-clone-progress-text');
+        const successBox = document.getElementById('usb-clone-success-box');
         setActionsLocked(s.running);
-        if (s.running || s.done) {
+
+        if (s.running) {
+          if (formBody) formBody.style.display = 'none';
+          if (successBox) successBox.style.display = 'none';
           if (progressEl) progressEl.style.display = 'block';
           if (bar) bar.style.width = s.percent + '%';
           if (text) {
             let extra = '';
-            if (s.running) {
-              const mbps = (s.bytes_per_second / (1024 ** 2)).toFixed(1);
-              extra = ` — ${mbps} MB/s`;
-              if (s.eta_seconds !== null && s.eta_seconds !== undefined) {
-                const etaMin = Math.round(s.eta_seconds / 60);
-                extra += etaMin > 0 ? `, ETA ~${etaMin} min` : ', ETA < 1 min';
-              }
+            const mbps = (s.bytes_per_second / (1024 ** 2)).toFixed(1);
+            extra = ` — ${mbps} MB/s`;
+            if (s.eta_seconds !== null && s.eta_seconds !== undefined) {
+              const etaMin = Math.round(s.eta_seconds / 60);
+              extra += etaMin > 0 ? `, ETA ~${etaMin} min` : ', ETA < 1 min';
             }
-            text.textContent = `${s.percent}% — ${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)}${extra}`;
+            text.textContent = `Wird kopiert & Bootloader eingerichtet... ${s.percent}% (${formatGB(s.copied_bytes)} / ${formatGB(s.total_bytes)})${extra}`;
           }
-        }
-        if (s.running) {
           cloneWasRunning = true;
-          setTimeout(pollUsbCloneProgress, 3000);
+          setTimeout(pollUsbCloneProgress, 2500);
         } else if (s.done) {
-          if (cloneWasRunning) {
-            if (s.error) {
+          if (s.error) {
+            if (formBody) formBody.style.display = 'block';
+            if (progressEl) progressEl.style.display = 'none';
+            if (successBox) successBox.style.display = 'none';
+            if (cloneWasRunning) {
               showToast('Spiegeln fehlgeschlagen: ' + s.error, false);
-            } else {
-              showToast('✓ Spiegeln abgeschlossen. Wechsle im BIOS/UEFI auf die interne SSD als Bootlaufwerk.', true);
+              cloneWasRunning = false;
             }
-            cloneWasRunning = false;
+          } else {
+            // Completed successfully! Hide the form and show the prominent success banner
+            if (formBody) formBody.style.display = 'none';
+            if (progressEl) progressEl.style.display = 'none';
+            if (successBox) successBox.style.display = 'block';
+            if (cloneWasRunning) {
+              showToast('✓ Image erfolgreich auf Festplatte gespiegelt!', true);
+              cloneWasRunning = false;
+            }
           }
           setTimeout(pollUsbCloneProgress, 10000);
         } else {
+          if (formBody) formBody.style.display = 'block';
+          if (progressEl) progressEl.style.display = 'none';
+          if (successBox) successBox.style.display = 'none';
           setTimeout(pollUsbCloneProgress, 10000);
         }
       } catch (e) {

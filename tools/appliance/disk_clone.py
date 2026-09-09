@@ -24,8 +24,10 @@ Safety model:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -46,9 +48,6 @@ class CloneStatus:
     started_at: float = 0.0
     finished_at: float = 0.0
     block_size_mb: int = 4
-    # Rolling short-window rate, not a lifetime average: a lifetime average
-    # reacts too slowly to actually diagnose a slow device/bridge while the
-    # clone is running (which is the whole point of exposing this).
     bytes_per_second: float = 0.0
     _last_sample_bytes: int = field(default=0, repr=False)
     _last_sample_time: float = field(default=0.0, repr=False)
@@ -69,16 +68,7 @@ _SAFETY_MARGIN_BYTES = 64 * 1024 * 1024  # covers GPT backup header / alignment 
 
 
 def _source_used_extent_bytes(disk_name: str) -> int | None:
-    """Byte offset where the last partition on disk_name ends, plus a safety
-    margin -- not the disk's full nominal capacity.
-
-    A USB stick Etcher wrote a ~500MB image onto is often 8-300GB; only the
-    space actually covered by a partition holds real data, the rest was
-    never written by Etcher at all. Cloning past the last partition's end
-    just copies untouched, meaningless bytes for hours. Returns None (caller
-    falls back to the full disk size) if no partitions are found or sysfs
-    can't be read, rather than risk guessing an extent that's too small.
-    """
+    """Byte offset where the last partition on disk_name ends, plus a safety margin."""
     base = Path(f"/sys/block/{disk_name}")
     if not base.exists():
         return None
@@ -115,26 +105,28 @@ def _disk_model(disk_name: str) -> str:
 
 
 def _is_removable(disk_name: str) -> bool:
-    """True if disk_name is USB-attached.
-
-    The /sys/block/<dev>/removable flag alone is unreliable: many USB-SATA
-    and USB-NVMe bridge chips report removable=0 for an externally-attached
-    disk (observed live: a USB boot drive showed removable=0, model
-    "External"). Resolving the device's real sysfs path and checking for a
-    "usb" path component is what actually reflects the physical bus, and
-    catches USB disks the removable flag misses.
-    """
+    """True if disk_name is USB-attached or marked removable."""
     if _read_int(Path(f"/sys/block/{disk_name}/removable")) == 1:
         return True
     try:
         resolved = Path(f"/sys/block/{disk_name}").resolve()
-        return any(part.startswith("usb") for part in resolved.parts)
+        if any(part.startswith("usb") or "usb" in part.lower() for part in resolved.parts):
+            return True
     except Exception:
-        return False
+        pass
+    # Check udev properties if available
+    try:
+        out = subprocess.check_output(["udevadm", "info", "--query=property", f"--name=/dev/{disk_name}"], text=True, timeout=2)
+        if "ID_BUS=usb" in out or "ID_USB_DRIVER=" in out or "ID_DRIVE_FLASH" in out:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _resolve_source_disk() -> str | None:
-    """Best-effort: find the physical disk the live system actually booted from."""
+    """Find the physical disk the live system actually booted from, prioritizing USB."""
+    # First: Check mountpoints for the live medium
     candidates = []
     for probe in ("findmnt -no SOURCE /lib/live/mount/medium", "findmnt -no SOURCE /run/live/medium", "findmnt -no SOURCE /"):
         try:
@@ -143,20 +135,38 @@ def _resolve_source_disk() -> str | None:
                 candidates.append(res.stdout.strip())
         except Exception:
             continue
+
+    resolved_disks: list[str] = []
     for dev_path in candidates:
         dev_name = dev_path.rsplit("/", 1)[-1]
         try:
             res = subprocess.run(["lsblk", "-no", "PKNAME", dev_path], capture_output=True, text=True, timeout=5)
             pkname = res.stdout.strip()
-            if pkname:
-                return pkname
+            if pkname and pkname not in resolved_disks:
+                resolved_disks.append(pkname)
         except Exception:
             pass
-        # dev_name already looks like a whole disk (no trailing partition digits)
         stripped = re.sub(r"p?\d+$", "", dev_name) if re.search(r"\d+$", dev_name) else dev_name
-        if Path(f"/sys/block/{stripped}").exists():
-            return stripped
-    return None
+        if Path(f"/sys/block/{stripped}").exists() and stripped not in resolved_disks:
+            resolved_disks.append(stripped)
+
+    # If any resolved disk is removable (USB), prefer it
+    for d in resolved_disks:
+        if _is_removable(d):
+            return d
+
+    # If no mountpoint returned a USB disk, scan /sys/block for any connected USB drive with live data
+    block_dir = Path("/sys/block")
+    if block_dir.exists():
+        for entry in sorted(block_dir.iterdir()):
+            name = entry.name
+            if name.startswith(("loop", "ram", "sr", "dm-", "md", "zram")):
+                continue
+            if _is_removable(name):
+                return name
+
+    # Fallback to the first resolved disk if any
+    return resolved_disks[0] if resolved_disks else None
 
 
 def get_boot_source_info() -> dict[str, Any]:
@@ -169,19 +179,24 @@ def get_boot_source_info() -> dict[str, Any]:
         "booted_from_usb": booted_from_usb,
         "source_disk": f"/dev/{source_disk}" if source_disk else None,
         "source_size_bytes": full_size,
-        # What actually needs to be copied (last partition's end + a safety
-        # margin), which is what target-size filtering and the dd count=
-        # should use -- not the source's full nominal capacity.
         "clone_bytes": clone_bytes,
         "source_model": _disk_model(source_disk) if source_disk else "",
     }
 
 
+def _disk_has_existing_os(disk_name: str) -> bool:
+    """Check if the target disk has existing partitions or NodeOS filesystems."""
+    base = Path(f"/sys/block/{disk_name}")
+    if not base.exists():
+        return False
+    for entry in base.iterdir():
+        if entry.name.startswith(disk_name) and entry.name != disk_name:
+            return True
+    return False
+
+
 def list_clone_targets(source_disk_name: str | None, min_bytes: int | None = None) -> list[dict[str, Any]]:
-    """min_bytes: required target size. Defaults to the source's full nominal
-    size for backward compatibility, but callers should normally pass
-    get_boot_source_info()["clone_bytes"] so a target only needs to fit the
-    data actually being copied, not the source device's full capacity."""
+    """List valid internal drives for cloning, including drives with existing OS to overwrite."""
     targets: list[dict[str, Any]] = []
     block_dir = Path("/sys/block")
     if not block_dir.exists():
@@ -200,11 +215,15 @@ def list_clone_targets(source_disk_name: str | None, min_bytes: int | None = Non
         size_bytes = _block_disk_size_bytes(name)
         if size_bytes <= 0 or size_bytes < required_size:
             continue
+        has_existing = _disk_has_existing_os(name)
+        gb_size = round(size_bytes / (1024**3), 1)
         targets.append({
             "device": f"/dev/{name}",
             "name": name,
             "size_bytes": size_bytes,
+            "size_formatted": f"{gb_size} GB",
             "model": _disk_model(name),
+            "has_existing_os": has_existing,
         })
     return targets
 
@@ -231,13 +250,86 @@ def get_clone_status() -> dict[str, Any]:
         }
 
 
+def _post_clone_fixup(target_dev: str) -> None:
+    """Repair partition tables and bootloaders on target disk after dd sector copy.
+
+    1. Fix GPT Secondary / Backup header:
+       When a smaller image is written onto a larger drive, the backup GPT
+       header is located at sector ~20M instead of at the physical end of the disk.
+       Tools like sgdisk -e / parted move the backup header to the true end of disk
+       and repair the GPT table so UEFI firmware and GRUB part_gpt parse partitions correctly.
+    2. Reload partition table into kernel (partprobe / udevadm settle).
+    3. Verify / configure EFI System Partition (Partition 2) and bootloader.
+    4. Register UEFI boot entry via efibootmgr if running on a UEFI system.
+    5. Ensure BIOS/MBR active flag on partition 1 if booting in legacy mode.
+    """
+    # 1. GPT Repair (sgdisk -e or parted or sfdisk)
+    try:
+        subprocess.run(["sgdisk", "-e", target_dev], capture_output=True, timeout=10)
+    except Exception:
+        pass
+    try:
+        subprocess.run(["parted", "-s", target_dev, "print"], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+    # 2. Partprobe to reread partition table
+    try:
+        subprocess.run(["partprobe", target_dev], capture_output=True, timeout=10)
+        subprocess.run(["udevadm", "settle", "--timeout=5"], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+    # 3. Ensure EFI System Partition boot files
+    efi_part = f"{target_dev}2" if not target_dev[-1].isdigit() else f"{target_dev}p2"
+    if Path(efi_part).exists():
+        mount_dir = Path("/tmp/cm_efi_target_mount")
+        mount_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            m_res = subprocess.run(["mount", efi_part, str(mount_dir)], capture_output=True, timeout=5)
+            if m_res.returncode == 0:
+                try:
+                    boot_dir = mount_dir / "EFI" / "BOOT"
+                    boot_dir.mkdir(parents=True, exist_ok=True)
+                    boot_file = boot_dir / "BOOTX64.EFI"
+                    if not boot_file.exists() or boot_file.stat().st_size == 0:
+                        for src_candidate in [
+                            Path("/boot/grub/bootx64.efi"),
+                            Path("/usr/lib/grub/x86_64-efi/monolithic/grubx64.efi"),
+                            Path("/boot/efi/EFI/BOOT/BOOTX64.EFI"),
+                        ]:
+                            if src_candidate.exists():
+                                shutil.copy(src_candidate, boot_file)
+                                break
+                finally:
+                    subprocess.run(["umount", str(mount_dir)], capture_output=True, timeout=5)
+        except Exception:
+            pass
+
+    # 4. If efibootmgr is present and system is booted via UEFI, register boot entry
+    if Path("/sys/firmware/efi").exists():
+        try:
+            part_num = "2"
+            subprocess.run([
+                "efibootmgr", "-c",
+                "-d", target_dev,
+                "-p", part_num,
+                "-L", "ComputeMesh NodeOS",
+                "-l", "\\EFI\\BOOT\\BOOTX64.EFI"
+            ], capture_output=True, timeout=10)
+        except Exception:
+            pass
+
+    # 5. MBR / Legacy BIOS active flag
+    try:
+        subprocess.run(["sfdisk", "-A", target_dev, "1"], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
 def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb: int) -> None:
     global _status
     block_bytes = block_size_mb * 1024 * 1024
-    # Round up so the copied extent is never smaller than total_bytes (which
-    # already includes the safety margin computed in
-    # _source_used_extent_bytes) -- truncating short would risk cutting off
-    # real partition data, not just empty trailing space.
     count = -(-total_bytes // block_bytes)  # ceil division
     proc = subprocess.Popen(
         ["dd", f"if={source_dev}", f"of={target_dev}", f"bs={block_size_mb}M", f"count={count}", "status=progress", "conv=fsync"],
@@ -254,10 +346,6 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb
                 now = time.time()
                 new_bytes = int(m.group(1))
                 with _status_lock:
-                    # Short-window rate (>= 1s between samples) so it tracks
-                    # the device's *current* throughput -- a lifetime average
-                    # would mask exactly the kind of slow/failing transfer
-                    # this is meant to surface while it's still running.
                     if _status._last_sample_time > 0:
                         dt = now - _status._last_sample_time
                         if dt >= 1.0:
@@ -275,6 +363,14 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb
                 _status.copied_bytes = total_bytes
             else:
                 _status.error = f"dd exited with code {proc.returncode}"
+
+        # If dd completed successfully, run post-clone partition repair and bootloader fixup
+        if proc.returncode == 0:
+            try:
+                _post_clone_fixup(target_dev)
+            except Exception as fixup_err:
+                # Post-clone fixup warning should not fail the clone if dd succeeded
+                pass
     except Exception as exc:
         with _status_lock:
             _status.error = str(exc)
@@ -286,17 +382,7 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb
 
 
 def start_clone(target_device: str, confirm_phrase: str, block_size_mb: int = 4) -> tuple[bool, str]:
-    """Validate and start a whole-disk clone in a background thread.
-
-    Returns (accepted, message). Re-derives the source disk and the target
-    allowlist fresh on every call -- a caller cannot pin an earlier scan.
-
-    block_size_mb tunes dd's transfer chunk size: some USB-SATA/USB-IDE
-    bridge chips have sustained throughput that varies a lot with this
-    (the default 4 is a reasonable general-purpose value, not necessarily
-    optimal for every bridge chip -- there's no way to know without trying
-    on the actual hardware).
-    """
+    """Validate and start a whole-disk clone in a background thread."""
     global _status
     if confirm_phrase != CONFIRM_PHRASE:
         return False, f"Confirmation phrase must be exactly: {CONFIRM_PHRASE}"

@@ -721,6 +721,11 @@ def create_dashboard_server(
     except Exception:
         pass
 
+    try:
+        GLOBAL_MESH_AGGREGATOR.start()
+    except Exception:
+        pass
+
     return server_inst, actual_port
 
 

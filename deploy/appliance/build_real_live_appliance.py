@@ -57,7 +57,7 @@ def build_appliance() -> int:
         "debootstrap",
         "--arch=amd64",
         "--variant=minbase",
-        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free",
+        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr",
         "trixie",
         str(CHROOT_DIR),
         DEBIAN_MIRROR,
@@ -88,6 +88,7 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         chroot_exec(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
             "linux-image-amd64 live-boot live-config systemd-timesyncd systemd-resolved openssh-server firmware-amd-graphics firmware-misc-nonfree "
+            "fdisk gdisk parted efibootmgr dosfstools "
             "xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput xserver-xorg-input-evdev "
             "x11-xserver-utils xinit openbox unclutter chromium"
         )
@@ -340,9 +341,30 @@ LABEL computemesh
     grub_dir.mkdir(parents=True, exist_ok=True)
     embedded_grub = """set default=0
 set timeout=3
-search --set=root --file /boot/vmlinuz
-menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
+insmod all_video
+insmod font
+insmod gfxterm
+insmod part_gpt
+insmod part_msdos
+insmod fat
+insmod iso9660
+insmod ext2
+insmod gzio
+
+# Search for root partition by label COMPUTEMESH or by kernel file
+if search --no-floppy --set=root --label COMPUTEMESH; then
+    echo "Booting ComputeMesh NodeOS from volume label COMPUTEMESH..."
+elif search --no-floppy --set=root --file /boot/vmlinuz; then
+    echo "Booting ComputeMesh NodeOS from /boot/vmlinuz..."
+fi
+
+menuentry "ComputeMesh NodeOS (AMD / NVIDIA Native Multi-GPU)" {
     linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
+    initrd /boot/initrd.img
+}
+
+menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
+    linux /boot/vmlinuz boot=live components computemesh.autostart=1 persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 """
@@ -351,11 +373,18 @@ menuentry "ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)" {
     (grub_dir / "grub.cfg").write_text(embedded_grub, encoding="utf-8")
 
     bootx64 = BUILD_DIR / "bootx64.efi"
+    grub_modules = (
+        "part_gpt part_msdos fat iso9660 ext2 squash4 "
+        "search search_fs_file search_label search_fs_uuid "
+        "configfile test echo normal linux boot loadenv "
+        "gzio xzio zstd all_video font gfxterm video efi_gop efi_uga "
+        "sleep reboot halt gettext bufio"
+    )
     run([
         "grub-mkstandalone",
         "-O", "x86_64-efi",
         "-o", str(bootx64),
-        "--modules=part_gpt part_msdos fat iso9660 search search_fs_file configfile test echo normal linux",
+        f"--modules={grub_modules}",
         f"boot/grub/grub.cfg={embedded_cfg}",
     ])
 

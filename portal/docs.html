@@ -162,10 +162,67 @@ for chunk in response:
         </section>
 
         <section id="mining-rigs" class="feature-card">
-          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec5_h2">5. Mining-Rig NodeOS Appliance</h2>
-          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;" data-i18n="docs_sec5_p">
-            NodeOS ist ein maßgeschneidertes, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4 bis 12 GPUs) mit automatischer Treiber-Konfiguration und Plug-and-Play-Anbindung.
+          <span id="nodeos" style="position: relative; top: -80px; display: block; visibility: hidden;"></span>
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec5_h2">5. Mining-Rig NodeOS Appliance &amp; Setup Guide</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;" data-i18n="docs_sec5_p">
+            NodeOS ist ein schlüsselfertiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4 bis 12 Grafikkarten) mit automatischer Treiber-Konfiguration (AMD ROCm/Vulkan &amp; NVIDIA CUDA) und Plug-and-Play Mesh-Anbindung.
           </p>
+
+          <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h3 style="font-size: 1.25rem; color: var(--accent-cyan); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span>🚀</span> <span data-i18n="docs_nodeos_guide_title">Schritt-für-Schritt Installation (USB auf Festplatte / SSD)</span>
+            </h3>
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-cyan); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">1</div>
+                <div>
+                  <strong style="color: #fff; display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step1_title">NodeOS Image herunterladen</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step1_desc">Lade das aktuelle Flash-Image <code>computemesh-nodeos-x86_64.img.xz</code> (oder die <code>.iso</code>) aus dem <a href="/#downloads" style="color: var(--accent-cyan);">Download-Bereich</a> herunter.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-cyan); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">2</div>
+                <div>
+                  <strong style="color: #fff; display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step2_title">USB-Stick mit BalenaEtcher flashen</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step2_desc">Stecke einen USB-Stick (mindestens 16 GB) in deinen PC/Mac. Öffne <a href="https://etcher.balena.io/" target="_blank" rel="noopener" style="color: var(--accent-cyan); font-weight: 600;">BalenaEtcher</a> (oder Rufus), wähle die heruntergeladene <code>.img.xz</code> Datei aus und klicke auf <em>Flash!</em>.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-cyan); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">3</div>
+                <div>
+                  <strong style="color: #fff; display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step3_title">Miner vom USB-Stick booten</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step3_desc">Stecke den USB-Stick in das Mining-Rig und schalte es ein. Wähle im Boot-Menü des Motherboards (oft Taste F11, F12 oder F8) den USB-Stick als Startmedium aus.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-cyan); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">4</div>
+                <div>
+                  <strong style="color: #fff; display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step4_title">Web-Dashboard im Browser öffnen</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step4_desc">NodeOS startet automatisch. Der Bildschirm des Miners zeigt die genaue IP-Adresse an (z. B. <code>http://192.168.1.35:8080/</code>). Öffne diesen Link in einem Browser auf deinem PC, Tablet oder Smartphone.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-emerald); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">5</div>
+                <div>
+                  <strong style="color: var(--accent-emerald); display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step5_title">1-Click Klonen auf interne Miner-Festplatte / SSD</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step5_desc">Scrolle im Dashboard nach unten zum Bereich <em>„Von USB gebootet: Auf interne Festplatte/SSD spiegeln“</em>. Wähle die interne Festplatte aus, tippe <code>ERASE AND CLONE</code> ein und starte das Spiegeln. Das System kopiert das System 1:1, repariert die GPT-Partitionstabelle und konfiguriert den UEFI/GRUB-Bootloader.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                <div style="background: var(--accent-emerald); color: #020617; font-weight: 800; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem;">6</div>
+                <div>
+                  <strong style="color: var(--accent-emerald); display: block; margin-bottom: 0.25rem;" data-i18n="docs_nodeos_step6_title">USB-Stick abziehen &amp; autonom booten</strong>
+                  <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;" data-i18n="docs_nodeos_step6_desc">Sobald der Fortschrittsbalken 100% erreicht, ziehe den USB-Stick einfach ab und starte das Rig neu. Der Miner bootet nun dauerhaft von der internen Festplatte und nimmt vollautomatisch an der dezentralen KI-Inferenz teil.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="billing" class="feature-card">
