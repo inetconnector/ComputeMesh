@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""
-Safe Network Diagnostics & Host Inspection Tool (Owner Key Restricted).
-Performs public DNS queries, HTTP/HTTPS status checks, and SSL certificate validation.
-Includes rigorous SSRF protections blocking private networks, loopbacks, and internal IPs.
-"""
+"""Safe owner-only network diagnostics for public Internet hosts."""
 
 from __future__ import annotations
 
@@ -12,122 +8,97 @@ import re
 import socket
 import ssl
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional, Tuple
+
+from .url_security import (
+    BLOCKED_HOST_SUFFIXES,
+    UnsafeTargetError,
+    build_safe_public_opener,
+    is_ip_blocked,
+    resolve_public_host,
+    validate_public_url,
+)
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 NetworkAudit"
 
-# Forbidden IP ranges for strict SSRF protection
-BLOCKED_IP_NETWORKS = [
-    ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("198.18.0.0/15"),
-    ipaddress.ip_network("224.0.0.0/4"),
-    ipaddress.ip_network("240.0.0.0/4"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-]
-
-BLOCKED_HOST_SUFFIXES = (
-    ".localhost",
-    ".local",
-    ".internal",
-    ".lan",
-    ".home.arpa",
-    ".corp",
-    ".cluster.local",
-)
-
 
 def _is_ip_blocked(ip_str: str) -> bool:
-    """Checks whether an IP address belongs to private, loopback, or reserved networks."""
-    try:
-        ip = ipaddress.ip_address(ip_str)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
-            return True
-        for net in BLOCKED_IP_NETWORKS:
-            if ip in net:
-                return True
-        return False
-    except ValueError:
-        return True
+    """Backwards-compatible wrapper around the shared public-IP policy."""
+    return is_ip_blocked(ip_str)
 
 
 def _sanitize_and_validate_host(target: str) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Validates host string and strips protocol schemes.
-    Returns (cleaned_host, error_message).
-    """
-    raw = target.strip().lower()
+    """Normalize a hostname/IP and reject obvious internal hostnames."""
+    raw = str(target or "").strip()
     if not raw:
         return None, "Hostname darf nicht leer sein."
 
-    # Strip scheme if user passed http:// or https://
-    if "://" in raw:
-        parsed = urllib.parse.urlparse(raw)
-        raw = parsed.netloc or parsed.path
+    try:
+        if "://" in raw:
+            parsed = urllib.parse.urlsplit(raw)
+            host = parsed.hostname or ""
+        else:
+            # Preserve bare IPv6 literals; for normal names remove path/port.
+            try:
+                ipaddress.ip_address(raw.strip("[]"))
+                host = raw.strip("[]")
+            except ValueError:
+                parsed = urllib.parse.urlsplit("//" + raw)
+                host = parsed.hostname or raw.split("/", 1)[0]
+    except ValueError:
+        return None, "Ungültiges Format für Hostname."
 
-    # Strip port if present
-    if ":" in raw:
-        raw = raw.split(":")[0]
-
-    # Strip trailing slashes or paths
-    raw = raw.split("/")[0].strip()
-
-    if not raw or raw == "localhost" or raw.startswith("127.") or raw.startswith("0."):
-        return None, "Sicherheitsrichtlinie: Zugriff auf 'localhost' oder interne Adressen verweigert."
-
+    host = host.lower().rstrip(".")
+    if not host or host == "localhost":
+        return None, "Sicherheitsrichtlinie: Zugriff auf localhost/interne Adressen verweigert."
     for suffix in BLOCKED_HOST_SUFFIXES:
-        if raw.endswith(suffix):
+        if host == suffix[1:] or host.endswith(suffix):
             return None, f"Sicherheitsrichtlinie: Zugriff auf interne Domain-Endung '{suffix}' verweigert."
 
-    # Validate characters (domain name or IP)
-    if not re.match(r"^[a-z0-9.-]+$", raw):
-        return None, "Ungültiges Format für Hostname (nur Kleinbuchstaben, Ziffern, '.' und '-' erlaubt)."
-
-    return raw, None
+    try:
+        ipaddress.ip_address(host)
+        return host, None
+    except ValueError:
+        pass
+    if not re.match(r"^[a-z0-9.-]+$", host):
+        return None, "Ungültiges Format für Hostname (nur DNS-Hostname oder IP-Adresse erlaubt)."
+    return host, None
 
 
 def _check_dns(host: str) -> Dict[str, Any]:
-    """Resolves IPv4 and IPv6 addresses and checks for SSRF targets."""
-    dns_res: Dict[str, Any] = {"host": host, "ipv4": [], "ipv6": [], "status": "ok"}
+    """Resolve all addresses and fail if any address is not globally routable."""
     try:
-        addrinfo = socket.getaddrinfo(host, None)
-        for family, _, _, _, sockaddr in addrinfo:
-            ip = sockaddr[0]
-            if family == socket.AF_INET and ip not in dns_res["ipv4"]:
-                if _is_ip_blocked(ip):
-                    return {"error": f"Sicherheitsverstoß: Host '{host}' löst auf private/lokale IP '{ip}' auf. Anfrage blockiert."}
-                dns_res["ipv4"].append(ip)
-            elif family == socket.AF_INET6 and ip not in dns_res["ipv6"]:
-                if _is_ip_blocked(ip):
-                    return {"error": f"Sicherheitsverstoß: Host '{host}' löst auf private/lokale IPv6 '{ip}' auf. Anfrage blockiert."}
-                dns_res["ipv6"].append(ip)
-    except Exception as e:
-        return {"error": f"DNS-Auflösung für '{host}' fehlgeschlagen: {str(e)}"}
+        resolved = resolve_public_host(host, 443)
+    except UnsafeTargetError as exc:
+        return {"error": str(exc)}
 
-    if not dns_res["ipv4"] and not dns_res["ipv6"]:
-        return {"error": f"Keine DNS-Einträge für Host '{host}' gefunden."}
-
-    return dns_res
+    result: Dict[str, Any] = {"host": host, "ipv4": [], "ipv6": [], "status": "ok"}
+    for value in resolved.addresses:
+        try:
+            ip = ipaddress.ip_address(value)
+        except ValueError:
+            continue
+        key = "ipv4" if ip.version == 4 else "ipv6"
+        result[key].append(value)
+    return result
 
 
 def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, Any]:
-    """Validates TLS/SSL certificate and calculates expiration date."""
+    """Validate the TLS certificate while connecting to a prevalidated public IP."""
     context = ssl.create_default_context()
     context.check_hostname = True
     context.verify_mode = ssl.CERT_REQUIRED
 
     try:
-        with socket.create_connection((host, port), timeout=timeout) as sock:
+        resolved = resolve_public_host(host, port)
+        # Connecting to the already resolved public address reduces DNS-rebinding
+        # exposure; TLS still verifies the original hostname via SNI.
+        address = resolved.addresses[0]
+        with socket.create_connection((address, port), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=host) as ssock:
                 cert = ssock.getpeercert()
                 if not cert:
@@ -135,15 +106,10 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, An
 
                 not_after_str = cert.get("notAfter", "")
                 not_before_str = cert.get("notBefore", "")
-
-                # Parse date format: 'May 24 12:00:00 2025 GMT'
                 expire_dt = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-                now_dt = datetime.now(timezone.utc)
-                days_left = (expire_dt - now_dt).days
-
+                days_left = (expire_dt - datetime.now(timezone.utc)).days
                 subject_dict = dict(x[0] for x in cert.get("subject", ()))
                 issuer_dict = dict(x[0] for x in cert.get("issuer", ()))
-
                 return {
                     "valid": days_left > 0,
                     "days_until_expiry": days_left,
@@ -153,25 +119,31 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> Dict[str, An
                     "issuer_org": issuer_dict.get("organizationName", issuer_dict.get("commonName", "")),
                     "tls_version": ssock.version(),
                 }
-    except ssl.SSLCertVerificationError as se:
-        return {"valid": False, "error": f"Zertifikatsvalidierung fehlgeschlagen: {se.verify_message}"}
-    except Exception as e:
-        return {"valid": False, "error": f"SSL-Verbindung fehlgeschlagen: {str(e)}"}
+    except UnsafeTargetError as exc:
+        return {"valid": False, "error": str(exc)}
+    except ssl.SSLCertVerificationError as exc:
+        return {"valid": False, "error": f"Zertifikatsvalidierung fehlgeschlagen: {exc.verify_message}"}
+    except Exception as exc:
+        return {"valid": False, "error": f"SSL-Verbindung fehlgeschlagen: {exc}"}
 
 
 def _check_http(host: str, timeout: float = 3.5) -> Dict[str, Any]:
-    """Probes HTTP and HTTPS endpoints for status code, latency, and server header."""
+    """Probe HTTP(S), validating initial targets and every redirect hop."""
     results: Dict[str, Any] = {}
+    opener = build_safe_public_opener()
     for proto in ("https", "http"):
         url = f"{proto}://{host}/"
         start_t = time.perf_counter()
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
-            method="HEAD",
-        )
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            validate_public_url(url)
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
+                method="HEAD",
+            )
+            with opener.open(req, timeout=timeout) as resp:
+                final_url = resp.geturl() if hasattr(resp, "geturl") else url
+                validate_public_url(final_url)
                 elapsed_ms = round((time.perf_counter() - start_t) * 1000, 1)
                 results[proto] = {
                     "status_code": resp.status,
@@ -179,19 +151,20 @@ def _check_http(host: str, timeout: float = 3.5) -> Dict[str, Any]:
                     "latency_ms": elapsed_ms,
                     "server": resp.headers.get("Server", "Unbekannt"),
                     "content_type": resp.headers.get("Content-Type", ""),
-                    "redirect_url": resp.geturl() if resp.geturl() != url else None,
+                    "redirect_url": final_url if final_url != url else None,
                 }
-        except urllib.error.HTTPError as he:
+        except UnsafeTargetError as exc:
+            results[proto] = {"error": str(exc)}
+        except urllib.error.HTTPError as exc:
             elapsed_ms = round((time.perf_counter() - start_t) * 1000, 1)
             results[proto] = {
-                "status_code": he.code,
-                "reason": he.reason,
+                "status_code": exc.code,
+                "reason": exc.reason,
                 "latency_ms": elapsed_ms,
-                "server": he.headers.get("Server", "Unbekannt"),
+                "server": exc.headers.get("Server", "Unbekannt") if exc.headers else "Unbekannt",
             }
-        except Exception as e:
-            results[proto] = {"error": str(e)}
-
+        except Exception as exc:
+            results[proto] = {"error": str(exc)}
     return results
 
 
@@ -202,43 +175,39 @@ def lookup_network_host(
     check_type: str = "all",
     timeout: float = 5.0,
 ) -> Dict[str, Any]:
-    """
-    Safely inspects a public domain or host (DNS records, HTTP/HTTPS availability, SSL certificate).
-    Restricted to authorized fleet owners with SSRF prevention.
-    """
+    """Inspect DNS, HTTP(S), and TLS for an explicitly public host."""
     raw_host = host or target or domain or ""
     clean_host, err = _sanitize_and_validate_host(raw_host)
     if err or not clean_host:
         return {"error": err or "Ungültiger Hostname."}
 
-    # 1. First resolve DNS and check for forbidden SSRF IP ranges
+    try:
+        timeout_value = float(timeout)
+    except (TypeError, ValueError):
+        return {"error": "timeout muss numerisch sein."}
+    if timeout_value <= 0 or timeout_value > 30:
+        return {"error": "timeout muss zwischen 0 und 30 Sekunden liegen."}
+
     dns_info = _check_dns(clean_host)
     if "error" in dns_info:
         return dns_info
 
     check_mode = (check_type or "all").lower().strip()
+    if check_mode not in {"all", "dns_only", "http", "ssl"}:
+        return {"error": "check_type muss all, dns_only, http oder ssl sein."}
+
     result: Dict[str, Any] = {
         "host": clean_host,
         "dns": dns_info,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
-
-    if check_mode in ("all", "dns_only"):
-        if check_mode == "dns_only":
-            return result
-
-    # 2. HTTP/HTTPS probe
+    if check_mode == "dns_only":
+        return result
     if check_mode in ("all", "http"):
-        http_info = _check_http(clean_host, timeout=min(timeout / 2, 3.5))
-        result["http"] = http_info
-
-    # 3. SSL certificate check
+        result["http"] = _check_http(clean_host, timeout=min(timeout_value / 2, 3.5))
     if check_mode in ("all", "ssl"):
-        ssl_info = _check_ssl(clean_host, timeout=min(timeout / 2, 3.5))
-        result["ssl_certificate"] = ssl_info
-
+        result["ssl_certificate"] = _check_ssl(clean_host, timeout=min(timeout_value / 2, 3.5))
     return result
 
 
-# Backwards-compatible alias
 inspect_host = lookup_network_host
