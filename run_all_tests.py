@@ -32,6 +32,10 @@ os.environ.setdefault(
     "COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH",
     str(_TEST_STATE_ROOT / "fleet_accounts.db"),
 )
+os.environ.setdefault(
+    "COMPUTEMESH_ACCOUNTING_DB_PATH",
+    str(_TEST_STATE_ROOT / "accounting.db"),
+)
 
 CATEGORIES: dict[str, list[str]] = {
     "Protocol & Session Wire": [
