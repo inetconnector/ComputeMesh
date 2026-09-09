@@ -116,53 +116,30 @@ def global_excepthook(exc_type, exc_value, exc_traceback):
 _SINGLE_INSTANCE_MUTEX = None
 
 def _acquire_single_instance_lock() -> bool:
-    """Enforce strict single-instance execution while allowing PyInstaller bootloader child processes."""
+    """Enforce strict single-instance execution using a robust OS-level Windows Named Mutex."""
+    global _SINGLE_INSTANCE_MUTEX
     if sys.platform == "win32":
         try:
-            lock_path = Path.home() / ".computemesh" / "app.pid"
-            lock_path.parent.mkdir(parents=True, exist_ok=True)
-            if lock_path.exists():
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            ERROR_ALREADY_EXISTS = 183
+            
+            mutex_name = "Local\\ComputeMesh_Provider_App_Mutex"
+            _SINGLE_INSTANCE_MUTEX = kernel32.CreateMutexW(None, True, mutex_name)
+            last_err = kernel32.GetLastError()
+            if last_err == ERROR_ALREADY_EXISTS:
                 try:
-                    old_pid = int(lock_path.read_text(encoding="utf-8").strip())
-                    cur_pid = os.getpid()
-                    cur_ppid = getattr(os, "getppid", lambda: -1)()
-                    if old_pid not in (cur_pid, cur_ppid) and old_pid > 0:
-                        import ctypes
-                        kernel32 = ctypes.windll.kernel32
-                        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-                        STILL_ACTIVE = 259
-                        h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, old_pid)
-                        if h_proc:
-                            exit_code = ctypes.c_ulong()
-                            is_running = kernel32.GetExitCodeProcess(h_proc, ctypes.byref(exit_code)) and (exit_code.value == STILL_ACTIVE)
-                            is_cm = False
-                            if is_running:
-                                try:
-                                    buf = ctypes.create_unicode_buffer(1024)
-                                    size = ctypes.c_uint32(1024)
-                                    if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size)):
-                                        proc_name = buf.value.lower()
-                                        if "computemesh.exe" in proc_name or "computemesh" in proc_name:
-                                            is_cm = True
-                                except Exception:
-                                    pass
-                            kernel32.CloseHandle(h_proc)
-                            if is_running and is_cm:
-                                try:
-                                    user32 = ctypes.windll.user32
-                                    hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
-                                    if hwnd:
-                                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                                        user32.SetForegroundWindow(hwnd)
-                                except Exception:
-                                    pass
-                                return False
+                    user32 = ctypes.windll.user32
+                    hwnd = user32.FindWindowW(None, "ComputeMesh Provider Node — AI Compute Daemon")
+                    if hwnd:
+                        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                        user32.SetForegroundWindow(hwnd)
                 except Exception:
                     pass
-            lock_path.write_text(str(os.getpid()), encoding="utf-8")
+                return False
             return True
         except Exception as e:
-            _log_crash(f"Single instance lock check exception: {e}")
+            _log_crash(f"Single instance mutex exception: {e}")
             return True
     else:
         try:
