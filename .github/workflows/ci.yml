@@ -16,8 +16,6 @@ jobs:
     env:
       COMPUTEMESH_INFERENCE_BACKEND: synthetic
       COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: "1"
-      COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH: ${{ runner.temp }}/computemesh_owner_accounts_ci.db
-      COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: ${{ runner.temp }}/computemesh_fleet_accounts_ci.db
     steps:
       - name: Checkout
         uses: actions/checkout@v5
