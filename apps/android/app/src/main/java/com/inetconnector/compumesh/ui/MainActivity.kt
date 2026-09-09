@@ -888,219 +888,302 @@ fun LanMeshTab(
                 (cleanActiveGateway.contains(peer.ipAddress) && !cleanActiveGateway.contains("inetconnector.com"))
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("P2P LAN Mesh Radar", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text(
-            "Findet automatisch ComputeMesh Mining-Rigs & PCs in deinem Heimnetzwerk über UDP Port 13379 – 100% lokal ohne Internet-Traffic.",
-            color = TextSecondary,
-            fontSize = 13.sp
-        )
-
-        // Active Connection Status Card
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = CardSurface,
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                if (isLanActive) EmeraldSuccess.copy(alpha = 0.6f) else CardSurfaceBorder
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isLanActive) Icons.Default.Router else Icons.Default.Cloud,
-                    contentDescription = null,
-                    tint = if (isLanActive) EmeraldSuccess else CyanAccent,
-                    modifier = Modifier.size(26.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Aktiver Inferenz-Endpunkt:", color = TextSecondary, fontSize = 11.sp)
-                    Text(
-                        if (isLanActive) currentGatewayUrl else "Cloud Gateway (https://mesh.inetconnector.com)",
-                        color = if (isLanActive) EmeraldSuccess else TextPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    if (isLanActive) {
-                        Text("✓ 100% lokaler P2P Heimnetzwerk-Traffic", color = EmeraldSuccess.copy(alpha = 0.85f), fontSize = 10.5.sp)
-                    }
-                }
-                if (isLanActive) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(
-                            onClick = {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cleanActiveGateway))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        ) {
-                            Text("Dashboard ↗", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                        TextButton(
-                            onClick = {
-                                onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
-                                Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
-                            }
-                        ) {
-                            Text("Trennen", color = AmberWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+        item {
+            Text("P2P LAN Mesh Radar", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Findet automatisch ComputeMesh Mining-Rigs & PCs in deinem Heimnetzwerk über UDP Port 13379 – 100% lokal ohne Internet-Traffic.",
+                color = TextSecondary,
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
         }
 
-        Button(
-            onClick = { runDiscovery() },
-            colors = ButtonDefaults.buttonColors(containerColor = IndigoAccent),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isScanning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = DeepVoidBg, strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Scanne Heimnetzwerk (UDP & Subnetz)...", color = DeepVoidBg, fontWeight = FontWeight.Bold)
-            } else {
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = DeepVoidBg)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Lokale LAN-Knoten suchen", color = DeepVoidBg, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Text(
-            "💡 Tippe auf eine Node-Kachel oder 'Dashboard ↗', um die Node-Oberfläche direkt im Browser zu öffnen.",
-            color = TextMuted,
-            fontSize = 11.5.sp
-        )
-
-        if (discoveredPeers.isEmpty() && !isScanning) {
+        item {
+            // Active Connection Status Card
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = CardSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isLanActive) EmeraldSuccess.copy(alpha = 0.6f) else CardSurfaceBorder
+                ),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (isLanActive) Icons.Default.Router else Icons.Default.Cloud,
+                            contentDescription = null,
+                            tint = if (isLanActive) EmeraldSuccess else CyanAccent,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Aktiver Inferenz-Endpunkt",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isLanActive) EmeraldSuccess.copy(alpha = 0.15f) else CyanAccent.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                if (isLanActive) "✓ LAN Aktiv" else "Cloud Gateway",
+                                color = if (isLanActive) EmeraldSuccess else CyanAccent,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        if (isLanActive) currentGatewayUrl else "https://mesh.inetconnector.com",
+                        color = if (isLanActive) EmeraldSuccess else TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+
+                    if (isLanActive) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("✓ 100% lokaler P2P Heimnetzwerk-Traffic", color = EmeraldSuccess.copy(alpha = 0.85f), fontSize = 11.5.sp)
+                    }
+
+                    if (isLanActive) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.End,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cleanActiveGateway))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceBorder),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("Dashboard ↗", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
+                                    Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RoseDanger.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("Trennen", color = RoseDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Button(
+                onClick = { runDiscovery() },
+                colors = ButtonDefaults.buttonColors(containerColor = IndigoAccent),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                if (isScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = DeepVoidBg, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scanne Heimnetzwerk (UDP & Subnetz)...", color = DeepVoidBg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                } else {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = DeepVoidBg)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lokale LAN-Knoten suchen", color = DeepVoidBg, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Text(
+                    "Gefundene Mesh-Knoten (${discoveredPeers.size})",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    "💡 Klick öffnet Node",
+                    color = TextMuted,
+                    fontSize = 11.5.sp
+                )
+            }
+        }
+
+        if (discoveredPeers.isEmpty() && !isScanning) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = CardSurface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.WifiTethering, contentDescription = null, tint = TextMuted, modifier = Modifier.size(36.dp))
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Keine LAN-Knoten gefunden", color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Text("Stelle sicher, dass PC/Rig im selben Wi-Fi läuft", color = TextSecondary, fontSize = 12.sp)
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.WifiTethering, contentDescription = null, tint = TextMuted, modifier = Modifier.size(36.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("Keine LAN-Knoten gefunden", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                        Text("Stelle sicher, dass PC/Rig im selben Wi-Fi läuft", color = TextSecondary, fontSize = 12.sp)
+                    }
                 }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(discoveredPeers) { peer ->
-                    val peerTargetUrl = "http://${peer.ipAddress}:${peer.port}"
-                    val isConnected = isPeerConnected(peer)
+            items(discoveredPeers) { peer ->
+                val peerTargetUrl = "http://${peer.ipAddress}:${peer.port}"
+                val isConnected = isPeerConnected(peer)
 
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = CardSurface,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isConnected) EmeraldSuccess.copy(alpha = 0.6f) else CyanAccent.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = CardSurface,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        if (isConnected) EmeraldSuccess else CyanAccent.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Konnte Browser nicht öffnen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
-                    ) {
+                        }
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                Icons.Default.Computer,
-                                contentDescription = null,
-                                tint = if (isConnected) EmeraldSuccess else CyanAccent,
-                                modifier = Modifier.size(28.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isConnected) EmeraldSuccess.copy(alpha = 0.15f) else CyanAccent.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Computer,
+                                    contentDescription = null,
+                                    tint = if (isConnected) EmeraldSuccess else CyanAccent,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(peer.nodeId, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("${peer.ipAddress}:${peer.port} • ${peer.gpuSummary}", color = TextSecondary, fontSize = 12.sp)
+                                Text(peer.nodeId, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("${peer.ipAddress}:${peer.port}", color = CyanAccent, fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
                             if (isConnected) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = EmeraldSuccess.copy(alpha = 0.18f)
-                                    ) {
-                                        Text(
-                                            "✓ Verbunden",
-                                            color = EmeraldSuccess,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    TextButton(
-                                        onClick = {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("Dashboard ↗", color = CyanAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = EmeraldSuccess.copy(alpha = 0.18f)
+                                ) {
+                                    Text(
+                                        "✓ Verbunden",
+                                        color = EmeraldSuccess,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
                                 }
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = {
-                                            onSaveFleetConfig(currentOwnerKey, peerTargetUrl)
-                                            Toast.makeText(
-                                                context,
-                                                "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                    ) {
-                                        Text("Verbinden", color = DeepVoidBg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CardSurfaceBorder.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                peer.gpuSummary.ifBlank { "ComputeMesh AI Accelerator" },
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
                                     }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceBorder),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Dashboard ↗", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            if (!isConnected) {
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Button(
+                                    onClick = {
+                                        onSaveFleetConfig(currentOwnerKey, peerTargetUrl)
+                                        Toast.makeText(
+                                            context,
+                                            "✓ Gekoppelt mit ${peer.nodeId} (${peer.ipAddress}:${peer.port})!",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.Link, contentDescription = null, tint = DeepVoidBg, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    TextButton(
-                                        onClick = {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(peerTargetUrl))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("Dashboard ↗", color = TextSecondary, fontSize = 11.sp)
-                                    }
+                                    Text("Verbinden", color = DeepVoidBg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
