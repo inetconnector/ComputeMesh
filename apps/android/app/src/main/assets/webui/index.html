@@ -58,16 +58,16 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2778x1284.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2796x1290.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2868x1320.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1170x2532.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1179x2556.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1206x2622.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1284x2778.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1290x2796.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1320x2868.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 376px) and (device-height: 573px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1488x2266.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1640x2360.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1668x2388.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-2048x2732.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1170x2532.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1179x2556.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1206x2622.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1284x2778.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1290x2796.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1320x2868.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 376px) and (device-height: 573px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1488x2266.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1640x2360.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1668x2388.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-2048x2732.png">
 		<style>
 			html, body {
 				height: var(--app-height, 100%) !important;
@@ -89,10 +89,13 @@
 				pointer-events: none !important;
 			}
 
-			/* Backdrop Overlay for all sheets, drawers and dialogs */
+			/* Backdrop Overlay for all sheets, drawers, dialogs and modals */
 			[data-slot="sheet-overlay"]:not([data-state="closed"]),
+			[data-slot="dialog-overlay"]:not([data-state="closed"]),
+			[data-slot="alert-dialog-overlay"]:not([data-state="closed"]),
 			[data-bits-dialog-overlay]:not([data-state="closed"]),
-			[data-radix-portal] > [data-state="open"]:not([data-slot="sheet-content"]):not([role="dialog"]) {
+			[data-bits-alert-dialog-overlay]:not([data-state="closed"]),
+			[data-radix-dialog-overlay]:not([data-state="closed"]) {
 				position: fixed !important;
 				inset: 0 !important;
 				background: rgba(3, 7, 18, 0.85) !important;
@@ -101,7 +104,7 @@
 				z-index: 99990 !important;
 			}
 
-			/* Bottom Sheets & Drawers (Add to Chat / Attachments / Tools) */
+			/* Bottom Sheets & Drawers (Add to Chat / Tools) */
 			[data-slot="sheet-content"]:not([data-side="left"]):not([data-state="closed"]),
 			[data-vaul-drawer]:not([data-state="closed"]),
 			.drawer-content:not([data-state="closed"]) {
@@ -115,7 +118,9 @@
 				min-height: auto !important;
 				height: auto !important;
 				max-height: 85% !important;
+				translate: none !important;
 				transform: none !important;
+				margin: 0 !important;
 				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
 				border-top: 2px solid rgba(56, 189, 248, 0.7) !important;
 				border-left: 1px solid rgba(56, 189, 248, 0.25) !important;
@@ -166,59 +171,6 @@
 				justify-content: center !important;
 			}
 
-			/* Sheet action items & buttons */
-			[data-slot="sheet-content"] button:not(:has(svg.size-4)),
-			[data-slot="sheet-content"] [role="button"]:not(:has(svg.size-4)),
-			[data-slot="sheet-content"] .cursor-pointer {
-				min-height: 48px !important;
-				font-size: 15px !important;
-				font-weight: 600 !important;
-				color: #f8fafc !important;
-				background: rgba(30, 41, 59, 0.8) !important;
-				border: 1px solid rgba(56, 189, 248, 0.18) !important;
-				border-radius: 14px !important;
-				padding: 10px 16px !important;
-				margin-bottom: 8px !important;
-				display: flex !important;
-				align-items: center !important;
-				gap: 12px !important;
-				transition: all 0.15s ease !important;
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-			}
-
-			[data-slot="sheet-content"] button:not(:has(svg.size-4)):active,
-			[data-slot="sheet-content"] [role="button"]:not(:has(svg.size-4)):active {
-				background: rgba(56, 189, 248, 0.25) !important;
-				border-color: rgba(56, 189, 248, 0.7) !important;
-				transform: scale(0.985);
-			}
-
-			/* Force high contrast text and vibrant cyan icons */
-			[data-slot="sheet-content"] button span,
-			[data-slot="sheet-content"] [role="button"] span,
-			[data-slot="sheet-content"] .cursor-pointer span {
-				color: #ffffff !important;
-				font-weight: 600 !important;
-				opacity: 1 !important;
-			}
-
-			[data-slot="sheet-content"] svg {
-				color: #38bdf8 !important;
-				stroke: #38bdf8 !important;
-				width: 20px !important;
-				height: 20px !important;
-				opacity: 1 !important;
-				flex-shrink: 0 !important;
-			}
-
-			/* Ensure collapsible content in sheet is always cleanly rendered */
-			[data-slot="sheet-content"] [data-slot="collapsible-content"] {
-				display: flex !important;
-				flex-direction: column !important;
-				gap: 6px !important;
-				padding: 4px 0 10px 0 !important;
-			}
-
 			/* Base aside when collapsed on mobile */
 			@media (max-width: 767px) {
 				aside:not(.is-expanded) {
@@ -236,10 +188,6 @@
 				}
 				aside:not(.is-expanded) > div:nth-child(n+2) {
 					display: none !important;
-				}
-				aside:not(.is-expanded) .px-2 {
-					padding: 0 !important;
-					width: auto !important;
 				}
 			}
 
@@ -305,76 +253,403 @@
 				stroke: #38bdf8 !important;
 			}
 
-			/* Dialogs & Modal Windows (MCP quickstart, settings, model info, etc.) */
-			[data-slot="dialog-content"]:not([data-state="closed"]),
-			[role="dialog"]:not([data-slot="sheet-content"]):not([data-state="closed"]),
-			[role="alertdialog"]:not([data-state="closed"]),
-			.dialog-content:not([data-state="closed"]) {
-				background: #0f172a !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+			/* Suppress tooltips on mobile/touch screens */
+			@media (hover: none), (pointer: coarse), (max-width: 768px) {
+				[role="tooltip"],
+				[data-slot="tooltip-content"],
+				[data-bits-tooltip-content],
+				[data-bits-tooltip-root],
+				[data-radix-tooltip-content],
+				[data-tooltip-content],
+				.tooltip,
+				[data-tooltip] {
+					display: none !important;
+					opacity: 0 !important;
+					visibility: hidden !important;
+					pointer-events: none !important;
+				}
+			}
+
+			/* Desktop tooltip style */
+			[role="tooltip"],
+			[data-slot="tooltip-content"],
+			[data-bits-tooltip-content],
+			[data-radix-tooltip-content] {
+				pointer-events: none !important;
+				background: #1e293b !important;
+				border: 1px solid rgba(56, 189, 248, 0.3) !important;
+				border-radius: 8px !important;
+				padding: 4px 8px !important;
+				font-size: 11.5px !important;
+				font-weight: 500 !important;
+				color: #f8fafc !important;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+			}
+
+			/* =========================================================================
+			   MODAL DIALOGS / ALERT DIALOGS (Model Info, Fork, Delete, Settings, MCP)
+			   ========================================================================= */
+			[data-slot="dialog-content"][data-state="open"]:not([data-slot="sheet-content"]),
+			[data-slot="alert-dialog-content"][data-state="open"]:not([data-slot="sheet-content"]),
+			[data-bits-dialog-content][data-state="open"]:not([data-slot="sheet-content"]),
+			[data-bits-alert-dialog-content][data-state="open"]:not([data-slot="sheet-content"]),
+			[data-radix-dialog-content][data-state="open"]:not([data-slot="sheet-content"]),
+			[data-dialog-content][data-state="open"]:not([data-slot="sheet-content"]) {
+				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.6) !important;
 				border-radius: 24px !important;
-				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(56, 189, 248, 0.25) !important;
-				z-index: 99999 !important;
+				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.98), 0 0 40px rgba(56, 189, 248, 0.25) !important;
+				z-index: 999999 !important;
 				position: fixed !important;
 				top: 50% !important;
 				left: 50% !important;
+				bottom: auto !important;
+				right: auto !important;
+				margin: 0 !important;
+				--tw-translate-x: 0px !important;
+				--tw-translate-y: 0px !important;
+				--tw-scale-x: 1 !important;
+				--tw-scale-y: 1 !important;
+				--tw-transform: none !important;
+				translate: none !important;
 				transform: translate(-50%, -50%) !important;
-				width: min(94vw, 560px) !important;
-				max-width: 560px !important;
-				max-height: min(85dvh, calc(100vh - 40px)) !important;
+				width: min(92vw, 520px) !important;
+				max-width: min(92vw, 520px) !important;
+				min-width: 0 !important;
 				height: auto !important;
+				min-height: fit-content !important;
+				min-height: -webkit-fit-content !important;
+				max-height: min(85dvh, calc(100vh - 60px)) !important;
+				overflow-x: hidden !important;
 				overflow-y: auto !important;
+				-webkit-overflow-scrolling: touch !important;
 				overscroll-behavior: contain !important;
 				padding: 22px 18px !important;
+				display: flex !important;
+				flex-direction: column !important;
+				justify-content: flex-start !important;
+				gap: 12px !important;
+				box-sizing: border-box !important;
 			}
 
-			[data-slot="dialog-content"] [class*="max-h-"],
-			[role="dialog"] [class*="max-h-"] {
-				max-height: 420px !important;
-				height: auto !important;
+			/* Dialog direct children */
+			[data-slot="dialog-content"] > *,
+			[data-slot="alert-dialog-content"] > *,
+			[data-bits-dialog-content] > *,
+			[data-bits-alert-dialog-content] > * {
+				flex-shrink: 0 !important;
+				min-height: min-content !important;
+				width: 100% !important;
+				box-sizing: border-box !important;
+			}
+
+			/* Prevent horizontal blowout from pre, code, tables and long strings */
+			[data-slot="dialog-content"] pre,
+			[data-slot="alert-dialog-content"] pre,
+			[data-slot="sheet-content"] pre,
+			pre {
+				white-space: pre-wrap !important;
+				word-break: break-all !important;
+				overflow-wrap: anywhere !important;
+				max-width: 100% !important;
+				max-height: 180px !important;
 				overflow-y: auto !important;
+				overflow-x: auto !important;
+				-webkit-overflow-scrolling: touch !important;
+				box-sizing: border-box !important;
+				background: rgba(15, 23, 42, 0.9) !important;
+				border: 1px solid rgba(56, 189, 248, 0.25) !important;
+				border-radius: 12px !important;
+				padding: 10px 12px !important;
+				font-size: 11.5px !important;
+				line-height: 1.4 !important;
+				color: #94a3b8 !important;
+				margin: 4px 0 !important;
 			}
 
-			/* Dropdown Menus, Popovers, Context Menus (Fork Conversation, Copy, Delete, etc.) */
+			[data-slot="dialog-content"] table,
+			[data-slot="alert-dialog-content"] table,
+			table {
+				table-layout: fixed !important;
+				width: 100% !important;
+				max-width: 100% !important;
+				border-collapse: collapse !important;
+				word-break: break-word !important;
+				overflow-wrap: anywhere !important;
+			}
+
+			[data-slot="dialog-content"] td,
+			[data-slot="dialog-content"] th {
+				vertical-align: top !important;
+				padding: 8px 6px !important;
+				word-break: break-word !important;
+				overflow-wrap: anywhere !important;
+				max-width: 100% !important;
+			}
+
+			.resizable-text-container {
+				max-width: 100% !important;
+				word-break: break-word !important;
+				overflow-wrap: anywhere !important;
+			}
+
+			/* Dialog Header & Titles */
+			[data-slot="dialog-header"],
+			[data-slot="alert-dialog-header"] {
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 6px !important;
+				margin: 0 !important;
+				padding: 0 32px 0 0 !important;
+				width: 100% !important;
+				text-align: left !important;
+				flex-shrink: 0 !important;
+			}
+
+			[data-slot="dialog-title"],
+			[data-slot="alert-dialog-title"],
+			[data-slot="dialog-content"] h2,
+			[data-slot="alert-dialog-content"] h2 {
+				font-size: 19px !important;
+				font-weight: 700 !important;
+				color: #ffffff !important;
+				letter-spacing: -0.01em !important;
+				display: flex !important;
+				align-items: center !important;
+				gap: 10px !important;
+				margin: 0 !important;
+				line-height: 1.3 !important;
+			}
+
+			[data-slot="dialog-title"] svg,
+			[data-slot="alert-dialog-title"] svg,
+			[data-slot="dialog-content"] h2 svg,
+			[data-slot="alert-dialog-content"] h2 svg {
+				color: #38bdf8 !important;
+				stroke: #38bdf8 !important;
+				width: 22px !important;
+				height: 22px !important;
+				flex-shrink: 0 !important;
+			}
+
+			/* Dialog close button in top right */
+			[data-slot="dialog-content"] [data-dialog-close],
+			[data-slot="dialog-content"] button:has(svg.lucide-x),
+			[data-slot="dialog-content"] button:has(svg.size-4),
+			[role="dialog"] button:has(svg.lucide-x),
+			[role="dialog"] [data-bits-dialog-close] {
+				position: absolute !important;
+				top: 16px !important;
+				right: 16px !important;
+				z-index: 20 !important;
+				background: rgba(255, 255, 255, 0.08) !important;
+				border: 1px solid rgba(255, 255, 255, 0.15) !important;
+				border-radius: 10px !important;
+				min-height: 32px !important;
+				width: 32px !important;
+				min-width: 32px !important;
+				padding: 0 !important;
+				display: flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+				color: #cbd5e1 !important;
+				cursor: pointer !important;
+			}
+
+			[data-slot="dialog-description"],
+			[data-slot="alert-dialog-description"],
+			[data-slot="dialog-content"] p,
+			[data-slot="alert-dialog-content"] p,
+			[role="dialog"] p,
+			[role="alertdialog"] p {
+				font-size: 14.5px !important;
+				color: #94a3b8 !important;
+				line-height: 1.5 !important;
+				margin: 0 !important;
+				display: block !important;
+				background: transparent !important;
+				border: none !important;
+				border-radius: 0 !important;
+				padding: 0 !important;
+				box-shadow: none !important;
+			}
+
+			/* Form Controls inside Dialogs */
+			[data-slot="dialog-content"] input[type="text"],
+			[data-slot="alert-dialog-content"] input[type="text"],
+			#fork-name {
+				background: #1e293b !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.4) !important;
+				border-radius: 14px !important;
+				color: #ffffff !important;
+				font-size: 15px !important;
+				min-height: 48px !important;
+				padding: 10px 14px !important;
+				width: 100% !important;
+				box-sizing: border-box !important;
+				box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+				transition: all 0.2s ease !important;
+				margin-top: 4px !important;
+				margin-bottom: 4px !important;
+			}
+
+			[data-slot="dialog-content"] input[type="text"]:focus,
+			[data-slot="alert-dialog-content"] input[type="text"]:focus,
+			#fork-name:focus {
+				border-color: #38bdf8 !important;
+				box-shadow: 0 0 16px rgba(56, 189, 248, 0.4) !important;
+				outline: none !important;
+			}
+
+			[data-slot="dialog-content"] label,
+			[data-slot="alert-dialog-content"] label {
+				font-size: 14px !important;
+				font-weight: 500 !important;
+				color: #cbd5e1 !important;
+				display: block !important;
+			}
+
+			[data-slot="dialog-content"] [role="checkbox"],
+			[data-slot="alert-dialog-content"] [role="checkbox"],
+			#fork-attachments {
+				border: 1.5px solid #38bdf8 !important;
+				border-radius: 6px !important;
+				background: #1e293b !important;
+				width: 22px !important;
+				height: 22px !important;
+				min-width: 22px !important;
+				cursor: pointer !important;
+			}
+
+			[data-slot="dialog-content"] [role="checkbox"][data-state="checked"],
+			[data-slot="alert-dialog-content"] [role="checkbox"][data-state="checked"] {
+				background: #0ea5e9 !important;
+				color: #ffffff !important;
+			}
+
+			/* Dialog Footer & Action Buttons */
+			[data-slot="dialog-footer"],
+			[data-slot="alert-dialog-footer"],
+			[role="dialog"] footer,
+			[role="alertdialog"] footer {
+				display: flex !important;
+				flex-direction: row !important;
+				justify-content: flex-end !important;
+				align-items: center !important;
+				gap: 12px !important;
+				margin-top: 14px !important;
+				padding: 0 !important;
+				width: 100% !important;
+			}
+
+			[data-slot="dialog-footer"] button,
+			[data-slot="alert-dialog-footer"] button,
+			[data-slot="alert-dialog-action"],
+			[data-slot="alert-dialog-cancel"],
+			[role="dialog"] button,
+			[role="alertdialog"] button {
+				min-height: 46px !important;
+				min-width: 96px !important;
+				padding: 10px 18px !important;
+				font-size: 14.5px !important;
+				font-weight: 600 !important;
+				border-radius: 14px !important;
+				display: inline-flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+				cursor: pointer !important;
+				transition: all 0.15s ease !important;
+				flex: 1 1 auto !important;
+			}
+
+			/* Cancel button */
+			[data-slot="alert-dialog-cancel"],
+			[data-slot="dialog-footer"] button:first-child:not(:last-child),
+			[data-slot="alert-dialog-footer"] button:first-child:not(:last-child) {
+				background: rgba(255, 255, 255, 0.08) !important;
+				border: 1px solid rgba(255, 255, 255, 0.15) !important;
+				color: #e2e8f0 !important;
+			}
+
+			[data-slot="alert-dialog-cancel"]:active,
+			[data-slot="dialog-footer"] button:first-child:not(:last-child):active {
+				background: rgba(255, 255, 255, 0.16) !important;
+			}
+
+			/* Action / Confirm button */
+			[data-slot="alert-dialog-action"]:not(.bg-destructive),
+			[data-slot="dialog-footer"] button:not(.bg-destructive):not([variant="outline"]):not([variant="ghost"]):last-child,
+			[data-slot="alert-dialog-footer"] button:not(.bg-destructive):not([variant="outline"]):not([variant="ghost"]):last-child {
+				background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+				border: 1px solid rgba(56, 189, 248, 0.6) !important;
+				color: #ffffff !important;
+				box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45) !important;
+			}
+
+			/* Destructive Action (Delete) */
+			[data-slot="alert-dialog-action"].bg-destructive,
+			[data-slot="dialog-footer"] button.bg-destructive,
+			[data-slot="alert-dialog-footer"] button.bg-destructive {
+				background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+				border: 1px solid rgba(239, 68, 68, 0.6) !important;
+				color: #ffffff !important;
+				box-shadow: 0 4px 16px rgba(239, 68, 68, 0.45) !important;
+			}
+
+			/* =========================================================================
+			   DROPDOWN MENUS, CONTEXT MENUS & SELECT MENUS
+			   ========================================================================= */
 			[role="menu"]:not([data-state="closed"]),
 			[role="listbox"]:not([data-state="closed"]),
 			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
+			[data-bits-context-menu-content]:not([data-state="closed"]),
 			[data-bits-popover-content]:not([data-state="closed"]),
 			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
 			[data-slot="popover-content"]:not([data-state="closed"]),
 			[data-slot="context-menu-content"]:not([data-state="closed"]),
-			[data-floating-content]:not([data-state="closed"]),
-			[data-radix-popper-content-wrapper]:not([data-state="closed"]),
-			[data-slot="popover"]:not([data-state="closed"]) {
-				background: #0f172a !important;
+			[data-slot="select-content"]:not([data-state="closed"]),
+			[data-floating-content]:not([role="tooltip"]):not([data-bits-tooltip-content]):not([data-slot="tooltip-content"]):not([data-slot="alert-dialog-content"]):not([data-slot="dialog-content"]):not([data-state="closed"]) {
+				background: linear-gradient(180deg, #0f172a 0%, #0b0f19 100%) !important;
 				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
-				border-radius: 16px !important;
-				box-shadow: 0 16px 48px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
+				border-radius: 18px !important;
+				box-shadow: 0 18px 50px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
+				backdrop-filter: blur(16px) !important;
+				-webkit-backdrop-filter: blur(16px) !important;
 				z-index: 999999 !important;
-				max-height: calc(100% - 120px) !important;
+				max-height: min(75vh, 480px) !important;
 				overflow-y: auto !important;
 				overscroll-behavior: contain !important;
 				padding: 8px !important;
+				min-width: 180px !important;
 			}
 
-			[role="menuitem"], [role="option"], [data-slot="dropdown-menu-item"], [data-slot="context-menu-item"] {
-				padding: 10px 14px !important;
+			[role="menuitem"],
+			[role="option"],
+			[data-slot="dropdown-menu-item"],
+			[data-slot="context-menu-item"],
+			[data-slot="select-item"] {
+				padding: 11px 15px !important;
 				font-size: 14.5px !important;
+				font-weight: 500 !important;
 				color: #f8fafc !important;
-				border-radius: 10px !important;
+				border-radius: 12px !important;
 				display: flex !important;
 				align-items: center !important;
-				gap: 10px !important;
+				gap: 12px !important;
 				cursor: pointer !important;
+				min-height: 44px !important;
+				transition: background 0.15s ease !important;
 			}
 
 			[role="menuitem"]:hover, [role="menuitem"]:focus, [role="menuitem"]:active,
-			[role="option"]:hover, [role="option"]:focus, [role="option"]:active {
+			[role="option"]:hover, [role="option"]:focus, [role="option"]:active,
+			[data-slot="dropdown-menu-item"]:hover, [data-slot="dropdown-menu-item"]:focus, [data-slot="dropdown-menu-item"]:active,
+			[data-slot="context-menu-item"]:hover, [data-slot="context-menu-item"]:focus, [data-slot="context-menu-item"]:active {
 				background: rgba(56, 189, 248, 0.2) !important;
 				color: #ffffff !important;
 			}
 
-			/* Active recording pulsing indicator */
+			/* Active recording indicator */
 			.speech-recording-active .speech-active-btn,
 			.speech-recording-active button:has(.lucide-mic),
 			.speech-active-btn {
@@ -389,8 +664,8 @@
 				50% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
 			}
 		
-			/* Toast alerts styling: Glassmorphic dark card with cyan accent */
-			[data-sonner-toast], .toast, [role="status"], [role="alert"], [data-slot="toast"] {
+			/* Toast alerts styling */
+			[data-sonner-toast], .toast, [data-slot="toast"], body > [role="alert"]:not([data-slot*="dialog"]):not([role="alertdialog"]) {
 				background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96)) !important;
 				border: 1px solid rgba(56, 189, 248, 0.3) !important;
 				border-radius: 14px !important;
@@ -404,17 +679,37 @@
 				padding: 12px 16px !important;
 			}
 
-			/* Chat Message Actions: Clean row alignment, no floating orphaned bars */
+			/* Chat Message Actions */
 			.message-actions, [data-slot="message-actions"], .chat-actions {
 				display: flex !important;
 				flex-wrap: wrap !important;
 				align-items: center !important;
-				gap: 6px !important;
-				margin-top: 6px !important;
-				opacity: 0.85 !important;
+				gap: 8px !important;
+				margin-top: 8px !important;
+				opacity: 0.9 !important;
 			}
 
-			/* Chat Message Visibility & Flow: Ensure all messages are ALWAYS 100% visible */
+			.message-actions button,
+			[data-slot="message-actions"] button,
+			.chat-actions button {
+				min-width: 36px !important;
+				min-height: 36px !important;
+				padding: 6px !important;
+				border-radius: 10px !important;
+				display: inline-flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+				transition: background 0.15s ease !important;
+				cursor: pointer !important;
+			}
+
+			.message-actions button:active,
+			[data-slot="message-actions"] button:active,
+			.chat-actions button:active {
+				background: rgba(56, 189, 248, 0.25) !important;
+			}
+
+			/* Chat Message Visibility & Flow: Ensure ample bottom padding so nothing is obscured by input box */
 			.chat-message,
 			.chat-message *,
 			.chat-message-assistant,
@@ -449,370 +744,59 @@
 				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 			}
 
-			/* Chat Screen Layout */
-			.chat-screen {
-				min-height: 100% !important;
-				padding-bottom: calc(var(--chat-form-height, 120px) + 36px) !important;
+			/* Chat Screen & Messages Layout: Ample bottom padding */
+			main,
+			.chat-screen,
+			[data-slot="chat-container"],
+			.messages-container,
+			div:has(> .chat-message) {
+				padding-bottom: 220px !important;
 			}
 
-			/* If a message bubble is completely empty or contains only the action icons without text, hide it */
-			.chat-message:has(> .message-actions:only-child),
-			div:empty + .message-actions,
-			.message-row:empty {
-				display: none !important;
+			/* Attachment Upload Button inside the input toolbar */
+			#cm-attachment-btn {
+				display: inline-flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+				width: 34px !important;
+				height: 34px !important;
+				min-width: 34px !important;
+				min-height: 34px !important;
+				border-radius: 10px !important;
+				background: rgba(30, 41, 59, 0.8) !important;
+				border: 1px solid rgba(56, 189, 248, 0.4) !important;
+				color: #38bdf8 !important;
+				cursor: pointer !important;
+				transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+				flex-shrink: 0 !important;
+				margin-right: 6px !important;
+				padding: 0 !important;
 			}
 
+			#cm-attachment-btn:hover,
+			#cm-attachment-btn:focus,
+			#cm-attachment-btn:active {
+				background: rgba(56, 189, 248, 0.25) !important;
+				border-color: #38bdf8 !important;
+				color: #ffffff !important;
+				box-shadow: 0 0 14px rgba(56, 189, 248, 0.6) !important;
+				transform: scale(1.06) !important;
+			}
+
+			#cm-attachment-btn svg {
+				width: 18px !important;
+				height: 18px !important;
+				stroke: currentColor !important;
+				stroke-width: 2.4 !important;
+				pointer-events: none !important;
+			}
 		</style>
 	</head>
 
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">
 			<script>
-				// Viewport height synchronization & Auto-reveal and auto-scroll chat messages
-				(function() {
-					function syncViewportHeight() {
-						const h = window.innerHeight;
-						if (h > 0) {
-							document.documentElement.style.setProperty('--app-height', h + 'px');
-							document.documentElement.style.setProperty('height', h + 'px', 'important');
-							document.documentElement.style.setProperty('min-height', h + 'px', 'important');
-							if (document.body) {
-								document.body.style.setProperty('height', h + 'px', 'important');
-								document.body.style.setProperty('min-height', h + 'px', 'important');
-							}
-						}
-					}
-					window.addEventListener('resize', syncViewportHeight);
-					window.addEventListener('orientationchange', syncViewportHeight);
-					syncViewportHeight();
-
-					function ensureMessagesVisibleAndScrolled() {
-						syncViewportHeight();
-						const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble');
-						if (msgs.length > 0) {
-							for (let i = 0; i < msgs.length; i++) {
-								const m = msgs[i];
-								if (m.style.opacity === '0' || m.style.visibility === 'hidden') {
-									m.style.setProperty('opacity', '1', 'important');
-									m.style.setProperty('visibility', 'visible', 'important');
-									m.style.setProperty('transform', 'none', 'important');
-								}
-							}
-						}
-					}
-
-					let scrollTimeout = null;
-					function scrollToLatestMessage() {
-						if (scrollTimeout) clearTimeout(scrollTimeout);
-						scrollTimeout = setTimeout(function() {
-							const allMsgs = document.querySelectorAll('.chat-message');
-							if (allMsgs.length > 0) {
-								const last = allMsgs[allMsgs.length - 1];
-								last.scrollIntoView({ behavior: 'smooth', block: 'end' });
-							}
-						}, 50);
-					}
-
-					const chatObserver = new MutationObserver(function(mutations) {
-						let hasNewNodes = false;
-						for (let i = 0; i < mutations.length; i++) {
-							if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
-								hasNewNodes = true;
-								break;
-							}
-						}
-						if (hasNewNodes) {
-							ensureMessagesVisibleAndScrolled();
-							scrollToLatestMessage();
-						}
-					});
-
-					if (document.body) {
-						chatObserver.observe(document.body, { childList: true, subtree: true });
-						ensureMessagesVisibleAndScrolled();
-					} else {
-						document.addEventListener('DOMContentLoaded', function() {
-							chatObserver.observe(document.body, { childList: true, subtree: true });
-							ensureMessagesVisibleAndScrolled();
-						});
-					}
-
-					setInterval(ensureMessagesVisibleAndScrolled, 400);
-				})();
-
-				// Global Toast, Error & Structured JSON Response Sanitizer
-				(function() {
-					function cleanHtmlError(text) {
-						if (!text || typeof text !== 'string') return text;
-						if (text.includes('<html') || text.includes('<!DOCTYPE') || text.includes('<head') || text.includes('Error response') || text.includes('Error code:')) {
-							if (text.includes('404') || text.includes('Not Found')) {
-								return 'Inferenz-Endpunkt nicht gefunden (404). Automatischer Fallback aktiv.';
-							}
-							if (text.includes('502') || text.includes('Bad Gateway')) {
-								return 'Inferenz-Server überlastet (502).';
-							}
-							if (text.includes('503')) {
-								return 'Inferenz-Dienst vorübergehend nicht erreichbar (503).';
-							}
-							return 'Inferenz-Gateway nicht erreichbar. Bitte Verbindung prüfen.';
-						}
-						return text;
-					}
-
-					function sanitizeStructuredJson(el) {
-						if (!el || !el.innerText) return;
-						const text = el.innerText.trim();
-						if (text.startsWith('{"') && text.endsWith('}') && (text.includes('"report"') || text.includes('"summary"') || text.includes('"title"'))) {
-							try {
-								const obj = JSON.parse(text);
-								if (obj.report && typeof obj.report === 'string') {
-									let cleanReport = obj.report.replace(/\\n/g, '\n');
-									if (obj.title && !cleanReport.includes(obj.title)) {
-										cleanReport = '## ' + obj.title + '\n\n' + cleanReport;
-									}
-									if (obj.summary && !cleanReport.includes(obj.summary)) {
-										cleanReport = '> ' + obj.summary + '\n\n' + cleanReport;
-									}
-									el.innerText = cleanReport;
-								} else if (obj.summary && typeof obj.summary === 'string') {
-									el.innerText = (obj.title ? '## ' + obj.title + '\n\n' : '') + obj.summary.replace(/\\n/g, '\n');
-								}
-							} catch (e) {}
-						}
-					}
-
-					function sanitizeNode(el) {
-						if (!el) return;
-						if (el.innerText && (el.innerText.includes('<html') || el.innerText.includes('<!DOCTYPE') || el.innerText.includes('<head') || el.innerText.includes('Error response') || el.innerText.includes('Error code:'))) {
-							el.innerText = cleanHtmlError(el.innerText);
-						}
-						sanitizeStructuredJson(el);
-					}
-
-					// DOM Observer to sanitize any rendered toasts, error banners or raw JSON responses
-					const observer = new MutationObserver(function(mutations) {
-						for (const m of mutations) {
-							for (const node of m.addedNodes) {
-								if (node.nodeType === 1) {
-									if (node.hasAttribute('data-sonner-toast') || node.classList.contains('toast') || node.classList.contains('chat-message') || node.getAttribute('role') === 'status' || node.getAttribute('role') === 'alert') {
-										sanitizeNode(node);
-									}
-									const targets = node.querySelectorAll ? node.querySelectorAll('[data-sonner-toast], .toast, .chat-message, [role="status"], [role="alert"]') : [];
-									for (let i = 0; i < targets.length; i++) {
-										sanitizeNode(targets[i]);
-									}
-								}
-							}
-						}
-					});
-
-					if (document.body) {
-						observer.observe(document.body, { childList: true, subtree: true });
-					} else {
-						document.addEventListener('DOMContentLoaded', function() {
-							observer.observe(document.body, { childList: true, subtree: true });
-						});
-					}
-					setInterval(function() {
-						document.querySelectorAll('.chat-message').forEach(sanitizeStructuredJson);
-					}, 500);
-				})();
-
-				// Android Native SpeechRecognizer Bridge & Web Speech API Polyfill
-				(function() {
-					window.__activeSpeechInstance = null;
-					window.__isSpeechActive = false;
-					window.__speechBaseText = '';
-
-					class AndroidSpeechRecognition extends EventTarget {
-						constructor() {
-							super();
-							this.continuous = false;
-							this.interimResults = true;
-							this.lang = navigator.language || 'de-DE';
-							this.onstart = null;
-							this.onresult = null;
-							this.onerror = null;
-							this.onend = null;
-						}
-
-						start() {
-							window.__activeSpeechInstance = this;
-							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
-								window.AndroidSpeechBridge.startSpeechRecognition(this.lang);
-							}
-						}
-
-						stop() {
-							if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.stopSpeechRecognition === 'function') {
-								window.AndroidSpeechBridge.stopSpeechRecognition();
-							}
-						}
-
-						abort() {
-							this.stop();
-						}
-					}
-
-					window.SpeechRecognition = window.SpeechRecognition || AndroidSpeechRecognition;
-					window.webkitSpeechRecognition = window.webkitSpeechRecognition || AndroidSpeechRecognition;
-
-					function findChatTextarea() {
-						return document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
-					}
-
-					function getMicButtons() {
-						const allBtns = Array.from(document.querySelectorAll('button, [role="button"]'));
-						return allBtns.filter(isMicButton);
-					}
-
-					function isMicButton(btn) {
-						if (!btn) return false;
-						// Explicitly exclude submit / send button and model selector
-						const type = (btn.getAttribute('type') || btn.type || '').toLowerCase();
-						if (type === 'submit') return false;
-						
-						const html = btn.innerHTML || '';
-						if (html.includes('lucide-arrow-up') || html.includes('lucide-package') || html.includes('Senden')) return false;
-						if (btn.querySelector('.lucide-arrow-up, .lucide-package')) return false;
-
-						// Explicitly match mic button
-						if (btn.classList.contains('speech-active-btn')) return true;
-						if (btn.querySelector('.lucide-mic') || html.includes('lucide-mic')) return true;
-						if (html.includes('M12 2a3 3') || html.includes('19 10v2a7')) return true;
-						
-						const srOnly = btn.querySelector('.sr-only');
-						if (srOnly && srOnly.textContent.toLowerCase().includes('aufnahme')) return true;
-						
-						const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-						if (label.includes('aufnahme') || label.includes('record') || label.includes('mic') || label.includes('dikt')) return true;
-
-						return false;
-					}
-
-					function updateTextareaValue(textarea, text) {
-						if (!textarea) return;
-						if (textarea.tagName === 'TEXTAREA' || textarea.tagName === 'INPUT') {
-							const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
-							                     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-							if (nativeSetter) {
-								nativeSetter.call(textarea, text);
-							} else {
-								textarea.value = text;
-							}
-							textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-							textarea.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-						} else {
-							textarea.innerText = text;
-							textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-						}
-					}
-
-					function autoSubmitChatForm() {
-						const textarea = findChatTextarea();
-						if (!textarea) return;
-						const val = (textarea.value || textarea.innerText || '').trim();
-						if (!val) return;
-
-						setTimeout(() => {
-							const form = textarea.closest('form');
-							if (form && typeof form.requestSubmit === 'function') {
-								try {
-									form.requestSubmit();
-									return;
-								} catch (e) {
-									console.warn('requestSubmit error:', e);
-								}
-							}
-							const submitBtn = form ? form.querySelector('button[type="submit"]') : document.querySelector('button[type="submit"]');
-							if (submitBtn && !submitBtn.disabled) {
-								submitBtn.click();
-							}
-						}, 120);
-					}
-
-					window.__speechHasResult = false;
-
-					window.__onAndroidSpeechEvent = function(type, text) {
-						const inst = window.__activeSpeechInstance;
-						const textarea = findChatTextarea();
-						const micBtns = getMicButtons();
-
-						if (type === 'onstart') {
-							window.__isSpeechActive = true;
-							window.__speechHasResult = false;
-							document.body.classList.add('speech-recording-active');
-							if (textarea) {
-								window.__speechBaseText = (textarea.value || textarea.innerText || '').trim();
-								textarea.setAttribute('data-prev-placeholder', textarea.placeholder || '');
-								textarea.placeholder = '🎙️ Sprechen Sie jetzt... (Spracheingabe aktiv)';
-							}
-							micBtns.forEach(b => {
-								b.classList.add('speech-active-btn');
-							});
-							if (inst && inst.onstart) inst.onstart();
-						} else if (type === 'onresult' || type === 'onpartialresult') {
-							const isFinal = (type === 'onresult');
-							if (textarea && text && text.trim()) {
-								const combinedText = window.__speechBaseText ? (window.__speechBaseText + ' ' + text.trim()) : text.trim();
-								updateTextareaValue(textarea, combinedText);
-								if (isFinal) {
-									window.__speechBaseText = combinedText;
-									window.__speechHasResult = true;
-								}
-							}
-							if (inst && inst.onresult) {
-								inst.onresult({
-									resultIndex: 0,
-									results: [[{ transcript: text, confidence: 1.0 }]],
-									isFinal: isFinal
-								});
-							}
-						} else if (type === 'onerror') {
-							if (inst && inst.onerror) inst.onerror({ error: text });
-						} else if (type === 'onend') {
-							const shouldAutoSubmit = window.__speechHasResult;
-							window.__isSpeechActive = false;
-							document.body.classList.remove('speech-recording-active');
-							if (textarea) {
-								const prev = textarea.getAttribute('data-prev-placeholder');
-								if (prev) textarea.placeholder = prev;
-							}
-							micBtns.forEach(b => {
-								b.classList.remove('speech-active-btn');
-							});
-							if (inst && inst.onend) inst.onend();
-
-							if (shouldAutoSubmit) {
-								window.__speechHasResult = false;
-								autoSubmitChatForm();
-							}
-						}
-					};
-
-					// Global tap listener for microphone button
-					document.addEventListener('click', function(e) {
-						const btn = e.target.closest('button, [role="button"]');
-						if (!btn) return;
-						if (isMicButton(btn)) {
-							e.preventDefault();
-							e.stopPropagation();
-							e.stopImmediatePropagation();
-							if (window.AndroidSpeechBridge) {
-								if (window.__isSpeechActive) {
-									if (typeof window.AndroidSpeechBridge.stopSpeechRecognition === 'function') {
-										window.AndroidSpeechBridge.stopSpeechRecognition();
-									}
-								} else {
-									if (typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
-										window.AndroidSpeechBridge.startSpeechRecognition(navigator.language || 'de-DE');
-									}
-								}
-							}
-						}
-					}, true);
-				})();
-
 				{
 					__sveltekit_na4fmg = {
 						base: new URL('.', location).pathname.slice(0, -1)
@@ -826,5 +810,264 @@
 				}
 			</script>
 		</div>
+
+		<!-- ComputeMesh Runtime & Enhancements Script -->
+		<script>
+			// Auto-dismiss floating tooltips on touch devices so they never block clicks or popups
+			(function() {
+				function dismissTooltips() {
+					const tooltips = document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"], [data-bits-tooltip-content], [data-radix-tooltip-content]');
+					for (let i = 0; i < tooltips.length; i++) {
+						tooltips[i].style.setProperty('display', 'none', 'important');
+						tooltips[i].style.setProperty('pointer-events', 'none', 'important');
+					}
+				}
+				window.addEventListener('touchstart', dismissTooltips, { passive: true, capture: true });
+				window.addEventListener('touchend', dismissTooltips, { passive: true, capture: true });
+			})();
+
+			// Viewport height synchronization & Auto-reveal and auto-scroll chat messages
+			(function() {
+				function syncViewportHeight() {
+					const h = window.innerHeight;
+					if (h > 0) {
+						document.documentElement.style.setProperty('--app-height', h + 'px');
+						document.documentElement.style.setProperty('height', h + 'px', 'important');
+						document.documentElement.style.setProperty('min-height', h + 'px', 'important');
+						if (document.body) {
+							document.body.style.setProperty('height', h + 'px', 'important');
+							document.body.style.setProperty('min-height', h + 'px', 'important');
+						}
+					}
+				}
+				window.addEventListener('resize', syncViewportHeight);
+				window.addEventListener('orientationchange', syncViewportHeight);
+				syncViewportHeight();
+
+				function ensureMessagesVisibleAndScrolled() {
+					syncViewportHeight();
+					const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble');
+					if (msgs.length > 0) {
+						for (let i = 0; i < msgs.length; i++) {
+							const m = msgs[i];
+							if (m.style.opacity === '0' || m.style.visibility === 'hidden') {
+								m.style.setProperty('opacity', '1', 'important');
+								m.style.setProperty('visibility', 'visible', 'important');
+								m.style.setProperty('transform', 'none', 'important');
+							}
+						}
+					}
+				}
+
+				let scrollTimeout = null;
+				function scrollToLatestMessage() {
+					if (scrollTimeout) clearTimeout(scrollTimeout);
+					scrollTimeout = setTimeout(function() {
+						const allMsgs = document.querySelectorAll('.chat-message');
+						if (allMsgs.length > 0) {
+							const last = allMsgs[allMsgs.length - 1];
+							last.scrollIntoView({ behavior: 'smooth', block: 'end' });
+						}
+					}, 50);
+				}
+
+				let chatDebounce = null;
+				const chatObserver = new MutationObserver(function(mutations) {
+					if (chatDebounce) return;
+					chatDebounce = setTimeout(function() {
+						chatDebounce = null;
+						ensureMessagesVisibleAndScrolled();
+					}, 100);
+				});
+
+				if (document.body) {
+					chatObserver.observe(document.body, { childList: true, subtree: true });
+					ensureMessagesVisibleAndScrolled();
+				} else {
+					document.addEventListener('DOMContentLoaded', function() {
+						chatObserver.observe(document.body, { childList: true, subtree: true });
+						ensureMessagesVisibleAndScrolled();
+					});
+				}
+			})();
+
+			// Modal Dialog & Panel Centering & Auto-sizing Engine
+			(function() {
+				function sanitizeDialogs() {
+					const dialogs = document.querySelectorAll('[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-bits-dialog-content][data-state="open"], [data-bits-alert-dialog-content][data-state="open"], [data-radix-dialog-content][data-state="open"], [data-dialog-content][data-state="open"]');
+					for (let i = 0; i < dialogs.length; i++) {
+						const d = dialogs[i];
+						if (d.getAttribute('data-slot') === 'sheet-content') continue;
+						d.style.setProperty('position', 'fixed', 'important');
+						d.style.setProperty('top', '50%', 'important');
+						d.style.setProperty('left', '50%', 'important');
+						d.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+						d.style.setProperty('translate', 'none', 'important');
+						d.style.setProperty('--tw-translate-x', '0px', 'important');
+						d.style.setProperty('--tw-translate-y', '0px', 'important');
+						d.style.setProperty('--tw-scale-x', '1', 'important');
+						d.style.setProperty('--tw-scale-y', '1', 'important');
+						d.style.setProperty('width', 'min(92vw, 520px)', 'important');
+						d.style.setProperty('max-width', 'min(92vw, 520px)', 'important');
+						d.style.setProperty('max-height', 'min(85dvh, calc(100vh - 60px))', 'important');
+						d.style.setProperty('height', 'auto', 'important');
+						d.style.setProperty('overflow-y', 'auto', 'important');
+						d.style.setProperty('overflow-x', 'hidden', 'important');
+						d.style.setProperty('margin', '0', 'important');
+						d.style.setProperty('box-sizing', 'border-box', 'important');
+
+						const pres = d.querySelectorAll('pre');
+						for (let j = 0; j < pres.length; j++) {
+							pres[j].style.setProperty('max-height', '180px', 'important');
+							pres[j].style.setProperty('overflow-y', 'auto', 'important');
+							pres[j].style.setProperty('white-space', 'pre-wrap', 'important');
+							pres[j].style.setProperty('word-break', 'break-all', 'important');
+						}
+					}
+				}
+
+				let dialogDebounce = null;
+				const dialogObserver = new MutationObserver(function() {
+					if (dialogDebounce) return;
+					dialogDebounce = setTimeout(function() {
+						dialogDebounce = null;
+						sanitizeDialogs();
+					}, 100);
+				});
+				if (document.body) {
+					dialogObserver.observe(document.body, { childList: true, subtree: true });
+					sanitizeDialogs();
+				} else {
+					document.addEventListener('DOMContentLoaded', function() {
+						dialogObserver.observe(document.body, { childList: true, subtree: true });
+						sanitizeDialogs();
+					});
+				}
+			})();
+
+			// Speech Recognition Bridge
+			(function() {
+				let activeSpeechCallback = null;
+				window.__onAndroidSpeechEvent = function(event, data) {
+					if (event === 'onresult' && activeSpeechCallback) {
+						activeSpeechCallback(data);
+					}
+				};
+				window.__startNativeSpeech = function(onResult) {
+					activeSpeechCallback = onResult;
+					if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.startSpeechRecognition === 'function') {
+						window.AndroidSpeechBridge.startSpeechRecognition('de-DE');
+					}
+				};
+				window.__stopNativeSpeech = function() {
+					if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.stopSpeechRecognition === 'function') {
+						window.AndroidSpeechBridge.stopSpeechRecognition();
+					}
+				};
+			})();
+
+			// Native Attachment Integration Engine
+			(function() {
+				let hiddenFileInput = null;
+
+				function setupHiddenFileInput() {
+					if (document.getElementById('cm-native-file-input')) return;
+					const input = document.createElement('input');
+					input.id = 'cm-native-file-input';
+					input.type = 'file';
+					input.multiple = true;
+					input.accept = 'image/*,application/pdf,text/*,.json,.csv,.md,.py,.kt,.js,.ts,.html,.css,.log,.yaml,.yml';
+					input.style.display = 'none';
+					input.addEventListener('change', function(e) {
+						if (e.target.files && e.target.files.length > 0) {
+							dispatchFilesToSvelteKit(e.target.files);
+							input.value = '';
+						}
+					});
+					document.body.appendChild(input);
+					hiddenFileInput = input;
+				}
+
+				function dispatchFilesToSvelteKit(fileList) {
+					const nativeInputs = document.querySelectorAll('input[type="file"]:not(#cm-native-file-input)');
+					if (nativeInputs.length > 0) {
+						try {
+							const dt = new DataTransfer();
+							for (let i = 0; i < fileList.length; i++) {
+								dt.items.add(fileList[i]);
+							}
+							const targetInput = nativeInputs[0];
+							targetInput.files = dt.files;
+							targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+							return;
+						} catch (err) {
+							console.warn('DataTransfer dispatch failed:', err);
+						}
+					}
+				}
+
+				function openFilePicker() {
+					const nativeInputs = document.querySelectorAll('input[type="file"]:not(#cm-native-file-input)');
+					if (nativeInputs.length > 0) {
+						nativeInputs[0].click();
+					} else if (hiddenFileInput) {
+						hiddenFileInput.click();
+					}
+				}
+
+				function injectAttachmentButton() {
+					if (document.getElementById('cm-attachment-btn')) return;
+					setupHiddenFileInput();
+
+					// Look for the bottom toolbar row inside the input card
+					const toolbar = document.querySelector('form div[style*="container-type"], form .flex.items-center.gap-1\\.5, form div.flex.items-center, form [data-slot="input-area"] .flex-column');
+					const modelSelectorBtn = document.querySelector('form button:has(.lucide-box), form button:has(svg), form [data-slot="input-area"] button');
+					const form = document.querySelector('form');
+
+					if (!toolbar && !modelSelectorBtn && !form) return;
+
+					const btn = document.createElement('button');
+					btn.id = 'cm-attachment-btn';
+					btn.type = 'button';
+					btn.title = 'Datei, Bild oder Dokument hochladen';
+					btn.innerHTML = `
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="12" y1="5" x2="12" y2="19"></line>
+							<line x1="5" y1="12" x2="19" y2="12"></line>
+						</svg>
+					`;
+
+					btn.addEventListener('click', function(e) {
+						e.preventDefault();
+						e.stopPropagation();
+						openFilePicker();
+					});
+
+					if (modelSelectorBtn && modelSelectorBtn.parentNode) {
+						modelSelectorBtn.parentNode.insertBefore(btn, modelSelectorBtn);
+					} else if (toolbar) {
+						toolbar.insertBefore(btn, toolbar.firstChild);
+					} else if (form) {
+						const card = form.querySelector('[data-slot="input-area"] > div, .flex-column') || form;
+						card.appendChild(btn);
+					}
+				}
+
+				setupHiddenFileInput();
+				injectAttachmentButton();
+
+				const attachObserver = new MutationObserver(function() {
+					injectAttachmentButton();
+				});
+				if (document.body) {
+					attachObserver.observe(document.body, { childList: true, subtree: true });
+				} else {
+					document.addEventListener('DOMContentLoaded', function() {
+						attachObserver.observe(document.body, { childList: true, subtree: true });
+					});
+				}
+				setInterval(injectAttachmentButton, 350);
+			})();
+		</script>
 	</body>
 </html>

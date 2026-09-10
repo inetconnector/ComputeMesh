@@ -132,10 +132,25 @@ class CloudTunnelRelay:
                 if not gm.get("total_nodes_online"):
                     gm["total_nodes_online"] = 1
 
+                dash_port = int(getattr(cfg_now, "dashboard_port", 8080) or 8080)
+                try:
+                    from services.appliance_dashboard.network import get_network_interfaces
+                    net_ifaces = get_network_interfaces(node_id=self.node_id, auth_token=self.auth_token, port=dash_port)
+                    lan_ips = [iface["ip"] for iface in net_ifaces if iface.get("interface") != "tunnel" and iface.get("ip")]
+                except Exception:
+                    net_ifaces = []
+                    lan_ips = []
+
                 payload = {
                     "node_id": self.node_id,
                     "auth_token": self.auth_token,
                     "owner_key": owner_key,
+                    "dashboard_port": dash_port,
+                    "network": {
+                        "dashboard_port": dash_port,
+                        "interfaces": net_ifaces,
+                        "lan_ips": lan_ips,
+                    },
                     "inventory": inv.to_dict(),
                     "telemetry": {
                         "tokens_processed": toks_processed,

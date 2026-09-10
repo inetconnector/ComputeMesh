@@ -174,6 +174,30 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
         self.assertIn("message", data)
         self.assertEqual(data["message"]["role"], "assistant")
 
+    def test_node_tunnel_chat_and_mcp(self):
+        """Cellular node tunnel route /node/<node_id>/v1/chat/completions works transparently."""
+        status, data = self._post(
+            "/node/cm-inference-node-01/v1/chat/completions",
+            body={
+                "model": "qwen2.5:7b",
+                "messages": [{"role": "user", "content": "Wie ist das Wetter in Berlin?"}],
+                "stream": False,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("choices", data)
+        content = data["choices"][0]["message"]["content"]
+        self.assertTrue(
+            "Berlin" in content or "Wetter" in content or "Live-Daten" in content or "Temperatur" in content,
+            f"Expected weather data in tunneled node answer, got: {content}"
+        )
+
+        # Also verify GET /node/<node_id>/props
+        status, props = self._get("/node/cm-inference-node-01/props")
+        self.assertEqual(status, 200)
+        self.assertIn("default_generation_settings", props)
+
 
 if __name__ == "__main__":
     unittest.main()
+

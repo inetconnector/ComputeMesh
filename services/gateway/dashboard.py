@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import html
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import threading
 from typing import Any
 
 from services.common.config import CONFIG
+
 
 def _resolve_registry_file() -> Path:
     if sys.platform == "win32":
@@ -79,6 +81,67 @@ def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_rela
     return entries
 
 
+def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
+    """Extract candidate local LAN / loopback URLs for the node management interface."""
+    port = int(
+        node_data.get("dashboard_port")
+        or node_data.get("network", {}).get("dashboard_port")
+        or 8080
+    )
+    urls: list[str] = [
+        f"http://localhost:{port}",
+        f"http://127.0.0.1:{port}",
+    ]
+    seen = set(urls)
+
+    # Check network interfaces and LAN IPs
+    net = node_data.get("network", {})
+    if isinstance(net, dict):
+        lan_ips = net.get("lan_ips", [])
+        if isinstance(lan_ips, list):
+            for ip in lan_ips:
+                ip_str = str(ip).strip()
+                if ip_str and not ip_str.startswith("127."):
+                    u = f"http://{ip_str}:{port}"
+                    if u not in seen:
+                        seen.add(u)
+                        urls.append(u)
+
+        interfaces = net.get("interfaces", [])
+        if isinstance(interfaces, list):
+            for iface in interfaces:
+                if isinstance(iface, dict):
+                    ip_str = str(iface.get("ip", "")).strip()
+                    if ip_str and not ip_str.startswith("127.") and iface.get("interface") != "tunnel":
+                        u = f"http://{ip_str}:{port}"
+                        if u not in seen:
+                            seen.add(u)
+                            urls.append(u)
+
+    # Check explicit local_ip field
+    local_ip = str(node_data.get("local_ip", "")).strip()
+    if local_ip and not local_ip.startswith("127."):
+        u = f"http://{local_ip}:{port}"
+        if u not in seen:
+            seen.add(u)
+            urls.append(u)
+
+    # Check client_ip if in private / loopback IP range
+    client_ip = str(node_data.get("client_ip", "")).strip()
+    if client_ip and client_ip not in ("127.0.0.1", "::1", "localhost"):
+        try:
+            ip_obj = ipaddress.ip_address(client_ip)
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                u = f"http://{client_ip}:{port}"
+                if u not in seen:
+                    seen.add(u)
+                    urls.append(u)
+        except Exception:
+            pass
+
+    return urls
+
+
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:
     """Renders a responsive, modern dark-mode dashboard for node monitoring with strict XSS escaping."""
     safe_node_id = html.escape(str(node_id))
@@ -119,15 +182,31 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     safe_gpu_fan = html.escape(str(thermals.get("fan", "--")))
     safe_gpu_power = html.escape(str(thermals.get("power_watts", "--")))
 
-    mesh_vram = float(global_mesh.get("total_vram_gb", 0.0) or 0.0)
-    if not mesh_vram and vram_gb > 0:
-        mesh_vram = vram_gb
-    mesh_tflops = float(global_mesh.get("total_compute_tflops", 0.0) or 0.0)
-    if not mesh_tflops and tflops > 0:
-        mesh_tflops = tflops
-    mesh_nodes = int(global_mesh.get("total_nodes_online", 0) or 0)
-    if not mesh_nodes and (vram_gb > 0 or tflops > 0):
-        mesh_nodes = 1
+    fresh_entries = fresh_node_telemetry_entries(max_age_seconds=120)
+    if fresh_entries:
+        mesh_nodes = len(fresh_entries)
+        total_vram_sum = 0
+        total_tflops_sum = 0.0
+        for entry in fresh_entries:
+            inv_e = entry.get("inventory", {})
+            gpus_e = inv_e.get("gpus", [])
+            vram_e = sum(g.get("vram_bytes", 0) for g in gpus_e if isinstance(g, dict))
+            if not vram_e:
+                vram_e = int(inv_e.get("total_vram_bytes", 0) or 0)
+            total_vram_sum += vram_e
+            total_tflops_sum += float(entry.get("telemetry", {}).get("local_compute_tflops", 0.0) or 0.0)
+        mesh_vram = round(total_vram_sum / (1024**3), 1)
+        mesh_tflops = round(total_tflops_sum, 1)
+    else:
+        mesh_vram = float(global_mesh.get("total_vram_gb", 0.0) or 0.0)
+        if not mesh_vram and vram_gb > 0:
+            mesh_vram = vram_gb
+        mesh_tflops = float(global_mesh.get("total_compute_tflops", 0.0) or 0.0)
+        if not mesh_tflops and tflops > 0:
+            mesh_tflops = tflops
+        mesh_nodes = int(global_mesh.get("total_nodes_online", 0) or 0)
+        if not mesh_nodes and (vram_gb > 0 or tflops > 0):
+            mesh_nodes = 1
 
     is_simulated = bool(telemetry.get("is_simulated", False) or node_data.get("is_simulated", False))
     if is_simulated:
@@ -138,6 +217,11 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
         metric_tag = ''
 
     safe_domain = html.escape(str(CONFIG.endpoints.domain))
+
+    candidate_urls = _extract_candidate_local_urls(node_data)
+    candidates_json = json.dumps(candidate_urls).replace("<", "\\u003c").replace(">", "\\u003e")
+    dash_port = int(node_data.get("dashboard_port") or node_data.get("network", {}).get("dashboard_port") or 8080)
+    default_local_url = html.escape(candidate_urls[0] if candidate_urls else f"http://localhost:{dash_port}")
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -154,16 +238,28 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             --accent: #6366f1;
             --accent-glow: rgba(99, 102, 241, 0.4);
             --green: #10b981;
+            --green-glow: rgba(16, 185, 129, 0.35);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }}
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        html {{
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            height: auto !important;
+            min-height: 100%;
+        }}
         body {{
             background: var(--bg);
             background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15), transparent 70%);
             color: var(--text-main);
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
+            height: auto !important;
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
             padding: 24px;
         }}
         .header {{
@@ -174,6 +270,8 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             margin: 0 auto 24px auto;
             padding-bottom: 16px;
             border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 12px;
         }}
         .logo {{
             font-size: 20px;
@@ -192,6 +290,38 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             padding: 4px 12px;
             font-size: 12px;
             font-weight: 600;
+        }}
+        .btn-manage-node {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 15px var(--green-glow);
+            transition: all 0.25s ease;
+        }}
+        .btn-manage-node:hover {{
+            background: linear-gradient(135deg, #059669, #047857);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+            transform: translateY(-1px);
+        }}
+        .pulse-dot-green {{
+            width: 8px;
+            height: 8px;
+            background: #34d399;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #34d399;
+            animation: pulse-green 2s infinite;
+        }}
+        @keyframes pulse-green {{
+            0%, 100% {{ opacity: 1; transform: scale(1); }}
+            50% {{ opacity: 0.4; transform: scale(0.85); }}
         }}
         .grid {{
             display: grid;
@@ -219,6 +349,7 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             align-items: center;
             background: linear-gradient(135deg, rgba(30, 27, 75, 0.6), rgba(15, 23, 42, 0.8));
             border-color: rgba(99, 102, 241, 0.35);
+            gap: 16px;
         }}
         .node-title {{
             font-size: 24px;
@@ -234,12 +365,23 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
             display: flex;
             gap: 16px;
             margin-top: 12px;
+            flex-wrap: wrap;
         }}
         .stat-pill {{
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 8px;
             padding: 8px 14px;
+        }}
+        .stat-pill-action {{
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+            transition: all 0.2s;
+        }}
+        .stat-pill-action:hover {{
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
         }}
         .stat-pill .label {{
             font-size: 11px;
@@ -295,7 +437,11 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
                 Compute<span>Mesh</span> &middot; Node Telemetry
             </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <a id="btn-node-manage-header" href="{default_local_url}" target="_blank" rel="noopener noreferrer" class="btn-manage-node" title="Lokales Node-Management öffnen">
+                <span class="pulse-dot-green"></span>
+                Node verwalten &rarr;
+            </a>
             {feed_badge}
         </div>
     </header>
@@ -314,6 +460,12 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
                 <div class="stat-pill">
                     <div class="label">Node Access</div>
                     <div class="val" style="color: var(--green);">Token protected telemetry</div>
+                </div>
+                <div id="stat-pill-local" class="stat-pill stat-pill-action">
+                    <div class="label" style="color: #34d399;">Lokales Management</div>
+                    <a id="link-node-manage-card" href="{default_local_url}" target="_blank" rel="noopener noreferrer" class="val" style="color: #10b981; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 14px;">
+                        <span>Node verwalten</span> &rarr;
+                    </a>
                 </div>
             </div>
         </div>
@@ -358,5 +510,106 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     <footer class="footer">
         ComputeMesh Decentralized AI &copy; 2026 &middot; mesh.inetconnector.com &middot; Audited &amp; Hardened
     </footer>
+
+    <script id="lan-candidates-data" type="application/json">{candidates_json}</script>
+    <script>
+        (function() {{
+            let candidates = [];
+            try {{
+                const el = document.getElementById('lan-candidates-data');
+                if (el && el.textContent) {{
+                    candidates = JSON.parse(el.textContent.trim());
+                }}
+            }} catch (e) {{
+                console.error("Failed to parse LAN candidates:", e);
+            }}
+
+            if (!Array.isArray(candidates) || candidates.length === 0) return;
+
+            const headerBtn = document.getElementById('btn-node-manage-header');
+            const cardPill = document.getElementById('stat-pill-local');
+            const cardLink = document.getElementById('link-node-manage-card');
+
+            let confirmedUrl = null;
+
+            function activateLocalManagement(url) {{
+                if (confirmedUrl) return;
+                confirmedUrl = url;
+                if (headerBtn) {{
+                    headerBtn.href = url;
+                    headerBtn.style.display = 'inline-flex';
+                }}
+                if (cardPill && cardLink) {{
+                    cardLink.href = url;
+                    cardPill.style.display = 'block';
+                }}
+            }}
+
+            async function testCandidate(url) {{
+                if (confirmedUrl) return;
+                // Test CORS probe
+                try {{
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 1600);
+                    const res = await fetch(url + '/api/version', {{
+                        mode: 'cors',
+                        signal: ctrl.signal,
+                        headers: {{ 'Accept': 'application/json' }}
+                    }});
+                    clearTimeout(timer);
+                    if (res && (res.ok || res.status === 200 || res.status === 401)) {{
+                        activateLocalManagement(url);
+                        return;
+                    }}
+                }} catch (err) {{
+                    // Fallback to no-cors probe
+                }}
+
+                if (confirmedUrl) return;
+
+                // Fallback no-cors probe
+                try {{
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 1600);
+                    await fetch(url + '/', {{
+                        mode: 'no-cors',
+                        signal: ctrl.signal
+                    }});
+                    clearTimeout(timer);
+                    activateLocalManagement(url);
+                    return;
+                }} catch (err) {{
+                    // Host unreachable or connection refused
+                }}
+
+                if (confirmedUrl) return;
+
+                // Image ping fallback for browser network probing
+                try {{
+                    const img = new Image();
+                    let done = false;
+                    const timer = setTimeout(() => {{
+                        if (!done) {{
+                            done = true;
+                            img.src = '';
+                        }}
+                    }}, 1500);
+
+                    img.onload = function() {{
+                        if (!done) {{
+                            done = true;
+                            clearTimeout(timer);
+                            activateLocalManagement(url);
+                        }}
+                    }};
+                    img.src = url + '/favicon.ico?_cm=' + Date.now();
+                }} catch (e) {{}}
+            }}
+
+            // Test all candidate URLs simultaneously
+            candidates.forEach(u => testCandidate(u));
+        }})();
+    </script>
 </body>
 </html>"""
+

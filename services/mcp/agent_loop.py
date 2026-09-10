@@ -104,6 +104,35 @@ def format_tool_content_if_json(content: str) -> str:
             if url:
                 result += f"\n\n*Quelle: [{url}]({url})*"
             return result.strip()
+
+        if "result" in data and ("expression" in data or "status" in data):
+            expr = data.get("expression") or ""
+            val = data.get("result")
+            return f"Ergebnis: **{expr} = {val}**" if expr else f"Ergebnis: **{val}**"
+
+        if "formatted_time" in data or "formatted_date" in data or "datetime_iso" in data or "current_time" in data or "local_time" in data:
+            t = data.get("formatted_time") or data.get("current_time") or data.get("time") or ""
+            d = data.get("formatted_date") or data.get("date") or ""
+            tz = data.get("timezone", "Europe/Berlin")
+            kw = data.get("calendar_week")
+            res = f"Aktuelle Uhrzeit & Datum (**{tz}**):\n"
+            if t:
+                res += f"- **Uhrzeit:** {t}\n"
+            if d:
+                res += f"- **Datum:** {d}\n"
+            if kw:
+                res += f"- **Kalenderwoche:** KW {kw}\n"
+            return res.strip()
+
+        if "exchange_rate" in data or ("from" in data and "to" in data and "rate" in data):
+            src = data.get("from", "").upper()
+            dst = data.get("to", "").upper()
+            rate = data.get("rate") or data.get("exchange_rate")
+            amt = data.get("amount", 1)
+            conv = data.get("converted_amount")
+            if conv is not None:
+                return f"Währungsumrechnung: **{amt} {src} = {conv:,.2f} {dst}** (Kurs: {rate})".strip()
+            return f"Wechselkurs: **1 {src} = {rate} {dst}**".strip()
     except Exception:
         pass
     return str(content or "")
@@ -201,6 +230,99 @@ def _decode_arguments(raw_args: Any) -> tuple[Optional[Dict[str, Any]], Optional
     return None, "Tool-Argumente müssen ein JSON-Objekt sein."
 
 
+def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None) -> Optional[tuple[str, dict[str, Any]]]:
+    """Detects direct tool calling intent from user query with high precision."""
+    cleaned = text.strip()
+    
+    # 1. Weather
+    m_weather = re.search(
+        r"(?:wie\s+(?:ist|wird)\s+das\s+wetter\s+(?:in|für|fuer)?\s*|wetter\s+(?:in|für|fuer)?\s*|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_weather:
+        loc = m_weather.group(1).strip()
+        loc = re.sub(r"^(?:den|dem|der|die|das)\s+", "", loc, flags=re.IGNORECASE).strip()
+        if loc and len(loc) >= 2:
+            return ("get_current_weather", {"location": loc})
+
+    if re.search(r"(?:wie\s+(?:ist|wird)\s+das\s+wetter|wetterbericht|aktuelles\s+wetter|wetter\s+heute|wetter\s+morgen|wie\s+warm\s+ist\s+es|weather\s+today|wetter\?|\bwetter\b)", cleaned, re.IGNORECASE):
+        return ("get_current_weather", {"location": "Veitshöchheim"})
+
+    # 2. Market / Stock / Crypto Quotes
+    if re.search(r"(?:bitcoin\s+preis|btc\s+kurs|bitcoin\s+kurs|btc\s+preis|\bbitcoin\b|\bbtc\b)", cleaned, re.IGNORECASE):
+        return ("get_market_quote", {"symbol": "BTC"})
+    if re.search(r"(?:ethereum\s+preis|eth\s+kurs|ethereum\s+kurs|eth\s+preis|\beth\b|\bethereum\b)", cleaned, re.IGNORECASE):
+        return ("get_market_quote", {"symbol": "ETH"})
+    if re.search(r"(?:solana\s+preis|sol\s+kurs|\bsolana\b)", cleaned, re.IGNORECASE):
+        return ("get_market_quote", {"symbol": "SOL"})
+
+    m_market = re.search(
+        r"(?:aktienkurs\s+von\s+|aktienkurs\s+|aktie\s+|kurs\s+von\s+|preis\s+von\s+|wie\s+steht\s+(?:die\s+aktie\s+)?|stock\s+price\s+(?:of\s+)?|crypto\s+price\s+(?:of\s+)?)([a-zA-Z0-9\.\-\s]+?)(?:\?|\.|$|\s+aktuell)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_market:
+        sym = m_market.group(1).strip()
+        if sym:
+            return ("get_market_quote", {"symbol": sym})
+
+    # 3. Time / Calendar / Holidays
+    if re.search(r"(?:wie\s+spät\s+ist\s+es|wieviel\s+uhr\s+ist\s+es|aktuelle\s+uhrzeit|welcher\s+tag\s+ist\s+heute|welches\s+datum|wann\s+ist\s+ostern|feiertage\s+in|feiertage\s+\d{4}|current\s+time|what\s+time\s+is\s+it)", cleaned, re.IGNORECASE):
+        return ("get_current_time_calendar", {})
+
+    # 4. Math / Calculation
+    m_calc = re.search(r"(?:berechne\s+|was\s+ist\s+)(\d+[\d\s\+\-\*\/\^\(\)\.\,\%]+)(?:\?|\.|$)", cleaned, re.IGNORECASE)
+    if m_calc:
+        expr = m_calc.group(1).strip()
+        if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
+            return ("calculate_math", {"expression": expr})
+
+    # 5. News Feed
+    if re.search(r"(?:aktuelle\s+nachrichten|nachrichten|news\s+heute|schlagzeilen|top\s+news|what's\s+the\s+news|latest\s+news)", cleaned, re.IGNORECASE):
+        return ("get_news_feed", {"topic": "Deutschland & Welt"})
+
+    # 6. Wikipedia
+    m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+ist\s+|was\s+ist\s+|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
+    if m_wiki:
+        topic = m_wiki.group(1).strip()
+        visual_words = ("bild", "foto", "screenshot", "grafik", "steht da", "erkenn", "lies", "dokument", "pdf", "sehen")
+        is_visual = any(w in cleaned.lower() for w in visual_words)
+        if len(topic) >= 3 and not is_visual and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
+            return ("get_wikipedia_summary", {"query": topic})
+
+    # 7. Web Search
+    m_search = re.search(r"(?:suche\s+(?:im\s+web\s+)?(?:nach\s+)?|search\s+(?:web\s+)?(?:for\s+)?|google\s+nach\s+)(.+?)(?:\?|\.|$)", cleaned, re.IGNORECASE)
+    if m_search:
+        q = m_search.group(1).strip()
+        if q:
+            return ("search_web", {"query": q})
+
+    return None
+
+
+REFUSAL_KEYWORDS = [
+    "keine aktuellen",
+    "keine echtzeitdaten",
+    "kein echtzeitzugriff",
+    "keine live-informationen",
+    "kann nicht auf echtzeit",
+    "kann nicht auf live",
+    "habe keinen echtzeit",
+    "keinen echtzeit-zugriff",
+    "keine wetterdaten",
+    "cannot provide real-time",
+    "don't have access to real-time",
+    "as an ai, i do not have access to live",
+    "connection refused",
+    "errno 111",
+    "urlopen error",
+    "standby",
+    "offline",
+    "failed to connect",
+]
+
+
 class AgentLoop:
     def __init__(self, registry: Optional[ToolRegistry] = None, config: Optional[MCPConfig] = None):
         self.config = config or get_mcp_config()
@@ -233,10 +355,61 @@ class AgentLoop:
             if _canonical_name(self.registry, tool.get("function", {}).get("name", "")) not in disabled_set
         ]
 
+        # Ensure tools guidance is present in system instructions if tools are enabled
+        if tools:
+            has_system = any(m.get("role") == "system" for m in curr_messages)
+            sys_guidance = (
+                "Du bist ComputeMesh AI. Du hast vollen Zugriff auf die Live-Tools der ComputeMesh MCP Suite "
+                "(z. B. get_current_weather für Wetter, get_market_quote für Börsen-/Kryptokurse, search_web für Websuche, "
+                "get_wikipedia_summary für Wissen, calculate_math für Berechnungen, get_current_time_calendar für Uhrzeit/Datum). "
+                "Nutze diese Live-Tools aktiv und beantworte Benutzerfragen zu Echtzeitdaten immer auf Basis der Tool-Ergebnisse."
+            )
+            if not has_system:
+                curr_messages.insert(0, {"role": "system", "content": sys_guidance})
+
         executed_records: List[ToolCallRecord] = []
         total_prompt_tok = 0
         total_comp_tok = 0
         last_assistant_content = ""
+
+        # Find latest user prompt and check for images
+        last_user_text = ""
+        has_images = False
+        for m in reversed(curr_messages):
+            if bool(m.get("images")) or bool(m.get("_processed_images")):
+                has_images = True
+            c = m.get("content")
+            if isinstance(c, list) and any(isinstance(p, dict) and p.get("type") in ("image_url", "image") for p in c):
+                has_images = True
+            if m.get("role") == "user" and not last_user_text:
+                last_user_text = str(m.get("content") or "")
+
+        # Check proactive pre-flight intent only for pure text queries without images
+        direct_intent = detect_direct_tool_intent(last_user_text, self.registry) if (last_user_text and not has_images) else None
+        if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
+            fn_name, fn_args = direct_intent
+            if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                call_id = "call_direct_preflight_1"
+                curr_messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": fn_name,
+                            "arguments": json.dumps(fn_args, ensure_ascii=False),
+                        }
+                    }]
+                })
+                tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
+                executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
+                curr_messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": fn_name,
+                    "content": json.dumps(tool_res, ensure_ascii=False) if not isinstance(tool_res, str) else tool_res,
+                })
 
         for iteration in range(1, max_iter + 1):
             response = llm_caller(curr_messages, tools if tools else [])
@@ -262,6 +435,21 @@ class AgentLoop:
             else:
                 tool_calls = tool_calls[:MAX_TOOL_CALLS_PER_ITERATION]
 
+            # Check if model emitted refusal or no tool call despite clear user tool intent
+            is_refusal = any(kw in content.lower() for kw in REFUSAL_KEYWORDS)
+            if (not tool_calls or is_refusal) and direct_intent and iteration == 1:
+                fn_name, fn_args = direct_intent
+                if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                    tool_calls = [{
+                        "id": f"call_auto_{len(executed_records)+1}",
+                        "type": "function",
+                        "function": {
+                            "name": fn_name,
+                            "arguments": json.dumps(fn_args, ensure_ascii=False),
+                        },
+                    }]
+
+            # If no tools were called, this is the final answer
             if not tool_calls:
                 final = format_tool_content_if_json(content)
                 curr_messages.append({"role": "assistant", "content": final})

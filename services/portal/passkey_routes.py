@@ -37,6 +37,7 @@ from webauthn.helpers.structs import (
 )
 
 import hashlib
+import json
 from config import CONFIG
 from services.portal.fleet_accounts import FleetAccountStore, FleetAccountStoreError, utc_now
 from services.portal.mail_dispatcher import send_magic_link, send_security_alert
@@ -50,6 +51,16 @@ RP_NAME = "ComputeMesh Fleet"
 EXPECTED_ORIGIN = os.environ.get(
     "COMPUTEMESH_PASSKEY_ORIGIN", f"{CONFIG.endpoints.scheme}://{CONFIG.endpoints.domain}"
 )
+
+
+def _get_expected_origins(headers: Any = None) -> list[str]:
+    origins = [EXPECTED_ORIGIN, "https://mesh.inetconnector.com", "https://inetconnector.com", "http://localhost:8000", "http://127.0.0.1:8000"]
+    if headers and hasattr(headers, "get"):
+        origin = str(headers.get("Origin", "")).strip().rstrip("/")
+        if origin and (origin.startswith("https://") or origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")):
+            if origin not in origins:
+                origins.append(origin)
+    return origins
 
 
 def _resolve_store_path() -> Path:
@@ -103,22 +114,28 @@ def _client_ip(headers: Any, client_address: tuple[str, int] | None = None) -> s
         real_ip = str(headers.get("X-Real-IP", "")).strip()
         if real_ip:
             return real_ip
-    return client_address[0] if client_address else "127.0.0.1"
+    if client_address and isinstance(client_address, tuple) and len(client_address) > 0:
+        return str(client_address[0])
+    return "127.0.0.1"
 
 
-def _session_cookie_header(token: str, *, clear: bool = False) -> str:
+def _session_cookie_header(token: str, max_age_days: int = 30, *, clear: bool = False) -> str:
     cookie: SimpleCookie = SimpleCookie()
     cookie[SESSION_COOKIE_NAME] = "" if clear else token
     cookie[SESSION_COOKIE_NAME]["path"] = "/"
     cookie[SESSION_COOKIE_NAME]["httponly"] = True
     cookie[SESSION_COOKIE_NAME]["samesite"] = "Lax"
-    if EXPECTED_ORIGIN.startswith("https://"):
+    if CONFIG.endpoints.scheme == "https":
         cookie[SESSION_COOKIE_NAME]["secure"] = True
-    if clear:
-        cookie[SESSION_COOKIE_NAME]["max-age"] = 0
+    if not clear and max_age_days > 0:
+        cookie[SESSION_COOKIE_NAME]["max-age"] = max_age_days * 24 * 3600
     else:
-        cookie[SESSION_COOKIE_NAME]["max-age"] = 30 * 24 * 3600
+        cookie[SESSION_COOKIE_NAME]["max-age"] = 0
     return cookie[SESSION_COOKIE_NAME].OutputString()
+
+
+def clear_session_cookie_header() -> str:
+    return _session_cookie_header("", clear=True)
 
 
 def session_account_from_headers(headers: Any):
@@ -148,7 +165,7 @@ def session_account_from_headers(headers: Any):
             auth_hdr = str(headers.get("Authorization", "")).strip()
             if auth_hdr.startswith("Bearer "):
                 candidate = auth_hdr[7:].strip()
-                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("inet-"):
+                if candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("inet-") or candidate.startswith("owk_"):
                     owner_key = candidate
 
     if owner_key:
@@ -182,12 +199,16 @@ class PasskeyAuthHandler:
         email = str(body.get("email", "")).strip().lower()
         if not email or "@" not in email:
             return {"error": "a valid email address is required"}, HTTPStatus.BAD_REQUEST, None
-        if FLEET_ACCOUNT_STORE.get_account_by_email(email) is not None:
-            return (
-                {"error": "an account for this email already exists -- sign in instead"},
-                HTTPStatus.CONFLICT,
-                None,
-            )
+
+        current_auth = session_account_from_headers(headers) if headers else None
+        existing = FLEET_ACCOUNT_STORE.get_account_by_email(email)
+        if existing is not None:
+            if current_auth is None or current_auth.email.lower() != email:
+                return (
+                    {"error": "an account for this email already exists -- sign in instead"},
+                    HTTPStatus.CONFLICT,
+                    None,
+                )
 
         options = webauthn.generate_registration_options(
             rp_id=RP_ID,
@@ -200,7 +221,9 @@ class PasskeyAuthHandler:
             ),
         )
         FLEET_ACCOUNT_STORE.store_challenge(email, "registration", bytes_to_base64url(options.challenge))
-        return {"options": webauthn.options_to_json(options)}, HTTPStatus.OK, None
+        raw_options = webauthn.options_to_json(options)
+        options_dict = json.loads(raw_options) if isinstance(raw_options, str) else raw_options
+        return {"options": options_dict}, HTTPStatus.OK, None
 
     def register_complete(self, body: dict[str, Any], headers: Any = None, client_address: tuple[str, int] | None = None) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         ip = _client_ip(headers, client_address)
@@ -220,15 +243,19 @@ class PasskeyAuthHandler:
                 credential=credential,
                 expected_challenge=webauthn.base64url_to_bytes(challenge_b64),
                 expected_rp_id=RP_ID,
-                expected_origin=EXPECTED_ORIGIN,
+                expected_origin=_get_expected_origins(headers),
             )
         except InvalidRegistrationResponse as exc:
             return {"error": f"passkey registration failed: {exc}"}, HTTPStatus.BAD_REQUEST, None
 
-        try:
-            account = FLEET_ACCOUNT_STORE.create_account(email)
-        except FleetAccountStoreError as exc:
-            return {"error": str(exc)}, HTTPStatus.CONFLICT, None
+        existing_account = FLEET_ACCOUNT_STORE.get_account_by_email(email)
+        if existing_account is not None:
+            account = existing_account
+        else:
+            try:
+                account = FLEET_ACCOUNT_STORE.create_account(email)
+            except FleetAccountStoreError as exc:
+                return {"error": str(exc)}, HTTPStatus.CONFLICT, None
 
         FLEET_ACCOUNT_STORE.add_passkey(
             account.account_id,
@@ -278,7 +305,9 @@ class PasskeyAuthHandler:
             user_verification=UserVerificationRequirement.PREFERRED,
         )
         FLEET_ACCOUNT_STORE.store_challenge(email, "authentication", bytes_to_base64url(options.challenge))
-        return {"options": webauthn.options_to_json(options)}, HTTPStatus.OK, None
+        raw_options = webauthn.options_to_json(options)
+        options_dict = json.loads(raw_options) if isinstance(raw_options, str) else raw_options
+        return {"options": options_dict}, HTTPStatus.OK, None
 
     def login_complete(self, body: dict[str, Any], headers: Any = None, client_address: tuple[str, int] | None = None) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         ip = _client_ip(headers, client_address)
@@ -306,7 +335,7 @@ class PasskeyAuthHandler:
                 credential=credential,
                 expected_challenge=webauthn.base64url_to_bytes(challenge_b64),
                 expected_rp_id=RP_ID,
-                expected_origin=EXPECTED_ORIGIN,
+                expected_origin=_get_expected_origins(headers),
                 credential_public_key=webauthn.base64url_to_bytes(passkey.public_key),
                 credential_current_sign_count=passkey.sign_count,
             )

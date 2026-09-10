@@ -3,11 +3,13 @@ package com.inetconnector.compumesh.p2p
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Log
+import com.inetconnector.compumesh.service.MeshNodeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -23,14 +25,18 @@ data class LocalMeshPeer(
     val ipAddress: String,
     val port: Int,
     val gpuSummary: String,
-    val isLocalLan: Boolean = true
-)
+    val isLocalLan: Boolean = true,
+    val remoteUrl: String = ""
+) {
+    val targetUrl: String
+        get() = if (remoteUrl.isNotBlank()) remoteUrl else "http://$ipAddress:$port"
+}
 
 /**
- * Direct Peer-to-Peer Local Network Discovery for Zero-Server-Traffic Operation.
+ * Direct Peer-to-Peer Local Network Discovery & Fleet Hub for Zero-Server-Traffic & Cloud Mesh.
  *
- * Combines UDP broadcast, unicast subnet sweeps, and fast HTTP probing to reliably
- * discover ComputeMesh nodes across all home Wi-Fi and router configurations.
+ * Combines UDP broadcast, unicast subnet sweeps, and Fleet coordinator polling to reliably
+ * discover ComputeMesh nodes across all home Wi-Fi, mining rigs, and registered fleet devices.
  */
 class DirectLanDiscovery(private val context: Context) {
 
@@ -38,6 +44,132 @@ class DirectLanDiscovery(private val context: Context) {
         private const val TAG = "DirectLanDiscovery"
         const val DISCOVERY_PORT = 13379
         const val DISCOVERY_PROBE_MESSAGE = "COMPUTEMESH_DISCOVERY_PING"
+    }
+
+    suspend fun discoverFleetPeers(gatewayUrl: String, ownerKey: String): List<LocalMeshPeer> = withContext(Dispatchers.IO) {
+        val fleetPeers = mutableListOf<LocalMeshPeer>()
+        val gateways = linkedSetOf("https://mesh.inetconnector.com")
+        if (gatewayUrl.isNotBlank() && gatewayUrl.startsWith("http")) {
+            gateways.add(gatewayUrl.trimEnd('/'))
+        }
+
+        val endpoints = mutableListOf<String>()
+        for (gw in gateways) {
+            if (ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
+                endpoints.add("$gw/api/v1/mesh/fleet?owner_key=${java.net.URLEncoder.encode(ownerKey, "UTF-8")}")
+                endpoints.add("$gw/api/portal/fleet?owner_key=${java.net.URLEncoder.encode(ownerKey, "UTF-8")}")
+            }
+            endpoints.add("$gw/api/v1/mesh/fleet")
+            endpoints.add("$gw/api/portal/fleet")
+        }
+
+        for (ep in endpoints) {
+            try {
+                val conn = (URL(ep).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/json")
+                    if (ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
+                        setRequestProperty("X-Owner-Key", ownerKey)
+                        setRequestProperty("Authorization", "Bearer $ownerKey")
+                    }
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                }
+                if (conn.responseCode in 200..299) {
+                    val rawStr = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val json = JSONObject(rawStr)
+                    val nodes = json.optJSONArray("nodes") ?: JSONArray()
+                    val myNodeId = MeshNodeService.getOrCreateNodeId(context)
+                    for (i in 0 until nodes.length()) {
+                        val n = nodes.getJSONObject(i)
+                        val nodeId = n.optString("node_id", "fleet-node")
+                        val isOnline = n.optBoolean("is_online", true) && n.optString("status", "online") != "offline"
+                        if (!isOnline) {
+                            continue
+                        }
+                        // Skip self and skip battery-powered mobile clients from remote compute tunneling list
+                        if (nodeId == myNodeId || nodeId == MeshNodeService.nodeId || (nodeId.startsWith("android-") && n.optInt("vram_gb", 0) == 0 && n.optDouble("tflops", 0.0) <= 2.0)) {
+                            continue
+                        }
+                        val remoteUrl = n.optString("remote_url", "")
+                        val vram = n.optInt("vram_gb", 0)
+                        val tflops = n.optDouble("tflops", 0.0)
+                        val gpuName = n.optString("device_name", n.optString("gpu_name", "Compute Node GPU"))
+                        val summary = if (vram > 0) "$gpuName (${vram} GB VRAM • ${tflops} TF)" else gpuName
+
+                        var ip = ""
+                        var port = 8080
+                        if (remoteUrl.isNotBlank()) {
+                            try {
+                                val u = URL(remoteUrl)
+                                ip = u.host
+                                port = if (u.port > 0) u.port else (if (u.protocol == "https") 443 else 80)
+                            } catch (_: Exception) {}
+                        }
+                        val primaryGw = gateways.first().trimEnd('/')
+                        val fullRemoteUrl = when {
+                            remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://") -> remoteUrl
+                            remoteUrl.isNotBlank() -> "$primaryGw${if (remoteUrl.startsWith("/")) "" else "/"}$remoteUrl"
+                            else -> "$primaryGw/node/$nodeId"
+                        }
+
+                        if (ip.isBlank()) {
+                            ip = primaryGw.removePrefix("https://").removePrefix("http://").substringBefore(':').substringBefore('/')
+                            port = if (primaryGw.startsWith("https")) 443 else 80
+                        }
+
+                        fleetPeers.add(
+                            LocalMeshPeer(
+                                nodeId = nodeId,
+                                ipAddress = ip,
+                                port = port,
+                                gpuSummary = summary,
+                                isLocalLan = false,
+                                remoteUrl = fullRemoteUrl
+                            )
+                        )
+                    }
+                    if (fleetPeers.isNotEmpty()) {
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Fleet peer query to $ep failed: ${e.message}")
+            }
+        }
+        fleetPeers
+    }
+
+    suspend fun discoverAllPeers(
+        gatewayUrl: String = "",
+        ownerKey: String = "",
+        timeoutMs: Int = 3500
+    ): List<LocalMeshPeer> = coroutineScope {
+        val lanDeferred = async { discoverLocalPeers(timeoutMs) }
+        val fleetDeferred = async { discoverFleetPeers(gatewayUrl, ownerKey) }
+
+        val lanList = lanDeferred.await()
+        val fleetList = fleetDeferred.await()
+
+        val merged = LinkedHashMap<String, LocalMeshPeer>()
+        // 1. Add direct local LAN peers
+        for (peer in lanList) {
+            merged[peer.nodeId] = peer
+        }
+
+        // 2. Add or enrich with fleet peers
+        for (fleetPeer in fleetList) {
+            val existing = merged[fleetPeer.nodeId]
+            if (existing != null) {
+                merged[fleetPeer.nodeId] = existing.copy(
+                    gpuSummary = if (existing.gpuSummary == "Local Compute" || existing.gpuSummary.isBlank()) fleetPeer.gpuSummary else existing.gpuSummary
+                )
+            } else {
+                merged[fleetPeer.nodeId] = fleetPeer
+            }
+        }
+
+        merged.values.toList()
     }
 
     suspend fun discoverLocalPeers(timeoutMs: Int = 3500): List<LocalMeshPeer> = withContext(Dispatchers.IO) {
@@ -152,7 +284,9 @@ class DirectLanDiscovery(private val context: Context) {
                                 nodeId = nodeId,
                                 ipAddress = peerIp,
                                 port = port,
-                                gpuSummary = gpu
+                                gpuSummary = gpu,
+                                isLocalLan = true,
+                                remoteUrl = "http://$peerIp:$port"
                             )
                         }
                     }

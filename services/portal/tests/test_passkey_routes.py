@@ -165,6 +165,58 @@ class TestPasskeyAuthHandler(unittest.TestCase):
         logs = self.store.get_audit_log(acc.account_id)
         self.assertTrue(any(l["event_type"] == "owner_key_rotated" for l in logs))
 
+    def test_register_begin_returns_dict_options(self) -> None:
+        data, status, cookie = self.handler.register_begin({"email": "bob@example.com"})
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIsInstance(data["options"], dict)
+        self.assertIn("challenge", data["options"])
+        self.assertIn("user", data["options"])
+
+    def test_register_begin_allows_authenticated_user_adding_key(self) -> None:
+        acc = self.store.create_account("bob@example.com")
+        token = self.store.create_session(acc.account_id)
+
+        class FakeHeaders(dict):
+            def get(self, key, default=""):
+                return dict.get(self, key, default)
+
+        headers = FakeHeaders({"Cookie": f"{passkey_routes.SESSION_COOKIE_NAME}={token}"})
+        data, status, cookie = self.handler.register_begin({"email": "bob@example.com"}, headers=headers)
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIsInstance(data["options"], dict)
+
+    @patch.object(passkey_routes.webauthn, "verify_registration_response")
+    def test_register_complete_existing_user_adds_passkey(self, mock_verify) -> None:
+        acc = self.store.create_account("bob@example.com")
+        token = self.store.create_session(acc.account_id)
+
+        class FakeHeaders(dict):
+            def get(self, key, default=""):
+                return dict.get(self, key, default)
+
+        headers = FakeHeaders({"Cookie": f"{passkey_routes.SESSION_COOKIE_NAME}={token}"})
+        self.handler.register_begin({"email": "bob@example.com"}, headers=headers)
+        mock_verify.return_value = FakeVerifiedRegistration(b"secondary-cred-id", b"sec-pubkey")
+
+        data, status, cookie = self.handler.register_complete(
+            {"email": "bob@example.com", "credential": {"id": "secondary-cred-id", "response": {}}, "nickname": "Backup Key"},
+            headers=headers,
+        )
+        self.assertEqual(status, HTTPStatus.CREATED)
+        self.assertEqual(data["account_id"], acc.account_id)
+        self.assertEqual(len(self.store.list_passkeys(acc.account_id)), 1)
+
+    def test_magic_link_full_lifecycle(self) -> None:
+        with patch("services.portal.passkey_routes.send_magic_link", return_value=True):
+            req_data, req_status, _ = self.handler.request_magic_link({"email": "carol@example.com"})
+            self.assertEqual(req_status, HTTPStatus.OK)
+
+            token = self.store.create_magic_link_token("carol@example.com")
+            ver_data, ver_status, cookie = self.handler.verify_magic_link({"magic_token": token})
+            self.assertEqual(ver_status, HTTPStatus.OK)
+            self.assertEqual(ver_data["email"], "carol@example.com")
+            self.assertIsNotNone(cookie)
+
 
 if __name__ == "__main__":
     unittest.main()

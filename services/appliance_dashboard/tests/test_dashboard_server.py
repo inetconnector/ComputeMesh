@@ -187,6 +187,60 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_node_chat_completions_mcp_weather(self) -> None:
+        from http.server import ThreadingHTTPServer
+        mock_config = ApplianceConfig(
+            rig_name="node-mcp-test",
+            provider_account_id="cm_0xabc",
+            payout_address="",
+            coordinator_url="https://coord.test",
+            network_mode="dhcp",
+            static_ip=None,
+            gateway=None,
+            dns=None,
+            enable_web_dashboard=True,
+            dashboard_port=18996,
+            allow_ssh=True,
+            ssh_authorized_keys=None,
+        )
+        mock_inventory = RigInventory(
+            schema_version=1,
+            captured_at="2026-08-22T12:00:00Z",
+            host_architecture="linux",
+            total_gpus=1,
+            total_vram_bytes=8 * 1024 * 1024 * 1024,
+            gpus=[],
+            pcie_riser_warning=False,
+        )
+        DashboardHandler.config = mock_config
+        DashboardHandler.inventory = mock_inventory
+        DashboardHandler.node_id = "node-mcp-test"
+
+        server = ThreadingHTTPServer(("127.0.0.1", 18996), DashboardHandler)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        time.sleep(0.1)
+
+        try:
+            req_body = json.dumps({
+                "model": "qwen2.5:7b",
+                "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
+                "stream": False,
+            }).encode("utf-8")
+            req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertIn("choices", data)
+                content = data["choices"][0]["message"]["content"]
+                self.assertTrue(
+                    "Veitshöchheim" in content or "Wetter" in content or "Live-Wetter" in content or "°C" in content,
+                    f"Expected live tool synthesized answer, got: {content}"
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

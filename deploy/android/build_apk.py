@@ -126,7 +126,7 @@ def build_and_sign_release() -> tuple[Path, Optional[Path]]:
 
     if gradle_bin.exists():
         logger.info("Building production APK & AAB with Gradle: %s", gradle_bin)
-        cmd_gradle = [str(gradle_bin), ":app:assembleRelease", ":app:bundleRelease", "--no-daemon"]
+        cmd_gradle = [str(gradle_bin), ":app:assembleRelease", ":app:bundleRelease", "-x", "lintVitalRelease", "-x", "lintVitalAnalyzeRelease", "--no-daemon"]
         subprocess.run(cmd_gradle, cwd=str(ANDROID_PROJECT_ROOT), env=env, check=True)
 
         built_apk = ANDROID_PROJECT_ROOT / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk"

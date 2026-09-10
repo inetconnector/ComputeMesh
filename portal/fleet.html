@@ -145,6 +145,27 @@
       border-color: var(--accent-cyan);
     }
 
+    .btn-local-manage-fleet {
+      display: block;
+      margin-top: 0.5rem;
+      text-align: center;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+      transition: all 0.2s ease;
+    }
+    .btn-local-manage-fleet:hover {
+      background: linear-gradient(135deg, #059669, #047857) !important;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
+      transform: translateY(-1px);
+    }
+
     .mcp-tool-card {
       transition: all 0.25s ease;
       position: relative;
@@ -1921,6 +1942,10 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     };
 
     function b64urlToBytes(b64url) {
+      if (!b64url) return new Uint8Array(0).buffer;
+      if (b64url instanceof ArrayBuffer) return b64url;
+      if (ArrayBuffer.isView(b64url)) return b64url.buffer;
+      if (typeof b64url !== "string") return new Uint8Array(0).buffer;
       const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
       const b64 = (b64url + pad).replace(/-/g, "+").replace(/_/g, "/");
       const raw = atob(b64);
@@ -1936,14 +1961,61 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     }
 
+    function prepareCreationOptions(options) {
+      let opts = options;
+      if (typeof opts === "string") {
+        try { opts = JSON.parse(opts); } catch (e) {}
+      }
+      if (typeof PublicKeyCredential !== "undefined" && typeof PublicKeyCredential.parseCreationOptionsFromJSON === "function") {
+        try {
+          return PublicKeyCredential.parseCreationOptionsFromJSON(opts);
+        } catch (e) {
+          console.warn("PublicKeyCredential.parseCreationOptionsFromJSON fallback", e);
+        }
+      }
+      const cloned = JSON.parse(JSON.stringify(opts));
+      if (cloned.challenge) cloned.challenge = b64urlToBytes(cloned.challenge);
+      if (cloned.user && cloned.user.id) cloned.user.id = b64urlToBytes(cloned.user.id);
+      if (Array.isArray(cloned.excludeCredentials)) {
+        cloned.excludeCredentials = cloned.excludeCredentials.map(c => ({
+          ...c,
+          id: b64urlToBytes(c.id)
+        }));
+      }
+      return cloned;
+    }
+
+    function prepareRequestOptions(options) {
+      let opts = options;
+      if (typeof opts === "string") {
+        try { opts = JSON.parse(opts); } catch (e) {}
+      }
+      if (typeof PublicKeyCredential !== "undefined" && typeof PublicKeyCredential.parseRequestOptionsFromJSON === "function") {
+        try {
+          return PublicKeyCredential.parseRequestOptionsFromJSON(opts);
+        } catch (e) {
+          console.warn("PublicKeyCredential.parseRequestOptionsFromJSON fallback", e);
+        }
+      }
+      const cloned = JSON.parse(JSON.stringify(opts));
+      if (cloned.challenge) cloned.challenge = b64urlToBytes(cloned.challenge);
+      if (Array.isArray(cloned.allowCredentials)) {
+        cloned.allowCredentials = cloned.allowCredentials.map(c => ({
+          ...c,
+          id: b64urlToBytes(c.id)
+        }));
+      }
+      return cloned;
+    }
+
     function credentialToJSON(cred) {
       if (typeof cred.toJSON === "function") return cred.toJSON();
       const resp = cred.response;
       const out = {
         id: cred.id,
         rawId: bytesToB64url(cred.rawId),
-        type: cred.type,
-        clientExtensionResults: {},
+        type: cred.type || "public-key",
+        clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
         response: {
           clientDataJSON: bytesToB64url(resp.clientDataJSON),
         },
@@ -2493,6 +2565,10 @@ for chunk in stream:
     async function doRegister() {
       const email = document.getElementById("auth-email").value.trim();
       if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
+      if (!navigator.credentials || !navigator.credentials.create) {
+        showMsg("Dein Browser unterstützt keine Passkeys / WebAuthn. Bitte nutze den E-Mail Magic-Link.", "error");
+        return;
+      }
       try {
         showMsg(getLang() === 'de' ? "Erstelle Registrierung..." : "Creating registration...", "ok");
         const beginRes = await fetch("/api/auth/register/begin", {
@@ -2502,14 +2578,14 @@ for chunk in stream:
         const beginData = await beginRes.json();
         if (!beginRes.ok) { showMsg(getErrorMessage(beginData, "Registrierung fehlgeschlagen."), "error"); return; }
 
-        const opts = beginData.options;
-        opts.challenge = b64urlToBytes(opts.challenge);
-        opts.user.id = b64urlToBytes(opts.user.id);
-        if (opts.excludeCredentials) {
-          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        const opts = prepareCreationOptions(beginData.options);
+        showMsg(getLang() === 'de' ? "Bitte Passkey / Biometrie bestätigen (Windows Hello / Touch ID)..." : "Please confirm passkey / biometrics...", "ok");
+        const cred = await navigator.credentials.create({ publicKey: opts });
+        if (!cred) {
+          showMsg(getLang() === 'de' ? "Registrierung abgebrochen." : "Registration cancelled.", "error");
+          return;
         }
 
-        const cred = await navigator.credentials.create({ publicKey: opts });
         const completeRes = await fetch("/api/auth/register/complete", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, credential: credentialToJSON(cred), nickname: "Primary Key" }),
@@ -2520,29 +2596,45 @@ for chunk in stream:
         showMsg(getLang() === 'de' ? "Konto erstellt und Passkey registriert!" : "Account created and Passkey registered!", "ok");
         onLoggedIn(completeData);
       } catch (err) {
-        showMsg("Fehler: " + (err.message || err), "error");
+        if (err.name === "NotAllowedError") {
+          showMsg(getLang() === 'de' ? "Passkey-Registrierung wurde abgebrochen oder Authentifikator-Timeout." : "Passkey registration cancelled.", "error");
+        } else {
+          showMsg("Fehler: " + (err.message || err), "error");
+        }
       }
     }
 
     async function doLogin() {
       const email = document.getElementById("auth-email").value.trim();
       if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
+      if (!navigator.credentials || !navigator.credentials.get) {
+        showMsg("Dein Browser unterstützt keine Passkeys / WebAuthn. Bitte nutze den E-Mail Magic-Link.", "error");
+        return;
+      }
       try {
-        showMsg(getLang() === 'de' ? "Warte auf Passkey-Bestätigung..." : "Waiting for passkey confirmation...", "ok");
+        showMsg(getLang() === 'de' ? "Lade Passkey-Daten..." : "Loading passkey data...", "ok");
         const beginRes = await fetch("/api/auth/login/begin", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
         const beginData = await beginRes.json();
-        if (!beginRes.ok) { showMsg(getErrorMessage(beginData, "Login fehlgeschlagen."), "error"); return; }
-
-        const opts = beginData.options;
-        opts.challenge = b64urlToBytes(opts.challenge);
-        if (opts.allowCredentials) {
-          opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        if (!beginRes.ok) {
+          if (beginRes.status === 404) {
+            showMsg(getLang() === 'de' ? "Kein Konto mit Passkey für diese E-Mail gefunden. Klicke auf '+ Neues Flotten-Konto registrieren' oder nutze den Magic-Link." : "No account found. Please register or use Magic-Link.", "error");
+          } else {
+            showMsg(getErrorMessage(beginData, "Login fehlgeschlagen."), "error");
+          }
+          return;
         }
 
+        const opts = prepareRequestOptions(beginData.options);
+        showMsg(getLang() === 'de' ? "Warte auf Passkey-Bestätigung (Windows Hello / Touch ID)..." : "Waiting for passkey confirmation...", "ok");
         const cred = await navigator.credentials.get({ publicKey: opts });
+        if (!cred) {
+          showMsg(getLang() === 'de' ? "Login abgebrochen." : "Login cancelled.", "error");
+          return;
+        }
+
         const completeRes = await fetch("/api/auth/login/complete", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, credential: credentialToJSON(cred) }),
@@ -2552,7 +2644,11 @@ for chunk in stream:
 
         onLoggedIn(completeData);
       } catch (err) {
-        showMsg("Fehler: " + (err.message || err), "error");
+        if (err.name === "NotAllowedError") {
+          showMsg(getLang() === 'de' ? "Passkey-Login abgebrochen." : "Passkey login cancelled.", "error");
+        } else {
+          showMsg("Fehler: " + (err.message || err), "error");
+        }
       }
     }
 
@@ -2769,6 +2865,10 @@ for chunk in stream:
 
             const showDelete = !isOnline || Number(n.tflops || 0) === 0;
 
+            const dPort = n.dashboard_port || 8080;
+            const defaultLocalUrl = (n.candidate_local_urls && n.candidate_local_urls[0])
+              || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : `http://localhost:${dPort}`);
+
             card.innerHTML = `
               <div>
                 <div class="node-card-header">
@@ -2807,14 +2907,59 @@ for chunk in stream:
                     </svg>
                   </button>
                 </div>
+                <a id="btn-fleet-local-${escapeHtml(n.node_id)}" href="${defaultLocalUrl}" target="_blank" rel="noopener noreferrer" class="btn-local-manage-fleet" title="${getLang() === 'de' ? 'Lokales Node-Management im Browser öffnen' : 'Open local node dashboard in browser'}">
+                  <span style="display:inline-block;width:7px;height:7px;background:#34d399;border-radius:50%;margin-right:6px;box-shadow:0 0 6px #34d399;"></span>
+                  ${getLang() === 'de' ? '⚙️ Node verwalten (Lokal) →' : '⚙️ Manage Node (Local) →'}
+                </a>
               </div>
             `;
             gridEl.appendChild(card);
+
+            // Probe LAN reachability for this node card
+            const candidateUrls = Array.isArray(n.candidate_local_urls) ? [...n.candidate_local_urls] : [];
+            const dPort = n.dashboard_port || 8080;
+            if (!candidateUrls.includes(`http://localhost:${dPort}`)) candidateUrls.push(`http://localhost:${dPort}`);
+            if (!candidateUrls.includes(`http://127.0.0.1:${dPort}`)) candidateUrls.push(`http://127.0.0.1:${dPort}`);
+            if (n.network && Array.isArray(n.network.lan_ips)) {
+              n.network.lan_ips.forEach(ip => {
+                if (ip && !ip.startsWith('127.')) {
+                  const u = `http://${ip}:${dPort}`;
+                  if (!candidateUrls.includes(u)) candidateUrls.push(u);
+                }
+              });
+            }
+            probeFleetNode(n.node_id, candidateUrls);
           });
         }
 
       } catch (err) {
         console.error("Fleet fetch error:", err);
+      }
+    }
+
+    async function probeFleetNode(nodeId, candidates) {
+      if (!candidates || !candidates.length) return;
+      const btnEl = document.getElementById('btn-fleet-local-' + nodeId);
+      if (!btnEl) return;
+
+      for (const url of candidates) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 1600);
+          const res = await fetch(url + '/api/version', {
+            mode: 'cors',
+            signal: ctrl.signal,
+            headers: { 'Accept': 'application/json' }
+          }).catch(async () => {
+            return await fetch(url + '/', { mode: 'no-cors', signal: ctrl.signal });
+          });
+          clearTimeout(timer);
+          if (res && btnEl) {
+            btnEl.href = url;
+            btnEl.style.display = 'block';
+            return;
+          }
+        } catch (e) {}
       }
     }
 
@@ -2923,14 +3068,13 @@ for chunk in stream:
         const beginData = await beginRes.json();
         if (!beginRes.ok) { alert(getErrorMessage(beginData, "Fehler bei Registrierung")); return; }
 
-        const opts = beginData.options;
-        opts.challenge = b64urlToBytes(opts.challenge);
-        opts.user.id = b64urlToBytes(opts.user.id);
-        if (opts.excludeCredentials) {
-          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64urlToBytes(c.id) }));
+        const opts = prepareCreationOptions(beginData.options);
+        const cred = await navigator.credentials.create({ publicKey: opts });
+        if (!cred) {
+          alert("Passkey-Registrierung abgebrochen.");
+          return;
         }
 
-        const cred = await navigator.credentials.create({ publicKey: opts });
         const compRes = await fetch("/api/auth/register/complete", {
           method: "POST",
           headers: headers,
@@ -2945,7 +3089,11 @@ for chunk in stream:
           alert(getErrorMessage(compData, "Fehler beim Speichern des Schlüssels."));
         }
       } catch (err) {
-        alert("Passkey-Registrierung abgebrochen: " + err.message);
+        if (err.name === "NotAllowedError") {
+          alert("Passkey-Registrierung abgebrochen.");
+        } else {
+          alert("Passkey-Registrierung fehlgeschlagen: " + (err.message || err));
+        }
       }
     }
 

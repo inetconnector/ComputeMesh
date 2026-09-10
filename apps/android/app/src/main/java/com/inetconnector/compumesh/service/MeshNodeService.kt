@@ -41,9 +41,36 @@ class MeshNodeService : Service() {
         var totalTokensProcessed: Long = 0
             private set
 
-        var nodeId: String = "android-" + UUID.randomUUID().toString().substring(0, 8)
+        private var _nodeId: String = ""
+        var nodeId: String
+            get() = _nodeId.ifBlank { "android-device" }
+            set(value) { _nodeId = value }
+
         var ownerKey: String = ""
         var gatewayUrl: String = "https://mesh.inetconnector.com"
+
+        fun getOrCreateNodeId(context: Context): String {
+            if (_nodeId.isNotBlank()) return _nodeId
+            val prefs = context.getSharedPreferences("computemesh_node_prefs", Context.MODE_PRIVATE)
+            var savedId = prefs.getString("persistent_node_id", null)
+            if (savedId.isNullOrBlank()) {
+                val androidId = try {
+                    android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+                } catch (_: Exception) { null }
+                val suffix = if (!androidId.isNullOrBlank()) {
+                    val md5 = java.security.MessageDigest.getInstance("MD5").digest(androidId.toByteArray())
+                    md5.joinToString("") { "%02x".format(it) }.substring(0, 8)
+                } else {
+                    UUID.randomUUID().toString().replace("-", "").substring(0, 8)
+                }
+                val modelClean = Build.MODEL.lowercase().replace("[^a-z0-9]".toRegex(), "")
+                val prefix = if (modelClean.isNotBlank()) "android-$modelClean" else "android-device"
+                savedId = "$prefix-$suffix"
+                prefs.edit().putString("persistent_node_id", savedId).apply()
+            }
+            _nodeId = savedId
+            return savedId
+        }
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -52,6 +79,7 @@ class MeshNodeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        getOrCreateNodeId(this)
         batteryGuard = BatteryPolicyGuard(this)
         engine = MiniCpmEngine.getInstance(this)
         createNotificationChannel()

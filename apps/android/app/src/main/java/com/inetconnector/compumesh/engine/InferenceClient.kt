@@ -130,9 +130,14 @@ object InferenceClient {
                 val ollamaPort = gatewayUrl.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPort)) candidates.add(ollamaPort)
             }
+            if (gatewayUrl.contains("192.168.") || gatewayUrl.contains("10.") || gatewayUrl.contains("172.16.")) {
+                val tunnelTarget = "https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions"
+                if (!candidates.contains(tunnelTarget)) candidates.add(tunnelTarget)
+            }
         }
-        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
+        candidates.add("https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions")
         candidates.add("${DEFAULT_GATEWAY.trimEnd('/')}/v1/chat/completions")
+        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
 
         var successfulConn: HttpURLConnection? = null
         var lastErr = ""

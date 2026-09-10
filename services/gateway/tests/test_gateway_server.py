@@ -417,14 +417,23 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(wh_data["amount_usd"], 50.00)
 
     def test_billing_webhook_rejects_missing_signature(self) -> None:
-        webhook_req = urllib.request.Request(
-            "http://127.0.0.1:18000/v1/billing/webhook",
-            data=json.dumps({"type": "customer.created"}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            urllib.request.urlopen(webhook_req)
-        self.assertEqual(ctx.exception.code, 400)
+        for path in ("/v1/billing/webhook", "/api/v1/billing/webhook", "/api/billing/webhook", "/billing/webhook"):
+            webhook_req = urllib.request.Request(
+                f"http://127.0.0.1:18000{path}",
+                data=json.dumps({"type": "customer.created"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(webhook_req)
+            self.assertEqual(ctx.exception.code, 400, f"Expected 400 for missing signature on {path}")
+
+    def test_billing_webhook_get_status(self) -> None:
+        for path in ("/v1/billing/webhook", "/api/v1/billing/webhook", "/api/billing/webhook", "/billing/webhook"):
+            req = urllib.request.Request(f"http://127.0.0.1:18000{path}")
+            with urllib.request.urlopen(req) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data.get("status"), "ok")
 
     def test_prometheus_metrics_endpoint(self) -> None:
         metrics_req = urllib.request.Request("http://127.0.0.1:18000/metrics")

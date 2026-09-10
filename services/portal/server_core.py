@@ -810,11 +810,15 @@ class PortalHandler(BaseHTTPRequestHandler):
             telemetry_data["earnings_cm"] = final_tokens
 
             client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
+            dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
                 "client_ip": str(client_ip),
+                "dashboard_port": dash_port,
+                "network": body.get("network", {}),
+                "local_ip": str(body.get("local_ip", "")).strip(),
                 "inventory": body.get("inventory", {}),
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),

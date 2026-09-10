@@ -69,9 +69,40 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
     from tools.appliance.hardware_detector import is_integrated_display_adapter
 
-    bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
     now = datetime.now(timezone.utc)
     max_age_seconds = 45
+    prune_threshold_seconds = 120
+
+    # Auto-prune stale unbound/ephemeral nodes older than 120s during general mesh queries
+    if not owner_id:
+        stale_pruned = False
+        for nid, nd in list(NODE_TELEMETRY_REGISTRY.items()):
+            if nd.get("is_peer_relay", False):
+                continue
+            is_bound = bool(OWNER_ACCOUNT_STORE.owner_for_provider_node(nid))
+            if is_bound and not nid.startswith("android-"):
+                continue
+            up_str = str(nd.get("updated_at", "")).strip()
+            if up_str:
+                try:
+                    ts = datetime.fromisoformat(up_str.replace("Z", "+00:00"))
+                    if (now - ts).total_seconds() > prune_threshold_seconds:
+                        NODE_TELEMETRY_REGISTRY.pop(nid, None)
+                        stale_pruned = True
+                except Exception:
+                    NODE_TELEMETRY_REGISTRY.pop(nid, None)
+                    stale_pruned = True
+            else:
+                NODE_TELEMETRY_REGISTRY.pop(nid, None)
+                stale_pruned = True
+
+        if stale_pruned:
+            save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+
+    bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
+    if not bound_node_ids:
+        # Fallback to direct online nodes in telemetry registry
+        bound_node_ids = [nid for nid, nd in NODE_TELEMETRY_REGISTRY.items() if not nd.get("is_peer_relay", False)]
 
     nodes_out = []
     total_vram_bytes = 0
@@ -80,8 +111,10 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
 
     for node_id in bound_node_ids:
         n = NODE_TELEMETRY_REGISTRY.get(node_id)
+        if not n:
+            continue
         is_online = False
-        if n and not n.get("is_peer_relay", False):
+        if not n.get("is_peer_relay", False):
             updated_at_str = str(n.get("updated_at", "")).strip()
             if updated_at_str:
                 try:
@@ -90,6 +123,10 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
                         is_online = True
                 except Exception:
                     is_online = False
+
+        # When requesting global/fleet list without specific owner_id filter, only return currently online nodes
+        if not owner_id and not is_online:
+            continue
 
         inv = n.get("inventory", {}) if n else {}
         telem = n.get("telemetry", {}) if n else {}
@@ -116,6 +153,9 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [g.get("model_name") for g in gpus] if gpus else [],
             "updated_at": n.get("updated_at") if n else None,
+            "dashboard_port": n.get("dashboard_port", 8080) if n else 8080,
+            "network": n.get("network", {}) if n else {},
+            "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
         if include_remote_urls and n:
             auth_token = str(n.get("auth_token", "")).strip()
@@ -154,6 +194,7 @@ from services.gateway.auth import GatewayAuthManager, extract_bearer_token, reso
 from services.gateway.catalog import current_models, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
+    _extract_candidate_local_urls,
     fresh_node_telemetry_entries,
     render_node_remote_dashboard_html,
     save_node_telemetry_registry,
@@ -445,8 +486,28 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path.startswith("/node/"):
-            node_id = clean_path.removeprefix("/node/").strip()
+            node_rel = clean_path.removeprefix("/node/").strip("/")
+            parts = node_rel.split("/", 1)
+            node_id = parts[0].strip()
+            sub_path = "/" + parts[1] if len(parts) > 1 else ""
             auth_token = query.get("auth", [""])[0].strip()
+
+            if sub_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
+                self._handle_props()
+                return
+            if sub_path in ("/slots", "/webui/slots", "/api/slots", "/v1/slots"):
+                self._handle_slots()
+                return
+            if sub_path in ("/v1/models", "/models", "/webui/models", "/api/models", "/api/tags", "/api/v1/models"):
+                self._handle_models()
+                return
+            if sub_path in ("/api/version", "/version"):
+                self._send_json({"version": "1.2.156", "node_id": node_id})
+                return
+            if sub_path in ("/api/status", "/status"):
+                node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
+                self._send_json(node_data)
+                return
 
             if not node_id or node_id not in NODE_TELEMETRY_REGISTRY:
                 self._send_error_response(f"Node '{node_id}' not found in cluster telemetry registry.", "not_found", HTTPStatus.NOT_FOUND)
@@ -756,12 +817,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
             })
             return
 
-        if clean_path == "/v1/billing/balance":
+        if clean_path in ("/v1/billing/balance", "/api/v1/billing/balance", "/api/billing/balance", "/billing/balance"):
             res, err, status = self.billing_routes.handle_get_balance(self.headers)
             if err:
                 self._send_error_response(err, "billing_error", status)
             else:
                 self._send_json(res or {}, status)
+            return
+
+        if clean_path in ("/v1/billing/webhook", "/api/v1/billing/webhook", "/api/billing/webhook", "/billing/webhook"):
+            self._send_json({"status": "ok", "message": "Stripe Webhook Endpoint Active"})
             return
 
         if clean_path == "/v1/providers/status":
@@ -818,7 +883,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         raw_body = self.rfile.read(content_length)
 
-        if clean_path == "/v1/billing/webhook":
+        if clean_path in ("/v1/billing/webhook", "/api/v1/billing/webhook", "/api/billing/webhook", "/billing/webhook"):
             res, err, status = self.billing_routes.handle_post_webhook(self.headers, raw_body)
             if err:
                 self._send_error_response(err, "webhook_error", status)
@@ -831,6 +896,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
         except Exception:
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
+
+        self._is_node_tunnel = False
+        if clean_path.startswith("/node/"):
+            self._is_node_tunnel = True
+            node_rel = clean_path.removeprefix("/node/").strip("/")
+            parts = node_rel.split("/", 1)
+            if len(parts) > 1:
+                clean_path = "/" + parts[1]
 
         if clean_path == "/api/auth/register/begin":
             data, status, cookie = self.passkey_handler.register_begin(body, self.headers, self.client_address)
@@ -1003,11 +1076,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
             telemetry_data["tokens_processed"] = final_tokens
             telemetry_data["earnings_cm"] = final_tokens
 
+            dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
                 "client_ip": str(client_ip),
+                "dashboard_port": dash_port,
+                "network": body.get("network", {}),
+                "local_ip": str(body.get("local_ip", "")).strip(),
                 "inventory": body.get("inventory", {}),
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
@@ -1233,7 +1310,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 )
             return
 
-        if clean_path in ("/v1/billing/topup", "/api/v1/billing/topup"):
+        if clean_path in ("/v1/billing/topup", "/api/v1/billing/topup", "/api/billing/topup", "/billing/topup"):
             res, err, status = self.billing_routes.handle_post_topup(self.headers, body)
             if err:
                 self._send_error_response(err, "billing_error", status)
@@ -1241,7 +1318,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res or {}, status)
             return
 
-        if clean_path in ("/v1/billing/checkout", "/api/v1/billing/checkout"):
+        if clean_path in ("/v1/billing/checkout", "/api/v1/billing/checkout", "/api/billing/checkout", "/billing/checkout"):
             res, err, status = self.billing_routes.handle_post_checkout(self.headers, body)
             if err:
                 self._send_error_response(err, "stripe_error", status)
@@ -1477,7 +1554,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
         max_tokens = int(max_tokens_val) if max_tokens_val is not None and str(max_tokens_val).isdigit() else None
         client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
 
-        if auth.is_quota_exceeded:
+        is_node_tunnel = getattr(self, "_is_node_tunnel", False)
+        is_teaser = auth.is_teaser and not is_node_tunnel
+        is_self_compute = auth.is_provider_self_compute or is_node_tunnel
+
+        if auth.is_quota_exceeded and not is_node_tunnel:
             self._send_teaser_quota_response(client_ip)
             return
 
@@ -1486,8 +1567,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 account_id=auth.account_id or "cust_default",
                 model_id=model_id,
                 messages=messages,
-                is_teaser=auth.is_teaser,
-                is_provider_self_compute=auth.is_provider_self_compute,
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
@@ -1495,7 +1576,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if err:
                 self._send_error_response(err, "inference_error", status)
             else:
-                headers = self.teaser_manager.response_headers(client_ip) if auth.is_teaser else None
+                headers = self.teaser_manager.response_headers(client_ip) if is_teaser else None
                 self._send_json(res or {}, HTTPStatus(status), headers)
             return
 
@@ -1505,8 +1586,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 account_id=auth.account_id or "cust_default",
                 model_id=model_id,
                 messages=messages,
-                is_teaser=auth.is_teaser,
-                is_provider_self_compute=auth.is_provider_self_compute,
+                is_teaser=is_teaser,
+                is_provider_self_compute=is_self_compute,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,

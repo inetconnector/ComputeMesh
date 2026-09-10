@@ -158,7 +158,7 @@ def get_current_weather(
             break
 
     if not target:
-        return {"error": "Ort oder Stadt darf nicht leer sein (z. B. 'Veitshöchheim', 'Würzburg', 'Berlin', 'München')."}
+        target = "Veitshöchheim"
 
     # 1. Primary: Open-Meteo Geocoding + Precise Hourly Weather
     geo = geocode_location(target, timeout=timeout / 2)

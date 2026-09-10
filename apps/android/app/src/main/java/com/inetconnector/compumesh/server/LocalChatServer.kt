@@ -44,9 +44,10 @@ class LocalChatServer(
                         .put("model", "qwen2.5:7b")
                 )
 
-                uri == "/props" || uri == "/api/props" || uri == "/properties" -> jsonResponse(
+                uri in listOf("/props", "/api/props", "/properties") -> jsonResponse(
                     JSONObject().apply {
-                        put("role", "router")
+                        put("model_alias", "qwen2.5:7b")
+                        put("model_path", "qwen2.5:7b")
                         put("default_generation_settings", JSONObject().apply {
                             put("n_ctx", 32768)
                             put("n_predict", 2048)
@@ -59,12 +60,14 @@ class LocalChatServer(
                                 put("<|endoftext|>")
                             })
                         })
-                        put("total_slots", 4)
-                        put("chat_template", "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>' + '\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}")
+                        put("total_slots", 1)
+                        put("chat_template", "{% for message in messages %}{% if message['role'] == 'system' %}<|im_start|>system\n{{ message['content'] }}<|im_end|>\n{% elif message['role'] == 'user' %}<|im_start|>user\n{{ message['content'] }}<|im_end|>\n{% elif message['role'] == 'assistant' %}<|im_start|>assistant\n{% if message['reasoning_content'] %}<think>\n{{ message['reasoning_content'] }}\n</think>\n{% endif %}{{ message['content'] }}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}")
                         put("modalities", JSONObject().apply {
                             put("text", true)
+                            put("vision", true)
                             put("image", true)
                             put("audio", true)
+                            put("video", false)
                         })
                     }
                 )
@@ -165,6 +168,13 @@ class LocalChatServer(
                     for (i in 0 until models.length()) {
                         val m = models.getJSONObject(i)
                         m.put("status", JSONObject().put("value", "loaded"))
+                        m.put("modalities", JSONObject().apply {
+                            put("vision", true)
+                            put("text", true)
+                            put("audio", true)
+                            put("video", false)
+                        })
+                        if (!m.has("meta")) m.put("meta", JSONObject())
                         enriched.put(m)
                     }
                     return jsonResponse(JSONObject().put("models", enriched))
@@ -176,6 +186,13 @@ class LocalChatServer(
                         m.put("status", JSONObject().put("value", "loaded"))
                         m.put("object", "model")
                         m.put("owned_by", "computemesh")
+                        m.put("modalities", JSONObject().apply {
+                            put("vision", true)
+                            put("text", true)
+                            put("audio", true)
+                            put("video", false)
+                        })
+                        if (!m.has("meta")) m.put("meta", JSONObject())
                         enriched.put(m)
                     }
                     return jsonResponse(JSONObject().put("object", "list").put("data", enriched))
@@ -185,9 +202,10 @@ class LocalChatServer(
 
         // High quality fallback models with complete metadata and loaded status
         val fallbackModels = listOf(
-            Triple("gemma3:4b", "Gemma 3 4B (Multimodal Vision/Text)", "google"),
-            Triple("qwen2.5-coder:14b", "Qwen 2.5 Coder 14B (Code & Tool Calling)", "alibaba"),
             Triple("qwen2.5:7b", "Qwen 2.5 7B (Fast General Assistant)", "alibaba"),
+            Triple("gemma3:4b", "Gemma 3 4B (Multimodal Vision/Text)", "google"),
+            Triple("qwen/qwen2.5-vl-7b-instruct", "Qwen 2.5 VL 7B (Vision & Document OCR)", "alibaba"),
+            Triple("qwen2.5-coder:14b", "Qwen 2.5 Coder 14B (Code & Tool Calling)", "alibaba"),
             Triple("deepseek-r1:14b", "DeepSeek R1 14B (Advanced Reasoning)", "deepseek"),
             Triple("llama3.3:70b", "Llama 3.3 70B (High Capacity Fleet Cluster)", "meta"),
             Triple("computemesh-cluster-default", "ComputeMesh Fleet Cluster (Adaptive Mesh)", "computemesh")
@@ -201,6 +219,13 @@ class LocalChatServer(
                     put("model", id)
                     put("description", desc)
                     put("status", JSONObject().put("value", "loaded"))
+                    put("modalities", JSONObject().apply {
+                        put("vision", true)
+                        put("text", true)
+                        put("audio", true)
+                        put("video", false)
+                    })
+                    put("meta", JSONObject())
                     put("details", JSONObject().apply {
                         put("format", "gguf")
                         put("family", family)
@@ -217,6 +242,13 @@ class LocalChatServer(
                     put("object", "model")
                     put("owned_by", "computemesh")
                     put("description", desc)
+                    put("modalities", JSONObject().apply {
+                        put("vision", true)
+                        put("text", true)
+                        put("audio", true)
+                        put("video", false)
+                    })
+                    put("meta", JSONObject())
                     put("status", JSONObject().put("value", "loaded"))
                 })
             }
@@ -295,6 +327,10 @@ class LocalChatServer(
                 val ollamaPortUrl = rawGateway.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
             }
+            if (rawGateway.contains("192.168.") || rawGateway.contains("10.") || rawGateway.contains("172.16.")) {
+                val tunnelTarget = "https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions"
+                if (!candidates.contains(tunnelTarget)) candidates.add(tunnelTarget)
+            }
         }
 
         // 2. If rawKey is a URL
@@ -307,16 +343,24 @@ class LocalChatServer(
             }
         }
 
-        // 3. Primary Production Cloud AI Backend (Ollama cluster)
-        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
-
-        // 4. Mesh ControlPlane Fallback
+        // 3. Primary ComputeMesh Cloud Gateway
         candidates.add("https://mesh.inetconnector.com/v1/chat/completions")
+        candidates.add("https://mesh.inetconnector.com/chat/completions")
+        candidates.add("https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions")
+
+        // 4. Raw Klartext Fallback
+        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
 
         val key = if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) "cm_live_demo_mobile" else rawKey.ifBlank { "cm_live_demo_mobile" }
 
         // Sanitize and compress any large base64 image data to prevent 502 Bad Gateway
-        sanitizeMultimodalPayload(rootJson)
+        val hasImages = sanitizeMultimodalPayload(rootJson)
+        if (hasImages) {
+            val curModel = rootJson.optString("model", "")
+            if (curModel.isBlank() || curModel == "qwen2.5:7b" || curModel == "computemesh-cluster-default" || (!curModel.contains("vl") && !curModel.contains("vision") && !curModel.contains("llava") && !curModel.contains("gemma3"))) {
+                rootJson.put("model", "qwen/qwen2.5-vl-7b-instruct")
+            }
+        }
 
         val targetPayloadBytes = rootJson.toString().toByteArray(StandardCharsets.UTF_8)
 
@@ -443,8 +487,9 @@ class LocalChatServer(
         }
     }
 
-    private fun sanitizeMultimodalPayload(root: JSONObject) {
-        val messages = root.optJSONArray("messages") ?: return
+    private fun sanitizeMultimodalPayload(root: JSONObject): Boolean {
+        var hasImages = false
+        val messages = root.optJSONArray("messages") ?: return false
         for (i in 0 until messages.length()) {
             val msg = messages.optJSONObject(i) ?: continue
             val content = msg.opt("content")
@@ -452,6 +497,7 @@ class LocalChatServer(
                 for (j in 0 until content.length()) {
                     val part = content.optJSONObject(j) ?: continue
                     if (part.optString("type") == "image_url") {
+                        hasImages = true
                         val imgObj = part.optJSONObject("image_url")
                         val urlStr = imgObj?.optString("url") ?: ""
                         if (urlStr.startsWith("data:image/") && urlStr.contains(";base64,")) {
@@ -462,8 +508,37 @@ class LocalChatServer(
                         }
                     }
                 }
+            } else if (content is String) {
+                val dataUriMatch = Regex("""data:image/[a-zA-Z0-9.+_-]+;base64,[a-zA-Z0-9+/=]+""").find(content)
+                if (dataUriMatch != null) {
+                    hasImages = true
+                    val fullDataUri = dataUriMatch.value
+                    val mime = fullDataUri.substringBefore(";base64,")
+                    val base64Data = fullDataUri.substringAfter(";base64,")
+                    val compressedBase64 = downsampleBase64Image(base64Data)
+                    val cleanedText = content.replace(fullDataUri, "")
+                        .replace("--- [ATTACHMENTS ANALYZER] ---", "")
+                        .replace("Data URI:", "")
+                        .replace(Regex("""\[Image Attached:.*?\]"""), "")
+                        .trim()
+
+                    val contentArr = JSONArray().apply {
+                        if (cleanedText.isNotBlank()) {
+                            put(JSONObject().put("type", "text").put("text", cleanedText))
+                        }
+                        put(JSONObject().apply {
+                            put("type", "image_url")
+                            put("image_url", JSONObject().put("url", "$mime;base64,$compressedBase64"))
+                        })
+                    }
+                    msg.put("content", contentArr)
+                }
+            }
+            if (msg.has("images")) {
+                hasImages = true
             }
         }
+        return hasImages
     }
 
     private fun downsampleBase64Image(base64: String): String {

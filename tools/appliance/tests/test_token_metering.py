@@ -24,9 +24,15 @@ class TestTokenMetering(unittest.TestCase):
         self.storage_file = Path(self.tmp_dir.name) / "token_accounting.json"
         self.patcher = patch("tools.appliance.token_metering._get_token_storage_path", return_value=self.storage_file)
         self.patcher.start()
+        import tools.appliance.token_metering as tm
+        tm._CACHED_STATS = None
+        tm._DIRTY = False
 
     def tearDown(self) -> None:
         self.patcher.stop()
+        import tools.appliance.token_metering as tm
+        tm._CACHED_STATS = None
+        tm._DIRTY = False
         self.tmp_dir.cleanup()
 
     def test_default_empty_stats(self) -> None:

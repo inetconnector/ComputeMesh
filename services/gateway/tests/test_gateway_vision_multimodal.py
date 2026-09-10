@@ -34,7 +34,6 @@ class TestGatewayVisionMultimodal(unittest.TestCase):
         cls._orig_account_store = GatewayHandler.account_store
         cls._orig_teaser = GatewayHandler.teaser_manager
         cls._orig_inference_engine = GatewayHandler.inference_engine
-        cls._orig_api_keys = dict(GatewayHandler.api_keys)
 
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.account_store = AccountingStore(Path(cls.temp_dir.name) / "accounting.sqlite")
@@ -58,10 +57,6 @@ class TestGatewayVisionMultimodal(unittest.TestCase):
         GatewayHandler.account_store = cls.account_store
         GatewayHandler.teaser_manager = cls.teaser
         GatewayHandler.inference_engine = cls.engine
-        GatewayHandler.api_keys = {
-            "cust_vision_test": "cust_vision_test",
-            "cm_live_vision_key": "cust_vision_test",
-        }
         GatewayHandler.sync_subsystems()
 
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
@@ -79,7 +74,6 @@ class TestGatewayVisionMultimodal(unittest.TestCase):
         GatewayHandler.account_store = cls._orig_account_store
         GatewayHandler.teaser_manager = cls._orig_teaser
         GatewayHandler.inference_engine = cls._orig_inference_engine
-        GatewayHandler.api_keys = cls._orig_api_keys
         GatewayHandler.sync_subsystems()
         cls.temp_dir.cleanup()
 

@@ -10,7 +10,7 @@ from config import CONFIG
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 
-def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = "") -> list[dict[str, str]]:
+def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = "", port: int = 8080) -> list[dict[str, str]]:
     interfaces: list[dict[str, str]] = []
     seen_ips = set()
 
@@ -36,8 +36,8 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
             interfaces.append({
                 "interface": "lan",
                 "ip": primary_ip,
-                "url": f"http://{primary_ip}:8080/",
-                "config_url": f"http://{primary_ip}:8080/#config",
+                "url": f"http://{primary_ip}:{port}/",
+                "config_url": f"http://{primary_ip}:{port}/#config",
             })
     except Exception:
         pass
@@ -57,8 +57,8 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
                 interfaces.append({
                     "interface": "lan",
                     "ip": ip,
-                    "url": f"http://{ip}:8080/",
-                    "config_url": f"http://{ip}:8080/#config",
+                    "url": f"http://{ip}:{port}/",
+                    "config_url": f"http://{ip}:{port}/#config",
                 })
     except Exception:
         pass
@@ -77,8 +77,8 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
                         interfaces.append({
                             "interface": iface,
                             "ip": ip,
-                            "url": f"http://{ip}:8080/",
-                            "config_url": f"http://{ip}:8080/#config",
+                            "url": f"http://{ip}:{port}/",
+                            "config_url": f"http://{ip}:{port}/#config",
                         })
         except Exception:
             pass

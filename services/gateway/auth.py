@@ -241,6 +241,16 @@ class GatewayAuthManager:
         token = extract_bearer_token(headers)
 
         if token:
+            env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            if env_admin and len(env_admin) >= ADMIN_KEY_MIN_LENGTH and hmac.compare_digest(token, env_admin):
+                return AuthResult(
+                    account_id="admin_root",
+                    owner_id="admin_root",
+                    is_teaser=False,
+                    is_provider_self_compute=True,
+                    is_quota_exceeded=False,
+                )
+
             # Check registered keys using constant-time comparison. In unified mode,
             # the configured account_id is the durable owner_id. No automatic
             # production credit is created merely by presenting a key.
