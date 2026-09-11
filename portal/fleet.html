@@ -160,10 +160,22 @@
       box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
       transition: all 0.2s ease;
     }
-    .btn-local-manage-fleet:hover {
+    .btn-local-manage-fleet:hover:not(.disabled):not(:disabled) {
       background: linear-gradient(135deg, #059669, #047857) !important;
       box-shadow: 0 0 16px rgba(16, 185, 129, 0.45) !important;
       transform: translateY(-1px);
+    }
+    .btn-local-manage-fleet.disabled,
+    .btn-local-manage-fleet:disabled,
+    .btn-local-manage-fleet[disabled] {
+      background: #334155 !important;
+      color: #94a3b8 !important;
+      border: 1px solid rgba(148, 163, 184, 0.2) !important;
+      box-shadow: none !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+      opacity: 0.55 !important;
+      transform: none !important;
     }
 
     .mcp-tool-card {
@@ -691,6 +703,9 @@
         </button>
         <button id="btn-cockpit-ollama" class="cockpit-tab-btn" onclick="switchCockpitView('ollama')">
           <span data-i18n="fleet_nav_tab_ollama">🦙 Ollama & Dev Pool</span>
+        </button>
+        <button id="btn-cockpit-killswitch" class="cockpit-tab-btn" onclick="switchCockpitView('killswitch')" style="border:1px solid rgba(239, 68, 68, 0.4); color:#fca5a5;">
+          <span>🛑 Kill Switch &amp; Not-Aus</span>
         </button>
       </div>
 
@@ -1863,6 +1878,106 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
         </div>
       </div>
 
+      <!-- VIEW 6: Kill Switch & Dead Man's Safety Subsystem -->
+      <div id="cockpit-view-killswitch" style="display: none;">
+        <div class="fleet-card" style="border: 1px solid rgba(239, 68, 68, 0.4); background: radial-gradient(circle at top, rgba(239, 68, 68, 0.08), transparent 70%), var(--card-glass);">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+            <div>
+              <h3 style="margin:0;font-size:1.35rem;color:#f87171;display:flex;align-items:center;gap:0.6rem;">
+                <span>🛑</span> <span>ComputeMesh Flotten-Not-Aus &amp; Isolation Subsystem</span>
+              </h3>
+              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;">
+                Unabhängiges, physisch getrenntes Not-Aus- und Positiv-Autorisierungs-Subsystem mit Multi-Tenant-Isolation (Fail-Closed Default State).
+              </p>
+            </div>
+            <span id="killswitch-live-badge" class="sec-badge success" style="font-size:0.85rem;padding:0.35rem 0.8rem;">
+              🟢 Flotten-Status: BEREIT &amp; AKTIV
+            </span>
+          </div>
+
+          <!-- Multi-Tenant Isolation & Security Boundary Info Banner -->
+          <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;display:flex;gap:1rem;align-items:flex-start;">
+            <div style="font-size:1.6rem;line-height:1;">🛡️</div>
+            <div>
+              <div style="font-weight:700;color:#38bdf8;margin-bottom:0.3rem;font-size:0.95rem;">
+                Berechtigungs-Schutz &amp; Flotten-Isolation (Zero Global Impact Garantie)
+              </div>
+              <p style="color:#cbd5e1;font-size:0.85rem;margin:0;line-height:1.55;">
+                Als Flottenbetreiber hast du die volle Hoheit über deine eigenen GPU-Knoten und Server. Ein Flotten-Not-Aus stoppt und schützt deine Hardware <strong>isoliert</strong>. Das weltweite Mesh-Netzwerk, andere Provider und andere Mieter laufen <strong>100% unterbrechungsfrei weiter</strong>. Der globale Plattform-Not-Aus ist kryptografisch ausschließlich dem System-Inhaber (inetconnector / Stripe Account Owner) über die physische DiskStation-Master-Schlüsselverwaltung vorbehalten.
+              </p>
+            </div>
+          </div>
+
+          <!-- Big Emergency Trigger Box -->
+          <div style="background:rgba(239,68,68,0.12);border:2px solid rgba(239,68,68,0.5);border-radius:12px;padding:1.5rem;margin-bottom:1.75rem;text-align:center;">
+            <div style="font-size:1.1rem;font-weight:700;color:#fca5a5;margin-bottom:0.5rem;">
+              ⚠️ FLOTTEN-NOT-AUS (ISOLIERTER STOPP ALLER EIGENEN KNOTEN)
+            </div>
+            <p style="color:#cbd5e1;font-size:0.88rem;max-width:700px;margin:0 auto 1.25rem auto;">
+              Ein Klick auf Not-Aus entzieht sofort alle kryptographischen Ausführungs-Leases deiner Flotte, beendet Inferenz-Prozessbäume deiner Knoten und trennt lokale Tunnel. Andere Flotten im Mesh bleiben völlig unberührt.
+            </p>
+            <div style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
+              <button id="btn-emergency-stop-big" class="btn" style="background:#dc2626;color:#ffffff;font-size:1.05rem;font-weight:800;padding:0.75rem 2rem;border-radius:8px;box-shadow:0 0 20px rgba(220,38,38,0.6);letter-spacing:0.05em;" onclick="triggerEmergencyKill()">
+                🛑 MEINE FLOTTE ANHALTEN (FLOTTEN-NOT-AUS)
+              </button>
+              <button id="btn-emergency-reset" class="btn btn-secondary" style="font-size:0.95rem;padding:0.75rem 1.5rem;border-color:rgba(16,185,129,0.6);color:#34d399;" onclick="resetFleetEmergencyKill()">
+                ▶️ Flotte wieder freigeben (Reset)
+              </button>
+              <button class="btn btn-secondary" style="font-size:0.9rem;padding:0.75rem 1.5rem;border-color:rgba(56,189,248,0.5);color:#38bdf8;" onclick="renewKillswitchLease()">
+                🔄 Lease prüfen / erneuern
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Status Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:1.5rem;">
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;">
+              <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Flotten-Isolations-Status</div>
+              <div id="ks-fleet-status-display" style="font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:#10b981;margin-top:0.25rem;">
+                🟢 BEREIT (AKTIV)
+              </div>
+              <div id="ks-fleet-owner-display" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Gültig für deine registrierte Flotte</div>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;">
+              <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Positive Lease TTL</div>
+              <div id="ks-ttl-display" style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#38bdf8;margin-top:0.25rem;">
+                -- s
+              </div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Default-State: STOP (TTL &le; 15s)</div>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;">
+              <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Hardware-Relay &amp; Node Cutoff</div>
+              <div id="ks-relay-display" style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:#10b981;margin-top:0.25rem;">
+                BEREIT (PDU / GPIO)
+              </div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Physische Stromtrennung bei Not-Aus</div>
+            </div>
+
+            <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;">
+              <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;font-weight:700;">Master Vault Speicherort</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:#fbbf24;margin-top:0.35rem;word-break:break-all;">
+                \\diskstation\Dani\ComputeMesh\killswitch
+              </div>
+              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Globaler Not-Aus nur durch Plattform-Inhaber</div>
+            </div>
+          </div>
+
+          <!-- Operator Vault & Scripts Info -->
+          <div style="background:rgba(15,23,42,0.5);border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1.25rem;font-size:0.85rem;color:#cbd5e1;line-height:1.6;">
+            <div style="font-weight:700;color:#38bdf8;margin-bottom:0.4rem;">🔑 DiskStation Master-Kit &amp; Notfall-Skripte:</div>
+            <div>Im Netzwerkverzeichnis <code>\\diskstation\Dani\ComputeMesh\killswitch</code> stehen folgende Master-Tools bereit:</div>
+            <ul style="margin:0.5rem 0 0.5rem 1.25rem;padding:0;">
+              <li><code>NOT-AUS-TRIGGER.bat</code> &mdash; Sofortiger Not-Aus für alle Nodes (Master-Autorisiert)</li>
+              <li><code>STATUS.bat</code> &mdash; Abfrage des aktuellen Dead Man's Switch Status</li>
+              <li><code>RENEW-LEASE.bat</code> &mdash; Manuelle Erneuerung des Autorisierungs-Leases</li>
+              <li><code>ANLEITUNG.md</code> &mdash; Vollständige Sicherheitsarchitektur, Multi-Tenant Isolation &amp; Notfall-Betriebsanleitung</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -2068,6 +2183,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       const btnOllama = document.getElementById("btn-cockpit-ollama");
       const btnMcp = document.getElementById("btn-cockpit-mcp");
       const btnChatui = document.getElementById("btn-cockpit-chatui");
+      const btnKillswitch = document.getElementById("btn-cockpit-killswitch");
 
       if (btnServers) btnServers.classList.toggle("active", view === 'servers');
       if (btnPayouts) btnPayouts.classList.toggle("active", view === 'payouts');
@@ -2077,6 +2193,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       if (btnOllama) btnOllama.classList.toggle("active", view === 'ollama');
       if (btnMcp) btnMcp.classList.toggle("active", view === 'mcp');
       if (btnChatui) btnChatui.classList.toggle("active", view === 'chatui');
+      if (btnKillswitch) btnKillswitch.classList.toggle("active", view === 'killswitch');
 
       const vServers = document.getElementById("cockpit-view-servers");
       const vPayouts = document.getElementById("cockpit-view-payouts");
@@ -2086,6 +2203,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       const vOllama = document.getElementById("cockpit-view-ollama");
       const vMcp = document.getElementById("cockpit-view-mcp");
       const vChatui = document.getElementById("cockpit-view-chatui");
+      const vKillswitch = document.getElementById("cockpit-view-killswitch");
 
       if (vServers) vServers.style.display = view === 'servers' ? 'block' : 'none';
       if (vPayouts) vPayouts.style.display = view === 'payouts' ? 'block' : 'none';
@@ -2095,6 +2213,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       if (vOllama) vOllama.style.display = view === 'ollama' ? 'block' : 'none';
       if (vMcp) vMcp.style.display = view === 'mcp' ? 'block' : 'none';
       if (vChatui) vChatui.style.display = view === 'chatui' ? 'block' : 'none';
+      if (vKillswitch) vKillswitch.style.display = view === 'killswitch' ? 'block' : 'none';
 
       if (view === 'security') {
         updateEmailUI();
@@ -2109,6 +2228,162 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       }
       if (view === 'mcp') {
         loadFleetMcpSettings();
+      }
+      if (view === 'killswitch') {
+        loadKillswitchStatus();
+      }
+    }
+
+    async function loadKillswitchStatus() {
+      try {
+        const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+        const headers = {};
+        if (key) headers["X-Owner-Key"] = key;
+        const resp = await fetch("/api/portal/fleet/killswitch/status", { headers, credentials: "include" });
+        if (resp.ok) {
+          const data = await resp.json();
+          const badge = document.getElementById("killswitch-live-badge");
+          const ttlEl = document.getElementById("ks-ttl-display");
+          const fleetStatusEl = document.getElementById("ks-fleet-status-display");
+          const fleetOwnerEl = document.getElementById("ks-fleet-owner-display");
+          const isFleetTripped = data.fleet_status ? data.fleet_status.is_tripped : false;
+
+          if (data.is_tripped) {
+            if (badge) {
+              badge.className = "sec-badge danger";
+              badge.textContent = "🔴 PLATTFORM-NOT-AUS AKTIV: " + (data.trip_reason || "System gestoppt");
+            }
+            if (ttlEl) {
+              ttlEl.textContent = "0.0 s (GLOBAL STOP)";
+              ttlEl.style.color = "#ef4444";
+            }
+            if (fleetStatusEl) {
+              fleetStatusEl.textContent = "🔴 GLOBAL GESTOPPT";
+              fleetStatusEl.style.color = "#ef4444";
+            }
+          } else if (isFleetTripped) {
+            if (badge) {
+              badge.className = "sec-badge danger";
+              badge.textContent = "🛑 FLOTTEN-NOT-AUS AKTIV (Deine Flotte ist pausiert)";
+            }
+            if (ttlEl) {
+              ttlEl.textContent = "0.0 s (FLEET PAUSED)";
+              ttlEl.style.color = "#f87171";
+            }
+            if (fleetStatusEl) {
+              fleetStatusEl.textContent = "🛑 FLOTTE GESTOPPT";
+              fleetStatusEl.style.color = "#f87171";
+            }
+            if (fleetOwnerEl && data.fleet_status) {
+              fleetOwnerEl.textContent = "Grund: " + (data.fleet_status.trip_reason || "Flotten-Not-Aus aktiv");
+            }
+          } else if (data.is_authorized) {
+            if (badge) {
+              badge.className = "sec-badge success";
+              badge.textContent = "🟢 Flotten-Status: BEREIT & AKTIV (" + (data.node_id || "Mesh") + ")";
+            }
+            if (ttlEl) {
+              ttlEl.textContent = data.time_to_live_seconds + " s";
+              ttlEl.style.color = "#38bdf8";
+            }
+            if (fleetStatusEl) {
+              fleetStatusEl.textContent = "🟢 BEREIT (AKTIV)";
+              fleetStatusEl.style.color = "#10b981";
+            }
+            if (fleetOwnerEl) {
+              fleetOwnerEl.textContent = "Gültig für deine registrierte Flotte";
+            }
+          } else {
+            if (badge) {
+              badge.className = "sec-badge warn";
+              badge.textContent = "🟡 Lease Abgelaufen (Standby)";
+            }
+            if (ttlEl) {
+              ttlEl.textContent = "0.0 s";
+              ttlEl.style.color = "#fbbf24";
+            }
+            if (fleetStatusEl) {
+              fleetStatusEl.textContent = "🟡 STANDBY";
+              fleetStatusEl.style.color = "#fbbf24";
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch killswitch status", err);
+      }
+    }
+
+    async function triggerEmergencyKill() {
+      if (!confirm("⚠️ SICHERHEITSABFRAGE: Flotten-Not-Aus für deine bereitgestellten Server auslösen?\n\nAlle laufenden Inferenzen auf deinen Knoten werden sofort gestoppt. Das weltweite Restsystem läuft unterbrechungsfrei weiter.")) {
+        return;
+      }
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (key) headers["X-Owner-Key"] = key;
+        const resp = await fetch("/api/portal/fleet/killswitch/trigger", {
+          method: "POST",
+          headers: headers,
+          credentials: "include",
+          body: JSON.stringify({ scope: "fleet", reason: "Flottenbetreiber Web-Cockpit Not-Aus" }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          alert("🛑 FLOTTEN-NOT-AUS ERFOLGREICH AKTIVIERT!\n\n" + (data.message || "Deine Flotte wurde isoliert und angehalten."));
+        } else if (resp.status === 403) {
+          alert("🛡️ BERECHTIGUNGS-SCHUTZ:\n\n" + (data.error || "Ein Flottenbetreiber kann nur seine eigene Flotte stoppen.") + "\n\n" + (data.message || ""));
+        } else {
+          alert("Fehler beim Auslösen des Not-Aus: " + getErrorMessage(data));
+        }
+        loadKillswitchStatus();
+      } catch (err) {
+        alert("Fehler beim Senden des Not-Aus: " + err);
+      }
+    }
+
+    async function resetFleetEmergencyKill() {
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (key) headers["X-Owner-Key"] = key;
+        const resp = await fetch("/api/portal/fleet/killswitch/reset", {
+          method: "POST",
+          headers: headers,
+          credentials: "include",
+          body: JSON.stringify({ scope: "fleet", reason: "Flottenbetreiber Freigabe" }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          alert("▶️ FLOTTE WIEDER FREIGEGEBEN!\n\n" + (data.message || "Normaler Inferenzbetrieb wieder aktiv."));
+        } else {
+          alert("Fehler beim Freigeben der Flotte: " + getErrorMessage(data));
+        }
+        loadKillswitchStatus();
+      } catch (err) {
+        alert("Fehler beim Freigeben: " + err);
+      }
+    }
+
+    async function renewKillswitchLease() {
+      const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (key) headers["X-Owner-Key"] = key;
+        const resp = await fetch("/api/portal/fleet/killswitch/renew", {
+          method: "POST",
+          headers: headers,
+          credentials: "include",
+          body: JSON.stringify({}),
+        });
+        if (resp.ok) {
+          alert("✅ Positive Authorization Lease erfolgreich geprüft / erneuert!");
+          loadKillswitchStatus();
+        } else {
+          const data = await resp.json().catch(() => ({}));
+          alert("Lease-Status: " + (data.error || ("Status " + resp.status)));
+        }
+      } catch (err) {
+        alert("Fehler bei Lease-Erneuerung: " + err);
       }
     }
 
@@ -2896,7 +3171,7 @@ for chunk in stream:
               <div>
                 <div style="display:flex;gap:0.5rem;align-items:center;">
                   <a href="${targetUrl}" target="_self" class="btn btn-primary" style="flex:1;text-align:center;display:block;padding:0.65rem 0.75rem;font-size:0.9rem;font-weight:600;text-decoration:none;">
-                    ⚡ ${getLang() === 'de' ? 'Server öffnen →' : 'Open Server →'}
+                    ⚡ ${getLang() === 'de' ? 'Server Info →' : 'Server Info →'}
                   </a>
                   <button type="button" class="btn-node-delete" onclick="confirmDeleteNode('${escapeHtml(n.node_id)}')" title="${getLang() === 'de' ? 'Knoten aus Flotte entfernen' : 'Remove node from fleet'}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2907,28 +3182,36 @@ for chunk in stream:
                     </svg>
                   </button>
                 </div>
-                <a id="btn-fleet-local-${escapeHtml(n.node_id)}" href="${defaultLocalUrl}" target="_blank" rel="noopener noreferrer" class="btn-local-manage-fleet" title="${getLang() === 'de' ? 'Lokales Node-Management im Browser öffnen' : 'Open local node dashboard in browser'}">
-                  <span style="display:inline-block;width:7px;height:7px;background:#34d399;border-radius:50%;margin-right:6px;box-shadow:0 0 6px #34d399;"></span>
-                  ${getLang() === 'de' ? '⚙️ Node verwalten (Lokal) →' : '⚙️ Manage Node (Local) →'}
-                </a>
+                ${isOnline ? `
+                  <a id="btn-fleet-local-${escapeHtml(n.node_id)}" href="${defaultLocalUrl}" target="_blank" rel="noopener noreferrer" class="btn-local-manage-fleet" title="${getLang() === 'de' ? 'Lokales Node-Management im Browser öffnen' : 'Open local node dashboard in browser'}">
+                    <span style="display:inline-block;width:7px;height:7px;background:#34d399;border-radius:50%;margin-right:6px;box-shadow:0 0 6px #34d399;"></span>
+                    ${getLang() === 'de' ? '⚙️ Node verwalten (Lokal) →' : '⚙️ Manage Node (Local) →'}
+                  </a>
+                ` : `
+                  <button type="button" disabled class="btn-local-manage-fleet disabled" style="width:100%;cursor:not-allowed;opacity:0.55;background:#334155;border-color:rgba(148,163,184,0.2);color:#94a3b8;box-shadow:none;pointer-events:none;" title="${getLang() === 'de' ? 'Knoten ist offline / nicht erreichbar' : 'Node is offline / unreachable'}">
+                    <span style="display:inline-block;width:7px;height:7px;background:#64748b;border-radius:50%;margin-right:6px;"></span>
+                    ${getLang() === 'de' ? '⚙️ Node verwalten (Offline)' : '⚙️ Manage Node (Offline)'}
+                  </button>
+                `}
               </div>
             `;
             gridEl.appendChild(card);
 
-            // Probe LAN reachability for this node card
-            const candidateUrls = Array.isArray(n.candidate_local_urls) ? [...n.candidate_local_urls] : [];
-            const dPort = n.dashboard_port || 8080;
-            if (!candidateUrls.includes(`http://localhost:${dPort}`)) candidateUrls.push(`http://localhost:${dPort}`);
-            if (!candidateUrls.includes(`http://127.0.0.1:${dPort}`)) candidateUrls.push(`http://127.0.0.1:${dPort}`);
-            if (n.network && Array.isArray(n.network.lan_ips)) {
-              n.network.lan_ips.forEach(ip => {
-                if (ip && !ip.startsWith('127.')) {
-                  const u = `http://${ip}:${dPort}`;
-                  if (!candidateUrls.includes(u)) candidateUrls.push(u);
-                }
-              });
+            // Probe LAN reachability for online node cards
+            if (isOnline) {
+              const candidateUrls = Array.isArray(n.candidate_local_urls) ? [...n.candidate_local_urls] : [];
+              if (!candidateUrls.includes(`http://localhost:${dPort}`)) candidateUrls.push(`http://localhost:${dPort}`);
+              if (!candidateUrls.includes(`http://127.0.0.1:${dPort}`)) candidateUrls.push(`http://127.0.0.1:${dPort}`);
+              if (n.network && Array.isArray(n.network.lan_ips)) {
+                n.network.lan_ips.forEach(ip => {
+                  if (ip && !ip.startsWith('127.')) {
+                    const u = `http://${ip}:${dPort}`;
+                    if (!candidateUrls.includes(u)) candidateUrls.push(u);
+                  }
+                });
+              }
+              probeFleetNode(n.node_id, candidateUrls);
             }
-            probeFleetNode(n.node_id, candidateUrls);
           });
         }
 

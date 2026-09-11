@@ -1202,6 +1202,95 @@ KNOWN_CITY_COORDINATES: dict[str, tuple[float, float]] = {
     "aarau": (47.3925, 8.0442),
     "zug": (47.1662, 8.5155),
     "solothurn": (47.2078, 7.5372),
+    # =========================================================================
+    # EUROPE & WORLDWIDE HUBS
+    # =========================================================================
+    "london": (51.5074, -0.1278),
+    "paris": (48.8566, 2.3522),
+    "madrid": (40.4168, -3.7038),
+    "barcelona": (41.3879, 2.1699),
+    "rome": (41.9028, 12.4964),
+    "rom": (41.9028, 12.4964),
+    "milan": (45.4642, 9.1900),
+    "mailand": (45.4642, 9.1900),
+    "amsterdam": (52.3676, 4.9041),
+    "rotterdam": (51.9244, 4.4777),
+    "brussels": (50.8503, 4.3517),
+    "bruessel": (50.8503, 4.3517),
+    "brüssel": (50.8503, 4.3517),
+    "antwerp": (51.2194, 4.4025),
+    "antwerpen": (51.2194, 4.4025),
+    "dublin": (53.3498, -6.2603),
+    "prague": (50.0755, 14.4378),
+    "prag": (50.0755, 14.4378),
+    "warsaw": (52.2297, 21.0122),
+    "warschau": (52.2297, 21.0122),
+    "budapest": (47.4979, 19.0402),
+    "vienna": (48.2082, 16.3738),
+    "wien": (48.2082, 16.3738),
+    "lisbon": (38.7223, -9.1393),
+    "lissabon": (38.7223, -9.1393),
+    "athens": (37.9838, 23.7275),
+    "athen": (37.9838, 23.7275),
+    "stockholm": (59.3293, 18.0686),
+    "oslo": (59.9139, 10.7522),
+    "copenhagen": (55.6761, 12.5683),
+    "kopenhagen": (55.6761, 12.5683),
+    "helsinki": (60.1699, 24.9384),
+    "bucharest": (44.4268, 26.1025),
+    "bukarest": (44.4268, 26.1025),
+    "sofia": (42.6977, 23.3219),
+    "zagreb": (45.8150, 15.9819),
+    "belgrade": (44.7866, 20.4489),
+    "belgrad": (44.7866, 20.4489),
+    "edinburgh": (55.9533, -3.1883),
+    "manchester": (53.4808, -2.2426),
+    "lyon": (45.7640, 4.8357),
+    "marseille": (43.2965, 5.3698),
+    "valencia": (39.4699, -0.3763),
+    "seville": (37.3891, -5.9845),
+    "sevilla": (37.3891, -5.9845),
+    "porto": (41.1579, -8.6291),
+    "naples": (40.8518, 14.2681),
+    "neapel": (40.8518, 14.2681),
+    "turin": (45.0703, 7.6869),
+    "bologna": (44.4949, 11.3426),
+    "florence": (43.7696, 11.2558),
+    "florenz": (43.7696, 11.2558),
+    "venice": (45.4408, 12.3155),
+    "venedig": (45.4408, 12.3155),
+    "krakow": (50.0647, 19.9450),
+    "krakau": (50.0647, 19.9450),
+    "new-york": (40.7128, -74.0060),
+    "new-york-city": (40.7128, -74.0060),
+    "nyc": (40.7128, -74.0060),
+    "los-angeles": (34.0522, -118.2437),
+    "chicago": (41.8781, -87.6298),
+    "san-francisco": (37.7749, -122.4194),
+    "miami": (25.7617, -80.1918),
+    "austin": (30.2672, -97.7431),
+    "seattle": (47.6062, -122.3321),
+    "toronto": (43.6532, -79.3832),
+    "vancouver": (49.2827, -123.1207),
+    "montreal": (45.5017, -73.5673),
+    "mexico-city": (19.4326, -99.1332),
+    "tokyo": (35.6762, 139.6503),
+    "tokio": (35.6762, 139.6503),
+    "osaka": (34.6937, 135.5023),
+    "kyoto": (35.0116, 135.7681),
+    "seoul": (37.5665, 126.9780),
+    "sydney": (-33.8688, 151.2093),
+    "melbourne": (-37.8136, 144.9631),
+    "auckland": (-36.8485, 174.7633),
+    "dubai": (25.2048, 55.2708),
+    "singapore": (1.3521, 103.8198),
+    "singapur": (1.3521, 103.8198),
+    "bangkok": (13.7563, 100.5018),
+    "cape-town": (-33.9249, 18.4241),
+    "kapstadt": (-33.9249, 18.4241),
+    "buenos-aires": (-34.6037, -58.3816),
+    "sao-paulo": (-23.5505, -46.6333),
+    "rio-de-janeiro": (-22.9068, -43.1729),
 }
 
 
@@ -1211,7 +1300,7 @@ def normalize_city_name(city: str) -> str:
     # Strip common administrative affixes and parentheses
     text = re.sub(r"\s*\(.*?\)", "", text)
     text = re.sub(
-        r",\s*(deutschland|germany|bayern|baden-württemberg|hessen|nrw|nordrhein-westfalen|sachsen|thüringen|brandenburg|niedersachsen|schleswig-holstein|österreich|austria|schweiz|switzerland)$",
+        r",\s*(deutschland|germany|bayern|baden-württemberg|hessen|nrw|nordrhein-westfalen|sachsen|thüringen|brandenburg|niedersachsen|schleswig-holstein|österreich|austria|schweiz|switzerland|uk|united kingdom|france|frankreich|italy|italien|spain|spanien|usa|united states)$",
         "",
         text,
         flags=re.IGNORECASE,
@@ -1235,7 +1324,7 @@ def geocode_city(
 
     1. Checks offline high-accuracy table for exact match and normalized match.
     2. Checks common prefixes/substrings for multi-word city variations.
-    3. Optionally falls back to open geocoding endpoint if enabled and available.
+    3. Optionally falls back to fast global Open-Meteo & Nominatim geocoding endpoints.
     """
     if not city or not city.strip():
         return (None, None)
@@ -1256,11 +1345,27 @@ def geocode_city(
     if not fetch_remote:
         return (None, None)
 
-    # Optional remote OSM Nominatim fallback
+    # 1. Fast Open-Meteo Global Geocoding API (worldwide coverage, no rate limits, < 150ms)
+    try:
+        encoded = parse.quote(city.strip())
+        url = f"https://geocoding-api.open-meteo.com/v1/search?name={encoded}&count=1&format=json"
+        req = request.Request(url, headers={"User-Agent": "ComputeMesh-ConcertResearch/1.2"})
+        with request.urlopen(req, timeout=min(2.0, timeout_seconds)) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data and isinstance(data, dict) and data.get("results"):
+                    first_res = data["results"][0]
+                    lat = float(first_res["latitude"])
+                    lon = float(first_res["longitude"])
+                    return (lat, lon)
+    except Exception as exc:
+        logger.debug("Open-Meteo geocoding fallback failed for %r: %s", city, exc)
+
+    # 2. Optional remote OSM Nominatim fallback
     try:
         encoded = parse.quote(city.strip())
         url = f"https://nominatim.openstreetmap.org/search?q={encoded}&format=json&limit=1"
-        req = request.Request(url, headers={"User-Agent": "ComputeMesh-ConcertResearch/1.0"})
+        req = request.Request(url, headers={"User-Agent": "ComputeMesh-ConcertResearch/1.2"})
         with request.urlopen(req, timeout=timeout_seconds) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -1269,6 +1374,6 @@ def geocode_city(
                     lon = float(data[0]["lon"])
                     return (lat, lon)
     except Exception as exc:
-        logger.debug("Remote geocoding failed for %r: %s", city, exc)
+        logger.debug("Nominatim geocoding failed for %r: %s", city, exc)
 
     return (None, None)

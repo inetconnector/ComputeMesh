@@ -205,10 +205,10 @@ class TestCompletedRegistry(unittest.TestCase):
 
     def test_all_completed_tools_registered(self):
         names = {tool.name for tool in self.registry.list_tools(is_owner=True)}
-        self.assertEqual(len(names), 26)
+        self.assertEqual(len(names), 27)
         for name in {
             "search_events", "search_places", "get_weather_forecast",
-            "get_sports_data", "lookup_company",
+            "get_sports_data", "lookup_company", "list_available_tools",
         }:
             self.assertIn(name, names)
 

@@ -64,6 +64,26 @@ def owner_id_for_key(owner_key: str) -> str | None:
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
 
 
+def _extract_discrete_hardware_fingerprint(n: dict[str, Any]) -> tuple[Any, ...]:
+    inv = n.get("inventory", {}) if n else {}
+    gpus = inv.get("gpus", []) if inv else []
+    from tools.appliance.hardware_detector import is_integrated_display_adapter
+    discrete = []
+    for g in gpus:
+        v = str(g.get("vendor", "")).strip().lower()
+        m = str(g.get("model_name", "")).strip()
+        vr = int(g.get("vram_bytes", 0) or 0)
+        if g.get("healthy", True) and not is_integrated_display_adapter(v, m):
+            discrete.append((v, m, vr))
+    if discrete:
+        discrete.sort()
+        return tuple(discrete)
+    total_vr = int(inv.get("total_vram_bytes", 0) or 0)
+    if total_vr > 0:
+        return ("vram_only", total_vr)
+    return ()
+
+
 def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = False) -> dict[str, Any]:
     """Shared node summary for both the raw owner_key fleet API and the
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
@@ -104,21 +124,19 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         # Fallback to direct online nodes in telemetry registry
         bound_node_ids = [nid for nid, nd in NODE_TELEMETRY_REGISTRY.items() if not nd.get("is_peer_relay", False)]
 
-    nodes_out = []
-    total_vram_bytes = 0
-    total_tflops = 0.0
-    online_count = 0
-
+    candidates = []
     for node_id in bound_node_ids:
         n = NODE_TELEMETRY_REGISTRY.get(node_id)
         if not n:
             continue
         is_online = False
+        updated_at_ts = 0.0
         if not n.get("is_peer_relay", False):
             updated_at_str = str(n.get("updated_at", "")).strip()
             if updated_at_str:
                 try:
                     ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                    updated_at_ts = ts.timestamp()
                     if (now - ts).total_seconds() <= max_age_seconds:
                         is_online = True
                 except Exception:
@@ -127,6 +145,64 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         # When requesting global/fleet list without specific owner_id filter, only return currently online nodes
         if not owner_id and not is_online:
             continue
+
+        candidates.append({
+            "node_id": node_id,
+            "data": n,
+            "is_online": is_online,
+            "updated_at_ts": updated_at_ts,
+            "hw_sig": _extract_discrete_hardware_fingerprint(n),
+            "auth_token": str(n.get("auth_token", "")).strip(),
+            "client_ip": str(n.get("client_ip", "")).strip(),
+        })
+
+    # Sort candidates so online nodes and the most recently updated heartbeat comes first
+    candidates.sort(key=lambda x: (x["is_online"], x["updated_at_ts"]), reverse=True)
+
+    seen_physical_keys: set[Any] = set()
+    deduped_candidates = []
+    registry_mutated = False
+
+    for c in candidates:
+        token = c["auth_token"]
+        ip = c["client_ip"]
+        hw = c["hw_sig"]
+
+        phys_key = None
+        if token and not token.startswith("peer_relayed_"):
+            phys_key = ("token", token)
+        elif ip and hw:
+            phys_key = ("ip_hw", ip, hw)
+
+        if phys_key and phys_key in seen_physical_keys:
+            # Duplicate alias of an existing physical node -> unbind and omit from count
+            old_nid = c["node_id"]
+            if owner_id:
+                try:
+                    OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_nid)
+                except Exception:
+                    pass
+            if not c["is_online"]:
+                NODE_TELEMETRY_REGISTRY.pop(old_nid, None)
+                registry_mutated = True
+            continue
+
+        if phys_key:
+            seen_physical_keys.add(phys_key)
+        deduped_candidates.append(c)
+
+    if registry_mutated:
+        save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+
+    nodes_out = []
+    total_vram_bytes = 0
+    total_tflops = 0.0
+    online_count = 0
+
+    for c in deduped_candidates:
+        node_id = c["node_id"]
+        n = c["data"]
+        is_online = c["is_online"]
 
         inv = n.get("inventory", {}) if n else {}
         telem = n.get("telemetry", {}) if n else {}
@@ -154,6 +230,7 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             "gpus": [g.get("model_name") for g in gpus] if gpus else [],
             "updated_at": n.get("updated_at") if n else None,
             "dashboard_port": n.get("dashboard_port", 8080) if n else 8080,
+            "payout_address": n.get("payout_address", "") if n else "",
             "network": n.get("network", {}) if n else {},
             "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
@@ -167,7 +244,7 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
 
     return {
         "owner_id": owner_id,
-        "total_nodes_bound": len(bound_node_ids),
+        "total_nodes_bound": len(deduped_candidates),
         "total_nodes_online": online_count,
         "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
         "total_tflops": round(total_tflops, 1),
@@ -1097,11 +1174,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             gm = body.get("global_mesh", {})
             for peer in gm.get("nodes", []):
                 p_id = str(peer.get("node_id", "")).strip()
-                if p_id and p_id != node_id and p_id not in ("windows-laptop", "unnamed-node"):
-                    p_vram_gb = float(peer.get("vram_gb", 0.0))
+                p_vram_gb = float(peer.get("vram_gb", 0.0) or 0.0)
+                if p_id and p_id != node_id and not peer.get("is_local", False) and p_id not in ("windows-laptop", "unnamed-node", "test-node-custom", "mifcom") and p_vram_gb > 0:
                     p_vram_bytes = int(p_vram_gb * 1024 * 1024 * 1024)
-                    p_tflops = float(peer.get("tflops", 0.0))
-                    p_gpus_cnt = int(peer.get("gpus_count", 1))
+                    p_tflops = float(peer.get("tflops", 0.0) or 0.0)
+                    p_gpus_cnt = int(peer.get("gpus_count", 1) or 1)
 
                     if p_id not in NODE_TELEMETRY_REGISTRY:
                         NODE_TELEMETRY_REGISTRY[p_id] = {

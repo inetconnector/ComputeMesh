@@ -176,7 +176,7 @@ class ConcertStore:
         row = self.get_city(name)
         if row and row["latitude"] is not None and row["longitude"] is not None:
             return float(row["latitude"]), float(row["longitude"])
-        lat, lon = geocode_city(name)
+        lat, lon = geocode_city(name, fetch_remote=True)
         if lat is not None and lon is not None:
             self.upsert_city(name, lat, lon)
             return lat, lon

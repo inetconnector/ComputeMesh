@@ -20,6 +20,18 @@ SPACE_RE = re.compile(r"\s+")
 
 # Curated High-Reliability RSS News Feeds
 NEWS_FEEDS = {
+    "spiegel": "https://www.spiegel.de/schlagzeilen/tops/index.rss",
+    "spiegel online": "https://www.spiegel.de/schlagzeilen/tops/index.rss",
+    "spiegel.de": "https://www.spiegel.de/schlagzeilen/tops/index.rss",
+    "tagesschau": "https://www.tagesschau.de/xml/rss2/",
+    "heise": "https://www.heise.de/rss/heise-atom.xml",
+    "golem": "https://rss.golem.de/rss.php?feed=RSS2.0",
+    "zeit": "https://newsfeed.zeit.de/index",
+    "zeit online": "https://newsfeed.zeit.de/index",
+    "faz": "https://www.faz.net/rss/aktuell/",
+    "welt": "https://www.welt.de/feeds/latest.rss",
+    "focus": "https://rss.focus.de/fol/XML/rss_folnews.xml",
+    "sueddeutsche": "https://rss.sueddeutsche.de/alles",
     "tech": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=de&gl=DE&ceid=DE:de",
     "business": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=de&gl=DE&ceid=DE:de",
     "finance": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=de&gl=DE&ceid=DE:de",
@@ -49,6 +61,8 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> Li
             content = resp.read().decode("utf-8", errors="ignore")
 
         root = ET.fromstring(content)
+
+        # Check standard RSS 2.0 channel/item
         channel = root.find("channel")
         if channel is not None:
             for item in channel.findall("item"):
@@ -74,6 +88,27 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> Li
                     })
                 if len(items) >= max_items:
                     break
+
+        # Check Atom format (e.g. Heise)
+        if not items and ("{http://www.w3.org/2005/Atom}" in root.tag or "feed" in root.tag):
+            ns = {"atom": "http://www.w3.org/2005/Atom"}
+            for entry in root.findall("atom:entry", ns) or root.findall("entry"):
+                title_el = entry.find("atom:title", ns) or entry.find("title")
+                link_el = entry.find("atom:link", ns) or entry.find("link")
+                sum_el = entry.find("atom:summary", ns) or entry.find("summary") or entry.find("atom:content", ns)
+                title = clean_text(title_el.text) if title_el is not None and title_el.text else ""
+                link = link_el.attrib.get("href", "") if link_el is not None else ""
+                summary = clean_text(sum_el.text) if sum_el is not None and sum_el.text else ""
+                if title:
+                    items.append({
+                        "title": title,
+                        "source": "Heise Online",
+                        "published": "",
+                        "summary": summary,
+                        "link": link,
+                    })
+                if len(items) >= max_items:
+                    break
     except Exception:
         pass
     return items
@@ -90,20 +125,62 @@ def get_live_news(
     """
     Fetches real-time news articles by topic or custom search term.
     """
-    clean_topic = (topic or category or query or search or "general").strip().lower()
+    raw_topic = (topic or category or query or search or "general").strip()
+    clean_topic = raw_topic.lower()
     max_results = max(1, min(max_results, 10))
 
-    if clean_topic in NEWS_FEEDS:
+    feed_url = None
+    display_topic = raw_topic
+
+    if "spiegel" in clean_topic:
+        feed_url = NEWS_FEEDS["spiegel"]
+        display_topic = "DER SPIEGEL (Top-Schlagzeilen)"
+    elif "tagesschau" in clean_topic:
+        feed_url = NEWS_FEEDS["tagesschau"]
+        display_topic = "Tagesschau"
+    elif "heise" in clean_topic:
+        feed_url = NEWS_FEEDS["heise"]
+        display_topic = "Heise Online"
+    elif "golem" in clean_topic:
+        feed_url = NEWS_FEEDS["golem"]
+        display_topic = "Golem.de"
+    elif "zeit" in clean_topic:
+        feed_url = NEWS_FEEDS["zeit"]
+        display_topic = "ZEIT ONLINE"
+    elif "faz" in clean_topic:
+        feed_url = NEWS_FEEDS["faz"]
+        display_topic = "FAZ.NET"
+    elif "welt" in clean_topic:
+        feed_url = NEWS_FEEDS["welt"]
+        display_topic = "WELT"
+    elif "focus" in clean_topic:
+        feed_url = NEWS_FEEDS["focus"]
+        display_topic = "Focus Online"
+    elif clean_topic in NEWS_FEEDS:
         feed_url = NEWS_FEEDS[clean_topic]
+    else:
+        # Check topic keywords
+        if any(k in clean_topic for k in ("krypto", "crypto", "bitcoin", "btc", "eth")):
+            feed_url = NEWS_FEEDS["crypto"]
+        elif any(k in clean_topic for k in ("tech", "technologie", "ki", "ai", "hardware")):
+            feed_url = NEWS_FEEDS["tech"]
+        elif any(k in clean_topic for k in ("wirtschaft", "business", "finanzen", "boerse", "aktien")):
+            feed_url = NEWS_FEEDS["business"]
+        elif any(k in clean_topic for k in ("welt", "ausland", "international", "world")):
+            feed_url = NEWS_FEEDS["world"]
+        elif any(k in clean_topic for k in ("deutschland", "inland", "politik")):
+            feed_url = NEWS_FEEDS["germany"]
+
+    if feed_url:
         results = fetch_rss_news(feed_url, max_items=max_results, timeout=timeout)
     else:
         # Custom topic search query via Google News RSS
-        encoded_query = urllib.parse.quote(clean_topic)
+        encoded_query = urllib.parse.quote(raw_topic)
         feed_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=de&gl=DE&ceid=DE:de"
         results = fetch_rss_news(feed_url, max_items=max_results, timeout=timeout)
 
     return {
-        "topic": clean_topic,
+        "topic": display_topic,
         "total": len(results),
         "articles": results,
     }

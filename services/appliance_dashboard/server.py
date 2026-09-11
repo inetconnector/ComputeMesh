@@ -181,6 +181,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # 2. Chat completions & Generation with autonomous MCP Tool Execution Loop
         if method == "POST" and clean_path in ("/v1/chat/completions", "/chat/completions", "/completions", "/api/chat", "/api/generate"):
+            # Positive Authorization & Emergency Kill Switch Check
+            try:
+                from runtime.safety.dead_mans_switch import get_lease_guard
+                guard = get_lease_guard(self._current_node_id())
+                if guard.is_tripped:
+                    self._send_json(
+                        {"error": {"message": f"Execution blocked: Emergency Kill Switch is tripped ({guard.trip_reason})", "code": 503}},
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                    return True
+            except Exception:
+                pass
+
             try:
                 payload = json.loads(post_body.decode("utf-8")) if post_body else {}
             except Exception:
@@ -363,6 +376,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
+            return
+
+        if req_path == "/api/killswitch/status":
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard(self._current_node_id())
+            self._send_json(guard.get_status())
             return
 
         if req_path == "/api/debug/diagnostics":
@@ -597,9 +616,83 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_unauthorized()
             return
 
+        if req_path == "/api/killswitch/trigger":
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+            except Exception:
+                data = {}
+            reason = str(data.get("reason") or "Appliance Operator Emergency Stop")
+            req_scope = str(data.get("scope") or "node").lower().strip()
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard(self._current_node_id())
+
+            # Check if global cluster kill is requested
+            if req_scope in ("global", "cluster", "platform"):
+                # Master Platform Owner check
+                master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+                master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+                is_master = bool(master_env_key and master_key_header and hmac.compare_digest(master_key_header, master_env_key))
+                if not is_master:
+                    # Isolate: trip only this local node, and reject global platform kill
+                    guard.trip_node(self._current_node_id(), reason=reason)
+                    try:
+                        from services.appliance_dashboard.tunnel_relay import CLOUD_TUNNEL_RELAY
+                        CLOUD_TUNNEL_RELAY.stop()
+                    except Exception:
+                        pass
+                    self._send_json({
+                        "status": "node_tripped_only",
+                        "scope": "node",
+                        "node_id": self._current_node_id(),
+                        "message": "Berechtigungs-Schutz aktiv: Nur der Inhaber des Stripe-Accounts / inetconnector Plattformbetreiber darf den globalen Cluster-Not-Aus auslösen. Dein lokaler Knoten wurde erfolgreich isoliert und gestoppt.",
+                        "guard": guard.get_status(node_id=self._current_node_id()),
+                    }, HTTPStatus.FORBIDDEN)
+                    return
+
+                # Master authorized: trip global
+                guard.trip(reason=reason, is_master=True)
+            else:
+                # Default: safe node-scoped emergency trip
+                guard.trip_node(self._current_node_id(), reason=reason)
+
+            # Instantly sever mTLS cloud tunnel relay for this node
+            try:
+                from services.appliance_dashboard.tunnel_relay import CLOUD_TUNNEL_RELAY
+                CLOUD_TUNNEL_RELAY.stop()
+            except Exception:
+                pass
+
+            self._send_json({
+                "status": "tripped",
+                "scope": req_scope if req_scope in ("global", "cluster") else "node",
+                "node_id": self._current_node_id(),
+                "message": f"Not-Aus erfolgreich ausgeführt ({reason})",
+                "guard": guard.get_status(node_id=self._current_node_id()),
+            })
+            return
+
+        if req_path == "/api/killswitch/renew":
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+            except Exception:
+                data = {}
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard(self._current_node_id())
+            if "lease_id" in data:
+                try:
+                    guard.update_lease(data)
+                    self._send_json({"status": "renewed", "guard": guard.get_status()})
+                    return
+                except Exception as exc:
+                    self._send_json({"status": "error", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+            self._send_json({"status": "active", "guard": guard.get_status()})
+            return
+
         if req_path == "/api/config":
             try:
                 data = json.loads(post_body.decode("utf-8"))
+                previous_node_id = str(getattr(self.config, "rig_name", "") or "").strip()
                 new_dict = self.config.to_dict()
                 for k, v in data.items():
                     if k in new_dict:
@@ -609,7 +702,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 save_system_config(updated_cfg)
                 DashboardHandler.config = updated_cfg
 
-                resp = json.dumps({"status": "ok", "message": "Configuration saved successfully"}).encode("utf-8")
+                # Instantly synchronize across local mesh, lan discovery responder & coordinator webserver
+                try:
+                    from services.appliance_dashboard.tunnel_relay import trigger_immediate_mesh_sync
+                    trigger_immediate_mesh_sync(updated_cfg=updated_cfg, previous_node_id=previous_node_id)
+                except Exception:
+                    pass
+
+                resp = json.dumps({
+                    "status": "ok",
+                    "message": "Configuration saved and instantly synchronized across mesh and coordinator",
+                    "synced": True,
+                    "node_id": updated_cfg.rig_name or previous_node_id,
+                }).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():

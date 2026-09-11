@@ -67,12 +67,12 @@ class ConcertResearchEngine:
 
         # 4. Trigger crawler refresh if force_refresh or no rows exist
         if req.force_refresh or not rows:
-            self.crawler.discover(req.city, genre_terms=req.genre_terms or req.genres, max_queries=16)
+            self.crawler.discover(req.city, genre_terms=req.genre_terms or req.genres, max_queries=4)
             self.crawler.crawl_due(
                 city=req.city,
                 date_from=start.isoformat(),
                 date_to=end.isoformat(),
-                limit=min(self.config.max_pages_per_cycle, 200),
+                limit=min(self.config.max_pages_per_cycle, 25),
             )
             rows = self.store.research_rows(
                 req.city,
@@ -88,7 +88,34 @@ class ConcertResearchEngine:
                 sort=req.sort or "recommended",
             )
 
-        return self._concert_envelope(req, today, rows)
+        # 5. Progressive radius expansion if no rows exist in initial radius
+        effective_radius = req.radius_km
+        notes = None
+        if not rows and req.latitude is not None and req.longitude is not None:
+            expansion_tiers = [40.0, 75.0, 120.0, 200.0, 300.0]
+            for tier in expansion_tiers:
+                if req.radius_km is not None and tier <= req.radius_km:
+                    continue
+                exp_rows = self.store.research_rows(
+                    req.city,
+                    start.isoformat(),
+                    end.isoformat(),
+                    req.max_events,
+                    latitude=req.latitude,
+                    longitude=req.longitude,
+                    radius_km=tier,
+                    categories=req.categories if req.categories else None,
+                    only_live_music=True,
+                    genres=req.genres if req.genres else None,
+                    sort=req.sort or "recommended",
+                )
+                if exp_rows:
+                    rows = exp_rows
+                    effective_radius = tier
+                    notes = f"Erweiterter Umkreis (~{int(tier)} km um {req.city})"
+                    break
+
+        return self._concert_envelope(req, today, rows, notes=notes, effective_radius=effective_radius)
 
     def research_events(self, req: ResearchRequest) -> dict[str, Any]:
         """Queries all event categories (parties, theater, exhibitions, sports, etc.) with rubrized output."""
@@ -119,12 +146,12 @@ class ConcertResearchEngine:
         )
 
         if req.force_refresh or not rows:
-            self.crawler.discover(req.city, genre_terms=req.genre_terms, max_queries=16)
+            self.crawler.discover(req.city, genre_terms=req.genre_terms, max_queries=4)
             self.crawler.crawl_due(
                 city=req.city,
                 date_from=start.isoformat(),
                 date_to=end.isoformat(),
-                limit=min(self.config.max_pages_per_cycle, 200),
+                limit=min(self.config.max_pages_per_cycle, 25),
             )
             rows = self.store.research_rows(
                 req.city,
@@ -140,7 +167,34 @@ class ConcertResearchEngine:
                 sort=req.sort or "recommended",
             )
 
-        return self._events_envelope(req, today, rows)
+        # Progressive radius expansion if no rows exist in initial radius
+        effective_radius = req.radius_km
+        notes = None
+        if not rows and req.latitude is not None and req.longitude is not None:
+            expansion_tiers = [40.0, 75.0, 120.0, 200.0, 300.0]
+            for tier in expansion_tiers:
+                if req.radius_km is not None and tier <= req.radius_km:
+                    continue
+                exp_rows = self.store.research_rows(
+                    req.city,
+                    start.isoformat(),
+                    end.isoformat(),
+                    req.max_events,
+                    latitude=req.latitude,
+                    longitude=req.longitude,
+                    radius_km=tier,
+                    categories=req.categories if req.categories else None,
+                    only_live_music=req.only_live_music,
+                    genres=req.genres if req.genres else None,
+                    sort=req.sort or "recommended",
+                )
+                if exp_rows:
+                    rows = exp_rows
+                    effective_radius = tier
+                    notes = f"Erweiterter Umkreis (~{int(tier)} km um {req.city})"
+                    break
+
+        return self._events_envelope(req, today, rows, notes=notes, effective_radius=effective_radius)
 
     def daily_cycle(self, city: str, *, genre_terms: list[str] | None = None) -> dict[str, Any]:
         today = datetime.now(resolve_timezone(self.config.timezone)).date()
@@ -148,11 +202,11 @@ class ConcertResearchEngine:
         crawl = self.crawler.crawl_due(city=city, date_from=today.isoformat(), date_to=(today + timedelta(days=365)).isoformat())
         return {"city": city, "discovery": discovery, "crawl": crawl}
 
-    def _concert_envelope(self, req: ResearchRequest, today: date, rows) -> dict[str, Any]:
+    def _concert_envelope(self, req: ResearchRequest, today: date, rows, notes: str | None = None, effective_radius: float | None = None) -> dict[str, Any]:
         tomorrow = today + timedelta(days=1)
         by_date: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
-            event = self._public_event(req, row, extended=False)
+            event = self._public_event(req, row, extended=False, effective_radius_km=effective_radius)
             if event is not None:
                 by_date.setdefault(row["date_iso"], []).append(event)
         sources = [
@@ -162,31 +216,35 @@ class ConcertResearchEngine:
         return {
             "city": req.city,
             "requestedCity": req.city,
-            "notes": None,
+            "notes": notes,
             "today": self._day(today, "Heute", by_date.get(today.isoformat(), [])),
             "tomorrow": self._day(tomorrow, "Morgen", by_date.get(tomorrow.isoformat(), [])),
             "sources": sources,
         }
 
-    def _events_envelope(self, req: ResearchRequest, today: date, rows) -> dict[str, Any]:
+    def _events_envelope(self, req: ResearchRequest, today: date, rows, notes: str | None = None, effective_radius: float | None = None) -> dict[str, Any]:
         tomorrow = today + timedelta(days=1)
         by_date: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
-            event = self._public_event(req, row, extended=True)
+            event = self._public_event(req, row, extended=True, effective_radius_km=effective_radius)
             if event is not None:
                 by_date.setdefault(row["date_iso"], []).append(event)
         sources = [
             {"name": r["name"], "url": r["canonical_url"], "tier": r["tier"] if r["tier"] in {"primary", "secondary"} else "secondary"}
             for r in self.store.sources_for_city(req.city)[:50]
         ]
-        return {
+        res: dict[str, Any] = {
             "city": req.city,
             "requestedCity": req.city,
-            "notes": None,
+            "notes": notes,
             "today": self._day_rubrized(today, "Heute", by_date.get(today.isoformat(), [])),
             "tomorrow": self._day_rubrized(tomorrow, "Morgen", by_date.get(tomorrow.isoformat(), [])),
             "sources": sources,
         }
+        if req.radius_km is not None or effective_radius is not None:
+            res["requestedRadiusKm"] = req.radius_km
+            res["effectiveRadiusKm"] = effective_radius if effective_radius is not None else req.radius_km
+        return res
 
     @staticmethod
     def _day(day: date, label: str, events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -237,8 +295,10 @@ class ConcertResearchEngine:
             "events": events,
         }
 
-    def _public_event(self, req: ResearchRequest, row, extended: bool = False) -> dict[str, Any] | None:
-        if req.latitude is not None and req.longitude is not None and req.radius_km and req.radius_km > 0:
+    def _public_event(self, req: ResearchRequest, row, extended: bool = False, effective_radius_km: float | None = None) -> dict[str, Any] | None:
+        calc_dist_km: float | None = None
+        max_rad = effective_radius_km if effective_radius_km is not None else req.radius_km
+        if req.latitude is not None and req.longitude is not None and max_rad and max_rad > 0:
             v_lat = row["venue_latitude"]
             v_lon = row["venue_longitude"]
             if (v_lat is None or v_lon is None) and "venue_city_key" in row.keys() and row["venue_city_key"]:
@@ -252,7 +312,8 @@ class ConcertResearchEngine:
                         v_lat, v_lon = float(c_row["latitude"]), float(c_row["longitude"])
 
             if v_lat is not None and v_lon is not None:
-                if self._distance_km(req.latitude, req.longitude, float(v_lat), float(v_lon)) > req.radius_km:
+                calc_dist_km = round(self._distance_km(req.latitude, req.longitude, float(v_lat), float(v_lon)), 1)
+                if calc_dist_km > max_rad:
                     return None
             else:
                 req_city_key = self.store.city_key(req.city)
@@ -276,7 +337,7 @@ class ConcertResearchEngine:
             str(x) for x in (row["canonical_title"], row["venue_name"], row["start_time"], row["price"]) if x
         )
 
-        base_event = {
+        base_event: dict[str, Any] = {
             "title": row["canonical_title"],
             "venue": row["venue_name"],
             "area": row["area"],
@@ -317,6 +378,7 @@ class ConcertResearchEngine:
             "isLiveMusic": is_live,
             "qualityScore": float(row["quality_score"]) if "quality_score" in row.keys() and row["quality_score"] is not None else 50.0,
             "recommendationScore": float(row["recommendation_score"]) if "recommendation_score" in row.keys() and row["recommendation_score"] is not None else 50.0,
+            "distanceKm": calc_dist_km,
         }
 
     @staticmethod

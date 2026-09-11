@@ -90,6 +90,12 @@ TOOL_ALIASES: Dict[str, str] = {
     "news_feed": "get_live_news",
     "events": "search_events",
     "event_search": "search_events",
+    "konzerte": "search_events",
+    "konzertsuche": "search_events",
+    "veranstaltungen": "search_events",
+    "live_events": "search_events",
+    "research_events": "search_events",
+    "research_concerts": "search_events",
     "places": "search_places",
     "place_search": "search_places",
     "sports": "get_sports_data",
@@ -100,9 +106,13 @@ TOOL_ALIASES: Dict[str, str] = {
     "get_time": "get_time_and_calendar",
     "current_time": "get_time_and_calendar",
     "time": "get_time_and_calendar",
-    "uhrzeit": "get_time_and_calendar",
     "bitcoin_price": "get_market_quote",
     "btc_price": "get_market_quote",
+    "list_tools": "list_available_tools",
+    "get_tools": "list_available_tools",
+    "mcp_tools": "list_available_tools",
+    "mcp_modules": "list_available_tools",
+    "available_tools": "list_available_tools",
 }
 
 
@@ -238,7 +248,7 @@ class ToolRegistry:
     def get_openai_tools(self, is_owner: bool = True) -> List[Dict[str, Any]]:
         return [tool.to_openai_dict() for tool in self.list_tools(is_owner=is_owner)]
 
-    def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True) -> Any:
+    def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True, owner_id: str | None = None) -> Any:
         resolved = self._resolve_tool_name(name)
         tool = self._tools.get(resolved) or self._tools.get(name)
         if not tool:
@@ -251,6 +261,17 @@ class ToolRegistry:
             return {"error": f"Ungültige Tool-Parameter für '{name}': {validation_error}"}
         if not isinstance(arguments, dict):
             return {"error": f"Ungültige Tool-Parameter für '{name}': JSON-Objekt erwartet"}
+
+        # Positive Authorization & Emergency Kill Switch Check (Global & Fleet-Scoped)
+        try:
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            if guard.is_tripped:
+                return {"error": f"Tool-Ausführung blockiert: Globaler Emergency Kill Switch ist aktiv ({guard.trip_reason})"}
+            if owner_id and guard.is_fleet_tripped(owner_id):
+                return {"error": f"Tool-Ausführung blockiert: Flotte '{owner_id}' ist gestoppt ({guard.get_fleet_trip_reason(owner_id)})"}
+        except Exception:
+            pass
 
         try:
             return tool.handler(**arguments)
@@ -267,6 +288,22 @@ class ToolRegistry:
             if strict:
                 value["additionalProperties"] = False
             return value
+
+        def _execute_list_tools(**kwargs: Any) -> Dict[str, Any]:
+            return {
+                "available_tools": [
+                    {"name": t.name, "description": t.description}
+                    for t in self.list_tools(is_owner=True)
+                ]
+            }
+
+        self.register_tool(
+            "list_available_tools",
+            "Listet alle aktuell aktiven ComputeMesh MCP-Module und Live-Werkzeuge auf.",
+            schema({}),
+            _execute_list_tools,
+            source="builtin_system",
+        )
 
         if self.config.web_search_enabled:
             self.register_tool(

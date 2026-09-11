@@ -2,7 +2,7 @@
    ComputeMesh Portal Client Logic: i18n (DE/EN), Calculators & Subpages
    ============================================================================== */
 
-const translations = {
+var translations = window.translations || {
   en: {
     // Navigation & Common
     nav_home: "Home",
@@ -16,7 +16,7 @@ const translations = {
     btn_manage_fleet: "Fleet Cockpit",
     fleet_btn_login_nav: "Sign in",
     fleet_btn_logout: "Sign out",
-    fleet_node_open: "Open Server ➔",
+    fleet_node_open: "Server Info ➔",
     fleet_node_delete: "Delete inactive node",
     fleet_node_delete_confirm: "Do you really want to remove server \"{node_id}\" from your fleet?\n\nThis node has 0 TFLOPS and is inactive or outdated.",
     fleet_node_delete_success: "Node removed successfully.",
@@ -411,7 +411,7 @@ const translations = {
     btn_manage_fleet: "Flotten-Cockpit",
     fleet_btn_login_nav: "Anmelden",
     fleet_btn_logout: "Abmelden",
-    fleet_node_open: "Server öffnen ➔",
+    fleet_node_open: "Server Info ➔",
     fleet_node_delete: "Inaktiven Knoten löschen",
     fleet_node_delete_confirm: "Möchtest du den Server \"{node_id}\" wirklich aus deiner Flotte löschen?\n\nDieser Knoten hat 0 TFLOPS und ist inaktiv bzw. veraltet.",
     fleet_node_delete_success: "Knoten erfolgreich entfernt.",

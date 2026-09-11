@@ -215,12 +215,15 @@ class OpenAICompatibleHTTPBackend:
         model_id: str,
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> BackendResult:
         runtime_model = self.model_override or model_id
         formatted_messages = self._format_openai_messages(messages)
         payload_data: dict[str, Any] = {"model": runtime_model, "messages": formatted_messages, "stream": False}
         if max_tokens is not None:
             payload_data["max_tokens"] = max_tokens
+        if tools:
+            payload_data["tools"] = tools
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self.api_key:

@@ -92,9 +92,211 @@ def format_tool_content_if_json(content: str) -> str:
                     title = article.get("title", "")
                     source = article.get("source", "")
                     url = article.get("link", "")
+                    summary = article.get("summary", "")
                     source_text = f" *({source})*" if source else ""
-                    result += f"{index}. [{title}]({url}){source_text}\n" if url else f"{index}. **{title}**{source_text}\n"
+                    if url and title:
+                        result += f"{index}. [{title}]({url}){source_text}\n"
+                    elif title:
+                        result += f"{index}. **{title}**{source_text}\n"
+                    if summary:
+                        result += f"   {summary}\n\n"
+                    else:
+                        result += "\n"
             return result.strip()
+
+        if "results" in data and isinstance(data.get("results"), list):
+            q = data.get("query", "Websuche")
+            results_list = data.get("results", [])
+            if not results_list:
+                return f"Für die Suchanfrage **'{q}'** wurden keine Live-Websuchergebnisse gefunden."
+            res_str = f"Live-Websuchergebnisse für **'{q}'**:\n\n"
+            for idx, r in enumerate(results_list[:5], 1):
+                if not isinstance(r, dict):
+                    continue
+                title = r.get("title", "")
+                url = r.get("url", "")
+                snippet = r.get("snippet", "")
+                if url and title:
+                    res_str += f"{idx}. [{title}]({url})\n"
+                elif title:
+                    res_str += f"{idx}. **{title}**\n"
+                if snippet:
+                    res_str += f"   {snippet}\n\n"
+            return res_str.strip()
+
+        if "available_tools" in data and isinstance(data.get("available_tools"), list):
+            tools_list = data.get("available_tools", [])
+            res_str = "### 🛠️ Aktive ComputeMesh MCP-Module & Live-Tools\n\n"
+            res_str += "Folgende Live-Werkzeuge sind auf diesem Cluster einsatzbereit:\n\n"
+            for t in tools_list:
+                name = t.get("name", "")
+                desc = t.get("description", "")
+                res_str += f"- **`{name}`**: {desc}\n"
+            res_str += "\n*Alle Werkzeuge können direkt durch Fragen nach aktuellen Daten (Wetter, Suche, Kurse, News etc.) genutzt werden.*"
+            return res_str.strip()
+
+        if "city" in data and ("today" in data or "tomorrow" in data or "events" in data or "rubrics" in data):
+            raw_city = str(data.get("city") or data.get("requestedCity") or "Veranstaltungen").strip()
+            city = raw_city.title() if raw_city else "Veranstaltungen"
+            notes_str = str(data.get("notes") or "").strip()
+            sections = []
+
+            rubric_icons = {
+                "KONZERTE & LIVE-MUSIK": "🎸",
+                "PARTY & CLUB": "🪩",
+                "BÜHNE & THEATER": "🎭",
+                "FESTE & FESTIVALS": "🎪",
+                "KUNST & AUSSTELLUNGEN": "🎨",
+                "SPORT & FITNESS": "⚽",
+                "KURSE & WORKSHOPS": "🧠",
+                "KINDER & FAMILIE": "🧸",
+                "SONSTIGES": "📌",
+            }
+
+            for period_key in ("today", "tomorrow"):
+                period = data.get(period_key)
+                if not isinstance(period, dict):
+                    continue
+                label = period.get("dayLabel") or ("Heute" if period_key == "today" else "Morgen")
+                date_iso = period.get("dateIso", "")
+                rubrics = period.get("rubrics") or {}
+                events = period.get("events") or []
+                highlights = period.get("highlights") or []
+
+                header = f"### 📅 {label}" + (f" ({date_iso})" if date_iso else "")
+                period_blocks = []
+                seen_titles: set[tuple[str, str]] = set()
+
+                if rubrics:
+                    preferred_order = [
+                        "KONZERTE & LIVE-MUSIK",
+                        "PARTY & CLUB",
+                        "FESTE & FESTIVALS",
+                        "BÜHNE & THEATER",
+                        "KUNST & AUSSTELLUNGEN",
+                        "SONSTIGES",
+                        "KURSE & WORKSHOPS",
+                        "SPORT & FITNESS",
+                        "KINDER & FAMILIE",
+                    ]
+                    ordered_rubrics = [r for r in preferred_order if r in rubrics] + [r for r in rubrics if r not in preferred_order]
+
+                    for rubric_name in ordered_rubrics:
+                        r_events = rubrics[rubric_name]
+                        if not r_events:
+                            continue
+                        icon = rubric_icons.get(rubric_name, "📌")
+                        rubric_lines = [f"**{icon} {rubric_name.title()}:**"]
+                        added_in_rubric = 0
+
+                        for ev in r_events:
+                            t = str(ev.get("title") or "").strip()
+                            v = str(ev.get("venue") or "").strip()
+                            st = str(ev.get("startTime") or "").strip()
+                            desc = str(ev.get("description") or "").strip()
+                            u = str(ev.get("url") or "").strip()
+                            dist = ev.get("distanceKm")
+
+                            key = (t.lower(), v.lower())
+                            if key in seen_titles:
+                                continue
+                            seen_titles.add(key)
+
+                            time_str = f" um {st} Uhr" if st and st != "None" else ""
+                            dist_str = f" (~{dist} km)" if (dist and float(dist) > 2.0) else ""
+                            loc_str = f" @ {v}{dist_str}" if v else (f" {dist_str}" if dist_str else "")
+                            item_hdr = f"- **{t}**{loc_str}{time_str}"
+                            if u and u.startswith("http"):
+                                item_hdr += f" — [Info & Tickets]({u})"
+                            rubric_lines.append(item_hdr)
+
+                            if desc and len(desc) > 15 and not desc.startswith("http"):
+                                clean_desc = re.sub(r"\s+", " ", desc).replace("\n", " ").strip()
+                                if clean_desc.lower() != t.lower():
+                                    short_desc = clean_desc[:120].strip() + ("..." if len(clean_desc) > 120 else "")
+                                    rubric_lines.append(f"  *{short_desc}*")
+
+                            added_in_rubric += 1
+                            if added_in_rubric >= 6:
+                                break
+
+                        if added_in_rubric > 0:
+                            period_blocks.append("\n".join(rubric_lines))
+
+                elif events:
+                    event_lines = []
+                    for idx, ev in enumerate(events[:8], 1):
+                        t = str(ev.get("title") or "").strip()
+                        v = str(ev.get("venue") or "").strip()
+                        st = str(ev.get("startTime") or "").strip()
+                        desc = str(ev.get("description") or "").strip()
+                        u = str(ev.get("url") or "").strip()
+                        dist = ev.get("distanceKm")
+
+                        key = (t.lower(), v.lower())
+                        if key in seen_titles:
+                            continue
+                        seen_titles.add(key)
+
+                        time_str = f" um {st} Uhr" if st and st != "None" else ""
+                        dist_str = f" (~{dist} km)" if (dist and float(dist) > 2.0) else ""
+                        loc_str = f" @ {v}{dist_str}" if v else (f" {dist_str}" if dist_str else "")
+                        item_hdr = f"{idx}. **{t}**{loc_str}{time_str}"
+                        if u and u.startswith("http"):
+                            item_hdr += f" — [Info & Tickets]({u})"
+                        event_lines.append(item_hdr)
+
+                        if desc and len(desc) > 15 and not desc.startswith("http"):
+                            clean_desc = re.sub(r"\s+", " ", desc).replace("\n", " ").strip()
+                            if clean_desc.lower() != t.lower():
+                                short_desc = clean_desc[:120].strip() + ("..." if len(clean_desc) > 120 else "")
+                                event_lines.append(f"   *{short_desc}*")
+
+                    if event_lines:
+                        period_blocks.append("\n".join(event_lines))
+
+                elif highlights:
+                    hl_lines = [f"- {hl}" for hl in highlights[:6]]
+                    period_blocks.append("\n".join(hl_lines))
+
+                if period_blocks:
+                    sections.append(header + "\n\n" + "\n\n".join(period_blocks))
+
+            if sections:
+                banner = f"## 🎟️ Live-Veranstaltungen & Konzerte in {city}\n\n"
+                if notes_str:
+                    banner += f"*ℹ️ {notes_str} (today.inetconnector.com)*\n\n"
+                else:
+                    banner += "*Echtzeit-Daten aus dem ComputeMesh Event-Index (today.inetconnector.com)*\n\n"
+                return banner + "\n\n---\n\n".join(sections)
+
+            # Fallback to Deep Cultural Research across subculture, live clubs, village gems and calendars
+            try:
+                from .builtin.web_search import deep_cultural_event_search
+                deep_res = deep_cultural_event_search(city, max_results=8)
+                rubrics_found = deep_res.get("rubrics", {})
+                if rubrics_found:
+                    res_str = f"## 🎟️ Aktuelle Veranstaltungen & Kultur-Highlights in {city}\n\n"
+                    res_str += f"*Tiefenrecherche für den Raum {city} (Subkultur, Live-Bühnen, Regionalkultur & Kalender):*\n\n"
+                    for badge_name, items in rubrics_found.items():
+                        res_str += f"### {badge_name}\n\n"
+                        for idx, r in enumerate(items, 1):
+                            title = r.get("title", "")
+                            url = r.get("url", "")
+                            snippet = r.get("snippet", "")
+                            if url and title:
+                                res_str += f"{idx}. [{title}]({url})\n"
+                            elif title:
+                                res_str += f"{idx}. **{title}**\n"
+                            if snippet:
+                                clean_snip = re.sub(r"\s+", " ", snippet).strip()
+                                res_str += f"   *{clean_snip}*\n\n"
+                        res_str += "\n"
+                    return res_str.strip()
+            except Exception:
+                pass
+
+            return f"Für **{city}** konnten im aktuellen Zeitraum keine passenden Veranstaltungen gefunden werden."
 
         if "title" in data and "summary" in data:
             title = data.get("title", "")
@@ -234,6 +436,10 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     """Detects direct tool calling intent from user query with high precision."""
     cleaned = text.strip()
     
+    # 0. List Active MCP Modules & Tools
+    if re.search(r"(?:welche\s+mcp|welche\s+tools|welche\s+module|aktive\s+tools|aktive\s+module|list\s+tools|available\s+tools|mcp\s+status|welche\s+funktionen\s+hast\s+du|was\s+kannst\s+du|welche\s+werkzeuge)", cleaned, re.IGNORECASE):
+        return ("list_available_tools", {})
+
     # 1. Weather
     m_weather = re.search(
         r"(?:wie\s+(?:ist|wird)\s+das\s+wetter\s+(?:in|für|fuer)?\s*|wetter\s+(?:in|für|fuer)?\s*|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
@@ -278,11 +484,307 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
             return ("calculate_math", {"expression": expr})
 
-    # 5. News Feed
-    if re.search(r"(?:aktuelle\s+nachrichten|nachrichten|news\s+heute|schlagzeilen|top\s+news|what's\s+the\s+news|latest\s+news)", cleaned, re.IGNORECASE):
-        return ("get_news_feed", {"topic": "Deutschland & Welt"})
+    # 5. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, etc.)
+    m_portal_news = re.search(
+        r"(?:(?:die\s+|die\s+aktuellen\s+|aktuelle\s+)?(?:headlines|schlagzeilen|nachrichten|news|top\s+news|artikel)\s+(?:von\s+|aus\s+|auf\s+|bei\s+)?|was\s+gibt\s+es\s+neues\s+(?:bei\s+|auf\s+)?)\s*(spiegel(?:\s+online)?|tagesschau|heise(?:\s+online)?|golem(?:\s+online)?|zeit(?:\s+online)?|faz(?:\s+net)?|welt(?:\s+de)?|focus(?:\s+online)?|sueddeutsche)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_portal_news:
+        portal = m_portal_news.group(1).strip()
+        return ("get_news_feed", {"topic": portal})
 
-    # 6. Wikipedia
+    if any(p in cleaned.lower() for p in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche")) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel")):
+        for p_name in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche"):
+            if p_name in cleaned.lower():
+                return ("get_news_feed", {"topic": p_name})
+        return ("get_news_feed", {"topic": "spiegel online"})
+
+    # 6. Events, Concerts, Subculture & Regional Discovery (Worldwide & Europe with typo tolerance)
+    if re.search(r"(?:kon[tz]+ert[a-z]*|con[cz]i?ert[a-z]*|veranstalt[a-z]*|verantstalt[a-z]*|events?|part[yi]e?s?|gigs?|festivals?|live[\s\-_]?musik|live[\s\-_]?music|was\s+geht|things\s+to\s+do|what\s+to\s+do|what'?s\s+(?:on|happening|going\s+on)|what\s+is\s+on|live[\s\-_]?bands?|bands\s+live|ausgehen|kulturprogramm|spielplan|clubbing|disco|disko|nightlife|klapperfeld|subkultur|kulturzentrum|off-space|b\u00fcrgerhaus|scheune|dorfgemeinschaftshaus|kleinkunst|freiraum|autonomes?\s+zentrum|tiers-lieux|friche|squat|grassroots)", cleaned, re.IGNORECASE):
+        city_aliases = {
+            "wue": "Würzburg",
+            "wü": "Würzburg",
+            "wuerzburg": "Würzburg",
+            "würzburg": "Würzburg",
+            "würzburger": "Würzburg",
+            "münchen": "München",
+            "munich": "München",
+            "muc": "München",
+            "münchner": "München",
+            "nürnberg": "Nürnberg",
+            "nuernberg": "Nürnberg",
+            "nürnberger": "Nürnberg",
+            "schweinfurt": "Schweinfurt",
+            "veitshöchheim": "Veitshöchheim",
+            "veitshoechheim": "Veitshöchheim",
+            "frankfurt": "Frankfurt am Main",
+            "ffm": "Frankfurt am Main",
+            "berlin": "Berlin",
+            "hamburg": "Hamburg",
+            "stuttgart": "Stuttgart",
+            "köln": "Köln",
+            "koeln": "Köln",
+            "cologne": "Köln",
+            "dresden": "Dresden",
+            "leipzig": "Leipzig",
+            "augsburg": "Augsburg",
+            "regensburg": "Regensburg",
+            "bamberg": "Bamberg",
+            "erlangen": "Erlangen",
+            "kitzingen": "Kitzingen",
+            "aschaffenburg": "Aschaffenburg",
+            "lohr": "Lohr",
+            "karlstadt": "Karlstadt",
+            "ochsenfurt": "Ochsenfurt",
+            "marktheidenfeld": "Marktheidenfeld",
+            "bad-kissingen": "Bad Kissingen",
+            "düsseldorf": "Düsseldorf",
+            "duesseldorf": "Düsseldorf",
+            "dortmund": "Dortmund",
+            "essen": "Essen",
+            "bremen": "Bremen",
+            "hannover": "Hannover",
+            "duisburg": "Duisburg",
+            "bochum": "Bochum",
+            "wuppertal": "Wuppertal",
+            "bielefeld": "Bielefeld",
+            "bonn": "Bonn",
+            "münster": "Münster",
+            "karlsruhe": "Karlsruhe",
+            "mannheim": "Mannheim",
+            "wiesbaden": "Wiesbaden",
+            "gelsenkirchen": "Gelsenkirchen",
+            "mönchengladbach": "Mönchengladbach",
+            "braunschweig": "Braunschweig",
+            "chemnitz": "Chemnitz",
+            "kiel": "Kiel",
+            "aachen": "Aachen",
+            "halle": "Halle (Saale)",
+            "magdeburg": "Magdeburg",
+            "freiburg": "Freiburg im Breisgau",
+            "krefeld": "Krefeld",
+            "mainz": "Mainz",
+            "lübeck": "Lübeck",
+            "erfurt": "Erfurt",
+            "oberhausen": "Oberhausen",
+            "rostock": "Rostock",
+            "kassel": "Kassel",
+            "potsdam": "Potsdam",
+            "saarbrücken": "Saarbrücken",
+            "heidelberg": "Heidelberg",
+            "darmstadt": "Darmstadt",
+            "ulm": "Ulm",
+            "wien": "Wien",
+            "vienna": "Wien",
+            "zürich": "Zürich",
+            "zurich": "Zürich",
+            "zuerich": "Zürich",
+            "salzburg": "Salzburg",
+            "innsbruck": "Innsbruck",
+            "graz": "Graz",
+            "linz": "Linz",
+            "basel": "Basel",
+            "bern": "Bern",
+            "genf": "Genf",
+            "geneva": "Genf",
+            "lausanne": "Lausanne",
+            "london": "London",
+            "manchester": "Manchester",
+            "birmingham": "Birmingham",
+            "liverpool": "Liverpool",
+            "leeds": "Leeds",
+            "glasgow": "Glasgow",
+            "edinburgh": "Edinburgh",
+            "bristol": "Bristol",
+            "cardiff": "Cardiff",
+            "belfast": "Belfast",
+            "paris": "Paris",
+            "lyon": "Lyon",
+            "marseille": "Marseille",
+            "bordeaux": "Bordeaux",
+            "toulouse": "Toulouse",
+            "nice": "Nizza",
+            "nizza": "Nizza",
+            "nantes": "Nantes",
+            "strasbourg": "Straßburg",
+            "straßburg": "Straßburg",
+            "lille": "Lille",
+            "madrid": "Madrid",
+            "barcelona": "Barcelona",
+            "valencia": "Valencia",
+            "sevilla": "Sevilla",
+            "seville": "Sevilla",
+            "bilbao": "Bilbao",
+            "malaga": "Málaga",
+            "zaragoza": "Zaragoza",
+            "rom": "Rom",
+            "rome": "Rom",
+            "roma": "Rom",
+            "milan": "Mailand",
+            "mailand": "Mailand",
+            "milano": "Mailand",
+            "napoli": "Neapel",
+            "neapel": "Neapel",
+            "torino": "Turin",
+            "turin": "Turin",
+            "bologna": "Bologna",
+            "firenze": "Florenz",
+            "florenz": "Florenz",
+            "venezia": "Venedig",
+            "venedig": "Venedig",
+            "amsterdam": "Amsterdam",
+            "rotterdam": "Rotterdam",
+            "den-haag": "Den Haag",
+            "utrecht": "Utrecht",
+            "eindhoven": "Eindhoven",
+            "brüssel": "Brüssel",
+            "brussels": "Brüssel",
+            "bruxelles": "Brüssel",
+            "antwerpen": "Antwerpen",
+            "gent": "Gent",
+            "lüttich": "Lüttich",
+            "liege": "Lüttich",
+            "dublin": "Dublin",
+            "prag": "Prag",
+            "prague": "Prag",
+            "praha": "Prag",
+            "brno": "Brünn",
+            "warschau": "Warschau",
+            "warsaw": "Warschau",
+            "warszawa": "Warschau",
+            "krakow": "Krakau",
+            "krakau": "Krakau",
+            "wroclaw": "Breslau",
+            "breslau": "Breslau",
+            "poznan": "Posen",
+            "gdansk": "Danzig",
+            "budapest": "Budapest",
+            "lissabon": "Lissabon",
+            "lisbon": "Lissabon",
+            "lisboa": "Lissabon",
+            "porto": "Porto",
+            "athen": "Athen",
+            "athens": "Athen",
+            "thessaloniki": "Thessaloniki",
+            "stockholm": "Stockholm",
+            "gothenburg": "Göteborg",
+            "göteborg": "Göteborg",
+            "malmo": "Malmö",
+            "malmö": "Malmö",
+            "oslo": "Oslo",
+            "bergen": "Bergen",
+            "kopenhagen": "Kopenhagen",
+            "copenhagen": "Kopenhagen",
+            "aarhus": "Aarhus",
+            "helsinki": "Helsinki",
+            "tallinn": "Tallinn",
+            "riga": "Riga",
+            "vilnius": "Vilnius",
+            "zagreb": "Zagreb",
+            "split": "Split",
+            "belgrad": "Belgrad",
+            "belgrade": "Belgrad",
+            "bukarest": "Bukarest",
+            "bucharest": "Bukarest",
+            "sofia": "Sofia",
+            "tokio": "Tokio",
+            "tokyo": "Tokio",
+            "osaka": "Osaka",
+            "kyoto": "Kyoto",
+            "seoul": "Seoul",
+            "peking": "Peking",
+            "beijing": "Peking",
+            "shanghai": "Shanghai",
+            "hongkong": "Hongkong",
+            "singapur": "Singapur",
+            "singapore": "Singapur",
+            "bangkok": "Bangkok",
+            "mumbai": "Mumbai",
+            "delhi": "Delhi",
+            "new-delhi": "Neu-Delhi",
+            "sydney": "Sydney",
+            "melbourne": "Melbourne",
+            "brisbane": "Brisbane",
+            "auckland": "Auckland",
+            "new-york": "New York",
+            "new york": "New York",
+            "nyc": "New York",
+            "los-angeles": "Los Angeles",
+            "los angeles": "Los Angeles",
+            "chicago": "Chicago",
+            "san-francisco": "San Francisco",
+            "san francisco": "San Francisco",
+            "toronto": "Toronto",
+            "montreal": "Montreal",
+            "vancouver": "Vancouver",
+            "mexiko-stadt": "Mexiko-Stadt",
+            "mexico-city": "Mexiko-Stadt",
+            "buenos-aires": "Buenos Aires",
+            "sao-paulo": "São Paulo",
+            "rio": "Rio de Janeiro",
+            "rio-de-janeiro": "Rio de Janeiro",
+            "kairo": "Kairo",
+            "cairo": "Kairo",
+            "kapstadt": "Kapstadt",
+            "cape-town": "Kapstadt",
+            "johannesburg": "Johannesburg",
+            "istanbul": "Istanbul",
+            "dubai": "Dubai",
+        }
+
+        city = "Würzburg"
+        found_city = None
+        for token in re.findall(r"[a-zA-ZäöüÄÖÜß\-]+", cleaned.lower()):
+            if token in city_aliases:
+                found_city = city_aliases[token]
+                break
+
+        if found_city:
+            city = found_city
+        else:
+            m_city = re.search(
+                r"(?:in|at|near|around|à|a|en|para|für|fuer|im\s+raum|bei|aus)\s+([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+heute|\s+morgen|\s+am\s+wochenende|\s+dieses\s+wochenende|\s+today|\s+tonight|\s+this\s+weekend)",
+                cleaned,
+                re.IGNORECASE
+            )
+            if m_city:
+                extracted = m_city.group(1).strip()
+                extracted = re.sub(r"^(?:den|dem|der|die|das|the|le|la|les|el|los|las)\s+", "", extracted, flags=re.IGNORECASE).strip()
+                if extracted and len(extracted) >= 2 and extracted.lower() not in ("wochenende", "samstag", "sonntag", "freitag", "diesem", "dieser", "der", "dem", "einem", "weekend", "today", "tonight"):
+                    city = extracted
+
+        categories = []
+        if re.search(r"(?:kon[tz]+ert|con[cz]i?ert|live[\s\-_]?musik|live[\s\-_]?music|live[\s\-_]?band|gigs?|band)", cleaned, re.IGNORECASE):
+            categories.append("concert")
+        elif re.search(r"(?:part[yi]e?s?|club|feiern|disko|disco|clubbing|nightlife)", cleaned, re.IGNORECASE):
+            categories.append("party_club")
+        elif re.search(r"(?:theater|schauspiel|bühne|stage|comedy|kabarett)", cleaned, re.IGNORECASE):
+            categories.append("theater_stage")
+
+        day_scope = "today_tomorrow"
+        if re.search(r"\b(?:heute|today|heutige|tonight)\b", cleaned, re.IGNORECASE):
+            day_scope = "today"
+
+        # Check if radius was explicitly requested in text (e.g. "im Umkreis von 50 km" or "50km")
+        radius_km = 50.0
+        m_rad = re.search(r"(?:umkreis\s+(?:von\s+)?|radius\s+(?:von\s+)?|in\s+(\d+)\s*km)(\d+)?\s*km?", cleaned, re.IGNORECASE)
+        if m_rad:
+            try:
+                rad_val = float(m_rad.group(1) or m_rad.group(2) or 50.0)
+                if 1 <= rad_val <= 300:
+                    radius_km = rad_val
+            except (ValueError, TypeError):
+                pass
+
+        return ("search_events", {
+            "city": city,
+            "radius_km": radius_km,
+            "categories": categories,
+            "day_scope": day_scope,
+        })
+
+    # 7. Wikipedia
     m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+ist\s+|was\s+ist\s+|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
     if m_wiki:
         topic = m_wiki.group(1).strip()
@@ -291,8 +793,12 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if len(topic) >= 3 and not is_visual and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
             return ("get_wikipedia_summary", {"query": topic})
 
-    # 7. Web Search
-    m_search = re.search(r"(?:suche\s+(?:im\s+web\s+)?(?:nach\s+)?|search\s+(?:web\s+)?(?:for\s+)?|google\s+nach\s+)(.+?)(?:\?|\.|$)", cleaned, re.IGNORECASE)
+    # 7. Web Search & Google Queries
+    m_search = re.search(
+        r"(?:google\s+(?:nach\s+|mal\s+)?|suche\s+(?:im\s+web\s+)?(?:nach\s+)?|search\s+(?:web\s+)?(?:for\s+)?|finde\s+(?:im\s+web\s+)?|web\s*suche\s+(?:nach\s+)?)(.+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
     if m_search:
         q = m_search.group(1).strip()
         if q:
@@ -390,6 +896,25 @@ class AgentLoop:
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
                 call_id = "call_direct_preflight_1"
+                tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
+                executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
+
+                formatted_direct = format_tool_content_if_json(
+                    tool_res if isinstance(tool_res, str) else json.dumps(tool_res, ensure_ascii=False)
+                )
+                if formatted_direct and not (formatted_direct.startswith("{") and formatted_direct.endswith("}")):
+                    curr_messages.append({"role": "assistant", "content": formatted_direct})
+                    return AgentExecutionResult(
+                        final_content=formatted_direct,
+                        messages=curr_messages,
+                        tool_calls_executed=executed_records,
+                        iterations=1,
+                        model=model,
+                        prompt_tokens=30,
+                        completion_tokens=50,
+                        total_tokens=80,
+                    )
+
                 curr_messages.append({
                     "role": "assistant",
                     "content": None,
@@ -402,8 +927,6 @@ class AgentLoop:
                         }
                     }]
                 })
-                tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
-                executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
                 curr_messages.append({
                     "role": "tool",
                     "tool_call_id": call_id,

@@ -164,10 +164,48 @@ class ConcertCrawler:
 
     def build_queries(self, city: str, genre_terms: list[str] | None = None) -> list[tuple[str,str]]:
         genres = genre_terms or ["rock","punk","hardcore","metal","indie","alternative"]
-        queries = [(f"{city} Konzerte","general"),(f"{city} Live Musik","general"),(f"{city} Konzertkalender","calendar"),
-                   (f"{city} Club Programm","venue"),(f"{city} Kulturzentrum Konzerte","venue"),(f"{city} Jugendzentrum Konzerte","venue"),
-                   (f"{city} Festival Musik","festival"),(f"{city} kleine Clubs Live","venue")]
-        queries.extend((f"{city} {g} Konzert","genre") for g in genres[:12])
+        queries = [
+            (f"{city} Konzerte", "general"),
+            (f"{city} Live Musik", "general"),
+            (f"{city} Konzertkalender", "calendar"),
+            (f"{city} Club Programm", "venue"),
+            (f"{city} Kulturzentrum Konzerte", "venue"),
+            (f"{city} Jugendzentrum Konzerte", "venue"),
+            (f"{city} Festival Musik", "festival"),
+            (f"{city} kleine Clubs Live", "venue"),
+            (f"{city} Autonomes Zentrum Klapperfeld Kulturzentrum Off-Space", "subculture"),
+            (f"{city} Soziokultur Kulturfabrik Freiraum Termine", "subculture"),
+            (f"{city} kleine Live Bühne Jazzkeller Kellerklub Konzerte", "indie_venue"),
+            (f"{city} Bürgerhaus Dorfgemeinschaftshaus Kulturscheune Kleinkunst", "community_venue"),
+            (f"{city} Stadtmagazin Veranstaltungskalender Ausgehtipps", "calendar"),
+        ]
+        c_low = city.lower()
+        if any(w in c_low for w in ("paris", "lyon", "marseille", "bordeaux", "toulouse", "lille", "nantes", "strasbourg")):
+            queries.extend([
+                (f"{city} friche culturelle tiers-lieux squat concerts agenda", "subculture"),
+                (f"{city} café-concert club jazz musique live programmation", "venue"),
+                (f"{city} salle des fêtes maison de quartier événements", "community_venue"),
+            ])
+        elif any(w in c_low for w in ("madrid", "barcelona", "valencia", "sevilla", "bilbao", "malaga")):
+            queries.extend([
+                (f"{city} centro social okupado autogestionado conciertos agenda", "subculture"),
+                (f"{city} sala de conciertos pequenos directos musica club", "venue"),
+                (f"{city} casa de cultura asociacion cultural eventos", "community_venue"),
+            ])
+        elif any(w in c_low for w in ("roma", "rome", "milano", "milan", "torino", "bologna", "napoli", "firenze")):
+            queries.extend([
+                (f"{city} centro sociale occupato autogestito concerti live", "subculture"),
+                (f"{city} circolo arci musica dal vivo concerti club", "venue"),
+                (f"{city} pro loco sagra eventi concerti", "community_venue"),
+            ])
+        elif any(w in c_low for w in ("london", "manchester", "bristol", "glasgow", "edinburgh", "birmingham", "new york", "los angeles", "chicago")):
+            queries.extend([
+                (f"{city} grassroots music venues underground DIY spaces gigs", "subculture"),
+                (f"{city} basement indie gigs jazz club live sessions", "venue"),
+                (f"{city} village hall community centre live music events", "community_venue"),
+            ])
+
+        queries.extend((f"{city} {g} Konzert", "genre") for g in genres[:12])
         for row in self.store.sources_for_city(city)[:20]:
             host = urlsplit(row['canonical_url']).hostname or ""
             if host: queries.append((f"site:{host} {city} Konzert Programm","known_source"))
@@ -270,7 +308,12 @@ class ConcertCrawler:
     @staticmethod
     def _looks_eventish(title: str, text: str) -> bool:
         sample=(title+' '+text[:5000]).lower()
-        return any(k in sample for k in ('konzert','concert','live','veranstaltung','gig','festival','tickets','einlass','beginn'))
+        return any(k in sample for k in (
+            'konzert', 'concert', 'live', 'veranstaltung', 'gig', 'festival', 'tickets', 'einlass', 'beginn',
+            'klapperfeld', 'autonom', 'soziokultur', 'freiraum', 'off-space', 'bürgerhaus', 'scheune',
+            'gemeindezentrum', 'kleinkunst', 'tiers-lieux', 'friche', 'squat', 'centro social', 'circolo',
+            'grassroots', 'diy', 'soli', 'vvk', 'eintritt frei'
+        ))
 
     @staticmethod
     def _recrawl_minutes(changed: bool, events: int, url: str) -> int:

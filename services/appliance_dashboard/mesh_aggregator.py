@@ -4,10 +4,55 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import os
+import socket
 import threading
 import time
 from typing import Any
 import urllib.request
+
+from tools.appliance.hardware_detector import is_integrated_display_adapter
+
+
+def _extract_discrete_gpu_signature(node_dict: dict[str, Any]) -> tuple[Any, ...]:
+    """Generates a normalized tuple fingerprint of discrete GPUs on a node."""
+    inv = node_dict.get("inventory", {})
+    gpus = inv.get("gpus", [])
+    discrete = []
+    for g in gpus:
+        v = str(g.get("vendor", "")).strip().lower()
+        m = str(g.get("model_name", "")).strip()
+        vr = int(g.get("vram_bytes", 0) or 0)
+        if g.get("healthy", True) and not is_integrated_display_adapter(v, m):
+            discrete.append((v, m, vr))
+    if discrete:
+        discrete.sort()
+        return tuple(discrete)
+    total_vr = int(inv.get("total_vram_bytes", 0) or 0)
+    if total_vr > 0:
+        return ("vram_only", total_vr)
+    return ()
+
+
+def _get_local_ip_set() -> set[str]:
+    """Retrieves all local host IP addresses to prevent self-polling loops."""
+    ips = {"127.0.0.1", "localhost", "0.0.0.0"}
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if ip:
+                ips.add(ip)
+    except Exception:
+        pass
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        primary = s.getsockname()[0]
+        s.close()
+        if primary:
+            ips.add(primary)
+    except Exception:
+        pass
+    return ips
 
 
 class MeshRegistryAggregator:
@@ -16,7 +61,7 @@ class MeshRegistryAggregator:
         if raw_peers:
             self.known_peers = [p.strip() for p in raw_peers.split(",") if p.strip()]
         else:
-            self.known_peers = ["http://192.168.1.35:8080", "http://192.168.1.94:8080", "http://192.168.1.27:8080"]
+            self.known_peers = ["http://192.168.1.35:8080", "http://192.168.1.27:8080"]
         self._peer_nodes: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         self._running = False
@@ -36,21 +81,36 @@ class MeshRegistryAggregator:
 
     def _background_poller(self) -> None:
         while self._running:
-            # 1. Direct LAN peer polling
+            local_ips = _get_local_ip_set()
+            local_nid = str(getattr(self, "_local_status", {}).get("node_id", "")).strip()
+            local_sig = _extract_discrete_gpu_signature(getattr(self, "_local_status", {})) if hasattr(self, "_local_status") else ()
+            now_ts = time.time()
+
+            # 1. Direct LAN peer polling (excluding local machine IPs)
             for peer in self.known_peers:
                 try:
+                    # Skip polling if target IP belongs to this local host
+                    peer_host = peer.split("://")[-1].split(":")[0].split("/")[0]
+                    if peer_host in local_ips:
+                        continue
+
                     url = peer.rstrip("/") + "/api/status"
                     req = urllib.request.Request(url, headers={"User-Agent": "ComputeMesh-Aggregator/1.2"})
                     with urllib.request.urlopen(req, timeout=1.5) as resp:
                         if resp.status == 200:
                             d = json.loads(resp.read().decode("utf-8"))
-                            nid = d.get("node_id", peer)
+                            nid = str(d.get("node_id", peer)).strip()
+                            peer_sig = _extract_discrete_gpu_signature(d)
+                            # If peer is actually the local machine under another name, skip
+                            if nid == local_nid or (local_sig and peer_sig == local_sig):
+                                continue
                             with self._lock:
                                 self._peer_nodes[nid] = {
                                     "node_id": nid,
                                     "status": "online",
                                     "inventory": d.get("inventory", {}),
                                     "telemetry": d.get("telemetry", {}),
+                                    "last_seen": now_ts,
                                 }
                 except Exception:
                     pass
@@ -68,26 +128,57 @@ class MeshRegistryAggregator:
                         if resp.status == 200:
                             fleet_data = json.loads(resp.read().decode("utf-8"))
                             nodes = fleet_data.get("nodes", [])
-                            local_nid = str(getattr(self, "_local_status", {}).get("node_id", ""))
                             for n in nodes:
-                                nid = n.get("node_id", "")
-                                if nid and nid != local_nid and n.get("is_online", False):
-                                    with self._lock:
-                                        if nid not in self._peer_nodes:
-                                            self._peer_nodes[nid] = {
-                                                "node_id": nid,
-                                                "status": "online",
-                                                "inventory": {
-                                                    "total_vram_bytes": int(float(n.get("vram_gb", 0) or 0) * (1024**3)),
-                                                    "gpus": [{"model_name": g, "vram_bytes": int(float(n.get("vram_gb", 0) or 0) * (1024**3)), "healthy": True} for g in n.get("gpus", [])],
-                                                },
-                                                "telemetry": {
-                                                    "local_compute_tflops": float(n.get("tflops", 0.0) or 0.0),
-                                                    "tokens_processed": 0,
-                                                },
+                                nid = str(n.get("node_id", "")).strip()
+                                if not nid or nid == local_nid or not n.get("is_online", False):
+                                    continue
+                                if nid in ("test-node-custom", "mifcom", "windows-laptop", "unnamed-node"):
+                                    continue
+
+                                gpus_list = n.get("gpus", [])
+                                vram_total = int(float(n.get("vram_gb", 0) or 0) * (1024**3))
+                                if not gpus_list and vram_total <= 0:
+                                    continue
+
+                                peer_dict = {
+                                    "node_id": nid,
+                                    "status": "online",
+                                    "inventory": {
+                                        "total_vram_bytes": vram_total,
+                                        "gpus": [
+                                            {
+                                                "vendor": "nvidia" if "nvidia" in str(g).lower() else ("amd" if "amd" in str(g).lower() else "unknown"),
+                                                "model_name": str(g),
+                                                "vram_bytes": vram_total // max(1, len(gpus_list)),
+                                                "healthy": True,
                                             }
+                                            for g in gpus_list
+                                        ],
+                                    },
+                                    "telemetry": {
+                                        "local_compute_tflops": float(n.get("tflops", 0.0) or 0.0),
+                                        "tokens_processed": 0,
+                                    },
+                                    "last_seen": now_ts,
+                                }
+                                peer_sig = _extract_discrete_gpu_signature(peer_dict)
+                                if local_sig and peer_sig == local_sig:
+                                    # Same hardware signature as local host — skip duplicate
+                                    continue
+
+                                with self._lock:
+                                    self._peer_nodes[nid] = peer_dict
             except Exception:
                 pass
+
+            # 3. Evict stale peer entries not seen for > 20 seconds
+            with self._lock:
+                stale_keys = [
+                    k for k, v in self._peer_nodes.items()
+                    if now_ts - float(v.get("last_seen", 0) or 0) > 20.0
+                ]
+                for k in stale_keys:
+                    self._peer_nodes.pop(k, None)
 
             time.sleep(5)
 
@@ -97,37 +188,53 @@ class MeshRegistryAggregator:
                 self._local_status = local_status
 
         nodes: list[dict[str, Any]] = []
+        seen_signatures: set[tuple[Any, ...]] = set()
+        seen_nids: set[str] = set()
+
         with self._lock:
-            if hasattr(self, "_local_status") and self._local_status:
-                nodes.append(self._local_status)
-            elif local_status:
-                nodes.append(local_status)
-            else:
+            # 1. Authoritative local machine entry
+            local_entry = local_status or getattr(self, "_local_status", None)
+            if not local_entry:
                 try:
                     from tools.appliance.hardware_detector import scan_rig_hardware
                     inv = scan_rig_hardware()
-                    nodes.append({
+                    local_entry = {
                         "node_id": "windows-laptop",
                         "status": "online",
                         "inventory": inv.to_dict(),
                         "telemetry": {"tokens_processed": 0, "local_compute_tflops": 0.0},
-                    })
+                    }
                 except Exception:
-                    pass
-            for peer_data in self._peer_nodes.values():
-                nodes.append(peer_data)
+                    local_entry = None
 
-        # Deduplicate nodes by node_id to prevent duplicate tallying across multi-interface peers
-        seen_nids: set[str] = set()
-        deduped_nodes: list[dict[str, Any]] = []
-        for n in nodes:
-            nid = str(n.get("node_id", ""))
-            if nid and nid in seen_nids:
-                continue
-            if nid:
-                seen_nids.add(nid)
-            deduped_nodes.append(n)
-        nodes = deduped_nodes
+            if local_entry:
+                local_nid = str(local_entry.get("node_id", "")).strip()
+                local_sig = _extract_discrete_gpu_signature(local_entry)
+                nodes.append(local_entry)
+                if local_nid:
+                    seen_nids.add(local_nid)
+                if local_sig:
+                    seen_signatures.add(local_sig)
+
+            # 2. Add peer nodes with strict single-unit hardware deduplication
+            for peer_data in list(self._peer_nodes.values()):
+                p_nid = str(peer_data.get("node_id", "")).strip()
+                if not p_nid or p_nid in seen_nids:
+                    continue
+                if p_nid in ("test-node-custom", "mifcom", "windows-laptop", "unnamed-node"):
+                    continue
+
+                p_sig = _extract_discrete_gpu_signature(peer_data)
+                if not p_sig:
+                    # Node has no discrete GPUs or VRAM
+                    continue
+                if p_sig in seen_signatures:
+                    # Exact same physical GPU hardware already represented in mesh
+                    continue
+
+                seen_nids.add(p_nid)
+                seen_signatures.add(p_sig)
+                nodes.append(peer_data)
 
         total_gpus = 0
         total_vram_bytes = 0
@@ -135,7 +242,7 @@ class MeshRegistryAggregator:
         total_tokens = 0
         node_details = []
 
-        from tools.appliance.hardware_detector import is_integrated_display_adapter
+        local_nid = str((local_status or getattr(self, "_local_status", {})).get("node_id", ""))
 
         for n in nodes:
             inv = n.get("inventory", {})
@@ -173,9 +280,8 @@ class MeshRegistryAggregator:
                 tf = tel.get("local_compute_tflops", 0.0) or (len(healthy_gpus) * 12.5)
 
             total_tflops += tf
-            total_tokens += tel.get("tokens_processed", 0)
+            total_tokens += int(tel.get("tokens_processed", 0) or 0)
 
-            local_nid = str((local_status or getattr(self, "_local_status", {})).get("node_id", ""))
             current_nid = str(n.get("node_id", ""))
             is_local = (current_nid == local_nid) if (local_nid and current_nid) else False
 

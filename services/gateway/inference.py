@@ -82,6 +82,22 @@ class InferenceEngine:
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
 
+        # Positive Authorization & Emergency Kill Switch Check (Global & Fleet-Scoped)
+        try:
+            from runtime.safety.dead_mans_switch import get_lease_guard, EmergencyKillTrippedError
+            guard = get_lease_guard()
+            if guard.is_tripped:
+                raise EmergencyKillTrippedError(
+                    f"Inference execution blocked: Global Platform Kill Switch is active ({guard.trip_reason})"
+                )
+            if account_id and guard.is_fleet_tripped(account_id):
+                raise EmergencyKillTrippedError(
+                    f"Inference execution blocked: Fleet '{account_id}' is emergency stopped ({guard.get_fleet_trip_reason(account_id)})"
+                )
+        except Exception as _ks_err:
+            if "EmergencyKillTrippedError" in type(_ks_err).__name__:
+                raise
+
         normalized_messages, est_prompt_tokens = self.vision_preprocessor.normalize_multimodal_messages(messages)
 
         hold = None
@@ -195,8 +211,8 @@ class InferenceEngine:
                 if not has_tool_system:
                     tool_prompt = (
                         "Du bist ComputeMesh AI mit integrierten Live-Werkzeugen (Model Context Protocol / MCP).\n"
-                        "Wenn eine Frage aktuelle Daten erfordert (z. B. Wetter an einem Ort, Börsenkurse, Krypto, aktuelle Nachrichten, Wikipedia oder Berechnungen), "
-                        "rufe direkt das passende Tool auf (z. B. `get_current_weather`, `get_live_news`, `get_market_price`, `get_wikipedia_summary`)."
+                        "Wenn eine Frage aktuelle Daten, Fakten, Websuche, Konzerte, Events & Veranstaltungen (z. B. in Würzburg, München etc.), Wetter, Kurse, Nachrichten oder Berechnungen erfordert, "
+                        "rufe direkt das passende Tool auf (z. B. `search_events`, `search_web`, `get_current_weather`, `get_live_news`, `get_market_quote`, `get_wikipedia_summary`, `calculate_math`, `get_time_and_calendar`, `list_available_tools`)."
                     )
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 

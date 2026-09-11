@@ -626,6 +626,27 @@ class PortalHandler(BaseHTTPRequestHandler):
             }, credentialed=True)
             return
 
+        if clean_path in ("/api/portal/fleet/killswitch/status", "/api/killswitch/status"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key) if owner_key else None
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            st = guard.get_status(owner_id=owner_id)
+            self._send_json(st, credentialed=True)
+            return
+
         if clean_path.startswith("/downloads/"):
             dl_name = clean_path.removeprefix("/downloads/")
             body = f"ComputeMesh Binary Package: {dl_name}\nBuild: v1.0-release\n".encode("utf-8")
@@ -737,6 +758,128 @@ class PortalHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
                 return
 
+        # Kill Switch Multi-Tenant & Master Endpoints
+        if clean_path in (
+            "/api/portal/fleet/killswitch/trigger",
+            "/api/killswitch/trigger",
+            "/api/portal/fleet/killswitch/reset",
+            "/api/killswitch/reset",
+            "/api/portal/fleet/killswitch/renew",
+            "/api/killswitch/renew",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+
+            from services.gateway.server import owner_id_for_key
+            owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
+
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+
+            # Master authorization check (Plattform-Inhaber / Stripe Root Account Owner / DiskStation Master-Key)
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            is_master = bool(master_env_key and master_key_header and hmac.compare_digest(master_key_header, master_env_key))
+
+            req_scope = str(body.get("scope", "fleet")).lower().strip()
+            reason = str(body.get("reason", "Emergency Operator Action"))
+
+            if "trigger" in clean_path:
+                if req_scope in ("global", "platform", "cluster"):
+                    if not is_master:
+                        # Isolation Protection: Non-master fleet operator cannot take down global platform
+                        if owner_id:
+                            guard.trip_fleet(owner_id, reason=reason)
+                        self._send_json({
+                            "status": "forbidden",
+                            "scope": "fleet" if owner_id else "unauthorized",
+                            "owner_id": owner_id,
+                            "error": "Berechtigungs-Schutz: Ein Flottenbetreiber darf niemals das Gesamtsystem zum Einsturz bringen oder stoppen. Der globale Plattform-Not-Aus ist strikt dem Plattform-Inhaber (inetconnector / Stripe Account Owner) vorbehalten.",
+                            "message": "Deine eigene Flotte wurde isoliert und gestoppt. Das Restsystem und alle anderen Provider laufen 100% unterbrechungsfrei weiter.",
+                            "guard": guard.get_status(owner_id=owner_id),
+                        }, HTTPStatus.FORBIDDEN, credentialed=True)
+                        return
+
+                    # Authorized Master Global Kill
+                    guard.trip(reason=reason, is_master=True)
+                    self._send_json({
+                        "status": "global_tripped",
+                        "scope": "global",
+                        "message": f"Globaler Plattform-Not-Aus durch Plattform-Inhaber ausgelöst: {reason}",
+                        "guard": guard.get_status(),
+                    }, HTTPStatus.OK, credentialed=True)
+                    return
+
+                # Normal Fleet-scoped emergency stop
+                if not owner_id:
+                    self._send_json({"error": "Authentifizierung als Flottenbetreiber erforderlich"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                    return
+
+                trip_res = guard.trip_fleet(owner_id, reason=reason)
+                self._send_json({
+                    "status": "ok",
+                    "scope": "fleet",
+                    "owner_id": owner_id,
+                    "message": f"Flotten-Not-Aus aktiviert für Flotte '{owner_id}'. Alle Rechenknoten deiner Flotte wurden angehalten.",
+                    "fleet_status": trip_res,
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK, credentialed=True)
+                return
+
+            if "reset" in clean_path:
+                if req_scope in ("global", "platform", "cluster"):
+                    if not is_master:
+                        self._send_json({
+                            "error": "Berechtigungs-Schutz: Nur der Plattform-Inhaber (inetconnector / Stripe Account Owner) darf den globalen Not-Aus zurücksetzen."
+                        }, HTTPStatus.FORBIDDEN, credentialed=True)
+                        return
+                    guard.reset(reason=reason)
+                    self._send_json({
+                        "status": "ok",
+                        "scope": "global",
+                        "message": f"Globaler Plattform-Not-Aus zurückgesetzt: {reason}",
+                        "guard": guard.get_status(),
+                    }, HTTPStatus.OK, credentialed=True)
+                    return
+
+                if not owner_id:
+                    self._send_json({"error": "Authentifizierung als Flottenbetreiber erforderlich"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                    return
+
+                guard.reset_fleet(owner_id, reason=reason)
+                self._send_json({
+                    "status": "ok",
+                    "scope": "fleet",
+                    "owner_id": owner_id,
+                    "message": f"Flotten-Not-Aus für Flotte '{owner_id}' aufgehoben. Normaler Inferenzbetrieb wieder freigegeben.",
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK, credentialed=True)
+                return
+
+            if "renew" in clean_path:
+                if guard.is_tripped:
+                    self._send_json({"error": f"Globaler Not-Aus ist aktiv ({guard.trip_reason})"}, HTTPStatus.SERVICE_UNAVAILABLE, credentialed=True)
+                    return
+                if owner_id and guard.is_fleet_tripped(owner_id):
+                    self._send_json({"error": f"Flotte '{owner_id}' ist im Not-Aus ({guard.get_fleet_trip_reason(owner_id)})"}, HTTPStatus.SERVICE_UNAVAILABLE, credentialed=True)
+                    return
+                self._send_json({
+                    "status": "ok",
+                    "message": "Authorization lease active",
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK, credentialed=True)
+                return
+
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
             auth_token = str(body.get("auth_token", "")).strip()
@@ -793,6 +936,13 @@ class PortalHandler(BaseHTTPRequestHandler):
                     except OwnerAccountStoreError:
                         owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
+            # If previous_node_id was explicitly provided (e.g. from an immediate config save rename), unbind and purge it immediately
+            previous_node_id = str(body.get("previous_node_id", "")).strip()
+            if previous_node_id and previous_node_id != node_id:
+                NODE_TELEMETRY_REGISTRY.pop(previous_node_id, None)
+                if owner_id:
+                    OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, previous_node_id)
+
             # If the same physical client (same auth_token) renamed its node_id, retire the previous alias
             for old_id, old_node in list(NODE_TELEMETRY_REGISTRY.items()):
                 if old_id != node_id and old_node.get("auth_token") == auth_token and not old_node.get("is_peer_relay", False):
@@ -811,10 +961,12 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
+            payout_address = str(body.get("payout_address", "")).strip()
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
+                "payout_address": payout_address,
                 "client_ip": str(client_ip),
                 "dashboard_port": dash_port,
                 "network": body.get("network", {}),
@@ -831,7 +983,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             gm = body.get("global_mesh", {})
             for peer in gm.get("nodes", []):
                 p_id = str(peer.get("node_id", "")).strip()
-                if p_id and p_id != node_id and p_id not in ("windows-laptop", "unnamed-node"):
+                if p_id and p_id != node_id and not peer.get("is_local", False) and p_id not in ("windows-laptop", "unnamed-node", "test-node-custom", "mifcom"):
                     p_vram_gb = float(peer.get("vram_gb", 0.0))
                     p_vram_bytes = int(p_vram_gb * 1024 * 1024 * 1024)
                     p_tflops = float(peer.get("tflops", 0.0))

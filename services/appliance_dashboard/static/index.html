@@ -1479,7 +1479,7 @@
         });
         const resp = await res.json();
         if (res.ok) {
-          showToast('✓ Provider-Auszahlungsadresse und Konfiguration gespeichert. Zahlungen laufen über Stripe.');
+          showToast('✓ Konfiguration gespeichert und sofort im Mesh & Webserver synchronisiert.');
           updateDashboard();
         } else {
           showToast('Error: ' + resp.message, false);

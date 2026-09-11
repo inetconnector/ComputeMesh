@@ -27,18 +27,18 @@ DEFAULT_SYSTEM_CONFIG = Path("/etc/computemesh/config.json")
 
 @dataclass(frozen=True)
 class ApplianceConfig:
-    rig_name: str
-    provider_account_id: str
-    payout_address: str
-    coordinator_url: str
-    network_mode: str  # "dhcp" or "static"
-    static_ip: str | None
-    gateway: str | None
-    dns: str | None
-    enable_web_dashboard: bool
-    dashboard_port: int
-    allow_ssh: bool
-    ssh_authorized_keys: str | None
+    rig_name: str = "cm-node"
+    provider_account_id: str = "cm_provider_genesis"
+    payout_address: str = ""
+    coordinator_url: str = CONFIG.endpoints.base_url
+    network_mode: str = "dhcp"  # "dhcp" or "static"
+    static_ip: str | None = None
+    gateway: str | None = None
+    dns: str | None = None
+    enable_web_dashboard: bool = True
+    dashboard_port: int = 8080
+    allow_ssh: bool = True
+    ssh_authorized_keys: str | None = None
     disabled_gpus: list[int] = field(default_factory=list)
     vram_reserve_mb: int = 512
     power_mode: str = "balanced"  # "eco", "balanced", "max"
