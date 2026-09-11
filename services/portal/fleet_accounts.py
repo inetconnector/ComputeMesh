@@ -175,6 +175,17 @@ class FleetAccountStore:
                     disabled_tools TEXT NOT NULL DEFAULT '[]',
                     updated_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS fleet_banned_accounts (
+                    owner_id TEXT PRIMARY KEY,
+                    reason TEXT NOT NULL,
+                    banned_at TEXT NOT NULL,
+                    banned_by TEXT NOT NULL DEFAULT 'master_admin',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    unbanned_at TEXT,
+                    unbanned_by TEXT,
+                    unban_reason TEXT
+                );
                 """
             )
             # Safe schema migration for existing databases
@@ -605,3 +616,227 @@ class FleetAccountStore:
                 """,
                 (cleaned_id, payload, now),
             )
+
+    # -- master admin fleet bans / permanent deactivations -------------------
+
+    def ban_fleet(
+        self,
+        owner_id: str,
+        reason: str = "Administrative suspension",
+        banned_by: str = "master_admin",
+    ) -> dict[str, Any]:
+        """Permanently bans / suspends a fleet account. Can be reactivated by unban_fleet."""
+        raw_id = str(owner_id or "").strip()
+        if not raw_id:
+            raise FleetAccountStoreError("owner_id or account identifier is required to ban fleet")
+
+        canonical_id = raw_id
+        acct = self.get_account(raw_id)
+        if not acct:
+            resolved_key = self.resolve_latest_owner_key(raw_id) or raw_id
+            acct = self.get_account_by_owner_key(resolved_key)
+        if acct:
+            canonical_id = acct.account_id
+
+        now = utc_now()
+        clean_reason = str(reason or "Administrative suspension").strip()[:500]
+        clean_admin = str(banned_by or "master_admin").strip()[:100]
+
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO fleet_banned_accounts(owner_id, reason, banned_at, banned_by, is_active, unbanned_at, unbanned_by, unban_reason)
+                VALUES (?, ?, ?, ?, 1, NULL, NULL, NULL)
+                ON CONFLICT(owner_id) DO UPDATE SET
+                    reason = excluded.reason,
+                    banned_at = excluded.banned_at,
+                    banned_by = excluded.banned_by,
+                    is_active = 1,
+                    unbanned_at = NULL,
+                    unbanned_by = NULL,
+                    unban_reason = NULL
+                """,
+                (canonical_id, clean_reason, now, clean_admin),
+            )
+            if canonical_id != raw_id:
+                conn.execute(
+                    """
+                    INSERT INTO fleet_banned_accounts(owner_id, reason, banned_at, banned_by, is_active, unbanned_at, unbanned_by, unban_reason)
+                    VALUES (?, ?, ?, ?, 1, NULL, NULL, NULL)
+                    ON CONFLICT(owner_id) DO UPDATE SET
+                        reason = excluded.reason,
+                        banned_at = excluded.banned_at,
+                        banned_by = excluded.banned_by,
+                        is_active = 1,
+                        unbanned_at = NULL,
+                        unbanned_by = NULL,
+                        unban_reason = NULL
+                    """,
+                    (raw_id, clean_reason, now, clean_admin),
+                )
+
+        if acct:
+            self.revoke_all_sessions(acct.account_id)
+            self.record_audit_event(
+                acct.account_id,
+                acct.email,
+                "FLEET_BANNED",
+                f"Fleet suspended by {clean_admin}: {clean_reason}",
+            )
+
+        # Synchronize with in-memory DeadMansLeaseGuard immediately
+        try:
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            guard.trip_fleet(canonical_id, reason=f"ADMIN_BANNED: {clean_reason}")
+            if canonical_id != raw_id:
+                guard.trip_fleet(raw_id, reason=f"ADMIN_BANNED: {clean_reason}")
+        except Exception:
+            pass
+
+        return {
+            "owner_id": canonical_id,
+            "status": "banned",
+            "reason": clean_reason,
+            "banned_at": now,
+            "banned_by": clean_admin,
+            "is_active": True,
+        }
+
+    def unban_fleet(
+        self,
+        owner_id: str,
+        reason: str = "Administrative reactivation",
+        unbanned_by: str = "master_admin",
+    ) -> bool:
+        """Reactivates / unbans a previously suspended fleet account."""
+        raw_id = str(owner_id or "").strip()
+        if not raw_id:
+            return False
+
+        canonical_id = raw_id
+        acct = self.get_account(raw_id)
+        if not acct:
+            resolved_key = self.resolve_latest_owner_key(raw_id) or raw_id
+            acct = self.get_account_by_owner_key(resolved_key)
+        if acct:
+            canonical_id = acct.account_id
+
+        now = utc_now()
+        clean_reason = str(reason or "Administrative reactivation").strip()[:500]
+        clean_admin = str(unbanned_by or "master_admin").strip()[:100]
+
+        with self._connection() as conn:
+            cur = conn.execute(
+                """
+                UPDATE fleet_banned_accounts
+                SET is_active = 0, unbanned_at = ?, unbanned_by = ?, unban_reason = ?
+                WHERE (owner_id = ? OR owner_id = ?) AND is_active = 1
+                """,
+                (now, clean_admin, clean_reason, canonical_id, raw_id),
+            )
+            affected = cur.rowcount > 0
+
+        if acct:
+            self.record_audit_event(
+                acct.account_id,
+                acct.email,
+                "FLEET_UNBANNED",
+                f"Fleet reactivated by {clean_admin}: {clean_reason}",
+            )
+
+        # Synchronize with in-memory DeadMansLeaseGuard immediately
+        try:
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            guard.reset_fleet(canonical_id, reason=f"ADMIN_UNBANNED: {clean_reason}")
+            if canonical_id != raw_id:
+                guard.reset_fleet(raw_id, reason=f"ADMIN_UNBANNED: {clean_reason}")
+        except Exception:
+            pass
+
+        return affected
+
+    def is_fleet_banned(self, owner_id: str) -> bool:
+        """Checks if a fleet account / owner ID / owner key is currently banned."""
+        raw_id = str(owner_id or "").strip()
+        if not raw_id:
+            return False
+
+        canonical_id = raw_id
+        try:
+            acct = self.get_account(raw_id)
+            if not acct:
+                resolved_key = self.resolve_latest_owner_key(raw_id) or raw_id
+                acct = self.get_account_by_owner_key(resolved_key)
+            if acct:
+                canonical_id = acct.account_id
+        except Exception:
+            pass
+
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM fleet_banned_accounts WHERE (owner_id = ? OR owner_id = ?) AND is_active = 1",
+                (canonical_id, raw_id),
+            ).fetchone()
+            return row is not None
+
+    def get_fleet_ban_info(self, owner_id: str) -> dict[str, Any] | None:
+        """Returns ban details for a fleet account if actively banned, otherwise None."""
+        raw_id = str(owner_id or "").strip()
+        if not raw_id:
+            return None
+
+        canonical_id = raw_id
+        try:
+            acct = self.get_account(raw_id)
+            if not acct:
+                resolved_key = self.resolve_latest_owner_key(raw_id) or raw_id
+                acct = self.get_account_by_owner_key(resolved_key)
+            if acct:
+                canonical_id = acct.account_id
+        except Exception:
+            pass
+
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT owner_id, reason, banned_at, banned_by, is_active, unbanned_at, unbanned_by, unban_reason
+                FROM fleet_banned_accounts
+                WHERE (owner_id = ? OR owner_id = ?) AND is_active = 1
+                ORDER BY banned_at DESC LIMIT 1
+                """,
+                (canonical_id, raw_id),
+            ).fetchone()
+            return dict(row) if row is not None else None
+
+    def list_banned_fleets(self, active_only: bool = True) -> list[dict[str, Any]]:
+        """Lists all banned fleet accounts recorded in persistent storage."""
+        with self._connection() as conn:
+            query = (
+                "SELECT owner_id, reason, banned_at, banned_by, is_active, unbanned_at, unbanned_by, unban_reason "
+                "FROM fleet_banned_accounts "
+            )
+            if active_only:
+                query += "WHERE is_active = 1 "
+            query += "ORDER BY banned_at DESC"
+            rows = conn.execute(query).fetchall()
+            return [dict(r) for r in rows]
+
+    def sync_banned_fleets_to_guard(self) -> int:
+        """Loads all active banned accounts from database into DeadMansLeaseGuard on startup."""
+        banned = self.list_banned_fleets(active_only=True)
+        count = 0
+        try:
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            for b in banned:
+                oid = str(b.get("owner_id", "")).strip()
+                reason = str(b.get("reason", "Administrative suspension")).strip()
+                if oid:
+                    guard.trip_fleet(oid, reason=f"ADMIN_BANNED: {reason}")
+                    count += 1
+        except Exception:
+            pass
+        return count
+

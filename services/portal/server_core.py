@@ -37,7 +37,7 @@ from services.gateway.security import (
 )
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.routes_registration import REGISTERED_ACCOUNTS, PortalRegistrationHandler
-from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
+from services.portal.passkey_routes import FLEET_ACCOUNT_STORE, PasskeyAuthHandler, session_account_from_headers
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
 from services.portal.routes_provider_identity import PortalProviderIdentityHandler
@@ -513,9 +513,9 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/provider-identity", "/api/fleet/provider-identity"):
-            mode = query.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
-            cpty = query.get("counterparty", ["CUSTOMER_PROVIDER"])[0].strip() or "CUSTOMER_PROVIDER"
-            aud = query.get("audience", ["CONSUMER_ALLOWED"])[0].strip() or "CONSUMER_ALLOWED"
+            mode = query_params.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
+            cpty = query_params.get("counterparty", ["CUSTOMER_PROVIDER"])[0].strip() or "CUSTOMER_PROVIDER"
+            aud = query_params.get("audience", ["CONSUMER_ALLOWED"])[0].strip() or "CONSUMER_ALLOWED"
             data, status, cookie = self.provider_handler.get_provider_identity(
                 self.headers,
                 marketplace_mode=mode,
@@ -527,7 +527,7 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path.startswith("/api/traders/") and clean_path.endswith("/public"):
             prv_id = clean_path.removeprefix("/api/traders/").removesuffix("/public").strip()
-            mode = query.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
+            mode = query_params.get("mode", ["PUBLIC_INTERMEDIARY"])[0].strip() or "PUBLIC_INTERMEDIARY"
             data, status, cookie = self.provider_handler.get_public_trader_profile(prv_id, marketplace_mode=mode)
             self._send_json(data, status, set_cookie=cookie)
             return
@@ -538,7 +538,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -550,20 +550,76 @@ class PortalHandler(BaseHTTPRequestHandler):
                 return
 
             from services.gateway.server import _build_fleet_payload, owner_id_for_key
-            owner_id = owner_id_for_key(owner_key)
-            self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True), credentialed=True)
+            facc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key) if owner_key else None
+            facc_id = facc.account_id if facc else (account.account_id if account else None)
+            derived_owner_id = owner_id_for_key(owner_key) if owner_key else None
+            owner_id = facc_id or derived_owner_id
+            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True)
+
+            is_banned = False
+            binfo = None
+            for check_id in filter(None, [facc_id, derived_owner_id, owner_id]):
+                if FLEET_ACCOUNT_STORE.is_fleet_banned(check_id):
+                    is_banned = True
+                    binfo = FLEET_ACCOUNT_STORE.get_fleet_ban_info(check_id)
+                    break
+            if is_banned and binfo:
+                payload["is_suspended"] = True
+                payload["suspension_reason"] = binfo.get("reason", "Administrative suspension")
+                payload["banned_at"] = binfo.get("banned_at")
+            self._send_json(payload, credentialed=True)
             return
 
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
             from services.gateway.server import _build_fleet_payload, owner_id_for_key
 
             owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
+            if not owner_key:
+                auth_hdr = self.headers.get("Authorization", "").strip()
+                if auth_hdr.startswith("Bearer "):
+                    owner_key = auth_hdr[7:].strip()
+
+            if not owner_key:
                 self._send_json({"error": "owner_key query parameter is required"}, HTTPStatus.BAD_REQUEST)
                 return
 
-            self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
+            facc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            facc_id = facc.account_id if facc else None
+            derived_owner_id = owner_id_for_key(owner_key)
+            owner_id = facc_id or derived_owner_id
+
+            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True)
+            is_banned = False
+            binfo = None
+            for check_id in filter(None, [facc_id, derived_owner_id, owner_id]):
+                if FLEET_ACCOUNT_STORE.is_fleet_banned(check_id):
+                    is_banned = True
+                    binfo = FLEET_ACCOUNT_STORE.get_fleet_ban_info(check_id)
+                    break
+            if is_banned and binfo:
+                payload["is_suspended"] = True
+                payload["suspension_reason"] = binfo.get("reason", "Administrative suspension")
+                payload["banned_at"] = binfo.get("banned_at")
+            self._send_json(payload)
+            return
+
+        if clean_path in ("/api/admin/fleet/banned", "/api/portal/fleet/admin/banned"):
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr = self.headers.get("Authorization", "").strip()
+            candidate = master_key_header
+            if not candidate and auth_hdr.startswith("Bearer "):
+                candidate = auth_hdr[7:].strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and candidate and hmac.compare_digest(candidate, master_env_key))
+                or (admin_env_key and candidate and len(admin_env_key) >= 24 and hmac.compare_digest(candidate, admin_env_key))
+            )
+            if not is_master:
+                self._send_json({"error": "Admin/Master-Berechtigung erforderlich"}, HTTPStatus.FORBIDDEN, credentialed=True)
+                return
+            banned = FLEET_ACCOUNT_STORE.list_banned_fleets(active_only=False)
+            self._send_json({"status": "ok", "banned_fleets": banned, "total": len(banned)}, credentialed=True)
             return
 
         if clean_path == "/api/portal/fleet/payouts":
@@ -758,6 +814,71 @@ class PortalHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST, credentialed=True)
                 return
 
+        # Master Admin Fleet Ban & Unban Routes
+        if clean_path in (
+            "/api/admin/fleet/ban",
+            "/api/portal/fleet/admin/ban",
+            "/api/admin/fleet/unban",
+            "/api/portal/fleet/admin/unban",
+        ):
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr_raw = self.headers.get("Authorization", "").strip()
+            candidate = master_key_header
+            if not candidate and auth_hdr_raw.startswith("Bearer "):
+                candidate = auth_hdr_raw[7:].strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and candidate and hmac.compare_digest(candidate, master_env_key))
+                or (admin_env_key and candidate and len(admin_env_key) >= 24 and hmac.compare_digest(candidate, admin_env_key))
+            )
+            if not is_master:
+                self._send_json({
+                    "error": "Berechtigungs-Schutz: Nur der Master-Administrator (Plattform-Inhaber) darf Flotten dauerhaft sperren oder entsperren."
+                }, HTTPStatus.FORBIDDEN, credentialed=True)
+                return
+
+            target_owner_id = str(body.get("owner_id", "")).strip()
+            if not target_owner_id:
+                self._send_json({"error": "owner_id parameter is required"}, HTTPStatus.BAD_REQUEST, credentialed=True)
+                return
+
+            if "ban" in clean_path and not clean_path.endswith("unban"):
+                reason = str(body.get("reason", "Administrative suspension")).strip()
+                banned_by = str(body.get("banned_by", "master_admin")).strip()
+                ban_result = FLEET_ACCOUNT_STORE.ban_fleet(target_owner_id, reason=reason, banned_by=banned_by)
+                try:
+                    from services.gateway.server import OWNER_ACCOUNT_STORE
+                    OWNER_ACCOUNT_STORE.ban_owner(target_owner_id, reason=reason, banned_by=banned_by)
+                except Exception:
+                    pass
+                self._send_json({
+                    "status": "ok",
+                    "action": "ban",
+                    "owner_id": target_owner_id,
+                    "message": f"Flotte '{target_owner_id}' wurde durch den Master-Administrator dauerhaft gesperrt.",
+                    "ban": ban_result,
+                }, HTTPStatus.OK, credentialed=True)
+                return
+
+            if "unban" in clean_path:
+                reason = str(body.get("reason", "Administrative reactivation")).strip()
+                unbanned_by = str(body.get("unbanned_by", "master_admin")).strip()
+                unbanned = FLEET_ACCOUNT_STORE.unban_fleet(target_owner_id, reason=reason, unbanned_by=unbanned_by)
+                try:
+                    from services.gateway.server import OWNER_ACCOUNT_STORE
+                    OWNER_ACCOUNT_STORE.unban_owner(target_owner_id, reason=reason, unbanned_by=unbanned_by)
+                except Exception:
+                    pass
+                self._send_json({
+                    "status": "ok",
+                    "action": "unban",
+                    "owner_id": target_owner_id,
+                    "unbanned": unbanned,
+                    "message": f"Flotte '{target_owner_id}' wurde erfolgreich reaktiviert. Normalbetrieb ist wieder freigegeben.",
+                }, HTTPStatus.OK, credentialed=True)
+                return
+
         # Kill Switch Multi-Tenant & Master Endpoints
         if clean_path in (
             "/api/portal/fleet/killswitch/trigger",
@@ -788,8 +909,16 @@ class PortalHandler(BaseHTTPRequestHandler):
 
             # Master authorization check (Plattform-Inhaber / Stripe Root Account Owner / DiskStation Master-Key)
             master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr_raw = self.headers.get("Authorization", "").strip()
+            master_cand = master_key_header
+            if not master_cand and auth_hdr_raw.startswith("Bearer "):
+                master_cand = auth_hdr_raw[7:].strip()
             master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
-            is_master = bool(master_env_key and master_key_header and hmac.compare_digest(master_key_header, master_env_key))
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and master_cand and hmac.compare_digest(master_cand, master_env_key))
+                or (admin_env_key and master_cand and len(admin_env_key) >= 24 and hmac.compare_digest(master_cand, admin_env_key))
+            )
 
             req_scope = str(body.get("scope", "fleet")).lower().strip()
             reason = str(body.get("reason", "Emergency Operator Action"))

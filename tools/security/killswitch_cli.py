@@ -166,9 +166,69 @@ def write_diskstation_operator_kit(target_dir: Path, pub_hex: str) -> None:
     except Exception:
         pass
 
-    # 4. ANLEITUNG.md
+    # 4. SPERRE-FLOTTE.bat (Master Admin Flotten-Sperrung)
+    ban_bat = target_dir / "SPERRE-FLOTTE.bat"
+    ban_content = (
+        "@echo off\n"
+        "title COMPUTEMESH MASTER ADMIN - FLOTTE SPERREN & DEAKTIVIEREN\n"
+        "color 4F\n"
+        "echo ================================================================================\n"
+        "echo  COMPUTEMESH MASTER ADMIN - FLOTTE DAUERHAFT SPERREN (PERSISTENTER BAN)\n"
+        "echo  (Autorisiert durch DiskStation Master-Schluessel)\n"
+        "echo ================================================================================\n"
+        "echo.\n"
+        "set /p OWNER=\"Zu sperrende Owner-ID / Flotten-Key (z.B. facc_xxx oder inet-xxx): \"\n"
+        "if \"%OWNER%\"==\"\" (\n"
+        "    echo Keine ID eingegeben. Vorgang abgebrochen.\n"
+        "    pause\n"
+        "    exit /b 0\n"
+        ")\n"
+        "set /p REASON=\"Sperrgrund (z.B. Verstoß gegen Nutzungsbedingungen): \"\n"
+        "if \"%REASON%\"==\"\" set REASON=Administrative Flottensperre durch Master-Administrator\n"
+        "echo.\n"
+        "echo Sperre Flotte '%OWNER%'...\n"
+        "powershell -ExecutionPolicy Bypass -Command \"$hdr = @{}; if ($env:COMPUTEMESH_MASTER_ADMIN_KEY) { $hdr['X-Master-Killswitch-Key'] = $env:COMPUTEMESH_MASTER_ADMIN_KEY }; try { $res = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/admin/fleet/ban' -Method Post -Body (@{owner_id='%OWNER%'; reason='%REASON%'; banned_by='DiskStation Master Admin'} | ConvertTo-Json) -Headers $hdr -ContentType 'application/json'; Write-Host '[OK] Flotte erfolgreich dauerhaft gesperrt:' $res.message -ForegroundColor Green } catch { Write-Host '[FEHLER]' $_.Exception.Message -ForegroundColor Yellow }\"\n"
+        "echo.\n"
+        "pause\n"
+    )
+    try:
+        ban_bat.write_text(ban_content, encoding="utf-8")
+    except Exception:
+        pass
+
+    # 5. ENTSPERRE-FLOTTE.bat (Master Admin Flotten-Reaktivierung)
+    unban_bat = target_dir / "ENTSPERRE-FLOTTE.bat"
+    unban_content = (
+        "@echo off\n"
+        "title COMPUTEMESH MASTER ADMIN - FLOTTE REAKTIVIEREN & ENTSPERREN\n"
+        "color 2F\n"
+        "echo ================================================================================\n"
+        "echo  COMPUTEMESH MASTER ADMIN - FLOTTE REAKTIVIEREN (UNBAN)\n"
+        "echo  (Autorisiert durch DiskStation Master-Schluessel)\n"
+        "echo ================================================================================\n"
+        "echo.\n"
+        "set /p OWNER=\"Zu reaktivierende Owner-ID / Flotten-Key (z.B. facc_xxx oder inet-xxx): \"\n"
+        "if \"%OWNER%\"==\"\" (\n"
+        "    echo Keine ID eingegeben. Vorgang abgebrochen.\n"
+        "    pause\n"
+        "    exit /b 0\n"
+        ")\n"
+        "set /p REASON=\"Reaktivierungsgrund (z.B. Überprüfung abgeschlossen): \"\n"
+        "if \"%REASON%\"==\"\" set REASON=Administrative Reaktivierung durch Master-Administrator\n"
+        "echo.\n"
+        "echo Reaktiviere Flotte '%OWNER%'...\n"
+        "powershell -ExecutionPolicy Bypass -Command \"$hdr = @{}; if ($env:COMPUTEMESH_MASTER_ADMIN_KEY) { $hdr['X-Master-Killswitch-Key'] = $env:COMPUTEMESH_MASTER_ADMIN_KEY }; try { $res = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/admin/fleet/unban' -Method Post -Body (@{owner_id='%OWNER%'; reason='%REASON%'; unbanned_by='DiskStation Master Admin'} | ConvertTo-Json) -Headers $hdr -ContentType 'application/json'; Write-Host '[OK] Flotte erfolgreich reaktiviert:' $res.message -ForegroundColor Green } catch { Write-Host '[FEHLER]' $_.Exception.Message -ForegroundColor Yellow }\"\n"
+        "echo.\n"
+        "pause\n"
+    )
+    try:
+        unban_bat.write_text(unban_content, encoding="utf-8")
+    except Exception:
+        pass
+
+    # 6. ANLEITUNG.md
     anleitung_md = target_dir / "ANLEITUNG.md"
-    anleitung_content = f"""# ComputeMesh Notfall- & Kill-Switch-Bedienungsanleitung
+    anleitung_content = f"""# ComputeMesh Notfall-, Kill-Switch- & Flottensperrungs-Anleitung
 
 Diese Dokumentation und die Master-Schlüssel liegen gesichert auf dem Network Attached Storage (NAS) und sind **für den KI-Agenten unerreichbar und schreibgeschützt**.
 
@@ -179,9 +239,11 @@ Diese Dokumentation und die Master-Schlüssel liegen gesichert auf dem Network A
 ComputeMesh erzwingt eine strikte, kryptografisch gesicherte Berechtigungshierarchie:
 
 ### A. Plattform-Inhaber (inetconnector / Stripe Root Account Owner)
-* **Rechte**: Volle globale Kontrollhoheit (`scope: "global"`).
+* **Rechte**: Volle globale Kontrollhoheit (`scope: "global"`) sowie administrative Hoheit über alle Mandanten/Flotten.
 * **Master-Schlüssel**: Befindet sich exklusiv auf der DiskStation (`master_killswitch_private.key` bzw. `COMPUTEMESH_MASTER_ADMIN_KEY`).
-* **Wirkung**: Kann im Notfall die **gesamte Plattform und alle Knoten weltweit** augenblicklich abschalten.
+* **Wirkung**:
+  1. Kann im Notfall die **gesamte Plattform und alle Knoten weltweit** augenblicklich per Hard-Kill abschalten.
+  2. Kann **einzelne Flotten dauerhaft sperren (deaktivieren)** und bei Bedarf **wieder reaktivieren (entsperren)**.
 
 ### B. Flottenbetreiber (Provider / Fleet Operator)
 * **Rechte**: Strikt isolierte Flotten-Hoheit (`scope: "fleet"`).
@@ -220,7 +282,38 @@ python -m tools.security.killswitch_cli trigger --scope fleet --owner-id acct_my
 
 ---
 
-## ⏳ 3. Wie funktioniert der Dead Man's Switch (Positive Authorization)?
+## 🔒 3. Einzelne Flotten dauerhaft sperren & wieder aktivieren (Master Admin)
+
+Der Master-Administrator kann verhaltensauffällige oder unbezahlte Flotten dauerhaft deaktivieren (persistent in SQLite):
+
+### Methode A: 1-Klick Script auf der DiskStation
+* **Sperren**: Doppelklick auf `SPERRE-FLOTTE.bat`, Flotten-ID oder Owner-Key eingeben, Grund bestätigen.
+* **Entsperren**: Doppelklick auf `ENTSPERRE-FLOTTE.bat`, Flotten-ID eingeben, Reaktivierung bestätigen.
+
+### Methode B: CLI-Befehle
+```powershell
+# Flotte dauerhaft sperren:
+python -m tools.security.killswitch_cli ban --owner-id facc_12345 --reason "Verstoß gegen Richtlinien"
+
+# Gesperrte Flotten auflisten:
+python -m tools.security.killswitch_cli list-banned
+
+# Flotte wieder reaktivieren:
+python -m tools.security.killswitch_cli unban --owner-id facc_12345 --reason "Überprüfung abgeschlossen"
+```
+
+### Methode C: HTTP REST API
+```http
+POST /api/admin/fleet/ban
+X-Master-Killswitch-Key: <MASTER_KEY>
+Content-Type: application/json
+
+{{"owner_id": "facc_12345", "reason": "Administrative Sperrung"}}
+```
+
+---
+
+## ⏳ 4. Wie funktioniert der Dead Man's Switch (Positive Authorization)?
 
 * **Grundzustand ist STOP**: Die KI hat keine Dauer-Ausführungserlaubnis (Fail-Closed).
 * **Kurzlebiges Lease**: Der externe `SafetySupervisor` stellt alle 5 Sekunden ein neues Autorisierungs-Token mit maximal **15 Sekunden Gültigkeit (TTL)** aus.
@@ -228,7 +321,7 @@ python -m tools.security.killswitch_cli trigger --scope fleet --owner-id acct_my
 
 ---
 
-## 🔑 4. Kryptografische Schlüssel
+## 🔑 5. Kryptografische Schlüssel
 
 * **Master Private Key**: `master_killswitch_private.key` (Liegt NUR hier auf der DiskStation; niemals auf den Inferenz-Knoten).
 * **Master Public Key**: `master_killswitch_public.hex`
@@ -237,7 +330,7 @@ python -m tools.security.killswitch_cli trigger --scope fleet --owner-id acct_my
 
 ---
 
-## 📊 5. Status abfragen
+## 📊 6. Status abfragen
 
 * Doppelklicke auf `STATUS.bat` in diesem Ordner oder rufe im Terminal auf:
 ```powershell
@@ -310,6 +403,27 @@ def main() -> None:
     # renew
     ren_p = subparsers.add_parser("renew", help="Renew positive authorization heartbeat lease")
     ren_p.add_argument("--url", type=str, default="http://127.0.0.1:8080/api/killswitch/renew", help="Gateway renew endpoint")
+
+    # ban (Master Admin Fleet Suspension)
+    ban_p = subparsers.add_parser("ban", help="Permanently ban/suspend a fleet account (Master Admin only)")
+    ban_p.add_argument("--owner-id", type=str, required=True, help="Owner ID, Account ID or Owner Key to permanently ban")
+    ban_p.add_argument("--reason", type=str, default="Administrative suspension by Master Admin", help="Reason for banning the fleet")
+    ban_p.add_argument("--banned-by", type=str, default="master_admin", help="Admin username or origin")
+    ban_p.add_argument("--master-key", type=str, default="", help="Master Admin Key")
+    ban_p.add_argument("--url", type=str, default="http://127.0.0.1:8080/api/admin/fleet/ban", help="Admin fleet ban endpoint")
+
+    # unban (Master Admin Fleet Reactivation)
+    unban_p = subparsers.add_parser("unban", help="Reactivate/unban a previously suspended fleet account (Master Admin only)")
+    unban_p.add_argument("--owner-id", type=str, required=True, help="Owner ID, Account ID or Owner Key to reactivate")
+    unban_p.add_argument("--reason", type=str, default="Administrative reactivation by Master Admin", help="Reason for reactivating the fleet")
+    unban_p.add_argument("--unbanned-by", type=str, default="master_admin", help="Admin username or origin")
+    unban_p.add_argument("--master-key", type=str, default="", help="Master Admin Key")
+    unban_p.add_argument("--url", type=str, default="http://127.0.0.1:8080/api/admin/fleet/unban", help="Admin fleet unban endpoint")
+
+    # list-banned (Master Admin List Banned Fleets)
+    list_ban_p = subparsers.add_parser("list-banned", help="List all permanently banned fleet accounts (Master Admin only)")
+    list_ban_p.add_argument("--master-key", type=str, default="", help="Master Admin Key")
+    list_ban_p.add_argument("--url", type=str, default="http://127.0.0.1:8080/api/admin/fleet/banned", help="Admin list banned fleets endpoint")
 
     args = parser.parse_args()
 
@@ -392,6 +506,79 @@ def main() -> None:
                 print(f"[OK] Lease renewed: {resp.read().decode('utf-8')}")
         except Exception as exc:
             print(f"Error renewing lease: {exc}")
+
+    elif args.command == "ban":
+        import urllib.request
+        headers = {"Content-Type": "application/json", "User-Agent": "ComputeMesh-KillSwitchCLI/1.2"}
+        master_key = args.master_key or os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "") or os.environ.get("COMPUTEMESH_ADMIN_KEY", "")
+        if master_key:
+            headers["X-Master-Killswitch-Key"] = master_key
+            headers["Authorization"] = f"Bearer {master_key}"
+        payload = {
+            "owner_id": args.owner_id,
+            "reason": args.reason,
+            "banned_by": args.banned_by,
+        }
+        print(f"Permanently banning fleet '{args.owner_id}' (Reason: {args.reason})...")
+        req = urllib.request.Request(
+            args.url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                print(f"[OK] Flotte erfolgreich dauerhaft gesperrt: {data.get('message', '')}")
+                print(json.dumps(data, indent=2))
+        except urllib.error.HTTPError as err:
+            print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
+        except Exception as exc:
+            print(f"[ERROR] Could not execute fleet ban: {exc}")
+
+    elif args.command == "unban":
+        import urllib.request
+        headers = {"Content-Type": "application/json", "User-Agent": "ComputeMesh-KillSwitchCLI/1.2"}
+        master_key = args.master_key or os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "") or os.environ.get("COMPUTEMESH_ADMIN_KEY", "")
+        if master_key:
+            headers["X-Master-Killswitch-Key"] = master_key
+            headers["Authorization"] = f"Bearer {master_key}"
+        payload = {
+            "owner_id": args.owner_id,
+            "reason": args.reason,
+            "unbanned_by": args.unbanned_by,
+        }
+        print(f"Reactivating fleet '{args.owner_id}' (Reason: {args.reason})...")
+        req = urllib.request.Request(
+            args.url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                print(f"[OK] Flotte erfolgreich reaktiviert: {data.get('message', '')}")
+                print(json.dumps(data, indent=2))
+        except urllib.error.HTTPError as err:
+            print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
+        except Exception as exc:
+            print(f"[ERROR] Could not execute fleet unban: {exc}")
+
+    elif args.command == "list-banned":
+        import urllib.request
+        headers = {"User-Agent": "ComputeMesh-KillSwitchCLI/1.2"}
+        master_key = args.master_key or os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "") or os.environ.get("COMPUTEMESH_ADMIN_KEY", "")
+        if master_key:
+            headers["X-Master-Killswitch-Key"] = master_key
+            headers["Authorization"] = f"Bearer {master_key}"
+        req = urllib.request.Request(args.url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                print(json.dumps(data, indent=2))
+        except urllib.error.HTTPError as err:
+            print(f"[HTTP {err.code}] {err.read().decode('utf-8')}")
+        except Exception as exc:
+            print(f"[ERROR] Could not fetch banned fleets: {exc}")
 
 
 if __name__ == "__main__":

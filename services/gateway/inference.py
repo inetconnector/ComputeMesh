@@ -82,7 +82,7 @@ class InferenceEngine:
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
 
-        # Positive Authorization & Emergency Kill Switch Check (Global & Fleet-Scoped)
+        # Positive Authorization, Emergency Kill Switch & Permanent Ban Check (Global & Fleet-Scoped)
         try:
             from runtime.safety.dead_mans_switch import get_lease_guard, EmergencyKillTrippedError
             guard = get_lease_guard()
@@ -92,8 +92,20 @@ class InferenceEngine:
                 )
             if account_id and guard.is_fleet_tripped(account_id):
                 raise EmergencyKillTrippedError(
-                    f"Inference execution blocked: Fleet '{account_id}' is emergency stopped ({guard.get_fleet_trip_reason(account_id)})"
+                    f"Inference execution blocked: Fleet '{account_id}' is emergency stopped/suspended ({guard.get_fleet_trip_reason(account_id)})"
                 )
+            if account_id:
+                try:
+                    from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+                    if FLEET_ACCOUNT_STORE.is_fleet_banned(account_id):
+                        info = FLEET_ACCOUNT_STORE.get_fleet_ban_info(account_id)
+                        ban_reason = info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+                        raise EmergencyKillTrippedError(
+                            f"Inference execution blocked: Fleet '{account_id}' is permanently suspended by Master Administrator ({ban_reason})"
+                        )
+                except Exception as _b_err:
+                    if "EmergencyKillTrippedError" in type(_b_err).__name__:
+                        raise
         except Exception as _ks_err:
             if "EmergencyKillTrippedError" in type(_ks_err).__name__:
                 raise

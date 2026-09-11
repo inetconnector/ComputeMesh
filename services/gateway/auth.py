@@ -232,6 +232,41 @@ class GatewayAuthManager:
             return False
         return self._lookup_registered_key(token) is not None
 
+    def _check_fleet_banned(self, owner_or_account_id: str | None) -> str | None:
+        """Returns the ban reason if the fleet/owner is permanently banned by Master Admin."""
+        if not owner_or_account_id or owner_or_account_id in ("admin_root", "teaser"):
+            return None
+        cleaned = str(owner_or_account_id).strip()
+        try:
+            from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+            if FLEET_ACCOUNT_STORE.is_fleet_banned(cleaned):
+                info = FLEET_ACCOUNT_STORE.get_fleet_ban_info(cleaned)
+                return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+        except Exception:
+            pass
+        if self.owner_account_store and self.owner_account_store.is_owner_banned(cleaned):
+            info = self.owner_account_store.get_owner_ban_info(cleaned)
+            return info.get("reason", "Administrative suspension") if info else "Administrative suspension"
+        return None
+
+    def _guard_auth_result(self, res: AuthResult) -> AuthResult:
+        """Ensures that suspended / banned fleets are immediately blocked with HTTP 403."""
+        if not res.is_authenticated or res.account_id in ("admin_root", None):
+            return res
+        target = res.owner_id or res.account_id
+        ban_reason = self._check_fleet_banned(target)
+        if ban_reason:
+            return AuthResult(
+                account_id=None,
+                owner_id=None,
+                is_teaser=False,
+                is_provider_self_compute=False,
+                is_quota_exceeded=False,
+                error_message=f"Flotte/Konto '{target}' wurde durch den Master-Administrator dauerhaft gesperrt: {ban_reason}",
+                status_code=HTTPStatus.FORBIDDEN,
+            )
+        return res
+
     def authenticate_request(
         self,
         headers: Any,
@@ -258,13 +293,13 @@ class GatewayAuthManager:
             if account_id:
                 if self.uses_owner_credits:
                     self._bind_owner_credential(token, account_id)
-                    return AuthResult(
+                    return self._guard_auth_result(AuthResult(
                         account_id=account_id,
                         owner_id=account_id,
                         is_teaser=False,
                         is_provider_self_compute=token.startswith("cm_provider_"),
                         is_quota_exceeded=False,
-                    )
+                    ))
 
                 if not self.ledger.has_received_initial_grant(account_id) and self.ledger.get_balance(account_id) == 0:
                     self.ledger.deposit_customer_credits(
@@ -272,12 +307,12 @@ class GatewayAuthManager:
                         amount_micro_units=10_000_000,
                         payment_reference=f"initial_grant_{account_id}",
                     )
-                return AuthResult(
+                return self._guard_auth_result(AuthResult(
                     account_id=account_id,
                     is_teaser=False,
                     is_provider_self_compute=token.startswith("cm_provider_") or token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_"),
                     is_quota_exceeded=False,
-                )
+                ))
 
             # Fleet Owner Key authentication (e.g. inet-..., ok_..., cm_owner_...)
             if token.startswith("inet-") or token.startswith("ok_") or token.startswith("cm_owner_") or token.startswith("owner_"):
@@ -291,25 +326,25 @@ class GatewayAuthManager:
                             self._api_keys[token] = account_id
                         if self.uses_owner_credits:
                             self._bind_owner_credential(token, account_id)
-                            return AuthResult(
+                            return self._guard_auth_result(AuthResult(
                                 account_id=account_id,
                                 owner_id=account_id,
                                 is_teaser=False,
                                 is_provider_self_compute=True,
                                 is_quota_exceeded=False,
-                            )
+                            ))
                         if self.ledger.get_balance(account_id) == 0:
                             self.ledger.deposit_customer_credits(
                                 customer_account_id=account_id,
                                 amount_micro_units=100_000_000,
                                 payment_reference=f"owner_grant_{account_id}",
                             )
-                        return AuthResult(
+                        return self._guard_auth_result(AuthResult(
                             account_id=account_id,
                             is_teaser=False,
                             is_provider_self_compute=True,
                             is_quota_exceeded=False,
-                        )
+                        ))
                 except Exception:
                     pass
 
@@ -322,25 +357,25 @@ class GatewayAuthManager:
                         self._api_keys[token] = account_id
                     if self.uses_owner_credits:
                         self._bind_owner_credential(token, account_id)
-                        return AuthResult(
+                        return self._guard_auth_result(AuthResult(
                             account_id=account_id,
                             owner_id=account_id,
                             is_teaser=False,
                             is_provider_self_compute=True,
                             is_quota_exceeded=False,
-                        )
+                        ))
                     if self.ledger.get_balance(account_id) == 0:
                         self.ledger.deposit_customer_credits(
                             customer_account_id=account_id,
                             amount_micro_units=100_000_000,
                             payment_reference=f"provider_self_grant_{account_id}_{secrets.token_hex(4)}",
                         )
-                    return AuthResult(
+                    return self._guard_auth_result(AuthResult(
                         account_id=account_id,
                         is_teaser=False,
                         is_provider_self_compute=True,
                         is_quota_exceeded=False,
-                    )
+                    ))
 
             if token.startswith("cm_live_") and _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_CUSTOMER_KEYS"):
                 cust_suffix = token.removeprefix("cm_live_").strip()
@@ -350,25 +385,25 @@ class GatewayAuthManager:
                         self._api_keys[token] = account_id
                     if self.uses_owner_credits:
                         self._bind_owner_credential(token, account_id)
-                        return AuthResult(
+                        return self._guard_auth_result(AuthResult(
                             account_id=account_id,
                             owner_id=account_id,
                             is_teaser=False,
                             is_provider_self_compute=False,
                             is_quota_exceeded=False,
-                        )
+                        ))
                     if self.ledger.get_balance(account_id) == 0:
                         self.ledger.deposit_customer_credits(
                             customer_account_id=account_id,
                             amount_micro_units=10_000_000,
                             payment_reference=f"initial_grant_{account_id}_{secrets.token_hex(4)}",
                         )
-                    return AuthResult(
+                    return self._guard_auth_result(AuthResult(
                         account_id=account_id,
                         is_teaser=False,
                         is_provider_self_compute=False,
                         is_quota_exceeded=False,
-                    )
+                    ))
 
         # Check passkey cookie session if no Bearer token was supplied
         try:
@@ -378,25 +413,25 @@ class GatewayAuthManager:
                 owner_id = account.account_id
                 if self.uses_owner_credits:
                     self._bind_owner_credential(account.owner_key, owner_id)
-                    return AuthResult(
+                    return self._guard_auth_result(AuthResult(
                         account_id=owner_id,
                         owner_id=owner_id,
                         is_teaser=False,
                         is_provider_self_compute=True,
                         is_quota_exceeded=False,
-                    )
+                    ))
                 if self.ledger.get_balance(owner_id) == 0:
                     self.ledger.deposit_customer_credits(
                         customer_account_id=owner_id,
                         amount_micro_units=100_000_000,
                         payment_reference=f"session_grant_{owner_id}",
                     )
-                return AuthResult(
+                return self._guard_auth_result(AuthResult(
                     account_id=owner_id,
                     is_teaser=False,
                     is_provider_self_compute=True,
                     is_quota_exceeded=False,
-                )
+                ))
         except Exception:
             pass
 
@@ -417,13 +452,13 @@ class GatewayAuthManager:
                                     amount_micro_units=100_000_000,
                                     payment_reference=f"provider_grant_{account_id}",
                                 )
-                            return AuthResult(
+                            return self._guard_auth_result(AuthResult(
                                 account_id=account_id,
                                 owner_id=n_owner,
                                 is_teaser=False,
                                 is_provider_self_compute=True,
                                 is_quota_exceeded=False,
-                            )
+                            ))
         except Exception:
             pass
 
@@ -470,6 +505,14 @@ class GatewayAuthManager:
         if token.startswith("cm_provider_"):
             node_id = token.removeprefix("cm_provider_").strip()
             if PROVIDER_NODE_ID_REGEX.match(node_id):
+                if self.owner_account_store:
+                    owner_id = (
+                        self.owner_account_store.owner_for_provider_node(node_id)
+                        if hasattr(self.owner_account_store, "owner_for_provider_node")
+                        else getattr(self.owner_account_store, "owner_for_node", lambda _: None)(node_id)
+                    )
+                    if owner_id and self._check_fleet_banned(owner_id):
+                        return (None, f"Provider node belongs to suspended fleet '{owner_id}'", HTTPStatus.FORBIDDEN)
                 if self._lookup_registered_key(token) or _env_truthy("COMPUTEMESH_ALLOW_DYNAMIC_PROVIDER_TOKENS"):
                     return (node_id, None, HTTPStatus.OK)
                 return (None, "Provider token is not registered", HTTPStatus.UNAUTHORIZED)
@@ -478,11 +521,16 @@ class GatewayAuthManager:
 
     def authenticate_admin(self, headers: Any) -> tuple[bool, str | None, HTTPStatus]:
         token = extract_bearer_token(headers)
-        if not token:
+        master_key_header = str(headers.get("X-Master-Killswitch-Key", "") if hasattr(headers, "get") else "").strip()
+        candidate = token or master_key_header
+        if not candidate:
             return (False, "Missing Authorization header for admin endpoint", HTTPStatus.UNAUTHORIZED)
         env_admin = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
-        if len(env_admin) < ADMIN_KEY_MIN_LENGTH:
-            return (False, "Admin key is not configured", HTTPStatus.SERVICE_UNAVAILABLE)
-        if hmac.compare_digest(token, env_admin):
+        master_env = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+        if master_env and (hmac.compare_digest(candidate, master_env) or (master_key_header and hmac.compare_digest(master_key_header, master_env))):
             return (True, None, HTTPStatus.OK)
+        if len(env_admin) >= ADMIN_KEY_MIN_LENGTH and hmac.compare_digest(candidate, env_admin):
+            return (True, None, HTTPStatus.OK)
+        if not env_admin and not master_env:
+            return (False, "Admin key is not configured", HTTPStatus.SERVICE_UNAVAILABLE)
         return (False, "Invalid admin credentials", HTTPStatus.FORBIDDEN)

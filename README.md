@@ -257,6 +257,47 @@ discovery and resolution fail closed if it is unavailable.
 
 Payment boundary: the intended real-money purchase path for compute credits is Stripe. The gateway now has a fail-closed Stripe Checkout/Webhook integration path that calls the official Stripe SDK when configured with `STRIPE_API_KEY` and a durable `COMPUTEMESH_STRIPE_SESSION_STORE`; signed webhook crediting additionally requires `STRIPE_WEBHOOK_SECRET`. Checkout metadata/session-store values define the purchased compute-credit amount, so tax-inclusive Stripe totals are not credited as extra compute balance. Provider payout operations now have a Stripe Connect Accounts v2 / Express recipient onboarding path with durable provider accounts, onboarding links, settlement records, transfer idempotency, configurable transfer currency through `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY`, and internal ledger payable clearing. Without Stripe configuration it will not issue fake live Checkout or Connect URLs. Real Stripe Connect onboarding still requires the provider/operator's legal entity and KYC details; a German UG cannot be truthfully completed in Stripe until it is founded and registered. MetaMask/EVM wallet handling in the current provider UI is only for selecting a provider payout destination address for earnings from contributed compute power; wallets are not used to buy compute credits or to charge customers.
 
+## Master Administrator Security, Fleet Banning & Multi-Tenant Isolation
+
+ComputeMesh enforces strict multi-tenant isolation and fail-closed safety guarantees:
+- **Tenant Isolation**: An individual fleet operator can only manage or emergency-stop their own fleet (`/api/portal/fleet/killswitch/trip`), never the entire platform or competitor fleets.
+- **Master Administrator Authority**: Only the platform owner / Stripe account holder (`inetconnector`) possesses the Master Killswitch & Administrator Keys stored securely in the DiskStation Vault (`\\diskstation\Dani\ComputeMesh\killswitch`).
+
+### Permanent Fleet Deactivation (Banning) & Reactivation
+
+The Master Administrator can permanently suspend any abusive, non-compliant, or compromised fleet, and seamlessly reactivate it once cleared:
+
+1. **Persistent State**: Fleet bans are persisted in SQLite (`fleet_banned_accounts` and `owner_banned_accounts`) surviving all daemon and server restarts.
+2. **Instant Dead-Man Trip**: Banning synchronizes immediately with the in-memory `DeadMansLeaseGuard`, instantly aborting active execution pipelines and preventing new inferences.
+3. **Fail-Closed Gateway Auth**: Any request using an API key, session token, owner key, or provider node token belonging to a banned fleet is rejected with `HTTP 403 Forbidden` (`{"error": "Fleet account is administratively suspended"}`).
+4. **Portal Status**: `/api/portal/fleet` and `/mesh/fleet` reflect the suspension state (`"is_suspended": true`, `"suspension_reason"`, `"banned_at"`).
+5. **Reactivation (Unbanning)**: The Master Administrator can lift the ban at any time, clearing the persistent ban record, unlocking Gateway authentication, and restoring full operational access.
+
+#### 1-Click DiskStation Operator Scripts
+Pre-configured scripts located in `\\diskstation\Dani\ComputeMesh\killswitch\`:
+- `SPERRE-FLOTTE.bat <owner_id_oder_facc_id> "<Grund>"`: Bans and immediately suspends the target fleet.
+- `ENTSPERRE-FLOTTE.bat <owner_id_oder_facc_id>`: Reactivates and restores the target fleet.
+- `NOTABSCHALTUNG-GLOBAL.bat "<Grund>"`: Global emergency kill of the entire ComputeMesh cluster.
+- `SYSTEM-WIEDERHERSTELLEN.bat`: Restores platform operations after an emergency.
+
+#### Security CLI (`tools/security/killswitch_cli.py`)
+```bash
+# Deactivate / Ban a fleet permanently
+python tools/security/killswitch_cli.py ban facc_0123456789abcdef --reason "AGB-Verstoß oder verdächtige Aktivität" --master-key <MASTER_KEY>
+
+# Reactivate / Unban a fleet
+python tools/security/killswitch_cli.py unban facc_0123456789abcdef --reason "Audit erfolgreich abgeschlossen" --master-key <MASTER_KEY>
+
+# List all banned fleets
+python tools/security/killswitch_cli.py list-banned --master-key <MASTER_KEY>
+```
+
+#### Admin REST API Endpoints
+All administrative ban endpoints require `X-Master-Killswitch-Key` or `Authorization: Bearer <ADMIN_KEY>`:
+- `POST /api/admin/fleet/ban` (Body: `{"owner_id": "facc_...", "reason": "Grund der Sperre"}`)
+- `POST /api/admin/fleet/unban` (Body: `{"owner_id": "facc_...", "reason": "Freigabegrund"}`)
+- `GET /api/admin/fleet/banned` (Returns list of currently banned fleet accounts)
+
 ## Immediate path
 
 ```text

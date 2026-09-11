@@ -240,6 +240,47 @@ Auflösung fail-closed fehl.
 
 Payment-Grenze: Der vorgesehene Real-Money-Pfad für den Kauf von Rechenguthaben ist Stripe. Der Gateway besitzt einen fail-closed Stripe-Checkout-/Webhook-Pfad, der bei Konfiguration von `STRIPE_API_KEY` und einem dauerhaften `COMPUTEMESH_STRIPE_SESSION_STORE` das offizielle Stripe-SDK nutzt; signiertes Webhook-Crediting benötigt zusätzlich `STRIPE_WEBHOOK_SECRET`. Checkout-Metadaten und Session-Store bestimmen den gekauften Compute-Credit-Betrag, damit steuerbehaftete Stripe-Gesamtsummen nicht als zusätzliches Rechenguthaben verbucht werden. Provider-Auszahlungen besitzen einen Stripe-Connect-Accounts-v2-/Express-Recipient-Onboarding-Pfad mit dauerhaften Provider-Konten, Onboarding-Links, Settlement-Records, Transfer-Idempotenz, konfigurierbarer Transfer-Währung über `COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY` und interner Ledger-Ausbuchung der Provider-Verbindlichkeiten. Ohne Stripe-Konfiguration werden keine Fake-Live-Checkout- oder Connect-URLs ausgegeben. Echtes Stripe-Connect-Onboarding benötigt weiterhin die Rechtsform- und KYC-Daten des Providers/Betreibers. MetaMask/EVM-Wallets dienen in der aktuellen Provider-Oberfläche nur dazu, eine Auszahlungsadresse für Einnahmen aus bereitgestellter Rechenleistung festzulegen; Wallets werden nicht zum Kauf von Rechenguthaben oder zum Belasten von Kunden verwendet.
 
+## Master-Administrator Sicherheit, Flotten-Sperrung & Mandanten-Isolation
+
+ComputeMesh erzwingt strenge Mandanten-Isolation und Fail-Closed Sicherheitsgarantien:
+- **Mandanten-Isolation**: Ein einzelner Flottenbetreiber kann nur seine eigene Flotte verwalten oder im Notfall isolieren (`/api/portal/fleet/killswitch/trip`), niemals die gesamte Plattform oder fremde Flotten anderer Teilnehmer.
+- **Master-Administrator Vollmacht**: Nur der Plattform-Inhaber / Inhaber der Stripe-Accounts (`inetconnector`) besitzt die Master-Killswitch- und Master-Admin-Schlüssel, sicher verwahrt im DiskStation-Tresor (`\\diskstation\Dani\ComputeMesh\killswitch`).
+
+### Dauerhafte Flotten-Deaktivierung (Sperrung) & Reaktivierung
+
+Der Master-Administrator kann missbräuchliche, unzuverlässige oder kompromittierte Flotten dauerhaft sperren und bei Bedarf jederzeit wieder reaktivieren:
+
+1. **Persistente Speicherung**: Flotten-Sperren werden persistent in SQLite (`fleet_banned_accounts` und `owner_banned_accounts`) gespeichert und überstehen Neustarts sämtlicher Server und Daemons.
+2. **Sofortiger Dead-Man-Trip**: Das Sperren synchronisiert sich sofort mit dem in-memory `DeadMansLeaseGuard`, bricht laufende Inference-Pipelines ab und blockiert neue Ausführungen.
+3. **Fail-Closed Gateway-Authentifizierung**: Sämtliche Anfragen mit API-Keys, Session-Tokens, Owner-Keys oder Provider-Node-Tokens einer gesperrten Flotte werden mit `HTTP 403 Forbidden` abgewiesen (`{"error": "Fleet account is administratively suspended"}`).
+4. **Portal-Status**: `/api/portal/fleet` und `/mesh/fleet` markieren die Flotte mit `"is_suspended": true`, Sperrgrund und Zeitstempel.
+5. **Reaktivierung (Entsperrung)**: Der Master-Administrator kann die Sperre jederzeit aufheben; das Konto wird aus der Sperrtabelle entfernt, die Gateway-Authentifizierung freigegeben und der Normalbetrieb wiederhergestellt.
+
+#### 1-Klick DiskStation Notfall-Skripte
+Vorkonfigurierte Skripte im Verzeichnis `\\diskstation\Dani\ComputeMesh\killswitch\`:
+- `SPERRE-FLOTTE.bat <owner_id_oder_facc_id> "<Grund>"`: Sperrt und stoppt die Ziel-Flotte sofort.
+- `ENTSPERRE-FLOTTE.bat <owner_id_oder_facc_id>`: Reaktiviert die gesperrte Flotte.
+- `NOTABSCHALTUNG-GLOBAL.bat "<Grund>"`: Globaler Not-Aus für das gesamte ComputeMesh-Netzwerk.
+- `SYSTEM-WIEDERHERSTELLEN.bat`: Hebt die globale Notabschaltung auf.
+
+#### Security CLI (`tools/security/killswitch_cli.py`)
+```bash
+# Flotte dauerhaft sperren / deaktivieren
+python tools/security/killswitch_cli.py ban facc_0123456789abcdef --reason "Verstoß gegen Richtlinien oder verdächtige Aktivität" --master-key <MASTER_KEY>
+
+# Flotte wieder reaktivieren / entsperren
+python tools/security/killswitch_cli.py unban facc_0123456789abcdef --reason "Überprüfung erfolgreich abgeschlossen" --master-key <MASTER_KEY>
+
+# Alle gesperrten Flotten auflisten
+python tools/security/killswitch_cli.py list-banned --master-key <MASTER_KEY>
+```
+
+#### Admin REST-API Endpunkte
+Alle administrativen Sperr-Endpunkte erfordern `X-Master-Killswitch-Key` oder `Authorization: Bearer <ADMIN_KEY>`:
+- `POST /api/admin/fleet/ban` (Body: `{"owner_id": "facc_...", "reason": "Sperrgrund"}`)
+- `POST /api/admin/fleet/unban` (Body: `{"owner_id": "facc_...", "reason": "Freigabegrund"}`)
+- `GET /api/admin/fleet/banned` (Liefert Liste aller gesperrten Flotten)
+
 ## Unmittelbarer Ablauf
 
 ```text

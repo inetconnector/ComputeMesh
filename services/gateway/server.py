@@ -242,7 +242,28 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
     # Sort nodes so online nodes appear first
     nodes_out.sort(key=lambda x: (not x.get("is_online", False), x.get("node_id", "")))
 
-    return {
+    is_suspended = False
+    suspension_reason = None
+    banned_at = None
+    if owner_id:
+        try:
+            from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
+            if FLEET_ACCOUNT_STORE.is_fleet_banned(owner_id):
+                is_suspended = True
+                binfo = FLEET_ACCOUNT_STORE.get_fleet_ban_info(owner_id)
+                if binfo:
+                    suspension_reason = binfo.get("reason")
+                    banned_at = binfo.get("banned_at")
+        except Exception:
+            pass
+        if not is_suspended and OWNER_ACCOUNT_STORE.is_owner_banned(owner_id):
+            is_suspended = True
+            binfo = OWNER_ACCOUNT_STORE.get_owner_ban_info(owner_id)
+            if binfo:
+                suspension_reason = binfo.get("reason")
+                banned_at = binfo.get("banned_at")
+
+    payload_dict = {
         "owner_id": owner_id,
         "total_nodes_bound": len(deduped_candidates),
         "total_nodes_online": online_count,
@@ -251,6 +272,11 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         "nodes": nodes_out,
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+    if is_suspended:
+        payload_dict["is_suspended"] = True
+        payload_dict["suspension_reason"] = suspension_reason or "Administrative suspension"
+        payload_dict["banned_at"] = banned_at
+    return payload_dict
 
 
 def _build_ledger_from_env() -> Ledger:
@@ -770,8 +796,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key)
-            payload = _build_fleet_payload(owner_id, include_remote_urls=True)
+            facc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key) if owner_key else None
+            facc_id = facc.account_id if facc else (account.account_id if account else None)
+            derived_owner_id = owner_id_for_key(owner_key) if owner_key else None
+            owner_id = facc_id or derived_owner_id
+            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True)
+            is_banned = False
+            binfo = None
+            for check_id in filter(None, [facc_id, derived_owner_id, owner_id]):
+                if FLEET_ACCOUNT_STORE.is_fleet_banned(check_id):
+                    is_banned = True
+                    binfo = FLEET_ACCOUNT_STORE.get_fleet_ban_info(check_id)
+                    break
+            if is_banned and binfo:
+                payload["is_suspended"] = True
+                payload["suspension_reason"] = binfo.get("reason", "Administrative suspension")
+                payload["banned_at"] = binfo.get("banned_at")
             self._send_json(payload)
             return
 
@@ -828,6 +868,45 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "enabled_tools": enabled_tools,
                 "total_tools": len(all_tools),
             })
+            return
+
+        if clean_path in ("/api/admin/fleet/banned", "/api/portal/fleet/admin/banned"):
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr = self.headers.get("Authorization", "").strip()
+            candidate = master_key_header
+            if not candidate and auth_hdr.startswith("Bearer "):
+                candidate = auth_hdr[7:].strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and candidate and hmac.compare_digest(candidate, master_env_key))
+                or (admin_env_key and candidate and len(admin_env_key) >= 24 and hmac.compare_digest(candidate, admin_env_key))
+            )
+            if not is_master:
+                self._send_json({"error": "Admin/Master-Berechtigung erforderlich"}, HTTPStatus.FORBIDDEN)
+                return
+            banned = FLEET_ACCOUNT_STORE.list_banned_fleets(active_only=False)
+            self._send_json({"status": "ok", "banned_fleets": banned, "total": len(banned)})
+            return
+
+        if clean_path in ("/api/portal/fleet/killswitch/status", "/api/killswitch/status"):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+            owner_id = owner_id_for_key(owner_key) if owner_key else None
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+            st = guard.get_status(owner_id=owner_id)
+            self._send_json(st)
             return
 
         if clean_path in (
@@ -1326,6 +1405,187 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         self._send_json(data)
                 except Exception as exc:
                     self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+
+        # Master Admin Fleet Ban & Unban Routes
+        if clean_path in (
+            "/api/admin/fleet/ban",
+            "/api/portal/fleet/admin/ban",
+            "/api/admin/fleet/unban",
+            "/api/portal/fleet/admin/unban",
+        ):
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr_raw = self.headers.get("Authorization", "").strip()
+            candidate = master_key_header
+            if not candidate and auth_hdr_raw.startswith("Bearer "):
+                candidate = auth_hdr_raw[7:].strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and candidate and hmac.compare_digest(candidate, master_env_key))
+                or (admin_env_key and candidate and len(admin_env_key) >= 24 and hmac.compare_digest(candidate, admin_env_key))
+            )
+            if not is_master:
+                self._send_json({
+                    "error": "Berechtigungs-Schutz: Nur der Master-Administrator (Plattform-Inhaber) darf Flotten dauerhaft sperren oder entsperren."
+                }, HTTPStatus.FORBIDDEN)
+                return
+
+            target_owner_id = str(body.get("owner_id", "")).strip()
+            if not target_owner_id:
+                self._send_json({"error": "owner_id parameter is required"}, HTTPStatus.BAD_REQUEST)
+                return
+
+            if "ban" in clean_path and not clean_path.endswith("unban"):
+                reason = str(body.get("reason", "Administrative suspension")).strip()
+                banned_by = str(body.get("banned_by", "master_admin")).strip()
+                ban_result = FLEET_ACCOUNT_STORE.ban_fleet(target_owner_id, reason=reason, banned_by=banned_by)
+                OWNER_ACCOUNT_STORE.ban_owner(target_owner_id, reason=reason, banned_by=banned_by)
+                self._send_json({
+                    "status": "ok",
+                    "action": "ban",
+                    "owner_id": target_owner_id,
+                    "message": f"Flotte '{target_owner_id}' wurde durch den Master-Administrator dauerhaft gesperrt.",
+                    "ban": ban_result,
+                }, HTTPStatus.OK)
+                return
+
+            if "unban" in clean_path:
+                reason = str(body.get("reason", "Administrative reactivation")).strip()
+                unbanned_by = str(body.get("unbanned_by", "master_admin")).strip()
+                unbanned = FLEET_ACCOUNT_STORE.unban_fleet(target_owner_id, reason=reason, unbanned_by=unbanned_by)
+                OWNER_ACCOUNT_STORE.unban_owner(target_owner_id, reason=reason, unbanned_by=unbanned_by)
+                self._send_json({
+                    "status": "ok",
+                    "action": "unban",
+                    "owner_id": target_owner_id,
+                    "unbanned": unbanned,
+                    "message": f"Flotte '{target_owner_id}' wurde erfolgreich reaktiviert. Normalbetrieb ist wieder freigegeben.",
+                }, HTTPStatus.OK)
+                return
+
+        # Kill Switch Multi-Tenant & Master Endpoints
+        if clean_path in (
+            "/api/portal/fleet/killswitch/trigger",
+            "/api/killswitch/trigger",
+            "/api/portal/fleet/killswitch/reset",
+            "/api/killswitch/reset",
+            "/api/portal/fleet/killswitch/renew",
+            "/api/killswitch/renew",
+        ):
+            account = session_account_from_headers(self.headers)
+            owner_key = ""
+            if account is not None:
+                owner_key = account.owner_key
+            else:
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                if not owner_key:
+                    auth_hdr = self.headers.get("Authorization", "").strip()
+                    if auth_hdr.startswith("Bearer "):
+                        candidate = auth_hdr[7:].strip()
+                        if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
+                            owner_key = candidate
+
+            owner_id = owner_id_for_key(owner_key) if owner_key else (account.account_id if account else None)
+            from runtime.safety.dead_mans_switch import get_lease_guard
+            guard = get_lease_guard()
+
+            master_key_header = self.headers.get("X-Master-Killswitch-Key", "").strip()
+            auth_hdr_raw = self.headers.get("Authorization", "").strip()
+            master_cand = master_key_header
+            if not master_cand and auth_hdr_raw.startswith("Bearer "):
+                master_cand = auth_hdr_raw[7:].strip()
+            master_env_key = os.environ.get("COMPUTEMESH_MASTER_ADMIN_KEY", "").strip()
+            admin_env_key = os.environ.get("COMPUTEMESH_ADMIN_KEY", "").strip()
+            is_master = bool(
+                (master_env_key and master_cand and hmac.compare_digest(master_cand, master_env_key))
+                or (admin_env_key and master_cand and len(admin_env_key) >= 24 and hmac.compare_digest(master_cand, admin_env_key))
+            )
+
+            req_scope = str(body.get("scope", "fleet")).lower().strip()
+            reason = str(body.get("reason", "Emergency Operator Action"))
+
+            if "trigger" in clean_path:
+                if req_scope in ("global", "platform", "cluster"):
+                    if not is_master:
+                        if owner_id:
+                            guard.trip_fleet(owner_id, reason=reason)
+                        self._send_json({
+                            "status": "forbidden",
+                            "scope": "fleet" if owner_id else "unauthorized",
+                            "owner_id": owner_id,
+                            "error": "Berechtigungs-Schutz: Ein Flottenbetreiber darf niemals das Gesamtsystem zum Einsturz bringen oder stoppen. Der globale Plattform-Not-Aus ist strikt dem Plattform-Inhaber (inetconnector / Stripe Account Owner) vorbehalten.",
+                            "message": "Deine eigene Flotte wurde isoliert und gestoppt. Das Restsystem und alle anderen Provider laufen 100% unterbrechungsfrei weiter.",
+                            "guard": guard.get_status(owner_id=owner_id),
+                        }, HTTPStatus.FORBIDDEN)
+                        return
+
+                    guard.trip(reason=reason, is_master=True)
+                    self._send_json({
+                        "status": "global_tripped",
+                        "scope": "global",
+                        "message": f"Globaler Plattform-Not-Aus durch Plattform-Inhaber ausgelöst: {reason}",
+                        "guard": guard.get_status(),
+                    }, HTTPStatus.OK)
+                    return
+
+                if not owner_id:
+                    self._send_json({"error": "Authentifizierung als Flottenbetreiber erforderlich"}, HTTPStatus.UNAUTHORIZED)
+                    return
+
+                trip_res = guard.trip_fleet(owner_id, reason=reason)
+                self._send_json({
+                    "status": "ok",
+                    "scope": "fleet",
+                    "owner_id": owner_id,
+                    "message": f"Flotten-Not-Aus aktiviert für Flotte '{owner_id}'. Alle Rechenknoten deiner Flotte wurden angehalten.",
+                    "fleet_status": trip_res,
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK)
+                return
+
+            if "reset" in clean_path:
+                if req_scope in ("global", "platform", "cluster"):
+                    if not is_master:
+                        self._send_json({
+                            "error": "Berechtigungs-Schutz: Nur der Plattform-Inhaber (inetconnector / Stripe Account Owner) darf den globalen Not-Aus zurücksetzen."
+                        }, HTTPStatus.FORBIDDEN)
+                        return
+                    guard.reset(reason=reason)
+                    self._send_json({
+                        "status": "ok",
+                        "scope": "global",
+                        "message": f"Globaler Plattform-Not-Aus zurückgesetzt: {reason}",
+                        "guard": guard.get_status(),
+                    }, HTTPStatus.OK)
+                    return
+
+                if not owner_id:
+                    self._send_json({"error": "Authentifizierung als Flottenbetreiber erforderlich"}, HTTPStatus.UNAUTHORIZED)
+                    return
+
+                guard.reset_fleet(owner_id, reason=reason)
+                self._send_json({
+                    "status": "ok",
+                    "scope": "fleet",
+                    "owner_id": owner_id,
+                    "message": f"Flotten-Not-Aus für Flotte '{owner_id}' aufgehoben. Normaler Inferenzbetrieb wieder freigegeben.",
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK)
+                return
+
+            if "renew" in clean_path:
+                if guard.is_tripped:
+                    self._send_json({"error": f"Globaler Not-Aus ist aktiv ({guard.trip_reason})"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                    return
+                if owner_id and guard.is_fleet_tripped(owner_id):
+                    self._send_json({"error": f"Flotte '{owner_id}' ist im Not-Aus ({guard.get_fleet_trip_reason(owner_id)})"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                    return
+                self._send_json({
+                    "status": "ok",
+                    "message": "Authorization lease active",
+                    "guard": guard.get_status(owner_id=owner_id),
+                }, HTTPStatus.OK)
                 return
 
         if clean_path in ("/api/v1/billing/quote", "/v1/billing/quote"):
