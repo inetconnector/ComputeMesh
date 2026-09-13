@@ -1,6 +1,16 @@
 RewriteEngine On
 RewriteBase /
 
+# Resilient Android downloads: production deployment normally places verified
+# artifacts in portal/downloads. If a file is temporarily absent, fall back to
+# the signed stable GitHub release instead of returning a broken 404 link.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^downloads/ComputeMesh-Android\.apk$ https://github.com/inetconnector/ComputeMesh/releases/download/android-latest/ComputeMesh-Android.apk [R=302,L,NE]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^downloads/ComputeMesh-Android\.aab$ https://github.com/inetconnector/ComputeMesh/releases/download/android-latest/ComputeMesh-Android.aab [R=302,L,NE]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^downloads/ComputeMesh-Android\.json$ https://github.com/inetconnector/ComputeMesh/releases/download/android-latest/ComputeMesh-Android.json [R=302,L,NE]
+
 # Force clean URLs without .html extension
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
@@ -15,11 +25,17 @@ RewriteRule ^(.*)$ $1.html [L,QSA]
     AddType image/svg+xml .svg
 </IfModule>
 
-# Privacy-by-design and browser security headers for static Apache hosting.
 <IfModule mod_headers.c>
+    # Privacy-by-design and browser security headers for static Apache hosting.
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(self), usb=()"
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:*; img-src 'self' data: https:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+    # Download artifacts are immutable within one published build; revalidation
+    # keeps clients current while allowing efficient CDN/browser caching.
+    <FilesMatch "^ComputeMesh-Android\.(apk|aab|json)$">
+        Header set Cache-Control "public, max-age=300, must-revalidate"
+    </FilesMatch>
 </IfModule>
