@@ -5,6 +5,7 @@
   'use strict';
 
   const TERMS_VERSION = '2.1';
+  const ANDROID_APK_URL = 'https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk';
 
   function getLang() {
     return (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de'))) ? 'de' : 'en';
@@ -126,6 +127,26 @@
     studio.appendChild(note);
   }
 
+  function installAndroidDownloadLink() {
+    const links = Array.from(document.querySelectorAll('a[href*="ComputeMesh-Android.apk"]'));
+    links.forEach(link => {
+      link.href = ANDROID_APK_URL;
+      link.setAttribute('rel', 'noopener');
+    });
+
+    const androidButton = links.find(link => link.hasAttribute('download') || link.dataset.i18n === 'dl_android_btn');
+    const card = androidButton?.closest('.download-card');
+    if (!card || card.querySelector('.cm-android-direct-link')) return;
+
+    const direct = document.createElement('a');
+    direct.className = 'cm-android-direct-link';
+    direct.href = ANDROID_APK_URL;
+    direct.rel = 'noopener';
+    direct.textContent = ANDROID_APK_URL;
+    direct.style.cssText = 'display:block;margin-top:.6rem;font-size:.72rem;overflow-wrap:anywhere;color:var(--accent-cyan);text-align:center;';
+    card.appendChild(direct);
+  }
+
   function setupModalHooks() {
     const roleSelect = document.getElementById('modal-role');
     if (roleSelect) {
@@ -147,6 +168,7 @@
     syncProviderControls();
     clarifyVisionCapabilities();
     installImageSafetyNotice();
+    installAndroidDownloadLink();
   }
 
   const QUICK_PROMPTS_FALLBACK = {
