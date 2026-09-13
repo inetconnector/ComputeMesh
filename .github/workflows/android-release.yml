@@ -1,5 +1,6 @@
 name: Android Release
 
+# Publishes the canonical signed APK/AAB consumed by production deployment.
 on:
   workflow_dispatch:
   push:
