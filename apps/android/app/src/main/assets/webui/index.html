@@ -58,16 +58,16 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2778x1284.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2796x1290.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) and (prefers-color-scheme: dark)" href="./apple-splash-landscape-dark-2868x1320.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1170x2532.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1179x2556.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1206x2622.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1284x2778.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1290x2796.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./apple-splash-portrait-dark-1320x2868.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 376px) and (device-height: 573px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1488x2266.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1640x2360.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-1668x2388.png">
-		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./apple-splash-portrait-dark-2048x2732.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1170x2532.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1179x2556.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1206x2622.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1284x2778.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1290x2796.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1320x2868.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 376px) and (device-height: 573px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1488x2266.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1640x2360.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1668x2388.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-2048x2732.png">
 		<style>
 			html, body {
 				height: 100% !important;
@@ -106,10 +106,12 @@
 				backdrop-filter: blur(14px) !important;
 				-webkit-backdrop-filter: blur(14px) !important;
 				z-index: 99990 !important;
+				pointer-events: auto !important;
+				cursor: pointer !important;
 			}
 
 			/* =========================================================================
-			   MODAL DIALOGS / ALERT DIALOGS / BOTTOM SHEETS (Optimized for Android APK)
+			   MODAL DIALOGS / ALERT DIALOGS (Optimized for Android APK & Mobile Touch)
 			   ========================================================================= */
 			[data-slot="dialog-content"]:not([data-state="closed"]),
 			[data-slot="alert-dialog-content"]:not([data-state="closed"]),
@@ -120,28 +122,56 @@
 			[role="dialog"]:not([data-state="closed"]),
 			[role="alertdialog"]:not([data-state="closed"]) {
 				position: fixed !important;
-				top: max(12px, env(safe-area-inset-top, 12px)) !important;
-				bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
-				left: 50% !important;
-				right: auto !important;
-				transform: translateX(-50%) !important;
-				translate: none !important;
-				margin: 0 !important;
-				width: min(94vw, 540px) !important;
-				max-width: min(94vw, 540px) !important;
+				top: max(16px, env(safe-area-inset-top, 16px)) !important;
+				left: 12px !important;
+				right: 12px !important;
+				bottom: auto !important;
+				margin: 0 auto !important;
+				width: auto !important;
+				max-width: 540px !important;
 				min-width: 0 !important;
-				max-height: calc(100% - 24px) !important;
+				max-height: calc(100% - 32px) !important;
 				height: auto !important;
+				transform: none !important;
+				translate: none !important;
 				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
 				border: 1.5px solid rgba(56, 189, 248, 0.6) !important;
 				border-radius: 24px !important;
 				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.98), 0 0 40px rgba(56, 189, 248, 0.3) !important;
 				z-index: 999999 !important;
+				pointer-events: auto !important;
 				display: flex !important;
 				flex-direction: column !important;
 				overflow: hidden !important;
 				box-sizing: border-box !important;
-				touch-action: pan-y !important;
+			}
+
+			/* Ensure interactive elements inside dialogs have high priority and responsiveness */
+			[role="dialog"] button,
+			[role="dialog"] [role="button"],
+			[role="dialog"] [role="switch"],
+			[role="dialog"] a,
+			[role="dialog"] input,
+			[role="dialog"] label,
+			[role="alertdialog"] button,
+			[role="alertdialog"] [role="button"],
+			[role="alertdialog"] [role="switch"],
+			[data-slot="dialog-content"] button,
+			[data-slot="dialog-content"] [role="button"],
+			[data-slot="dialog-content"] [role="switch"],
+			[data-slot="dialog-content"] a,
+			[data-slot="dialog-content"] input,
+			[data-slot="dialog-content"] label,
+			[data-slot="alert-dialog-content"] button,
+			[data-slot="alert-dialog-content"] [role="button"],
+			.cm-modal-close-btn {
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
+				-webkit-user-select: none !important;
+				user-select: none !important;
+				-webkit-tap-highlight-color: transparent !important;
+				cursor: pointer !important;
+				position: relative !important;
 			}
 
 			/* Bottom Sheets & Drawers */
@@ -209,7 +239,7 @@
 				align-items: center !important;
 				gap: 10px !important;
 				margin: 0 !important;
-				padding-right: 44px !important;
+				padding-right: 48px !important;
 				line-height: 1.3 !important;
 			}
 
@@ -234,23 +264,23 @@
 			}
 
 			/* Close Button in top right of all dialogs */
+			.cm-modal-close-btn,
 			[data-slot="dialog-content"] [data-dialog-close],
 			[data-slot="dialog-content"] button:has(svg.lucide-x),
 			[data-slot="dialog-content"] button:has(svg.size-4),
 			[role="dialog"] button:has(svg.lucide-x),
-			[role="dialog"] [data-bits-dialog-close],
-			.cm-modal-close-btn {
+			[role="dialog"] [data-bits-dialog-close] {
 				position: absolute !important;
 				top: 12px !important;
 				right: 14px !important;
-				z-index: 50 !important;
-				background: rgba(255, 255, 255, 0.12) !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.4) !important;
+				z-index: 100 !important;
+				background: rgba(255, 255, 255, 0.15) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
 				border-radius: 12px !important;
-				min-height: 38px !important;
-				height: 38px !important;
-				width: 38px !important;
-				min-width: 38px !important;
+				min-height: 40px !important;
+				height: 40px !important;
+				width: 40px !important;
+				min-width: 40px !important;
 				padding: 0 !important;
 				display: flex !important;
 				align-items: center !important;
@@ -258,13 +288,14 @@
 				color: #38bdf8 !important;
 				cursor: pointer !important;
 				touch-action: manipulation !important;
+				pointer-events: auto !important;
 				transition: all 0.2s ease !important;
 			}
 
+			.cm-modal-close-btn:active,
 			[data-slot="dialog-content"] [data-dialog-close]:active,
-			[role="dialog"] button:has(svg.lucide-x):active,
-			.cm-modal-close-btn:active {
-				background: rgba(56, 189, 248, 0.3) !important;
+			[role="dialog"] button:has(svg.lucide-x):active {
+				background: rgba(56, 189, 248, 0.35) !important;
 				transform: scale(0.95) !important;
 			}
 
@@ -337,6 +368,7 @@
 				justify-content: center !important;
 				cursor: pointer !important;
 				touch-action: manipulation !important;
+				pointer-events: auto !important;
 				transition: all 0.15s ease !important;
 				flex: 1 1 auto !important;
 			}
@@ -398,6 +430,7 @@
 				min-height: 28px !important;
 				cursor: pointer !important;
 				touch-action: manipulation !important;
+				pointer-events: auto !important;
 			}
 
 			/* Links & Touch targets */
@@ -405,11 +438,13 @@
 				color: #38bdf8 !important;
 				touch-action: manipulation !important;
 				cursor: pointer !important;
+				pointer-events: auto !important;
 			}
 
 			button, [role="button"], input, select, textarea {
 				touch-action: manipulation !important;
 				-webkit-tap-highlight-color: transparent !important;
+				pointer-events: auto !important;
 			}
 
 			/* Prevent pre/code blowout */
@@ -589,6 +624,13 @@
 		<div style="display: contents">
 			<script>
 				{
+					// Ensure onboarding state is saved in localStorage so it never blocks startup
+					try {
+						localStorage.setItem("LlamaUi.mcpServersSetupDone", "true");
+						localStorage.setItem("LlamaCppWebui.mcpServersSetupDone", "true");
+						localStorage.setItem("ComputeMesh.mcpServersSetupDone", "true");
+					} catch(e) {}
+
 					__sveltekit_na4fmg = {
 						base: new URL('.', location).pathname.slice(0, -1)
 					};
@@ -604,6 +646,100 @@
 
 		<!-- ComputeMesh Runtime & Enhancements Script -->
 		<script>
+			// Global Modal Dismissal Controller
+			(function() {
+				window.__dismissComputeMeshModals = function() {
+					let closedAny = false;
+					try {
+						localStorage.setItem("LlamaUi.mcpServersSetupDone", "true");
+						localStorage.setItem("LlamaCppWebui.mcpServersSetupDone", "true");
+						localStorage.setItem("ComputeMesh.mcpServersSetupDone", "true");
+						localStorage.setItem("mcp_modal_dismissed", "true");
+					} catch (err) {}
+
+					const dialogs = document.querySelectorAll(
+						'[data-slot="dialog-content"]:not([data-state="closed"]), ' +
+						'[data-slot="alert-dialog-content"]:not([data-state="closed"]), ' +
+						'[data-bits-dialog-content]:not([data-state="closed"]), ' +
+						'[data-bits-alert-dialog-content]:not([data-state="closed"]), ' +
+						'[data-radix-dialog-content]:not([data-state="closed"]), ' +
+						'[data-dialog-content]:not([data-state="closed"]), ' +
+						'[role="dialog"]:not([data-state="closed"]), ' +
+						'[role="alertdialog"]:not([data-state="closed"])'
+					);
+
+					if (dialogs.length > 0) closedAny = true;
+
+					dialogs.forEach(function(d) {
+						const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close]');
+						if (stdBtn) {
+							try { stdBtn.click(); } catch(e) {}
+						}
+						const buttons = Array.from(d.querySelectorAll('button, [role="button"]'));
+						const cancelBtn = buttons.find(function(b) {
+							const txt = (b.textContent || '').trim().toLowerCase();
+							return txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel') || txt.includes('schließen');
+						});
+						if (cancelBtn) {
+							try { cancelBtn.click(); } catch(e) {}
+						}
+					});
+
+					try {
+						const esc = new KeyboardEvent('keydown', {
+							key: 'Escape',
+							code: 'Escape',
+							keyCode: 27,
+							which: 27,
+							bubbles: true,
+							cancelable: true
+						});
+						window.dispatchEvent(esc);
+						document.dispatchEvent(esc);
+					} catch(e) {}
+
+					setTimeout(function() {
+						const allModals = document.querySelectorAll(
+							'[data-slot="dialog-content"], [data-slot="alert-dialog-content"], ' +
+							'[data-bits-dialog-content], [data-bits-alert-dialog-content], ' +
+							'[data-radix-dialog-content], [role="dialog"], [role="alertdialog"]'
+						);
+						allModals.forEach(function(el) {
+							el.setAttribute('data-state', 'closed');
+							el.style.setProperty('display', 'none', 'important');
+							el.style.setProperty('pointer-events', 'none', 'important');
+						});
+						const allOverlays = document.querySelectorAll(
+							'[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], ' +
+							'[data-bits-dialog-overlay], [data-radix-dialog-overlay]'
+						);
+						allOverlays.forEach(function(el) {
+							el.setAttribute('data-state', 'closed');
+							el.style.setProperty('display', 'none', 'important');
+							el.style.setProperty('pointer-events', 'none', 'important');
+						});
+						const portals = document.querySelectorAll('[data-bits-dialog-portal], [data-radix-portal]');
+						portals.forEach(function(p) {
+							p.style.setProperty('pointer-events', 'none', 'important');
+						});
+					}, 40);
+
+					return closedAny;
+				};
+
+				// Global Backdrop Overlay Click & Touch Dismissal
+				function onBackdropTouch(e) {
+					const overlay = e.target.closest('[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-bits-dialog-overlay], [data-radix-dialog-overlay]');
+					if (overlay) {
+						e.preventDefault();
+						e.stopPropagation();
+						window.__dismissComputeMeshModals();
+					}
+				}
+				document.addEventListener('click', onBackdropTouch, { capture: true });
+				document.addEventListener('touchend', onBackdropTouch, { capture: true, passive: false });
+			})();
+
 			// Global External Link Interceptor
 			(function() {
 				function handleExternalLink(e) {
@@ -647,20 +783,13 @@
 					const h = window.innerHeight;
 					if (h > 0) {
 						document.documentElement.style.setProperty('--app-height', h + 'px');
-						document.documentElement.style.setProperty('height', h + 'px', 'important');
-						document.documentElement.style.setProperty('min-height', h + 'px', 'important');
-						if (document.body) {
-							document.body.style.setProperty('height', h + 'px', 'important');
-							document.body.style.setProperty('min-height', h + 'px', 'important');
-						}
 					}
 				}
-				window.addEventListener('resize', syncViewportHeight);
-				window.addEventListener('orientationchange', syncViewportHeight);
+				window.addEventListener('resize', syncViewportHeight, { passive: true });
+				window.addEventListener('orientationchange', syncViewportHeight, { passive: true });
 				syncViewportHeight();
 
 				function ensureMessagesVisibleAndScrolled() {
-					syncViewportHeight();
 					const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble');
 					if (msgs.length > 0) {
 						for (let i = 0; i < msgs.length; i++) {
@@ -692,7 +821,7 @@
 					chatDebounce = setTimeout(function() {
 						chatDebounce = null;
 						ensureMessagesVisibleAndScrolled();
-					}, 100);
+					}, 150);
 				});
 
 				if (document.body) {
@@ -706,7 +835,7 @@
 				}
 			})();
 
-			// Modal Dialog & Panel Auto-Positioning & Safe Dismissal Engine
+			// Modal Dialog & Panel Positioning & Safe Dismissal Engine
 			(function() {
 				function sanitizeDialogs() {
 					const dialogs = document.querySelectorAll('[data-slot="dialog-content"]:not([data-state="closed"]), [data-slot="alert-dialog-content"]:not([data-state="closed"]), [data-bits-dialog-content]:not([data-state="closed"]), [data-bits-alert-dialog-content]:not([data-state="closed"]), [data-radix-dialog-content]:not([data-state="closed"]), [data-dialog-content]:not([data-state="closed"]), [role="dialog"]:not([data-state="closed"]), [role="alertdialog"]:not([data-state="closed"])');
@@ -714,17 +843,19 @@
 						const d = dialogs[i];
 						if (d.getAttribute('data-slot') === 'sheet-content') continue;
 						d.style.setProperty('position', 'fixed', 'important');
-						d.style.setProperty('top', 'max(12px, env(safe-area-inset-top, 12px))', 'important');
-						d.style.setProperty('bottom', 'max(12px, env(safe-area-inset-bottom, 12px))', 'important');
-						d.style.setProperty('left', '50%', 'important');
-						d.style.setProperty('right', 'auto', 'important');
-						d.style.setProperty('transform', 'translateX(-50%)', 'important');
-						d.style.setProperty('translate', 'none', 'important');
-						d.style.setProperty('width', 'min(94vw, 540px)', 'important');
-						d.style.setProperty('max-width', 'min(94vw, 540px)', 'important');
-						d.style.setProperty('max-height', 'calc(100% - 24px)', 'important');
+						d.style.setProperty('top', 'max(16px, env(safe-area-inset-top, 16px))', 'important');
+						d.style.setProperty('left', '12px', 'important');
+						d.style.setProperty('right', '12px', 'important');
+						d.style.setProperty('bottom', 'auto', 'important');
+						d.style.setProperty('margin', '0 auto', 'important');
+						d.style.setProperty('width', 'auto', 'important');
+						d.style.setProperty('max-width', '540px', 'important');
+						d.style.setProperty('max-height', 'calc(100% - 32px)', 'important');
 						d.style.setProperty('height', 'auto', 'important');
-						d.style.setProperty('margin', '0', 'important');
+						d.style.setProperty('transform', 'none', 'important');
+						d.style.setProperty('translate', 'none', 'important');
+						d.style.setProperty('z-index', '999999', 'important');
+						d.style.setProperty('pointer-events', 'auto', 'important');
 						d.style.setProperty('display', 'flex', 'important');
 						d.style.setProperty('flex-direction', 'column', 'important');
 						d.style.setProperty('overflow', 'hidden', 'important');
@@ -737,25 +868,47 @@
 							closeBtn.type = 'button';
 							closeBtn.setAttribute('aria-label', 'Schließen');
 							closeBtn.innerHTML = `
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+								<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 									<line x1="18" y1="6" x2="6" y2="18"></line>
 									<line x1="6" y1="6" x2="18" y2="18"></line>
 								</svg>
 							`;
-							closeBtn.addEventListener('click', function(e) {
+							const handleClose = function(e) {
 								e.preventDefault();
 								e.stopPropagation();
-								const dismissBtn = d.querySelector('[data-slot="alert-dialog-cancel"], button:contains("Jetzt nicht"), button:contains("Abbrechen")');
-								if (dismissBtn) {
-									dismissBtn.click();
-								} else {
-									d.style.setProperty('display', 'none', 'important');
-									const overlay = document.querySelector('[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]');
-									if (overlay) overlay.style.setProperty('display', 'none', 'important');
-								}
-							});
+								window.__dismissComputeMeshModals();
+							};
+							closeBtn.addEventListener('click', handleClose);
+							closeBtn.addEventListener('touchend', handleClose);
+							closeBtn.addEventListener('pointerup', handleClose);
 							d.appendChild(closeBtn);
 						}
+
+						// Wire buttons inside dialog
+						const allButtons = Array.from(d.querySelectorAll('button, [role="button"]'));
+						allButtons.forEach(function(b) {
+							if (b.dataset.cmBound) return;
+							b.dataset.cmBound = 'true';
+							b.style.setProperty('pointer-events', 'auto', 'important');
+							b.style.setProperty('touch-action', 'manipulation', 'important');
+
+							const txt = (b.textContent || '').trim().toLowerCase();
+							if (txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel')) {
+								const onCancel = function(e) {
+									try { localStorage.setItem("LlamaUi.mcpServersSetupDone", "true"); } catch(err) {}
+									setTimeout(window.__dismissComputeMeshModals, 20);
+								};
+								b.addEventListener('click', onCancel);
+								b.addEventListener('touchend', onCancel);
+							} else if (txt.includes('weiter') || txt.includes('continue') || txt.includes('add server') || txt.includes('hinzufügen')) {
+								const onProceed = function(e) {
+									try { localStorage.setItem("LlamaUi.mcpServersSetupDone", "true"); } catch(err) {}
+									setTimeout(window.__dismissComputeMeshModals, 100);
+								};
+								b.addEventListener('click', onProceed);
+								b.addEventListener('touchend', onProceed);
+							}
+						});
 					}
 				}
 
@@ -776,7 +929,7 @@
 						sanitizeDialogs();
 					});
 				}
-				setInterval(sanitizeDialogs, 500);
+				setInterval(sanitizeDialogs, 400);
 			})();
 
 			// Speech Recognition Bridge

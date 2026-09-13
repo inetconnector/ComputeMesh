@@ -19,6 +19,7 @@ import android.webkit.*
 import android.widget.Toast
 import org.json.JSONObject
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -523,9 +524,33 @@ fun MiniCpmChatTab(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var fileChooserCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
     var pendingPermissionRequest by remember { mutableStateOf<PermissionRequest?>(null) }
     var pendingAudioCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    BackHandler(enabled = true) {
+        if (webViewInstance != null) {
+            webViewInstance?.evaluateJavascript(
+                """(function() {
+                    if (typeof window.__dismissComputeMeshModals === 'function') {
+                        return window.__dismissComputeMeshModals();
+                    }
+                    return false;
+                })()"""
+            ) { result ->
+                if (result != "true") {
+                    if (webViewInstance?.canGoBack() == true) {
+                        webViewInstance?.goBack()
+                    } else {
+                        activity?.moveTaskToBack(true)
+                    }
+                }
+            }
+        } else {
+            activity?.moveTaskToBack(true)
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -571,6 +596,7 @@ fun MiniCpmChatTab(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 WebView(ctx).apply {
+                    webViewInstance = this
                     setBackgroundColor(0xFF090D16.toInt())
                     isVerticalScrollBarEnabled = true
                     isHorizontalScrollBarEnabled = false
