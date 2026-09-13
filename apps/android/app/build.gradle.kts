@@ -4,6 +4,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseStoreFile = System.getenv("CM_ANDROID_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+val releaseStorePassword = System.getenv("CM_ANDROID_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyAlias = System.getenv("CM_ANDROID_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val releaseKeyPassword = System.getenv("CM_ANDROID_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+val allowDebugRelease = System.getenv("CM_ANDROID_ALLOW_DEBUG_RELEASE") == "1"
+val hasProductionSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.inetconnector.compumesh"
     compileSdk = 34
@@ -32,6 +44,20 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasProductionSigning) {
+            create("production") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -40,7 +66,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = when {
+                hasProductionSigning -> signingConfigs.getByName("production")
+                allowDebugRelease -> signingConfigs.getByName("debug")
+                else -> null
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -86,6 +116,18 @@ android {
     }
 }
 
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    doFirst {
+        if (!hasProductionSigning && !allowDebugRelease) {
+            throw GradleException(
+                "Release signing is not configured. Set CM_ANDROID_KEYSTORE_PATH, " +
+                    "CM_ANDROID_KEYSTORE_PASSWORD, CM_ANDROID_KEY_ALIAS and CM_ANDROID_KEY_PASSWORD. " +
+                    "CM_ANDROID_ALLOW_DEBUG_RELEASE=1 is allowed only for local non-distribution testing."
+            )
+        }
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.5")
@@ -97,11 +139,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Coroutines & Concurrency
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
-    // Embedded HTTP Server for Local OpenAI Compatible API & Networking
     implementation("io.ktor:ktor-server-core:2.3.12")
     implementation("io.ktor:ktor-server-netty:2.3.12")
     implementation("io.ktor:ktor-server-content-negotiation:2.3.12")
@@ -111,20 +151,14 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.12")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
 
-    // JSON serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
-
-    // NanoHTTPD for hosting embedded AHSMA WebUI
     implementation("org.nanohttpd:nanohttpd:2.3.1")
 
-    // CameraX for Live QR Code Camera Scanning
     val cameraxVersion = "1.3.4"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
-
-    // ML Kit Barcode Scanning (bundled, runs on-device without Google Play Services requirement)
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     testImplementation("junit:junit:4.13.2")
