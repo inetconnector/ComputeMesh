@@ -491,6 +491,22 @@ class AndroidSpeechBridge(
         }
     }
 
+    @JavascriptInterface
+    fun openExternalUrl(url: String?) {
+        if (url.isNullOrBlank()) return
+        activity.runOnUiThread {
+            try {
+                val parsedUri = Uri.parse(url)
+                val intent = Intent(Intent.ACTION_VIEW, parsedUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+            } catch (e: Throwable) {
+                Log.e("SpeechBridge", "Failed to open URL $url: ${e.message}")
+            }
+        }
+    }
+
     private fun notifyJs(event: String, data: String = "") {
         activity.runOnUiThread {
             val safeData = JSONObject.quote(data)
@@ -556,35 +572,71 @@ fun MiniCpmChatTab(
             factory = { ctx ->
                 WebView(ctx).apply {
                     setBackgroundColor(0xFF090D16.toInt())
+                    isVerticalScrollBarEnabled = true
+                    isHorizontalScrollBarEnabled = false
+                    isScrollbarFadingEnabled = true
+                    overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                    isNestedScrollingEnabled = true
+
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
                         allowFileAccess = true
                         allowContentAccess = true
                         databaseEnabled = true
-                        useWideViewPort = false
-                        loadWithOverviewMode = false
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        textZoom = 100
+                        setSupportZoom(false)
+                        builtInZoomControls = false
+                        displayZoomControls = false
                         mediaPlaybackRequiresUserGesture = false
                         javaScriptCanOpenWindowsAutomatically = true
-                        setSupportMultipleWindows(false)
+                        setSupportMultipleWindows(true)
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
 
                     if (activity != null) {
-                        addJavascriptInterface(
-                            AndroidSpeechBridge(
-                                activity,
-                                this,
-                                onRequestAudioPermission = { onGranted ->
-                                    pendingAudioCallback = onGranted
-                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                }
-                            ),
-                            "AndroidSpeechBridge"
+                        val bridge = AndroidSpeechBridge(
+                            activity,
+                            this,
+                            onRequestAudioPermission = { onGranted ->
+                                pendingAudioCallback = onGranted
+                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
                         )
+                        addJavascriptInterface(bridge, "AndroidSpeechBridge")
+                        addJavascriptInterface(bridge, "AndroidBridge")
                     }
 
                     webChromeClient = object : WebChromeClient() {
+                        override fun onCreateWindow(
+                            view: WebView?,
+                            isDialog: Boolean,
+                            isUserGesture: Boolean,
+                            resultMsg: android.os.Message?
+                        ): Boolean {
+                            val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                            val tempWebView = WebView(view?.context ?: return false)
+                            tempWebView.webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(v: WebView?, req: WebResourceRequest?): Boolean {
+                                    val url = req?.url?.toString() ?: return false
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        ctx.startActivity(intent)
+                                    } catch (e: Throwable) {
+                                        Log.e("WebViewChat", "Error opening external window URL $url: ${e.message}")
+                                    }
+                                    return true
+                                }
+                            }
+                            transport.webView = tempWebView
+                            resultMsg.sendToTarget()
+                            return true
+                        }
+
                         override fun onShowFileChooser(
                             webView: WebView?,
                             filePathCallback: ValueCallback<Array<Uri>>?,
@@ -663,7 +715,9 @@ fun MiniCpmChatTab(
                                 false
                             } else {
                                 try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
                                     ctx.startActivity(intent)
                                 } catch (_: Throwable) {}
                                 true
