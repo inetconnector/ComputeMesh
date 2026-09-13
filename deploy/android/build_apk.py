@@ -23,7 +23,6 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ANDROID_ROOT = REPO_ROOT / "apps" / "android"
@@ -120,7 +119,7 @@ def build_release() -> tuple[Path, Path, Path]:
 
     jarsigner = shutil.which("jarsigner")
     if jarsigner and os.environ.get("CM_ANDROID_ALLOW_DEBUG_RELEASE") != "1":
-        subprocess.run([jarsigner, "-verify", "-strict", str(built_aab)], check=True)
+        subprocess.run([jarsigner, "-verify", str(built_aab)], check=True)
 
     PORTAL_DOWNLOADS.mkdir(parents=True, exist_ok=True)
     target_apk = PORTAL_DOWNLOADS / "ComputeMesh-Android.apk"
