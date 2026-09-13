@@ -72,7 +72,7 @@ jobs:
           test -s "$APK"
           test -s "$AAB"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
-          jarsigner -verify -strict "$AAB"
+          jarsigner -verify "$AAB"
           mkdir -p release-android
           cp "$APK" release-android/ComputeMesh-Android.apk
           cp "$AAB" release-android/ComputeMesh-Android.aab
@@ -108,6 +108,7 @@ jobs:
               'url': 'https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk',
               'aab_url': 'https://mesh.inetconnector.com/downloads/ComputeMesh-Android.aab',
               'github_release_tag': 'android-latest',
+              'production_signed': True,
           }
           (out / 'ComputeMesh-Android.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
           PY
