@@ -43,7 +43,7 @@
     const resBox = document.getElementById('modal-result-box');
 
     if (!bizCheck || !bizCheck.checked) {
-      const msg = lang === 'de' 
+      const msg = lang === 'de'
         ? 'Bitte akzeptiere die Nutzungsbedingungen und bestätige die geschäftliche Nutzung (B2B).'
         : 'Please accept the Terms of Service & Privacy Policy and confirm business (B2B) use.';
       if (keyInput) keyInput.value = msg;
@@ -103,6 +103,29 @@
     }
   }
 
+  function clarifyVisionCapabilities() {
+    const select = document.getElementById('playground-model-select');
+    if (!select) return;
+    const option = Array.from(select.options).find(o => o.value === 'qwen2.5-vl:7b');
+    if (option) {
+      option.textContent = getLang() === 'de'
+        ? 'Qwen 2.5 VL 7B (Vision / Bildanalyse – keine Bildgenerierung)'
+        : 'Qwen 2.5 VL 7B (Vision / image analysis – not image generation)';
+    }
+  }
+
+  function installImageSafetyNotice() {
+    const studio = document.querySelector('.playground-studio');
+    if (!studio || document.getElementById('cm-image-safety-notice')) return;
+    const note = document.createElement('div');
+    note.id = 'cm-image-safety-notice';
+    note.style.cssText = 'margin-top:1rem;padding:0.85rem 1rem;border:1px solid rgba(56,189,248,.24);border-radius:10px;background:rgba(15,23,42,.55);font-size:.82rem;line-height:1.5;color:#94a3b8;';
+    note.innerHTML = getLang() === 'de'
+      ? '🛡️ <strong style="color:#cbd5e1">Bild-KI Sicherheit:</strong> Vision-Modelle analysieren Bilder, erzeugen aber keine. Eine separate Bildgenerierung wird nur mit verpflichtender Prompt- und Output-Moderation, Minderjährigenschutz, Deepfake-Schutz und KI-Herkunftskennzeichnung freigeschaltet.'
+      : '🛡️ <strong style="color:#cbd5e1">Image AI safety:</strong> Vision models analyze images; they do not render images. Separate image generation is enabled only with mandatory prompt/output moderation, minor protection, deepfake safeguards and AI-origin provenance.';
+    studio.appendChild(note);
+  }
+
   function setupModalHooks() {
     const roleSelect = document.getElementById('modal-role');
     if (roleSelect) {
@@ -122,6 +145,8 @@
     window.handleRegistration = compliantRegistration;
     window.compliantRegistration = compliantRegistration;
     syncProviderControls();
+    clarifyVisionCapabilities();
+    installImageSafetyNotice();
   }
 
   const QUICK_PROMPTS_FALLBACK = {
@@ -133,7 +158,7 @@
     },
     en: {
       explain_mesh: "What makes ComputeMesh unique and how does decentralized GPU inference work?",
-      python_fastapi: "Write a high-performance Python FastAPI streaming endpoint using the OpenAI-compatible /v1/chat/completions gateway.",
+      python_fastapi: "Write a high-performance Python-FastAPI streaming endpoint using the OpenAI-compatible /v1/chat/completions gateway.",
       gpu_sharding: "Explain how pipeline layer sharding efficiently distributes large AI models across multiple GPUs.",
       compare_costs: "How much money can I save with ComputeMesh compared to AWS or Azure?"
     }
