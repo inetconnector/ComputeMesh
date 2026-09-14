@@ -779,15 +779,15 @@
           <!-- Metrics Grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1rem;margin-bottom:1.5rem;">
             <div style="background:#090d16;border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1.25rem;">
-              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Verfügbares Auszahlungsguthaben</div>
+              <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Tatsächliches Ledger-Guthaben</div>
               <div id="payout-earned-val" style="font-size:1.8rem;font-weight:800;color:#10b981;">$0.00 USD</div>
-              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Echtzeit-Vergütung aus GPU-Rechenleistung</div>
+              <div id="payout-earned-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">🔒 100% verifizierter Double-Entry-Ledger (keine fiktiven Zahlen)</div>
             </div>
 
             <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
               <div style="font-size:0.82rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Auszahlungs-Schwelle</div>
-              <div style="font-size:1.8rem;font-weight:800;color:#f8fafc;">$25.00 USD</div>
-              <div style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Mindestbetrag für Sofort- oder Sammelauszahlung</div>
+              <div id="payout-threshold-val" style="font-size:1.8rem;font-weight:800;color:#f8fafc;">$25.00 USD</div>
+              <div id="payout-threshold-sub" style="font-size:0.75rem;color:#64748b;margin-top:0.25rem;">Mindestbetrag für Sofort- oder Sammelauszahlung</div>
             </div>
 
             <div style="background:#090d16;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;">
@@ -3077,8 +3077,29 @@ for chunk in stream:
     }
 
     function renderPayouts(data) {
+      const earnedVal = data.earned_balance_usd || 0;
+      const minPayout = data.minimum_payout_usd || 25.00;
       const earnedEl = document.getElementById("payout-earned-val");
-      if (earnedEl) earnedEl.textContent = `$${(data.earned_balance_usd || 0).toFixed(2)} USD`;
+      const earnedSub = document.getElementById("payout-earned-sub");
+      const threshSub = document.getElementById("payout-threshold-sub");
+
+      if (earnedEl) earnedEl.textContent = `$${earnedVal.toFixed(2)} USD`;
+      if (earnedSub) {
+        if (earnedVal <= 0) {
+          earnedSub.innerHTML = `<span style="color:#94a3b8;">🔒 $0.00 Ledger-Guthaben · Keine fiktiven Auszahlungen</span>`;
+        } else {
+          earnedSub.innerHTML = `<span style="color:#10b981;">✓ 100% verifizierter Double-Entry-Ledger</span>`;
+        }
+      }
+
+      if (threshSub) {
+        if (earnedVal >= minPayout) {
+          threshSub.innerHTML = `<span style="color:#10b981;font-weight:600;">✓ Schwelle erreicht – Auszahlung bereit!</span>`;
+        } else {
+          const needed = (minPayout - earnedVal).toFixed(2);
+          threshSub.innerHTML = `<span style="color:#94a3b8;">Noch $${needed} bis zur Mindestauszahlung</span>`;
+        }
+      }
 
       const statusBadge = document.getElementById("payout-stripe-status");
       const onboardBtn = document.getElementById("btn-stripe-onboard");
@@ -3102,6 +3123,15 @@ for chunk in stream:
 
       if (withdrawBtn) {
         withdrawBtn.disabled = !data.can_withdraw;
+        if (!data.can_withdraw) {
+          if (earnedVal < minPayout) {
+            withdrawBtn.title = `Mindestauszahlung $${minPayout.toFixed(2)} USD noch nicht erreicht (aktuell: $${earnedVal.toFixed(2)} USD).`;
+          } else if (!data.payouts_enabled) {
+            withdrawBtn.title = "Bitte schließe zuerst das Stripe Express Onboarding ab.";
+          }
+        } else {
+          withdrawBtn.title = `Sofort-Auszahlung von $${earnedVal.toFixed(2)} USD anfordern`;
+        }
       }
 
       // Render settlements table
@@ -4097,7 +4127,10 @@ for chunk in stream:
       "get_distance_route",
       "search_web",
       "fetch_web_content",
-      "lookup_network_host"
+      "lookup_network_host",
+      "deploy_local_webapp",
+      "list_deployed_webapps",
+      "remove_deployed_webapp"
     ];
 
     let currentFleetDisabledTools = [];

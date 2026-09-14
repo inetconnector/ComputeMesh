@@ -46,6 +46,8 @@ class ApplianceConfig:
     enable_kiosk: bool = True
     auto_update: bool = True
     auto_system_upgrade: bool = True
+    enable_image_engine: bool = True
+    image_engine_port: int = 8085
     # Shared secret pasted into every machine in one person's fleet. The
     # gateway binds each node's node_id to the same owner account under this
     # key, so nodes only "belong together" once every machine sets the exact
@@ -167,6 +169,9 @@ def load_appliance_config(
         or ""
     )
 
+    enable_image = env_vars.get("ENABLE_IMAGE_ENGINE", "true").lower() in ("true", "1", "yes") if "ENABLE_IMAGE_ENGINE" in env_vars else system_data.get("enable_image_engine", True)
+    image_port = int(env_vars.get("IMAGE_ENGINE_PORT") or system_data.get("image_engine_port") or 8085)
+
     return ApplianceConfig(
         rig_name=rig_name,
         provider_account_id=provider_account,
@@ -187,6 +192,8 @@ def load_appliance_config(
         enable_kiosk=enable_kiosk,
         auto_update=auto_update,
         auto_system_upgrade=auto_sys_upgrade,
+        enable_image_engine=enable_image,
+        image_engine_port=image_port,
         owner_key=owner_key,
     )
 

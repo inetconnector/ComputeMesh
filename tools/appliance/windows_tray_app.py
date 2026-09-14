@@ -331,6 +331,7 @@ class ComputeMeshProviderApp:
             menu = pystray.Menu(
                 pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
                 pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
+                pystray.MenuItem("🎨 Bildgenerator starten (Port 8085)", self._launch_image_engine),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
                     lambda item: "⏹ Rechenleistung pausieren" if self.is_running else "▶ Rechenleistung fortsetzen",
@@ -1035,6 +1036,14 @@ class ComputeMeshProviderApp:
     def _open_web_dashboard(self, *args) -> None:
         import webbrowser
         webbrowser.open(f"http://localhost:{self.dashboard_port}/#config")
+
+    def _launch_image_engine(self, *args) -> None:
+        try:
+            service_script = REPO_ROOT / "runtime" / "sd_cpp" / "image_engine_service.py"
+            if service_script.exists():
+                subprocess.Popen([sys.executable, str(service_script)], cwd=str(REPO_ROOT))
+        except Exception:
+            pass
 
     def _telemetry_loop(self) -> None:
         last_synced_wallet = ""

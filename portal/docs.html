@@ -72,6 +72,7 @@
           <li><a href="#providers" data-i18n="docs_toc_4">4. Provider-Node einrichten</a></li>
           <li><a href="#mining-rigs" data-i18n="docs_toc_5">5. Mining-Rig NodeOS</a></li>
           <li><a href="#billing" data-i18n="docs_toc_6">6. Ledger & Abrechnung</a></li>
+          <li><a href="#lan-mesh-economics" data-i18n="docs_toc_7">7. LAN-Mesh & Ökonomie</a></li>
         </ul>
       </aside>
 
@@ -228,7 +229,20 @@ for chunk in response:
         <section id="billing" class="feature-card">
           <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec6_h2">6. Transparenter Ledger & automatische Abrechnung</h2>
           <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;" data-i18n="docs_sec6_p">
-            Alle Inferenz-Abrechnungen und Provider-Vergütungen werden in einem manipulationssicheren Double-Entry-Ledger geführt. Hardware-Provider erhalten 75% des Kundenumsatzes mit automatischen Auszahlungen.
+            Alle Inferenz-Abrechnungen und Provider-Vergütungen werden in einem manipulationssicheren Double-Entry-Ledger geführt. Hardware-Provider erhalten 75% des Kundenumsatzes. Auszahlungen basieren ausnahmslos auf real erwirtschafteten Erlösen aus abgeschlossenen Kundenaufträgen – es werden niemals fiktive oder simulierte Zahlen ausgezahlt. Automatische Stripe Connect (SEPA-Banküberweisung) Auszahlungen erfolgen ab 25 €/$ Guthaben.
+          </p>
+        </section>
+
+        <section id="lan-mesh-economics" class="feature-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 1rem;" data-i18n="docs_sec7_h2">7. Zero-Config LAN-Mesh, Auto-Discovery & Ökonomie-Modell</h2>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;" data-i18n="docs_sec7_p1">
+            ComputeMesh folgt dem <strong>Zero-Config-Prinzip</strong>: Standardmäßig ist kein Owner-Key eingetragen. Alle Knoten, Smartphones, Laptops und Mining-Rigs im selben lokalen Netzwerk (LAN/WLAN) finden sich vollautomatisch über UDP-Port 13379 und bilden ein privates Mesh.
+          </p>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;" data-i18n="docs_sec7_p2">
+            <strong>100% Kostenfrei für den Eigenbedarf:</strong> Im lokalen LAN fallen 0,00 € Gebühren und kein Token-Verbrauch an. Prompts und Inferenz-Tensors verlassen niemals dein privates Netzwerk.
+          </p>
+          <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.6;" data-i18n="docs_sec7_p3">
+            <strong>Reale Einnahmen & 75% Payouts:</strong> Wenn du deine GPUs extern monetarisieren möchtest, hinterlegst du deinen persönlichen Owner-Key. Das System leitet dann bezahlte Kundenaufträge auf deine Hardware und schreibt 75% aller Job-Erlöse deinem Ledger gut. Auszahlungsbeträge spiegeln ausschließlich echtes, verbuchtes Kundenguthaben wider (Auszahlung ab 25 €/$ via Stripe Connect / SEPA).
           </p>
         </section>
       </div>

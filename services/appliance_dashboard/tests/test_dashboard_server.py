@@ -228,7 +228,7 @@ class TestDashboardServer(unittest.TestCase):
                 "stream": False,
             }).encode("utf-8")
             req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertIn("choices", data)

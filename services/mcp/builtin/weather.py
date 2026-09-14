@@ -46,26 +46,55 @@ WMO_WEATHER_CODES = {
 }
 
 
+def _extract_candidates(location_name: str) -> list[str]:
+    raw = location_name.strip()
+    stop_words = {
+        "in", "für", "fuer", "von", "bei", "im", "am", "heute", "morgen",
+        "aktuell", "wird", "ist", "sein", "das", "der", "die", "den", "dem",
+        "ein", "eine", "einen", "wetter", "temperature", "temperatur", "regnet",
+        "es", "mir", "uns", "bitte", "mal", "wie", "kannst", "du", "sagen"
+    }
+    words = [w.strip(",.!?\"'") for w in raw.split() if w.strip(",.!?\"'").lower() not in stop_words and len(w.strip(",.!?\"'")) > 0]
+    cleaned = " ".join(words).strip()
+    candidates: list[str] = []
+    if cleaned and cleaned.lower() != raw.lower():
+        candidates.append(cleaned)
+    if words:
+        candidates.append(words[0])
+    if raw:
+        candidates.append(raw)
+    
+    seen = set()
+    deduped = []
+    for c in candidates:
+        if c.lower() not in seen:
+            seen.add(c.lower())
+            deduped.append(c)
+    return deduped or [raw or "Veitshöchheim"]
+
+
 def geocode_location(location_name: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
-    """Resolves city/place name to coordinates using Open-Meteo Geocoding API."""
-    encoded = urllib.parse.quote(location_name.strip())
-    url = f"https://geocoding-api.open-meteo.com/v1/search?name={encoded}&count=1&language=de&format=json"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        results = data.get("results")
-        if results and len(results) > 0:
-            top = results[0]
-            return {
-                "name": top.get("name"),
-                "latitude": top.get("latitude"),
-                "longitude": top.get("longitude"),
-                "country": top.get("country", ""),
-                "admin1": top.get("admin1", ""),
-            }
-    except Exception:
-        pass
+    """Resolves city/place name to coordinates using Open-Meteo Geocoding API with multi-candidate fallback."""
+    candidates = _extract_candidates(location_name)
+    for cand in candidates:
+        encoded = urllib.parse.quote(cand.strip())
+        url = f"https://geocoding-api.open-meteo.com/v1/search?name={encoded}&count=1&language=de&format=json"
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            results = data.get("results")
+            if results and len(results) > 0:
+                top = results[0]
+                return {
+                    "name": top.get("name"),
+                    "latitude": top.get("latitude"),
+                    "longitude": top.get("longitude"),
+                    "country": top.get("country", ""),
+                    "admin1": top.get("admin1", ""),
+                }
+        except Exception:
+            continue
     return None
 
 

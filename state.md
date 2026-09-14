@@ -1,28 +1,28 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-07
-**Release Version:** `v1.2.100`
-**Test Suite Status:** `615/615 PASSED` across all 10 harness categories; Stripe preflight `3/3 PASSED`
-**Git Baseline:** Branch `main` with Unified Account Credits, Multi-Rig Ledger Aggregation, Public Executor v2 upgrade, Portal Fleet Telemetry API, and secret-free Stripe production preflight
+**Last updated:** 2026-09-14
+**Release Version:** `v1.2.170`
+**Active Mission / Last Prompt:** "ein aufgenommenes bild wird riesig im chat angezeigt. ich denke das muss verkleinert angezeigt werden und evtl auch verkleinert losgeschickt" -> Implementierung von `ImageUploadOptimizer.kt` zur intelligenten Vorab-Komprimierung & EXIF-Korrektur von Kamera-/Upload-Fotos auf max. 1024px vor dem Versand, Behebung der 100%-Breite-Erzwingung im Chat-CSS durch kompakte Thumbnail-Vorschau mit Tap-to-Lightbox (Vollbildansicht) sowie 100% Testpass-Rate (`216/216 Tests passed`).
+**Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
+**Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
 ## Latest operational change
 
-The gateway `/healthz` response now includes non-sensitive Stripe readiness
-facts: configured mode, Checkout/session-store readiness and webhook-secret
-presence. Secret values are never returned. This is observability only; a
-real paid live webhook remains required before marking the payment gate passed.
+1. **Intelligente Bildkomprimierung & Upload-Optimierung**:
+   - `apps/android/app/src/main/java/com/inetconnector/compumesh/util/ImageUploadOptimizer.kt`: Neuer, leichtgewichtiger Bild-Optimizer skaliert hochauflösende Kamera- und Galerie-Uploads speicherschonend auf max. 1024px (Bounding Box), korrigiert die EXIF-Ausrichtung und speichert die Datei als kompaktes 85%-Qualitäts-JPEG ab.
+   - `MiniCpmChatTab.kt`: Integriert `ImageUploadOptimizer.optimizeImageUris()` vor dem Übergeben an `fileChooserCallback`, sodass die WebView und JavaScript `FileReader` keine mehr-Megabyte-Dateien mehr verarbeiten müssen.
+   - `LocalChatServer.kt`: `downsampleBase64Image()` bereinigt und skaliert Base64-Nutzlasten speichereffizient mit sofortigem Bitmap-Recycling.
 
-Stripe Connect Accounts v2 onboarding now sanitizes raw Stripe HTTP errors
-before they reach the portal. The `account_create_activation_required` error
-is reported as an actionable platform-activation prerequisite, without exposing
-Stripe request-log URLs or response payloads. The API cannot perform that
-account-level activation itself; it must be completed in the Stripe Dashboard.
-The portal and provider routes classify this condition as HTTP 503 while
-preserving HTTP 400 for ordinary onboarding input errors.
+2. **Kompakte Chat-Darstellung & Interaktive Lightbox**:
+   - `webui/index.html`: `img, .markdown-content img` von `width: 100% !important` auf eine dezente, elegante Kartengröße (`max-width: min(280px, 85vw)`, `max-height: 280px`, `object-fit: contain`, 14px Radius und dezenter Glow) umgestellt.
+   - `.chat-message-user img`: Kompakte Ausrichtung rechts mit max. 220px.
+   - `.cm-image-lightbox`: Fullscreen-Lightbox-Modal mit Blur-Hintergrund und Schließen-Button hinzugefügt, sodass Bilder bei Antippen hochauflösend und unverzerrt im Vollbild betrachtet werden können.
 
-Added `tools/stripe_preflight.py`, a secret-free operator check for Stripe
-configuration shape and the deployed `/healthz` contract. Its unit tests pass
-3/3. It defaults to deployed-gateway readiness because systemd keeps service
+3. **Verifikation & Bereitstellung**:
+   - Pytest Suite: `216/216 PASSED (100%)`.
+   - Android Build: `assembleDebug` erfolgreich kompiliert.
+   - APK auf Samsung Galaxy S25 und Android-Emulator installiert und verifiziert.
+
 secrets out of interactive shells; `--require-local-config` enables a strict
 local-shell gate. It never creates Stripe resources or sends a webhook.
 The command defaults to validating the deployed gateway when service secrets
@@ -2358,3 +2358,34 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   backup /root/computemesh-backups/n-stage-rpc-20260906-222447. Remote
   compilation, SHA-256 comparisons and computemesh-gateway.service restart/
   active check passed.
+
+## 84. OpenAI Feature & Performance Superiority Architecture (2026-09-14)
+
+- Implemented and verified the 7 Core Pillars of AI Capability in ComputeMesh:
+  1. **Pillar 1: Code Interpreter & Python Sandbox** (`services/mcp/builtin/python_sandbox.py`):
+     - AST validation, print & expression interception, variable retention across turns.
+     - Automatic Matplotlib/Seaborn plot capture to embedded base64 PNGs with download capabilities.
+     - Strict sandbox heuristics blocking arbitrary system commands / destructive OS actions.
+  2. **Pillar 2: Document RAG & Dense Vector Knowledge Base** (`services/rag/`):
+     - 384-dimensional dense semantic embeddings with subword n-gram weighting and term-frequency damping.
+     - Hybrid BM25 keyword boosting with stopword filtering for high search recall and precision.
+     - Multi-format document parser: PDF, DOCX, CSV, Markdown, source code, and plain text.
+     - Thread-safe persistent `VectorStore` with hybrid ranking and metadata management.
+  3. **Pillar 3: Deep Reasoning & Thinking Chains** (`services/mcp/agent_loop.py`):
+     - Parsing and formatting of `<think>...</think>` tags and streaming `reasoning_content` tokens into elegant collapsible HTML `<details class="cm-thinking-block">` UI accordions.
+  4. **Pillar 4: GBNF Grammar Compiler & Structured Outputs** (`services/grammar/json_schema_to_gbnf.py`):
+     - Translates JSON Schemas (objects, arrays, primitives, enums, required properties) into strict llama.cpp GBNF grammar files to mathematically guarantee 100% syntactically valid JSON responses.
+  5. **Pillar 5: Persistent User Personalization & Memory** (`services/memory/user_memory.py`):
+     - Thread-safe persistent JSON store for user profiles, preferences, and facts.
+     - Automatic injection of personalized memory summaries into system prompts.
+  6. **Pillar 6: Streaming Voice & Real-Time Audio Engine** (`services/voice/voice_realtime.py`):
+     - Energy-based Voice Activity Detection (VAD) with Normalized RMS thresholding.
+     - Instant barge-in interruption detection for natural, full-duplex conversational voice.
+  7. **Pillar 7: High-Performance Image Engine** (`runtime/sd_cpp/`):
+     - Local CUDA/ROCm accelerated `sd-server` with automated HuggingFace model provisioning (RealVisXL / SDXL / FLUX).
+     - OpenAI-compatible `/v1/images/generations` HTTP endpoint with dynamic fallback in Appliance Dashboard.
+- Targeted verification:
+  - `services/mcp/tests/` + `services/appliance_dashboard/tests/`: 114 / 114 passed (100%).
+  - `tests/`: 63 / 63 passed (100%).
+  - Total: 177 / 177 passed across all test suites.
+

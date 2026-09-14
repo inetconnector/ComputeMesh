@@ -1,0 +1,241 @@
+:root {
+  --bg-color: #05070e;
+  --maze-wall: #1e3a8a;
+  --maze-glow: #3b82f6;
+  --pellet-color: #ffb897;
+  --pacman-yellow: #fbbf24;
+  --blinky-red: #ef4444;
+  --pinky-pink: #ec4899;
+  --inky-cyan: #06b6d4;
+  --clyde-orange: #f97316;
+  --frightened-blue: #2563eb;
+  --font-arcade: 'Courier New', monospace, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: #fff;
+  font-family: var(--font-arcade);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+  padding: 10px;
+}
+
+/* Retro CRT scanline effect */
+.crt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 540px;
+  width: 100%;
+  background: #090d1a;
+  border: 2px solid #1e293b;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.25);
+  position: relative;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hud-label {
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.hud-value {
+  color: #fbbf24;
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  border: 2px solid #1d4ed8;
+  border-radius: 8px;
+  background: #000;
+  box-shadow: inset 0 0 15px rgba(29, 78, 216, 0.4);
+}
+
+canvas#gameCanvas {
+  display: block;
+  image-rendering: pixelated;
+  max-width: 100%;
+  height: auto;
+}
+
+.overlay-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.88);
+  border: 2px solid #fbbf24;
+  border-radius: 8px;
+  padding: 18px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 0 25px rgba(251, 191, 36, 0.4);
+}
+
+.overlay-title {
+  font-size: 20px;
+  color: #fbbf24;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+}
+
+.btn-start {
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  color: #000;
+  border: none;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn-start:active {
+  transform: scale(0.96);
+}
+
+/* Konami Banner */
+.konami-banner {
+  display: none;
+  margin-top: 8px;
+  background: linear-gradient(90deg, #dc2626, #f59e0b);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { box-shadow: 0 0 5px #ef4444; }
+  to { box-shadow: 0 0 20px #fbbf24; }
+}
+
+/* Mobile Arcade Controls */
+.mobile-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 14px;
+  padding: 4px 8px;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 4px;
+}
+
+.dpad-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #fbbf24;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.dpad-btn:active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #dc2626;
+  border: 2px solid #ef4444;
+  color: #fff;
+  font-weight: 900;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.4);
+  cursor: pointer;
+}
+
+.action-btn.btn-b {
+  background: #2563eb;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+}
+
+.action-btn:active {
+  transform: translateY(2px);
+}

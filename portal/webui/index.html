@@ -8,6 +8,17 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<script>
+			// Pre-set MCP setup flags so onboarding modal is disabled by default on clean launch
+			try {
+				localStorage.setItem("LlamaUi.mcpServersSetupDone", "true");
+				localStorage.setItem("LlamaCppWebui.mcpServersSetupDone", "true");
+				localStorage.setItem("ComputeMesh.mcpServersSetupDone", "true");
+				localStorage.setItem("mcp_modal_dismissed", "true");
+				localStorage.setItem("mcp_setup_done", "true");
+				localStorage.setItem("has_seen_mcp_modal", "true");
+			} catch (e) {}
+		</script>
 		<link rel="icon" href="favicon.ico" sizes="48x48" />
 		<link rel="icon" href="favicon.svg" sizes="any" type="image/svg+xml" />
 
@@ -68,8 +79,10 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1640x2360.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-1668x2388.png">
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-2048x2732.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-640x1136.png">
+		<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-750x1334.png">
 		<style>
-			html, body {
+			html {
 				height: 100% !important;
 				min-height: 100% !important;
 				width: 100% !important;
@@ -77,29 +90,294 @@
 				padding: 0 !important;
 				overflow-x: hidden !important;
 				overflow-y: auto !important;
-				-webkit-overflow-scrolling: touch !important;
-				touch-action: pan-y !important;
-				-webkit-tap-highlight-color: transparent !important;
 				background-color: #0b0f19 !important;
+				-webkit-tap-highlight-color: transparent !important;
 				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 			}
 
-			/* Ensure closed dialogs, sheets and overlays are completely hidden */
-			[data-state="closed"],
-			[data-status="closed"],
-			[hidden] {
-				display: none !important;
-				visibility: hidden !important;
+			body {
+				min-height: 100% !important;
+				height: auto !important;
+				width: 100% !important;
+				margin: 0 !important;
+				padding: 0 !important;
+				overflow-x: hidden !important;
+				overflow-y: auto !important;
+				-webkit-overflow-scrolling: touch !important;
+				touch-action: pan-y !important;
+				background-color: #0b0f19 !important;
+			}
+
+			body > div {
+				min-height: 100% !important;
+				height: auto !important;
+				display: flex !important;
+				flex-direction: column !important;
+			}
+
+			.chat-screen {
+				min-height: auto !important;
+				padding-top: 16px !important;
+				padding-bottom: 140px !important;
+				display: flex !important;
+				flex-direction: column !important;
+			}
+
+			.chat-message-assistant, .chat-message {
+				display: block !important;
+				visibility: visible !important;
+				opacity: 1 !important;
+				margin-top: 12px !important;
+			}
+
+			.chat-message-user {
+				display: flex !important;
+				flex-direction: column !important;
+				align-items: flex-end !important;
+				justify-content: flex-end !important;
+				width: 100% !important;
+				margin-left: auto !important;
+				margin-right: 0 !important;
+				visibility: visible !important;
+				opacity: 1 !important;
+				margin-top: 12px !important;
+			}
+
+			/* Compact, elegant image display in chat */
+			img, .markdown-content img, .chat-message img, .chat-screen img {
+				max-width: min(280px, 85vw) !important;
+				max-height: 280px !important;
+				width: auto !important;
+				height: auto !important;
+				object-fit: contain !important;
+				border-radius: 14px !important;
+				margin: 8px 0 !important;
+				box-shadow: 0 6px 20px rgba(0,0,0,0.6), 0 0 14px rgba(56, 189, 248, 0.25) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.35) !important;
+				display: block !important;
+				cursor: pointer !important;
+				transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+			}
+
+			img:hover, .markdown-content img:hover {
+				transform: scale(1.02) !important;
+				box-shadow: 0 8px 26px rgba(0,0,0,0.8), 0 0 20px rgba(56, 189, 248, 0.45) !important;
+			}
+
+			/* User message attachments & thumbnail cards */
+			.chat-message-user img,
+			.user-message img,
+			.attachment-preview img,
+			[data-slot="attachment"] img,
+			[data-slot="preview"] img {
+				max-width: min(220px, 75vw) !important;
+				max-height: 200px !important;
+				width: auto !important;
+				height: auto !important;
+				object-fit: contain !important;
+				border-radius: 12px !important;
+				margin: 4px 0 4px auto !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+			}
+
+			/* Input attachment preview bar (when image is selected before sending) */
+			.attachment-item, .file-preview, [data-slot="attachment-item"] {
+				max-height: 80px !important;
+			}
+			.attachment-item img, .file-preview img, [data-slot="attachment-item"] img {
+				max-width: 72px !important;
+				max-height: 72px !important;
+				width: 72px !important;
+				height: 72px !important;
+				object-fit: cover !important;
+				border-radius: 10px !important;
+				margin: 2px !important;
+			}
+
+			/* Lightbox modal for full-size viewing on tap */
+			.cm-image-lightbox {
+				position: fixed !important;
+				top: 0 !important;
+				left: 0 !important;
+				right: 0 !important;
+				bottom: 0 !important;
+				background: rgba(0, 0, 0, 0.92) !important;
+				backdrop-filter: blur(16px) !important;
+				-webkit-backdrop-filter: blur(16px) !important;
+				z-index: 999999 !important;
+				display: flex !important;
+				flex-direction: column !important;
+				align-items: center !important;
+				justify-content: center !important;
+				padding: 16px !important;
+				cursor: zoom-out !important;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.2s ease !important;
+			}
+			.cm-image-lightbox.active {
+				opacity: 1 !important;
+				pointer-events: auto !important;
+			}
+			.cm-image-lightbox img {
+				max-width: 95vw !important;
+				max-height: 88vh !important;
+				width: auto !important;
+				height: auto !important;
+				object-fit: contain !important;
+				border-radius: 16px !important;
+				box-shadow: 0 12px 48px rgba(0,0,0,0.9), 0 0 30px rgba(56, 189, 248, 0.4) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				transform: scale(0.95);
+				transition: transform 0.2s ease !important;
+			}
+			.cm-image-lightbox.active img {
+				transform: scale(1) !important;
+			}
+			.cm-lightbox-close {
+				position: absolute !important;
+				top: 20px !important;
+				right: 20px !important;
+				width: 44px !important;
+				height: 44px !important;
+				border-radius: 50% !important;
+				background: rgba(255, 255, 255, 0.15) !important;
+				color: white !important;
+				display: flex !important;
+				align-items: center !important;
+				justify-content: center !important;
+				font-size: 24px !important;
+				border: 1px solid rgba(255, 255, 255, 0.3) !important;
+				cursor: pointer !important;
+			}
+
+			/* All buttons on chat messages, action bars, and floating controls */
+			button,
+			[role="button"],
+			[data-slot="button"],
+			.chat-screen button,
+			.chat-message button,
+			.chat-message-assistant button,
+			.chat-message-user button,
+			button[aria-label],
+			button[data-state],
+			button:has(svg),
+			.pointer-events-auto,
+			.pointer-events-auto button {
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
+				cursor: pointer !important;
+			}
+
+			button svg,
+			[role="button"] svg {
 				pointer-events: none !important;
 			}
 
-			/* Backdrop Overlay for all sheets, drawers, dialogs and modals */
-			[data-slot="sheet-overlay"]:not([data-state="closed"]),
-			[data-slot="dialog-overlay"]:not([data-state="closed"]),
-			[data-slot="alert-dialog-overlay"]:not([data-state="closed"]),
-			[data-bits-dialog-overlay]:not([data-state="closed"]),
-			[data-bits-alert-dialog-overlay]:not([data-state="closed"]),
-			[data-radix-dialog-overlay]:not([data-state="closed"]) {
+			/* Sidebar / Chat History Drawer */
+			aside:not(.is-expanded) {
+				pointer-events: none !important;
+				width: 0 !important;
+				min-width: 0 !important;
+				max-width: 0 !important;
+				height: 0 !important;
+				min-height: 0 !important;
+				max-height: 0 !important;
+				overflow: hidden !important;
+				border: none !important;
+				box-shadow: none !important;
+				background: transparent !important;
+				visibility: hidden !important;
+			}
+
+			aside:not(.is-expanded) * {
+				pointer-events: none !important;
+				display: none !important;
+				visibility: hidden !important;
+			}
+
+			/* ONLY when explicitly expanded does the drawer show up */
+			aside.is-expanded {
+				position: fixed !important;
+				top: 0 !important;
+				left: 0 !important;
+				bottom: 0 !important;
+				width: 85vw !important;
+				max-width: 320px !important;
+				height: 100vh !important;
+				height: 100% !important;
+				background: rgba(15, 23, 42, 0.98) !important;
+				backdrop-filter: blur(24px) !important;
+				-webkit-backdrop-filter: blur(24px) !important;
+				border-right: 1.5px solid rgba(56, 189, 248, 0.3) !important;
+				box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85) !important;
+				z-index: 99990 !important;
+				display: flex !important;
+				flex-direction: column !important;
+				padding: 16px 12px !important;
+				border-radius: 0 24px 24px 0 !important;
+				visibility: visible !important;
+				pointer-events: auto !important;
+			}
+
+			aside.is-expanded * {
+				visibility: visible !important;
+			}
+
+			aside.is-expanded div {
+				display: flex !important;
+				opacity: 1 !important;
+				pointer-events: auto !important;
+			}
+
+			aside.is-expanded button,
+			aside.is-expanded a,
+			aside.is-expanded [role="button"],
+			aside.is-expanded li {
+				display: flex !important;
+				opacity: 1 !important;
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
+				cursor: pointer !important;
+			}
+
+			aside.is-expanded .overflow-y-auto {
+				height: auto !important;
+				flex: 1 1 0% !important;
+				display: flex !important;
+				flex-direction: column !important;
+				overflow-y: auto !important;
+			}
+
+			aside.is-expanded [class*="opacity-0"] {
+				opacity: 1 !important;
+				height: auto !important;
+			}
+
+			aside.is-expanded [class*="!h-0"],
+			aside.is-expanded [class*="h-0!"] {
+				height: auto !important;
+			}
+
+			.cm-sidebar-backdrop {
+				position: fixed !important;
+				inset: 0 !important;
+				background: rgba(0, 0, 0, 0.65) !important;
+				backdrop-filter: blur(4px) !important;
+				-webkit-backdrop-filter: blur(4px) !important;
+				z-index: 99980 !important;
+				cursor: pointer !important;
+				display: none !important;
+				pointer-events: none !important;
+			}
+			.cm-sidebar-backdrop.is-active {
+				display: block !important;
+				pointer-events: auto !important;
+			}
+
+			/* Backdrop Overlay for modal dialogs */
+			[data-slot="dialog-overlay"],
+			[data-slot="alert-dialog-overlay"] {
 				position: fixed !important;
 				inset: 0 !important;
 				background: rgba(3, 7, 18, 0.88) !important;
@@ -110,33 +388,24 @@
 				cursor: pointer !important;
 			}
 
-			/* =========================================================================
-			   MODAL DIALOGS / ALERT DIALOGS (Optimized for Android APK & Mobile Touch)
-			   ========================================================================= */
-			[data-slot="dialog-content"]:not([data-state="closed"]),
-			[data-slot="alert-dialog-content"]:not([data-state="closed"]),
-			[data-bits-dialog-content]:not([data-state="closed"]),
-			[data-bits-alert-dialog-content]:not([data-state="closed"]),
-			[data-radix-dialog-content]:not([data-state="closed"]),
-			[data-dialog-content]:not([data-state="closed"]),
-			[role="dialog"]:not([data-state="closed"]),
-			[role="alertdialog"]:not([data-state="closed"]) {
+			/* General Modal Dialogs (Settings, Fork, etc.) */
+			[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]):not([data-slot="alert-dialog-content"]) {
 				position: fixed !important;
-				top: max(16px, env(safe-area-inset-top, 16px)) !important;
-				left: 12px !important;
-				right: 12px !important;
+				top: 50% !important;
+				left: 50% !important;
 				bottom: auto !important;
-				margin: 0 auto !important;
-				width: auto !important;
-				max-width: 540px !important;
+				right: auto !important;
+				margin: 0 !important;
+				width: calc(100% - 32px) !important;
+				max-width: 500px !important;
 				min-width: 0 !important;
-				max-height: calc(100% - 32px) !important;
+				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
 				height: auto !important;
-				transform: none !important;
+				transform: translate(-50%, -50%) !important;
 				translate: none !important;
 				background: linear-gradient(180deg, #111827 0%, #0b0f19 100%) !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.6) !important;
-				border-radius: 24px !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+				border-radius: 22px !important;
 				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.98), 0 0 40px rgba(56, 189, 248, 0.3) !important;
 				z-index: 999999 !important;
 				pointer-events: auto !important;
@@ -146,20 +415,57 @@
 				box-sizing: border-box !important;
 			}
 
-			/* Ensure interactive elements inside dialogs have high priority and responsiveness */
-			[role="dialog"] button,
-			[role="dialog"] [role="button"],
-			[role="dialog"] [role="switch"],
-			[role="dialog"] a,
-			[role="dialog"] input,
-			[role="dialog"] label,
-			[role="alertdialog"] button,
-			[role="alertdialog"] [role="button"],
-			[role="alertdialog"] [role="switch"],
-			[data-slot="dialog-content"] button,
-			[data-slot="dialog-content"] [role="button"],
-			[data-slot="dialog-content"] [role="switch"],
-			[data-slot="dialog-content"] a,
+			/* Alert Dialogs (Confirmations, Delete Message, etc.) */
+			[data-slot="alert-dialog-content"],
+			[role="alertdialog"] {
+				position: fixed !important;
+				top: 50% !important;
+				left: 50% !important;
+				bottom: auto !important;
+				right: auto !important;
+				margin: 0 !important;
+				width: calc(100% - 36px) !important;
+				max-width: 400px !important;
+				min-width: 0 !important;
+				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
+				min-height: auto !important;
+				height: auto !important;
+				transform: translate(-50%, -50%) !important;
+				translate: none !important;
+				background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.4) !important;
+				border-radius: 24px !important;
+				box-shadow: 0 25px 65px rgba(0, 0, 0, 0.95), 0 0 35px rgba(56, 189, 248, 0.2) !important;
+				z-index: 999999 !important;
+				pointer-events: auto !important;
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 16px !important;
+				padding: 22px 20px !important;
+				overflow: hidden !important;
+				box-sizing: border-box !important;
+			}
+
+			[data-slot="alert-dialog-content"] .cm-modal-close-btn,
+			[role="alertdialog"] .cm-modal-close-btn {
+				display: none !important;
+			}
+
+			/* Context Menus, Dropdown Menus, Popovers & Select Options */
+			[role="menu"]:not([data-state="closed"]),
+			[role="menuitem"],
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
+			[data-slot="popover-content"]:not([data-state="closed"]),
+			[data-slot="select-content"]:not([data-state="closed"]),
+			[data-bits-menu-content]:not([data-state="closed"]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
+			[data-bits-popover-content]:not([data-state="closed"]),
+			[data-bits-select-content]:not([data-state="closed"]),
+			[data-radix-popper-content-wrapper],
+			[data-portal] {
+				z-index: 1000000 !important;
+				touch-action: manipulation !important;
+			}
 			[data-slot="dialog-content"] input,
 			[data-slot="dialog-content"] label,
 			[data-slot="alert-dialog-content"] button,
@@ -207,9 +513,8 @@
 				flex-direction: column !important;
 			}
 
-			/* Dialog and Sheet Headers: Always pinned at top with prominent title */
+			/* Dialog and Sheet Headers */
 			[data-slot="dialog-header"],
-			[data-slot="alert-dialog-header"],
 			[data-slot="sheet-header"] {
 				flex-shrink: 0 !important;
 				position: sticky !important;
@@ -227,10 +532,23 @@
 				box-sizing: border-box !important;
 			}
 
+			/* Alert Dialog Header (Compact, seamless) */
+			[data-slot="alert-dialog-header"] {
+				position: static !important;
+				background: transparent !important;
+				border: none !important;
+				padding: 0 !important;
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 6px !important;
+				margin: 0 !important;
+				width: 100% !important;
+				text-align: left !important;
+				box-sizing: border-box !important;
+			}
+
 			[data-slot="dialog-title"],
-			[data-slot="alert-dialog-title"],
-			[data-slot="dialog-content"] h2,
-			[data-slot="alert-dialog-content"] h2 {
+			[data-slot="dialog-content"] h2 {
 				font-size: 19px !important;
 				font-weight: 700 !important;
 				color: #ffffff !important;
@@ -243,8 +561,21 @@
 				line-height: 1.3 !important;
 			}
 
-			[data-slot="dialog-title"] svg,
-			[data-slot="alert-dialog-title"] svg {
+			[data-slot="alert-dialog-title"],
+			[data-slot="alert-dialog-content"] h2 {
+				font-size: 18px !important;
+				font-weight: 700 !important;
+				color: #ffffff !important;
+				letter-spacing: -0.01em !important;
+				display: flex !important;
+				align-items: center !important;
+				gap: 10px !important;
+				margin: 0 !important;
+				padding-right: 0 !important;
+				line-height: 1.3 !important;
+			}
+
+			[data-slot="dialog-title"] svg {
 				color: #38bdf8 !important;
 				stroke: #38bdf8 !important;
 				width: 22px !important;
@@ -252,10 +583,16 @@
 				flex-shrink: 0 !important;
 			}
 
+			[data-slot="alert-dialog-title"] svg {
+				color: #ef4444 !important;
+				stroke: #ef4444 !important;
+				width: 22px !important;
+				height: 22px !important;
+				flex-shrink: 0 !important;
+			}
+
 			[data-slot="dialog-description"],
-			[data-slot="alert-dialog-description"],
-			[data-slot="dialog-content"] p.text-muted-foreground,
-			[data-slot="alert-dialog-content"] p.text-muted-foreground {
+			[data-slot="dialog-content"] p.text-muted-foreground {
 				font-size: 13.5px !important;
 				color: #94a3b8 !important;
 				line-height: 1.45 !important;
@@ -263,7 +600,16 @@
 				padding-right: 40px !important;
 			}
 
-			/* Close Button in top right of all dialogs */
+			[data-slot="alert-dialog-description"],
+			[data-slot="alert-dialog-content"] p.text-muted-foreground {
+				font-size: 14px !important;
+				color: #cbd5e1 !important;
+				line-height: 1.45 !important;
+				margin: 0 !important;
+				padding-right: 0 !important;
+			}
+
+			/* Close Button in top right of standard modal dialogs */
 			.cm-modal-close-btn,
 			[data-slot="dialog-content"] [data-dialog-close],
 			[data-slot="dialog-content"] button:has(svg.lucide-x),
@@ -330,11 +676,9 @@
 				box-sizing: border-box !important;
 			}
 
-			/* Dialog Footers: Always pinned at bottom */
+			/* Dialog Footers */
 			[data-slot="dialog-footer"],
-			[data-slot="alert-dialog-footer"],
-			[role="dialog"] footer,
-			[role="alertdialog"] footer {
+			[role="dialog"] footer {
 				flex-shrink: 0 !important;
 				position: sticky !important;
 				bottom: 0 !important;
@@ -351,18 +695,36 @@
 				box-sizing: border-box !important;
 			}
 
+			/* Alert Dialog Footer (Integrated seamlessly) */
+			[data-slot="alert-dialog-footer"],
+			[role="alertdialog"] footer {
+				position: static !important;
+				background: transparent !important;
+				border: none !important;
+				padding: 0 !important;
+				margin-top: 8px !important;
+				display: flex !important;
+				flex-direction: row !important;
+				justify-content: flex-end !important;
+				align-items: center !important;
+				gap: 10px !important;
+				width: 100% !important;
+				box-sizing: border-box !important;
+			}
+
 			/* Dialog Action and Cancel Buttons */
 			[data-slot="dialog-footer"] button,
 			[data-slot="alert-dialog-footer"] button,
 			[data-slot="alert-dialog-action"],
 			[data-slot="alert-dialog-cancel"],
-			[role="dialog"] footer button {
-				min-height: 46px !important;
-				min-width: 96px !important;
-				padding: 10px 18px !important;
-				font-size: 14.5px !important;
+			[role="dialog"] footer button,
+			[role="alertdialog"] footer button {
+				min-height: 44px !important;
+				min-width: 90px !important;
+				padding: 8px 16px !important;
+				font-size: 14px !important;
 				font-weight: 600 !important;
-				border-radius: 14px !important;
+				border-radius: 12px !important;
 				display: inline-flex !important;
 				align-items: center !important;
 				justify-content: center !important;
@@ -388,13 +750,26 @@
 			}
 
 			/* Primary Action / Confirm button */
-			[data-slot="alert-dialog-action"]:not(.bg-destructive),
-			[data-slot="dialog-footer"] button:not(.bg-destructive):not([variant="outline"]):not([variant="ghost"]):last-child,
-			[data-slot="alert-dialog-footer"] button:not(.bg-destructive):not([variant="outline"]):not([variant="ghost"]):last-child {
+			[data-slot="alert-dialog-action"]:not(.bg-destructive):not([class*="destructive"]),
+			[data-slot="dialog-footer"] button:not(.bg-destructive):not([class*="destructive"]):not([variant="outline"]):not([variant="ghost"]):last-child,
+			[data-slot="alert-dialog-footer"] button:not(.bg-destructive):not([class*="destructive"]):not([variant="outline"]):not([variant="ghost"]):last-child {
 				background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
 				border: 1px solid rgba(56, 189, 248, 0.6) !important;
 				color: #ffffff !important;
 				box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45) !important;
+			}
+
+			/* Destructive Action (e.g. Delete Message) */
+			[data-slot="alert-dialog-action"].bg-destructive,
+			[data-slot="alert-dialog-action"][class*="destructive"],
+			[data-slot="alert-dialog-footer"] button.bg-destructive,
+			[data-slot="alert-dialog-footer"] button[class*="destructive"],
+			[data-slot="dialog-footer"] button.bg-destructive,
+			[data-slot="dialog-footer"] button[class*="destructive"] {
+				background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+				border: 1px solid rgba(239, 68, 68, 0.7) !important;
+				color: #ffffff !important;
+				box-shadow: 0 4px 16px rgba(239, 68, 68, 0.45) !important;
 			}
 
 			/* Form Controls inside Dialogs */
@@ -441,10 +816,35 @@
 				pointer-events: auto !important;
 			}
 
-			button, [role="button"], input, select, textarea {
+			/* All hidden triggers MUST NEVER intercept physical touches */
+			.pointer-events-none,
+			[class*="pointer-events-none"],
+			button.opacity-0,
+			[aria-hidden="true"].opacity-0,
+			[data-slot="popover-trigger"].pointer-events-none,
+			[data-state="closed"].opacity-0 {
+				pointer-events: none !important;
+			}
+
+			button:not(.pointer-events-none):not([class*="pointer-events-none"]):not(.opacity-0),
+			[role="button"]:not(.pointer-events-none):not([class*="pointer-events-none"]):not(.opacity-0),
+			input:not(.pointer-events-none):not([class*="pointer-events-none"]),
+			select,
+			textarea {
 				touch-action: manipulation !important;
 				-webkit-tap-highlight-color: transparent !important;
+			}
+
+			form button[type="submit"],
+			form button,
+			[data-slot="input-area"] button,
+			button[title*="Aufnahme"],
+			button:has(svg.lucide-mic) {
+				position: relative !important;
+				z-index: 50 !important;
 				pointer-events: auto !important;
+				touch-action: manipulation !important;
+				cursor: pointer !important;
 			}
 
 			/* Prevent pre/code blowout */
@@ -542,11 +942,24 @@
 			main,
 			.chat-screen,
 			[data-slot="chat-container"],
-			.messages-container,
-			div:has(> .chat-message) {
-				padding-bottom: 220px !important;
+			.messages-container {
+				padding-bottom: 120px !important;
 				touch-action: pan-y !important;
 				-webkit-overflow-scrolling: touch !important;
+			}
+
+			/* Input and Textarea must always stay visible and never blur or jump */
+			textarea,
+			input[type="text"],
+			input:not([type]),
+			[contenteditable="true"],
+			[data-slot="chat-input"] {
+				-webkit-user-select: text !important;
+				user-select: text !important;
+				opacity: 1 !important;
+				visibility: visible !important;
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
 			}
 
 			.chat-message,
@@ -555,68 +968,58 @@
 			.chat-message-user,
 			.chat-message-user-bubble,
 			[data-role="assistant"],
-			[data-role="user"] {
+			[data-role="user"],
+			[role="group"]:has(.chat-message-user-bubble),
+			[role="group"]:has(.chat-message-assistant) {
 				opacity: 1 !important;
 				visibility: visible !important;
 			}
 
-			.chat-message {
+			.chat-message,
+			.chat-message-user,
+			.chat-message-assistant {
 				transform: none !important;
 				transition: none !important;
 			}
 
-			.chat-message-user-bubble {
-				background: #1e293b !important;
-				border: 1px solid rgba(56, 189, 248, 0.4) !important;
+			.chat-message-user-bubble,
+			[data-slot="card"].chat-message-user-bubble {
+				align-self: flex-end !important;
+				margin-left: auto !important;
+				margin-right: 0 !important;
+				max-width: 82% !important;
+				background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
 				color: #ffffff !important;
-				border-radius: 18px !important;
-				padding: 12px 16px !important;
+				border-radius: 18px 18px 4px 18px !important;
+				padding: 10px 16px !important;
 				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+				text-align: left !important;
+			}
+
+			.chat-message-user > div:not(.chat-message-user-bubble),
+			.chat-message-user .pointer-events-auto,
+			.chat-message-user [data-slot="button"] {
+				align-self: flex-end !important;
+				margin-left: auto !important;
+				margin-right: 0 !important;
 			}
 
 			.chat-message-assistant {
+				display: block !important;
+				align-self: flex-start !important;
+				margin-right: auto !important;
+				margin-left: 0 !important;
+				width: 100% !important;
+				max-width: 96% !important;
 				background: rgba(15, 23, 42, 0.85) !important;
 				border: 1px solid rgba(56, 189, 248, 0.25) !important;
 				color: #f8fafc !important;
-				border-radius: 18px !important;
+				border-radius: 4px 18px 18px 18px !important;
 				padding: 14px 16px !important;
 				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 			}
 
-			/* Attachment Button inside input toolbar */
-			#cm-attachment-btn {
-				display: inline-flex !important;
-				align-items: center !important;
-				justify-content: center !important;
-				width: 36px !important;
-				height: 36px !important;
-				min-width: 36px !important;
-				min-height: 36px !important;
-				border-radius: 10px !important;
-				background: rgba(30, 41, 59, 0.8) !important;
-				border: 1px solid rgba(56, 189, 248, 0.4) !important;
-				color: #38bdf8 !important;
-				cursor: pointer !important;
-				touch-action: manipulation !important;
-				transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
-				flex-shrink: 0 !important;
-				margin-right: 6px !important;
-				padding: 0 !important;
-			}
-
-			#cm-attachment-btn:active {
-				background: rgba(56, 189, 248, 0.25) !important;
-				transform: scale(0.95) !important;
-			}
-
-			#cm-attachment-btn svg {
-				width: 18px !important;
-				height: 18px !important;
-				stroke: currentColor !important;
-				stroke-width: 2.4 !important;
-				pointer-events: none !important;
-			}
 		</style>
 	</head>
 
@@ -655,6 +1058,8 @@
 						localStorage.setItem("LlamaCppWebui.mcpServersSetupDone", "true");
 						localStorage.setItem("ComputeMesh.mcpServersSetupDone", "true");
 						localStorage.setItem("mcp_modal_dismissed", "true");
+						localStorage.setItem("mcp_setup_done", "true");
+						localStorage.setItem("has_seen_mcp_modal", "true");
 					} catch (err) {}
 
 					const dialogs = document.querySelectorAll(
@@ -671,7 +1076,7 @@
 					if (dialogs.length > 0) closedAny = true;
 
 					dialogs.forEach(function(d) {
-						const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close]');
+						const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close], .cm-modal-close-btn');
 						if (stdBtn) {
 							try { stdBtn.click(); } catch(e) {}
 						}
@@ -698,11 +1103,10 @@
 						document.dispatchEvent(esc);
 					} catch(e) {}
 
-					setTimeout(function() {
+					const hideElements = function() {
 						const allModals = document.querySelectorAll(
-							'[data-slot="dialog-content"], [data-slot="alert-dialog-content"], ' +
-							'[data-bits-dialog-content], [data-bits-alert-dialog-content], ' +
-							'[data-radix-dialog-content], [role="dialog"], [role="alertdialog"]'
+							'[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]), ' +
+							'[data-slot="alert-dialog-content"]'
 						);
 						allModals.forEach(function(el) {
 							el.setAttribute('data-state', 'closed');
@@ -710,34 +1114,37 @@
 							el.style.setProperty('pointer-events', 'none', 'important');
 						});
 						const allOverlays = document.querySelectorAll(
-							'[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], ' +
-							'[data-bits-dialog-overlay], [data-radix-dialog-overlay]'
+							'[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]'
 						);
 						allOverlays.forEach(function(el) {
 							el.setAttribute('data-state', 'closed');
 							el.style.setProperty('display', 'none', 'important');
 							el.style.setProperty('pointer-events', 'none', 'important');
 						});
-						const portals = document.querySelectorAll('[data-bits-dialog-portal], [data-radix-portal]');
-						portals.forEach(function(p) {
-							p.style.setProperty('pointer-events', 'none', 'important');
-						});
-					}, 40);
+					};
+
+					hideElements();
+					setTimeout(hideElements, 40);
 
 					return closedAny;
 				};
 
-				// Global Backdrop Overlay Click & Touch Dismissal
-				function onBackdropTouch(e) {
-					const overlay = e.target.closest('[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-bits-dialog-overlay], [data-radix-dialog-overlay]');
-					if (overlay) {
+				// Global Modal Close Interceptor
+				function handleModalCapture(e) {
+					const target = e.target;
+					if (!target) return;
+
+					// Only intercept close button on genuine onboarding modals
+					const closeBtn = target.closest('.cm-modal-close-btn, [data-dialog-close], [data-bits-dialog-close]');
+					if (closeBtn && closeBtn.closest('[data-slot="dialog-content"], [data-slot="alert-dialog-content"]')) {
 						e.preventDefault();
 						e.stopPropagation();
 						window.__dismissComputeMeshModals();
+						return;
 					}
 				}
-				document.addEventListener('click', onBackdropTouch, { capture: true });
-				document.addEventListener('touchend', onBackdropTouch, { capture: true, passive: false });
+
+				window.addEventListener('click', handleModalCapture, { capture: true });
 			})();
 
 			// Global External Link Interceptor
@@ -777,7 +1184,7 @@
 				window.addEventListener('touchend', dismissTooltips, { passive: true, capture: true });
 			})();
 
-			// Viewport height synchronization & Auto-reveal and auto-scroll chat messages
+			// Viewport height synchronization & Non-intrusive auto-reveal of chat messages
 			(function() {
 				function syncViewportHeight() {
 					const h = window.innerHeight;
@@ -789,8 +1196,17 @@
 				window.addEventListener('orientationchange', syncViewportHeight, { passive: true });
 				syncViewportHeight();
 
-				function ensureMessagesVisibleAndScrolled() {
-					const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble');
+				function isUserTyping() {
+					const active = document.activeElement;
+					if (!active) return false;
+					const tag = active.tagName ? active.tagName.toLowerCase() : '';
+					return tag === 'input' || tag === 'textarea' || active.isContentEditable;
+				}
+
+				function ensureMessagesVisible() {
+					const msgs = document.querySelectorAll(
+						'.chat-message, .chat-message-user, .chat-message-assistant, .chat-message-user-bubble, [data-role="user"], [data-role="assistant"]'
+					);
 					if (msgs.length > 0) {
 						for (let i = 0; i < msgs.length; i++) {
 							const m = msgs[i];
@@ -804,64 +1220,61 @@
 				}
 
 				let scrollTimeout = null;
-				function scrollToLatestMessage() {
+				function scrollToLatestMessage(force) {
+					if (!force && isUserTyping()) return;
 					if (scrollTimeout) clearTimeout(scrollTimeout);
 					scrollTimeout = setTimeout(function() {
-						const allMsgs = document.querySelectorAll('.chat-message');
-						if (allMsgs.length > 0) {
-							const last = allMsgs[allMsgs.length - 1];
-							last.scrollIntoView({ behavior: 'smooth', block: 'end' });
+						if (!force && isUserTyping()) return;
+						ensureMessagesVisible();
+						const msgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant');
+						if (msgs.length > 0) {
+							const last = msgs[msgs.length - 1];
+							const img = last.querySelector('img') || document.querySelector('img');
+							if (img) {
+								img.scrollIntoView({ behavior: 'smooth', block: 'center' });
+							} else {
+								last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+							}
 						}
 					}, 50);
 				}
 
-				let chatDebounce = null;
+				// Only auto-scroll when new chat message nodes are actually added to the DOM
+				let lastMsgCount = 0;
 				const chatObserver = new MutationObserver(function(mutations) {
-					if (chatDebounce) return;
-					chatDebounce = setTimeout(function() {
-						chatDebounce = null;
-						ensureMessagesVisibleAndScrolled();
-					}, 150);
+					ensureMessagesVisible();
+					if (isUserTyping()) return;
+					const currentMsgs = document.querySelectorAll('.chat-message, .chat-message-user, .chat-message-assistant');
+					if (currentMsgs.length > lastMsgCount) {
+						lastMsgCount = currentMsgs.length;
+						scrollToLatestMessage(false);
+					}
 				});
 
 				if (document.body) {
 					chatObserver.observe(document.body, { childList: true, subtree: true });
-					ensureMessagesVisibleAndScrolled();
+					ensureMessagesVisible();
 				} else {
 					document.addEventListener('DOMContentLoaded', function() {
 						chatObserver.observe(document.body, { childList: true, subtree: true });
-						ensureMessagesVisibleAndScrolled();
+						ensureMessagesVisible();
 					});
 				}
 			})();
 
-			// Modal Dialog & Panel Positioning & Safe Dismissal Engine
+			// Modal Dialog & Panel Positioning Engine
 			(function() {
 				function sanitizeDialogs() {
-					const dialogs = document.querySelectorAll('[data-slot="dialog-content"]:not([data-state="closed"]), [data-slot="alert-dialog-content"]:not([data-state="closed"]), [data-bits-dialog-content]:not([data-state="closed"]), [data-bits-alert-dialog-content]:not([data-state="closed"]), [data-radix-dialog-content]:not([data-state="closed"]), [data-dialog-content]:not([data-state="closed"]), [role="dialog"]:not([data-state="closed"]), [role="alertdialog"]:not([data-state="closed"])');
+					const dialogs = document.querySelectorAll(
+						'[data-slot="dialog-content"]:not([data-slot="alert-dialog-content"]):not([role="alertdialog"]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content])'
+					);
 					for (let i = 0; i < dialogs.length; i++) {
 						const d = dialogs[i];
-						if (d.getAttribute('data-slot') === 'sheet-content') continue;
-						d.style.setProperty('position', 'fixed', 'important');
-						d.style.setProperty('top', 'max(16px, env(safe-area-inset-top, 16px))', 'important');
-						d.style.setProperty('left', '12px', 'important');
-						d.style.setProperty('right', '12px', 'important');
-						d.style.setProperty('bottom', 'auto', 'important');
-						d.style.setProperty('margin', '0 auto', 'important');
-						d.style.setProperty('width', 'auto', 'important');
-						d.style.setProperty('max-width', '540px', 'important');
-						d.style.setProperty('max-height', 'calc(100% - 32px)', 'important');
-						d.style.setProperty('height', 'auto', 'important');
-						d.style.setProperty('transform', 'none', 'important');
-						d.style.setProperty('translate', 'none', 'important');
-						d.style.setProperty('z-index', '999999', 'important');
-						d.style.setProperty('pointer-events', 'auto', 'important');
-						d.style.setProperty('display', 'flex', 'important');
-						d.style.setProperty('flex-direction', 'column', 'important');
-						d.style.setProperty('overflow', 'hidden', 'important');
-						d.style.setProperty('box-sizing', 'border-box', 'important');
+						if (d.getAttribute('data-slot') === 'sheet-content' || d.getAttribute('data-slot') === 'alert-dialog-content') continue;
+						if (d.getAttribute('role') === 'alertdialog') continue;
+						if (d.closest('[role="menu"], [data-slot*="menu"], [data-slot*="popover"], [data-bits-menu-content], [data-bits-popover-content], [data-radix-popper-content-wrapper]')) continue;
 
-						// Ensure close button exists
+						// Ensure close button exists on genuine modals
 						if (!d.querySelector('.cm-modal-close-btn') && !d.querySelector('[data-dialog-close]')) {
 							const closeBtn = document.createElement('button');
 							closeBtn.className = 'cm-modal-close-btn';
@@ -873,52 +1286,18 @@
 									<line x1="6" y1="6" x2="18" y2="18"></line>
 								</svg>
 							`;
-							const handleClose = function(e) {
+							closeBtn.addEventListener('click', function(e) {
 								e.preventDefault();
 								e.stopPropagation();
 								window.__dismissComputeMeshModals();
-							};
-							closeBtn.addEventListener('click', handleClose);
-							closeBtn.addEventListener('touchend', handleClose);
-							closeBtn.addEventListener('pointerup', handleClose);
+							});
 							d.appendChild(closeBtn);
 						}
-
-						// Wire buttons inside dialog
-						const allButtons = Array.from(d.querySelectorAll('button, [role="button"]'));
-						allButtons.forEach(function(b) {
-							if (b.dataset.cmBound) return;
-							b.dataset.cmBound = 'true';
-							b.style.setProperty('pointer-events', 'auto', 'important');
-							b.style.setProperty('touch-action', 'manipulation', 'important');
-
-							const txt = (b.textContent || '').trim().toLowerCase();
-							if (txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel')) {
-								const onCancel = function(e) {
-									try { localStorage.setItem("LlamaUi.mcpServersSetupDone", "true"); } catch(err) {}
-									setTimeout(window.__dismissComputeMeshModals, 20);
-								};
-								b.addEventListener('click', onCancel);
-								b.addEventListener('touchend', onCancel);
-							} else if (txt.includes('weiter') || txt.includes('continue') || txt.includes('add server') || txt.includes('hinzufügen')) {
-								const onProceed = function(e) {
-									try { localStorage.setItem("LlamaUi.mcpServersSetupDone", "true"); } catch(err) {}
-									setTimeout(window.__dismissComputeMeshModals, 100);
-								};
-								b.addEventListener('click', onProceed);
-								b.addEventListener('touchend', onProceed);
-							}
-						});
 					}
 				}
 
-				let dialogDebounce = null;
 				const dialogObserver = new MutationObserver(function() {
-					if (dialogDebounce) return;
-					dialogDebounce = setTimeout(function() {
-						dialogDebounce = null;
-						sanitizeDialogs();
-					}, 80);
+					sanitizeDialogs();
 				});
 				if (document.body) {
 					dialogObserver.observe(document.body, { childList: true, subtree: true });
@@ -929,133 +1308,749 @@
 						sanitizeDialogs();
 					});
 				}
-				setInterval(sanitizeDialogs, 400);
 			})();
 
-			// Speech Recognition Bridge
+			// ==============================================================================
+			// 🎙️ ComputeMesh Advanced Voice Mode & OpenAI-Style Liquid Wobbling Orb
+			// ==============================================================================
 			(function() {
-				let activeSpeechCallback = null;
-				window.__onAndroidSpeechEvent = function(event, data) {
-					if (event === 'onresult' && activeSpeechCallback) {
-						activeSpeechCallback(data);
+				// Inject Rich Styles for OpenAI Voice Mode
+				const voiceStyle = document.createElement('style');
+				voiceStyle.textContent = `
+					.cm-voice-overlay {
+						position: fixed;
+						inset: 0;
+						z-index: 9999999;
+						background: radial-gradient(circle at 50% 45%, rgba(15, 23, 42, 0.96) 0%, rgba(7, 10, 19, 0.99) 100%);
+						backdrop-filter: blur(28px);
+						-webkit-backdrop-filter: blur(28px);
+						display: flex;
+						flex-direction: column;
+						align-items: center;
+						justify-content: space-between;
+						padding: 32px 24px calc(36px + env(safe-area-inset-bottom, 0px));
+						opacity: 0;
+						pointer-events: none;
+						transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+						transform: scale(0.95);
+						user-select: none;
+						-webkit-user-select: none;
 					}
-				};
-				window.__startNativeSpeech = function(onResult) {
-					activeSpeechCallback = onResult;
-					const bridge = window.AndroidBridge || window.AndroidSpeechBridge;
+
+					.cm-voice-overlay.is-active {
+						opacity: 1;
+						pointer-events: auto;
+						transform: scale(1);
+					}
+
+					.cm-voice-header {
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						width: 100%;
+						max-width: 480px;
+					}
+
+					.cm-voice-badge {
+						display: inline-flex;
+						align-items: center;
+						gap: 10px;
+						background: rgba(56, 189, 248, 0.12);
+						border: 1px solid rgba(56, 189, 248, 0.35);
+						border-radius: 9999px;
+						padding: 7px 16px;
+						font-size: 13px;
+						font-weight: 600;
+						color: #38bdf8;
+						letter-spacing: 0.02em;
+						box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+					}
+
+					.cm-voice-badge-dot {
+						width: 9px;
+						height: 9px;
+						border-radius: 50%;
+						background: #38bdf8;
+						box-shadow: 0 0 10px #38bdf8;
+						animation: cm-pulse-dot 1.5s infinite ease-in-out;
+					}
+
+					@keyframes cm-pulse-dot {
+						0%, 100% { transform: scale(1); opacity: 1; }
+						50% { transform: scale(1.4); opacity: 0.4; }
+					}
+
+					.cm-voice-close-btn {
+						width: 42px;
+						height: 42px;
+						border-radius: 50%;
+						background: rgba(255, 255, 255, 0.08);
+						border: 1px solid rgba(255, 255, 255, 0.14);
+						color: #94a3b8;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						font-size: 18px;
+						cursor: pointer;
+						transition: all 0.2s ease;
+						outline: none;
+					}
+
+					.cm-voice-close-btn:active {
+						transform: scale(0.92);
+						background: rgba(255, 255, 255, 0.16);
+						color: #fff;
+					}
+
+					/* OpenAI Liquid Morphing Bubble / Blob Center Stage */
+					.cm-voice-center-stage {
+						display: flex;
+						flex-direction: column;
+						align-items: center;
+						justify-content: center;
+						flex: 1;
+						margin: 16px 0;
+					}
+
+					.cm-voice-orb-container {
+						position: relative;
+						width: 250px;
+						height: 250px;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+					}
+
+					.cm-voice-orb-glow {
+						position: absolute;
+						width: 270px;
+						height: 270px;
+						border-radius: 50%;
+						background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(192, 132, 252, 0.28) 40%, rgba(11, 15, 25, 0) 70%);
+						filter: blur(32px);
+						animation: cm-orb-breathe 4s infinite ease-in-out;
+						pointer-events: none;
+						transition: transform 0.15s ease, opacity 0.15s ease;
+					}
+
+					.cm-voice-orb {
+						position: relative;
+						width: 175px;
+						height: 175px;
+						border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+						background: radial-gradient(circle at 35% 30%, #67e8f9 0%, #38bdf8 25%, #818cf8 55%, #c084fc 80%, #4f46e5 100%);
+						box-shadow: 
+							0 0 55px rgba(56, 189, 248, 0.5),
+							0 0 95px rgba(192, 132, 252, 0.35),
+							inset 0 0 35px rgba(255, 255, 255, 0.45),
+							inset 0 -22px 32px rgba(79, 70, 229, 0.65);
+						animation: cm-blob-morph 6s infinite ease-in-out, cm-blob-spin 12s infinite linear;
+						transition: transform 0.12s cubic-bezier(0.1, 0.8, 0.3, 1);
+						cursor: pointer;
+					}
+
+					.cm-voice-orb::before {
+						content: "";
+						position: absolute;
+						top: 18%;
+						left: 22%;
+						width: 44px;
+						height: 28px;
+						border-radius: 50%;
+						background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 75%);
+						transform: rotate(-30deg);
+						filter: blur(2px);
+					}
+
+					@keyframes cm-blob-morph {
+						0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+						25%  { border-radius: 35% 65% 60% 40% / 50% 60% 40% 50%; }
+						50%  { border-radius: 55% 45% 70% 30% / 30% 45% 55% 70%; }
+						75%  { border-radius: 40% 60% 35% 65% / 65% 35% 65% 35%; }
+						100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+					}
+
+					@keyframes cm-blob-spin {
+						0%   { transform: rotate(0deg); }
+						100% { transform: rotate(360deg); }
+					}
+
+					@keyframes cm-orb-breathe {
+						0%, 100% { transform: scale(0.94); opacity: 0.6; }
+						50%      { transform: scale(1.16); opacity: 0.95; }
+					}
+
+					/* Bottom Stage & Live Transcript */
+					.cm-voice-bottom-stage {
+						display: flex;
+						flex-direction: column;
+						align-items: center;
+						width: 100%;
+						max-width: 460px;
+						gap: 18px;
+					}
+
+					.cm-voice-transcript-box {
+						width: 100%;
+						min-height: 84px;
+						max-height: 140px;
+						overflow-y: auto;
+						background: rgba(255, 255, 255, 0.05);
+						border: 1px solid rgba(255, 255, 255, 0.1);
+						border-radius: 20px;
+						padding: 16px 20px;
+						display: flex;
+						flex-direction: column;
+						justify-content: center;
+						align-items: center;
+						text-align: center;
+						backdrop-filter: blur(14px);
+						-webkit-backdrop-filter: blur(14px);
+						box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+					}
+
+					.cm-voice-transcript-placeholder {
+						color: #64748b;
+						font-size: 15px;
+						font-style: italic;
+					}
+
+					.cm-voice-transcript-text {
+						color: #f8fafc;
+						font-size: 16px;
+						font-weight: 500;
+						line-height: 1.5;
+						word-break: break-word;
+					}
+
+					/* Voice Actions Buttons */
+					.cm-voice-actions {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						gap: 16px;
+						width: 100%;
+						max-width: 400px;
+					}
+
+					.cm-voice-action-btn {
+						height: 52px;
+						border-radius: 26px;
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						gap: 10px;
+						font-size: 15px;
+						font-weight: 600;
+						cursor: pointer;
+						transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+						border: none;
+						outline: none;
+						-webkit-tap-highlight-color: transparent;
+					}
+
+					.cm-voice-action-btn.cancel {
+						padding: 0 22px;
+						background: rgba(255, 255, 255, 0.08);
+						color: #94a3b8;
+						border: 1px solid rgba(255, 255, 255, 0.12);
+					}
+
+					.cm-voice-action-btn.cancel:active {
+						transform: scale(0.95);
+						background: rgba(239, 68, 68, 0.2);
+						color: #f87171;
+						border-color: rgba(239, 68, 68, 0.4);
+					}
+
+					.cm-voice-action-btn.submit {
+						flex: 1;
+						background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+						color: #ffffff;
+						box-shadow: 0 4px 22px rgba(14, 165, 233, 0.45);
+					}
+
+					.cm-voice-action-btn.submit:active {
+						transform: scale(0.96);
+						box-shadow: 0 2px 10px rgba(14, 165, 233, 0.6);
+					}
+				`;
+				document.head.appendChild(voiceStyle);
+
+				let voiceOverlay = null;
+				let voiceOrb = null;
+				let voiceOrbGlow = null;
+				let voiceTranscriptText = null;
+				let voiceTranscriptPlaceholder = null;
+				let voiceBadgeStatus = null;
+				let currentTranscript = '';
+				let isListening = false;
+				let webAudioContext = null;
+				let webAudioAnalyser = null;
+				let webAudioStream = null;
+				let webSpeechInstance = null;
+				let animFrameId = null;
+
+				function createVoiceOverlayIfNeeded() {
+					if (voiceOverlay) return;
+
+					voiceOverlay = document.createElement('div');
+					voiceOverlay.id = 'cm-voice-overlay';
+					voiceOverlay.className = 'cm-voice-overlay';
+					voiceOverlay.innerHTML = `
+						<div class="cm-voice-header">
+							<div class="cm-voice-badge">
+								<div class="cm-voice-badge-dot"></div>
+								<span id="cm-voice-badge-text">Ich höre zu...</span>
+							</div>
+							<button class="cm-voice-close-btn" id="cm-voice-btn-close" aria-label="Schließen">✕</button>
+						</div>
+
+						<div class="cm-voice-center-stage">
+							<div class="cm-voice-orb-container">
+								<div class="cm-voice-orb-glow" id="cm-voice-orb-glow"></div>
+								<div class="cm-voice-orb" id="cm-voice-orb" title="Tippen zum Senden"></div>
+							</div>
+						</div>
+
+						<div class="cm-voice-bottom-stage">
+							<div class="cm-voice-transcript-box">
+								<div class="cm-voice-transcript-placeholder" id="cm-voice-transcript-placeholder">Ich höre dir zu... Sprich einfach frei.</div>
+								<div class="cm-voice-transcript-text" id="cm-voice-transcript-text" style="display: none;"></div>
+							</div>
+
+							<div class="cm-voice-actions">
+								<button class="cm-voice-action-btn cancel" id="cm-voice-btn-cancel">
+									✕ Abbrechen
+								</button>
+								<button class="cm-voice-action-btn submit" id="cm-voice-btn-submit">
+									✓ Fertig & Senden
+								</button>
+							</div>
+						</div>
+					`;
+					document.body.appendChild(voiceOverlay);
+
+					voiceOrb = document.getElementById('cm-voice-orb');
+					voiceOrbGlow = document.getElementById('cm-voice-orb-glow');
+					voiceTranscriptText = document.getElementById('cm-voice-transcript-text');
+					voiceTranscriptPlaceholder = document.getElementById('cm-voice-transcript-placeholder');
+					voiceBadgeStatus = document.getElementById('cm-voice-badge-text');
+
+					document.getElementById('cm-voice-btn-close').addEventListener('click', closeVoiceMode);
+					document.getElementById('cm-voice-btn-cancel').addEventListener('click', closeVoiceMode);
+					document.getElementById('cm-voice-btn-submit').addEventListener('click', submitVoiceMode);
+					voiceOrb.addEventListener('click', function() {
+						if (currentTranscript.trim()) {
+							submitVoiceMode();
+						}
+					});
+				}
+
+				function setOrbAmplitude(amp) {
+					if (!voiceOrb || !voiceOrbGlow) return;
+					const scale = 1.0 + Math.min(amp * 0.45, 0.55);
+					const glowScale = 1.0 + Math.min(amp * 0.8, 0.9);
+					const glowOpacity = 0.5 + Math.min(amp * 0.5, 0.5);
+					
+					voiceOrb.style.transform = `scale(${scale.toFixed(3)})`;
+					voiceOrbGlow.style.transform = `scale(${glowScale.toFixed(3)})`;
+					voiceOrbGlow.style.opacity = glowOpacity.toFixed(2);
+				}
+
+				function startWebAudioVisualizer() {
+					try {
+						if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+						navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+							webAudioStream = stream;
+							const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+							if (!AudioContextClass) return;
+							webAudioContext = new AudioContextClass();
+							const source = webAudioContext.createMediaStreamSource(stream);
+							webAudioAnalyser = webAudioContext.createAnalyser();
+							webAudioAnalyser.fftSize = 256;
+							source.connect(webAudioAnalyser);
+
+							const dataArray = new Uint8Array(webAudioAnalyser.frequencyBinCount);
+							function updateVis() {
+								if (!isListening) return;
+								webAudioAnalyser.getByteFrequencyData(dataArray);
+								let sum = 0;
+								for (let i = 0; i < dataArray.length; i++) {
+									sum += dataArray[i];
+								}
+								const avg = sum / dataArray.length;
+								const normalized = avg / 128.0;
+								setOrbAmplitude(normalized);
+								animFrameId = requestAnimationFrame(updateVis);
+							}
+							updateVis();
+						}).catch(e => {
+							console.log('Web Audio permission/capture skipped:', e);
+						});
+					} catch (e) {
+						console.log('Web Audio not initialized:', e);
+					}
+				}
+
+				function stopWebAudioVisualizer() {
+					if (animFrameId) {
+						cancelAnimationFrame(animFrameId);
+						animFrameId = null;
+					}
+					if (webAudioStream) {
+						webAudioStream.getTracks().forEach(t => t.stop());
+						webAudioStream = null;
+					}
+					if (webAudioContext) {
+						try { webAudioContext.close(); } catch(e) {}
+						webAudioContext = null;
+					}
+					setOrbAmplitude(0);
+				}
+
+				window.__openVoiceMode = function() {
+					createVoiceOverlayIfNeeded();
+					currentTranscript = '';
+					isListening = true;
+
+					if (voiceTranscriptPlaceholder && voiceTranscriptText) {
+						voiceTranscriptPlaceholder.style.display = 'block';
+						voiceTranscriptText.style.display = 'none';
+						voiceTranscriptText.innerText = '';
+					}
+					if (voiceBadgeStatus) {
+						voiceBadgeStatus.innerText = 'Ich höre zu...';
+					}
+
+					voiceOverlay.classList.add('is-active');
+
+					// 1. Android Native Speech Recognizer (if running in mobile app)
+					const bridge = window.AndroidSpeechBridge || window.AndroidBridge;
 					if (bridge && typeof bridge.startSpeechRecognition === 'function') {
 						bridge.startSpeechRecognition('de-DE');
+					} else {
+						// 2. Standard Web Speech Recognition Fallback
+						const SpeechRecClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+						if (SpeechRecClass) {
+							try {
+								webSpeechInstance = new SpeechRecClass();
+								webSpeechInstance.continuous = true;
+								webSpeechInstance.interimResults = true;
+								webSpeechInstance.lang = 'de-DE';
+								webSpeechInstance.onresult = function(ev) {
+									let interim = '';
+									let final = '';
+									for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+										if (ev.results[i].isFinal) {
+											final += ev.results[i][0].transcript;
+										} else {
+											interim += ev.results[i][0].transcript;
+										}
+									}
+									const text = (final || interim).trim();
+									if (text) {
+										handleTranscriptUpdate(text, !!final);
+									}
+								};
+								webSpeechInstance.onerror = function(ev) {
+									console.log('WebSpeech error:', ev);
+								};
+								webSpeechInstance.start();
+							} catch(e) {
+								console.log('WebSpeech start error:', e);
+							}
+						}
+						startWebAudioVisualizer();
 					}
 				};
-				window.__stopNativeSpeech = function() {
-					const bridge = window.AndroidBridge || window.AndroidSpeechBridge;
+
+				function handleTranscriptUpdate(text, isFinal) {
+					currentTranscript = text;
+					if (voiceTranscriptPlaceholder && voiceTranscriptText) {
+						voiceTranscriptPlaceholder.style.display = 'none';
+						voiceTranscriptText.style.display = 'block';
+						voiceTranscriptText.innerText = text;
+					}
+				}
+
+				function closeVoiceMode() {
+					isListening = false;
+					if (voiceOverlay) {
+						voiceOverlay.classList.remove('is-active');
+					}
+
+					const bridge = window.AndroidSpeechBridge || window.AndroidBridge;
 					if (bridge && typeof bridge.stopSpeechRecognition === 'function') {
 						bridge.stopSpeechRecognition();
 					}
-				};
-			})();
+					if (webSpeechInstance) {
+						try { webSpeechInstance.stop(); } catch(e) {}
+						webSpeechInstance = null;
+					}
+					stopWebAudioVisualizer();
+				}
+				window.__closeVoiceMode = closeVoiceMode;
 
-			// Native Attachment Integration Engine
-			(function() {
-				let hiddenFileInput = null;
-
-				function setupHiddenFileInput() {
-					if (document.getElementById('cm-native-file-input')) return;
-					const input = document.createElement('input');
-					input.id = 'cm-native-file-input';
-					input.type = 'file';
-					input.multiple = true;
-					input.accept = 'image/*,application/pdf,text/*,.json,.csv,.md,.py,.kt,.js,.ts,.html,.css,.log,.yaml,.yml';
-					input.style.display = 'none';
-					input.addEventListener('change', function(e) {
-						if (e.target.files && e.target.files.length > 0) {
-							dispatchFilesToSvelteKit(e.target.files);
-							input.value = '';
-						}
-					});
-					document.body.appendChild(input);
-					hiddenFileInput = input;
+				function submitVoiceMode() {
+					const textToSend = currentTranscript.trim();
+					closeVoiceMode();
+					if (textToSend) {
+						window.__sendComputeMeshPrompt(textToSend);
+					}
 				}
 
-				function dispatchFilesToSvelteKit(fileList) {
-					const nativeInputs = document.querySelectorAll('input[type="file"]:not(#cm-native-file-input)');
-					if (nativeInputs.length > 0) {
-						try {
-							const dt = new DataTransfer();
-							for (let i = 0; i < fileList.length; i++) {
-								dt.items.add(fileList[i]);
+				// Android Native Speech Event Receiver
+				window.__onAndroidSpeechEvent = function(event, data) {
+					if (!isListening && event !== 'onresult') return;
+
+					if (event === 'onstart') {
+						if (voiceBadgeStatus) voiceBadgeStatus.innerText = 'Ich höre zu...';
+					} else if (event === 'onrms') {
+						const rms = parseFloat(data) || 0;
+						const normalized = Math.max(0, Math.min(1.0, (rms + 2) / 10.0));
+						setOrbAmplitude(normalized);
+					} else if (event === 'onpartialresult') {
+						handleTranscriptUpdate(data, false);
+						setOrbAmplitude(0.4);
+					} else if (event === 'onresult') {
+						handleTranscriptUpdate(data, true);
+						setOrbAmplitude(0.6);
+						setTimeout(function() {
+							if (isListening) {
+								submitVoiceMode();
 							}
-							const targetInput = nativeInputs[0];
-							targetInput.files = dt.files;
-							targetInput.dispatchEvent(new Event('change', { bubbles: true }));
-							return;
-						} catch (err) {
-							console.warn('DataTransfer dispatch failed:', err);
-						}
+						}, 700);
+					} else if (event === 'onerror') {
+						if (voiceBadgeStatus) voiceBadgeStatus.innerText = 'Ich höre zu...';
+					} else if (event === 'onend') {
+						if (voiceBadgeStatus) voiceBadgeStatus.innerText = 'Ich höre zu...';
 					}
+				};
+
+				// Native Voice Button Direct Trigger
+				function isVoiceButton(el) {
+					if (!el) return false;
+					if (el.closest('.cm-voice-overlay')) return false;
+
+					const btn = el.closest('button, [role="button"], a, .cursor-pointer');
+					if (!btn) return false;
+					if (btn.getAttribute('type') === 'submit' || isAttachButton(btn)) return false;
+
+					const title = (btn.getAttribute('title') || '').toLowerCase();
+					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+					const text = (btn.innerText || '').trim().toLowerCase();
+					const html = btn.innerHTML || '';
+
+					if (title.includes('aufnahme') || title.includes('sprach') || title.includes('mic') || title.includes('voice') || title.includes('diktier') || title.includes('audio')) return true;
+					if (aria.includes('aufnahme') || aria.includes('sprach') || aria.includes('mic') || aria.includes('voice') || aria.includes('diktier') || aria.includes('audio')) return true;
+					if (text === 'mic' || text === 'sprache' || text === 'aufnahme' || text === 'voice') return true;
+					if (btn.querySelector('.lucide-mic, .lucide-mic-off, [data-lucide="mic"], svg path[d*="M12 1"], svg path[d*="M19 10"]')) return true;
+					if (html.includes('lucide-mic') || html.includes('lucide-mic-off') || html.includes('M12 1a3') || html.includes('M19 10v2')) return true;
+
+					return false;
 				}
 
-				function openFilePicker() {
-					const nativeInputs = document.querySelectorAll('input[type="file"]:not(#cm-native-file-input)');
-					if (nativeInputs.length > 0) {
-						nativeInputs[0].click();
-					} else if (hiddenFileInput) {
-						hiddenFileInput.click();
+				// Native Plus / Attach / Camera Button Listener
+				function triggerNativeFileChooser() {
+					let fileInput = document.querySelector('input[type="file"]');
+					if (!fileInput) {
+						fileInput = document.createElement('input');
+						fileInput.type = 'file';
+						fileInput.accept = '*/*';
+						fileInput.multiple = true;
+						fileInput.style.display = 'none';
+						document.body.appendChild(fileInput);
 					}
+					fileInput.click();
 				}
 
-				function injectAttachmentButton() {
-					if (document.getElementById('cm-attachment-btn')) return;
-					setupHiddenFileInput();
+				function isAttachButton(el) {
+					if (!el) return false;
+					if (el.closest('.cm-voice-overlay')) return false;
+					const btn = el.closest('button, [role="button"], .cursor-pointer');
+					if (!btn) return false;
+					const title = (btn.getAttribute('title') || '').toLowerCase();
+					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+					const text = (btn.innerText || '').trim();
+					const html = btn.innerHTML || '';
+					return text === '+' || html.includes('lucide-plus') || html.includes('lucide-paperclip') ||
+					       aria.includes('upload') || aria.includes('datei') || aria.includes('anhang') || aria.includes('attach') || aria.includes('plus') ||
+					       title.includes('upload') || title.includes('datei') || title.includes('anhang') || title.includes('attach') || title.includes('plus') ||
+					       html.includes('M12 5v14') || html.includes('M5 12h14');
+				}
 
-					// Look for the bottom toolbar row inside the input card
-					const toolbar = document.querySelector('form div[style*="container-type"], form .flex.items-center.gap-1\\.5, form div.flex.items-center, form [data-slot="input-area"] .flex-column');
-					const modelSelectorBtn = document.querySelector('form button:has(.lucide-box), form button:has(svg), form [data-slot="input-area"] button');
-					const form = document.querySelector('form');
-
-					if (!toolbar && !modelSelectorBtn && !form) return;
-
-					const btn = document.createElement('button');
-					btn.id = 'cm-attachment-btn';
-					btn.type = 'button';
-					btn.title = 'Datei, Bild oder Dokument hochladen';
-					btn.innerHTML = `
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="12" y1="5" x2="12" y2="19"></line>
-							<line x1="5" y1="12" x2="19" y2="12"></line>
-						</svg>
-					`;
-
-					btn.addEventListener('click', function(e) {
+				document.addEventListener('click', function(e) {
+					if (isVoiceButton(e.target)) {
 						e.preventDefault();
 						e.stopPropagation();
-						openFilePicker();
-					});
-
-					if (modelSelectorBtn && modelSelectorBtn.parentNode) {
-						modelSelectorBtn.parentNode.insertBefore(btn, modelSelectorBtn);
-					} else if (toolbar) {
-						toolbar.insertBefore(btn, toolbar.firstChild);
-					} else if (form) {
-						const card = form.querySelector('[data-slot="input-area"] > div, .flex-column') || form;
-						card.appendChild(btn);
+						window.__openVoiceMode();
+						return;
 					}
-				}
+					if (isAttachButton(e.target)) {
+						setTimeout(function() {
+							const openMenu = document.querySelector('[role="menu"], .dropdown-menu, .modal');
+							if (!openMenu) {
+								triggerNativeFileChooser();
+							}
+						}, 60);
+					}
+				}, { capture: true });
 
-				setupHiddenFileInput();
-				injectAttachmentButton();
+				document.addEventListener('touchend', function(e) {
+					if (isVoiceButton(e.target)) {
+						e.preventDefault();
+						e.stopPropagation();
+						window.__openVoiceMode();
+					}
+				}, { passive: false });
 
-				const attachObserver = new MutationObserver(function() {
-					injectAttachmentButton();
+				// Reliable Global Prompt Dispatcher
+				window.__sendComputeMeshPrompt = function(promptText) {
+					const textarea = document.querySelector('textarea');
+					const form = document.querySelector('form');
+					if (!textarea || !form) return false;
+
+					textarea.focus();
+					textarea.value = promptText;
+					textarea.dispatchEvent(new Event('input', { bubbles: true }));
+					textarea.dispatchEvent(new Event('change', { bubbles: true }));
+
+					setTimeout(function() {
+						const submitBtn = form.querySelector('button[type="submit"]') || form.querySelector('button:last-of-type');
+						if (submitBtn) {
+							submitBtn.click();
+						} else {
+							form.requestSubmit();
+						}
+					}, 150);
+					return true;
+				};
+
+				// Sidebar / Chat History Drawer Controls
+				window.__toggleSidebar = function() {
+					const aside = document.querySelector('aside');
+					if (!aside) return false;
+					const isExpanded = aside.classList.contains('is-expanded');
+					if (isExpanded) {
+						window.__closeSidebar();
+					} else {
+						window.__openSidebar();
+					}
+					return true;
+				};
+
+				window.__openSidebar = function() {
+					const aside = document.querySelector('aside');
+					if (!aside) return false;
+					aside.classList.add('is-expanded');
+					let backdrop = document.getElementById('cm-sidebar-backdrop');
+					if (!backdrop) {
+						backdrop = document.createElement('div');
+						backdrop.id = 'cm-sidebar-backdrop';
+						backdrop.className = 'cm-sidebar-backdrop';
+						backdrop.onclick = function() {
+							window.__closeSidebar();
+						};
+						document.body.appendChild(backdrop);
+					}
+					backdrop.classList.add('is-active');
+					backdrop.style.setProperty('display', 'block', 'important');
+					backdrop.style.setProperty('pointer-events', 'auto', 'important');
+					
+					const expandBtn = aside.querySelector('button[aria-label="Navigation erweitern"]');
+					if (expandBtn) {
+						try { expandBtn.click(); } catch(e) {}
+					}
+					return true;
+				};
+
+				window.__closeSidebar = function() {
+					const aside = document.querySelector('aside');
+					if (aside) {
+						aside.classList.remove('is-expanded');
+						const collapseBtn = aside.querySelector('button[aria-label="Navigation einklappen"]');
+						if (collapseBtn) {
+							try { collapseBtn.click(); } catch(e) {}
+						}
+					}
+					const backdrop = document.getElementById('cm-sidebar-backdrop');
+					if (backdrop) {
+						backdrop.classList.remove('is-active');
+						backdrop.style.setProperty('display', 'none', 'important');
+						backdrop.style.setProperty('pointer-events', 'none', 'important');
+					}
+					return true;
+				};
+
+				// Auto-close sidebar when a conversation item is selected
+				document.addEventListener('click', function(e) {
+					const aside = document.querySelector('aside');
+					if (aside && aside.classList.contains('is-expanded') && aside.contains(e.target)) {
+						const isCollapse = e.target.closest('button[aria-label="Navigation einklappen"]');
+						const isConv = e.target.closest('li button, a');
+						if (isCollapse) {
+							window.__closeSidebar();
+						} else if (isConv) {
+							setTimeout(function() {
+								window.__closeSidebar();
+							}, 120);
+						}
+					}
 				});
-				if (document.body) {
-					attachObserver.observe(document.body, { childList: true, subtree: true });
-				} else {
-					document.addEventListener('DOMContentLoaded', function() {
-						attachObserver.observe(document.body, { childList: true, subtree: true });
-					});
-				}
-				setInterval(injectAttachmentButton, 350);
+
+				// Global New Chat Trigger
+				window.__startNewChat = function() {
+					try {
+						window.__closeSidebar();
+						const textarea = document.querySelector('textarea');
+						if (textarea) {
+							textarea.value = '';
+							textarea.dispatchEvent(new Event('input', { bubbles: true }));
+						}
+						const links = Array.from(document.querySelectorAll('a, button'));
+						const newChatBtn = links.find(function(el) {
+							const href = el.getAttribute('href') || '';
+							const text = (el.innerText || '').toLowerCase();
+							const html = el.innerHTML || '';
+							return href.includes('new_chat') || href === '#/' || href.endsWith('/#/') ||
+							       text.includes('neuer chat') || html.includes('lucide-square-pen');
+						});
+						if (newChatBtn) {
+							newChatBtn.click();
+						} else {
+							window.location.hash = '#/';
+						}
+						return true;
+					} catch(e) {
+						console.error('Failed to start new chat:', e);
+						window.location.hash = '#/';
+						return false;
+					}
+				};
+
+				// Click on any chat image to open full-size Lightbox preview
+				document.addEventListener('click', function(e) {
+					var target = e.target;
+					if (target && target.tagName === 'IMG' && !target.closest('.cm-image-lightbox') && !target.classList.contains('no-lightbox') && !target.closest('button')) {
+						var lightbox = document.getElementById('cm-lightbox');
+						if (!lightbox) {
+							lightbox = document.createElement('div');
+							lightbox.id = 'cm-lightbox';
+							lightbox.className = 'cm-image-lightbox';
+							lightbox.innerHTML = '<button class="cm-lightbox-close" aria-label="Schließen">&times;</button><img id="cm-lightbox-img" src="" alt="Vollbild" />';
+							lightbox.addEventListener('click', function() {
+								lightbox.classList.remove('active');
+							});
+							document.body.appendChild(lightbox);
+						}
+						var lbImg = document.getElementById('cm-lightbox-img');
+						if (lbImg && target.src) {
+							lbImg.src = target.src;
+							lightbox.classList.add('active');
+						}
+					}
+				});
 			})();
 		</script>
 	</body>

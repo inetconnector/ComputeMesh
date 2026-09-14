@@ -39,8 +39,34 @@ class AgentExecutionResult:
     total_tokens: int = 0
 
 
+THINKING_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+
+
+def format_reasoning_and_thinking_blocks(content: str) -> str:
+    """Formats <think>...</think> reasoning blocks into interactive collapsible HTML accordions."""
+    if not content or "<think>" not in content.lower():
+        return content
+
+    def _replace_think(match: re.Match) -> str:
+        thought_text = match.group(1).strip()
+        if not thought_text:
+            return ""
+        return (
+            f'<details class="cm-thinking-block">\n'
+            f'  <summary>🧠 <strong>Gedankengang anzeigen</strong> <em>(Deep Reasoning)</em></summary>\n'
+            f'  <div class="cm-thinking-body">\n'
+            f'{thought_text}\n'
+            f'  </div>\n'
+            f'</details>\n\n'
+        )
+
+    formatted = THINKING_RE.sub(_replace_think, content)
+    return formatted.strip()
+
+
 def format_tool_content_if_json(content: str) -> str:
     """Format a few common raw JSON tool responses for direct user display."""
+    content = format_reasoning_and_thinking_blocks(content)
     cleaned = str(content or "").strip()
     if not (cleaned.startswith("{") and cleaned.endswith("}")):
         return str(content or "")
@@ -48,6 +74,597 @@ def format_tool_content_if_json(content: str) -> str:
         data = json.loads(cleaned)
         if not isinstance(data, dict):
             return str(content or "")
+
+        if "command" in data and "exit_code" in data and ("stdout" in data or "stderr" in data):
+            cmd = data.get("command", "")
+            code = data.get("exit_code", 0)
+            elapsed = data.get("elapsed_seconds", 0)
+            stdout = data.get("stdout", "").strip()
+            stderr = data.get("stderr", "").strip()
+            badge = "✅ **Erfolgreich (Code 0)**" if code == 0 else f"❌ **Fehlgeschlagen (Code {code})**"
+            res = f"### 💻 Terminal Befehl: `{cmd}` ({badge}, {elapsed}s)\n\n"
+            if stdout:
+                res += f"```text\n{stdout}\n```\n\n"
+            if stderr:
+                res += f"**Stderr:**\n```text\n{stderr}\n```\n\n"
+            if not stdout and not stderr:
+                res += "*Keine Textausgabe.*\n"
+            return res.strip()
+
+        if "stdout" in data or "images" in data or ("status" in data and ("stdout" in data or "result" in data)):
+            res_parts = []
+            res_parts.append("### 🐍 Code Interpreter / Python Sandbox")
+            if data.get("stdout"):
+                res_parts.append(f"**Standard-Ausgabe (stdout):**\n```text\n{data['stdout'].strip()}\n```")
+            if data.get("stderr"):
+                res_parts.append(f"**Fehlerausgabe (stderr):**\n```text\n{data['stderr'].strip()}\n```")
+            if data.get("result") is not None and str(data.get("result")) != "None":
+                res_parts.append(f"**Ergebnis:** `{data['result']}`")
+            for img_b64 in data.get("images", []):
+                res_parts.append(f"![Generierte Grafik](data:image/png;base64,{img_b64})")
+            if data.get("error"):
+                res_parts.append(f"❌ **Fehler:** `{data['error']}`")
+            return "\n\n".join(res_parts).strip()
+
+        if "total_matches" in data or (isinstance(data.get("matches"), list) and data["matches"] and "line_number" in data["matches"][0]):
+            q = data.get("query", "")
+            tot = data.get("total_matches", len(data.get("matches", [])))
+            matches = data.get("matches", [])
+            if not matches:
+                return f"ℹ️ Keine Treffer für **'{q}'** im Projekt gefunden."
+            res = f"### 🔍 Code-Suchergebnisse für *'{q}'* ({tot} Treffer)\n\n"
+            for m in matches[:15]:
+                f = m.get("file", "")
+                l_num = m.get("line_number", 0)
+                l_code = m.get("line_content", "").strip()
+                res += f"- 📄 **`{f}:{l_num}`**\n  ```text\n  {l_code}\n  ```\n"
+            if len(matches) > 15:
+                res += f"\n*... und {len(matches) - 15} weitere Fundstellen.*"
+            return res.strip()
+
+        if "matches" in data and isinstance(data.get("matches"), list):
+            q = data.get("query", "Vector Store")
+            matches = data.get("matches", [])
+            if not matches:
+                return f"Keine passenden Passagen für **'{q}'** in der Wissensbasis gefunden."
+            res = f"### 📚 Relevante Auszüge aus der Wissensbasis für *'{q}'*:\n\n"
+            for idx, m in enumerate(matches, 1):
+                doc = m.get("document", "Dokument")
+                score = float(m.get("score", 0.0))
+                chunk_id = m.get("chunk_id", 0)
+                text_content = str(m.get("text", "")).strip()
+                res += f"#### {idx}. 📄 `{doc}` (Abschnitt {chunk_id}, Relevanz: {score:.1%})\n"
+                res += f"> {text_content}\n\n"
+            return res.strip()
+
+        if "indexed_chunks" in data and "document_id" in data:
+            doc_id = data.get("document_id", "")
+            cnt = data.get("indexed_chunks", 0)
+            return f"✅ **Dokument erfolgreich indexiert:** `{doc_id}` ({cnt} semantische Vektor-Chunks gespeichert)."
+
+        if "documents" in data and isinstance(data.get("documents"), list):
+            docs = data.get("documents", [])
+            if not docs:
+                return "ℹ️ Es sind aktuell noch keine Dokumente in der Vektordatenbank indexiert."
+            res = f"### 🗄️ Indexierte Dokumente in der Wissensbasis ({len(docs)} gesamt):\n\n"
+            for d in docs:
+                doc_id = d.get("document_id", "")
+                chunks = d.get("total_chunks", 0)
+                created = d.get("indexed_at", "")
+                res += f"- 📄 **`{doc_id}`** ({chunks} Chunks, hinzugefügt: {created})\n"
+            return res.strip()
+
+        if "profile" in data and "updated" in data:
+            return f"✅ **Benutzerprofil aktualisiert:** Präferenzen und Fakten wurden dauerhaft im Langzeitgedächtnis gespeichert."
+
+        if "profile" in data and isinstance(data.get("profile"), dict):
+            prof = data["profile"]
+            res = "### 🧠 Gespeichertes Benutzerprofil (Langzeitgedächtnis)\n\n"
+            if prof.get("name"):
+                res += f"- **Benutzer:** {prof.get('name')}\n"
+            if prof.get("preferred_language"):
+                res += f"- **Bevorzugte Sprache:** {prof.get('preferred_language')}\n"
+            prefs = prof.get("preferences", [])
+            if prefs:
+                res += "- **Gespeicherte Präferenzen:**\n"
+                for p in prefs:
+                    res += f"  - {p}\n"
+            facts = prof.get("facts", [])
+            if facts:
+                res += "- **Bekannte Fakten & Kontext:**\n"
+                for f in facts:
+                    res += f"  - {f}\n"
+            return res.strip()
+
+        if "gpu_count" in data and "devices" in data:
+            cnt = data.get("gpu_count", 0)
+            devs = data.get("devices", [])
+            if not devs:
+                return "ℹ️ Keine dedizierten NVIDIA CUDA oder AMD ROCm GPUs auf diesem System erkannt."
+            res = f"### ⚡ GPU-Hardware-Telemetrie ({cnt} Einheit{'en' if cnt > 1 else ''})\n\n"
+            for d in devs:
+                name = d.get("name", "GPU")
+                tot = d.get("vram_total_mb", 0)
+                used = d.get("vram_used_mb", 0)
+                free = d.get("vram_free_mb", 0)
+                util = d.get("compute_utilization_percent", 0)
+                pct = d.get("vram_usage_percent", 0)
+                temp = d.get("temperature_celsius")
+                res += f"#### 🎮 `{name}`\n"
+                res += f"- **VRAM-Auslastung:** {used:,.0f} MB / {tot:,.0f} MB ({pct:.1f}% belegt, {free:,.0f} MB frei)\n"
+                res += f"- **Compute-Auslastung:** {util} %\n"
+                if temp is not None:
+                    res += f"- **GPU-Temperatur:** {temp} °C\n"
+                res += "\n"
+            return res.strip()
+
+        if "disk_total_gb" in data or "ram_total_gb" in data:
+            os_name = data.get("os", "System")
+            cpu_cnt = data.get("cpu_count", "N/A")
+            res = f"### 🖥️ System-Status & Hardware-Ressourcen ({os_name})\n\n"
+            res += f"- **CPU-Kerne:** {cpu_cnt}\n"
+            if "ram_total_gb" in data:
+                res += f"- **Arbeitsspeicher (RAM):** {data.get('ram_used_gb', 0)} GB / {data.get('ram_total_gb', 0)} GB ({data.get('ram_usage_percent', 0)}% belegt)\n"
+            if "disk_total_gb" in data:
+                res += f"- **Festplatte (Disk):** {data.get('disk_free_gb', 0)} GB frei von {data.get('disk_total_gb', 0)} GB ({data.get('disk_usage_percent', 0)}% belegt)\n"
+            if "python_version" in data:
+                res += f"- **Python:** {data.get('python_version')}\n"
+            return res.strip()
+
+        if "total_entries" in data and "entries" in data and isinstance(data.get("entries"), list):
+            rel_p = data.get("relative_path", ".")
+            tot = data.get("total_entries", 0)
+            entries = data.get("entries", [])
+            res = f"### 📂 Dateien im Workspace (`{rel_p}`, {tot} Einträge)\n\n"
+            for e in entries[:25]:
+                t = e.get("type", "file")
+                icon = "📁" if t == "directory" else "📄"
+                p = e.get("path", "")
+                sz = e.get("size_bytes")
+                sz_str = f" *({sz:,} Bytes)*" if sz is not None and t != "directory" else ""
+                res += f"- {icon} `{p}`{sz_str}\n"
+            if len(entries) > 25:
+                res += f"\n*... und {len(entries) - 25} weitere Einträge.*"
+            return res.strip()
+
+        if "lines_read" in data and "content" in data and "file" in data:
+            f_name = data.get("file", "")
+            tot_l = data.get("total_lines", 0)
+            st_l = data.get("start_line", 1)
+            end_l = data.get("end_line", tot_l)
+            c_text = data.get("content", "")
+            ext = f_name.split(".")[-1] if "." in f_name else "text"
+            return f"### 📄 `{f_name}` (Zeilen {st_l}–{end_l} von {tot_l})\n\n```{ext}\n{c_text.strip()}\n```"
+
+        if "column_summaries" in data and "total_rows" in data:
+            tot_r = data.get("total_rows", 0)
+            tot_c = data.get("total_columns", 0)
+            cols = data.get("column_summaries", {})
+            res = f"### 📊 Datensatz-Analyse ({tot_r:,} Zeilen, {tot_c} Spalten)\n\n"
+            for col_name, summ in cols.items():
+                c_type = summ.get("type", "text")
+                if c_type == "numeric":
+                    res += f"- **`{col_name}`** *(Zahl)*: Min: `{summ.get('min')}`, Max: `{summ.get('max')}`, Mittelwert: `{summ.get('mean')}`, Median: `{summ.get('median')}`\n"
+                else:
+                    res += f"- **`{col_name}`** *(Text)*: `{summ.get('distinct_count')}` eindeutige Werte\n"
+            return res.strip()
+
+        if "total_sections" in data and "sections" in data and "word_count" in data:
+            tot_s = data.get("total_sections", 0)
+            w_cnt = data.get("word_count", 0)
+            secs = data.get("sections", [])
+            bullets = data.get("key_bullets", [])
+            res = f"### 📑 Dokumenten-Struktur ({w_cnt:,} Wörter, {tot_s} Abschnitte)\n\n"
+            if bullets:
+                res += "**📌 Wichtigste Kernpunkte:**\n"
+                for b in bullets[:5]:
+                    res += f"- {b}\n"
+                res += "\n"
+            if secs:
+                res += "**Gliederung:**\n"
+                for s in secs[:8]:
+                    h = s.get("heading", "")
+                    l_cnt = s.get("line_count", 0)
+                    res += f"- **{h}** ({l_cnt} Zeilen)\n"
+            return res.strip()
+
+        if "replacements_count" in data or "chunks_applied" in data:
+            f_path = data.get("file_path", "Datei")
+            diff = data.get("diff", "")
+            applied = data.get("chunks_applied", data.get("replacements_count", 1))
+            res = f"### 🛠️ Code erfolgreich angepasst (`{f_path}`)\n\n"
+            res += f"- **Angewendete Änderungen:** {applied}\n"
+            if diff:
+                res += f"\n```diff\n{diff.strip()}\n```\n"
+            return res.strip()
+
+        if "total_matches" in data and "matches" in data and isinstance(data.get("matches"), list):
+            q = data.get("query", "")
+            tot = data.get("total_matches", 0)
+            matches = data.get("matches", [])
+            if not matches:
+                return f"ℹ️ Keine Treffer für **'{q}'** im Projekt gefunden."
+            res = f"### 🔍 Code-Suchergebnisse für *'{q}'* ({tot} Treffer)\n\n"
+            for m in matches[:15]:
+                f = m.get("file", "")
+                l_num = m.get("line_number", 0)
+                l_code = m.get("line_content", "").strip()
+                res += f"- 📄 **`{f}:{l_num}`**\n  ```text\n  {l_code}\n  ```\n"
+            if len(matches) > 15:
+                res += f"\n*... und {len(matches) - 15} weitere Fundstellen.*"
+            return res.strip()
+
+        if "total_symbols" in data and "symbols" in data and isinstance(data.get("symbols"), list):
+            f_name = data.get("file", "Datei")
+            lang = data.get("language", "")
+            syms = data.get("symbols", [])
+            res = f"### 🧬 Quellcode-Symbole (`{f_name}`, {len(syms)} Symbole)\n\n"
+            for s in syms:
+                name = s.get("name", "")
+                kind = s.get("kind", "symbol")
+                line = s.get("line", 0)
+                icon = "📦" if kind == "class" else ("⚡" if "func" in kind else "🔹")
+                res += f"- {icon} **`{name}`** *({kind})* — Zeile {line}\n"
+            return res.strip()
+
+        if "valid" in data and "total_errors" in data and "errors" in data:
+            is_valid = data.get("valid", False)
+            lang = data.get("language", "Code")
+            errs = data.get("errors", [])
+            if is_valid:
+                return f"✅ **Syntax-Validierung ({lang}):** Der Quellcode ist syntaktisch einwandfrei."
+            res = f"### ❌ Syntax-Fehler erkannt ({lang})\n\n"
+            for e in errs:
+                l_no = e.get("line", 1)
+                col = e.get("column", 0)
+                msg = e.get("message", "Syntaxfehler")
+                res += f"- **Zeile {l_no}, Spalte {col}:** `{msg}`\n"
+            return res.strip()
+
+        if "framework" in data and ("passed" in data or "failed" in data) and "total" in data:
+            fw = data.get("framework", "Tests").upper()
+            succ = data.get("success", False)
+            passed = data.get("passed", 0)
+            failed = data.get("failed", 0)
+            el = data.get("elapsed_seconds", 0)
+            badge = "✅ **ERFOLGREICH**" if succ else "❌ **FEHLGESCHLAGEN**"
+            res = f"### 🧪 {fw} Test-Ergebnis: {badge}\n\n"
+            res += f"- **Status:** {passed} bestanden, {failed} fehlgeschlagen in {el}s\n"
+            fails = data.get("failures", [])
+            if fails:
+                res += "\n**Fehlgeschlagene Tests:**\n"
+                for f in fails[:5]:
+                    t_name = f.get("test", "")
+                    t_msg = f.get("message", "")
+                    res += f"- ❌ **`{t_name}`**: *{t_msg}*\n"
+            return res.strip()
+
+        if "is_git_repo" in data and ("staged" in data or "modified" in data):
+            br = data.get("branch", "main")
+            clean = data.get("clean", False)
+            staged = data.get("staged", [])
+            modified = data.get("modified", [])
+            untracked = data.get("untracked", [])
+            res = f"### 🌿 Git-Status (Branch: `{br}`)\n\n"
+            if clean:
+                res += "✅ Das Arbeitsverzeichnis ist sauber (keine ausstehenden Änderungen).\n"
+            else:
+                if staged:
+                    res += f"**Gestagte Änderungen ({len(staged)}):**\n" + "\n".join(f"- ✅ `{f}`" for f in staged) + "\n\n"
+                if modified:
+                    res += f"**Modifizierte Dateien ({len(modified)}):**\n" + "\n".join(f"- 📝 `{f}`" for f in modified) + "\n\n"
+                if untracked:
+                    res += f"**Ungetrackte Dateien ({len(untracked)}):**\n" + "\n".join(f"- ❓ `{f}`" for f in untracked[:10]) + "\n\n"
+            return res.strip()
+
+        if "total_diff_chars" in data and "diff_preview" in data:
+            diff_text = data.get("diff_preview", "")
+            has_ch = data.get("has_changes", False)
+            if not has_ch or not diff_text:
+                return "ℹ️ Keine ungespeicherten Git-Änderungen vorhanden."
+            return f"### 📝 Git-Diff Änderungen\n\n```diff\n{diff_text.strip()}\n```"
+
+        if "total_commits_fetched" in data and "commits" in data and isinstance(data.get("commits"), list):
+            commits = data.get("commits", [])
+            res = f"### 📜 Git Commit-Historie ({len(commits)} Commits)\n\n"
+            for c in commits:
+                h = c.get("hash", "")
+                dt = c.get("date", "")
+                auth = c.get("author", "")
+                subj = c.get("subject", "")
+                res += f"- 🔖 `{h}` ({dt}, {auth}): **{subj}**\n"
+            return res.strip()
+
+        if "command" in data and "exit_code" in data and ("stdout" in data or "stderr" in data):
+            cmd = data.get("command", "")
+            code = data.get("exit_code", 0)
+            elapsed = data.get("elapsed_seconds", 0)
+            stdout = data.get("stdout", "").strip()
+            stderr = data.get("stderr", "").strip()
+            badge = "✅ **Erfolgreich (Code 0)**" if code == 0 else f"❌ **Fehlgeschlagen (Code {code})**"
+            res = f"### 💻 Terminal Befehl: `{cmd}` ({badge}, {elapsed}s)\n\n"
+            if stdout:
+                res += f"```text\n{stdout}\n```\n\n"
+            if stderr:
+                res += f"**Stderr:**\n```text\n{stderr}\n```\n\n"
+            if not stdout and not stderr:
+                res += "*Keine Textausgabe.*\n"
+            return res.strip()
+
+        if "status_code" in data and ("url" in data or "reason" in data) and ("body_preview" in data or "json_data" in data or "response_headers" in data):
+            code = data.get("status_code", 200)
+            reason = data.get("reason", "OK")
+            url = data.get("url", "")
+            elapsed = data.get("elapsed_seconds", 0)
+            badge = f"🟢 **{code} {reason}**" if code < 400 else f"🔴 **{code} {reason}**"
+            res = f"### 🌐 HTTP Response: {badge} ({elapsed}s)\n"
+            res += f"- **URL:** `{url}`\n\n"
+            if data.get("json_data") is not None:
+                json_str = json.dumps(data["json_data"], indent=2, ensure_ascii=False)
+                res += f"```json\n{json_str[:3000]}\n```"
+            elif data.get("body_preview"):
+                res += f"```text\n{data['body_preview'][:3000]}\n```"
+            return res.strip()
+
+        if "full_name" in data and "stargazers_count" in data and "html_url" in data:
+            name = data.get("full_name", "")
+            url = data.get("html_url", "")
+            stars = data.get("stargazers_count", 0)
+            forks = data.get("forks_count", 0)
+            issues = data.get("open_issues_count", 0)
+            lang = data.get("language") or "Unbekannt"
+            lic = data.get("license") or "Keine"
+            desc = data.get("description") or "*Keine Beschreibung vorhanden.*"
+            branch = data.get("default_branch", "main")
+            res = f"### 🐙 GitHub Repository: [{name}]({url})\n\n"
+            res += f"> {desc}\n\n"
+            res += f"- **⭐ Sterne:** {stars:,} | **🍴 Forks:** {forks:,} | **❗ Open Issues:** {issues:,}\n"
+            res += f"- **💻 Sprache:** `{lang}` | **📜 Lizenz:** `{lic}` | **🌿 Default Branch:** `{branch}`\n"
+            return res.strip()
+
+        if "total_issues" in data and "issues" in data and isinstance(data.get("issues"), list):
+            repo = data.get("repository", "")
+            issues = data.get("issues", [])
+            state = data.get("state", "open")
+            res = f"### 🐙 GitHub Issues für `{repo}` ({len(issues)} {state})\n\n"
+            if not issues:
+                res += f"ℹ️ Keine {state} Issues gefunden.\n"
+            for iss in issues[:15]:
+                num = iss.get("number")
+                title = iss.get("title", "")
+                i_url = iss.get("html_url", "")
+                st = iss.get("state", "open")
+                st_icon = "🟢" if st == "open" else "🟣"
+                auth = iss.get("author", "")
+                comments = iss.get("comments_count", 0)
+                labels = iss.get("labels", [])
+                label_str = " " + " ".join(f"`{l}`" for l in labels) if labels else ""
+                res += f"- {st_icon} [#{num} {title}]({i_url}){label_str} *(von @{auth}, 💬 {comments})*\n"
+            return res.strip()
+
+        if "issue_number" in data and "title" in data and ("comments" in data or "labels" in data):
+            num = data.get("issue_number")
+            title = data.get("title", "")
+            st = data.get("state", "open")
+            st_icon = "🟢" if st == "open" else "🟣"
+            i_url = data.get("html_url", "")
+            auth = data.get("author", "")
+            body = data.get("body", "")
+            comments = data.get("comments", [])
+            res = f"### 🐙 Issue #{num}: {title} ({st_icon} {st.upper()})\n\n"
+            if i_url:
+                res += f"**Link:** [{i_url}]({i_url}) | **Autor:** @{auth}\n\n"
+            if body:
+                res += f"#### Beschreibung:\n{body.strip()}\n\n"
+            if comments:
+                res += f"#### 💬 Kommentare ({len(comments)}):\n"
+                for c in comments[:5]:
+                    c_auth = c.get("author", "")
+                    c_body = c.get("body", "")
+                    c_date = c.get("created_at", "")
+                    res += f"- **@{c_auth}** ({c_date}):\n  > {c_body.strip()}\n\n"
+            return res.strip()
+
+        if "total_prs" in data and "pull_requests" in data and isinstance(data.get("pull_requests"), list):
+            repo = data.get("repository", "")
+            prs = data.get("pull_requests", [])
+            state = data.get("state", "open")
+            res = f"### 🐙 GitHub Pull Requests für `{repo}` ({len(prs)} {state})\n\n"
+            if not prs:
+                res += f"ℹ️ Keine {state} Pull Requests gefunden.\n"
+            for pr in prs[:15]:
+                num = pr.get("number")
+                title = pr.get("title", "")
+                p_url = pr.get("html_url", "")
+                st = pr.get("state", "open")
+                st_icon = "🟢" if st == "open" else "🟣"
+                auth = pr.get("author", "")
+                draft = " *(Draft)*" if pr.get("draft") else ""
+                res += f"- {st_icon} [#{num} {title}]({p_url}){draft} *(von @{auth})*\n"
+            return res.strip()
+
+        if "pull_number" in data and "diff" in data:
+            num = data.get("pull_number")
+            diff = data.get("diff", "")
+            return f"### 🐙 GitHub PR #{num} Unified Diff\n\n```diff\n{diff.strip()[:6000]}\n```"
+
+        if "total_files" in data and "files" in data and isinstance(data.get("files"), list) and ("additions" in data or "deletions" in data):
+            num = data.get("pull_number")
+            tot_f = data.get("total_files", 0)
+            adds = data.get("additions", 0)
+            dels = data.get("deletions", 0)
+            files = data.get("files", [])
+            res = f"### 🐙 PR #{num} Geänderte Dateien ({tot_f} Dateien, ➕{adds} / ➖{dels})\n\n"
+            for f in files[:20]:
+                fn = f.get("filename", "")
+                ch = f.get("changes", 0)
+                st = f.get("status", "modified")
+                res += f"- `{fn}` ({st}, {ch} Änderungen)\n"
+            return res.strip()
+
+        if "total_releases" in data and "releases" in data and isinstance(data.get("releases"), list):
+            repo = data.get("repository", "")
+            rels = data.get("releases", [])
+            res = f"### 🐙 GitHub Releases für `{repo}` ({len(rels)} Releases)\n\n"
+            for r in rels[:8]:
+                tag = r.get("tag_name", "")
+                name = r.get("name") or tag
+                r_url = r.get("html_url", "")
+                pub = r.get("published_at", "")
+                res += f"- 📦 [{name} (`{tag}`)]({r_url}) — {pub}\n"
+            return res.strip()
+
+        if "total_workflow_runs" in data and "workflow_runs" in data and isinstance(data.get("workflow_runs"), list):
+            repo = data.get("repository", "")
+            runs = data.get("workflow_runs", [])
+            res = f"### 🐙 GitHub Actions Workflows für `{repo}`\n\n"
+            for run in runs[:10]:
+                name = run.get("name", "Workflow")
+                st = run.get("status", "")
+                conc = run.get("conclusion") or st
+                badge = "✅" if conc == "success" else ("❌" if conc == "failure" else "⏳")
+                w_url = run.get("html_url", "")
+                branch = run.get("head_branch", "")
+                res += f"- {badge} [{name}]({w_url}) — Status: `{conc}` (Branch: `{branch}`)\n"
+            return res.strip()
+
+        if "overall_status" in data and "total_checks" in data and "items" in data and isinstance(data.get("items"), list):
+            overall = data.get("overall_status", "healthy")
+            icon = "🟢" if overall == "healthy" else ("🟡" if overall == "warning" else "🔴")
+            tot = data.get("total_checks", 0)
+            items = data.get("items", [])
+            res = f"### 🩺 Workspace & System Doctor Diagnosereport: {icon} **{overall.upper()}** ({tot} Checks)\n\n"
+            for it in items:
+                st = it.get("status", "healthy")
+                st_icon = "✅" if st == "healthy" else ("⚠️" if st == "warning" else "❌")
+                name = it.get("name", "")
+                summ = it.get("summary", "")
+                rem = it.get("remediation", "")
+                lat = it.get("latency_ms")
+                lat_str = f" *({lat}ms)*" if lat else ""
+                res += f"- {st_icon} **{name}**:{lat_str} {summ}\n"
+                if rem:
+                    res += f"  > 💡 **Empfehlung:** `{rem}`\n"
+            return res.strip()
+
+        if "staged_files_count" in data and "diffs" in data:
+            txn = data.get("txn_id", "")
+            cnt = data.get("staged_files_count", 0)
+            diffs = data.get("diffs", {})
+            res = f"### 🛡️ Quarantäne-Staging aktiv (`{txn}`, {cnt} Dateien isoliert)\n\n"
+            for fn, d_text in diffs.items():
+                res += f"#### 📄 `{fn}`\n```diff\n{d_text.strip()[:3000]}\n```\n\n"
+            res += f"*Verwende `quarantine_commit` zur Bestätigung oder `quarantine_rollback` zum Verwerfen.*"
+            return res.strip()
+
+        if "total_committed" in data and "committed_files" in data:
+            txn = data.get("txn_id", "")
+            cnt = data.get("total_committed", 0)
+            files = data.get("committed_files", [])
+            return f"✅ **Quarantäne-Transaktion `{txn}` erfolgreich in den Workspace überführt** ({cnt} Dateien aktualisiert:\n" + "\n".join(f"- `{f}`" for f in files) + ")"
+
+        if "mission_id" in data and "objective" in data and ("steps" in data or "status" in data):
+            m_id = data.get("mission_id", "")
+            obj = data.get("objective", "")
+            st = data.get("status", "in_progress")
+            st_badge = "🟢 In Ausführung" if st == "in_progress" else ("✅ Abgeschlossen" if st == "completed" else "🔴 Blockiert")
+            res = f"### 🎯 Mission Journal: `{m_id}` ({st_badge})\n\n"
+            res += f"**Ziel:** {obj}\n\n"
+            steps = data.get("steps", [])
+            if steps:
+                res += "**Ausführungsschritte:**\n"
+                for s in steps:
+                    idx = s.get("step_index", 1)
+                    ph = s.get("phase", "")
+                    act = s.get("action", "")
+                    s_st = s.get("status", "done")
+                    icon = "✅" if s_st == "done" else "⏳"
+                    res += f"{idx}. {icon} **[{ph.upper()}]** {act}\n"
+            return res.strip()
+
+        if "installed_count" in data and "missing_count" in data and "missing" in data and isinstance(data.get("missing"), list):
+            inst_cnt = data.get("installed_count", 0)
+            miss_cnt = data.get("missing_count", 0)
+            missing = data.get("missing", [])
+            installed = data.get("installed", [])
+            res = f"### 🧰 Entwickler-Tools Audit ({inst_cnt} installiert, {miss_cnt} fehlend)\n\n"
+            if missing:
+                res += "**Fehlende Tools & Installationsbefehle:**\n"
+                for m in missing:
+                    t_name = m.get("name", "")
+                    cmd = m.get("install_command", "")
+                    res += f"- ❌ **`{t_name}`**: Ausführen mit `{cmd}`\n"
+                res += "\n"
+            if installed:
+                res += f"**Installierte Tools ({len(installed)}):**\n"
+                for i in installed[:8]:
+                    res += f"- ✅ `{i.get('name')}`\n"
+            return res.strip()
+
+        if "total_devices" in data and "devices" in data and isinstance(data.get("devices"), list) and ("device_id" in data["devices"][0] if data["devices"] else True):
+            tot = data.get("total_devices", 0)
+            devs = data.get("devices", [])
+            res = f"### 📱 Android ADB Edge Nodes ({tot} verbunden)\n\n"
+            if not devs:
+                res += "ℹ️ Aktuell keine Android-Geräte oder Emulatoren über ADB gekoppelt.\n"
+            for d in devs:
+                d_id = d.get("device_id", "")
+                model = d.get("model", "Android")
+                em = " *(Emulator)*" if d.get("is_emulator") else " *(Physical Device)*"
+                res += f"- 🟢 **`{model}`** (ID: `{d_id}`){em}\n"
+            return res.strip()
+
+        if "image_url" in data or "markdown" in data:
+            md = data.get("markdown")
+            if md:
+                return md.strip()
+            url = data.get("image_url")
+            prompt = data.get("prompt", "KI-Bild")
+            return f"![{prompt}]({url})\n\n[⬇️ **Bild in voller Auflösung herunterladen**]({url})"
+
+        if "safe" in data and ("resolved_public_ips" in data or "status" in data):
+            safe = data.get("safe", False)
+            status = data.get("status", "UNKNOWN")
+            url = data.get("url", "")
+            host = data.get("hostname", "")
+            ips = data.get("resolved_public_ips", [])
+            msg = data.get("message", "")
+            badge = "✅ **SICHER**" if safe else "⛔ **BLOCKIERT / UNSICHER**"
+            res = f"### 🛡️ URL-Sicherheitsprüfung: {badge}\n\n"
+            res += f"- **URL:** `{url}`\n"
+            res += f"- **Status:** `{status}`\n"
+            if host:
+                res += f"- **Host:** `{host}`\n"
+            if ips:
+                res += f"- **Öffentliche IP(s):** {', '.join(ips)}\n"
+            res += f"\n*{msg}*"
+            return res.strip()
+
+        if "url_path" in data and "app_name" in data and "full_local_url" in data:
+            title = data.get("title", data.get("app_name"))
+            url_p = data.get("url_path", "")
+            full_u = data.get("full_local_url", "")
+            sz = data.get("size_bytes", 0)
+            res = f"### 🚀 WebApp Bereitgestellt: **{title}**\n\n"
+            res += f"- **📱 Interaktive WebApp / Spiel:** [🎮 **Jetzt Live Starten: {title}**]({full_u})\n"
+            res += f"- **🌐 Lokaler Pfad:** `{url_p}` *({sz:,} Bytes)*\n\n"
+            res += f"> 💡 **Tipp:** Du kannst die Anwendung direkt im Browser oder auf deinem Smartphone (Samsung Galaxy S25) / Mobilgerät öffnen. Volle Touch-, On-Screen D-Pad und Tastatur-Steuerung ist aktiv!"
+            return res.strip()
+
+        if "total_apps" in data and "apps" in data and isinstance(data.get("apps"), list):
+            tot = data.get("total_apps", 0)
+            apps = data.get("apps", [])
+            res = f"### 🕹️ Gehostete Web-Anwendungen & Spiele ({tot} aktiv)\n\n"
+            if not apps:
+                res += "ℹ️ Aktuell sind keine Web-Apps auf diesem Node gehostet.\n"
+            for a in apps:
+                name = a.get("title") or a.get("app_name", "App")
+                u = a.get("full_local_url") or a.get("url_path", "")
+                desc = a.get("description", "")
+                res += f"- 🎮 **[{name}]({u})** (`{a.get('url_path')}`)\n"
+                if desc:
+                    res += f"  > {desc}\n"
+            return res.strip()
 
         if "temperature_celsius" in data or "condition" in data:
             loc = data.get("location", "Ort")
@@ -334,7 +951,12 @@ def format_tool_content_if_json(content: str) -> str:
             conv = data.get("converted_amount")
             if conv is not None:
                 return f"Währungsumrechnung: **{amt} {src} = {conv:,.2f} {dst}** (Kurs: {rate})".strip()
-            return f"Wechselkurs: **1 {src} = {rate} {dst}**".strip()
+        if "error" in data:
+            err_msg = str(data.get("error", "Keine passenden Informationen gefunden."))
+            q = data.get("query") or data.get("search_term")
+            if q:
+                return f"ℹ️ Für **'{q}'** konnten keine direkten Daten ermittelt werden ({err_msg})."
+            return f"ℹ️ {err_msg}"
     except Exception:
         pass
     return str(content or "")
@@ -440,16 +1062,270 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if re.search(r"(?:welche\s+mcp|welche\s+tools|welche\s+module|aktive\s+tools|aktive\s+module|list\s+tools|available\s+tools|mcp\s+status|welche\s+funktionen\s+hast\s+du|was\s+kannst\s+du|welche\s+werkzeuge)", cleaned, re.IGNORECASE):
         return ("list_available_tools", {})
 
+    # 0.1 Image Generation (Direct GPU AI RealVisXL synthesis)
+    m_img = re.search(
+        r"(?:generiere\s+(?:ein\s+)?bild\s+(?:von|mit)?\s*|erstelle\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|zeichne\s+(?:ein\s+)?(?:bild|foto)?\s*(?:von|mit)?\s*|male\s+(?:ein\s+)?(?:bild|gemälde)?\s*(?:von|mit)?\s*|generate\s+(?:an?\s+)?image\s+(?:of|with)?\s*|create\s+(?:an?\s+)?image\s+(?:of|with)?\s*|draw\s+(?:an?\s+)?(?:image|picture)\s+(?:of|with)?\s*)(.+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_img:
+        raw_prompt = m_img.group(1).strip().rstrip(".!?")
+        if len(raw_prompt) >= 3:
+            style = "photorealistic"
+            if any(w in cleaned.lower() for w in ("gemälde", "painting", "artistic", "ölgemälde", "künstlerisch")):
+                style = "artistic"
+            elif any(w in cleaned.lower() for w in ("anime", "manga", "comic")):
+                style = "anime"
+            elif any(w in cleaned.lower() for w in ("cyberpunk", "sci-fi", "futuristisch", "neon")):
+                style = "cyberpunk"
+            elif any(w in cleaned.lower() for w in ("cinematic", "film", "kino", "movie")):
+                style = "cinematic"
+            return ("generate_ai_image", {"prompt": raw_prompt, "style": style})
+
+    # 0.2 URL Security & SSRF Audit
+    m_sec = re.search(r"(?:prüfe\s+(?:die\s+)?url\s+|check\s+url\s+|ist\s+(?:die\s+)?url\s+sicher\s+|url\s+sicherheit\s+|scan\s+url\s+)(https?://[^\s]+|[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,}[^\s]*)", cleaned, re.IGNORECASE)
+    if m_sec:
+        target_url = m_sec.group(1).strip()
+        return ("check_url_safety", {"url": target_url})
+
+    # 0.3 Code Interpreter & Python Sandbox Execution / Plotting
+    m_py = re.search(
+        r"(?:(?:führe|fuehre|starte|exec|execute|run)\s+(?:diesen\s+)?(?:python|code|skript|script)|(?:schreibe\s+(?:und\s+)?(?:führe|fuehre)\s+python)|(?:plotte|zeichne\s+diagramm|erstelle\s+diagramm|erstelle\s+plot|visualisiere\s+(?:die\s+)?daten|sinus\s+kurve\s+plotten|balkendiagramm))\s*(.*)",
+        cleaned,
+        re.IGNORECASE | re.DOTALL
+    )
+    if m_py:
+        py_code = m_py.group(1).strip()
+        m_block = re.search(r"```(?:python)?\s*(.*?)\s*```", cleaned, re.DOTALL)
+        if m_block:
+            py_code = m_block.group(1).strip()
+        if py_code:
+            return ("execute_python_code", {"code": py_code})
+
+    # 0.4 Document RAG & Vector Knowledge Base
+    m_rag = re.search(
+        r"(?:suche\s+(?:in\s+den\s+|im\s+|in\s+der\s+)?(?:dokumenten?|vektor\s*datenbank|knowledge\s*base|wissensbasis|dateien?)|rag\s*suche\s+nach|forsche\s+in\s+dokumenten\s+nach)\s+(.+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_rag:
+        rag_query = m_rag.group(1).strip().rstrip(".!?")
+        if rag_query:
+            return ("search_knowledge_base", {"query": rag_query})
+
+    # 0.5 User Profile & Memory
+    if re.search(r"(?:was\s+wei(?:ß|ss)t\s+du\s+über\s+mich|zeige\s+(?:mein\s+)?(?:profil|gedächtnis|memory)|wer\s+bin\s+ich\s+für\s+dich|meine\s+präferenzen|user\s+memory)", cleaned, re.IGNORECASE):
+        return ("get_user_memory", {})
+
+    m_mem = re.search(
+        r"(?:merke\s+dir\s*:\s*|merke\s+dir\s+(?:dass\s+)?|speichere\s+(?:in\s+mein\s+profil\s*:\s*|in\s+meine\s+präferenzen\s*:\s*)|setze\s+meine\s+präferenz\s*:\s*)(.+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_mem:
+        fact_or_pref = m_mem.group(1).strip().rstrip(".!?")
+        if fact_or_pref:
+            return ("update_user_memory", {"fact": fact_or_pref})
+
+    # 0.6 GPU & System Hardware Telemetry
+    if re.search(r"(?:gpu\s+auslastung|gpu\s+status|vram|wie\s+viel\s+vram|wieviel\s+vram|grafikkarte|gpu\s+telemetrie|cuda\s+status|nvidia\s+status|rocm\s+status)", cleaned, re.IGNORECASE):
+        return ("get_gpu_telemetry", {})
+
+    if re.search(r"(?:system\s+status|system\s+telemetrie|systemauslastung|festplattenspeicher|wieviel\s+ram|ram\s+auslastung|speicherauslastung|disk\s+usage|system\s+info)", cleaned, re.IGNORECASE):
+        return ("get_system_info", {})
+
+    # 0.7 Safe Workspace Filesystem
+    m_files = re.search(r"(?:zeige\s+(?:alle\s+)?dateien(?:\s+in)?|list\s+files(?:\s+in)?|dateiliste(?:\s+von)?|welche\s+dateien\s+gibt\s+es(?:\s+in)?)\s*([a-zA-Z0-9\._\-\/]+)?", cleaned, re.IGNORECASE)
+    if m_files:
+        p = (m_files.group(1) or ".").strip()
+        if p.lower() in ("im", "in", "dem", "ordner", "verzeichnis", "workspace"):
+            p = "."
+        return ("list_workspace_files", {"relative_path": p})
+
+    m_read = re.search(r"(?:lies\s+(?:die\s+)?datei|zeige\s+(?:den\s+)?inhalt\s+von\s+(?:datei\s+)?|read\s+file)\s+([a-zA-Z0-9\._\-\/\\]+)", cleaned, re.IGNORECASE)
+    if m_read:
+        f_target = m_read.group(1).strip()
+        if f_target and "." in f_target:
+            return ("read_workspace_file", {"relative_path": f_target})
+
+    # 0.8 Git Version Control & Workspace Diff
+    if re.search(r"(?:git\s+status|zeige\s+git\s+status|git\s+zustand|arbeitsverzeichnis\s+status)", cleaned, re.IGNORECASE):
+        return ("get_git_status", {})
+
+    if re.search(r"(?:git\s+diff|zeige\s+git\s+diff|welche\s+änderungen\s+gibt\s+es|zeige\s+diff)", cleaned, re.IGNORECASE):
+        return ("get_git_diff", {})
+
+    if re.search(r"(?:git\s+log|zeige\s+git\s+commits|letzte\s+commits|commit\s+historie)", cleaned, re.IGNORECASE):
+        return ("get_git_log", {})
+
+    # 0.9 Code Search & Symbol Indexer
+    m_grep = re.search(r"(?:suche\s+(?:im\s+code|nach\s+code|in\s+dateien)\s+nach|grep\s+search|code\s+suche)\s+(.+)", cleaned, re.IGNORECASE)
+    if m_grep:
+        q_code = m_grep.group(1).strip().rstrip(".!?")
+        if q_code:
+            return ("grep_search_code", {"query": q_code})
+
+    m_sym = re.search(r"(?:zeige\s+symbole\s+in|extrahiere\s+symbole\s+aus|code\s+symbols\s+in)\s+([a-zA-Z0-9\._\-\/\\]+)", cleaned, re.IGNORECASE)
+    if m_sym:
+        f_sym = m_sym.group(1).strip()
+        if f_sym and "." in f_sym:
+            return ("extract_code_symbols", {"file_path": f_sym})
+
+    # 0.10 Code Syntax & Automated Tests
+    m_syntax = re.search(r"(?:prüfe\s+(?:die\s+)?syntax|syntax\s+check|validiere\s+code)\s*(.*)", cleaned, re.IGNORECASE)
+    if m_syntax:
+        c_syn = m_syntax.group(1).strip()
+        if c_syn:
+            return ("validate_code_syntax", {"code": c_syn})
+
+    if re.search(r"(?:starte\s+tests|führe\s+tests\s+aus|run\s+tests|führe\s+pytest\s+aus|pytest\s+starten)", cleaned, re.IGNORECASE):
+        return ("run_project_tests", {"framework": "pytest"})
+
+    # 0.11 Terminal / Shell Runner
+    m_term = re.search(r"^(?:terminal(?:\s+run)?|exec|bash|shell|führe\s+(?:den\s+)?befehl\s+aus|run\s+command)\s*:\s*(.+)", cleaned, re.IGNORECASE)
+    if not m_term:
+        m_term = re.search(r"^(?:terminal|bash|shell)\s+(.+)", cleaned, re.IGNORECASE)
+    if m_term:
+        cmd_str = m_term.group(1).strip()
+        if cmd_str:
+            return ("run_terminal_command", {"command": cmd_str})
+
+    # 0.12 Universal HTTP API Client
+    m_http = re.search(r"^(?:curl|http\s+get|http\s+post|http\s+request|api\s+request|api\s+call)\s+(https?://[^\s]+)(?:\s+(.+))?", cleaned, re.IGNORECASE)
+    if m_http:
+        target_url = m_http.group(1).strip()
+        extra_body = m_http.group(2)
+        method = "POST" if "post" in cleaned.lower()[:15] else "GET"
+        args_dict = {"url": target_url, "method": method}
+        if extra_body:
+            args_dict["body"] = extra_body.strip()
+        return ("execute_http_request", args_dict)
+
+    # 0.13 GitHub Integration Suite
+    # GitHub PR Diff: e.g. "github pr diff 42 von owner/repo" or "gh diff owner/repo 42"
+    m_gh_diff = re.search(r"(?:github\s+pr\s+diff|gh\s+diff)\s+(?:#?(\d+)\s+(?:von\s+|in\s+)?([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)|([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)\s+#?(\d+))", cleaned, re.IGNORECASE)
+    if m_gh_diff:
+        if m_gh_diff.group(1):
+            pr_num = int(m_gh_diff.group(1))
+            gh_owner = m_gh_diff.group(2)
+            gh_repo = m_gh_diff.group(3)
+        else:
+            gh_owner = m_gh_diff.group(4)
+            gh_repo = m_gh_diff.group(5)
+            pr_num = int(m_gh_diff.group(6))
+        return ("github_get_pull_request_diff", {"owner": gh_owner, "repo": gh_repo, "pull_number": pr_num})
+
+    # GitHub Issues: e.g. "github issues von owner/repo" or "gh issues owner/repo"
+    m_gh_issues = re.search(r"(?:github\s+issues?\s+(?:von\s+|für\s+|in\s+)?|gh\s+issues?\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)(?:\s+#?(\d+))?", cleaned, re.IGNORECASE)
+    if m_gh_issues:
+        gh_owner = m_gh_issues.group(1)
+        gh_repo = m_gh_issues.group(2)
+        iss_num = m_gh_issues.group(3)
+        if iss_num:
+            return ("github_get_issue", {"owner": gh_owner, "repo": gh_repo, "issue_number": int(iss_num)})
+        return ("github_list_issues", {"owner": gh_owner, "repo": gh_repo})
+
+    # GitHub Pull Requests: e.g. "github prs von owner/repo" or "github pr #12 von owner/repo"
+    m_gh_prs = re.search(r"(?:github\s+prs?\s+(?:von\s+|für\s+|in\s+)?|gh\s+prs?\s+|pull\s+requests?\s+(?:von\s+|für\s+|in\s+)?)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)(?:\s+#?(\d+))?", cleaned, re.IGNORECASE)
+    if m_gh_prs:
+        gh_owner = m_gh_prs.group(1)
+        gh_repo = m_gh_prs.group(2)
+        pr_num = m_gh_prs.group(3)
+        if pr_num:
+            return ("github_get_pull_request", {"owner": gh_owner, "repo": gh_repo, "pull_number": int(pr_num)})
+        return ("github_list_pull_requests", {"owner": gh_owner, "repo": gh_repo})
+
+    # GitHub Releases: e.g. "github releases von owner/repo" or "latest release von owner/repo"
+    m_gh_rel = re.search(r"(?:github\s+releases?\s+(?:von\s+|für\s+|in\s+)?|latest\s+release\s+(?:von\s+|für\s+|in\s+)?|gh\s+releases?\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)", cleaned, re.IGNORECASE)
+    if m_gh_rel:
+        return ("github_list_releases", {"owner": m_gh_rel.group(1), "repo": m_gh_rel.group(2)})
+
+    # GitHub Actions / Workflows: e.g. "github actions von owner/repo" or "ci runs owner/repo"
+    m_gh_ci = re.search(r"(?:github\s+(?:actions|workflows|ci(?:\/cd)?)\s+(?:von\s+|für\s+|in\s+)?|gh\s+actions\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)", cleaned, re.IGNORECASE)
+    if m_gh_ci:
+        return ("github_get_workflow_runs", {"owner": m_gh_ci.group(1), "repo": m_gh_ci.group(2)})
+
+    # GitHub Repo info: e.g. "github repo owner/repo" or "zeige github repo owner/repo"
+    m_gh_repo = re.search(r"(?:github\s+(?:repo(?:sitory)?|info)\s+(?:von\s+|über\s+|zu\s+)?|gh\s+repo\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)", cleaned, re.IGNORECASE)
+    if m_gh_repo:
+        return ("github_get_repo", {"owner": m_gh_repo.group(1), "repo": m_gh_repo.group(2)})
+
+    # GitHub Repo Search: e.g. "suche github repos <query>"
+    m_gh_search = re.search(r"(?:suche\s+github\s+repos?(?:itories)?\s+(?:nach\s+)?|search\s+github\s+repos?(?:itories)?\s+)(.+)", cleaned, re.IGNORECASE)
+    if m_gh_search:
+        q_gh = m_gh_search.group(1).strip().rstrip(".!?")
+        if q_gh:
+            return ("github_search_repositories", {"query": q_gh})
+
+    # 0.14 System & Workspace Doctor
+    if re.search(r"(?:^doctor\b|system\s+doctor|workspace\s+doctor|system\s+diagnose|diagnose\s+ausführen|prüfe\s+(?:mein\s+)?system|run\s+doctor)", cleaned, re.IGNORECASE):
+        return ("run_doctor_diagnostics", {})
+
+    # 0.15 Workspace Quarantine
+    if re.search(r"(?:commit\s+quarantine|quarantäne\s+übernehmen|quarantäne\s+anwenden)\s*([a-zA-Z0-9_\-]+)?", cleaned, re.IGNORECASE):
+        m_q_c = re.search(r"(?:commit\s+quarantine|quarantäne\s+übernehmen|quarantäne\s+anwenden)\s*([a-zA-Z0-9_\-]+)?", cleaned, re.IGNORECASE)
+        t_id = m_q_c.group(1) if m_q_c and m_q_c.group(1) else "latest"
+        return ("quarantine_commit", {"txn_id": t_id})
+
+    if re.search(r"(?:rollback\s+quarantine|quarantäne\s+verwerfen|quarantäne\s+abbrechen)\s*([a-zA-Z0-9_\-]+)?", cleaned, re.IGNORECASE):
+        m_q_r = re.search(r"(?:rollback\s+quarantine|quarantäne\s+verwerfen|quarantäne\s+abbrechen)\s*([a-zA-Z0-9_\-]+)?", cleaned, re.IGNORECASE)
+        t_id = m_q_r.group(1) if m_q_r and m_q_r.group(1) else "latest"
+        return ("quarantine_rollback", {"txn_id": t_id})
+
+    # 0.16 Structured Mission Journal
+    m_mission = re.search(r"(?:starte\s+mission\s*:\s*|start\s+mission\s*:\s*|neue\s+mission\s*:\s*)(.+)", cleaned, re.IGNORECASE)
+    if m_mission:
+        m_obj = m_mission.group(1).strip()
+        if m_obj:
+            return ("mission_start", {"objective": m_obj})
+
+    m_mission_status = re.search(r"(?:mission\s+status|zeige\s+mission|mission\s+journal)\s*([a-zA-Z0-9_\-]+)?", cleaned, re.IGNORECASE)
+    if m_mission_status:
+        m_id = m_mission_status.group(1)
+        if m_id:
+            return ("mission_get_summary", {"mission_id": m_id})
+
+    # 0.17 Tool Scanner & Installer
+    if re.search(r"(?:prüfe\s+(?:fehlende\s+)?tools|check\s+tools|welche\s+tools\s+fehlen|missing\s+tools)", cleaned, re.IGNORECASE):
+        return ("detect_missing_tools", {})
+
+    m_install = re.search(r"(?:installiere\s+(?:das\s+)?tool|install\s+tool)\s+([a-zA-Z0-9_\-]+)", cleaned, re.IGNORECASE)
+    if m_install:
+        t_name = m_install.group(1).strip()
+        if t_name:
+            return ("install_dev_tool", {"tool_name": t_name})
+
+    # 0.18 Android Edge Node & ADB Bridge
+    if re.search(r"(?:adb\s+devices|zeige\s+android\s+geräte|verbundene\s+smartphones|connected\s+android\s+devices|adb\s+liste)", cleaned, re.IGNORECASE):
+        return ("adb_list_devices", {})
+
+    if re.search(r"(?:adb\s+screenshot|android\s+screenshot|mache\s+screenshot\s+vom\s+handy|capture\s+device\s+screen)", cleaned, re.IGNORECASE):
+        return ("adb_capture_screenshot", {})
+
+    if re.search(r"(?:adb\s+logcat|android\s+logcat|system\s+logcat)", cleaned, re.IGNORECASE):
+        return ("adb_get_system_log", {})
+
+    # 0.19 Deployed WebApps and Games
+    if re.search(r"(?:welche\s+webapps|welche\s+apps\s+sind\s+gehostet|zeige\s+apps|list\s+webapps|gehostete\s+spiele|installierte\s+webapps)", cleaned, re.IGNORECASE):
+        return ("list_deployed_webapps", {})
+
     # 1. Weather
     m_weather = re.search(
-        r"(?:wie\s+(?:ist|wird)\s+das\s+wetter\s+(?:in|für|fuer)?\s*|wetter\s+(?:in|für|fuer)?\s*|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
+        r"(?:(?:wie\s+(?:ist|wird|ist\s+denn|wird\s+denn)\s+)?(?:das\s+)?wetter\s+(?:heute\s+|morgen\s+|aktuell\s+)?(?:in|für|fuer|von|bei|im|am)\s+|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von|bei)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\s+wird|\s+ist|\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
         cleaned,
         re.IGNORECASE
     )
     if m_weather:
         loc = m_weather.group(1).strip()
-        loc = re.sub(r"^(?:den|dem|der|die|das)\s+", "", loc, flags=re.IGNORECASE).strip()
+        loc = re.sub(r"^(?:den|dem|der|die|das|in|für|fuer|von|bei)\s+", "", loc, flags=re.IGNORECASE).strip()
+        loc = re.sub(r"\s+(?:wird|ist|heute|morgen|aktuell)$", "", loc, flags=re.IGNORECASE).strip()
         if loc and len(loc) >= 2:
+            return ("get_current_weather", {"location": loc})
+
+    m_city = re.search(r"(?:wetter|weather|temperatur|regen|sonnig|klima).+?(?:in|für|fuer|bei|nach)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+    if m_city:
+        loc = m_city.group(1).strip()
+        if loc and len(loc) >= 2 and loc.lower() not in {"heute", "morgen", "deutschland", "bayern", "wird", "ist"}:
             return ("get_current_weather", {"location": loc})
 
     if re.search(r"(?:wie\s+(?:ist|wird)\s+das\s+wetter|wetterbericht|aktuelles\s+wetter|wetter\s+heute|wetter\s+morgen|wie\s+warm\s+ist\s+es|weather\s+today|wetter\?|\bwetter\b)", cleaned, re.IGNORECASE):
@@ -484,7 +1360,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
             return ("calculate_math", {"expression": expr})
 
-    # 5. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, etc.)
+    # 5. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, General News with Typo Tolerance)
     m_portal_news = re.search(
         r"(?:(?:die\s+|die\s+aktuellen\s+|aktuelle\s+)?(?:headlines|schlagzeilen|nachrichten|news|top\s+news|artikel)\s+(?:von\s+|aus\s+|auf\s+|bei\s+)?|was\s+gibt\s+es\s+neues\s+(?:bei\s+|auf\s+)?)\s*(spiegel(?:\s+online)?|tagesschau|heise(?:\s+online)?|golem(?:\s+online)?|zeit(?:\s+online)?|faz(?:\s+net)?|welt(?:\s+de)?|focus(?:\s+online)?|sueddeutsche)",
         cleaned,
@@ -492,13 +1368,23 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     )
     if m_portal_news:
         portal = m_portal_news.group(1).strip()
-        return ("get_news_feed", {"topic": portal})
+        return ("get_live_news", {"topic": portal})
 
     if any(p in cleaned.lower() for p in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche")) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel")):
         for p_name in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche"):
             if p_name in cleaned.lower():
-                return ("get_news_feed", {"topic": p_name})
-        return ("get_news_feed", {"topic": "spiegel online"})
+                return ("get_live_news", {"topic": p_name})
+        return ("get_live_news", {"topic": "tagesschau"})
+
+    # General News / Typo-Tolerant News Queries (e.g. "Was bits neues jn den Nachrichten", "Was gibt es Neues", "Aktuelle News")
+    m_general_news = re.search(
+        r"(?:was\s+(?:gibt'?s?|gibts|bits?|bit'?s?|geht|gehts|is|ist|steht)(?:\s+es)?\s+neu(?:es)?|aktuelle\s+(?:nachrichten|news|schlagzeilen|meldungen|berichte)|nachrichten\s+(?:von\s+|aus\s+|in\s+|für\s+|fuer\s+)?heute|news\s+(?:von\s+|aus\s+|in\s+|für\s+|fuer\s+)?heute|schlagzeilen(?:\s+von)?\s+heute|top\s+news|breaking\s+news|what'?s\s+new(?:\s+in\s+the\s+news)?|latest\s+news)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_general_news or ("nachricht" in cleaned.lower() and any(w in cleaned.lower() for w in ("neu", "aktuell", "heute", "was", "gibt", "bit", "schlagzeil", "world", "deutschland", "jn", "in"))):
+        return ("get_live_news", {"topic": "tagesschau"})
+
 
     # 6. Events, Concerts, Subculture & Regional Discovery (Worldwide & Europe with typo tolerance)
     if re.search(r"(?:kon[tz]+ert[a-z]*|con[cz]i?ert[a-z]*|veranstalt[a-z]*|verantstalt[a-z]*|events?|part[yi]e?s?|gigs?|festivals?|live[\s\-_]?musik|live[\s\-_]?music|was\s+geht|things\s+to\s+do|what\s+to\s+do|what'?s\s+(?:on|happening|going\s+on)|what\s+is\s+on|live[\s\-_]?bands?|bands\s+live|ausgehen|kulturprogramm|spielplan|clubbing|disco|disko|nightlife|klapperfeld|subkultur|kulturzentrum|off-space|b\u00fcrgerhaus|scheune|dorfgemeinschaftshaus|kleinkunst|freiraum|autonomes?\s+zentrum|tiers-lieux|friche|squat|grassroots)", cleaned, re.IGNORECASE):
@@ -784,13 +1670,21 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             "day_scope": day_scope,
         })
 
-    # 7. Wikipedia
-    m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+ist\s+|was\s+ist\s+|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
+    # 7. Wikipedia (Encyclopedic lookups)
+    m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+ist\s+|was\s+ist\s+(?:ein\s+|eine\s+|der\s+|die\s+|das\s+)?|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
     if m_wiki:
         topic = m_wiki.group(1).strip()
         visual_words = ("bild", "foto", "screenshot", "grafik", "steht da", "erkenn", "lies", "dokument", "pdf", "sehen")
         is_visual = any(w in cleaned.lower() for w in visual_words)
-        if len(topic) >= 3 and not is_visual and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
+        stop_words = {
+            "da", "dort", "hier", "das", "es", "dies", "dieses", "jenes", "darin", "daraus",
+            "los", "passiert", "geschehen", "neu", "neues", "jetzt", "gerade", "zuletzt",
+            "als letztes", "als naechstes", "als nächstes", "denn", "eigentlich", "losgewesen",
+            "ueberhaupt", "überhaupt", "vorgefallen", "los gewesen", "losgeworden", "los ist"
+        }
+        topic_lower = topic.lower().strip()
+        has_stop = any(topic_lower == sw or topic_lower.startswith(f"{sw} ") or f" {sw} " in f" {topic_lower} " for sw in stop_words)
+        if len(topic) >= 3 and not is_visual and not has_stop and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
             return ("get_wikipedia_summary", {"query": topic})
 
     # 7. Web Search & Google Queries
@@ -803,6 +1697,39 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         q = m_search.group(1).strip()
         if q:
             return ("search_web", {"query": q})
+
+    # 8. Deep Multi-Source Knowledge Research
+    m_deep = re.search(
+        r"(?:recherchier(?:e|en|t)?\s+(?:mal\s+|über\s+|ueber\s+|zu\s+)?|tiefenrecherche\s+(?:zu\s+|über\s+|ueber\s+)?|forsche\s+(?:nach\s+|über\s+|ueber\s+)?|deep\s+research\s+(?:on|about|for)?|hintergründe\s+zu\s+|aktueller\s+stand\s+(?:zu|in|bei)\s+|was\s+ist\s+der\s+aktuelle\s+stand\s+(?:zu|in|bei)\s+)(.+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_deep:
+        topic_target = m_deep.group(1).strip()
+        if topic_target and len(topic_target) >= 2:
+            return ("cross_source_knowledge_search", {"query": topic_target})
+
+    # 9. Chronological Timeline & History of Events
+    m_time_ev = re.search(
+        r"(?:zeitleiste\s+(?:zu\s+|von\s+)?|chronologie\s+(?:zu\s+|von\s+)?|timeline\s+(?:of|for)?|verlauf\s+von\s+|ereignisse\s+in\s+)(.+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_time_ev:
+        tl_target = m_time_ev.group(1).strip()
+        if tl_target:
+            return ("fetch_recent_timeline", {"topic": tl_target})
+
+    # 10. Multi-Source Fact Check
+    m_fact = re.search(
+        r"(?:stimmt\s+es\s+dass\s+|ist\s+es\s+wahr\s+dass\s+|überprüfe\s+(?:die\s+aussage\s+|den\s+fakt\s+)?|faktenprüfung\s+(?:zu\s+)?|fact\s*check\s*)(.+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_fact:
+        claim_target = m_fact.group(1).strip()
+        if claim_target:
+            return ("verify_fact_multi_source", {"claim": claim_target})
 
     return None
 
@@ -861,17 +1788,38 @@ class AgentLoop:
             if _canonical_name(self.registry, tool.get("function", {}).get("name", "")) not in disabled_set
         ]
 
-        # Ensure tools guidance is present in system instructions if tools are enabled
-        if tools:
+        # Ensure tools guidance & persistent user memory are present in system instructions
+        mem_info = ""
+        try:
+            from ..memory import get_user_memory_store
+            mem_summary = get_user_memory_store().get_memory_summary()
+            if mem_summary and "Keine gespeicherten" not in mem_summary:
+                mem_info = f"\n\n[Persistentes Benutzer-Gedächtnis & Fakten]:\n{mem_summary}"
+        except Exception:
+            pass
+
+        if tools or mem_info:
             has_system = any(m.get("role") == "system" for m in curr_messages)
             sys_guidance = (
-                "Du bist ComputeMesh AI. Du hast vollen Zugriff auf die Live-Tools der ComputeMesh MCP Suite "
-                "(z. B. get_current_weather für Wetter, get_market_quote für Börsen-/Kryptokurse, search_web für Websuche, "
-                "get_wikipedia_summary für Wissen, calculate_math für Berechnungen, get_current_time_calendar für Uhrzeit/Datum). "
-                "Nutze diese Live-Tools aktiv und beantworte Benutzerfragen zu Echtzeitdaten immer auf Basis der Tool-Ergebnisse."
+                "Du bist ComputeMesh AI. Du verfügst über volle OpenAI-Parität mit integrierten Live-Tools "
+                "(Code Interpreter / Python Sandbox `execute_python_code`, Terminal Runner `run_terminal_command`, "
+                "GitHub Integration Suite `github_get_repo`, `github_list_issues`, `github_get_pull_request`, `github_search_code`, "
+                "HTTP API Client `execute_http_request`, Vektordatenbank / Document RAG `search_knowledge_base`, "
+                "Echtzeit-Wetter `get_current_weather`, Börsen- und Kryptokurse `get_market_quote`, Web-Recherche `search_web`, "
+                "Multi-Source Tiefenrecherche & Cross-Linguale Wikipedia `cross_source_knowledge_search`, `fetch_multilingual_wikipedia`, "
+                "Ereignis-Zeitleisten `fetch_recent_timeline`, Faktenprüfung `verify_fact_multi_source`, Deep Cultural & Event Recherche `search_events`, "
+                "Mathe `calculate_math` und Gedächtnis `update_user_memory`). "
+                "Nutze diese Werkzeuge aktiv für präzise, topaktuelle und fundierte Antworten."
+                f"{mem_info}"
             )
             if not has_system:
                 curr_messages.insert(0, {"role": "system", "content": sys_guidance})
+            elif mem_info:
+                for m in curr_messages:
+                    if m.get("role") == "system":
+                        if "[Persistentes Benutzer-Gedächtnis" not in str(m.get("content", "")):
+                            m["content"] = str(m.get("content", "")) + mem_info
+                        break
 
         executed_records: List[ToolCallRecord] = []
         total_prompt_tok = 0
@@ -892,28 +1840,25 @@ class AgentLoop:
 
         # Check proactive pre-flight intent only for pure text queries without images
         direct_intent = detect_direct_tool_intent(last_user_text, self.registry) if (last_user_text and not has_images) else None
+
+        # If no direct intent matched, check if resolving conversational references yields a research topic
+        if not direct_intent and last_user_text and not has_images and len(curr_messages) > 1:
+            try:
+                from .builtin.context_resolver import resolve_contextual_query
+                resolved_q, resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
+                if was_resolved and resolved_entity:
+                    direct_intent = ("cross_source_knowledge_search", {"query": resolved_q})
+            except Exception:
+                pass
         if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
                 call_id = "call_direct_preflight_1"
                 tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
                 executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
-
-                formatted_direct = format_tool_content_if_json(
-                    tool_res if isinstance(tool_res, str) else json.dumps(tool_res, ensure_ascii=False)
-                )
-                if formatted_direct and not (formatted_direct.startswith("{") and formatted_direct.endswith("}")):
-                    curr_messages.append({"role": "assistant", "content": formatted_direct})
-                    return AgentExecutionResult(
-                        final_content=formatted_direct,
-                        messages=curr_messages,
-                        tool_calls_executed=executed_records,
-                        iterations=1,
-                        model=model,
-                        prompt_tokens=30,
-                        completion_tokens=50,
-                        total_tokens=80,
-                    )
+                output_str = tool_res if isinstance(tool_res, str) else json.dumps(tool_res, ensure_ascii=False)
+                if len(output_str) > MAX_TOOL_MESSAGE_CHARS:
+                    output_str = output_str[:MAX_TOOL_MESSAGE_CHARS] + "\n[Tool-Ausgabe gekürzt]"
 
                 curr_messages.append({
                     "role": "assistant",
@@ -931,7 +1876,7 @@ class AgentLoop:
                     "role": "tool",
                     "tool_call_id": call_id,
                     "name": fn_name,
-                    "content": json.dumps(tool_res, ensure_ascii=False) if not isinstance(tool_res, str) else tool_res,
+                    "content": output_str,
                 })
 
         for iteration in range(1, max_iter + 1):
@@ -960,7 +1905,7 @@ class AgentLoop:
 
             # Check if model emitted refusal or no tool call despite clear user tool intent
             is_refusal = any(kw in content.lower() for kw in REFUSAL_KEYWORDS)
-            if (not tool_calls or is_refusal) and direct_intent and iteration == 1:
+            if (not tool_calls or is_refusal) and direct_intent and iteration == 1 and not executed_records:
                 fn_name, fn_args = direct_intent
                 if fn_name not in disabled_set and self.registry.get_tool(fn_name):
                     tool_calls = [{
@@ -975,6 +1920,10 @@ class AgentLoop:
             # If no tools were called, this is the final answer
             if not tool_calls:
                 final = format_tool_content_if_json(content)
+                if not final and executed_records:
+                    final = format_tool_content_if_json(
+                        executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
+                    )
                 curr_messages.append({"role": "assistant", "content": final})
                 return AgentExecutionResult(
                     final_content=final,
@@ -992,25 +1941,17 @@ class AgentLoop:
                 assistant_msg["content"] = content
             curr_messages.append(assistant_msg)
 
-            for tool_call in tool_calls:
-                if not isinstance(tool_call, dict):
-                    continue
-                call_id = str(tool_call.get("id") or f"call_{len(executed_records)+1}")
-                function = tool_call.get("function", {})
-                function = function if isinstance(function, dict) else {}
-                fn_name = str(function.get("name") or "")
-                canonical = _canonical_name(self.registry, fn_name)
-                args, argument_error = _decode_arguments(function.get("arguments", "{}"))
-                record_args = args or {}
+            # Execute tool calls in parallel with automatic concurrency and TTL caching
+            batch_results = self.registry.execute_tools_batch(tool_calls, is_owner=is_owner)
+            for res_item in batch_results:
+                call_id = res_item["id"]
+                fn_name = res_item["name"]
+                record_args = res_item["arguments"]
+                tool_output = res_item["result"]
 
-                if not fn_name:
-                    tool_output: Any = {"error": "Tool-Aufruf enthält keinen Funktionsnamen."}
-                elif argument_error:
-                    tool_output = {"error": argument_error}
-                elif canonical in disabled_set:
+                canonical = _canonical_name(self.registry, fn_name)
+                if canonical in disabled_set:
                     tool_output = {"error": f"Tool '{canonical}' ist für diese Flotte deaktiviert."}
-                else:
-                    tool_output = self.registry.execute_tool(fn_name, record_args, is_owner=is_owner)
 
                 executed_records.append(ToolCallRecord(
                     id=call_id,
@@ -1028,7 +1969,12 @@ class AgentLoop:
                     "content": output_str,
                 })
 
+
         final = format_tool_content_if_json(last_assistant_content)
+        if not final and executed_records:
+            final = format_tool_content_if_json(
+                executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
+            )
         return AgentExecutionResult(
             final_content=final,
             messages=curr_messages,

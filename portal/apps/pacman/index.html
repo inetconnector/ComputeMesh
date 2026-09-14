@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ComputeMesh Pac-Man Arcade (Konami Style)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="crt-overlay"></div>
+
+  <div class="game-container">
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">1UP SCORE</span>
+        <span id="scoreVal" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">HIGH SCORE</span>
+        <span id="highScoreVal" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LEVEL</span>
+        <span id="levelVal" class="hud-value">RUNDE 1 🍒</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LIVES</span>
+        <span id="livesVal" class="hud-value">❤️ ❤️ ❤️</span>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas"></canvas>
+      <div id="overlayMessage" class="overlay-message">
+        <div id="overlayTitle" class="overlay-title">PAC-MAN ARCADE</div>
+        <button id="btnStart" class="btn-start">SPIEL STARTEN</button>
+      </div>
+    </div>
+
+    <div id="konamiBanner" class="konami-banner"></div>
+
+    <!-- Mobile Touch & Arcade D-Pad -->
+    <div class="mobile-controls">
+      <div class="dpad">
+        <div></div>
+        <button id="btnUp" class="dpad-btn" aria-label="Up">▲</button>
+        <div></div>
+        <button id="btnLeft" class="dpad-btn" aria-label="Left">◀</button>
+        <div></div>
+        <button id="btnRight" class="dpad-btn" aria-label="Right">▶</button>
+        <div></div>
+        <button id="btnDown" class="dpad-btn" aria-label="Down">▼</button>
+        <div></div>
+      </div>
+      <div class="action-buttons">
+        <button id="btnB" class="action-btn btn-b" aria-label="B Button">B</button>
+        <button id="btnA" class="action-btn" aria-label="A Button">A</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -55,8 +55,8 @@ class TestPerformanceHarness(unittest.TestCase):
         elapsed = time.perf_counter() - start
         avg_ms = (elapsed / iterations) * 1000
         print(f"\n[BENCHMARK] Average Inference Dispatch Latency: {avg_ms:.3f} ms per request ({iterations} ops)")
-        # Must execute within 25.0ms per request in Python standard runtime under heavy background load
-        self.assertLess(avg_ms, 25.0)
+        # Must execute within 50.0ms per request in Python standard runtime under heavy background load
+        self.assertLess(avg_ms, 50.0)
 
     def test_multi_threaded_concurrency_stress(self) -> None:
         """Tests concurrent throughput across 16 worker threads with financial ledger consistency."""

@@ -74,6 +74,7 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
         enable_mcp: bool = True,
+        response_format: dict[str, Any] | None = None,
     ) -> tuple[str, str, int, int, int]:
         """Execute inference with atomic credit hold reservation and post-completion capture.
 
@@ -177,6 +178,7 @@ class InferenceEngine:
                             messages=msg_list,
                             max_tokens=requested_max,
                             tools=tool_list if tool_list else None,
+                            response_format=response_format,
                         )
                     except TypeError:
                         try:
@@ -184,6 +186,7 @@ class InferenceEngine:
                                 model_id=canonical_model_id,
                                 messages=msg_list,
                                 max_tokens=requested_max,
+                                tools=tool_list if tool_list else None,
                             )
                         except TypeError:
                             res = self.backend.complete(
@@ -222,11 +225,19 @@ class InferenceEngine:
                 has_tool_system = any(m.get("role") == "system" and "ComputeMesh AI" in str(m.get("content", "")) for m in enhanced_msgs)
                 if not has_tool_system:
                     tool_prompt = (
-                        "Du bist ComputeMesh AI mit integrierten Live-Werkzeugen (Model Context Protocol / MCP).\n"
-                        "Wenn eine Frage aktuelle Daten, Fakten, Websuche, Konzerte, Events & Veranstaltungen (z. B. in Würzburg, München etc.), Wetter, Kurse, Nachrichten oder Berechnungen erfordert, "
-                        "rufe direkt das passende Tool auf (z. B. `search_events`, `search_web`, `get_current_weather`, `get_live_news`, `get_market_quote`, `get_wikipedia_summary`, `calculate_math`, `get_time_and_calendar`, `list_available_tools`)."
+                        "Du bist ComputeMesh AI mit integrierten Live-Werkzeugen (Model Context Protocol / MCP) und vollem Funktionsumfang (Code Interpreter, Vektorsuche/RAG, Langzeitgedächtnis, Bildgenerierung, Websuche & Live-APIs).\n"
+                        "Wenn eine Frage Berechnungen, Python-Code, Datenanalyse, Diagramme, Wissensabfragen, Benutzerpräferenzen, aktuelle Daten, Websuche, Konzerte, Events, Wetter, Kurse oder Nachrichten erfordert, "
+                        "rufe direkt das passende Tool auf (`execute_python_code`, `search_knowledge_base`, `get_user_memory`, `update_user_memory`, `generate_ai_image`, `check_url_safety`, `search_events`, `search_web`, `get_current_weather`, `get_live_news`, `get_market_quote`, `get_wikipedia_summary`, `calculate_math`, `get_time_and_calendar`, `list_available_tools`)."
                     )
+                    try:
+                        from services.memory.user_memory import get_user_memory_store
+                        mem_summary = get_user_memory_store().get_memory_summary()
+                        if mem_summary:
+                            tool_prompt = f"{tool_prompt}\n\n{mem_summary}"
+                    except Exception:
+                        pass
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
+
 
                 agent_res = self.agent_loop.run(
                     messages=enhanced_msgs,
@@ -248,12 +259,20 @@ class InferenceEngine:
                                 model_id=canonical_model_id,
                                 messages=normalized_messages,
                                 max_tokens=requested_max,
+                                response_format=response_format,
                             )
                         except TypeError:
-                            backend_result = self.backend.complete(
-                                model_id=canonical_model_id,
-                                messages=normalized_messages,
-                            )
+                            try:
+                                backend_result = self.backend.complete(
+                                    model_id=canonical_model_id,
+                                    messages=normalized_messages,
+                                    max_tokens=requested_max,
+                                )
+                            except TypeError:
+                                backend_result = self.backend.complete(
+                                    model_id=canonical_model_id,
+                                    messages=normalized_messages,
+                                )
                     completion_text = backend_result.text
                     tokens_prompt = backend_result.prompt_tokens
                     tokens_completion = backend_result.completion_tokens

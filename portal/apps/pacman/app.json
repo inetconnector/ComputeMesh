@@ -1,0 +1,10 @@
+{
+  "app_name": "pacman",
+  "title": "Pac-Man Konami Arcade",
+  "description": "Authentischer Retro Pac-Man Arcade Klon im Konami-Stil mit Web Audio Chiptune Synthesizer, 4-Geister-KI & Konami-Code",
+  "deployed_at": "2026-09-14T20:49:00Z",
+  "entry_point": "index.html",
+  "url_path": "/apps/pacman/index.html",
+  "version": "1.0.0",
+  "tags": ["arcade", "game", "retro", "konami", "canvas", "webaudio"]
+}

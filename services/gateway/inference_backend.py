@@ -216,6 +216,9 @@ class OpenAICompatibleHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        response_format: dict[str, Any] | None = None,
+        grammar: str | None = None,
+        **kwargs: Any,
     ) -> BackendResult:
         runtime_model = self.model_override or model_id
         formatted_messages = self._format_openai_messages(messages)
@@ -224,6 +227,18 @@ class OpenAICompatibleHTTPBackend:
             payload_data["max_tokens"] = max_tokens
         if tools:
             payload_data["tools"] = tools
+        if response_format:
+            payload_data["response_format"] = response_format
+            if response_format.get("type") == "json_schema":
+                try:
+                    from services.grammar import compile_json_schema_to_gbnf
+                    schema = response_format.get("json_schema", {}).get("schema", {})
+                    if schema:
+                        payload_data["grammar"] = compile_json_schema_to_gbnf(schema)
+                except Exception:
+                    pass
+        if grammar and "grammar" not in payload_data:
+            payload_data["grammar"] = grammar
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self.api_key:
@@ -376,6 +391,24 @@ class OllamaHTTPBackend:
         }
         if tools:
             req_payload["tools"] = tools
+
+        response_format = kwargs.get("response_format")
+        if response_format and isinstance(response_format, dict):
+            fmt_type = response_format.get("type")
+            if fmt_type == "json_object":
+                req_payload["format"] = "json"
+            elif fmt_type == "json_schema":
+                schema = response_format.get("json_schema", {}).get("schema")
+                if schema:
+                    req_payload["format"] = schema
+                    try:
+                        from services.grammar import compile_json_schema_to_gbnf
+                        options["grammar"] = compile_json_schema_to_gbnf(schema)
+                    except Exception:
+                        pass
+        grammar = kwargs.get("grammar")
+        if grammar and "grammar" not in options:
+            options["grammar"] = grammar
 
         payload = json.dumps(req_payload, separators=(",", ":")).encode("utf-8")
         req = request.Request(

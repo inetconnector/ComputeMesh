@@ -135,3 +135,44 @@ class SafePublicRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 def build_safe_public_opener() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(SafePublicRedirectHandler())
+
+
+def check_url_safety(url: str) -> dict[str, Any]:
+    """Inspects a URL for security risks, private/internal IP targets (SSRF), and domain anomalies."""
+    clean_url = str(url or "").strip()
+    if not clean_url:
+        return {"error": "URL darf nicht leer sein", "safe": False}
+
+    if not clean_url.startswith(("http://", "https://")):
+        clean_url = "https://" + clean_url
+
+    try:
+        target = validate_public_url(clean_url)
+        parsed = urllib.parse.urlsplit(clean_url)
+        return {
+            "url": clean_url,
+            "safe": True,
+            "status": "CLEAN",
+            "hostname": target.host,
+            "port": target.port,
+            "scheme": parsed.scheme,
+            "resolved_public_ips": list(target.addresses),
+            "message": "URL ist öffentlich routingfähig und erfüllt die Sicherheitsrichtlinien.",
+        }
+    except UnsafeTargetError as exc:
+        return {
+            "url": clean_url,
+            "safe": False,
+            "status": "BLOCKED",
+            "error": str(exc),
+            "message": f"Sicherheitsrisiko erkannt: {exc}",
+        }
+    except Exception as exc:
+        return {
+            "url": clean_url,
+            "safe": False,
+            "status": "ERROR",
+            "error": str(exc),
+            "message": f"Fehler bei URL-Prüfung: {exc}",
+        }
+

@@ -25,10 +25,12 @@ def _fetch_wiki_summary_by_title(title: str, lang: str = "de", timeout: float = 
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         if data.get("type") == "standard" or data.get("extract"):
+            extract_text = data.get("extract", "")
             return {
                 "title": data.get("title"),
                 "description": data.get("description", ""),
-                "extract": data.get("extract", ""),
+                "extract": extract_text,
+                "summary": extract_text,
                 "url": data.get("content_urls", {}).get("desktop", {}).get("page", f"https://{lang}.wikipedia.org/wiki/{encoded_title}"),
                 "language": lang,
             }
@@ -93,8 +95,25 @@ def get_wikipedia_summary(
             if res_en:
                 return res_en
 
+    # 4. Fallback to live Web Search if Wikipedia has no matching article
+    try:
+        from .web_search import duckduckgo_search
+        web_res = duckduckgo_search(search_term, max_results=3, timeout=timeout / 2)
+        if web_res:
+            summary_text = "\n\n".join(f"- **{r['title']}**: {r['snippet']}" for r in web_res)
+            return {
+                "title": search_term,
+                "description": "Live-Websuche & Recherche-Ergebnisse",
+                "extract": summary_text,
+                "summary": summary_text,
+                "url": web_res[0].get("url", ""),
+                "source": "Websuche",
+            }
+    except Exception:
+        pass
+
     return {
-        "error": f"Kein passender Wikipedia-Artikel für '{search_term}' gefunden.",
+        "error": f"Kein passender Wikipedia- oder Web-Artikel für '{search_term}' gefunden.",
         "query": search_term,
     }
 

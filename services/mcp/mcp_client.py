@@ -231,6 +231,23 @@ class MCPClient:
             rpc_timeout_seconds=rpc_timeout_seconds,
         )
 
+    def add_http_server(
+        self,
+        name: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        timeout_seconds: float = DEFAULT_RPC_TIMEOUT_SECONDS,
+    ) -> None:
+        if not str(name or "").strip() or not str(url or "").strip():
+            raise ValueError("MCP-Servername und url sind erforderlich")
+        from .mcp_http_client import MCPHttpClient
+        self.servers[str(name)] = MCPHttpClient(
+            name=str(name),
+            url=str(url),
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+        )
+
     def load_from_config(self, filepath: str) -> None:
         if not filepath or not os.path.exists(filepath):
             return
@@ -247,9 +264,24 @@ class MCPClient:
             if not isinstance(srv_data, dict):
                 continue
             command = srv_data.get("command")
+            url = srv_data.get("url") or srv_data.get("endpoint")
             args = srv_data.get("args", [])
             env = srv_data.get("env", {})
+            headers = srv_data.get("headers", {})
             timeout = srv_data.get("timeoutSeconds", DEFAULT_RPC_TIMEOUT_SECONDS)
+
+            if isinstance(url, str) and url.strip():
+                try:
+                    self.add_http_server(
+                        str(name),
+                        url=url.strip(),
+                        headers=headers if isinstance(headers, dict) else {},
+                        timeout_seconds=float(timeout),
+                    )
+                except (TypeError, ValueError):
+                    pass
+                continue
+
             if not isinstance(command, str) or not command.strip():
                 continue
             if not isinstance(args, list) or not all(isinstance(item, str) for item in args):

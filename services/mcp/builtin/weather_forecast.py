@@ -7,30 +7,34 @@ import urllib.parse
 from typing import Any, Dict
 
 from .http_json import ProviderError, fetch_json
-from .weather import WMO_WEATHER_CODES
+from .weather import WMO_WEATHER_CODES, _extract_candidates
 
 GEOCODING_HOST = "geocoding-api.open-meteo.com"
 FORECAST_HOST = "api.open-meteo.com"
 
 
 def _geocode(location: str, timeout: float) -> Dict[str, Any] | None:
-    params = urllib.parse.urlencode({
-        "name": location,
-        "count": 1,
-        "language": "de",
-        "format": "json",
-    })
-    payload = fetch_json(
-        f"https://{GEOCODING_HOST}/v1/search?{params}",
-        allowed_hosts={GEOCODING_HOST},
-        timeout=timeout,
-    )
-    if not isinstance(payload, dict) or not isinstance(payload.get("results"), list) or not payload["results"]:
-        return None
-    top = payload["results"][0]
-    if not isinstance(top, dict) or top.get("latitude") is None or top.get("longitude") is None:
-        return None
-    return top
+    candidates = _extract_candidates(location)
+    for cand in candidates:
+        params = urllib.parse.urlencode({
+            "name": cand,
+            "count": 1,
+            "language": "de",
+            "format": "json",
+        })
+        try:
+            payload = fetch_json(
+                f"https://{GEOCODING_HOST}/v1/search?{params}",
+                allowed_hosts={GEOCODING_HOST},
+                timeout=timeout,
+            )
+            if isinstance(payload, dict) and isinstance(payload.get("results"), list) and payload["results"]:
+                top = payload["results"][0]
+                if isinstance(top, dict) and top.get("latitude") is not None and top.get("longitude") is not None:
+                    return top
+        except Exception:
+            continue
+    return None
 
 
 def get_weather_forecast(
