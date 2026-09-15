@@ -17,6 +17,77 @@ def format_tool_content_if_json(content: str) -> str:
         return str(content or "")
     try:
         data = json.loads(cleaned)
+        if "multiple_locations" in data and "locations" in data:
+            locs = data.get("locations", [])
+            lines = [
+                "### 🌤️ **Wetter-Vergleich**\n",
+                "| 📍 Ort | 🌡️ Temperatur | 🌡️ Gefühlt | ☁️ Zustand | 💧 Feuchtigkeit | 💨 Wind |",
+                "| :--- | :---: | :---: | :--- | :---: | :---: |",
+            ]
+            for loc in locs:
+                name = loc.get("location", "Ort")
+                country = loc.get("country", "")
+                name_str = f"**{name}**" + (f" *({country})*" if country and country != "Deutschland" else "")
+                temp = f"{loc.get('temperature_celsius', '-')} °C"
+                app_temp = f"{loc.get('apparent_temperature_celsius', '-')} °C"
+                cond = loc.get("condition", "-")
+                hum = f"{loc.get('humidity_percent', '-')} %"
+                wind = f"{loc.get('wind_speed_kmh', '-')} km/h"
+                lines.append(f"| {name_str} | {temp} | {app_temp} | {cond} | {hum} | {wind} |")
+            return "\n".join(lines).strip()
+
+        if "temperature_celsius" in data and ("location" in data or "city" in data):
+            name = data.get("location") or data.get("city") or "Ort"
+            country = data.get("country", "")
+            name_str = f"**{name}**" + (f" *({country})*" if country else "")
+            temp = data.get("temperature_celsius", "-")
+            app_temp = data.get("apparent_temperature_celsius", "-")
+            cond = data.get("condition", "-")
+            hum = data.get("humidity_percent", "-")
+            wind = data.get("wind_speed_kmh", "-")
+            res = (
+                f"### 🌤️ **Aktuelles Wetter für {name_str}**\n\n"
+                f"| Metrik | Wert |\n"
+                f"| :--- | :--- |\n"
+                f"| **🌡️ Temperatur** | `{temp} °C` (Gefühlt: `{app_temp} °C`) |\n"
+                f"| **☁️ Wetterlage** | `{cond}` |\n"
+                f"| **💧 Luftfeuchtigkeit** | `{hum} %` |\n"
+                f"| **💨 Windgeschwindigkeit** | `{wind} km/h` |\n"
+                f"| **📡 Datenquelle** | `{data.get('source', 'Open-Meteo')}` |"
+            )
+            return res.strip()
+
+        if "multiple_quotes" in data and "quotes" in data:
+            quotes = data.get("quotes", [])
+            lines = [
+                "### 📈 **Finanz- & Krypto-Marktübersicht**\n",
+                "| 🪙 Asset / Ticker | 💵 Kurs | 📊 24h Änderung | 📈 24h Hoch | 📉 24h Tief |",
+                "| :--- | :---: | :---: | :---: | :---: |",
+            ]
+            for q in quotes:
+                sym = q.get("symbol", "-")
+                pr = q.get("price", "-")
+                curr = q.get("currency", "USD")
+                chg = q.get("change_percent_24h")
+                chg_str = f"+{chg:.2f}%" if isinstance(chg, (int, float)) and chg > 0 else (f"{chg:.2f}%" if isinstance(chg, (int, float)) else "-")
+                icon = "🟢" if isinstance(chg, (int, float)) and chg >= 0 else "🔴"
+                h24 = q.get("high_24h", "-")
+                l24 = q.get("low_24h", "-")
+                lines.append(f"| **{sym}** | `{pr} {curr}` | {icon} `{chg_str}` | `{h24}` | `{l24}` |")
+            return "\n".join(lines).strip()
+
+        if "file_name" in data and "data_uri" in data and "markdown_table" in data:
+            f_name = data.get("file_name", "Dokument")
+            f_fmt = str(data.get("file_format", "xlsx")).upper()
+            rows_cnt = data.get("total_rows", 0)
+            md_tbl = data.get("markdown_table", "")
+            d_uri = data.get("data_uri", "")
+            res = f"### 📊 **Office-Export: `{f_name}`** ({f_fmt}, {rows_cnt} Zeilen)\n\n"
+            if md_tbl:
+                res += f"{md_tbl}\n\n"
+            res += f"[⬇️ **Datei herunterladen (`{f_name}`)**]({d_uri})"
+            return res.strip()
+
         if "_dynamic_meta" in data:
             meta = data["_dynamic_meta"]
             t_name = meta.get("tool_name", "dynamic_tool")

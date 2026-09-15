@@ -32,6 +32,7 @@ from .mission_journal import mission_start, mission_log_step, mission_verify_pos
 from .multilingual_wiki import fetch_multilingual_wikipedia
 from .network_tools import lookup_network_host
 from .news_feed import get_live_news
+from .office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
 from .package_registry import lookup_software_package
 from .places import search_places
 from .python_calc import run_python_calc

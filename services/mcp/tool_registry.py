@@ -48,7 +48,8 @@ from .builtin.knowledge_fusion import cross_source_knowledge_search
 from .builtin.mission_journal import mission_start, mission_log_step, mission_verify_postconditions, mission_get_summary
 from .builtin.multilingual_wiki import fetch_multilingual_wikipedia
 from .builtin.network_tools import lookup_network_host
-from .builtin.news_feed import execute_get_news
+from .builtin.news_feed import execute_get_news, get_live_news
+from .builtin.office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
 from .builtin.package_registry import lookup_software_package
 from .builtin.places import search_places
 from .builtin.python_calc import run_python_calc
@@ -1126,6 +1127,46 @@ class ToolRegistry:
             }, ["content_or_path"]),
             extract_document_content,
             source="builtin_document",
+        )
+
+        self.register_tool(
+            "generate_office_document",
+            "Erstellt strukturierte Office-Dokumente und Tabellen (.xlsx / Excel, .csv, .html, .md) aus Daten, Tabellen oder Zusammenfassungen.",
+            schema({
+                "file_format": {"type": "string", "description": "Dateiformat: 'xlsx' (Excel), 'csv', 'md' (Markdown), 'html', 'json'.", "default": "xlsx"},
+                "title": {"type": "string", "description": "Titel des Dokuments oder Tabellenblatts.", "default": "Export"},
+                "data": {"description": "Tabellendaten (Liste von Objekten, CSV-Text oder Schlüssel-Wert-Paare)."},
+                "markdown_content": {"type": "string", "description": "Optionaler Markdown-Begleittext oder Analyse."},
+                "filename": {"type": "string", "description": "Optionaler Zieldateiname (z. B. 'Vergleich.xlsx')."},
+            }),
+            generate_office_document,
+            source="builtin_office",
+        )
+
+        self.register_tool(
+            "parse_office_document",
+            "Liest und analysiert Office-Tabellen (Excel .xlsx, .xls, .csv), Word-Dateien (.docx), PDFs und Markdown in strukturierte Tabellen.",
+            schema({
+                "file_path_or_content": {"type": "string", "description": "Dateipfad im Workspace oder Rohtext/CSV."},
+                "file_format": {"type": "string", "description": "Optionales Format ('xlsx', 'csv', 'docx', 'pdf', 'md')."},
+                "max_preview_rows": {"type": "integer", "description": "Maximale Anzahl an Vorschaudatensätzen (Standard 15).", "default": 15},
+            }, ["file_path_or_content"]),
+            parse_office_document,
+            source="builtin_office",
+        )
+
+        self.register_tool(
+            "convert_data_to_markdown_table",
+            "Konvertiert Datensätze (JSON-Array, Liste von Objekten, CSV-String oder Key-Value-Map) in eine formatierte GitHub Markdown-Tabelle.",
+            schema({
+                "data": {"description": "Zu formatierende Daten (Liste von Objekten, CSV oder JSON)."},
+                "columns": {"type": "array", "items": {"type": "string"}, "description": "Optionale Spaltenauswahl."},
+                "sort_by": {"type": "string", "description": "Optionale Sortierspalte."},
+                "ascending": {"type": "boolean", "description": "Sortierreihenfolge (Standard True).", "default": True},
+                "title": {"type": "string", "description": "Optionaler Tabellentitel."},
+            }, ["data"]),
+            convert_data_to_markdown_table,
+            source="builtin_office",
         )
 
         self.register_tool(
