@@ -230,20 +230,31 @@ class AgentLoop:
 
             # Check if model emitted refusal or no tool call despite clear user tool intent
             is_refusal = any(kw in content.lower() for kw in REFUSAL_KEYWORDS)
-            if (not tool_calls or is_refusal) and direct_intent and iteration == 1 and not executed_records:
-                fn_name, fn_args = direct_intent
-                if fn_name not in disabled_set and self.registry.get_tool(fn_name):
-                    tool_calls = [{
-                        "id": f"call_auto_{len(executed_records)+1}",
-                        "type": "function",
-                        "function": {
-                            "name": fn_name,
-                            "arguments": json.dumps(fn_args, ensure_ascii=False),
-                        },
-                    }]
+            if (not tool_calls or is_refusal) and not has_images and iteration == 1 and not executed_records:
+                target_intent = direct_intent or detect_direct_tool_intent(last_user_text, self.registry, allow_compound=True)
+                if not target_intent:
+                    if any(w in last_user_text.lower() for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell")):
+                        target_intent = ("get_live_news", {"topic": "allgemein"})
+                    elif any(w in last_user_text.lower() for w in ("btc", "bitcoin", "eth", "krypto", "aktie")):
+                        target_intent = ("get_market_quote", {"asset": "BTC"})
+                    elif any(w in last_user_text.lower() for w in ("wetter", "weather")):
+                        target_intent = ("get_current_weather", {"city": "Berlin"})
+                    elif any(w in last_user_text.lower() for w in ("generiere ein bild", "erstelle ein bild", "male ein bild", "zeichne ein bild", "generate an image", "create an image")):
+                        target_intent = ("generate_ai_image", {"prompt": last_user_text, "style": "photorealistic"})
+                if target_intent:
+                    fn_name, fn_args = target_intent
+                    if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                        tool_calls = [{
+                            "id": f"call_auto_{len(executed_records)+1}",
+                            "type": "function",
+                            "function": {
+                                "name": fn_name,
+                                "arguments": json.dumps(fn_args, ensure_ascii=False),
+                            },
+                        }]
 
             # Multi-step chained fallback: If user requested an image and previous data tool succeeded, but LLM refused or did not call image tool
-            if (not tool_calls or is_refusal) and any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild")) and not any(r.name in ("generate_ai_image", "generate_image") for r in executed_records) and executed_records:
+            if (not tool_calls or is_refusal) and not has_images and any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild")) and not any(r.name in ("generate_ai_image", "generate_image") for r in executed_records) and executed_records:
                 last_rec = executed_records[-1]
                 prev_data = last_rec.result
                 derived_prompt = ""
@@ -264,28 +275,46 @@ class AgentLoop:
                         derived_prompt = f"Illustrative artwork of {prev_data.get('title')}: {prev_data.get('summary', '')[:120]}"
                 if not derived_prompt:
                     derived_prompt = last_user_text
+                style_val = "photorealistic"
+                if any(w in last_user_text.lower() for w in ("gemälde", "painting", "artistic", "ölgemälde", "künstlerisch")):
+                    style_val = "artistic"
+                elif any(w in last_user_text.lower() for w in ("anime", "manga", "comic")):
+                    style_val = "anime"
+                elif any(w in last_user_text.lower() for w in ("cyberpunk", "sci-fi", "futuristisch", "neon")):
+                    style_val = "cyberpunk"
+                elif any(w in last_user_text.lower() for w in ("cinematic", "film", "kino", "movie")):
+                    style_val = "cinematic"
+
                 if "generate_ai_image" not in disabled_set and self.registry.get_tool("generate_ai_image"):
                     tool_calls = [{
                         "id": f"call_img_chained_{len(executed_records)+1}",
                         "type": "function",
                         "function": {
                             "name": "generate_ai_image",
-                            "arguments": json.dumps({"prompt": derived_prompt, "style": "cinematic"}, ensure_ascii=False),
+                            "arguments": json.dumps({"prompt": derived_prompt, "style": style_val}, ensure_ascii=False),
                         },
                     }]
 
             # If no tools were called, this is the final answer
             if not tool_calls:
-                if is_refusal and executed_records:
-                    final = format_tool_content_if_json(
-                        executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
-                    )
+                if (is_refusal or not content.strip()) and executed_records:
+                    parts = []
+                    for rec in executed_records:
+                        t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)
+                        f_fmt = format_tool_content_if_json(t_res)
+                        if f_fmt and f_fmt not in parts:
+                            parts.append(f_fmt)
+                    final = "\n\n---\n\n".join(parts) if parts else format_tool_content_if_json(content)
                 else:
                     final = format_tool_content_if_json(content)
                     if (not final or is_refusal) and executed_records:
-                        final = format_tool_content_if_json(
-                            executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
-                        )
+                        parts = []
+                        for rec in executed_records:
+                            t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)
+                            f_fmt = format_tool_content_if_json(t_res)
+                            if f_fmt and f_fmt not in parts:
+                                parts.append(f_fmt)
+                        final = "\n\n---\n\n".join(parts) if parts else format_tool_content_if_json(content)
                 curr_messages.append({"role": "assistant", "content": final})
                 _notify("loop_finished", final_records_count=len(executed_records))
                 return AgentExecutionResult(

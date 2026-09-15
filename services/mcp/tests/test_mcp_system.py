@@ -731,6 +731,45 @@ class TestAgentLoop(unittest.TestCase):
         self.assertIn("![News](http://img.test/news.png)", res.final_content)
         self.assertTrue(len(res.tool_calls_executed) >= 1)
 
+    def test_agent_loop_german_adjective_compound_refusal_recovery(self):
+        self.registry.register_tool(
+            name="get_live_news",
+            description="Fetches live news",
+            parameters={"type": "object", "properties": {"topic": {"type": "string"}}},
+            handler=lambda topic: {"articles": [{"title": "Globale KI Konferenz", "description": "Neue Modelle vorgestellt"}]},
+        )
+        self.registry.register_tool(
+            name="generate_ai_image",
+            description="Generates an AI image",
+            parameters={"type": "object", "properties": {"prompt": {"type": "string"}}},
+            handler=lambda prompt, style="photorealistic": {"url": "http://img.test/ai.png", "markdown": "![AI](http://img.test/ai.png)"},
+        )
+
+        def refusing_german_llm(messages, tools):
+            return {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": "Ich entschuldige mich für die Schwierigkeit, aber als Text-Modul kann ich keine Bilder erstellen oder generieren.",
+                    }
+                }],
+                "usage": {"prompt_tokens": 12, "completion_tokens": 15},
+            }
+
+        res = self.loop.run(
+            messages=[{"role": "user", "content": "Erstelle ein fotorealistisches Bild aus den aktuellen Nachrichten und fasse die Schlagzeile kurz zusammen."}],
+            model="llama3.1:8b",
+            llm_caller=refusing_german_llm,
+        )
+        self.assertNotIn("als Text-Modul", res.final_content)
+        self.assertNotIn("entschuldige mich", res.final_content)
+        self.assertIn("![AI](http://img.test/ai.png)", res.final_content)
+        self.assertTrue(len(res.tool_calls_executed) >= 2)
+        executed_names = [r.name for r in res.tool_calls_executed]
+        self.assertIn("get_live_news", executed_names)
+        self.assertIn("generate_ai_image", executed_names)
+
 
 if __name__ == "__main__":
     unittest.main()
+

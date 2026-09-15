@@ -27,10 +27,12 @@ def is_compound_multi_step_query(text: str) -> bool:
     return False
 
 
-def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None) -> Optional[tuple[str, dict[str, Any]]]:
+def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None, allow_compound: bool = False) -> Optional[tuple[str, dict[str, Any]]]:
     """Detects direct tool calling intent from user query with high precision."""
     cleaned = text.strip()
-    if not cleaned or is_compound_multi_step_query(cleaned):
+    if not cleaned:
+        return None
+    if not allow_compound and is_compound_multi_step_query(cleaned):
         return None
     
     # 0. List Active MCP Modules & Tools
@@ -39,21 +41,27 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
     # 0.1 Image Generation (Direct GPU AI RealVisXL synthesis & Multi-Step dependencies)
     m_img = re.search(
-        r"(?:generiere\s+(?:ein\s+)?bild\s+(?:von|mit)?\s*|erstelle\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|zeichne\s+(?:ein\s+)?(?:bild|foto)?\s*(?:von|mit)?\s*|male\s+(?:ein\s+)?(?:bild|gemälde)?\s*(?:von|mit)?\s*|generate\s+(?:an?\s+)?image\s+(?:of|with)?\s*|create\s+(?:an?\s+)?image\s+(?:of|with)?\s*|draw\s+(?:an?\s+)?(?:image|picture)\s+(?:of|with)?\s*)(.+)",
+        r"(?:generiere|erstelle|zeichne|male|mache|kreiere|generate|create|draw|paint|make)\s+(?:ein\s+|an?\s+)?(?:[a-zA-ZäöüÄÖÜß\-]+\s+)*(?:bild|foto|gemälde|zeichnung|grafik|artwork|illustration|image|photo|picture|drawing|painting)\b\s*(?:von|vom|mit|aus|über|zu|zum|zur|der|des|of|with|from|about)?\s*(.+)",
         cleaned,
         re.IGNORECASE
     )
     if m_img:
         raw_prompt = m_img.group(1).strip().rstrip(".!?")
         # Check if image prompt references dynamic external context requiring data pre-fetch
-        if any(k in raw_prompt.lower() for k in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "breaking")):
+        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "breaking")):
             return ("get_live_news", {"topic": "allgemein"})
-        if any(k in raw_prompt.lower() for k in ("aktie", "kurs", "krypto", "bitcoin", "btc", "eth", "quote")):
-            m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", raw_prompt, re.IGNORECASE)
+        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("aktie", "kurs", "krypto", "bitcoin", "btc", "eth", "quote")):
+            m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", cleaned, re.IGNORECASE)
             sym = m_coin.group(1).upper() if m_coin else "BTC"
+            if sym == "BITCOIN":
+                sym = "BTC"
+            elif sym == "ETHEREUM":
+                sym = "ETH"
+            elif sym == "SOLANA":
+                sym = "SOL"
             return ("get_market_quote", {"asset": sym})
-        if any(k in raw_prompt.lower() for k in ("wetter", "regen", "temperatur", "weather")):
-            m_c = re.search(r"(?:in|von|für)\s+([a-zA-ZäöüÄÖÜß\s\-]+)", raw_prompt, re.IGNORECASE)
+        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("wetter", "regen", "temperatur", "weather")):
+            m_c = re.search(r"(?:wetter\s+in|weather\s+in|in|für)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
             city = m_c.group(1).strip() if m_c else "Berlin"
             return ("get_current_weather", {"city": city})
 
@@ -901,20 +909,18 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
 
 REFUSAL_KEYWORDS = [
-    "i'm sorry, but i can't assist",
-    "i'm sorry, but i cannot assist",
-    "i can't assist with that",
-    "i cannot assist with that",
-    "i am sorry, but i cannot",
-    "i'm unable to assist",
-    "as an ai text model",
-    "as a language model, i cannot",
-    "as an ai, i cannot",
-    "i cannot generate images",
-    "i cannot create images",
-    "i don't have the ability to generate images",
-    "ich kann leider keine bilder",
-    "als sprachmodell kann ich keine",
+    "als text-modul",
+    "als text-modell",
+    "als textmodul",
+    "als textmodell",
+    "als sprachmodell",
+    "kann ich keine bilder",
+    "kann keine bilder",
+    "kann leider keine bilder",
+    "keine bilder erstellen",
+    "keine bilder generieren",
+    "ich entschuldige mich für die schwierigkeit",
+    "ich entschuldige mich",
     "ich habe keinen echtzeitzugriff",
     "ich kann nicht auf das internet",
     "ich kann keine aktuellen nachrichten",
@@ -927,9 +933,24 @@ REFUSAL_KEYWORDS = [
     "habe keinen echtzeit",
     "keinen echtzeit-zugriff",
     "keine wetterdaten",
+    "as a text model",
+    "as a text-based model",
+    "as a language model",
+    "as an ai text model",
+    "as an ai, i cannot",
+    "as an ai, i do not have access",
+    "i'm sorry, but i can't assist",
+    "i'm sorry, but i cannot assist",
+    "i'm sorry, but",
+    "i can't assist with that",
+    "i cannot assist with that",
+    "i am sorry, but i cannot",
+    "i'm unable to assist",
+    "i cannot generate images",
+    "i cannot create images",
+    "i don't have the ability to generate images",
     "cannot provide real-time",
     "don't have access to real-time",
-    "as an ai, i do not have access to live",
     "connection refused",
     "errno 111",
     "urlopen error",
