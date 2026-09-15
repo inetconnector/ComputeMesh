@@ -81,11 +81,12 @@ var translations = window.translations || {
     fleet_owner_key_desc: "This is your private security key (API Secret). Enter it into your mining rigs or workstations to bind them securely to this fleet:",
     fleet_btn_copy_key: "Copy Key",
     nav_products: "Products",
-    nav_playground: "⚡ Live-Playground",
-    nav_webui_auth: "🚀 WebUI Studio ↗",
-    nav_prod_inference: "Serverless Inference API",
-    nav_prod_inference_sub: "Drop-in OpenAI & Ollama compatible streaming",
-    nav_prod_inference_auth: "Llama-UI / WebUI Studio ↗",
+    nav_aichat: "💬 AI-Chat ↗",
+    nav_playground: "💬 AI-Chat ↗",
+    nav_webui_auth: "💬 AI-Chat ↗",
+    nav_prod_inference: "AI-Chat Studio ↗",
+    nav_prod_inference_sub: "Full-featured chat UI with multi-model, PDF/image upload & branching",
+    nav_prod_inference_auth: "💬 AI-Chat Studio ↗",
     nav_prod_inference_sub_auth: "Full-featured chat UI with multi-model, PDF/image upload & branching",
     btn_open_webui: "🚀 Open WebUI Studio ↗",
     pg_auth_banner_title: "Signed In: Full Llama-UI Workspace Available",
@@ -603,11 +604,12 @@ var translations = window.translations || {
     fleet_owner_key_desc: "Dies ist dein privater Sicherheitsschlüssel (API-Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:",
     fleet_btn_copy_key: "Kopieren",
     nav_products: "Produkte",
-    nav_playground: "⚡ Live-Playground",
-    nav_webui_auth: "🚀 WebUI Studio ↗",
-    nav_prod_inference: "Serverless Inferenz-API",
-    nav_prod_inference_sub: "Drop-in OpenAI & Ollama kompatibles Streaming",
-    nav_prod_inference_auth: "Llama-UI / WebUI Studio ↗",
+    nav_aichat: "💬 AI-Chat ↗",
+    nav_playground: "💬 AI-Chat ↗",
+    nav_webui_auth: "💬 AI-Chat ↗",
+    nav_prod_inference: "AI-Chat Studio ↗",
+    nav_prod_inference_sub: "Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching",
+    nav_prod_inference_auth: "💬 AI-Chat Studio ↗",
     nav_prod_inference_sub_auth: "Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching",
     btn_open_webui: "🚀 WebUI Studio öffnen ↗",
     pg_auth_banner_title: "Angemeldet: Vollwertige Llama-UI verfügbar",
@@ -1148,6 +1150,16 @@ function hasActiveSession() {
 function handleAiSubdomainRouting() {
   try {
     if (window.location.hostname === 'ai.inetconnector.com') {
+      var urlParams = new URLSearchParams(window.location.search);
+      var qKey = urlParams.get('key') || urlParams.get('api_key');
+      if (qKey) {
+        localStorage.setItem('cm_fleet_owner_key', qKey);
+        localStorage.setItem('cm_owner_key', qKey);
+        localStorage.setItem('cm_api_key', qKey);
+        localStorage.setItem('apiKey', qKey);
+        window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+        return;
+      }
       const pathname = window.location.pathname;
       const isRoot = pathname === '/' || pathname === '/index.html' || pathname === '';
       if (isRoot) {
@@ -1156,7 +1168,7 @@ function handleAiSubdomainRouting() {
           const target = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
           window.location.replace(target);
         } else {
-          window.location.replace('/fleet?source=ai_studio&redirect=/webui/');
+          window.location.replace('/ai-auth.html');
         }
       }
     }
@@ -1171,7 +1183,7 @@ handleAiSubdomainRouting();
 function openWebUI(event) {
   if (event && event.preventDefault) event.preventDefault();
   const key = getActiveComputeMeshApiKey();
-  const targetUrl = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+  const targetUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
@@ -1180,7 +1192,7 @@ function updateAuthStateUI() {
   const t = (translations && translations[lang]) ? translations[lang] : {};
   const isAuth = hasActiveSession();
   const key = getActiveComputeMeshApiKey();
-  const webuiUrl = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+  const aiChatUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
 
   // 1. Auth button in top navbar
   const btn = document.getElementById('auth-nav-btn');
@@ -1202,71 +1214,43 @@ function updateAuthStateUI() {
     }
   }
 
-  // 2. Navigation items: Live Playground vs WebUI Studio
-  const playgroundLinks = document.querySelectorAll('header.site-header .nav-links a[href*="playground"], header.site-header a[data-i18n="nav_playground"], header.site-header a[data-i18n="nav_webui_auth"]');
+  // 2. Navigation items: AI-Chat (Always opens https://ai.inetconnector.com/ in a new tab)
+  const playgroundLinks = document.querySelectorAll('header.site-header .nav-links a[href*="playground"], header.site-header .nav-links a[href*="ai.inetconnector.com"], header.site-header a[data-i18n="nav_playground"], header.site-header a[data-i18n="nav_aichat"], header.site-header a[data-i18n="nav_webui_auth"]');
   playgroundLinks.forEach(link => {
     if (link.closest('.dropdown-menu')) return;
-    if (isAuth) {
-      link.href = webuiUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.textContent = t.nav_webui_auth || '🚀 WebUI Studio ↗';
-      link.setAttribute('data-i18n', 'nav_webui_auth');
-      link.title = t.pg_auth_banner_desc || 'Open Llama-UI Web Studio in a new window';
-      link.onclick = function(e) {
-        e.preventDefault();
-        openWebUI(e);
-      };
-    } else {
-      const isHome = window.location.pathname === '/' || window.location.pathname.endsWith('index.html') || window.location.pathname === '';
-      link.href = isHome ? '#playground' : '/#playground';
-      link.removeAttribute('target');
-      link.removeAttribute('rel');
-      link.textContent = t.nav_playground || (lang === 'de' ? '⚡ Live-Playground' : '⚡ Live-Playground');
-      link.setAttribute('data-i18n', 'nav_playground');
-      link.removeAttribute('title');
-      link.onclick = null;
-    }
+    link.href = aiChatUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = t.nav_aichat || '💬 AI-Chat ↗';
+    link.setAttribute('data-i18n', 'nav_aichat');
+    link.title = lang === 'de' ? 'ComputeMesh AI-Chat in neuem Fenster öffnen' : 'Open ComputeMesh AI-Chat in a new window';
+    link.onclick = function(e) {
+      e.preventDefault();
+      openWebUI(e);
+    };
   });
 
-  // 3. Products Dropdown Item for Inference
-  const dropdownInferenceLinks = document.querySelectorAll('.dropdown-menu a[href*="playground"], .dropdown-menu a[href*="/webui/"]');
+  // 3. Products Dropdown Item for Inference / AI-Chat
+  const dropdownInferenceLinks = document.querySelectorAll('.dropdown-menu a[href*="playground"], .dropdown-menu a[href*="/webui/"], .dropdown-menu a[href*="ai.inetconnector.com"]');
   dropdownInferenceLinks.forEach(link => {
     const titleEl = link.querySelector('[data-i18n^="nav_prod_inference"]');
     const subEl = link.querySelector('[data-i18n^="nav_prod_inference_sub"]');
     const iconEl = link.querySelector('.item-icon');
-    if (isAuth) {
-      link.href = webuiUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.onclick = function(e) {
-        e.preventDefault();
-        openWebUI(e);
-      };
-      if (iconEl) iconEl.textContent = '🚀';
-      if (titleEl) {
-        titleEl.textContent = t.nav_prod_inference_auth || (lang === 'de' ? 'Llama-UI / WebUI Studio ↗' : 'Llama-UI / WebUI Studio ↗');
-        titleEl.setAttribute('data-i18n', 'nav_prod_inference_auth');
-      }
-      if (subEl) {
-        subEl.textContent = t.nav_prod_inference_sub_auth || (lang === 'de' ? 'Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching' : 'Full-featured chat UI with multi-model, PDF/image upload & branching');
-        subEl.setAttribute('data-i18n', 'nav_prod_inference_sub_auth');
-      }
-    } else {
-      const isHome = window.location.pathname === '/' || window.location.pathname.endsWith('index.html') || window.location.pathname === '';
-      link.href = isHome ? '#playground' : '/#playground';
-      link.removeAttribute('target');
-      link.removeAttribute('rel');
-      link.onclick = null;
-      if (iconEl) iconEl.textContent = '⚡';
-      if (titleEl) {
-        titleEl.textContent = t.nav_prod_inference || (lang === 'de' ? 'Serverless Inferenz-API' : 'Serverless Inference API');
-        titleEl.setAttribute('data-i18n', 'nav_prod_inference');
-      }
-      if (subEl) {
-        subEl.textContent = t.nav_prod_inference_sub || (lang === 'de' ? 'Drop-in OpenAI & Ollama kompatibles Streaming' : 'Drop-in OpenAI & Ollama compatible streaming');
-        subEl.setAttribute('data-i18n', 'nav_prod_inference_sub');
-      }
+    link.href = aiChatUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.onclick = function(e) {
+      e.preventDefault();
+      openWebUI(e);
+    };
+    if (iconEl) iconEl.textContent = '💬';
+    if (titleEl) {
+      titleEl.textContent = isAuth ? (t.nav_prod_inference_auth || '💬 AI-Chat Studio ↗') : (t.nav_prod_inference || 'AI-Chat Studio ↗');
+      titleEl.setAttribute('data-i18n', isAuth ? 'nav_prod_inference_auth' : 'nav_prod_inference');
+    }
+    if (subEl) {
+      subEl.textContent = isAuth ? (t.nav_prod_inference_sub_auth || 'Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching') : (t.nav_prod_inference_sub || 'Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching');
+      subEl.setAttribute('data-i18n', isAuth ? 'nav_prod_inference_sub_auth' : 'nav_prod_inference_sub');
     }
   });
 

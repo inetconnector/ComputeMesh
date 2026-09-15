@@ -13,6 +13,16 @@
     (function() {
       if (window.location.hostname === 'ai.inetconnector.com') {
         try {
+          var urlParams = new URLSearchParams(window.location.search);
+          var qKey = urlParams.get('key') || urlParams.get('api_key');
+          if (qKey) {
+            localStorage.setItem('cm_fleet_owner_key', qKey);
+            localStorage.setItem('cm_owner_key', qKey);
+            localStorage.setItem('cm_api_key', qKey);
+            localStorage.setItem('apiKey', qKey);
+            window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+            return;
+          }
           var isAuth = Boolean(
             (document.cookie && document.cookie.includes('cm_session=')) ||
             (typeof localStorage !== 'undefined' && (
@@ -27,7 +37,7 @@
               var k = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || '';
               window.location.replace(k ? '/webui/?key=' + encodeURIComponent(k) : '/webui/');
             } else {
-              window.location.replace('/fleet?source=ai_studio&redirect=/webui/');
+              window.location.replace('/ai-auth.html');
             }
           }
         } catch(e) {}
@@ -135,7 +145,7 @@
     <nav class="nav-sub-row">
       <div class="container nav-sub-container">
         <ul class="nav-links">
-          <li><a href="#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
           <li class="nav-item has-dropdown">
             <a href="#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
             <div class="dropdown-menu">
@@ -1152,7 +1162,7 @@ for chunk in response:
           <ul class="footer-links">
             <li><a href="#marketplace" data-i18n="nav_marketplace">GPU Marketplace</a></li>
             <li><a href="#models" data-i18n="nav_models">Model Library</a></li>
-            <li><a href="#playground" data-i18n="nav_playground">Inferenz Playground</a></li>
+            <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat Studio ↗</a></li>
             <li><a href="#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
             <li><a href="#downloads" data-i18n="nav_downloads">Downloads &amp; Apps</a></li>
           </ul>

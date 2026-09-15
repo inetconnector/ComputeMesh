@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ComputeMesh AI Studio — Login & Registrierung</title>
+  <meta name="description" content="Melde dich an oder registriere deinen Zugang für das dezentrale ComputeMesh AI Studio mit Multi-Modell Chat, PDF/Bilder-Upload und Streaming-Inferenz.">
+  <meta name="theme-color" content="#07090e">
+  <link rel="canonical" href="https://ai.inetconnector.com/">
+
+  <!-- Favicons & Manifest -->
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
+  <!-- Google Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css?v=4.5">
+
+  <style>
+    /* Dedicated AI Studio Auth Page Styles */
+    body.ai-studio-auth-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(0, 240, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 85% 60%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 15% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 45%);
+      background-attachment: fixed;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .ai-auth-header {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(7, 9, 14, 0.8);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .ai-auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .ai-auth-brand-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .ai-auth-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .ai-auth-card {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(13, 18, 29, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 20px;
+      padding: 2.25rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 35px rgba(0, 240, 255, 0.1);
+      backdrop-filter: blur(20px);
+      box-sizing: border-box;
+      animation: fadeInCard 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeInCard {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .ai-auth-header-block {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .ai-auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--accent-cyan);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 0.3rem 0.8rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.85rem;
+    }
+
+    .ai-auth-title {
+      font-size: clamp(1.4rem, 4.5vw, 1.85rem);
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 0.45rem;
+      line-height: 1.25;
+    }
+
+    .ai-auth-sub {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .ai-auth-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: rgba(7, 9, 14, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 1.75rem;
+    }
+
+    .ai-auth-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.65rem 0.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    .ai-auth-tab:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .ai-auth-tab.active {
+      background: rgba(0, 240, 255, 0.15);
+      color: #fff;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+
+    .ai-auth-tab-icon {
+      font-size: 1.1rem;
+    }
+
+    .ai-tab-pane {
+      display: none;
+      animation: fadeInPane 0.25s ease;
+    }
+
+    .ai-tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeInPane {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ai-form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .ai-form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.45rem;
+    }
+
+    .ai-form-input {
+      width: 100%;
+      background: rgba(7, 9, 14, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
+
+    .ai-form-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
+    }
+
+    .ai-btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #00f0ff 0%, #0072ff 100%);
+      border: none;
+      color: #000;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 0.85rem 1.25rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.35);
+      text-decoration: none;
+    }
+
+    .ai-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(0, 240, 255, 0.5);
+      filter: brightness(1.1);
+    }
+
+    .ai-btn-secondary {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      margin-top: 0.65rem;
+    }
+
+    .ai-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #fff;
+    }
+
+    .ai-hint-box {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 10px;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 1rem;
+      line-height: 1.45;
+    }
+
+    .ai-auth-footer {
+      text-align: center;
+      padding: 1.25rem;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .ai-auth-footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      margin: 0 0.5rem;
+    }
+
+    .ai-auth-footer a:hover {
+      color: var(--accent-cyan);
+    }
+
+    .ai-status-msg {
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+      display: none;
+    }
+
+    .ai-status-msg.error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      display: block;
+    }
+
+    .ai-status-msg.success {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+      display: block;
+    }
+
+    @media (max-width: 480px) {
+      .ai-auth-card {
+        padding: 1.5rem 1.15rem;
+      }
+      .ai-auth-tabs {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .ai-auth-tab {
+        padding: 0.6rem 0.2rem;
+      }
+    }
+  </style>
+</head>
+<body class="ai-studio-auth-page">
+
+  <!-- Header -->
+  <header class="ai-auth-header">
+    <a href="https://mesh.inetconnector.com/" class="ai-auth-brand" title="Zur ComputeMesh Hauptseite">
+      <span class="ai-auth-brand-title">Compute<span class="gradient-text">Mesh</span></span>
+      <span class="brand-badge pulse-badge" style="font-size: 0.65rem; padding: 0.15rem 0.5rem;"><span class="pulse-dot"></span> AI STUDIO</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleStudioLanguage()" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; border-radius: 8px;">🇩🇪 Deutsch</button>
+    </div>
+  </header>
+
+  <!-- Auth Main Container -->
+  <main class="ai-auth-container">
+    <div class="ai-auth-card">
+      
+      <div class="ai-auth-header-block">
+        <span class="ai-auth-badge" id="lbl-badge">🚀 AI STUDIO GATEWAY</span>
+        <h1 class="ai-auth-title" id="lbl-title">Multi-Modell KI-Chat</h1>
+        <p class="ai-auth-sub" id="lbl-sub">Melde dich an oder erstelle einen Zugang, um sofort auf die professionelle Chatoberfläche zuzugreifen.</p>
+      </div>
+
+      <!-- Feedback Notification -->
+      <div id="ai-status-msg" class="ai-status-msg"></div>
+
+      <!-- Auth Selection Tabs -->
+      <div class="ai-auth-tabs">
+        <button class="ai-auth-tab active" onclick="switchStudioTab('passkey')" id="tab-btn-passkey">
+          <span class="ai-auth-tab-icon">🔑</span>
+          <span id="tab-lbl-passkey">Passkey</span>
+        </button>
+        <button class="ai-auth-tab" onclick="switchStudioTab('magic')" id="tab-btn-magic">
+          <span class="ai-auth-tab-icon">✉️</span>
+          <span id="tab-lbl-magic">Magic-Link</span>
+        </button>
+        <button class="ai-auth-tab" onclick="switchStudioTab('key')" id="tab-btn-key">
+          <span class="ai-auth-tab-icon">🛡️</span>
+          <span id="tab-lbl-key">API-Key</span>
+        </button>
+        <button class="ai-auth-tab" onclick="switchStudioTab('register')" id="tab-btn-register">
+          <span class="ai-auth-tab-icon">⚡</span>
+          <span id="tab-lbl-register">Neu</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Passkey / Biometrics -->
+      <div id="pane-passkey" class="ai-tab-pane active">
+        <form onsubmit="handlePasskeyLogin(event)">
+          <div class="ai-form-group">
+            <label class="ai-form-label" id="lbl-email-pk">E-Mail-Adresse für deinen Zugang</label>
+            <input type="email" id="input-email-pk" class="ai-form-input" placeholder="name@beispiel.de" required autocomplete="username webauthn">
+          </div>
+          <button type="submit" class="ai-btn-primary" id="btn-login-pk">
+            🔑 <span id="lbl-btn-login-pk">Mit Passkey / Face ID anmelden</span>
+          </button>
+          <button type="button" class="ai-btn-secondary" onclick="handlePasskeyRegister()" id="btn-reg-pk">
+            ✨ <span id="lbl-btn-reg-pk">Neuen Passkey registrieren</span>
+          </button>
+        </form>
+        <div class="ai-hint-box" id="hint-pk">
+          🔒 <strong>100% passwortlos:</strong> Sicherer Login via Face ID, Touch ID, Windows Hello oder Hardware-Sicherheitsschlüssel (YubiKey).
+        </div>
+      </div>
+
+      <!-- Tab 2: Magic Link -->
+      <div id="pane-magic" class="ai-tab-pane">
+        <form onsubmit="handleMagicLink(event)">
+          <div class="ai-form-group">
+            <label class="ai-form-label" id="lbl-email-magic">E-Mail-Adresse für Einmal-Link</label>
+            <input type="email" id="input-email-magic" class="ai-form-input" placeholder="name@beispiel.de" required>
+          </div>
+          <button type="submit" class="ai-btn-primary" id="btn-magic">
+            ✉️ <span id="lbl-btn-magic">Sicheren Login-Link per E-Mail senden</span>
+          </button>
+        </form>
+        <div class="ai-hint-box" id="hint-magic">
+          📬 Du erhältst einen kryptografisch signierten Einmal-Link direkt von <code>mesh@inetconnector.com</code>, der dich sofort einloggt.
+        </div>
+      </div>
+
+      <!-- Tab 3: Direct API / Owner Key -->
+      <div id="pane-key" class="ai-tab-pane">
+        <form onsubmit="handleKeyLogin(event)">
+          <div class="ai-form-group">
+            <label class="ai-form-label" id="lbl-key-input">Secret Owner Key / API-Key</label>
+            <input type="password" id="input-owner-key" class="ai-form-input" placeholder="cm_sec_... oder dein Owner-Key" required autocomplete="current-password">
+          </div>
+          <div style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="remember-key-check" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
+            <label for="remember-key-check" style="color: #94a3b8; font-size: 0.82rem; cursor: pointer;" id="lbl-remember-key">Auf diesem Gerät dauerhaft merken</label>
+          </div>
+          <button type="submit" class="ai-btn-primary" id="btn-key-login">
+            🚀 <span id="lbl-btn-key-login">AI Studio Chat öffnen ➔</span>
+          </button>
+        </form>
+        <div class="ai-hint-box" id="hint-key">
+          🛡️ Sofortzugriff mit deinem persönlichen API-Key oder Secret Owner Key.
+        </div>
+      </div>
+
+      <!-- Tab 4: Instant 10-Second Registration -->
+      <div id="pane-register" class="ai-tab-pane">
+        <form onsubmit="handleInstantRegister(event)">
+          <div class="ai-form-group">
+            <label class="ai-form-label" id="lbl-reg-email">Deine geschäftliche E-Mail-Adresse</label>
+            <input type="email" id="input-reg-email" class="ai-form-input" placeholder="name@beispiel.de" required>
+          </div>
+          <div style="margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 0.5rem;">
+            <input type="checkbox" id="reg-terms-check" required style="accent-color: var(--accent-cyan); width: 16px; height: 16px; margin-top: 2px; cursor: pointer;">
+            <label for="reg-terms-check" style="color: #94a3b8; font-size: 0.78rem; line-height: 1.4; cursor: pointer;" id="lbl-reg-terms">
+              Ich akzeptiere die <a href="https://mesh.inetconnector.com/terms" target="_blank" style="color: var(--accent-cyan);">AGB</a> und <a href="https://mesh.inetconnector.com/privacy" target="_blank" style="color: var(--accent-cyan);">Datenschutzerklärung</a> (B2B-Nutzung).
+            </label>
+          </div>
+          <button type="submit" class="ai-btn-primary" id="btn-instant-reg">
+            ⚡ <span id="lbl-btn-instant-reg">Kostenlosen API-Key erstellen & starten</span>
+          </button>
+        </form>
+        <div class="ai-hint-box" id="hint-reg">
+          🎁 <strong>Sofortiger Start:</strong> Dein API-Key wird in Sekunden generiert und du startest direkt im Studio mit kostenlosem Startguthaben.
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Minimal Footer -->
+  <footer class="ai-auth-footer">
+    <a href="https://mesh.inetconnector.com/" target="_blank">ComputeMesh Portal</a> · 
+    <a href="https://mesh.inetconnector.com/privacy" target="_blank">Datenschutz</a> · 
+    <a href="https://mesh.inetconnector.com/terms" target="_blank">AGB</a> · 
+    <a href="https://mesh.inetconnector.com/impressum" target="_blank">Impressum</a>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="portal-core.js?v=4.5"></script>
+  <script>
+    var currentLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
+
+    var studioI18n = {
+      de: {
+        badge: "🚀 AI STUDIO GATEWAY",
+        title: "Multi-Modell KI-Chat",
+        sub: "Melde dich an oder erstelle einen Zugang, um sofort auf die professionelle Chatoberfläche zuzugreifen.",
+        tab_pk: "Passkey",
+        tab_magic: "Magic-Link",
+        tab_key: "API-Key",
+        tab_reg: "Neu",
+        lbl_email_pk: "E-Mail-Adresse für deinen Zugang",
+        btn_login_pk: "Mit Passkey / Face ID anmelden",
+        btn_reg_pk: "Neuen Passkey registrieren",
+        hint_pk: "🔒 <strong>100% passwortlos:</strong> Sicherer Login via Face ID, Touch ID, Windows Hello oder Hardware-Sicherheitsschlüssel (YubiKey).",
+        lbl_email_magic: "E-Mail-Adresse für Einmal-Link",
+        btn_magic: "Sicheren Login-Link per E-Mail senden",
+        hint_magic: "📬 Du erhältst einen kryptografisch signierten Einmal-Link direkt von <code>mesh@inetconnector.com</code>, der dich sofort einloggt.",
+        lbl_key_input: "Secret Owner Key / API-Key",
+        lbl_remember_key: "Auf diesem Gerät dauerhaft merken",
+        btn_key_login: "AI Studio Chat öffnen ➔",
+        hint_key: "🛡️ Sofortzugriff mit deinem persönlichen API-Key oder Secret Owner Key.",
+        lbl_reg_email: "Deine geschäftliche E-Mail-Adresse",
+        lbl_reg_terms: "Ich akzeptiere die <a href=\"https://mesh.inetconnector.com/terms\" target=\"_blank\" style=\"color: var(--accent-cyan);\">AGB</a> und <a href=\"https://mesh.inetconnector.com/privacy\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Datenschutzerklärung</a> (B2B-Nutzung).",
+        btn_instant_reg: "Kostenlosen API-Key erstellen & starten",
+        hint_reg: "🎁 <strong>Sofortiger Start:</strong> Dein API-Key wird in Sekunden generiert und du startest direkt im Studio mit Startguthaben.",
+        toggle_btn: "🇩🇪 Deutsch",
+        key_missing: "Bitte gib einen gültigen API- oder Owner-Key ein.",
+        magic_sent: "Ein sicherer Login-Link wurde an deine E-Mail gesendet! Bitte prüfe dein Postfach.",
+        reg_success: "API-Key erfolgreich erstellt! Weiterleitung ins AI Studio..."
+      },
+      en: {
+        badge: "🚀 AI STUDIO GATEWAY",
+        title: "Multi-Model AI Chat",
+        sub: "Sign in or create free access to instantly enter the professional chat workspace.",
+        tab_pk: "Passkey",
+        tab_magic: "Magic-Link",
+        tab_key: "API Key",
+        tab_reg: "New",
+        lbl_email_pk: "Account Email Address",
+        btn_login_pk: "Sign in with Passkey / Face ID",
+        btn_reg_pk: "Register New Passkey",
+        hint_pk: "🔒 <strong>100% passwordless:</strong> Secured via Face ID, Touch ID, Windows Hello, or hardware security keys (YubiKey).",
+        lbl_email_magic: "Email Address for Magic-Link",
+        btn_magic: "Send Secure Login Link via Email",
+        hint_magic: "📬 You'll receive a cryptographically signed one-time login link from <code>mesh@inetconnector.com</code>.",
+        lbl_key_input: "Secret Owner Key / API Key",
+        lbl_remember_key: "Remember on this device",
+        btn_key_login: "Open AI Studio Chat ➔",
+        hint_key: "🛡️ Direct instant access with your personal API Key or Secret Owner Key.",
+        lbl_reg_email: "Your Business Email Address",
+        lbl_reg_terms: "I accept the <a href=\"https://mesh.inetconnector.com/terms\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Terms of Service</a> & <a href=\"https://mesh.inetconnector.com/privacy\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Privacy Policy</a> (B2B).",
+        btn_instant_reg: "Generate Free API Key & Start",
+        hint_reg: "🎁 <strong>Instant Start:</strong> Your API Key will be created in seconds, launching directly into the studio with free credits.",
+        toggle_btn: "🇬🇧 English",
+        key_missing: "Please enter a valid API or Owner Key.",
+        magic_sent: "A secure login link was sent to your email! Please check your inbox.",
+        reg_success: "API Key created successfully! Launching AI Studio..."
+      }
+    };
+
+    function applyStudioLanguage(lang) {
+      currentLang = lang;
+      var d = studioI18n[lang] || studioI18n.de;
+      var tBtn = document.getElementById('lang-toggle-btn');
+      if (tBtn) tBtn.textContent = d.toggle_btn;
+
+      document.getElementById('lbl-badge').textContent = d.badge;
+      document.getElementById('lbl-title').textContent = d.title;
+      document.getElementById('lbl-sub').textContent = d.sub;
+      document.getElementById('tab-lbl-passkey').textContent = d.tab_pk;
+      document.getElementById('tab-lbl-magic').textContent = d.tab_magic;
+      document.getElementById('tab-lbl-key').textContent = d.tab_key;
+      document.getElementById('tab-lbl-register').textContent = d.tab_reg;
+
+      document.getElementById('lbl-email-pk').textContent = d.lbl_email_pk;
+      document.getElementById('lbl-btn-login-pk').textContent = d.btn_login_pk;
+      document.getElementById('lbl-btn-reg-pk').textContent = d.btn_reg_pk;
+      document.getElementById('hint-pk').innerHTML = d.hint_pk;
+
+      document.getElementById('lbl-email-magic').textContent = d.lbl_email_magic;
+      document.getElementById('lbl-btn-magic').textContent = d.btn_magic;
+      document.getElementById('hint-magic').innerHTML = d.hint_magic;
+
+      document.getElementById('lbl-key-input').textContent = d.lbl_key_input;
+      document.getElementById('lbl-remember-key').textContent = d.lbl_remember_key;
+      document.getElementById('lbl-btn-key-login').textContent = d.btn_key_login;
+      document.getElementById('hint-key').innerHTML = d.hint_key;
+
+      document.getElementById('lbl-reg-email').textContent = d.lbl_reg_email;
+      document.getElementById('lbl-reg-terms').innerHTML = d.lbl_reg_terms;
+      document.getElementById('lbl-btn-instant-reg').textContent = d.btn_instant_reg;
+      document.getElementById('hint-reg').innerHTML = d.hint_reg;
+    }
+
+    function toggleStudioLanguage() {
+      var next = currentLang === 'de' ? 'en' : 'de';
+      try { localStorage.setItem('cm_portal_lang', next); } catch(e) {}
+      applyStudioLanguage(next);
+    }
+
+    function switchStudioTab(tab) {
+      document.querySelectorAll('.ai-auth-tab').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.ai-tab-pane').forEach(function(p) { p.classList.remove('active'); });
+      var btn = document.getElementById('tab-btn-' + tab);
+      var pane = document.getElementById('pane-' + tab);
+      if (btn) btn.classList.add('active');
+      if (pane) pane.classList.add('active');
+    }
+
+    function showStatus(msg, type) {
+      var el = document.getElementById('ai-status-msg');
+      if (!el) return;
+      if (!msg) { el.style.display = 'none'; return; }
+      el.className = 'ai-status-msg ' + (type || 'error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function storeKeyAndLaunch(key) {
+      if (!key) return;
+      try {
+        localStorage.setItem('cm_fleet_owner_key', key);
+        localStorage.setItem('cm_owner_key', key);
+        localStorage.setItem('cm_api_key', key);
+        localStorage.setItem('apiKey', key);
+        var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "settings", "config"];
+        configKeys.forEach(function(k) {
+          try {
+            var raw = localStorage.getItem(k) || "{}";
+            var cfg = JSON.parse(raw);
+            cfg.apiKey = key;
+            localStorage.setItem(k, JSON.stringify(cfg));
+          } catch(e) {}
+        });
+      } catch(e) {}
+
+      window.location.replace('/webui/?key=' + encodeURIComponent(key));
+    }
+
+    // Direct Key Login
+    function handleKeyLogin(e) {
+      e.preventDefault();
+      var key = document.getElementById('input-owner-key').value.trim();
+      var d = studioI18n[currentLang] || studioI18n.de;
+      if (!key) {
+        showStatus(d.key_missing, 'error');
+        return;
+      }
+      storeKeyAndLaunch(key);
+    }
+
+    // Magic Link
+    async function handleMagicLink(e) {
+      e.preventDefault();
+      var email = document.getElementById('input-email-magic').value.trim();
+      var d = studioI18n[currentLang] || studioI18n.de;
+      if (!email) return;
+      showStatus('Sende Login-Link...', 'success');
+      try {
+        var res = await fetch('/api/auth/magic-link/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          showStatus(d.magic_sent, 'success');
+        } else {
+          showStatus(data.error || 'Fehler beim Senden des Magic-Links', 'error');
+        }
+      } catch(err) {
+        showStatus('Netzwerkfehler: ' + (err.message || err), 'error');
+      }
+    }
+
+    // Instant Register
+    async function handleInstantRegister(e) {
+      e.preventDefault();
+      var email = document.getElementById('input-reg-email').value.trim();
+      var d = studioI18n[currentLang] || studioI18n.de;
+      if (!email) return;
+      showStatus('Generiere API-Key...', 'success');
+      try {
+        var res = await fetch('/api/portal/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, role: 'consumer', tos_accepted: true })
+        });
+        var data = await res.json();
+        if (res.ok && data.api_key) {
+          showStatus(d.reg_success, 'success');
+          setTimeout(function() {
+            storeKeyAndLaunch(data.api_key);
+          }, 800);
+        } else {
+          showStatus(data.error || 'Registrierung fehlgeschlagen', 'error');
+        }
+      } catch(err) {
+        showStatus('Netzwerkfehler: ' + (err.message || err), 'error');
+      }
+    }
+
+    // Passkey Login & Register
+    function b64urlToBytes(b64url) {
+      var b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) b64 += "=";
+      var raw = atob(b64);
+      var arr = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr.buffer;
+    }
+
+    function bytesToB64url(buffer) {
+      var arr = new Uint8Array(buffer);
+      var binary = "";
+      for (var i = 0; i < arr.byteLength; i++) binary += String.fromCharCode(arr[i]);
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    async function handlePasskeyLogin(e) {
+      e.preventDefault();
+      var email = document.getElementById('input-email-pk').value.trim();
+      if (!email) return;
+      showStatus('Starte Passkey-Authentifizierung...', 'success');
+
+      try {
+        var optRes = await fetch("/api/auth/passkey/login-options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email })
+        });
+        var optData = await optRes.json();
+        if (!optRes.ok) {
+          showStatus(optData.error || "Passkey-Optionen fehlgeschlagen", "error");
+          return;
+        }
+
+        var opts = optData.options;
+        opts.publicKey.challenge = b64urlToBytes(opts.publicKey.challenge);
+        if (opts.publicKey.allowCredentials) {
+          opts.publicKey.allowCredentials.forEach(function(c) { c.id = b64urlToBytes(c.id); });
+        }
+
+        var credential = await navigator.credentials.get({ publicKey: opts.publicKey });
+        var assertionResponse = {
+          id: credential.id,
+          rawId: bytesToB64url(credential.rawId),
+          type: credential.type,
+          response: {
+            authenticatorData: bytesToB64url(credential.response.authenticatorData),
+            clientDataJSON: bytesToB64url(credential.response.clientDataJSON),
+            signature: bytesToB64url(credential.response.signature),
+            userHandle: credential.response.userHandle ? bytesToB64url(credential.response.userHandle) : null
+          }
+        };
+
+        var verRes = await fetch("/api/auth/passkey/login-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, assertionResponse: assertionResponse })
+        });
+        var verData = await verRes.json();
+        if (verRes.ok && verData.owner_key) {
+          storeKeyAndLaunch(verData.owner_key);
+        } else {
+          showStatus(verData.error || "Passkey-Verifikation fehlgeschlagen", "error");
+        }
+      } catch(err) {
+        showStatus("Passkey-Fehler: " + (err.message || err), "error");
+      }
+    }
+
+    async function handlePasskeyRegister() {
+      var email = document.getElementById('input-email-pk').value.trim();
+      if (!email) {
+        showStatus('Bitte gib zuerst deine E-Mail-Adresse ein.', 'error');
+        return;
+      }
+      showStatus('Registriere Passkey...', 'success');
+
+      try {
+        var optRes = await fetch("/api/auth/passkey/register-options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email })
+        });
+        var optData = await optRes.json();
+        if (!optRes.ok) {
+          showStatus(optData.error || "Fehler beim Vorbereiten des Passkeys", "error");
+          return;
+        }
+
+        var opts = optData.options;
+        opts.publicKey.challenge = b64urlToBytes(opts.publicKey.challenge);
+        opts.publicKey.user.id = b64urlToBytes(opts.publicKey.user.id);
+        if (opts.publicKey.excludeCredentials) {
+          opts.publicKey.excludeCredentials.forEach(function(c) { c.id = b64urlToBytes(c.id); });
+        }
+
+        var credential = await navigator.credentials.create({ publicKey: opts.publicKey });
+        var attestationResponse = {
+          id: credential.id,
+          rawId: bytesToB64url(credential.rawId),
+          type: credential.type,
+          response: {
+            attestationObject: bytesToB64url(credential.response.attestationObject),
+            clientDataJSON: bytesToB64url(credential.response.clientDataJSON)
+          }
+        };
+
+        var verRes = await fetch("/api/auth/passkey/register-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, attestationResponse: attestationResponse })
+        });
+        var verData = await verRes.json();
+        if (verRes.ok && verData.owner_key) {
+          storeKeyAndLaunch(verData.owner_key);
+        } else {
+          showStatus(verData.error || "Registrierung fehlgeschlagen", "error");
+        }
+      } catch(err) {
+        showStatus("Passkey-Registrierungsfehler: " + (err.message || err), "error");
+      }
+    }
+
+    // On Load: check if key in URL or session exists
+    (function init() {
+      try {
+        var urlParams = new URLSearchParams(window.location.search);
+        var qKey = urlParams.get('key') || urlParams.get('api_key');
+        if (qKey) {
+          storeKeyAndLaunch(qKey);
+          return;
+        }
+        var key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || localStorage.getItem('cm_token');
+        var isSession = document.cookie && document.cookie.includes('cm_session=');
+        if (key || isSession) {
+          window.location.replace(key ? '/webui/?key=' + encodeURIComponent(key) : '/webui/');
+          return;
+        }
+      } catch(e) {}
+      applyStudioLanguage(currentLang);
+    })();
+  </script>
+</body>
+</html>
