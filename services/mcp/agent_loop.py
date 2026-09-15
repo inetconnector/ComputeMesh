@@ -130,7 +130,8 @@ class AgentLoop:
                 "</think>\n\n"
                 "[Tool-Calling Format]:\n"
                 "Rufe Werkzeuge entweder über native Function Calls oder direkt im JSON/XML-Format auf:\n"
-                "<tool_call>{\"name\": \"tool_name\", \"arguments\": {\"key\": \"value\"}}</tool_call>\n\n"
+                "<tool_call>{\"name\": \"get_live_news\", \"arguments\": {\"topic\": \"allgemein\"}}</tool_call>\n"
+                "<tool_call>{\"name\": \"generate_ai_image\", \"arguments\": {\"prompt\": \"Motivbeschreibung\", \"style\": \"photorealistic\"}}</tool_call>\n\n"
                 "Fasse das Gesamtergebnis am Ende übersichtlich und ansprechend mit allen generierten Markdown-Bildern, Diagrammen oder Links zusammen."
                 f"{mem_info}"
             )

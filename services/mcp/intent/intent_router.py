@@ -32,8 +32,6 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     cleaned = text.strip()
     if not cleaned:
         return None
-    if not allow_compound and is_compound_multi_step_query(cleaned):
-        return None
     
     # 0. List Active MCP Modules & Tools
     if re.search(r"(?:welche\s+mcp|welche\s+tools|welche\s+module|aktive\s+tools|aktive\s+module|list\s+tools|available\s+tools|mcp\s+status|welche\s+funktionen\s+hast\s+du|was\s+kannst\s+du|welche\s+werkzeuge)", cleaned, re.IGNORECASE):
@@ -76,6 +74,9 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             elif any(w in cleaned.lower() for w in ("cinematic", "film", "kino", "movie")):
                 style = "cinematic"
             return ("generate_ai_image", {"prompt": raw_prompt, "style": style})
+
+    if not allow_compound and is_compound_multi_step_query(cleaned):
+        return None
 
     # 0.2 URL Security & SSRF Audit
     m_sec = re.search(r"(?:prüfe\s+(?:die\s+)?url\s+|check\s+url\s+|ist\s+(?:die\s+)?url\s+sicher\s+|url\s+sicherheit\s+|scan\s+url\s+)(https?://[^\s]+|[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,}[^\s]*)", cleaned, re.IGNORECASE)
