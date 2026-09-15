@@ -81,8 +81,16 @@ var translations = window.translations || {
     fleet_owner_key_desc: "This is your private security key (API Secret). Enter it into your mining rigs or workstations to bind them securely to this fleet:",
     fleet_btn_copy_key: "Copy Key",
     nav_products: "Products",
+    nav_playground: "⚡ Live-Playground",
+    nav_webui_auth: "🚀 WebUI Studio ↗",
     nav_prod_inference: "Serverless Inference API",
     nav_prod_inference_sub: "Drop-in OpenAI & Ollama compatible streaming",
+    nav_prod_inference_auth: "Llama-UI / WebUI Studio ↗",
+    nav_prod_inference_sub_auth: "Full-featured chat UI with multi-model, PDF/image upload & branching",
+    btn_open_webui: "🚀 Open WebUI Studio ↗",
+    pg_auth_banner_title: "Signed In: Full Llama-UI Workspace Available",
+    pg_auth_banner_desc: "Use the built-in llama-server WebUI with multi-model switching, PDF/image uploads, branching, and local chat history.",
+    pg_auth_banner_btn: "🚀 Open WebUI Studio ↗",
     nav_prod_market: "GPU Marketplace",
     nav_prod_market_sub: "Rent live hardware, VRAM & distributed nodes",
     nav_prod_models: "Model Library",
@@ -595,8 +603,16 @@ var translations = window.translations || {
     fleet_owner_key_desc: "Dies ist dein privater Sicherheitsschlüssel (API-Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:",
     fleet_btn_copy_key: "Kopieren",
     nav_products: "Produkte",
+    nav_playground: "⚡ Live-Playground",
+    nav_webui_auth: "🚀 WebUI Studio ↗",
     nav_prod_inference: "Serverless Inferenz-API",
     nav_prod_inference_sub: "Drop-in OpenAI & Ollama kompatibles Streaming",
+    nav_prod_inference_auth: "Llama-UI / WebUI Studio ↗",
+    nav_prod_inference_sub_auth: "Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching",
+    btn_open_webui: "🚀 WebUI Studio öffnen ↗",
+    pg_auth_banner_title: "Angemeldet: Vollwertige Llama-UI verfügbar",
+    pg_auth_banner_desc: "Nutze die integrierte llama-server WebUI mit Multi-Modellen, PDF/Bilder-Upload, Branching und unbegrenzter Chat-Historie.",
+    pg_auth_banner_btn: "🚀 WebUI Studio öffnen ↗",
     nav_prod_market: "GPU Marketplace",
     nav_prod_market_sub: "Live-Hardware, VRAM & verteilte Knoten mieten",
     nav_prod_models: "Model Library",
@@ -1097,30 +1113,168 @@ function toggleLanguage() {
   switchLanguage(nextLang);
 }
 
-function updateAuthNavBtn() {
+function getActiveComputeMeshApiKey() {
+  try {
+    const ownerKey = localStorage.getItem('cm_owner_key');
+    if (ownerKey) return ownerKey;
+    const apiKey = localStorage.getItem('cm_api_key');
+    if (apiKey) return apiKey;
+    const token = localStorage.getItem('cm_token');
+    if (token) return token;
+  } catch (e) {}
+  return '';
+}
+
+function hasActiveSession() {
+  try {
+    return Boolean(
+      (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
+      (document.cookie && document.cookie.includes('cm_session=')) ||
+      (typeof localStorage !== 'undefined' && (
+        Boolean(localStorage.getItem('cm_owner_key')) ||
+        Boolean(localStorage.getItem('cm_api_key')) ||
+        Boolean(localStorage.getItem('cm_fleet_email'))
+      ))
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+function openWebUI(event) {
+  if (event && event.preventDefault) event.preventDefault();
+  const key = getActiveComputeMeshApiKey();
+  const targetUrl = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
+}
+
+function updateAuthStateUI() {
+  const lang = window.getLang ? window.getLang() : (window.currentLang || 'de');
+  const t = (translations && translations[lang]) ? translations[lang] : {};
+  const isAuth = hasActiveSession();
+  const key = getActiveComputeMeshApiKey();
+  const webuiUrl = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+
+  // 1. Auth button in top navbar
   const btn = document.getElementById('auth-nav-btn');
   const icon = document.getElementById('auth-nav-btn-icon');
   const text = document.getElementById('auth-nav-btn-text');
-  if (!btn) return;
-
-  const lang = window.getLang ? window.getLang() : 'de';
-  const hasSession = (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
-                     (document.cookie && document.cookie.includes('cm_session=')) ||
-                     (typeof localStorage !== 'undefined' && (Boolean(localStorage.getItem('cm_owner_key')) || Boolean(localStorage.getItem('cm_fleet_email'))));
-
-  if (hasSession) {
-    if (icon) icon.textContent = '🚪';
-    if (text) {
-      text.textContent = lang === 'de' ? 'Abmelden' : 'Sign out';
-      text.setAttribute('data-i18n', 'fleet_btn_logout');
-    }
-  } else {
-    if (icon) icon.textContent = '🔑';
-    if (text) {
-      text.textContent = lang === 'de' ? 'Anmelden' : 'Sign in';
-      text.setAttribute('data-i18n', 'fleet_btn_login_nav');
+  if (btn) {
+    if (isAuth) {
+      if (icon) icon.textContent = '🚪';
+      if (text) {
+        text.textContent = t.fleet_btn_logout || (lang === 'de' ? 'Abmelden' : 'Sign out');
+        text.setAttribute('data-i18n', 'fleet_btn_logout');
+      }
+    } else {
+      if (icon) icon.textContent = '🔑';
+      if (text) {
+        text.textContent = t.fleet_btn_login_nav || (lang === 'de' ? 'Anmelden' : 'Sign in');
+        text.setAttribute('data-i18n', 'fleet_btn_login_nav');
+      }
     }
   }
+
+  // 2. Navigation items: Live Playground vs WebUI Studio
+  const playgroundLinks = document.querySelectorAll('header.site-header .nav-links a[href*="playground"], header.site-header a[data-i18n="nav_playground"], header.site-header a[data-i18n="nav_webui_auth"]');
+  playgroundLinks.forEach(link => {
+    if (link.closest('.dropdown-menu')) return;
+    if (isAuth) {
+      link.href = webuiUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = t.nav_webui_auth || '🚀 WebUI Studio ↗';
+      link.setAttribute('data-i18n', 'nav_webui_auth');
+      link.title = t.pg_auth_banner_desc || 'Open Llama-UI Web Studio in a new window';
+      link.onclick = function(e) {
+        e.preventDefault();
+        openWebUI(e);
+      };
+    } else {
+      const isHome = window.location.pathname === '/' || window.location.pathname.endsWith('index.html') || window.location.pathname === '';
+      link.href = isHome ? '#playground' : '/#playground';
+      link.removeAttribute('target');
+      link.removeAttribute('rel');
+      link.textContent = t.nav_playground || (lang === 'de' ? '⚡ Live-Playground' : '⚡ Live-Playground');
+      link.setAttribute('data-i18n', 'nav_playground');
+      link.removeAttribute('title');
+      link.onclick = null;
+    }
+  });
+
+  // 3. Products Dropdown Item for Inference
+  const dropdownInferenceLinks = document.querySelectorAll('.dropdown-menu a[href*="playground"], .dropdown-menu a[href*="/webui/"]');
+  dropdownInferenceLinks.forEach(link => {
+    const titleEl = link.querySelector('[data-i18n^="nav_prod_inference"]');
+    const subEl = link.querySelector('[data-i18n^="nav_prod_inference_sub"]');
+    const iconEl = link.querySelector('.item-icon');
+    if (isAuth) {
+      link.href = webuiUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.onclick = function(e) {
+        e.preventDefault();
+        openWebUI(e);
+      };
+      if (iconEl) iconEl.textContent = '🚀';
+      if (titleEl) {
+        titleEl.textContent = t.nav_prod_inference_auth || (lang === 'de' ? 'Llama-UI / WebUI Studio ↗' : 'Llama-UI / WebUI Studio ↗');
+        titleEl.setAttribute('data-i18n', 'nav_prod_inference_auth');
+      }
+      if (subEl) {
+        subEl.textContent = t.nav_prod_inference_sub_auth || (lang === 'de' ? 'Vollwertige Chat-UI mit Multi-Modell, PDF/Bilder & Branching' : 'Full-featured chat UI with multi-model, PDF/image upload & branching');
+        subEl.setAttribute('data-i18n', 'nav_prod_inference_sub_auth');
+      }
+    } else {
+      const isHome = window.location.pathname === '/' || window.location.pathname.endsWith('index.html') || window.location.pathname === '';
+      link.href = isHome ? '#playground' : '/#playground';
+      link.removeAttribute('target');
+      link.removeAttribute('rel');
+      link.onclick = null;
+      if (iconEl) iconEl.textContent = '⚡';
+      if (titleEl) {
+        titleEl.textContent = t.nav_prod_inference || (lang === 'de' ? 'Serverless Inferenz-API' : 'Serverless Inference API');
+        titleEl.setAttribute('data-i18n', 'nav_prod_inference');
+      }
+      if (subEl) {
+        subEl.textContent = t.nav_prod_inference_sub || (lang === 'de' ? 'Drop-in OpenAI & Ollama kompatibles Streaming' : 'Drop-in OpenAI & Ollama compatible streaming');
+        subEl.setAttribute('data-i18n', 'nav_prod_inference_sub');
+      }
+    }
+  });
+
+  // 4. In-page Playground Auth Banner
+  const pgStudio = document.querySelector('.playground-studio');
+  let pgBanner = document.getElementById('pg-auth-banner');
+  if (pgStudio) {
+    if (isAuth) {
+      if (!pgBanner) {
+        pgBanner = document.createElement('div');
+        pgBanner.id = 'pg-auth-banner';
+        pgBanner.className = 'pg-auth-banner';
+        pgStudio.insertBefore(pgBanner, pgStudio.firstChild);
+      }
+      pgBanner.style.display = 'flex';
+      pgBanner.innerHTML = `
+        <div class="pg-auth-banner-content">
+          <div class="pg-auth-banner-icon">🚀</div>
+          <div class="pg-auth-banner-text">
+            <h4 data-i18n="pg_auth_banner_title">${t.pg_auth_banner_title || (lang === 'de' ? 'Angemeldet: Vollwertige Llama-UI verfügbar' : 'Signed In: Full Llama-UI Workspace Available')}</h4>
+            <p data-i18n="pg_auth_banner_desc">${t.pg_auth_banner_desc || (lang === 'de' ? 'Nutze die integrierte llama-server WebUI mit Multi-Modellen, PDF/Bilder-Upload, Branching und unbegrenzter Chat-Historie.' : 'Use the built-in llama-server WebUI with multi-model switching, PDF/image uploads, branching, and local chat history.')}</p>
+          </div>
+        </div>
+        <a href="${webuiUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm pg-auth-banner-btn" onclick="openWebUI(event)" data-i18n="pg_auth_banner_btn">
+          ${t.pg_auth_banner_btn || (lang === 'de' ? '🚀 WebUI Studio öffnen ↗' : '🚀 Open WebUI Studio ↗')}
+        </a>
+      `;
+    } else if (pgBanner) {
+      pgBanner.style.display = 'none';
+    }
+  }
+}
+
+function updateAuthNavBtn() {
+  updateAuthStateUI();
 }
 
 function handleAuthNavClick() {
@@ -1128,20 +1282,19 @@ function handleAuthNavClick() {
     window.doLogout();
     return;
   }
-  const hasSession = (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
-                     (document.cookie && document.cookie.includes('cm_session=')) ||
-                     (typeof localStorage !== 'undefined' && (Boolean(localStorage.getItem('cm_owner_key')) || Boolean(localStorage.getItem('cm_fleet_email'))));
+  const hasSession = hasActiveSession();
 
   if (hasSession) {
     try {
       localStorage.removeItem('cm_owner_key');
+      localStorage.removeItem('cm_api_key');
       localStorage.removeItem('cm_fleet_email');
       document.cookie = 'cm_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     } catch (e) {}
     if (typeof window.isLoggedIn !== 'undefined') {
       window.isLoggedIn = false;
     }
-    updateAuthNavBtn();
+    updateAuthStateUI();
     if (window.location.pathname.startsWith('/fleet')) {
       window.location.reload();
     }
@@ -1179,7 +1332,7 @@ function initUnifiedPortalHeader() {
     }
   });
 
-  updateAuthNavBtn();
+  updateAuthStateUI();
 }
 
 window.detectInitialLanguage = detectInitialLanguage;
@@ -1188,6 +1341,10 @@ window.toggleLanguage = toggleLanguage;
 window.setLang = switchLanguage;
 window.getLang = function() { return currentLang || 'de'; };
 window.updateAuthNavBtn = updateAuthNavBtn;
+window.updateAuthStateUI = updateAuthStateUI;
+window.openWebUI = openWebUI;
+window.getActiveComputeMeshApiKey = getActiveComputeMeshApiKey;
+window.hasActiveSession = hasActiveSession;
 window.handleAuthNavClick = handleAuthNavClick;
 window.initUnifiedPortalHeader = initUnifiedPortalHeader;
 window.translations = translations;

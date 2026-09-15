@@ -2247,6 +2247,10 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     }
 
     function updateAuthNavBtn() {
+      if (typeof window.updateAuthStateUI === 'function') {
+        window.updateAuthStateUI();
+        return;
+      }
       const btn = document.getElementById("auth-nav-btn");
       const icon = document.getElementById("auth-nav-btn-icon");
       const text = document.getElementById("auth-nav-btn-text");
