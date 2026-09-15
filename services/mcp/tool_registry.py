@@ -34,7 +34,7 @@ from .builtin.earthquake_feed import get_recent_earthquakes
 from .builtin.events import search_events
 from .builtin.fact_triangulation import verify_fact_multi_source
 from .builtin.file_system_tools import list_workspace_files, read_workspace_file
-from .builtin.finance_market import execute_finance_quote
+from .builtin.finance_market import execute_finance_quote, get_market_movers
 from .builtin.food_products import lookup_food_product
 from .builtin.generate_image import generate_ai_image
 from .builtin.geo_routing import get_distance_route
@@ -692,6 +692,16 @@ class ToolRegistry:
                 "Liefert aktuelle Kurse für Aktien, Indizes, Rohstoffe und Kryptowährungen.",
                 schema({"symbol": {"type": "string", "description": "Ticker, z. B. AAPL, SAP.DE, BTC, DAX."}}, ["symbol"]),
                 execute_finance_quote,
+                source="builtin_finance",
+            )
+            self.register_tool(
+                "get_market_movers",
+                "Liefert die aktuellen Top-Gewinner und Top-Verlierer für einen Markt (z. B. NASDAQ, DAX, S&P 500, Krypto).",
+                schema({
+                    "market": {"type": "string", "description": "Marktname: nasdaq, dax, sp500 oder crypto.", "default": "nasdaq"},
+                    "count": {"type": "integer", "description": "Anzahl der Top-Aktien (1-10).", "default": 5},
+                }),
+                get_market_movers,
                 source="builtin_finance",
             )
 

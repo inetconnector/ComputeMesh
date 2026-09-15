@@ -144,6 +144,81 @@ def fetch_coingecko_quote(coin_id: str, timeout: float = 8.0) -> Optional[Dict[s
         return None
 
 
+import concurrent.futures
+
+MARKET_BASKETS = {
+    "NASDAQ": [
+        "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC", 
+        "NFLX", "AVGO", "QCOM", "COST", "ADBE", "PYPL", "MRVL", "CSCO", "TXN", "AMAT", "PEP"
+    ],
+    "DAX": [
+        "SAP.DE", "SIE.DE", "ALV.DE", "DTE.DE", "BMW.DE", "MBG.DE", "VOW3.DE", 
+        "BAYN.DE", "BAS.DE", "ADS.DE", "IFX.DE", "DBK.DE", "RWE.DE", "HEN3.DE"
+    ],
+    "SP500": [
+        "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK-B", "LLY", "JPM", "TSLA",
+        "UNH", "XOM", "V", "PG", "MA", "HD", "JNJ", "WMT", "COST"
+    ],
+    "CRYPTO": [
+        "BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "AVAX", "DOT", "LINK", "MATIC"
+    ]
+}
+
+
+def get_market_movers(
+    market: str = "nasdaq",
+    count: int = 5,
+    timeout: float = 8.0,
+) -> Dict[str, Any]:
+    """
+    Returns real-time top gainers and top losers for a specified market (NASDAQ, DAX, S&P 500, Crypto).
+    """
+    clean_m = (market or "nasdaq").strip().upper()
+    if "DAX" in clean_m:
+        basket_key = "DAX"
+    elif "CRYPTO" in clean_m or "KRYPTO" in clean_m:
+        basket_key = "CRYPTO"
+    elif "SP500" in clean_m or "S&P" in clean_m:
+        basket_key = "SP500"
+    else:
+        basket_key = "NASDAQ"
+
+    symbols = MARKET_BASKETS.get(basket_key, MARKET_BASKETS["NASDAQ"])
+    quotes = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 10)) as executor:
+        future_to_sym = {executor.submit(get_market_quote, symbol=s, timeout=timeout): s for s in symbols}
+        for future in concurrent.futures.as_completed(future_to_sym):
+            try:
+                res = future.result()
+                if res and isinstance(res, dict) and ("price" in res or "price_usd" in res) and res.get("change_percent") is not None:
+                    quotes.append(res)
+            except Exception:
+                pass
+
+    if not quotes:
+        return {
+            "error": f"Keine aktuellen Marktdaten für {basket_key} verfügbar.",
+            "market": basket_key,
+        }
+
+    # Sort by change_percent
+    sorted_gainers = sorted(quotes, key=lambda q: float(q.get("change_percent", 0.0) or 0.0), reverse=True)
+    sorted_losers = sorted(quotes, key=lambda q: float(q.get("change_percent", 0.0) or 0.0))
+
+    req_cnt = max(1, min(int(count or 5), 10))
+    top_gainers = sorted_gainers[:req_cnt]
+    top_losers = sorted_losers[:req_cnt]
+
+    return {
+        "market": basket_key,
+        "market_movers": True,
+        "top_gainers": top_gainers,
+        "top_losers": top_losers,
+        "count": req_cnt,
+    }
+
+
 def get_market_quote(
     symbol: str = "",
     stock: str = "",
@@ -157,6 +232,17 @@ def get_market_quote(
     raw_sym = (symbol or stock or crypto or ticker or "").strip()
     if not raw_sym:
         return {"error": "Symbol darf nicht leer sein (z.B. AAPL, NVDA, BTC, DAX)"}
+
+    # Check for movers/gainers intent within symbol
+    if any(w in raw_sym.lower() for w in ("gewinner", "verlierer", "movers", "gainers", "losers", "top 5")):
+        mkt = "nasdaq"
+        if "dax" in raw_sym.lower():
+            mkt = "dax"
+        elif "sp500" in raw_sym.lower() or "s&p" in raw_sym.lower():
+            mkt = "sp500"
+        elif "krypto" in raw_sym.lower() or "crypto" in raw_sym.lower():
+            mkt = "crypto"
+        return get_market_movers(market=mkt, count=5, timeout=timeout)
 
     # Check for multi-symbol query (e.g. "BTC, ETH und SOL", "Bitcoin und Ethereum", "BTC & ETH")
     multi_parts = [s.strip().rstrip("?.!") for s in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', raw_sym, flags=re.IGNORECASE) if s.strip()]

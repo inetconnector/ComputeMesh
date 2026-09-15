@@ -57,6 +57,45 @@ def format_tool_content_if_json(content: str) -> str:
             )
             return res.strip()
 
+        if "market_movers" in data or ("top_gainers" in data and "top_losers" in data):
+            mkt = data.get("market", "Markt")
+            gainers = data.get("top_gainers", [])
+            losers = data.get("top_losers", [])
+            
+            lines = [f"### 📈 **{mkt} – Top Gewinner & Verlierer Übersicht**\n"]
+            if gainers:
+                lines.append(f"#### 🚀 **Top {len(gainers)} Gewinner**\n")
+                lines.append("| 🪙 Ticker | 🏢 Unternehmen | 💵 Kurs | 📊 24h Gewinn | 📈 Tageshoch |")
+                lines.append("| :--- | :--- | :---: | :---: | :---: |")
+                for q in gainers:
+                    sym = q.get("symbol", "-")
+                    name = q.get("name", sym)
+                    pr = q.get("price", q.get("price_usd", "-"))
+                    curr = q.get("currency", "USD")
+                    chg_pct = q.get("change_percent", 0.0)
+                    chg_str = f"+{chg_pct:.2f}%" if isinstance(chg_pct, (int, float)) and chg_pct > 0 else (f"{chg_pct:.2f}%" if isinstance(chg_pct, (int, float)) else "-")
+                    h_val = q.get("day_high", "-")
+                    h_str = f"{h_val} {curr}" if h_val != "-" else "-"
+                    lines.append(f"| **{sym}** | {name} | `{pr} {curr}` | 🟢 `{chg_str}` | `{h_str}` |")
+                lines.append("")
+
+            if losers:
+                lines.append(f"#### 🔻 **Top {len(losers)} Verlierer**\n")
+                lines.append("| 🪙 Ticker | 🏢 Unternehmen | 💵 Kurs | 📊 24h Verlust | 📉 Tagestief |")
+                lines.append("| :--- | :--- | :---: | :---: | :---: |")
+                for q in losers:
+                    sym = q.get("symbol", "-")
+                    name = q.get("name", sym)
+                    pr = q.get("price", q.get("price_usd", "-"))
+                    curr = q.get("currency", "USD")
+                    chg_pct = q.get("change_percent", 0.0)
+                    chg_str = f"{chg_pct:.2f}%" if isinstance(chg_pct, (int, float)) else "-"
+                    l_val = q.get("day_low", "-")
+                    l_str = f"{l_val} {curr}" if l_val != "-" else "-"
+                    lines.append(f"| **{sym}** | {name} | `{pr} {curr}` | 🔴 `{chg_str}` | `{l_str}` |")
+
+            return "\n".join(lines).strip()
+
         if ("multiple_symbols" in data or "multiple_quotes" in data) and "quotes" in data:
             quotes = data.get("quotes", [])
             lines = [

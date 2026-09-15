@@ -18,7 +18,7 @@ from .earthquake_feed import get_recent_earthquakes
 from .events import search_events
 from .fact_triangulation import verify_fact_multi_source
 from .file_system_tools import list_workspace_files, read_workspace_file
-from .finance_market import get_market_quote
+from .finance_market import get_market_quote, get_market_movers
 from .food_products import lookup_food_product
 from .geo_routing import get_distance_route
 from .git_tools import get_git_status, get_git_diff, get_git_log

@@ -83,6 +83,28 @@ class TestOfficeAndTableSuite(unittest.TestCase):
         self.assertIn("Zürich", formatted)
         self.assertIn("20.0 °C", formatted)
 
+    def test_market_movers_formatter(self):
+        movers_data = {
+            "market": "NASDAQ",
+            "market_movers": True,
+            "top_gainers": [
+                {"symbol": "NVDA", "name": "NVIDIA Corp.", "price": 118.5, "currency": "USD", "change_percent": 3.45, "day_high": 119.2},
+                {"symbol": "TSLA", "name": "Tesla Inc.", "price": 245.2, "currency": "USD", "change_percent": 2.15, "day_high": 248.0},
+            ],
+            "top_losers": [
+                {"symbol": "INTC", "name": "Intel Corp.", "price": 19.8, "currency": "USD", "change_percent": -2.85, "day_low": 19.5},
+            ],
+            "count": 2,
+        }
+        formatted = format_tool_content_if_json(json.dumps(movers_data))
+        self.assertIn("NASDAQ", formatted)
+        self.assertIn("Top 2 Gewinner", formatted)
+        self.assertIn("Top 1 Verlierer", formatted)
+        self.assertIn("NVDA", formatted)
+        self.assertIn("INTC", formatted)
+        self.assertIn("+3.45%", formatted)
+        self.assertIn("-2.85%", formatted)
+
 
 if __name__ == "__main__":
     unittest.main()

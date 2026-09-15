@@ -397,8 +397,28 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if loc and len(loc) >= 2 and loc.lower() not in {"heute", "morgen", "deutschland", "bayern", "wird", "ist"}:
             return ("get_current_weather", {"location": loc})
 
-    if re.search(r"(?:wie\s+(?:ist|wird)\s+das\s+wetter|wetterbericht|aktuelles\s+wetter|wetter\s+heute|wetter\s+morgen|wie\s+warm\s+ist\s+es|weather\s+today|wetter\?|\bwetter\b)", cleaned, re.IGNORECASE):
-        return ("get_current_weather", {"location": "Veitshöchheim"})
+    # 6.9 Market Movers & Top Gainers / Losers (e.g. "Zeige die 5 Top Gewinner und Verlierer an der NASDAQ in einer Tabelle")
+    m_movers = re.search(
+        r"(?:top\s+(\d+)\s+)?(?:gewinner\s+und\s+verlierer|top\s+gewinner|verlierer|gainers\s+and\s+losers|top\s+gainers|top\s+losers|market\s+movers|beste\s+und\s+schlechteste\s+aktien)\b",
+        cleaned,
+        re.IGNORECASE
+    )
+    if not m_movers:
+        m_movers = re.search(
+            r"(?:nasdaq|dax|sp500|s&p500)\b.*?(?:top\s+(\d+)\s+)?(?:gewinner|verlierer|movers|aktien)",
+            cleaned,
+            re.IGNORECASE
+        )
+    if m_movers:
+        cnt = int(m_movers.group(1)) if m_movers.group(1) and m_movers.group(1).isdigit() else 5
+        mkt = "nasdaq"
+        if "dax" in cleaned.lower():
+            mkt = "dax"
+        elif "sp500" in cleaned.lower() or "s&p" in cleaned.lower():
+            mkt = "sp500"
+        elif "krypto" in cleaned.lower() or "crypto" in cleaned.lower():
+            mkt = "crypto"
+        return ("get_market_movers", {"market": mkt, "count": cnt})
 
     # 7. Market / Stock / Crypto Quotes (e.g. "BTC, ETH und SOL", "Aktienkurs von NVIDIA, Apple und Microsoft")
     has_market_context = bool(re.search(
