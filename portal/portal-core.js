@@ -1712,32 +1712,18 @@ let teaserRequestsRemaining = 20;
 let teaserResetAtMs = 0;
 let isPlaygroundInferencing = false;
 
-function formatChatMarkdown(text) {
+function formatInlineMarkdown(text) {
   if (!text) return "";
-  // Escape basic HTML
+  // Escape HTML entities
   let escaped = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  
-  // Format <think>...</think> reasoning blocks into interactive collapsible UI accordions
-  escaped = escaped.replace(/(?:&lt;think&gt;|<think>)([\s\S]*?)(?:&lt;\/think&gt;|<\/think>)/gi, (match, thought) => {
-    const cleanThought = thought.trim();
-    if (!cleanThought) return "";
-    const label = currentLang === 'de' ? '🧠 Gedankengang anzeigen (Deep Reasoning & Planung)' : '🧠 Show Thinking Process (Deep Reasoning & Plan)';
-    return `<details class="cm-thinking-block" style="background: rgba(15,23,42,0.65); border: 1px solid rgba(99,102,241,0.35); border-radius: 10px; padding: 0.65rem 0.9rem; margin: 0.8rem 0; font-size: 0.85rem;">
-      <summary style="cursor: pointer; color: #a5b4fc; font-weight: 600; outline: none; user-select: none;">${label}</summary>
-      <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.08); white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">${cleanThought}</div>
-    </details>`;
-  });
 
-  // Format code blocks ```python ... ```
-  escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const langLabel = lang ? `<div style="font-size:0.7rem; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:0.25rem;">${lang}</div>` : '';
-    return `<pre>${langLabel}<code>${code.trim()}</code></pre>`;
-  });
+  // Inline code `...`
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-  // Format Markdown Images ![alt](url)
+  // Markdown Images ![alt](url)
   escaped = escaped.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+|data:image\/[^\s\)]+)\)/g, (match, alt, url) => {
     const cleanUrl = url.replace(/&amp;/g, '&');
     return `<div class="chat-image-wrap" style="margin: 0.9rem 0; text-align: center;">
@@ -1748,26 +1734,273 @@ function formatChatMarkdown(text) {
     </div>`;
   });
 
-  // Format Markdown Links [text](url)
-  escaped = escaped.replace(/\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g, (match, txt, url) => {
+  // Markdown Links [title](url)
+  escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, (match, txt, url) => {
     const cleanUrl = url.replace(/&amp;/g, '&');
-    return `<a href="${cleanUrl}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: underline; font-weight: 500;">${txt}</a>`;
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="chat-link">${txt}</a>`;
   });
 
-  // Format headers ### ...
-  escaped = escaped.replace(/^### (.*$)/gim, '<h4 style="margin: 0.8rem 0 0.4rem; font-size: 1rem; color: #f8fafc;">$1</h4>');
-  escaped = escaped.replace(/^## (.*$)/gim, '<h3 style="margin: 1rem 0 0.5rem; font-size: 1.1rem; color: #f8fafc;">$1</h3>');
-
-  // Format inline code `...`
-  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Format bold **...**
+  // Bold **...** or __...__
   escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/__([^_]+)__/g, '<strong>$1</strong>');
 
-  // Format line breaks
-  escaped = escaped.replace(/\n/g, '<br>');
+  // Italic *...* or _..._ (avoid matching inside words or math)
+  escaped = escaped.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+
+  // Strikethrough ~~...~~
+  escaped = escaped.replace(/~~([^~]+)~~/g, '<del>$1</del>');
 
   return escaped;
+}
+
+function formatChatMarkdown(text) {
+  if (!text) return "";
+
+  // 0. Extract <think>...</think> reasoning blocks
+  const thinkBlocks = [];
+  let processed = text.replace(/(?:&lt;think&gt;|<think>)([\s\S]*?)(?:&lt;\/think&gt;|<\/think>)/gi, (match, thought) => {
+    const cleanThought = thought.trim();
+    if (!cleanThought) return "";
+    const label = currentLang === 'de' ? '🧠 Gedankengang anzeigen (Deep Reasoning & Planung)' : '🧠 Show Thinking Process (Deep Reasoning & Plan)';
+    const placeholder = `___CM_THINK_BLOCK_${thinkBlocks.length}___`;
+    const escapedThought = cleanThought.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    thinkBlocks.push(`<details class="cm-thinking-block" style="background: rgba(15,23,42,0.65); border: 1px solid rgba(99,102,241,0.35); border-radius: 10px; padding: 0.65rem 0.9rem; margin: 0.8rem 0; font-size: 0.85rem;">
+      <summary style="cursor: pointer; color: #a5b4fc; font-weight: 600; outline: none; user-select: none;">${label}</summary>
+      <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.08); white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">${escapedThought}</div>
+    </details>`);
+    return placeholder;
+  });
+
+  // 1. Extract code blocks to avoid messing with formatting inside code
+  const codeBlocks = [];
+  processed = processed.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const placeholder = `___CM_CODE_BLOCK_${codeBlocks.length}___`;
+    const escapedCode = code
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const langLabel = lang ? `<div style="font-size:0.7rem; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:0.25rem;">${lang}</div>` : '';
+    codeBlocks.push(`<pre>${langLabel}<code>${escapedCode.trim()}</code></pre>`);
+    return placeholder;
+  });
+
+  // Split into lines for block-level parsing
+  const rawLines = processed.split('\n');
+  const resultBlocks = [];
+  let inTable = false;
+  let tableHeader = [];
+  let tableAlignments = [];
+  let tableRows = [];
+  let inList = false;
+  let listType = 'ul';
+  let listItems = [];
+  let inBlockquote = false;
+  let blockquoteLines = [];
+
+  function flushTable() {
+    if (!inTable) return;
+    if (tableHeader.length > 0 || tableRows.length > 0) {
+      let html = '<div class="table-responsive"><table class="chat-table">';
+      if (tableHeader.length > 0) {
+        html += '<thead><tr>';
+        tableHeader.forEach((th, idx) => {
+          const align = tableAlignments[idx] ? ` style="text-align:${tableAlignments[idx]}"` : '';
+          html += `<th${align}>${formatInlineMarkdown(th)}</th>`;
+        });
+        html += '</tr></thead>';
+      }
+      if (tableRows.length > 0) {
+        html += '<tbody>';
+        tableRows.forEach(row => {
+          html += '<tr>';
+          row.forEach((td, idx) => {
+            const align = tableAlignments[idx] ? ` style="text-align:${tableAlignments[idx]}"` : '';
+            html += `<td${align}>${formatInlineMarkdown(td)}</td>`;
+          });
+          html += '</tr>';
+        });
+        html += '</tbody>';
+      }
+      html += '</table></div>';
+      resultBlocks.push(html);
+    }
+    inTable = false;
+    tableHeader = [];
+    tableAlignments = [];
+    tableRows = [];
+  }
+
+  function flushList() {
+    if (!inList) return;
+    if (listItems.length > 0) {
+      let html = `<${listType} class="chat-list">`;
+      listItems.forEach(item => {
+        html += `<li>${formatInlineMarkdown(item)}</li>`;
+      });
+      html += `</${listType}>`;
+      resultBlocks.push(html);
+    }
+    inList = false;
+    listItems = [];
+  }
+
+  function flushBlockquote() {
+    if (!inBlockquote) return;
+    if (blockquoteLines.length > 0) {
+      const content = blockquoteLines.map(l => formatInlineMarkdown(l)).join('<br>');
+      resultBlocks.push(`<blockquote class="chat-blockquote">${content}</blockquote>`);
+    }
+    inBlockquote = false;
+    blockquoteLines = [];
+  }
+
+  function isTableLine(line) {
+    const trimmed = line.trim();
+    return trimmed.startsWith('|') && (trimmed.endsWith('|') || trimmed.includes('|'));
+  }
+
+  function isTableSeparator(line) {
+    const trimmed = line.trim();
+    return trimmed.startsWith('|') && /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(trimmed);
+  }
+
+  function parseTableCells(line) {
+    let trimmed = line.trim();
+    if (trimmed.startsWith('|')) trimmed = trimmed.substring(1);
+    if (trimmed.endsWith('|')) trimmed = trimmed.substring(0, trimmed.length - 1);
+    return trimmed.split('|').map(c => c.trim());
+  }
+
+  function parseAlignments(line) {
+    const cells = parseTableCells(line);
+    return cells.map(cell => {
+      const left = cell.startsWith(':');
+      const right = cell.endsWith(':');
+      if (left && right) return 'center';
+      if (right) return 'right';
+      if (left) return 'left';
+      return 'left';
+    });
+  }
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const trimmed = line.trim();
+
+    // 1. Table Detection
+    if (isTableLine(line)) {
+      flushList();
+      flushBlockquote();
+
+      if (!inTable) {
+        // Start new table: first line is header
+        inTable = true;
+        tableHeader = parseTableCells(line);
+        // Check if next line is separator
+        if (i + 1 < rawLines.length && isTableSeparator(rawLines[i + 1])) {
+          tableAlignments = parseAlignments(rawLines[i + 1]);
+          i++; // skip separator line
+        } else {
+          tableAlignments = tableHeader.map(() => 'left');
+        }
+      } else {
+        if (isTableSeparator(line)) {
+          tableAlignments = parseAlignments(line);
+        } else {
+          tableRows.push(parseTableCells(line));
+        }
+      }
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
+
+    // 2. Blockquotes
+    if (trimmed.startsWith('>')) {
+      flushList();
+      inBlockquote = true;
+      blockquoteLines.push(trimmed.replace(/^>\s?/, ''));
+      continue;
+    } else if (inBlockquote) {
+      flushBlockquote();
+    }
+
+    // 3. Headings
+    if (trimmed.startsWith('#### ')) {
+      flushList();
+      resultBlocks.push(`<h4 class="chat-h4">${formatInlineMarkdown(trimmed.substring(5))}</h4>`);
+      continue;
+    }
+    if (trimmed.startsWith('### ')) {
+      flushList();
+      resultBlocks.push(`<h3 class="chat-h3">${formatInlineMarkdown(trimmed.substring(4))}</h3>`);
+      continue;
+    }
+    if (trimmed.startsWith('## ')) {
+      flushList();
+      resultBlocks.push(`<h2 class="chat-h2">${formatInlineMarkdown(trimmed.substring(3))}</h2>`);
+      continue;
+    }
+    if (trimmed.startsWith('# ')) {
+      flushList();
+      resultBlocks.push(`<h1 class="chat-h1">${formatInlineMarkdown(trimmed.substring(2))}</h1>`);
+      continue;
+    }
+
+    // 4. Horizontal Rules
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      flushList();
+      resultBlocks.push('<hr class="chat-hr">');
+      continue;
+    }
+
+    // 5. Unordered Lists
+    if (/^[-*+]\s+/.test(trimmed)) {
+      if (inList && listType !== 'ul') flushList();
+      inList = true;
+      listType = 'ul';
+      listItems.push(trimmed.replace(/^[-*+]\s+/, ''));
+      continue;
+    }
+
+    // 6. Ordered Lists
+    if (/^\d+\.\s+/.test(trimmed)) {
+      if (inList && listType !== 'ol') flushList();
+      inList = true;
+      listType = 'ol';
+      listItems.push(trimmed.replace(/^\d+\.\s+/, ''));
+      continue;
+    }
+
+    if (inList) {
+      flushList();
+    }
+
+    // 7. Normal paragraph line or spacer
+    if (trimmed === '') {
+      resultBlocks.push('<div class="chat-spacer"></div>');
+    } else {
+      resultBlocks.push(`<p class="chat-p">${formatInlineMarkdown(trimmed)}</p>`);
+    }
+  }
+
+  flushTable();
+  flushList();
+  flushBlockquote();
+
+  let finalHtml = resultBlocks.join('');
+
+  // Restore code blocks
+  codeBlocks.forEach((cb, idx) => {
+    finalHtml = finalHtml.replace(`___CM_CODE_BLOCK_${idx}___`, cb);
+  });
+
+  // Restore think blocks
+  thinkBlocks.forEach((tb, idx) => {
+    finalHtml = finalHtml.replace(`___CM_THINK_BLOCK_${idx}___`, tb);
+  });
+
+  return finalHtml;
 }
 
 function formatResetDuration(ms) {

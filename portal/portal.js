@@ -213,12 +213,12 @@
   };
 
   const core = document.createElement('script');
-  core.src = 'portal-core.js';
+  core.src = 'portal-core.js?v=4.1';
   core.async = false;
   core.onload = setupModalHooks;
   core.onerror = function () {
     const fallback = document.createElement('script');
-    fallback.src = '/portal-core.js';
+    fallback.src = '/portal-core.js?v=4.1';
     fallback.async = false;
     fallback.onload = setupModalHooks;
     fallback.onerror = function () {
