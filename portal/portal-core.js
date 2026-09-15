@@ -184,6 +184,7 @@ var translations = window.translations || {
     pg_tokens_lbl: "Tokens Streamed:",
     qp_explain_mesh: "⚡ What makes ComputeMesh unique?",
     qp_mcp_product_price: "🛍️ Price Comparison iPhone 16 Pro (Table)",
+    qp_mcp_image: "🎨 AI Image from Breaking News (MCP)",
     qp_mcp_weather: "🌦️ Weather Comparison Berlin, Munich & Zurich (Table)",
     qp_mcp_nasdaq: "📊 NASDAQ Top 5 Gainers & Losers (Table)",
     qp_mcp_bitcoin: "📈 Live Bitcoin & Crypto (MCP)",
@@ -697,6 +698,7 @@ var translations = window.translations || {
     pg_tokens_lbl: "Generierte Tokens:",
     qp_explain_mesh: "⚡ Was macht ComputeMesh einzigartig?",
     qp_mcp_product_price: "🛍️ Preisvergleich iPhone 16 Pro (Tabelle)",
+    qp_mcp_image: "🎨 KI-Bild aus aktuellen News (MCP)",
     qp_mcp_weather: "🌦️ Wetter-Vergleich Berlin, München & Zürich (Tabelle)",
     qp_mcp_nasdaq: "📊 NASDAQ Top 5 Gewinner & Verlierer (Tabelle)",
     qp_mcp_bitcoin: "📈 Live Bitcoin & Krypto-Kurs (MCP)",
@@ -2092,6 +2094,7 @@ const QUICK_PROMPTS = {
   de: {
     explain_mesh: "Was macht ComputeMesh einzigartig und wie funktioniert die dezentrale GPU-Inferenz?",
     mcp_product_price: "Führe einen Preisvergleich für das iPhone 16 Pro 256GB durch und zeige die besten Händler-Angebote mit Preisen und Ersparnis in einer Tabelle",
+    mcp_image: "male ein bild aus den neuesten nachrichten",
     mcp_weather: "Wie ist das aktuelle Wetter und die Temperatur in Berlin, München und Zürich im Vergleich? bereite es in eine tabelle auf",
     mcp_nasdaq: "Zeige die 5 Top Gewinner und Verlierer an der NASDAQ in einer Tabelle",
     mcp_bitcoin: "Wie steht der Bitcoin (BTC) und Ethereum (ETH) Kurs aktuell und was ist der 24h Trend?",
@@ -2104,6 +2107,7 @@ const QUICK_PROMPTS = {
   en: {
     explain_mesh: "What makes ComputeMesh unique and how does decentralized GPU inference work?",
     mcp_product_price: "Perform a price comparison for the iPhone 16 Pro 256GB and display the best merchant offers with prices and savings in a table",
+    mcp_image: "paint an image based on the latest breaking news",
     mcp_weather: "What is the current weather and temperature in Berlin, Munich, and Zurich in comparison? Prepare it in a table",
     mcp_nasdaq: "Show the top 5 gainers and losers on the NASDAQ in a table",
     mcp_bitcoin: "What is the current Bitcoin (BTC) and Ethereum (ETH) market quote and 24h price trend?",
