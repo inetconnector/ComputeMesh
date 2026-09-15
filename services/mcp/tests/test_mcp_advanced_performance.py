@@ -133,3 +133,79 @@ class TestMCPAdvancedPerformance(unittest.TestCase):
         formatted_sec = format_tool_content_if_json(sec_payload)
         self.assertIn("URL-Sicherheitsprüfung", formatted_sec)
         self.assertIn("SICHER", formatted_sec)
+
+    def test_direct_intent_news_image_typo_tolerance(self):
+        # Typo tolerance for 'nschrichten' -> should trigger get_live_news
+        intent_typo = detect_direct_tool_intent("male ein bild aus den neuesten nschrichten")
+        self.assertIsNotNone(intent_typo)
+        self.assertEqual(intent_typo[0], "get_live_news")
+        self.assertEqual(intent_typo[1]["topic"], "allgemein")
+
+        intent_news = detect_direct_tool_intent("zeichne ein bild von den heutigen nachrichten")
+        self.assertIsNotNone(intent_news)
+        self.assertEqual(intent_news[0], "get_live_news")
+
+        intent_btc = detect_direct_tool_intent("erstelle ein bild vom aktuellen bitcoin kurs")
+        self.assertIsNotNone(intent_btc)
+        self.assertEqual(intent_btc[0], "get_market_quote")
+
+        intent_weather = detect_direct_tool_intent("generiere ein bild vom wetter in berlin")
+        self.assertIsNotNone(intent_weather)
+        self.assertEqual(intent_weather[0], "get_current_weather")
+        self.assertEqual(intent_weather[1]["city"], "Berlin")
+
+    def test_format_tool_content_news_feed_and_rich_image(self):
+        news_payload = json.dumps({
+            "topic": "Tagesschau",
+            "total": 1,
+            "articles": [{
+                "title": "Raumsonde landet erfolgreich auf Asteroid",
+                "link": "https://tagesschau.de/asteroid-100.html",
+                "source": "Tagesschau",
+                "published": "15.09.2026",
+                "summary": "Die Sonde hat Bodenproben entnommen und sendet hochauflösende Bilder."
+            }]
+        })
+        formatted_news = format_tool_content_if_json(news_payload)
+        self.assertIn("Aktuelle Live-Nachrichten: Tagesschau", formatted_news)
+        self.assertIn("Raumsonde landet erfolgreich", formatted_news)
+        self.assertIn("Bodenproben", formatted_news)
+
+        img_rich_payload = json.dumps({
+            "status": "success",
+            "prompt": "Raumsonde auf Asteroid im Weltall",
+            "style": "cinematic",
+            "image_url": "https://image.pollinations.ai/prompt/asteroid",
+            "provenance": {"engine": "ComputeMesh AI Image Pipeline"}
+        })
+        formatted_rich_img = format_tool_content_if_json(img_rich_payload)
+        self.assertIn("KI-Bildgenerierung (ComputeMesh AI)", formatted_rich_img)
+        self.assertIn("![Raumsonde auf Asteroid im Weltall]", formatted_rich_img)
+        self.assertIn("ComputeMesh AI Image Pipeline", formatted_rich_img)
+
+    def test_agent_loop_news_to_image_chaining(self):
+        from ..agent_loop import AgentLoop
+        loop = AgentLoop(self.registry)
+        
+        calls = 0
+        def fake_llm(messages, tools):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                # LLM does not call image tool or gives brief acknowledgement
+                return {"choices": [{"message": {"role": "assistant", "content": "Ich habe die Nachrichten abgerufen."}}], "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+            else:
+                return {"choices": [{"message": {"role": "assistant", "content": ""}}], "usage": {"prompt_tokens": 20, "completion_tokens": 0}}
+
+        res = loop.run(
+            messages=[{"role": "user", "content": "male ein bild aus den neuesten nschrichten"}],
+            model="qwen2.5:7b",
+            llm_caller=fake_llm,
+        )
+        # Should have executed get_live_news and then chained generate_ai_image
+        tool_names = [r.name for r in res.tool_calls_executed]
+        self.assertIn("get_live_news", tool_names)
+        self.assertIn("generate_ai_image", tool_names)
+        self.assertIn("![", res.final_content)
+        self.assertIn("Bild in voller Auflösung herunterladen", res.final_content)
+

@@ -260,25 +260,39 @@ class AgentLoop:
                         }]
 
             # Multi-step chained fallback: If user requested an image and previous data tool succeeded, but LLM refused or did not call image tool
-            if (not tool_calls or is_refusal) and not has_images and any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild")) and not any(r.name in ("generate_ai_image", "generate_image") for r in executed_records) and executed_records:
+            user_wants_image = any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild", "paint", "draw", "picture", "gemälde"))
+            has_image_tool_run = any(r.name in ("generate_ai_image", "generate_image") for r in executed_records)
+            if (not tool_calls or is_refusal) and not has_images and user_wants_image and not has_image_tool_run and executed_records:
                 last_rec = executed_records[-1]
                 prev_data = last_rec.result
+                if isinstance(prev_data, str):
+                    try:
+                        prev_data = json.loads(prev_data)
+                    except Exception:
+                        pass
                 derived_prompt = ""
                 if isinstance(prev_data, dict):
-                    if "articles" in prev_data and prev_data["articles"]:
-                        top_a = prev_data["articles"][0]
-                        t = top_a.get("title", "")
-                        d = top_a.get("description", "")
-                        derived_prompt = f"Editorial conceptual art representing top news: {t}, {d}"
-                    elif "news" in prev_data and prev_data["news"]:
-                        top_a = prev_data["news"][0]
-                        t = top_a.get("title", "")
-                        d = top_a.get("description", "")
-                        derived_prompt = f"Editorial conceptual art representing top news: {t}, {d}"
-                    elif "symbol" in prev_data and "price" in prev_data:
-                        derived_prompt = f"Futuristic high-tech visual of {prev_data.get('symbol')} trading at {prev_data.get('price')} with financial chart lines"
+                    articles = prev_data.get("articles", [])
+                    if not articles and "feeds" in prev_data:
+                        for feed in prev_data.get("feeds", []):
+                            if isinstance(feed, dict) and feed.get("articles"):
+                                articles.extend(feed["articles"])
+                    if articles:
+                        top_a = articles[0]
+                        t = top_a.get("title", "").strip()
+                        s = (top_a.get("summary") or top_a.get("description") or "").strip()
+                        derived_prompt = f"Editorial cinematic conceptual artwork depicting breaking news: {t}. {s[:160]}"
+                    elif "symbol" in prev_data and ("price" in prev_data or "price_usd" in prev_data):
+                        sym = prev_data.get("symbol", "Asset")
+                        pr = prev_data.get("price", prev_data.get("price_usd", ""))
+                        derived_prompt = f"Futuristic high-tech visual of {sym} trading at {pr} with financial chart lines and digital neon waves"
+                    elif "temperature_celsius" in prev_data:
+                        loc = prev_data.get("location") or prev_data.get("city") or "City"
+                        cond = prev_data.get("condition", "clear sky")
+                        temp = prev_data.get("temperature_celsius", 20)
+                        derived_prompt = f"Scenic atmospheric landscape of {loc} with {cond} weather, {temp} degrees celsius, cinematic lighting, 8k"
                     elif "title" in prev_data and "summary" in prev_data:
-                        derived_prompt = f"Illustrative artwork of {prev_data.get('title')}: {prev_data.get('summary', '')[:120]}"
+                        derived_prompt = f"Illustrative conceptual art representing {prev_data.get('title')}: {prev_data.get('summary', '')[:140]}"
                 if not derived_prompt:
                     derived_prompt = last_user_text
                 style_val = "photorealistic"
@@ -310,8 +324,9 @@ class AgentLoop:
                 ))
                 user_wants_table = any(w in last_user_text.lower() for w in ("tabelle", "tabellarisch", "table", "im vergleich", "vergleich", "gegenüberstellung", "matrix"))
                 missing_table_structure = user_wants_table and "|" not in content
-
-                if (is_refusal or is_json_explaining or missing_table_structure or not content.strip()) and executed_records:
+                has_image_tool_run = any(r.name in ("generate_ai_image", "generate_image") for r in executed_records)
+                missing_image_render = has_image_tool_run and "![" not in content
+                if (is_refusal or is_json_explaining or missing_table_structure or missing_image_render or not content.strip()) and executed_records:
                     parts = []
                     for rec in executed_records:
                         t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)
@@ -321,7 +336,7 @@ class AgentLoop:
                     final = "\n\n---\n\n".join(parts) if parts else format_tool_content_if_json(content)
                 else:
                     final = format_tool_content_if_json(content)
-                    if (not final or is_refusal or is_json_explaining) and executed_records:
+                    if (not final or is_refusal or is_json_explaining or missing_image_render) and executed_records:
                         parts = []
                         for rec in executed_records:
                             t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)

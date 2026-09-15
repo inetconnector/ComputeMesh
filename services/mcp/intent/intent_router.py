@@ -45,16 +45,15 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
     # 0.1 Image Generation (Direct GPU AI RealVisXL synthesis & Multi-Step dependencies)
     m_img = re.search(
-        r"(?:generiere|erstelle|zeichne|male|mache|kreiere|generate|create|draw|paint|make)\s+(?:ein\s+|an?\s+)?(?:[a-zA-ZäöüÄÖÜß\-]+\s+)*(?:bild|foto|gemälde|zeichnung|grafik|artwork|illustration|image|photo|picture|drawing|painting)\b\s*(?:von|vom|mit|aus|über|zu|zum|zur|der|des|of|with|from|about)?\s*(.+)",
+        r"(?:generiere|erstelle|zeichne|male|mache|kreiere|generate|create|draw|paint|make)\s+(?:ein\s+|an?\s+)?(?:[a-zA-ZäöüÄÖÜß\-]+\s+)*(?:bild|foto|gemälde|zeichnung|grafik|artwork|illustration|image|photo|picture|drawing|painting)\b\s*(?:von|vom|mit|aus|über|zu|zum|zur|der|des|den|of|with|from|about)?\s*(.+)",
         cleaned,
         re.IGNORECASE
     )
     if m_img:
         raw_prompt = m_img.group(1).strip().rstrip(".!?")
-        # Check if image prompt references dynamic external context requiring data pre-fetch
-        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "breaking")):
-            return ("get_live_news", {"topic": "allgemein"})
-        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("aktie", "kurs", "krypto", "bitcoin", "btc", "eth", "quote")):
+        full_text = f"{raw_prompt} {cleaned}".lower()
+        # 1. Check if stock/crypto context
+        if re.search(r"(?:aktie\w*|kurs\w*|krypto\w*|bitcoin|btc\b|ethereum|eth\b|solana|sol\b|quote\w*|börse|boerse|nasdaq|dax)", full_text):
             m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", cleaned, re.IGNORECASE)
             sym = m_coin.group(1).upper() if m_coin else "BTC"
             if sym == "BITCOIN":
@@ -64,10 +63,30 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             elif sym == "SOLANA":
                 sym = "SOL"
             return ("get_market_quote", {"asset": sym})
-        if any(k in raw_prompt.lower() or k in cleaned.lower() for k in ("wetter", "regen", "temperatur", "weather")):
-            m_c = re.search(r"(?:wetter\s+in|weather\s+in|in|für)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
-            city = m_c.group(1).strip() if m_c else "Berlin"
+
+        # 2. Check if weather context
+        if re.search(r"(?:wetter\w*|regen\w*|temperatur\w*|weather\w*|klima|sonne\w*)", full_text):
+            m_c = re.search(r"(?:wetter\s+(?:in|für|fuer|von|bei)|weather\s+in|\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+))", cleaned, re.IGNORECASE)
+            city = "Berlin"
+            m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+            if m_city:
+                extracted = m_city.group(1).strip()
+                if extracted.lower() not in ("bild", "foto", "ein", "eine", "einen", "das", "der", "die", "den", "dem", "wetter"):
+                    city = extracted.capitalize()
             return ("get_current_weather", {"city": city})
+
+        # 3. Check if news / current events context (with typo tolerance: nachrichten, nschrichten, schlagzeilen, etc.)
+        if re.search(r"(?:nachricht\w*|nschricht\w*|schlagzeil\w*|news|tagesschau|breaking)", full_text):
+            topic = "allgemein"
+            if re.search(r"(?:tech\w*|technologie|ki\b|ai\b|software)", full_text):
+                topic = "Technologie"
+            elif re.search(r"(?:krypto|crypto|bitcoin|btc\b|ethereum|eth\b)", full_text):
+                topic = "Krypto"
+            elif re.search(r"(?:wirtschaft|finanz\w*|börse|boerse|aktie\w*)", full_text):
+                topic = "Wirtschaft"
+            elif re.search(r"(?:politik|deutschland)", full_text):
+                topic = "Politik"
+            return ("get_live_news", {"topic": topic})
 
         if len(raw_prompt) >= 3:
             style = "photorealistic"
@@ -548,7 +567,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         cleaned,
         re.IGNORECASE
     )
-    if m_general_news or ("nachricht" in cleaned.lower() and any(w in cleaned.lower() for w in ("neu", "aktuell", "heute", "was", "gibt", "bit", "schlagzeil", "world", "deutschland", "jn", "in"))):
+    if m_general_news or (any(k in cleaned.lower() for k in ("nachricht", "nschricht", "schlagzeil", "tagesschau")) and any(w in cleaned.lower() for w in ("neu", "aktuell", "heute", "was", "gibt", "bit", "schlagzeil", "world", "deutschland", "jn", "in", "top", "zeige", "letzte", "neueste", "neues"))):
         return ("get_live_news", {"topic": "tagesschau"})
 
 

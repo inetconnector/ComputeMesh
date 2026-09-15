@@ -790,6 +790,54 @@ def format_tool_content_if_json(content: str) -> str:
                 res += f"- 🟢 **`{model}`** (ID: `{d_id}`){em}\n"
             return res.strip()
 
+        if "topic" in data and "articles" in data and isinstance(data.get("articles"), list):
+            topic = data.get("topic", "Live News")
+            articles = data.get("articles", [])
+            lines = [f"### 📰 **Aktuelle Live-Nachrichten: {topic}**\n"]
+            for idx, a in enumerate(articles[:5], 1):
+                t = a.get("title", "Nachricht")
+                link = a.get("link", "#")
+                src = a.get("source", topic)
+                pub = a.get("published", "")
+                summ = a.get("summary", "")
+                pub_str = f" *({pub})*" if pub else ""
+                lines.append(f"**{idx}. [{t}]({link})** — `{src}`{pub_str}")
+                if summ:
+                    lines.append(f"> {summ}\n")
+                else:
+                    lines.append("")
+            return "\n".join(lines).strip()
+
+        if "multiple_feeds" in data and "feeds" in data and isinstance(data.get("feeds"), list):
+            lines = ["### 📰 **Aktuelle Live-Nachrichten Übersicht**\n"]
+            for f in data.get("feeds", []):
+                topic = f.get("topic", "News")
+                articles = f.get("articles", [])
+                if articles:
+                    lines.append(f"#### 🌐 **{topic}**\n")
+                    for a in articles[:3]:
+                        t = a.get("title", "Nachricht")
+                        link = a.get("link", "#")
+                        summ = a.get("summary", "")
+                        lines.append(f"- **[{t}]({link})**" + (f": {summ[:120]}..." if summ else ""))
+                    lines.append("")
+            return "\n".join(lines).strip()
+
+        if ("image_url" in data or "markdown" in data) and "prompt" in data:
+            p = data.get("prompt", "KI-Bild")
+            url = data.get("image_url", "")
+            st = data.get("style", "photorealistic")
+            engine = "ComputeMesh AI Image Pipeline"
+            if isinstance(data.get("provenance"), dict):
+                engine = data["provenance"].get("engine", engine)
+            res = (
+                f"### 🎨 **KI-Bildgenerierung (ComputeMesh AI)**\n\n"
+                f"![{p}]({url})\n\n"
+                f"[⬇️ **Bild in voller Auflösung herunterladen**]({url})\n\n"
+                f"> 💡 **Motiv:** *\"{p}\"* | 🎭 **Stil:** `{st}` | ⚡ **Engine:** `{engine}`"
+            )
+            return res.strip()
+
         if "image_url" in data or "markdown" in data:
             md = data.get("markdown")
             if md:

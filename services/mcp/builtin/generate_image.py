@@ -32,9 +32,9 @@ def expand_visual_prompt(prompt: str, style: str = "photorealistic") -> str:
     if not p:
         return p
 
-    # Clean up command prefixes like 'erstelle ein bild von', 'male', 'draw', etc.
+    # Clean up command prefixes like 'erstelle ein bild von', 'male ein bild aus den...', 'draw', etc.
     p = re.sub(
-        r"^(?:generiere\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|erstelle\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|zeichne\s+(?:ein\s+)?(?:bild|foto)?\s*(?:von|mit)?\s*|male\s+(?:ein\s+)?(?:bild|gemälde)?\s*(?:von|mit)?\s*|generate\s+(?:an?\s+)?image\s+(?:of|with)?\s*|create\s+(?:an?\s+)?image\s+(?:of|with)?\s*|draw\s+(?:an?\s+)?(?:image|picture)\s+(?:of|with)?\s*)",
+        r"^(?:(?:generiere|erstelle|zeichne|male|mache|kreiere|generate|create|draw|paint)\s+(?:ein\s+|an?\s+)?(?:[a-zA-ZäöüÄÖÜß\-]+\s+)*(?:bild|foto|gemälde|zeichnung|grafik|artwork|illustration|image|photo|picture)\b\s*(?:von|vom|mit|aus|über|zu|zum|zur|der|des|den|of|with|from|about)?\s*)",
         "",
         p,
         flags=re.IGNORECASE
@@ -213,7 +213,7 @@ def generate_ai_image(
         "seed": seed,
         "provenance": {
             **provenance_meta,
-            "engine": "ComputeMesh Cloud Fallback",
+            "engine": "ComputeMesh AI Image Pipeline",
         },
     }
 
