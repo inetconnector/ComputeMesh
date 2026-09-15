@@ -128,6 +128,7 @@ def _fetch_frankfurter(amount: float, from_curr: str, to_curr: str, timeout: flo
                     "to_currency": to_curr,
                     "converted_amount": round(converted, 4),
                     "rate": rate,
+                    "unit_price": rate,
                     "date": data.get("date", ""),
                     "source": "European Central Bank (Frankfurter)",
                 }
@@ -191,6 +192,7 @@ def _convert_single_pair(amount: float, from_c: str, to_c: str, timeout: float =
                 "to_currency": to_c,
                 "converted_amount": total_converted,
                 "rate": unit_price,
+                "unit_price": unit_price,
                 "change_24h_percent": crypto_res.get("change_24h_percent"),
                 "formatted": f"{amount} {from_c} = {total_converted:,.2f} {to_c} (1 {from_c} = {unit_price:,.2f} {to_c})",
                 "source": "CoinGecko Live Crypto API",

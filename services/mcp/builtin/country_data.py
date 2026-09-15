@@ -194,6 +194,21 @@ def _lookup_single_country(search_term: str, timeout: float = 6.0) -> Dict[str, 
         with urllib.request.urlopen(req_wb, timeout=timeout) as resp:
             data_wb = json.loads(resp.read().decode("utf-8"))
 
+        if isinstance(data_wb, list) and data_wb and isinstance(data_wb[0], dict) and ("capital" in data_wb[0] or "population" in data_wb[0]):
+            rc = data_wb[0]
+            c_name = rc.get("name", {}).get("common", search_term) if isinstance(rc.get("name"), dict) else str(rc.get("name", search_term))
+            caps = rc.get("capital", ["N/A"])
+            cap = caps[0] if isinstance(caps, list) and caps else str(caps)
+            return {
+                "country_name": c_name,
+                "official_name": rc.get("name", {}).get("official", c_name) if isinstance(rc.get("name"), dict) else c_name,
+                "capital": cap,
+                "population": rc.get("population", 0),
+                "region": rc.get("region", "N/A"),
+                "iso3": iso3,
+                "summary": f"### 🏛️ **{c_name}**\n- **Hauptstadt:** {cap}\n- **Einwohnerzahl:** {rc.get('population', 0):,}",
+            }
+
         if not data_wb or not isinstance(data_wb, list) or len(data_wb) < 2 or not data_wb[1]:
             # Fallback to Wikipedia summary
             from .wikipedia import get_wikipedia_summary

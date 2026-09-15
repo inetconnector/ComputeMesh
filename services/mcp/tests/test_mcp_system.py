@@ -579,7 +579,7 @@ class TestAgentLoop(unittest.TestCase):
                 }
 
         res = self.loop.run(
-            messages=[{"role": "user", "content": "Analysiere den Markt für NVDA"}],
+            messages=[{"role": "user", "content": "Kannst du mir bei NVDA helfen?"}],
             model="qwen2.5:7b",
             llm_caller=fake_llm,
         )
@@ -614,7 +614,7 @@ class TestAgentLoop(unittest.TestCase):
                 }
 
         res = self.loop.run(
-            messages=[{"role": "user", "content": "Analysiere den Markt für AAPL"}],
+            messages=[{"role": "user", "content": "Kannst du mir bei AAPL helfen?"}],
             model="qwen2.5:7b",
             llm_caller=fake_llm,
         )

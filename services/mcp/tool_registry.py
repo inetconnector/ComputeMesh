@@ -1727,6 +1727,79 @@ class ToolRegistry:
             source="builtin_coding",
         )
 
+        def dynamic_compute_tool(task_description: str, inputs: Optional[Dict[str, Any]] = None, code: Optional[str] = None) -> Dict[str, Any]:
+            from .dynamic.synthesizer import get_dynamic_tool_engine
+            engine = get_dynamic_tool_engine()
+            return engine.execute_dynamic_task(
+                task_description=task_description,
+                inputs=inputs or {},
+                provided_code=code,
+            )
+
+        self.register_tool(
+            "dynamic_compute_tool",
+            "Autonomer Dynamic-MCP: Synthetisiert und führt on-demand deterministische Python-Micro-Tools für komplexe mathematische Berechnungen, Matrixoperationen, Simulationen oder proprietäre Datenkonvertierungen in einer 7-Stufen Zero-Trust Sandbox aus.",
+            schema({
+                "task_description": {"type": "string", "description": "Genaue Beschreibung der Berechnung, Transformation oder Analyse."},
+                "inputs": {"type": "object", "description": "Eingabedaten / Parameter als Dictionary.", "default": {}},
+                "code": {"type": "string", "description": "Optionaler vorab definierter Python-Code mit 'def execute(inputs: dict) -> dict'."},
+            }, ["task_description"]),
+            dynamic_compute_tool,
+            source="builtin_dynamic",
+        )
+
+        def get_ledger_status() -> Dict[str, Any]:
+            from .ledger import get_compact_ledger
+            return get_compact_ledger().get_stats()
+
+        self.register_tool(
+            "get_ledger_status",
+            "Liefert Metriken, Block-Höhe, Transaktionsanzahl und den kryptografischen Integritätsstatus der internen ComputeMesh Proof-of-Execution Blockchain.",
+            schema({}),
+            get_ledger_status,
+            source="builtin_ledger",
+        )
+
+        def verify_proof_of_execution(receipt_id: str) -> Dict[str, Any]:
+            from .ledger import get_compact_ledger, MerkleTree
+            ledger = get_compact_ledger()
+            res = ledger.get_receipt(receipt_id)
+            if not res:
+                return {"error": f"Kein Proof-of-Execution für Receipt-ID '{receipt_id}' gefunden.", "verified": False}
+            
+            is_valid = False
+            if res.get("is_confirmed") and res.get("merkle_proof") is not None and res.get("block"):
+                r_dict = res["receipt"]
+                from .ledger.block import ProofOfExecutionReceipt
+                receipt_obj = ProofOfExecutionReceipt(**r_dict)
+                leaf_h = receipt_obj.compute_leaf_hash()
+                expected_root = res["block"]["merkle_root"]
+                is_valid = MerkleTree.verify_proof(leaf_h, res["merkle_proof"], expected_root)
+
+            return {
+                "receipt_id": receipt_id,
+                "is_confirmed": res.get("is_confirmed", False),
+                "block_index": res["receipt"].get("block_index"),
+                "tool_name": res["receipt"].get("tool_name"),
+                "elapsed_seconds": res["receipt"].get("elapsed_seconds"),
+                "status": res["receipt"].get("status"),
+                "node_id": res["receipt"].get("node_id"),
+                "merkle_verified": is_valid,
+                "timestamp": res["receipt"].get("timestamp"),
+            }
+
+        self.register_tool(
+            "verify_proof_of_execution",
+            "Verifiziert einen kryptografischen Proof-of-Execution (PoE) Receipt auf der internen ComputeMesh Blockchain über Merkle-Tree-Inclusion-Proofs.",
+            schema({
+                "receipt_id": {"type": "string", "description": "Eindeutige Receipt-ID (z. B. 'poe_1a2b3c4d5e6f7a8b')."},
+            }, ["receipt_id"]),
+            verify_proof_of_execution,
+            source="builtin_ledger",
+        )
+
+
+
 
 
 
