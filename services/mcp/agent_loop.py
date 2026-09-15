@@ -235,13 +235,50 @@ class AgentLoop:
                         },
                     }]
 
+            # Multi-step chained fallback: If user requested an image and previous data tool succeeded, but LLM refused or did not call image tool
+            if (not tool_calls or is_refusal) and any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild")) and not any(r.name in ("generate_ai_image", "generate_image") for r in executed_records) and executed_records:
+                last_rec = executed_records[-1]
+                prev_data = last_rec.result
+                derived_prompt = ""
+                if isinstance(prev_data, dict):
+                    if "articles" in prev_data and prev_data["articles"]:
+                        top_a = prev_data["articles"][0]
+                        t = top_a.get("title", "")
+                        d = top_a.get("description", "")
+                        derived_prompt = f"Editorial conceptual art representing top news: {t}, {d}"
+                    elif "news" in prev_data and prev_data["news"]:
+                        top_a = prev_data["news"][0]
+                        t = top_a.get("title", "")
+                        d = top_a.get("description", "")
+                        derived_prompt = f"Editorial conceptual art representing top news: {t}, {d}"
+                    elif "symbol" in prev_data and "price" in prev_data:
+                        derived_prompt = f"Futuristic high-tech visual of {prev_data.get('symbol')} trading at {prev_data.get('price')} with financial chart lines"
+                    elif "title" in prev_data and "summary" in prev_data:
+                        derived_prompt = f"Illustrative artwork of {prev_data.get('title')}: {prev_data.get('summary', '')[:120]}"
+                if not derived_prompt:
+                    derived_prompt = last_user_text
+                if "generate_ai_image" not in disabled_set and self.registry.get_tool("generate_ai_image"):
+                    tool_calls = [{
+                        "id": f"call_img_chained_{len(executed_records)+1}",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_ai_image",
+                            "arguments": json.dumps({"prompt": derived_prompt, "style": "cinematic"}, ensure_ascii=False),
+                        },
+                    }]
+
             # If no tools were called, this is the final answer
             if not tool_calls:
-                final = format_tool_content_if_json(content)
-                if not final and executed_records:
+                if is_refusal and executed_records:
                     final = format_tool_content_if_json(
                         executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
                     )
+                else:
+                    final = format_tool_content_if_json(content)
+                    if (not final or is_refusal) and executed_records:
+                        final = format_tool_content_if_json(
+                            executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
+                        )
                 curr_messages.append({"role": "assistant", "content": final})
                 _notify("loop_finished", final_records_count=len(executed_records))
                 return AgentExecutionResult(

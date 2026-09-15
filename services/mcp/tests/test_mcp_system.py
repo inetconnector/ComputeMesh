@@ -696,6 +696,41 @@ class TestAgentLoop(unittest.TestCase):
         self.assertEqual(res.tool_calls_executed[1].name, "generate_image")
         self.assertEqual(res.iterations, 3)
 
+    def test_agent_loop_refusal_recovery_chained_image(self):
+        self.registry.register_tool(
+            name="get_live_news",
+            description="Fetches live news",
+            parameters={"type": "object", "properties": {"topic": {"type": "string"}}},
+            handler=lambda topic: {"articles": [{"title": "Starship launch", "description": "Successful test"}]},
+        )
+        self.registry.register_tool(
+            name="generate_ai_image",
+            description="Generates an AI image",
+            parameters={"type": "object", "properties": {"prompt": {"type": "string"}}},
+            handler=lambda prompt, style="cinematic": {"url": "http://img.test/news.png", "markdown": "![News](http://img.test/news.png)"},
+        )
+
+        def refusing_llm(messages, tools):
+            # Model emits refusal on all turns
+            return {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": "I'm sorry, but I can't assist with that.",
+                    }
+                }],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 8},
+            }
+
+        res = self.loop.run(
+            messages=[{"role": "user", "content": "erstelle ein bild aus den aktuellen nachrichten"}],
+            model="llama3.1:8b",
+            llm_caller=refusing_llm,
+        )
+        self.assertNotIn("I'm sorry", res.final_content)
+        self.assertIn("![News](http://img.test/news.png)", res.final_content)
+        self.assertTrue(len(res.tool_calls_executed) >= 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,8 +18,7 @@ def is_compound_multi_step_query(text: str) -> bool:
     compound_patterns = [
         r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe)\b",
         r"\b(?:and|and\s+then|then|afterwards|also)\s+(?:create|generate|draw|paint|calculate|search|summarize|plot|show|analyze|check)\b",
-        r"\b(?:aus\s+den|aus\s+dem|aus\s+der|von\s+den|von\s+der|basierend\s+auf)\s+(?:nachrichten|news|schlagzeilen|kursen|wetter|daten|artikeln)\b",
-        r"\b(?:based\s+on|from\s+the)\s+(?:news|headlines|quotes|weather|data|articles)\b",
+        r"\b(?:based\s+on|from\s+the)\s+(?:quotes|weather|data)\b",
         r"\b(?:recherchier\w*|such\w*|find\w*)\b.*\b(?:und|dann|anschließend|and)\b.*\b(?:erstell\w*|generier\w*|zeichn\w*|mal\w*|plot\w*|berechn\w*)\b",
     ]
     for pat in compound_patterns:
@@ -38,7 +37,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if re.search(r"(?:welche\s+mcp|welche\s+tools|welche\s+module|aktive\s+tools|aktive\s+module|list\s+tools|available\s+tools|mcp\s+status|welche\s+funktionen\s+hast\s+du|was\s+kannst\s+du|welche\s+werkzeuge)", cleaned, re.IGNORECASE):
         return ("list_available_tools", {})
 
-    # 0.1 Image Generation (Direct GPU AI RealVisXL synthesis)
+    # 0.1 Image Generation (Direct GPU AI RealVisXL synthesis & Multi-Step dependencies)
     m_img = re.search(
         r"(?:generiere\s+(?:ein\s+)?bild\s+(?:von|mit)?\s*|erstelle\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|zeichne\s+(?:ein\s+)?(?:bild|foto)?\s*(?:von|mit)?\s*|male\s+(?:ein\s+)?(?:bild|gemälde)?\s*(?:von|mit)?\s*|generate\s+(?:an?\s+)?image\s+(?:of|with)?\s*|create\s+(?:an?\s+)?image\s+(?:of|with)?\s*|draw\s+(?:an?\s+)?(?:image|picture)\s+(?:of|with)?\s*)(.+)",
         cleaned,
@@ -46,12 +45,19 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     )
     if m_img:
         raw_prompt = m_img.group(1).strip().rstrip(".!?")
-        # If the image prompt references external dynamic context or multi-step reasoning, delegate to LLM planner
-        is_meta_reference = any(k in raw_prompt.lower() for k in (
-            "nachrichten", "news", "schlagzeilen", "kurs", "wetter", "aktie", "artikel",
-            "recherche", "such", "basierend", "aus dem", "aus der", "aus den", "von heute", "von gestern"
-        ))
-        if len(raw_prompt) >= 3 and not is_meta_reference:
+        # Check if image prompt references dynamic external context requiring data pre-fetch
+        if any(k in raw_prompt.lower() for k in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "breaking")):
+            return ("get_live_news", {"topic": "allgemein"})
+        if any(k in raw_prompt.lower() for k in ("aktie", "kurs", "krypto", "bitcoin", "btc", "eth", "quote")):
+            m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", raw_prompt, re.IGNORECASE)
+            sym = m_coin.group(1).upper() if m_coin else "BTC"
+            return ("get_market_quote", {"asset": sym})
+        if any(k in raw_prompt.lower() for k in ("wetter", "regen", "temperatur", "weather")):
+            m_c = re.search(r"(?:in|von|für)\s+([a-zA-ZäöüÄÖÜß\s\-]+)", raw_prompt, re.IGNORECASE)
+            city = m_c.group(1).strip() if m_c else "Berlin"
+            return ("get_current_weather", {"city": city})
+
+        if len(raw_prompt) >= 3:
             style = "photorealistic"
             if any(w in cleaned.lower() for w in ("gemälde", "painting", "artistic", "ölgemälde", "künstlerisch")):
                 style = "artistic"
@@ -895,6 +901,23 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
 
 REFUSAL_KEYWORDS = [
+    "i'm sorry, but i can't assist",
+    "i'm sorry, but i cannot assist",
+    "i can't assist with that",
+    "i cannot assist with that",
+    "i am sorry, but i cannot",
+    "i'm unable to assist",
+    "as an ai text model",
+    "as a language model, i cannot",
+    "as an ai, i cannot",
+    "i cannot generate images",
+    "i cannot create images",
+    "i don't have the ability to generate images",
+    "ich kann leider keine bilder",
+    "als sprachmodell kann ich keine",
+    "ich habe keinen echtzeitzugriff",
+    "ich kann nicht auf das internet",
+    "ich kann keine aktuellen nachrichten",
     "keine aktuellen",
     "keine echtzeitdaten",
     "kein echtzeitzugriff",
