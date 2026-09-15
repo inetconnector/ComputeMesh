@@ -25,6 +25,49 @@ STYLE_PROMPTS = {
 }
 
 
+def expand_visual_prompt(prompt: str, style: str = "photorealistic") -> str:
+    """Expands short or conceptual user prompts into vivid, high-fidelity diffusion prompts (DALL-E 3 / Midjourney style)."""
+    p = prompt.strip()
+    if not p:
+        return p
+
+    # Clean up command prefixes like 'erstelle ein bild von', 'male', 'draw', etc.
+    p = re.sub(
+        r"^(?:generiere\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|erstelle\s+(?:ein\s+)?(?:bild|foto)\s+(?:von|mit)?\s*|zeichne\s+(?:ein\s+)?(?:bild|foto)?\s*(?:von|mit)?\s*|male\s+(?:ein\s+)?(?:bild|gemälde)?\s*(?:von|mit)?\s*|generate\s+(?:an?\s+)?image\s+(?:of|with)?\s*|create\s+(?:an?\s+)?image\s+(?:of|with)?\s*|draw\s+(?:an?\s+)?(?:image|picture)\s+(?:of|with)?\s*)",
+        "",
+        p,
+        flags=re.IGNORECASE
+    ).strip()
+
+    p_lower = p.lower()
+    enhancements: list[str] = []
+
+    # Subject-specific visual detailing
+    if any(w in p_lower for w in ("raumfahrt", "weltall", "space", "starship", "rakete", "planet", "stern", "galaxy", "mars", "moon")):
+        enhancements.append("cinematic wide shot, deep space cosmic background, nebulae dust, volumetric engine exhaust glow, high realism, 8k resolution")
+    elif any(w in p_lower for w in ("nachricht", "news", "politik", "wirtschaft", "tagesschau", "finanz", "aktie", "börse", "bitcoin", "crypto")):
+        enhancements.append("editorial conceptual composition, symbolic visual narrative, dramatic lighting, sharp depth of field, modern press aesthetics, highly detailed")
+    elif any(w in p_lower for w in ("landschaft", "berge", "meer", "ozean", "natur", "wald", "fluss", "sunset", "sonnenuntergang", "landscape")):
+        enhancements.append("breathtaking panoramic view, golden hour sunlight, atmospheric volumetric haze, pristine crystal-clear environment details, 8k photography")
+    elif any(w in p_lower for w in ("mensch", "porträt", "frau", "mann", "gesicht", "person", "character", "portrait")):
+        enhancements.append("fine photographic portrait, natural softbox studio lighting, authentic skin texture and realistic eye reflections, shallow depth of field, 85mm lens")
+    elif any(w in p_lower for w in ("stadt", "city", "architektur", "gebäude", "futuristisch", "cyberpunk", "neon")):
+        enhancements.append("intricate architectural details, raytraced wet asphalt reflections, volumetric street light glow, ultra-modern dynamic perspective")
+    else:
+        enhancements.append("masterpiece quality, vibrant lighting, intricate textures, sharp focus, professionally framed composition, 8k")
+
+    style_key = style.lower().strip().replace(" ", "_") if style else "photorealistic"
+    matched_style = STYLE_PROMPTS.get(style_key) or STYLE_PROMPTS.get("photorealistic", "")
+
+    parts = [p]
+    if enhancements:
+        parts.append(", ".join(enhancements))
+    if matched_style and matched_style.split(",")[0].lower() not in p_lower:
+        parts.append(matched_style)
+
+    return ", ".join(parts)
+
+
 def _ensure_image_engine_running(timeout: float = 2.0) -> bool:
     try:
         req = urllib.request.Request("http://127.0.0.1:8085/v1/models", headers={"Accept": "application/json"})
@@ -78,21 +121,7 @@ def generate_ai_image(
     if not clean_prompt:
         return {"error": "Prompt darf nicht leer sein"}
 
-    enriched_prompt = clean_prompt
-
-
-
-    if style:
-        style_key = style.lower().strip().replace(" ", "_")
-        matched_suffix = None
-        for key, suffix in STYLE_PROMPTS.items():
-            if key in style_key or (key == "photorealistic" and any(w in style_key for w in ("photo", "realis", "foto"))):
-                matched_suffix = suffix
-                break
-        if matched_suffix and matched_suffix.split(",")[0] not in enriched_prompt.lower():
-            enriched_prompt = f"{enriched_prompt}, {matched_suffix}"
-        elif not matched_suffix and style not in enriched_prompt.lower():
-            enriched_prompt = f"{enriched_prompt}, {style} style, masterpiece"
+    enriched_prompt = expand_visual_prompt(clean_prompt, style=style or "photorealistic") if enhance else clean_prompt
 
     _ensure_image_engine_running(timeout=1.5)
 

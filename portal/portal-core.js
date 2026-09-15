@@ -1716,6 +1716,17 @@ function formatChatMarkdown(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
   
+  // Format <think>...</think> reasoning blocks into interactive collapsible UI accordions
+  escaped = escaped.replace(/(?:&lt;think&gt;|<think>)([\s\S]*?)(?:&lt;\/think&gt;|<\/think>)/gi, (match, thought) => {
+    const cleanThought = thought.trim();
+    if (!cleanThought) return "";
+    const label = currentLang === 'de' ? '🧠 Gedankengang anzeigen (Deep Reasoning & Planung)' : '🧠 Show Thinking Process (Deep Reasoning & Plan)';
+    return `<details class="cm-thinking-block" style="background: rgba(15,23,42,0.65); border: 1px solid rgba(99,102,241,0.35); border-radius: 10px; padding: 0.65rem 0.9rem; margin: 0.8rem 0; font-size: 0.85rem;">
+      <summary style="cursor: pointer; color: #a5b4fc; font-weight: 600; outline: none; user-select: none;">${label}</summary>
+      <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.08); white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">${cleanThought}</div>
+    </details>`;
+  });
+
   // Format code blocks ```python ... ```
   escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const langLabel = lang ? `<div style="font-size:0.7rem; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:0.25rem;">${lang}</div>` : '';
@@ -1738,6 +1749,10 @@ function formatChatMarkdown(text) {
     const cleanUrl = url.replace(/&amp;/g, '&');
     return `<a href="${cleanUrl}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: underline; font-weight: 500;">${txt}</a>`;
   });
+
+  // Format headers ### ...
+  escaped = escaped.replace(/^### (.*$)/gim, '<h4 style="margin: 0.8rem 0 0.4rem; font-size: 1rem; color: #f8fafc;">$1</h4>');
+  escaped = escaped.replace(/^## (.*$)/gim, '<h3 style="margin: 1rem 0 0.5rem; font-size: 1.1rem; color: #f8fafc;">$1</h3>');
 
   // Format inline code `...`
   escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
