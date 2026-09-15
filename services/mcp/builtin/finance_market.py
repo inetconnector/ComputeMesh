@@ -28,6 +28,35 @@ CRYPTO_MAPPINGS = {
     "DOGE": "dogecoin",
 }
 
+# Well-known Company name to ticker mappings
+COMPANY_TICKER_MAPPINGS = {
+    "APPLE": "AAPL",
+    "MICROSOFT": "MSFT",
+    "TESLA": "TSLA",
+    "GOOGLE": "GOOGL",
+    "ALPHABET": "GOOGL",
+    "AMAZON": "AMZN",
+    "NVIDIA": "NVDA",
+    "META": "META",
+    "FACEBOOK": "META",
+    "NETFLIX": "NFLX",
+    "INTEL": "INTC",
+    "AMD": "AMD",
+    "SAP": "SAP",
+    "SIEMENS": "SIE.DE",
+    "VOLKSWAGEN": "VOW3.DE",
+    "VW": "VOW3.DE",
+    "BMW": "BMW.DE",
+    "MERCEDES": "MBG.DE",
+    "DAIMLER": "MBG.DE",
+    "ALLIANZ": "ALV.DE",
+    "DEUTSCHE BANK": "DBK.DE",
+    "DEUTSCHE TELEKOM": "DTE.DE",
+    "TELEKOM": "DTE.DE",
+    "BAYER": "BAYN.DE",
+    "BASF": "BAS.DE",
+}
+
 
 def fetch_yahoo_quote(symbol: str, timeout: float = 8.0) -> Optional[Dict[str, Any]]:
     """
@@ -147,6 +176,11 @@ def get_market_quote(
             }
 
     clean_sym = raw_sym.upper().replace(" ", "")
+    # Check if raw_sym is in company mappings
+    if clean_sym in COMPANY_TICKER_MAPPINGS:
+        clean_sym = COMPANY_TICKER_MAPPINGS[clean_sym]
+    elif raw_sym.strip().upper() in COMPANY_TICKER_MAPPINGS:
+        clean_sym = COMPANY_TICKER_MAPPINGS[raw_sym.strip().upper()]
 
     # Check if query is a crypto symbol
     if clean_sym in CRYPTO_MAPPINGS or clean_sym.endswith("-USD") or clean_sym.endswith("USDT"):
