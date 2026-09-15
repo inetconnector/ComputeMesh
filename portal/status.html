@@ -204,11 +204,198 @@
       </div>
     </div>
 
-    <div class="feature-card" style="margin-bottom: 3rem;">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;" data-i18n="status_metrics_h3">Live-Infrastruktur-Metriken</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;" data-i18n="status_metrics_p">Telemetriedaten werden in Echtzeit von den aktiven Cluster-Knoten bezogen.</p>
+    <div class="feature-card" style="margin-bottom: 3.5rem; background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.7) 100%); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-lg); padding: 2rem; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span style="font-size: 1.4rem;">⛓️</span>
+            <h3 style="font-size: 1.4rem; color: #f8fafc; margin: 0;">Proof-of-Execution (PoE) Blockchain Explorer</h3>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px;">● LIVE VERIFIED</span>
+          </div>
+          <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.4rem;">Kryptografisch unveränderbare Merkle-Blockchain zur auditierbaren Verifikation aller autonomen Tool- und Inferenz-Berechnungen.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshLedgerExplorer()" style="display: flex; align-items: center; gap: 0.4rem;">
+          <span>🔄</span> Aktualisieren
+        </button>
+      </div>
+
+      <!-- Blockchain Metrics Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
+          <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Block-Höhe (Head)</div>
+          <div id="ledger-stat-height" style="font-size: 1.5rem; font-weight: 700; color: #38bdf8; font-family: var(--font-mono); margin-top: 0.3rem;">#--</div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.2rem;">Genesis bis Head</div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
+          <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">PoE-Receipts</div>
+          <div id="ledger-stat-receipts" style="font-size: 1.5rem; font-weight: 700; color: #a78bfa; font-family: var(--font-mono); margin-top: 0.3rem;">--</div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.2rem;">Merkle-verankert</div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
+          <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Chain-Integrität</div>
+          <div id="ledger-stat-integrity" style="font-size: 1.25rem; font-weight: 700; color: #34d399; font-family: var(--font-mono); margin-top: 0.4rem;">GÜLTIG ✓</div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.2rem;">100% Kontinuität</div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
+          <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Speichergröße</div>
+          <div id="ledger-stat-size" style="font-size: 1.5rem; font-weight: 700; color: #f59e0b; font-family: var(--font-mono); margin-top: 0.3rem;">-- KB</div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.2rem;">Ultra-Kompakt WAL</div>
+        </div>
+      </div>
+
+      <!-- Receipt Instant Verification Search -->
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 1.25rem; margin-bottom: 2rem;">
+        <h4 style="font-size: 1rem; color: #f8fafc; margin-bottom: 0.6rem;">🔍 Instant Merkle-Proof Receipt-Verifikation</h4>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          <input type="text" id="verify-receipt-input" placeholder="Receipt-ID eingeben (z. B. poe_62fd7be09930f1d0)" style="flex: 1; min-width: 260px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 0.6rem 0.8rem; color: #fff; font-family: var(--font-mono); font-size: 0.85rem;" />
+          <button class="btn btn-primary btn-sm" onclick="verifyReceiptFromInput()">Kryptografisch Verifizieren</button>
+        </div>
+        <div id="verify-receipt-result" style="display: none; margin-top: 1rem; padding: 0.8rem; border-radius: 6px; font-size: 0.85rem; font-family: var(--font-mono);"></div>
+      </div>
+
+      <!-- Recent Blocks Timeline Feed -->
+      <div style="margin-bottom: 2rem;">
+        <h4 style="font-size: 1.1rem; color: #f8fafc; margin-bottom: 1rem;">📦 Letzte verankerte Blöcke</h4>
+        <div id="ledger-blocks-container" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="color: #64748b; font-size: 0.85rem;">Lade Blockchain-Blöcke...</div>
+        </div>
+      </div>
+
+      <!-- Persistent Custom Tools Hub -->
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.6rem;">
+          <h4 style="font-size: 1.1rem; color: #f8fafc; margin: 0;">🛠️ Autonome &amp; Persistente Custom Dynamic Tools</h4>
+          <span style="font-size: 0.8rem; color: #94a3b8;" id="custom-tools-count">0 Tools aktiv</span>
+        </div>
+        <div id="custom-tools-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+          <div style="color: #64748b; font-size: 0.85rem;">Lade Custom Tools...</div>
+        </div>
+      </div>
     </div>
-  </main>
+
+    <script>
+      async function refreshLedgerExplorer() {
+        try {
+          const statsRes = await fetch('/v1/mcp/ledger/stats');
+          if (statsRes.ok) {
+            const stats = await statsRes.json();
+            document.getElementById('ledger-stat-height').textContent = '#' + (stats.block_height ?? 0);
+            document.getElementById('ledger-stat-receipts').textContent = stats.total_receipts ?? 0;
+            document.getElementById('ledger-stat-size').textContent = (stats.db_size_kb ?? 0) + ' KB';
+            const integEl = document.getElementById('ledger-stat-integrity');
+            if (stats.is_chain_valid) {
+              integEl.textContent = 'GÜLTIG ✓';
+              integEl.style.color = '#34d399';
+            } else {
+              integEl.textContent = 'KORRUPT ✗';
+              integEl.style.color = '#ef4444';
+            }
+          }
+
+          const blocksRes = await fetch('/v1/mcp/ledger/blocks?limit=6');
+          if (blocksRes.ok) {
+            const data = await blocksRes.json();
+            const container = document.getElementById('ledger-blocks-container');
+            if (data.blocks && data.blocks.length > 0) {
+              container.innerHTML = data.blocks.map(b => `
+                <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.9rem 1.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                      <strong style="color: #38bdf8; font-family: var(--font-mono); font-size: 0.95rem;">Block #${b.index}</strong>
+                      <span style="font-size: 0.75rem; color: #94a3b8;">${new Date(b.timestamp * 1000).toLocaleTimeString()}</span>
+                      <span style="background: rgba(167, 139, 250, 0.15); color: #c4b5fd; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px;">${b.receipt_count} Receipt(s)</span>
+                    </div>
+                    <div style="font-family: var(--font-mono); font-size: 0.75rem; color: #64748b; margin-top: 0.3rem;">
+                      Hash: <span style="color: #94a3b8;">${b.block_hash.slice(0, 18)}...${b.block_hash.slice(-8)}</span> | Merkle Root: <span style="color: #94a3b8;">${b.merkle_root.slice(0, 14)}...</span>
+                    </div>
+                  </div>
+                  <div style="font-family: var(--font-mono); font-size: 0.75rem; color: #34d399; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 0.2rem 0.5rem; border-radius: 4px;">
+                    Node: ${b.node_id}
+                  </div>
+                </div>
+              `).join('');
+            } else {
+              container.innerHTML = '<div style="color: #64748b;">Keine Blöcke vorhanden.</div>';
+            }
+          }
+
+          const toolsRes = await fetch('/v1/mcp/custom-tools');
+          if (toolsRes.ok) {
+            const tData = await toolsRes.json();
+            const tList = document.getElementById('custom-tools-list');
+            const tools = tData.data || [];
+            document.getElementById('custom-tools-count').textContent = tools.length + ' Tools aktiv';
+            if (tools.length > 0) {
+              tList.innerHTML = tools.map(t => `
+                <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <strong style="color: #f8fafc; font-size: 0.95rem; font-family: var(--font-mono);">${t.name}</strong>
+                    <span style="font-size: 0.7rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 0.1rem 0.4rem; border-radius: 4px;">v${t.version}</span>
+                  </div>
+                  <p style="color: #94a3b8; font-size: 0.8rem; margin: 0.5rem 0; line-height: 1.4;">${t.description}</p>
+                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; font-family: var(--font-mono); margin-top: 0.6rem;">
+                    <span>Aufrufe: ${t.execution_count}</span>
+                    <span>Ø ${t.avg_elapsed_ms}ms</span>
+                  </div>
+                </div>
+              `).join('');
+            } else {
+              tList.innerHTML = '<div style="color: #64748b; grid-column: 1/-1;">Noch keine Custom Tools gespeichert. Nutzen Sie <code>save_dynamic_tool</code> oder die API.</div>';
+            }
+          }
+        } catch (err) {
+          console.warn('Ledger Explorer fetch error:', err);
+        }
+      }
+
+      async function verifyReceiptFromInput() {
+        const input = document.getElementById('verify-receipt-input');
+        const resBox = document.getElementById('verify-receipt-result');
+        const id = input.value.trim();
+        if (!id) return;
+        resBox.style.display = 'block';
+        resBox.style.background = 'rgba(15, 23, 42, 0.8)';
+        resBox.style.color = '#94a3b8';
+        resBox.textContent = 'Verifiziere Merkle-Proof auf der Chain...';
+
+        try {
+          const resp = await fetch('/v1/mcp/ledger/verify-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receipt_id: id })
+          });
+          const data = await resp.json();
+          if (resp.ok && data.verified) {
+            resBox.style.background = 'rgba(16, 185, 129, 0.15)';
+            resBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+            resBox.style.color = '#34d399';
+            resBox.innerHTML = `✅ <strong>KRYPTOGRAFISCH VERIFIZIERT</strong><br>
+              Receipt-ID: ${data.receipt_id}<br>
+              Block: #${data.block_index} | Tool: ${data.tool_name}<br>
+              Dauer: ${data.elapsed_seconds}s | Node: ${data.node_id}<br>
+              Merkle-Tree Inclusion Proof: BINDEND & VALIDE ✓`;
+          } else {
+            resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            resBox.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+            resBox.style.color = '#f87171';
+            resBox.textContent = '❌ Verifikation fehlgeschlagen: ' + (data.error || 'Receipt existiert nicht oder Merkle-Proof ungültig.');
+          }
+        } catch (err) {
+          resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          resBox.style.color = '#f87171';
+          resBox.textContent = '❌ Fehler beim Abruf: ' + err.message;
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        refreshLedgerExplorer();
+        setInterval(refreshLedgerExplorer, 15000);
+      });
+    </script>
+
 
   <footer class="site-footer">
     <div class="container footer-bottom" style="border: none;">

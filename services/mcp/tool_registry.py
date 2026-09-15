@@ -472,6 +472,11 @@ class ToolRegistry:
         self._tools: Dict[str, ToolDefinition] = {}
         self._cache = ToolCache()
         self._register_default_tools()
+        try:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            get_custom_tool_store().load_into_registry(self)
+        except Exception:
+            pass
 
     def register_tool(
         self,
@@ -1796,6 +1801,106 @@ class ToolRegistry:
             }, ["receipt_id"]),
             verify_proof_of_execution,
             source="builtin_ledger",
+        )
+
+        def save_dynamic_tool(
+            name: str,
+            description: str,
+            parameters: Optional[Dict[str, Any]] = None,
+            python_code: str = "",
+            tags: Optional[List[str]] = None,
+        ) -> Dict[str, Any]:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            store = get_custom_tool_store()
+            res = store.save_tool(
+                name=name,
+                description=description,
+                parameters=parameters or {},
+                code=python_code,
+                tags=tags or ["dynamic", "custom"],
+            )
+            store.load_into_registry(self)
+            return res
+
+        self.register_tool(
+            "save_dynamic_tool",
+            "Speichert und registriert ein benutzerdefiniertes oder synthetisiertes Python-Tool dauerhaft im Custom Tool Store (inklusive AST-Sicherheitscheck und automatischer MCP-Aktivierung).",
+            schema({
+                "name": {"type": "string", "description": "Eindeutiger Funktionsname (z. B. 'compute_custom_matrix')."},
+                "description": {"type": "string", "description": "LLM-taugliche Funktionsbeschreibung."},
+                "python_code": {"type": "string", "description": "Sicherer Python-Code mit 'def execute(inputs: dict) -> dict'."},
+                "parameters": {"type": "object", "description": "JSON Schema der Eingabeparameter.", "default": {}},
+                "tags": {"type": "array", "description": "Kategorie-Tags (z. B. ['math', 'finance']).", "items": {"type": "string"}},
+            }, ["name", "description", "python_code"]),
+            save_dynamic_tool,
+            source="builtin_custom_tools",
+        )
+
+        def list_saved_custom_tools(
+            tag: Optional[str] = None,
+            search: Optional[str] = None,
+        ) -> List[Dict[str, Any]]:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            return get_custom_tool_store().list_tools(tag=tag, search=search)
+
+        self.register_tool(
+            "list_saved_custom_tools",
+            "Listet alle dauerhaft gespeicherten Custom-Tools inklusive Aufrufmetriken, Ausführungszeiten und Tags auf.",
+            schema({
+                "tag": {"type": "string", "description": "Optionaler Filter nach Kategorie-Tag."},
+                "search": {"type": "string", "description": "Optionaler Suchtext in Name und Beschreibung."},
+            }),
+            list_saved_custom_tools,
+            source="builtin_custom_tools",
+        )
+
+        def get_custom_tool_details(name: str) -> Dict[str, Any]:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            tool = get_custom_tool_store().get_tool(name)
+            if not tool:
+                return {"error": f"Custom Tool '{name}' existiert nicht."}
+            return tool
+
+        self.register_tool(
+            "get_custom_tool_details",
+            "Ruft Quellcode, Schema und Ausführungsstatistiken eines gespeicherten Custom-Tools ab.",
+            schema({
+                "name": {"type": "string", "description": "Name des abzufragenden Custom-Tools."},
+            }, ["name"]),
+            get_custom_tool_details,
+            source="builtin_custom_tools",
+        )
+
+        def remove_dynamic_tool(name: str) -> Dict[str, Any]:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            store = get_custom_tool_store()
+            deleted = store.delete_tool(name)
+            self.unregister_tool(name)
+            return {"name": name, "deleted": deleted}
+
+        self.register_tool(
+            "remove_dynamic_tool",
+            "Löscht ein gespeichertes Custom-Tool dauerhaft aus dem Tool-Store und deregistriert es aus dem aktiven MCP-Katalog.",
+            schema({
+                "name": {"type": "string", "description": "Name des zu löschenden Custom-Tools."},
+            }, ["name"]),
+            remove_dynamic_tool,
+            source="builtin_custom_tools",
+        )
+
+        def execute_custom_tool(name: str, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            from .dynamic.custom_tool_store import get_custom_tool_store
+            return get_custom_tool_store().execute_tool(name=name, inputs=inputs or {})
+
+        self.register_tool(
+            "execute_custom_tool",
+            "Führt ein gespeichertes Custom-Tool mit den angegebenen Eingabedaten in der Sandbox aus und erzeugt einen PoE-Blockchain-Receipt.",
+            schema({
+                "name": {"type": "string", "description": "Name des auszuführenden Custom-Tools."},
+                "inputs": {"type": "object", "description": "Eingabedaten für das Tool als Key-Value Dictionary.", "default": {}},
+            }, ["name"]),
+            execute_custom_tool,
+            source="builtin_custom_tools",
         )
 
 

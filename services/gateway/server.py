@@ -535,11 +535,26 @@ class GatewayHandler(BaseHTTPRequestHandler):
         for h_name, h_val in SECURITY_HEADERS.items():
             self.send_header(h_name, h_val)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Forwarded-For, Stripe-Signature")
         self.send_header("Connection", "close")
         self.end_headers()
         self.close_connection = True
+
+    def do_DELETE(self) -> None:
+        if not self._check_rate_limit():
+            return
+        parsed_path = urlparse(self.path)
+        clean_path = parsed_path.path.rstrip("/")
+        if clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/"):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            t_name = clean_path.split("/")[-1]
+            store = get_custom_tool_store()
+            deleted = store.delete_tool(t_name)
+            self.inference_engine.tool_registry.unregister_tool(t_name)
+            self._send_json({"name": t_name, "deleted": deleted})
+            return
+        self._send_error_response("Method Not Allowed", "invalid_request_error", HTTPStatus.METHOD_NOT_ALLOWED)
 
     def do_GET(self) -> None:
         if not self._check_rate_limit():
@@ -760,6 +775,72 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if clean_path in ("/v1/mcp/tools", "/api/v1/mcp/tools", "/mcp/tools"):
             tools = self.inference_engine.tool_registry.get_openai_tools(is_owner=True)
             self._send_json({"object": "list", "data": tools})
+            return
+
+        # MCP Ledger Explorer & Statistics Routes
+        if clean_path in ("/v1/mcp/ledger/stats", "/api/v1/mcp/ledger/stats", "/mcp/ledger/stats"):
+            from services.mcp.ledger import get_compact_ledger
+            self._send_json(get_compact_ledger().get_stats())
+            return
+
+        if clean_path in ("/v1/mcp/ledger/blocks", "/api/v1/mcp/ledger/blocks", "/mcp/ledger/blocks"):
+            from services.mcp.ledger import get_compact_ledger
+            ledger = get_compact_ledger()
+            offset = int(query.get("offset", [0])[0])
+            limit = int(query.get("limit", [20])[0])
+            blocks = ledger.get_blocks_slice(offset=offset, limit=limit)
+            self._send_json({"blocks": blocks, "stats": ledger.get_stats()})
+            return
+
+        if clean_path.startswith("/v1/mcp/ledger/blocks/") or clean_path.startswith("/api/v1/mcp/ledger/blocks/"):
+            from services.mcp.ledger import get_compact_ledger
+            raw_idx = clean_path.split("/")[-1]
+            try:
+                b_idx = int(raw_idx)
+                b_data = get_compact_ledger().get_block_by_index(b_idx, include_receipts=True)
+                if not b_data:
+                    self._send_error_response(f"Block #{b_idx} nicht gefunden", "not_found", HTTPStatus.NOT_FOUND)
+                else:
+                    self._send_json(b_data)
+            except ValueError:
+                self._send_error_response("Ungültiger Block-Index", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path.startswith("/v1/mcp/ledger/receipts/") or clean_path.startswith("/api/v1/mcp/ledger/receipts/"):
+            from services.mcp.ledger import get_compact_ledger
+            receipt_id = clean_path.split("/")[-1]
+            r_data = get_compact_ledger().get_receipt(receipt_id)
+            if not r_data:
+                self._send_error_response(f"Proof-of-Execution Receipt '{receipt_id}' nicht gefunden", "not_found", HTTPStatus.NOT_FOUND)
+            else:
+                self._send_json(r_data)
+            return
+
+        if clean_path in ("/v1/mcp/ledger/sync", "/api/v1/mcp/ledger/sync"):
+            from services.mcp.ledger.sync import get_ledger_sync_engine
+            since = int(query.get("since", [-1])[0])
+            limit = int(query.get("limit", [50])[0])
+            sync_blocks = get_ledger_sync_engine().get_blocks_since(since_index=since, limit=limit)
+            self._send_json({"blocks": sync_blocks, "count": len(sync_blocks)})
+            return
+
+        # MCP Persistent Custom Tools Routes
+        if clean_path in ("/v1/mcp/custom-tools", "/api/v1/mcp/custom-tools", "/mcp/custom-tools"):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            tag_filter = query.get("tag", [None])[0]
+            search_filter = query.get("search", [None])[0]
+            tools = get_custom_tool_store().list_tools(tag=tag_filter, search=search_filter)
+            self._send_json({"object": "list", "data": tools, "count": len(tools)})
+            return
+
+        if (clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/")) and not clean_path.endswith("/execute"):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            tool_name = clean_path.split("/")[-1]
+            tool = get_custom_tool_store().get_tool(tool_name)
+            if not tool:
+                self._send_error_response(f"Custom Tool '{tool_name}' nicht gefunden", "not_found", HTTPStatus.NOT_FOUND)
+            else:
+                self._send_json(tool)
             return
 
         if clean_path == "/api/auth/me":
@@ -1743,8 +1824,95 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._handle_ollama_generate(body)
             return
 
-        if clean_path in ("/api/show", "/api/v1/show"):
-            self._handle_ollama_show(body)
+        # MCP Ledger Receipt Verification & Sync Ingestion
+        if clean_path in ("/v1/mcp/ledger/verify-receipt", "/api/v1/mcp/ledger/verify-receipt"):
+            from services.mcp.ledger import get_compact_ledger, MerkleTree
+            from services.mcp.ledger.block import ProofOfExecutionReceipt
+            receipt_id = str(body.get("receipt_id", "")).strip()
+            if not receipt_id:
+                self._send_error_response("receipt_id Parameter erforderlich", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            res = get_compact_ledger().get_receipt(receipt_id)
+            if not res:
+                self._send_json({"verified": False, "receipt_id": receipt_id, "error": "Receipt nicht in Ledger gefunden"}, HTTPStatus.NOT_FOUND)
+                return
+            is_valid = False
+            if res.get("is_confirmed") and res.get("merkle_proof") is not None and res.get("block"):
+                r_dict = res["receipt"]
+                receipt_obj = ProofOfExecutionReceipt(**r_dict)
+                leaf_h = receipt_obj.compute_leaf_hash()
+                expected_root = res["block"]["merkle_root"]
+                is_valid = MerkleTree.verify_proof(leaf_h, res["merkle_proof"], expected_root)
+            self._send_json({
+                "verified": is_valid,
+                "receipt_id": receipt_id,
+                "is_confirmed": res.get("is_confirmed", False),
+                "block_index": res.get("receipt", {}).get("block_index"),
+                "tool_name": res.get("receipt", {}).get("tool_name"),
+                "elapsed_seconds": res.get("receipt", {}).get("elapsed_seconds"),
+                "node_id": res.get("receipt", {}).get("node_id"),
+                "timestamp": res.get("receipt", {}).get("timestamp"),
+            })
+            return
+
+        if clean_path in ("/v1/mcp/ledger/blocks/broadcast", "/api/v1/mcp/ledger/blocks/broadcast"):
+            from services.mcp.ledger.sync import get_ledger_sync_engine
+            b_data = body.get("block")
+            r_data = body.get("receipts", [])
+            if not b_data:
+                self._send_error_response("block payload erforderlich", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            ok, msg = get_ledger_sync_engine().ingest_remote_block(b_data, r_data)
+            status_code = HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST
+            self._send_json({"status": "ok" if ok else "error", "message": msg, "block_index": b_data.get("index")}, status_code)
+            return
+
+        if clean_path in ("/v1/mcp/ledger/sync-trigger", "/api/v1/mcp/ledger/sync-trigger"):
+            from services.mcp.ledger.sync import get_ledger_sync_engine
+            peer_url = str(body.get("peer_url", "")).strip()
+            if not peer_url:
+                self._send_error_response("peer_url Parameter erforderlich", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            auth_t = str(body.get("auth_token", "")).strip() or None
+            res = get_ledger_sync_engine().sync_from_peer(peer_url=peer_url, auth_token=auth_t)
+            self._send_json(res)
+            return
+
+        # MCP Custom Tools Creation, Execution & Deletion
+        if clean_path in ("/v1/mcp/custom-tools", "/api/v1/mcp/custom-tools"):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            t_name = str(body.get("name", "")).strip()
+            t_desc = str(body.get("description", "")).strip()
+            t_params = body.get("parameters", {})
+            t_code = str(body.get("python_code", "") or body.get("code", "")).strip()
+            t_tags = body.get("tags", ["custom", "dynamic"])
+            try:
+                store = get_custom_tool_store()
+                saved = store.save_tool(name=t_name, description=t_desc, parameters=t_params, code=t_code, tags=t_tags)
+                store.load_into_registry(self.inference_engine.tool_registry)
+                self._send_json(saved, HTTPStatus.CREATED)
+            except Exception as exc:
+                self._send_error_response(str(exc), "custom_tool_save_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        if clean_path.startswith("/v1/mcp/custom-tools/") and clean_path.endswith("/execute"):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            parts = clean_path.split("/")
+            t_name = parts[-2]
+            t_inputs = body.get("inputs", {})
+            exec_res = get_custom_tool_store().execute_tool(name=t_name, inputs=t_inputs)
+            self._send_json(exec_res)
+            return
+
+        if clean_path in ("/v1/mcp/custom-tools/delete", "/api/v1/mcp/custom-tools/delete") or (clean_path.startswith("/v1/mcp/custom-tools/") and clean_path.endswith("/delete")):
+            from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
+            t_name = str(body.get("name", "")).strip()
+            if not t_name and clean_path.endswith("/delete"):
+                t_name = clean_path.split("/")[-2]
+            store = get_custom_tool_store()
+            deleted = store.delete_tool(t_name)
+            self.inference_engine.tool_registry.unregister_tool(t_name)
+            self._send_json({"name": t_name, "deleted": deleted})
             return
 
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)

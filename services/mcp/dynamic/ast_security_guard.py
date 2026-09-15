@@ -116,3 +116,18 @@ def validate_python_code_ast(code: str) -> None:
         raise SecurityASTViolation(
             "Der generierte Code muss eine zustandslose Funktion 'def execute(inputs: dict) -> dict' definieren."
         )
+
+
+SecurityViolationError = SecurityASTViolation
+
+
+class ASTSecurityGuard:
+    """Convenience class wrapper for AST static security analysis."""
+
+    @staticmethod
+    def validate(code: str) -> tuple[bool, str | None]:
+        try:
+            validate_python_code_ast(code)
+            return True, None
+        except SecurityASTViolation as exc:
+            return False, str(exc)

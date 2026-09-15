@@ -101,8 +101,7 @@ class LedgerBlock:
         tree = MerkleTree(leaf_hashes)
         m_root = tree.root
 
-        header_str = f"{index}:{t}:{prev_hash}:{m_root}:{len(receipts)}:{node_id}"
-        b_hash = sha256_hash(header_str)
+        header_str = cls.compute_block_hash(index, t, prev_hash, m_root, len(receipts), node_id)
 
         block = cls(
             index=index,
@@ -112,18 +111,22 @@ class LedgerBlock:
             receipt_count=len(receipts),
             receipt_leaf_hashes=leaf_hashes,
             node_id=node_id,
-            block_hash=b_hash,
+            block_hash=header_str,
         )
         for r in receipts:
             r.block_index = index
         return block
 
+    @staticmethod
+    def compute_block_hash(index: int, timestamp: float, prev_hash: str, merkle_root: str, receipt_count: int, node_id: str) -> str:
+        header_str = f"{index}:{timestamp}:{prev_hash}:{merkle_root}:{receipt_count}:{node_id}"
+        return sha256_hash(header_str)
+
     def verify_integrity(self, expected_prev_hash: str) -> bool:
         """Verifies block header digest and chain connectivity."""
         if self.prev_hash != expected_prev_hash:
             return False
-        header_str = f"{self.index}:{self.timestamp}:{self.prev_hash}:{self.merkle_root}:{self.receipt_count}:{self.node_id}"
-        return sha256_hash(header_str) == self.block_hash
+        return self.compute_block_hash(self.index, self.timestamp, self.prev_hash, self.merkle_root, self.receipt_count, self.node_id) == self.block_hash
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -84,20 +84,30 @@ class CompactLedger:
                 cur.execute("SELECT COUNT(*) FROM blocks")
                 count = cur.fetchone()[0]
                 if count == 0:
-                    genesis_receipt = ProofOfExecutionReceipt.create(
+                    genesis_receipt = ProofOfExecutionReceipt(
+                        receipt_id="poe_genesis_anchor_00000000",
+                        timestamp=1700000000.0,
                         tool_name="genesis_init",
-                        task_description="ComputeMesh Cryptographic Ledger Genesis Anchor",
-                        code="genesis",
-                        inputs={"genesis": True},
-                        outputs={"status": "genesis_active"},
+                        task_hash=sha256_hash("ComputeMesh Cryptographic Ledger Genesis Anchor"),
+                        code_ast_hash=sha256_hash("genesis"),
+                        inputs_hash=sha256_hash(json.dumps({"genesis": True}, sort_keys=True)),
+                        outputs_hash=sha256_hash(json.dumps({"status": "genesis_active"}, sort_keys=True)),
                         elapsed_seconds=0.0,
                         node_id="genesis_root",
+                        status="genesis_active",
+                        block_index=0,
                     )
-                    genesis_block = LedgerBlock.create(
+                    leaf_hash = genesis_receipt.compute_leaf_hash()
+                    tree = MerkleTree([leaf_hash])
+                    genesis_block = LedgerBlock(
                         index=0,
+                        timestamp=1700000000.0,
                         prev_hash=GENESIS_PREV_HASH,
-                        receipts=[genesis_receipt],
+                        merkle_root=tree.root,
+                        receipt_count=1,
+                        receipt_leaf_hashes=[leaf_hash],
                         node_id="genesis_root",
+                        block_hash=LedgerBlock.compute_block_hash(0, 1700000000.0, GENESIS_PREV_HASH, tree.root, 1, "genesis_root"),
                     )
                     self._write_block_and_receipts(conn, genesis_block, [genesis_receipt])
                     logger.info(f"Initialized ComputeMesh Genesis Block: {genesis_block.block_hash[:16]}")
@@ -211,6 +221,16 @@ class CompactLedger:
 
     def get_receipt(self, receipt_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves a receipt and its associated Merkle proof."""
+        with self._lock:
+            for pending in self._pending_receipts:
+                if pending.receipt_id == receipt_id:
+                    return {
+                        "receipt": pending.to_dict(),
+                        "block": None,
+                        "merkle_proof": None,
+                        "is_confirmed": False,
+                    }
+
         with self._db_session() as conn:
             cur = conn.cursor()
             cur.execute(
@@ -318,6 +338,103 @@ class CompactLedger:
                 expected_prev = block.block_hash
 
             return True, None
+
+    def get_blocks_slice(self, offset: int = 0, limit: int = 20) -> List[Dict[str, Any]]:
+        """Returns a paginated list of blocks (ordered newest first)."""
+        safe_limit = max(1, min(100, limit))
+        safe_offset = max(0, offset)
+        with self._db_session() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT block_index, timestamp, prev_hash, merkle_root, receipt_count,
+                       receipt_leaf_hashes, node_id, block_hash
+                FROM blocks
+                ORDER BY block_index DESC
+                LIMIT ? OFFSET ?
+                """,
+                (safe_limit, safe_offset),
+            )
+            rows = cur.fetchall()
+            blocks = []
+            for r in rows:
+                b = LedgerBlock(
+                    index=r[0],
+                    timestamp=r[1],
+                    prev_hash=r[2],
+                    merkle_root=r[3],
+                    receipt_count=r[4],
+                    receipt_leaf_hashes=json.loads(r[5]),
+                    node_id=r[6],
+                    block_hash=r[7],
+                )
+                blocks.append(b.to_dict())
+            return blocks
+
+    def get_block_by_index(self, block_index: int, include_receipts: bool = True) -> Optional[Dict[str, Any]]:
+        """Returns full block details and optionally all contained receipts."""
+        with self._db_session() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT block_index, timestamp, prev_hash, merkle_root, receipt_count,
+                       receipt_leaf_hashes, node_id, block_hash
+                FROM blocks WHERE block_index = ?
+                """,
+                (block_index,),
+            )
+            b_row = cur.fetchone()
+            if not b_row:
+                return None
+
+            block = LedgerBlock(
+                index=b_row[0],
+                timestamp=b_row[1],
+                prev_hash=b_row[2],
+                merkle_root=b_row[3],
+                receipt_count=b_row[4],
+                receipt_leaf_hashes=json.loads(b_row[5]),
+                node_id=b_row[6],
+                block_hash=b_row[7],
+            )
+            data = block.to_dict()
+
+            if include_receipts:
+                cur.execute(
+                    """
+                    SELECT receipt_id, timestamp, tool_name, task_hash, code_ast_hash,
+                           inputs_hash, outputs_hash, elapsed_seconds, node_id, status, block_index
+                    FROM receipts WHERE block_index = ?
+                    ORDER BY timestamp ASC
+                    """,
+                    (block_index,),
+                )
+                r_rows = cur.fetchall()
+                receipts = []
+                for r in r_rows:
+                    receipts.append({
+                        "receipt_id": r[0],
+                        "timestamp": r[1],
+                        "tool_name": r[2],
+                        "task_hash": r[3],
+                        "code_ast_hash": r[4],
+                        "inputs_hash": r[5],
+                        "outputs_hash": r[6],
+                        "elapsed_seconds": r[7],
+                        "node_id": r[8],
+                        "status": r[9],
+                        "block_index": r[10],
+                    })
+                data["receipts"] = receipts
+
+            return data
+
+    def ingest_block_direct(self, block: LedgerBlock, receipts: List[ProofOfExecutionReceipt]) -> bool:
+        """Directly writes a cryptographically validated remote block and its receipts into the local chain."""
+        with self._lock:
+            with self._db_session() as conn:
+                self._write_block_and_receipts(conn, block, receipts)
+            return True
 
     def get_stats(self) -> Dict[str, Any]:
         """Returns high-level statistics for fleet monitoring and health checks."""

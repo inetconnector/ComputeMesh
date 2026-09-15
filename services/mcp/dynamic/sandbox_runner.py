@@ -152,3 +152,28 @@ def run_code_in_sandbox(
         return {"result": res, "_sandbox_metrics": {"elapsed_seconds": elapsed, "exit_code": 0}}
     except json.JSONDecodeError as exc:
         raise SandboxExecutionError(f"Ungültige JSON-Ausgabe aus Sandbox: {exc.msg}")
+
+
+class SandboxResult:
+    def __init__(self, success: bool, output: Any = None, error: Optional[str] = None, stdout: str = ""):
+        self.success = success
+        self.output = output
+        self.error = error
+        self.stdout = stdout
+
+
+class SandboxRunner:
+    """Manages isolated subprocess sandboxes for executing custom tools."""
+
+    def __init__(self, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS, max_memory_mb: int = 256):
+        self.timeout_seconds = timeout_seconds
+        self.max_memory_mb = max_memory_mb
+
+    def execute(self, code: str, inputs: Dict[str, Any]) -> SandboxResult:
+        try:
+            res = run_code_in_sandbox(code, inputs, timeout_seconds=self.timeout_seconds)
+            return SandboxResult(success=True, output=res)
+        except (SandboxExecutionError, SandboxTimeoutError) as exc:
+            return SandboxResult(success=False, error=str(exc))
+        except Exception as exc:
+            return SandboxResult(success=False, error=f"Unerwarteter Sandbox-Fehler: {exc}")

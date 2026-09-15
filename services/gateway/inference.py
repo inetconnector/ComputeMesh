@@ -75,6 +75,7 @@ class InferenceEngine:
         max_tokens: int | None = None,
         enable_mcp: bool = True,
         response_format: dict[str, Any] | None = None,
+        on_progress: Any = None,
     ) -> tuple[str, str, int, int, int]:
         """Execute inference with atomic credit hold reservation and post-completion capture.
 
@@ -245,6 +246,7 @@ class InferenceEngine:
                     llm_caller=local_llm_caller,
                     is_owner=True,
                     disabled_tools=disabled_tools,
+                    on_progress=on_progress,
                 )
                 completion_text = agent_res.final_content
                 tokens_prompt = agent_res.prompt_tokens

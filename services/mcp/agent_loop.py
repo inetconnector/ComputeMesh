@@ -67,12 +67,20 @@ class AgentLoop:
         is_owner: bool = True,
         max_iterations: Optional[int] = None,
         disabled_tools: Optional[List[str]] = None,
+        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> AgentExecutionResult:
         try:
             requested_iterations = int(self.config.max_agent_iterations if max_iterations is None else max_iterations)
         except (TypeError, ValueError):
             requested_iterations = self.config.max_agent_iterations
         max_iter = max(1, min(MAX_AGENT_ITERATIONS, requested_iterations))
+
+        def _notify(event_name: str, **extra: Any) -> None:
+            if on_progress:
+                try:
+                    on_progress({"event": event_name, **extra})
+                except Exception:
+                    pass
 
         curr_messages = [dict(message) for message in messages]
         disabled_set = {
@@ -152,6 +160,7 @@ class AgentLoop:
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
                 call_id = "call_direct_preflight_1"
+                _notify("intent_preflight", tool=fn_name, arguments=fn_args)
                 tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
                 executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
                 output_str = tool_res if isinstance(tool_res, str) else json.dumps(tool_res, ensure_ascii=False)
@@ -176,8 +185,10 @@ class AgentLoop:
                     "name": fn_name,
                     "content": output_str,
                 })
+                _notify("preflight_completed", tool=fn_name)
 
         for iteration in range(1, max_iter + 1):
+            _notify("iteration_start", iteration=iteration, max_iterations=max_iter)
             response = llm_caller(curr_messages, tools if tools else [])
             if not isinstance(response, dict):
                 break
@@ -223,6 +234,7 @@ class AgentLoop:
                         executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
                     )
                 curr_messages.append({"role": "assistant", "content": final})
+                _notify("loop_finished", final_records_count=len(executed_records))
                 return AgentExecutionResult(
                     final_content=final,
                     messages=curr_messages,
@@ -240,6 +252,7 @@ class AgentLoop:
             curr_messages.append(assistant_msg)
 
             # Execute tool calls in parallel with automatic concurrency and TTL caching
+            _notify("tools_batch_executing", count=len(tool_calls), tools=[c.get("function", {}).get("name") for c in tool_calls])
             batch_results = self.registry.execute_tools_batch(tool_calls, is_owner=is_owner)
             for res_item in batch_results:
                 call_id = res_item["id"]
@@ -266,6 +279,7 @@ class AgentLoop:
                     "name": fn_name,
                     "content": output_str,
                 })
+            _notify("tools_batch_completed", count=len(batch_results))
 
         final = format_tool_content_if_json(last_assistant_content)
         if not final and executed_records:

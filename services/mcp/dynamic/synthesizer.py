@@ -127,6 +127,7 @@ class DynamicToolEngine:
         inputs: Dict[str, Any],
         llm_caller: Optional[Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]] = None,
         provided_code: Optional[str] = None,
+        on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
         """
         Full 7-Layer Zero-Trust Pipeline:
@@ -142,7 +143,15 @@ class DynamicToolEngine:
         tool_name = f"dyn_{hashlib.sha256(task_description.encode('utf-8')).hexdigest()[:12]}"
         code = provided_code or ""
 
+        def _notify(phase: str, **extra: Any) -> None:
+            if on_progress:
+                try:
+                    on_progress({"phase": phase, "tool_name": tool_name, "task": task_description[:80], **extra})
+                except Exception:
+                    pass
+
         # Step 1: Guardrail
+        _notify("guardrail_check", status="verifying")
         self.check_safety_guardrails(task_description)
 
         # Check Cache
@@ -151,6 +160,7 @@ class DynamicToolEngine:
             cached_tool = self._tool_cache[task_hash]
             if (time.time() - cached_tool.created_at) < self.cache_ttl_seconds:
                 code = cached_tool.code
+                _notify("cache_hit", sha256=cached_tool.sha256_hash[:16])
 
         max_attempts = 3
         last_error = None
@@ -159,15 +169,19 @@ class DynamicToolEngine:
             try:
                 if not code:
                     # Step 2: Synthesis
+                    _notify("code_synthesis", attempt=attempt, max_attempts=max_attempts)
                     code = self.synthesize_tool_code(task_description, inputs, llm_caller=llm_caller)
 
                 # Step 3: AST Static Analysis
+                _notify("ast_static_analysis", status="analyzing_rules")
                 validate_python_code_ast(code)
 
                 # Step 4: Pre-Flight Smoke Test
+                _notify("preflight_smoke_test", status="running_isolated")
                 self.preflight_smoke_test(code, inputs)
 
                 # Step 5: Isolated OS Sandbox Execution
+                _notify("sandbox_execution", status="executing_process")
                 result = run_code_in_sandbox(code, inputs, timeout_seconds=3.0)
 
                 elapsed = round(time.perf_counter() - start_t, 3)
@@ -192,6 +206,7 @@ class DynamicToolEngine:
                 ))
 
                 # Cryptographic Proof-of-Execution Ledger Recording
+                _notify("ledger_anchoring", status="signing_merkle_receipt")
                 receipt_id = None
                 try:
                     from ..ledger import get_compact_ledger
@@ -205,6 +220,7 @@ class DynamicToolEngine:
                         status="verified_success",
                     )
                     receipt_id = receipt.receipt_id
+                    _notify("execution_complete", receipt_id=receipt_id, elapsed_seconds=elapsed)
                 except Exception as l_exc:
                     logger.debug(f"Ledger record error: {l_exc}")
 
