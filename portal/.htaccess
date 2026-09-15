@@ -1,7 +1,7 @@
 RewriteEngine On
 RewriteBase /
 
-# Resilient Android downloads: production deployment normally places verified
+# Resilient Android & NodeOS downloads: production deployment normally places verified
 # artifacts in portal/downloads. If a file is temporarily absent, fall back to
 # the signed stable GitHub release instead of returning a broken 404 link.
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -10,6 +10,12 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^downloads/ComputeMesh-Android\.aab$ https://github.com/inetconnector/ComputeMesh/releases/download/android-latest/ComputeMesh-Android.aab [R=302,L,NE]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^downloads/ComputeMesh-Android\.json$ https://github.com/inetconnector/ComputeMesh/releases/download/android-latest/ComputeMesh-Android.json [R=302,L,NE]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^downloads/computemesh-nodeos-x86_64\.(iso|img\.xz)$ https://github.com/inetconnector/ComputeMesh/releases [R=302,L,NE]
+
+# German URL Aliases
+RewriteRule ^datenschutz/?$ privacy.html [L,QSA]
+RewriteRule ^kontakt/?$ contact.html [L,QSA]
 
 # Force clean URLs without .html extension
 RewriteCond %{REQUEST_FILENAME} !-f

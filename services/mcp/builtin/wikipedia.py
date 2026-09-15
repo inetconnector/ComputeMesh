@@ -7,6 +7,7 @@ Fetches verified factual summaries, definitions, scientific concepts, and biogra
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional
@@ -71,6 +72,25 @@ def get_wikipedia_summary(
     lang = (language or "de").strip().lower()
     if lang not in ("de", "en", "fr", "es", "it"):
         lang = "de"
+
+    # Multi-topic query detection (e.g. "Albert Einstein, Isaac Newton und Marie Curie")
+    raw_topics = [t.strip().rstrip("?.!") for t in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', search_term, flags=re.IGNORECASE) if t.strip()]
+    if len(raw_topics) > 1:
+        articles_data = []
+        for single_topic in raw_topics:
+            if not single_topic or len(single_topic) < 2:
+                continue
+            art = get_wikipedia_summary(query=single_topic, language=lang, timeout=timeout / 2)
+            if art and "error" not in art:
+                articles_data.append(art)
+        if articles_data:
+            if len(articles_data) == 1:
+                return articles_data[0]
+            return {
+                "multiple_articles": True,
+                "articles": articles_data,
+                "count": len(articles_data)
+            }
 
     # 1. Direct title lookup in target language
     res = _fetch_wiki_summary_by_title(search_term, lang=lang, timeout=timeout / 2)

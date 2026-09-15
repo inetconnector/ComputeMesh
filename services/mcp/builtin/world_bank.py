@@ -7,6 +7,7 @@ Fetches verified economic, demographic, inflation, and development data for all 
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
@@ -57,17 +58,15 @@ INDICATORS_MAP = {
 }
 
 
-def get_world_bank_stats(
+def _get_single_country_stats(
     country: str = "DEU",
     indicator: str = "gdp",
     indicator_code: str = "",
     start_year: int = 2018,
     end_year: int = 2024,
-    timeout: float = 6.0,
+    timeout: float = 8.0,
 ) -> Dict[str, Any]:
-    """
-    Fetches official macroeconomic indicators (GDP, inflation, population, life expectancy, CO2) from the World Bank.
-    """
+    """Fetches official macroeconomic indicators for a single country from the World Bank API."""
     clean_country = (country or "DEU").strip().lower()
     iso3 = COUNTRY_CODES_MAP.get(clean_country, clean_country.upper())
 
@@ -84,7 +83,6 @@ def get_world_bank_stats(
         if not data or not isinstance(data, list) or len(data) < 2:
             return {"error": f"Keine Weltbank-Daten für Land '{country}' und Indikator '{indicator}' gefunden."}
 
-        meta = data[0]
         records = data[1] or []
 
         time_series: List[Dict[str, Any]] = []
@@ -116,6 +114,64 @@ def get_world_bank_stats(
         }
     except Exception as e:
         return {"error": f"Fehler bei Abfrage der Weltbank-Datenbank: {str(e)}"}
+
+
+def get_world_bank_stats(
+    country: str = "DEU",
+    indicator: str = "gdp",
+    indicator_code: str = "",
+    query: str = "",
+    start_year: int = 2018,
+    end_year: int = 2024,
+    timeout: float = 8.0,
+) -> Dict[str, Any]:
+    """
+    Fetches official macroeconomic indicators (GDP, inflation, population, life expectancy, CO2) from the World Bank.
+    Supports multi-country comparisons (e.g. 'Deutschland, Frankreich und USA').
+    """
+    target_country = (country or "").strip()
+    if query:
+        q_lower = query.lower()
+        if any(w in q_lower for w in ("inflation", "teuerung")):
+            indicator = "inflation"
+        elif any(w in q_lower for w in ("bip pro kopf", "gdp per capita")):
+            indicator = "gdp_per_capita"
+        elif any(w in q_lower for w in ("bip", "gdp", "bruttoinlandsprodukt", "wirtschaftsleistung")):
+            indicator = "gdp"
+        elif any(w in q_lower for w in ("bevölkerung", "population", "einwohner")):
+            indicator = "population"
+        elif any(w in q_lower for w in ("lebenserwartung", "life expectancy")):
+            indicator = "life_expectancy"
+        elif any(w in q_lower for w in ("co2", "emissionen")):
+            indicator = "co2"
+
+        m = re.search(r"(?:für|fuer|von|in|über|ueber)\s+(.+)", query, re.IGNORECASE)
+        if m and not target_country:
+            target_country = m.group(1).strip().rstrip("?.!")
+
+    if not target_country:
+        target_country = "DEU"
+
+    # Multi-country detection
+    raw_countries = [c.strip().rstrip("?.!") for c in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', target_country, flags=re.IGNORECASE) if c.strip()]
+    cleaned_countries = [c for c in raw_countries if len(c) >= 2]
+
+    if len(cleaned_countries) > 1:
+        stats_list = []
+        for single_c in cleaned_countries:
+            res = _get_single_country_stats(single_c, indicator=indicator, indicator_code=indicator_code, start_year=start_year, end_year=end_year, timeout=max(5.0, timeout / 2))
+            if res and "error" not in res:
+                stats_list.append(res)
+        if stats_list:
+            if len(stats_list) == 1:
+                return stats_list[0]
+            return {
+                "multiple_stats": True,
+                "stats": stats_list,
+                "count": len(stats_list),
+            }
+
+    return _get_single_country_stats(cleaned_countries[0] if cleaned_countries else target_country, indicator=indicator, indicator_code=indicator_code, start_year=start_year, end_year=end_year, timeout=timeout)
 
 
 # Backwards-compatible alias

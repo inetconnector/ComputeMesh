@@ -174,13 +174,21 @@
   const QUICK_PROMPTS_FALLBACK = {
     de: {
       explain_mesh: "Was macht ComputeMesh einzigartig und wie funktioniert die dezentrale GPU-Inferenz?",
+      mcp_bitcoin: "Wie steht der Bitcoin (BTC) und Ethereum (ETH) Kurs aktuell und was ist der 24h Trend?",
+      mcp_weather: "Wie ist das aktuelle Wetter und die Temperatur in Berlin und München?",
+      mcp_news: "Welche aktuellen Nachrichten und Schlagzeilen meldet die Tagesschau heute?",
       python_fastapi: "Schreibe einen performanten Python-FastAPI-Endpunkt, der Requests an das OpenAI-kompatible /v1/chat/completions Gateway mit Streaming weiterleitet.",
+      mcp_math: "Berechne mit der Python-Sandbox: Wie viel Endkapital erhalte ich bei 10.000 € Startkapital nach 10 Jahren bei 7% jährlicher Rendite mit Zinseszins?",
       gpu_sharding: "Erkläre wie Pipeline-Layer-Sharding große KI-Modelle effizient über mehrere GPUs aufteilt.",
       compare_costs: "Wie viel Geld kann ich mit ComputeMesh im Vergleich zu AWS oder Azure sparen?"
     },
     en: {
       explain_mesh: "What makes ComputeMesh unique and how does decentralized GPU inference work?",
+      mcp_bitcoin: "What is the current Bitcoin (BTC) and Ethereum (ETH) market quote and 24h price trend?",
+      mcp_weather: "What is the current weather and temperature in Berlin and Munich?",
+      mcp_news: "What are the latest breaking news and top headlines reported today?",
       python_fastapi: "Write a high-performance Python-FastAPI streaming endpoint using the OpenAI-compatible /v1/chat/completions gateway.",
+      mcp_math: "Calculate with the Python sandbox: What is the final capital on a $10,000 investment after 10 years at 7% annual compound interest?",
       gpu_sharding: "Explain how pipeline layer sharding efficiently distributes large AI models across multiple GPUs.",
       compare_costs: "How much money can I save with ComputeMesh compared to AWS or Azure?"
     }

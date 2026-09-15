@@ -7,6 +7,7 @@ Supports Global Stocks, ETFs, Indices, Crypto, and Currencies.
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
@@ -127,6 +128,23 @@ def get_market_quote(
     raw_sym = (symbol or stock or crypto or ticker or "").strip()
     if not raw_sym:
         return {"error": "Symbol darf nicht leer sein (z.B. AAPL, NVDA, BTC, DAX)"}
+
+    # Check for multi-symbol query (e.g. "BTC, ETH und SOL", "Bitcoin und Ethereum", "BTC & ETH")
+    multi_parts = [s.strip().rstrip("?.!") for s in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', raw_sym, flags=re.IGNORECASE) if s.strip()]
+    if len(multi_parts) > 1:
+        quotes_data = []
+        for single_sym in multi_parts:
+            q = get_market_quote(symbol=single_sym, timeout=timeout)
+            if q and "error" not in q:
+                quotes_data.append(q)
+        if quotes_data:
+            if len(quotes_data) == 1:
+                return quotes_data[0]
+            return {
+                "multiple_symbols": True,
+                "quotes": quotes_data,
+                "count": len(quotes_data)
+            }
 
     clean_sym = raw_sym.upper().replace(" ", "")
 

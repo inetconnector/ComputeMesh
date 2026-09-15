@@ -666,6 +666,30 @@ def format_tool_content_if_json(content: str) -> str:
                     res += f"  > {desc}\n"
             return res.strip()
 
+        if "multiple_locations" in data and "locations" in data:
+            blocks = []
+            for loc_data in data["locations"]:
+                if not isinstance(loc_data, dict):
+                    continue
+                loc = loc_data.get("location", "Ort")
+                temp = loc_data.get("temperature_celsius", "N/A")
+                app_temp = loc_data.get("apparent_temperature_celsius")
+                cond = loc_data.get("condition", "Unbekannt")
+                hum = loc_data.get("humidity_percent", "N/A")
+                wind = loc_data.get("wind_speed_kmh", "N/A")
+                reg = loc_data.get("region")
+                country = loc_data.get("country")
+                loc_str = f"{loc} ({reg}, {country})" if reg and country else loc
+                block = f"Aktuelles Live-Wetter für **{loc_str}**:\n"
+                block += f"- **Bedingungen:** {cond}\n"
+                block += f"- **Temperatur:** {temp} °C" + (f" (gefühlt {app_temp} °C)\n" if app_temp is not None else "\n")
+                block += f"- **Luftfeuchtigkeit:** {hum} %\n"
+                block += f"- **Windgeschwindigkeit:** {wind} km/h"
+                if "precipitation_mm" in loc_data:
+                    block += f"\n- **Niederschlag:** {loc_data['precipitation_mm']} mm"
+                blocks.append(block.strip())
+            return "\n\n---\n\n".join(blocks)
+
         if "temperature_celsius" in data or "condition" in data:
             loc = data.get("location", "Ort")
             temp = data.get("temperature_celsius", "N/A")
@@ -687,6 +711,22 @@ def format_tool_content_if_json(content: str) -> str:
                 result += f"- **Quelle:** {data['source']}"
             return result.strip()
 
+        if "multiple_symbols" in data and "quotes" in data:
+            blocks = []
+            for q_data in data["quotes"]:
+                if not isinstance(q_data, dict):
+                    continue
+                symbol = str(q_data.get("symbol", "")).upper()
+                name = q_data.get("name", symbol)
+                price = q_data.get("price_usd") or q_data.get("price_eur") or q_data.get("price")
+                change_24h = q_data.get("change_24h_percent")
+                block = f"Aktueller Kurs für **{name} ({symbol})**:\n"
+                block += f"- **Preis:** ${price:,.2f}" if isinstance(price, (int, float)) else f"- **Preis:** {price}\n"
+                if change_24h is not None:
+                    block += f"- **24h-Veränderung:** {change_24h:+.2f} %"
+                blocks.append(block.strip())
+            return "\n\n---\n\n".join(blocks)
+
         if "price_usd" in data or "symbol" in data:
             symbol = str(data.get("symbol", "")).upper()
             name = data.get("name", symbol)
@@ -698,7 +738,21 @@ def format_tool_content_if_json(content: str) -> str:
                 result += f"\n- **24h-Veränderung:** {change_24h:+.2f} %"
             return result.strip()
 
-        if "articles" in data or ("topic" in data and "items" in data):
+        if "multiple_articles" in data and "articles" in data:
+            blocks = []
+            for art in data["articles"]:
+                if not isinstance(art, dict):
+                    continue
+                t = art.get("title", "")
+                s = art.get("summary") or art.get("extract", "")
+                u = art.get("url", "")
+                block = f"### 📖 **{t}** (Wikipedia)\n\n{s}"
+                if u:
+                    block += f"\n\n*Quelle: [{u}]({u})*"
+                blocks.append(block.strip())
+            return "\n\n---\n\n".join(blocks)
+
+        if ("articles" in data or ("topic" in data and "items" in data)) and not data.get("multiple_articles"):
             articles = data.get("articles") or data.get("items") or []
             topic = data.get("topic", "Aktuelle Nachrichten")
             result = f"Aktuelle Nachrichten (**{topic}**):\n\n"
@@ -915,6 +969,278 @@ def format_tool_content_if_json(content: str) -> str:
 
             return f"Für **{city}** konnten im aktuellen Zeitraum keine passenden Veranstaltungen gefunden werden."
 
+        if "multiple_conversions" in data and "conversions" in data:
+            amt = data.get("amount", 1)
+            from_c = data.get("from_currency", "EUR")
+            blocks = [f"### 💱 Live-Währungsumrechnung ({amt:,.2f} {from_c})\n"]
+            for conv in data["conversions"]:
+                if not isinstance(conv, dict):
+                    continue
+                to_c = conv.get("to_currency", "")
+                c_amt = conv.get("converted_amount", 0)
+                rate = conv.get("rate")
+                src = conv.get("source", "EZB / Live-Markt")
+                if "error" in conv:
+                    blocks.append(f"- ❌ **{to_c}:** {conv.get('error')}")
+                else:
+                    rate_str = f" (Kurs: {rate:,.4f})" if isinstance(rate, (int, float)) else f" (Kurs: {rate})"
+                    blocks.append(f"- 💵 **{amt:,.2f} {from_c} = {c_amt:,.2f} {to_c}**{rate_str} *[{src}]*")
+            return "\n".join(blocks).strip()
+
+        if "multiple_clocks" in data and "clocks" in data:
+            blocks = [f"### 🕒 Weltzeituhr ({len(data['clocks'])} Standorte)\n"]
+            for clk in data["clocks"]:
+                if not isinstance(clk, dict):
+                    continue
+                city = clk.get("city", "Stadt")
+                t = clk.get("formatted_time", "")
+                d = clk.get("formatted_date", "")
+                tz = clk.get("timezone", "")
+                kw = clk.get("calendar_week", "")
+                offset = clk.get("utc_offset", "")
+                blocks.append(
+                    f"#### 📍 **{city}** ({tz})\n"
+                    f"- **Uhrzeit:** `{t}` (UTC {offset})\n"
+                    f"- **Datum:** {d} (KW {kw})\n"
+                )
+            return "\n".join(blocks).strip()
+
+        if "multiple_stats" in data and "stats" in data:
+            blocks = [f"### 🌐 Weltbank Makroökonomische Indikatoren ({len(data['stats'])} Länder)\n"]
+            for stat in data["stats"]:
+                if not isinstance(stat, dict):
+                    continue
+                c_name = stat.get("country", "")
+                c_code = stat.get("country_code", "")
+                ind = stat.get("indicator", "")
+                series = stat.get("time_series", [])
+                latest_val = stat.get("latest_value")
+                latest_yr = stat.get("latest_year")
+                val_str = f"{latest_val:,.2f}" if isinstance(latest_val, (int, float)) else str(latest_val)
+                item_block = f"#### 📊 **{c_name} ({c_code})** — {ind}\n"
+                item_block += f"- **Aktuellster Wert ({latest_yr}):** `{val_str}`\n"
+                if series:
+                    item_block += "- **Verlauf:** " + ", ".join(f"{s.get('year')}: `{s.get('value'):,.2f}`" if isinstance(s.get('value'), (int, float)) else f"{s.get('year')}: `{s.get('value')}`" for s in series[:4])
+                blocks.append(item_block)
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "multiple_feeds" in data and "feeds" in data:
+            blocks = [f"### 📰 Aktuelle Nachrichten-Feeds ({len(data['feeds'])} Themen/Quellen)\n"]
+            for feed in data["feeds"]:
+                if not isinstance(feed, dict):
+                    continue
+                topic = feed.get("topic", "Nachrichten")
+                articles = feed.get("articles", [])
+                feed_block = f"#### 📌 **{topic}**\n"
+                for idx, a in enumerate(articles[:4], 1):
+                    t = a.get("title", "")
+                    u = a.get("link", "")
+                    s = a.get("source", "")
+                    s_str = f" *({s})*" if s else ""
+                    if u and t:
+                        feed_block += f"{idx}. [{t}]({u}){s_str}\n"
+                    elif t:
+                        feed_block += f"{idx}. **{t}**{s_str}\n"
+                blocks.append(feed_block.strip())
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "multiple_countries" in data and "countries" in data:
+            blocks = []
+            for c_data in data["countries"]:
+                if not isinstance(c_data, dict):
+                    continue
+                summ = c_data.get("summary")
+                if summ:
+                    blocks.append(summ.strip())
+                else:
+                    c_name = c_data.get("country_name", "Land")
+                    cap = c_data.get("capital", "N/A")
+                    pop = c_data.get("population", 0)
+                    area = c_data.get("area_sqkm", 0)
+                    reg = c_data.get("region", "")
+                    block = f"### 🏛️ **{c_name}** ({reg})\n"
+                    block += f"- **Hauptstadt:** {cap}\n"
+                    block += f"- **Einwohner:** {pop:,} Menschen\n"
+                    block += f"- **Fläche:** {area:,} km²\n"
+                    blocks.append(block.strip())
+            return "\n\n---\n\n".join(blocks)
+
+        if "multiple_articles" in data and "articles" in data:
+            blocks = []
+            for art in data["articles"]:
+                if not isinstance(art, dict):
+                    continue
+                t = art.get("title", "")
+                s = art.get("summary") or art.get("extract", "")
+                u = art.get("url", "")
+                block = f"### 📖 **{t}** (Wikipedia)\n\n{s}"
+                if u:
+                    block += f"\n\n*Quelle: [{u}]({u})*"
+                blocks.append(block.strip())
+            return "\n\n---\n\n".join(blocks)
+
+        if "multiple_compounds" in data and "compounds" in data:
+            blocks = []
+            for comp in data["compounds"]:
+                if not isinstance(comp, dict):
+                    continue
+                summ = comp.get("summary")
+                if summ:
+                    blocks.append(summ.strip())
+                elif "error" in comp:
+                    blocks.append(f"❌ **{comp.get('compound_name', 'Verbindung')}:** {comp.get('error')}")
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "molecular_formula" in data and ("molecular_weight_g_mol" in data or "iupac_name" in data):
+            summ = data.get("summary")
+            if summ:
+                return f"### 🧪 Chemische Eigenschaften (PubChem)\n\n{summ}".strip()
+
+        if "multiple_packages" in data and "packages" in data:
+            blocks = []
+            for pkg in data["packages"]:
+                if not isinstance(pkg, dict):
+                    continue
+                summ = pkg.get("summary_formatted")
+                if summ:
+                    blocks.append(summ.strip())
+                elif "error" in pkg:
+                    blocks.append(f"❌ **{pkg.get('name', 'Paket')}:** {pkg.get('error')}")
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "summary_formatted" in data and "ecosystem" in data:
+            return f"### 📦 Software-Paket-Information\n\n{data['summary_formatted']}".strip()
+
+        if "multiple_words" in data and "words" in data:
+            blocks = []
+            for w_data in data["words"]:
+                if not isinstance(w_data, dict):
+                    continue
+                summ = w_data.get("summary")
+                if summ:
+                    blocks.append(summ.strip())
+                elif "error" in w_data:
+                    blocks.append(f"❌ **{w_data.get('word', 'Wort')}:** {w_data.get('error')}")
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "word" in data and "meanings" in data and "summary" in data:
+            return f"### 📚 Wörterbuch-Definition\n\n{data['summary']}".strip()
+
+        if "multiple_products" in data and "products" in data:
+            blocks = []
+            for p_data in data["products"]:
+                if not isinstance(p_data, dict):
+                    continue
+                summ = p_data.get("summary")
+                if summ:
+                    blocks.append(summ.strip())
+                elif "error" in p_data:
+                    blocks.append(f"❌ **{p_data.get('product_name', 'Produkt')}:** {p_data.get('error')}")
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "nutrition_per_100g" in data and "nutriscore" in data:
+            summ = data.get("summary")
+            if summ:
+                return f"### 🥗 Lebensmittel- & Nährwert-Information (Open Food Facts)\n\n{summ}".strip()
+
+        if "multiple_stations" in data and "stations" in data:
+            blocks = []
+            for s_data in data["stations"]:
+                if not isinstance(s_data, dict):
+                    continue
+                summ = s_data.get("summary")
+                if summ:
+                    blocks.append(summ.strip())
+                elif "error" in s_data:
+                    blocks.append(f"❌ **{s_data.get('station_name', 'Bahnhof')}:** {s_data.get('error')}")
+            return "\n\n---\n\n".join(blocks).strip()
+
+        if "departures" in data and "station_name" in data:
+            summ = data.get("summary")
+            if summ:
+                return f"### 🚆 Bahn-Fahrplan & Abfahrten (Deutsche Bahn / HAFAS)\n\n{summ}".strip()
+
+        if "earthquakes_count" in data and "events" in data:
+            summ = data.get("summary")
+            if summ:
+                return f"### 🌋 Erdbeben-Feed & Seismische Aktivität (USGS)\n\n{summ}".strip()
+
+        if "papers_found" in data and "papers" in data:
+            q = data.get("query", "Forschung")
+            papers = data.get("papers", [])
+            if not papers:
+                return f"ℹ️ Keine wissenschaftlichen Paper auf arXiv für **'{q}'** gefunden."
+            res = f"### 📄 Wissenschaftliche arXiv-Publikationen für *'{q}'* ({len(papers)} Paper)\n\n"
+            for idx, p in enumerate(papers[:5], 1):
+                t = p.get("title", "")
+                authors = ", ".join(p.get("authors", [])[:3])
+                dt = p.get("published_date", "")
+                url = p.get("pdf_url") or p.get("arxiv_url", "")
+                abst = p.get("abstract", "")
+                res += f"#### {idx}. [{t}]({url})\n"
+                res += f"- **Autoren:** {authors} | **Veröffentlicht:** {dt}\n"
+                if abst:
+                    res += f"- **Abstract:** *{abst[:300]}...*\n\n"
+            return res.strip()
+
+        if "mode" in data and "results" in data and ("live_score_note" in data or data.get("source") == "TheSportsDB v1"):
+            mode = data.get("mode", "teams")
+            results = data.get("results", [])
+            q = data.get("query") or data.get("date") or ""
+            if not results:
+                return f"ℹ️ Keine Sportergebnisse für **'{q}'** in TheSportsDB gefunden."
+            res = f"### ⚽ Sportdaten & Spielplan ({mode.upper()})\n\n"
+            for r in results[:5]:
+                if mode == "teams":
+                    name = r.get("name", "Team")
+                    sport = r.get("sport", "")
+                    league = r.get("league", "")
+                    country = r.get("country", "")
+                    stadium = r.get("stadium", "")
+                    res += f"- **{name}** ({sport}, {league}, {country})" + (f" — Stadion: {stadium}\n" if stadium else "\n")
+                else:
+                    ev_name = r.get("name", "Spiel")
+                    dt = r.get("date", "")
+                    tm = r.get("time", "")
+                    h_score = r.get("home_score")
+                    a_score = r.get("away_score")
+                    score_str = f" ({h_score} : {a_score})" if h_score is not None and a_score is not None else ""
+                    res += f"- **{ev_name}**{score_str} — {dt} {tm}\n"
+            return res.strip()
+
+        if "straight_line_distance_km" in data or "driving_distance_km" in data or "estimated_driving_distance_km" in data:
+            summ = data.get("summary")
+            if summ:
+                return f"### 🧭 Routenberechnung & Geodistanz\n\n{summ}".strip()
+            o = data.get("origin", {}).get("name", "Start")
+            d = data.get("destination", {}).get("name", "Ziel")
+            s_dist = data.get("straight_line_distance_km", 0)
+            d_dist = data.get("driving_distance_km") or data.get("estimated_driving_distance_km", 0)
+            d_dur = data.get("driving_duration_formatted") or data.get("estimated_driving_duration", "")
+            bearing = data.get("direction", "")
+            res = f"### 🧭 Entfernung & Route: **{o}** ➔ **{d}**\n\n"
+            res += f"- **Luftlinie:** {s_dist:,.2f} km (Richtung {bearing})\n"
+            if d_dist:
+                res += f"- **Fahrtstrecke:** ~{d_dist:,.1f} km\n"
+            if d_dur:
+                res += f"- **Fahrzeit:** {d_dur}\n"
+            return res.strip()
+
+        if "country_name" in data and ("capital" in data or "population" in data):
+            summ = data.get("summary")
+            if summ:
+                return f"### 🌍 Länder-Geodaten & Fakten\n\n{summ}".strip()
+            c_name = data.get("country_name", "Land")
+            cap = data.get("capital", "N/A")
+            pop = data.get("population", 0)
+            area = data.get("area_sqkm", 0)
+            reg = data.get("region", "")
+            res = f"### 🏛️ **{c_name}** ({reg})\n\n"
+            res += f"- **Hauptstadt:** {cap}\n"
+            res += f"- **Einwohnerzahl:** {pop:,} Menschen\n"
+            res += f"- **Fläche:** {area:,} km²\n"
+            return res.strip()
+
         if "title" in data and "summary" in data:
             title = data.get("title", "")
             summary = data.get("summary", "")
@@ -924,6 +1250,11 @@ def format_tool_content_if_json(content: str) -> str:
                 result += f"\n\n*Quelle: [{url}]({url})*"
             return result.strip()
 
+        if "time_series" in data and "indicator" in data and "country" in data:
+            summ = data.get("summary")
+            if summ:
+                return f"### 🌐 Weltbank Statistik\n\n{summ}".strip()
+
         if "result" in data and ("expression" in data or "status" in data):
             expr = data.get("expression") or ""
             val = data.get("result")
@@ -932,9 +1263,11 @@ def format_tool_content_if_json(content: str) -> str:
         if "formatted_time" in data or "formatted_date" in data or "datetime_iso" in data or "current_time" in data or "local_time" in data:
             t = data.get("formatted_time") or data.get("current_time") or data.get("time") or ""
             d = data.get("formatted_date") or data.get("date") or ""
+            city = data.get("city", "")
             tz = data.get("timezone", "Europe/Berlin")
             kw = data.get("calendar_week")
-            res = f"Aktuelle Uhrzeit & Datum (**{tz}**):\n"
+            loc_label = f" ({city}, {tz})" if city else f" ({tz})"
+            res = f"Aktuelle Uhrzeit & Datum**{loc_label}**:\n"
             if t:
                 res += f"- **Uhrzeit:** {t}\n"
             if d:
@@ -943,14 +1276,18 @@ def format_tool_content_if_json(content: str) -> str:
                 res += f"- **Kalenderwoche:** KW {kw}\n"
             return res.strip()
 
-        if "exchange_rate" in data or ("from" in data and "to" in data and "rate" in data):
-            src = data.get("from", "").upper()
-            dst = data.get("to", "").upper()
+        if "converted_amount" in data or "exchange_rate" in data or ("from" in data and "to" in data and "rate" in data) or ("from_currency" in data and "to_currency" in data):
+            fmt = data.get("formatted")
+            if fmt:
+                return f"### 💱 Währungsumrechnung\n\n**{fmt}**"
+            src = (data.get("from_currency") or data.get("from") or "").upper()
+            dst = (data.get("to_currency") or data.get("to") or "").upper()
             rate = data.get("rate") or data.get("exchange_rate")
             amt = data.get("amount", 1)
             conv = data.get("converted_amount")
             if conv is not None:
-                return f"Währungsumrechnung: **{amt} {src} = {conv:,.2f} {dst}** (Kurs: {rate})".strip()
+                return f"### 💱 Währungsumrechnung\n\n**{amt:,.2f} {src} = {conv:,.2f} {dst}** (Kurs: {rate})".strip()
+
         if "error" in data:
             err_msg = str(data.get("error", "Keine passenden Informationen gefunden."))
             q = data.get("query") or data.get("search_term")
@@ -1309,9 +1646,74 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if re.search(r"(?:welche\s+webapps|welche\s+apps\s+sind\s+gehostet|zeige\s+apps|list\s+webapps|gehostete\s+spiele|installierte\s+webapps)", cleaned, re.IGNORECASE):
         return ("list_deployed_webapps", {})
 
-    # 1. Weather
+    # 1. Currency Conversion & Cryptocurrency Exchanges (e.g. "100 EUR in USD, GBP und JPY", "Wie viel sind 500 Dollar in Euro")
+    m_curr = re.search(
+        r"(?:(?:rechne|konvertiere|währungsumrechnung|wechselkurs)\s+(?:von\s+)?|wie\s+viel(?:e)?\s+sind\s+)?([\d.,]+)\s*([a-zA-ZäöüÄÖÜß\$\€\£\¥\s\-]{2,15})\s*(?:in|to|zu|nach)\s*([a-zA-ZäöüÄÖÜß\$\€\£\¥\s\-,&+]+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_curr:
+        raw_amt = m_curr.group(1).replace(",", ".")
+        raw_from = m_curr.group(2).strip()
+        raw_to = m_curr.group(3).strip()
+        # Avoid matching distance queries like "100 km in Meilen" if not currency
+        non_curr_words = {"km", "kilometer", "m", "meter", "cm", "kg", "gramm", "stunden", "minuten", "sekunden", "grad", "celsius", "fahrenheit"}
+        if raw_from.lower() not in non_curr_words and raw_to.lower() not in non_curr_words:
+            try:
+                amt_val = float(raw_amt)
+                return ("convert_currency", {"amount": amt_val, "from_currency": raw_from, "to_currency": raw_to, "query": cleaned})
+            except ValueError:
+                pass
+
+    # 2. Geographic Distance, Route & Travel Time (e.g. "Entfernung von Berlin nach München", "Wie weit ist es von Köln nach Hamburg")
+    m_dist = re.search(
+        r"(?:(?:wie\s+weit\s+ist\s+es|entfernung|distanz|strecke|route|fahrzeit|reisezeit)\s+(?:von|zwischen)?\s*|fahrtstrecke\s+(?:von\s+)?)([a-zA-ZäöüÄÖÜß\s\-]+?)\s*(?:nach|und|bis|zu|->)\s*([a-zA-ZäöüÄÖÜß\s\-]+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_dist:
+        orig = m_dist.group(1).strip()
+        dest = m_dist.group(2).strip().rstrip("?.!")
+        orig = re.sub(r"^(?:von|ab|start)\s+", "", orig, flags=re.IGNORECASE).strip()
+        if orig and dest and len(orig) >= 2 and len(dest) >= 2:
+            return ("get_distance_route", {"origin": orig, "destination": dest, "query": cleaned})
+
+    # 3. World Bank Macroeconomic Data (e.g. "BIP von Deutschland, Frankreich und USA", "Inflation in Japan", "Wirtschaftsdaten von Brasilien")
+    m_econ = re.search(
+        r"(?:(?:bip|gdp|bruttoinlandsprodukt|bip\s+pro\s+kopf|inflation|inflationsrate|teuerung|wirtschaftsleistung|lebenserwartung|co2\s+emissionen)\s+(?:von|in|für|fuer)\s+|weltbank\s+daten\s+(?:zu|für|von)\s+)([a-zA-ZäöüÄÖÜß\s\-,&+]+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_econ:
+        c_target = m_econ.group(1).strip().rstrip("?.!")
+        if len(c_target) >= 2:
+            return ("get_world_bank_stats", {"country": c_target, "query": cleaned})
+
+    # 4. Country Demographics & Geographic Facts (e.g. "Fakten über Deutschland und Frankreich", "Hauptstadt von Australien", "Einwohnerzahl von Japan")
+    m_country = re.search(
+        r"(?:(?:fakten\s+über|fakten\s+zu|länderdaten\s+(?:von|zu)|länderinfo\s+(?:von|zu)|landesinfo\s+(?:von|zu)|infos\s+über|daten\s+zu|hauptstadt\s+von|wie\s+viele\s+einwohner\s+hat|einwohnerzahl\s+von)\s+)([a-zA-ZäöüÄÖÜß\s\-,&+]+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_country:
+        c_target = m_country.group(1).strip().rstrip("?.!")
+        if len(c_target) >= 2:
+            return ("lookup_country_data", {"country": c_target})
+
+    # 5. World Clocks & Timezone Conversions (e.g. "Wie spät ist es in New York, Tokio und Berlin?", "Uhrzeit in London und Sydney")
+    m_world_time = re.search(
+        r"(?:(?:wie\s+spät\s+ist\s+es\s+in|wieviel\s+uhr\s+ist\s+es\s+in|aktuelle\s+uhrzeit\s+in|uhrzeit\s+in|zeit\s+in|lokalzeit\s+in)\s+)([a-zA-ZäöüÄÖÜß\s\-,&+]+)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_world_time:
+        loc_target = m_world_time.group(1).strip().rstrip("?.!")
+        if len(loc_target) >= 2:
+            return ("get_current_time_calendar", {"city": loc_target})
+
+    # 6. Live Weather & Multi-City Forecast (e.g. "Wie ist das Wetter in Berlin, Hamburg und München?")
     m_weather = re.search(
-        r"(?:(?:wie\s+(?:ist|wird|ist\s+denn|wird\s+denn)\s+)?(?:das\s+)?wetter\s+(?:heute\s+|morgen\s+|aktuell\s+)?(?:in|für|fuer|von|bei|im|am)\s+|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von|bei)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\s+wird|\s+ist|\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
+        r"(?:(?:wie\s+(?:ist|wird|ist\s+denn|wird\s+denn)\s+)?(?:das\s+)?wetter\s+(?:heute\s+|morgen\s+|aktuell\s+)?(?:in|für|fuer|von|bei|im|am)\s+|weather\s+(?:in|for)?\s*|temperatur\s+(?:in|von|bei)?\s*|regnet\s+es\s+in\s*)([a-zA-ZäöüÄÖÜß\s\-,\+&]+?)(?:\s+wird|\s+ist|\?|\.|$|\s+heute|\s+morgen|\s+aktuell|\s+am\s+wochenende)",
         cleaned,
         re.IGNORECASE
     )
@@ -1322,58 +1724,75 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if loc and len(loc) >= 2:
             return ("get_current_weather", {"location": loc})
 
-    m_city = re.search(r"(?:wetter|weather|temperatur|regen|sonnig|klima).+?(?:in|für|fuer|bei|nach)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+    m_city = re.search(r"(?:wetter|weather|temperatur|regen|sonnig|klima).+?(?:in|für|fuer|bei|nach)\s+([a-zA-ZäöüÄÖÜß\-,\+&\s]+)", cleaned, re.IGNORECASE)
     if m_city:
-        loc = m_city.group(1).strip()
+        loc = m_city.group(1).strip().rstrip("?.!")
         if loc and len(loc) >= 2 and loc.lower() not in {"heute", "morgen", "deutschland", "bayern", "wird", "ist"}:
             return ("get_current_weather", {"location": loc})
 
     if re.search(r"(?:wie\s+(?:ist|wird)\s+das\s+wetter|wetterbericht|aktuelles\s+wetter|wetter\s+heute|wetter\s+morgen|wie\s+warm\s+ist\s+es|weather\s+today|wetter\?|\bwetter\b)", cleaned, re.IGNORECASE):
         return ("get_current_weather", {"location": "Veitshöchheim"})
 
-    # 2. Market / Stock / Crypto Quotes
-    if re.search(r"(?:bitcoin\s+preis|btc\s+kurs|bitcoin\s+kurs|btc\s+preis|\bbitcoin\b|\bbtc\b)", cleaned, re.IGNORECASE):
-        return ("get_market_quote", {"symbol": "BTC"})
-    if re.search(r"(?:ethereum\s+preis|eth\s+kurs|ethereum\s+kurs|eth\s+preis|\beth\b|\bethereum\b)", cleaned, re.IGNORECASE):
-        return ("get_market_quote", {"symbol": "ETH"})
-    if re.search(r"(?:solana\s+preis|sol\s+kurs|\bsolana\b)", cleaned, re.IGNORECASE):
-        return ("get_market_quote", {"symbol": "SOL"})
+    # 7. Market / Stock / Crypto Quotes (e.g. "BTC, ETH und SOL", "Aktienkurs von NVIDIA, Apple und Microsoft")
+    found_symbols = []
+    if re.search(r"\b(?:bitcoin|btc)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("BTC")
+    if re.search(r"\b(?:ethereum|eth)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("ETH")
+    if re.search(r"\b(?:solana|sol)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("SOL")
+    if re.search(r"\b(?:ripple|xrp)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("XRP")
+    if re.search(r"\b(?:cardano|ada)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("ADA")
+    if re.search(r"\b(?:nvidia|nvda)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("NVDA")
+    if re.search(r"\b(?:apple|aapl)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("AAPL")
+    if re.search(r"\b(?:microsoft|msft)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("MSFT")
+
+    if len(found_symbols) > 1:
+        return ("get_market_quote", {"symbol": " und ".join(found_symbols)})
+    elif len(found_symbols) == 1:
+        return ("get_market_quote", {"symbol": found_symbols[0]})
 
     m_market = re.search(
-        r"(?:aktienkurs\s+von\s+|aktienkurs\s+|aktie\s+|kurs\s+von\s+|preis\s+von\s+|wie\s+steht\s+(?:die\s+aktie\s+)?|stock\s+price\s+(?:of\s+)?|crypto\s+price\s+(?:of\s+)?)([a-zA-Z0-9\.\-\s]+?)(?:\?|\.|$|\s+aktuell)",
+        r"(?:aktienkurs\s+von\s+|aktienkurs\s+|aktie\s+|kurs\s+von\s+|preis\s+von\s+|wie\s+steht\s+(?:die\s+aktie\s+)?|stock\s+price\s+(?:of\s+)?|crypto\s+price\s+(?:of\s+)?)([a-zA-Z0-9\.\-\s,\+&]+?)(?:\?|\.|$|\s+aktuell)",
         cleaned,
         re.IGNORECASE
     )
     if m_market:
-        sym = m_market.group(1).strip()
+        sym = m_market.group(1).strip().rstrip("?.!")
         if sym:
             return ("get_market_quote", {"symbol": sym})
 
-    # 3. Time / Calendar / Holidays
+    # 8. Time / Calendar / Holidays (General)
     if re.search(r"(?:wie\s+spät\s+ist\s+es|wieviel\s+uhr\s+ist\s+es|aktuelle\s+uhrzeit|welcher\s+tag\s+ist\s+heute|welches\s+datum|wann\s+ist\s+ostern|feiertage\s+in|feiertage\s+\d{4}|current\s+time|what\s+time\s+is\s+it)", cleaned, re.IGNORECASE):
         return ("get_current_time_calendar", {})
 
-    # 4. Math / Calculation
+    # 9. Math / Calculation
     m_calc = re.search(r"(?:berechne\s+|was\s+ist\s+)(\d+[\d\s\+\-\*\/\^\(\)\.\,\%]+)(?:\?|\.|$)", cleaned, re.IGNORECASE)
     if m_calc:
         expr = m_calc.group(1).strip()
         if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
             return ("calculate_math", {"expression": expr})
 
-    # 5. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, General News with Typo Tolerance)
+    # 10. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, General News with Typo Tolerance)
     m_portal_news = re.search(
-        r"(?:(?:die\s+|die\s+aktuellen\s+|aktuelle\s+)?(?:headlines|schlagzeilen|nachrichten|news|top\s+news|artikel)\s+(?:von\s+|aus\s+|auf\s+|bei\s+)?|was\s+gibt\s+es\s+neues\s+(?:bei\s+|auf\s+)?)\s*(spiegel(?:\s+online)?|tagesschau|heise(?:\s+online)?|golem(?:\s+online)?|zeit(?:\s+online)?|faz(?:\s+net)?|welt(?:\s+de)?|focus(?:\s+online)?|sueddeutsche)",
+        r"(?:(?:die\s+|die\s+aktuellen\s+|aktuelle\s+)?(?:headlines|schlagzeilen|nachrichten|news|top\s+news|artikel)\s+(?:von\s+|aus\s+|auf\s+|bei\s+)?|was\s+gibt\s+es\s+neues\s+(?:bei\s+|auf\s+)?)\s*([a-zA-ZäöüÄÖÜß\s\-,\+&]+)",
         cleaned,
         re.IGNORECASE
     )
     if m_portal_news:
-        portal = m_portal_news.group(1).strip()
-        return ("get_live_news", {"topic": portal})
+        portal = m_portal_news.group(1).strip().rstrip("?.!")
+        if any(p in portal.lower() for p in ("spiegel", "tagesschau", "heise", "golem", "zeit", "faz", "welt", "focus", "sueddeutsche", "krypto", "crypto", "tech", "wirtschaft")):
+            return ("get_live_news", {"topic": portal})
 
-    if any(p in cleaned.lower() for p in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche")) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel")):
-        for p_name in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche"):
-            if p_name in cleaned.lower():
-                return ("get_live_news", {"topic": p_name})
+    if any(re.search(rf"\b{p}\b", cleaned, re.IGNORECASE) for p in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche")) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel")):
+        matched_portals = [p_name for p_name in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche") if re.search(rf"\b{p_name}\b", cleaned, re.IGNORECASE)]
+        if matched_portals:
+            return ("get_live_news", {"topic": " und ".join(matched_portals)})
         return ("get_live_news", {"topic": "tagesschau"})
 
     # General News / Typo-Tolerant News Queries (e.g. "Was bits neues jn den Nachrichten", "Was gibt es Neues", "Aktuelle News")
@@ -1386,7 +1805,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         return ("get_live_news", {"topic": "tagesschau"})
 
 
-    # 6. Events, Concerts, Subculture & Regional Discovery (Worldwide & Europe with typo tolerance)
+    # 11. Events, Concerts, Subculture & Regional Discovery (Worldwide & Europe with typo tolerance)
     if re.search(r"(?:kon[tz]+ert[a-z]*|con[cz]i?ert[a-z]*|veranstalt[a-z]*|verantstalt[a-z]*|events?|part[yi]e?s?|gigs?|festivals?|live[\s\-_]?musik|live[\s\-_]?music|was\s+geht|things\s+to\s+do|what\s+to\s+do|what'?s\s+(?:on|happening|going\s+on)|what\s+is\s+on|live[\s\-_]?bands?|bands\s+live|ausgehen|kulturprogramm|spielplan|clubbing|disco|disko|nightlife|klapperfeld|subkultur|kulturzentrum|off-space|b\u00fcrgerhaus|scheune|dorfgemeinschaftshaus|kleinkunst|freiraum|autonomes?\s+zentrum|tiers-lieux|friche|squat|grassroots)", cleaned, re.IGNORECASE):
         city_aliases = {
             "wue": "Würzburg",
@@ -1629,13 +2048,13 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if found_city:
             city = found_city
         else:
-            m_city = re.search(
+            m_city_ev = re.search(
                 r"(?:in|at|near|around|à|a|en|para|für|fuer|im\s+raum|bei|aus)\s+([a-zA-ZäöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+heute|\s+morgen|\s+am\s+wochenende|\s+dieses\s+wochenende|\s+today|\s+tonight|\s+this\s+weekend)",
                 cleaned,
                 re.IGNORECASE
             )
-            if m_city:
-                extracted = m_city.group(1).strip()
+            if m_city_ev:
+                extracted = m_city_ev.group(1).strip()
                 extracted = re.sub(r"^(?:den|dem|der|die|das|the|le|la|les|el|los|las)\s+", "", extracted, flags=re.IGNORECASE).strip()
                 if extracted and len(extracted) >= 2 and extracted.lower() not in ("wochenende", "samstag", "sonntag", "freitag", "diesem", "dieser", "der", "dem", "einem", "weekend", "today", "tonight"):
                     city = extracted
@@ -1652,7 +2071,6 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if re.search(r"\b(?:heute|today|heutige|tonight)\b", cleaned, re.IGNORECASE):
             day_scope = "today"
 
-        # Check if radius was explicitly requested in text (e.g. "im Umkreis von 50 km" or "50km")
         radius_km = 50.0
         m_rad = re.search(r"(?:umkreis\s+(?:von\s+)?|radius\s+(?:von\s+)?|in\s+(\d+)\s*km)(\d+)?\s*km?", cleaned, re.IGNORECASE)
         if m_rad:
@@ -1670,10 +2088,10 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             "day_scope": day_scope,
         })
 
-    # 7. Wikipedia (Encyclopedic lookups)
-    m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+ist\s+|was\s+ist\s+(?:ein\s+|eine\s+|der\s+|die\s+|das\s+)?|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
+    # 12. Wikipedia & Encyclopedia (e.g. "Wer war Albert Einstein?", "Wer waren Einstein und Newton?", "Was ist Quantenphysik?")
+    m_wiki = re.search(r"(?:wer\s+war\s+|wer\s+waren\s+|wer\s+ist\s+|wer\s+sind\s+|was\s+ist\s+(?:ein\s+|eine\s+|der\s+|die\s+|das\s+)?|was\s+sind\s+|wikipedia\s+(?:zu\s+|über\s+)?)([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\?|\.|$|\s+auf\s+wikipedia)", cleaned, re.IGNORECASE)
     if m_wiki:
-        topic = m_wiki.group(1).strip()
+        topic = m_wiki.group(1).strip().rstrip("?.!")
         visual_words = ("bild", "foto", "screenshot", "grafik", "steht da", "erkenn", "lies", "dokument", "pdf", "sehen")
         is_visual = any(w in cleaned.lower() for w in visual_words)
         stop_words = {
@@ -1687,7 +2105,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if len(topic) >= 3 and not is_visual and not has_stop and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
             return ("get_wikipedia_summary", {"query": topic})
 
-    # 7. Web Search & Google Queries
+    # 13. Web Search & Google Queries
     m_search = re.search(
         r"(?:google\s+(?:nach\s+|mal\s+)?|suche\s+(?:im\s+web\s+)?(?:nach\s+)?|search\s+(?:web\s+)?(?:for\s+)?|finde\s+(?:im\s+web\s+)?|web\s*suche\s+(?:nach\s+)?)(.+?)(?:\?|\.|$)",
         cleaned,
@@ -1698,7 +2116,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if q:
             return ("search_web", {"query": q})
 
-    # 8. Deep Multi-Source Knowledge Research
+    # 14. Deep Multi-Source Knowledge Research
     m_deep = re.search(
         r"(?:recherchier(?:e|en|t)?\s+(?:mal\s+|über\s+|ueber\s+|zu\s+)?|tiefenrecherche\s+(?:zu\s+|über\s+|ueber\s+)?|forsche\s+(?:nach\s+|über\s+|ueber\s+)?|deep\s+research\s+(?:on|about|for)?|hintergründe\s+zu\s+|aktueller\s+stand\s+(?:zu|in|bei)\s+|was\s+ist\s+der\s+aktuelle\s+stand\s+(?:zu|in|bei)\s+)(.+?)(?:\?|\.|$)",
         cleaned,
@@ -1709,7 +2127,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if topic_target and len(topic_target) >= 2:
             return ("cross_source_knowledge_search", {"query": topic_target})
 
-    # 9. Chronological Timeline & History of Events
+    # 15. Chronological Timeline & History of Events
     m_time_ev = re.search(
         r"(?:zeitleiste\s+(?:zu\s+|von\s+)?|chronologie\s+(?:zu\s+|von\s+)?|timeline\s+(?:of|for)?|verlauf\s+von\s+|ereignisse\s+in\s+)(.+?)(?:\?|\.|$)",
         cleaned,
@@ -1720,7 +2138,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if tl_target:
             return ("fetch_recent_timeline", {"topic": tl_target})
 
-    # 10. Multi-Source Fact Check
+    # 16. Multi-Source Fact Check
     m_fact = re.search(
         r"(?:stimmt\s+es\s+dass\s+|ist\s+es\s+wahr\s+dass\s+|überprüfe\s+(?:die\s+aussage\s+|den\s+fakt\s+)?|faktenprüfung\s+(?:zu\s+)?|fact\s*check\s*)(.+?)(?:\?|\.|$)",
         cleaned,
@@ -1730,6 +2148,88 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         claim_target = m_fact.group(1).strip()
         if claim_target:
             return ("verify_fact_multi_source", {"claim": claim_target})
+
+    # 17. Chemical Compound & Molecular Properties (PubChem)
+    m_chem = re.search(
+        r"(?:(?:chemische\s+(?:formel|eigenschaften|struktur)|summenformel|molekulargewicht|iupac[\s\-_]name|pubchem)\s+(?:von|fuer|für|zu)\s+|molekül\s+)([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_chem:
+        chem_target = m_chem.group(1).strip()
+        if chem_target and len(chem_target) >= 2:
+            return ("lookup_chemical_compound", {"compound_name": chem_target})
+
+    # 18. Software Package Registry & Vulnerabilities (PyPI, NPM, OSV.dev)
+    m_pkg = re.search(
+        r"(?:(?:paketinfo|package\s+info|python\s+paket|pip\s+paket|npm\s+paket|node\s+paket|sicherheitslücken\s+in|cve\s+(?:in|zu))\s+(?:zu|von|über|fuer|für)\s+|welche\s+version\s+hat\s+(?:das\s+paket\s+)?)([a-zA-Z0-9_\-\.\@\/\s,\+&]+?)(?:\?|\.|$|\s+auf\s+pypi|\s+auf\s+npm)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_pkg:
+        pkg_target = m_pkg.group(1).strip()
+        if pkg_target and len(pkg_target) >= 2:
+            eco_val = "npm" if any(w in cleaned.lower() for w in ("npm", "node", "javascript", "js", "typescript", "ts")) else "pypi"
+            return ("lookup_software_package", {"package_name": pkg_target, "ecosystem": eco_val})
+
+    # 19. Dictionary & Word Definitions (Free Dictionary API)
+    m_dict = re.search(
+        r"(?:(?:was\s+bedeutet|definition\s+(?:von|fuer|für)|bedeutung\s+(?:von|des\s+wortes)|synonyme\s+(?:fuer|für|zu)|übersetze\s+(?:das\s+wort\s+)?)\s+)(['\"`]?)([a-zA-ZäöüÄÖÜß\s\-,\+&]+?)\1(?:\?|\.|$|\s+im\s+wörterbuch|\s+auf\s+deutsch|\s+auf\s+englisch)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_dict:
+        w_target = m_dict.group(2).strip()
+        if w_target and len(w_target) >= 2 and not any(w_target.lower().startswith(x) for x in ("das ", "die ", "der ", "ein ", "eine ")):
+            return ("lookup_word_definition", {"word": w_target})
+
+    # 20. Food Nutrition, Allergens & Ingredients (Open Food Facts)
+    m_food = re.search(
+        r"(?:(?:nährwerte|inhaltsstoffe|zutaten|wie\s+viel\s+kalorien\s+hat|kalorien\s+(?:in|von)|nutri[\s\-_]score\s+(?:von|für)|allergene\s+in)\s+(?:von|fuer|für|in)\s+)([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_food:
+        food_target = m_food.group(1).strip()
+        if food_target and len(food_target) >= 2:
+            return ("lookup_food_product", {"product_name": food_target})
+
+    # 21. Rail Transit & Train Departures (Deutsche Bahn / HAFAS)
+    m_train = re.search(
+        r"(?:(?:fahrplan\s+(?:fuer|für|von|ab|in)|abfahrten\s+(?:fuer|für|von|ab|in)|nächste\s+züge\s+(?:ab|von)|abfahrtstafel\s+(?:von|für)|bahn\s+abfahrten\s+(?:ab|in))\s+)([a-zA-Z0-9äöüÄÖÜß\s\-\(\)\/,\+&]+?)(?:\?|\.|$|\s+heute|\s+jetzt|\s+aktuell)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_train:
+        st_target = m_train.group(1).strip()
+        if st_target and len(st_target) >= 2:
+            return ("lookup_train_schedule", {"station": st_target})
+
+    # 22. Real-time Global Earthquakes (USGS)
+    if re.search(r"(?:aktuelle\s+erdbeben|erdbeben\s+weltweit|gab\s+es\s+(?:heute\s+)?erdbeben|seismische\s+aktivität|recent\s+earthquakes|latest\s+earthquakes)", cleaned, re.IGNORECASE):
+        return ("get_recent_earthquakes", {})
+
+    # 23. Scientific arXiv Papers & Academic Preprints (arXiv.org)
+    m_arxiv = re.search(
+        r"(?:(?:arxiv\s+(?:paper|studien|artikel|forschung|preprints?)\s+(?:zu|über|fuer|für|nach)\s+|wissenschaftliche\s+(?:paper|studien|arbeiten)\s+(?:zu|über|fuer|für)\s+|paper\s+auf\s+arxiv\s+(?:zu|über)\s+))([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_arxiv:
+        arxiv_target = m_arxiv.group(1).strip()
+        if arxiv_target and len(arxiv_target) >= 2:
+            return ("search_arxiv_papers", {"query": arxiv_target})
+
+    # 24. Sports Schedules, Fixtures & Teams (TheSportsDB)
+    m_sports = re.search(
+        r"(?:(?:spielplan\s+(?:von|für|der)|nächste\s+spiele\s+(?:von|der)|wann\s+spielt|ergebnisse\s+von)\s+)([a-zA-Z0-9äöüÄÖÜß\s\-]+?)(?:\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_sports:
+        sp_target = m_sports.group(1).strip()
+        if sp_target and len(sp_target) >= 2 and not any(w in sp_target.lower() for w in ("wetter", "uhr", "tag", "heute")):
+            return ("get_sports_data", {"query": sp_target, "mode": "teams"})
 
     return None
 

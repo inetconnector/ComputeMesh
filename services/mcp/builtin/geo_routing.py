@@ -94,17 +94,31 @@ def get_distance_route(
     destination: str = "",
     from_place: str = "",
     to_place: str = "",
+    query: str = "",
     mode: str = "driving",
     timeout: float = 8.0,
 ) -> Dict[str, Any]:
     """
-    Calculates geographic straight-line distance, driving route distance, coordinates, and travel time between two locations.
+    Calculates geographic straight-line distance, driving route distance, coordinates, and travel time between two or more locations.
     """
     start_loc = (origin or from_place or "").strip()
     end_loc = (destination or to_place or "").strip()
 
+    # Parse query string if provided (e.g. "von Berlin nach München" or "Berlin to Paris")
+    if query and (not start_loc or not end_loc):
+        m = re.search(r"(?:von|from|start)?\s*([a-zA-ZäöüÄÖÜß\s\-]+?)\s*(?:nach|to|richtung|bis|->)\s*([a-zA-ZäöüÄÖÜß\s\-]+)", query, re.IGNORECASE)
+        if m:
+            start_loc = m.group(1).strip()
+            end_loc = m.group(2).strip()
+        else:
+            # Check comma or und separated
+            parts = [p.strip() for p in re.split(r'\s+(?:und|and|nach|to)\s+|,\s*', query, flags=re.IGNORECASE) if p.strip()]
+            if len(parts) >= 2:
+                start_loc = parts[0]
+                end_loc = parts[-1]
+
     if not start_loc or not end_loc:
-        return {"error": "Startort (origin) und Zielort (destination) müssen angegeben werden (z. B. origin='Veitshöchheim', destination='Würzburg')."}
+        return {"error": "Startort (origin) und Zielort (destination) müssen angegeben werden (z. B. origin='Berlin', destination='München' oder query='Berlin nach München')."}
 
     # Geocode origin
     geo_start = _geocode_location(start_loc, timeout=timeout / 2)
@@ -144,7 +158,7 @@ def get_distance_route(
     if osrm_data:
         result.update(osrm_data)
         result["summary"] = (
-            f"Fahrtstrecke von {start_loc} nach {end_loc}: ca. {osrm_data['driving_distance_km']} km "
+            f"Fahrtstrecke von **{start_loc}** nach **{end_loc}**: ca. {osrm_data['driving_distance_km']} km "
             f"(Fahrzeit: {osrm_data['driving_duration_formatted']}). Luftlinie: {straight_dist_km} km Richtung {direction}."
         )
     else:
@@ -157,7 +171,7 @@ def get_distance_route(
         result["estimated_driving_distance_km"] = est_driving_km
         result["estimated_driving_duration"] = duration_str
         result["summary"] = (
-            f"Luftlinie von {start_loc} nach {end_loc}: {straight_dist_km} km in Richtung {direction}. "
+            f"Luftlinie von **{start_loc}** nach **{end_loc}**: {straight_dist_km} km in Richtung {direction}. "
             f"Geschätzte Fahrtstrecke: ~{est_driving_km} km ({duration_str})."
         )
 

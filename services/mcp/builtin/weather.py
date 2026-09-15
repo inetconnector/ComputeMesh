@@ -7,6 +7,7 @@ Fetches real-time weather, temperature, humidity, wind, and conditions worldwide
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional
@@ -189,15 +190,44 @@ def get_current_weather(
     if not target:
         target = "Veitshöchheim"
 
+    # Multi-location detection (e.g. "Berlin, München und Hamburg", "in Berlin und in Hamburg")
+    raw_parts = [p.strip().rstrip("?.!") for p in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', target, flags=re.IGNORECASE) if p.strip()]
+    cleaned_locs = []
+    for p in raw_parts:
+        clean_p = re.sub(r'^(?:in|für|fuer|von|bei|im|am|die\s+stadt|stadt)\s+', '', p, flags=re.IGNORECASE).strip()
+        if clean_p and len(clean_p) >= 2:
+            cleaned_locs.append(clean_p)
+
+    if len(cleaned_locs) > 1:
+        locations_data = []
+        for single_loc in cleaned_locs:
+            geo = geocode_location(single_loc, timeout=timeout / 2)
+            w_data = None
+            if geo and geo.get("latitude") is not None and geo.get("longitude") is not None:
+                w_data = fetch_open_meteo_weather(geo["latitude"], geo["longitude"], geo, timeout=timeout / 2)
+            if not w_data:
+                w_data = fetch_wttr_weather(single_loc, timeout=timeout / 2)
+            if w_data:
+                locations_data.append(w_data)
+        if locations_data:
+            if len(locations_data) == 1:
+                return locations_data[0]
+            return {
+                "multiple_locations": True,
+                "locations": locations_data,
+                "count": len(locations_data)
+            }
+
     # 1. Primary: Open-Meteo Geocoding + Precise Hourly Weather
-    geo = geocode_location(target, timeout=timeout / 2)
+    clean_target = cleaned_locs[0] if cleaned_locs else target
+    geo = geocode_location(clean_target, timeout=timeout / 2)
     if geo and geo.get("latitude") is not None and geo.get("longitude") is not None:
         weather_data = fetch_open_meteo_weather(geo["latitude"], geo["longitude"], geo, timeout=timeout / 2)
         if weather_data:
             return weather_data
 
     # 2. Fallback: wttr.in
-    wttr_data = fetch_wttr_weather(target, timeout=timeout / 2)
+    wttr_data = fetch_wttr_weather(clean_target, timeout=timeout / 2)
     if wttr_data:
         return wttr_data
 

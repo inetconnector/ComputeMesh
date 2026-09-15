@@ -2,16 +2,32 @@
 """
 Software Package Registry & Vulnerability (OSV/CVE) Inspection Tool.
 Retrieves versions, dependencies, license, and security advisories from PyPI, NPM, Crates.io, and OSV.dev.
+Supports generic single and multi-package queries with concurrent execution.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ComputeMesh/1.2 (https://mesh.inetconnector.com)"
+
+
+def _split_package_queries(raw: str) -> List[str]:
+    """Splits package queries containing multiple packages."""
+    cleaned = re.sub(r"^(?:paketinfo\s+(?:zu|von|über|fuer|für)\s+|pakete\s+|paket\s+|packages?\s+|version\s+(?:von\s+)?|sicherheitslücken\s+(?:in\s+)?|cve\s+(?:in|zu)\s+)", "", raw, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"[\?\.!]$", "", cleaned).strip()
+    parts = re.split(r",|\s+und\s+|\s+sowie\s+|\s+and\s+|\s*\+\s*", cleaned, flags=re.IGNORECASE)
+    results = []
+    for p in parts:
+        token = p.strip()
+        if token and len(token) >= 1:
+            results.append(token)
+    return results if results else ([raw.strip()] if raw.strip() else [])
 
 
 def _fetch_pypi(package_name: str, timeout: float = 4.0) -> Optional[Dict[str, Any]]:
@@ -97,19 +113,8 @@ def _check_osv_vulnerabilities(ecosystem: str, package_name: str, version: str =
         return []
 
 
-def lookup_software_package(
-    package_name: str = "",
-    ecosystem: str = "pypi",
-    query: str = "",
-    timeout: float = 6.0,
-) -> Dict[str, Any]:
-    """
-    Looks up software package metadata, latest releases, dependencies, and OSV security vulnerabilities.
-    """
-    clean_pkg = (package_name or query or "").strip()
-    if not clean_pkg:
-        return {"error": "Paketname darf nicht leer sein (z. B. 'torch', 'fastapi', 'react', 'langchain')."}
-
+def _fetch_single_package(package_name: str, ecosystem: str = "pypi", timeout: float = 6.0) -> Dict[str, Any]:
+    clean_pkg = package_name.strip()
     eco = (ecosystem or "pypi").lower().strip()
     data = None
     if eco in ("pypi", "python", "pip"):
@@ -119,11 +124,10 @@ def lookup_software_package(
     elif eco in ("npm", "node", "javascript", "js", "typescript", "ts"):
         data = _fetch_npm(clean_pkg, timeout=timeout / 2)
     else:
-        # Try PyPI first, then NPM
         data = _fetch_pypi(clean_pkg, timeout=timeout / 2) or _fetch_npm(clean_pkg, timeout=timeout / 2)
 
     if not data:
-        return {"error": f"Software-Paket '{clean_pkg}' in Ökosystem '{eco}' nicht gefunden."}
+        return {"error": f"Software-Paket '{clean_pkg}' in Ökosystem '{eco}' nicht gefunden.", "name": clean_pkg}
 
     # Query OSV.dev for CVEs
     vulns = _check_osv_vulnerabilities(data["ecosystem"], data["name"], data.get("version", ""), timeout=timeout / 2)
@@ -139,6 +143,35 @@ def lookup_software_package(
     )
     data["summary_formatted"] = summary
     return data
+
+
+def lookup_software_package(
+    package_name: str = "",
+    ecosystem: str = "pypi",
+    query: str = "",
+    timeout: float = 6.0,
+) -> Dict[str, Any]:
+    """
+    Looks up software package metadata, latest releases, dependencies, and OSV security vulnerabilities.
+    Supports single or multiple package queries concurrently.
+    """
+    raw_query = (package_name or query or "").strip()
+    if not raw_query:
+        return {"error": "Paketname darf nicht leer sein (z. B. 'torch', 'fastapi', 'react', 'langchain')."}
+
+    packages = _split_package_queries(raw_query)
+    if len(packages) > 1:
+        with ThreadPoolExecutor(max_workers=min(len(packages), 6)) as pool:
+            futures = [pool.submit(_fetch_single_package, p, ecosystem, timeout) for p in packages]
+            results = [f.result() for f in futures]
+        return {
+            "multiple_packages": True,
+            "query": raw_query,
+            "packages": results,
+            "source": "PyPI / NPM / OSV.dev",
+        }
+
+    return _fetch_single_package(packages[0] if packages else raw_query, ecosystem=ecosystem, timeout=timeout)
 
 
 # Backwards-compatible alias

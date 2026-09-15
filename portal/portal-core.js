@@ -183,7 +183,11 @@ var translations = window.translations || {
     pg_latency_lbl: "TTFT / Latency:",
     pg_tokens_lbl: "Tokens Streamed:",
     qp_explain_mesh: "⚡ What makes ComputeMesh unique?",
+    qp_mcp_bitcoin: "📈 Live Bitcoin & Crypto (MCP)",
+    qp_mcp_weather: "🌦️ Live Weather Berlin & Munich (MCP)",
+    qp_mcp_news: "📰 Latest Live News & Headlines (MCP)",
     qp_python_fastapi: "🐍 Write a streaming FastAPI client",
+    qp_mcp_math: "🧮 Compound Interest Sandbox (MCP)",
     qp_gpu_sharding: "🧩 How does pipeline layer sharding work?",
     qp_compare_costs: "💰 Estimate my cost savings",
     pg_prompt_placeholder: "Type a prompt or test inference speed... (Enter to send, Shift+Enter for newline)",
@@ -690,7 +694,11 @@ var translations = window.translations || {
     pg_latency_lbl: "TTFT / Latenz:",
     pg_tokens_lbl: "Generierte Tokens:",
     qp_explain_mesh: "⚡ Was macht ComputeMesh einzigartig?",
+    qp_mcp_bitcoin: "📈 Live Bitcoin & Krypto-Kurs (MCP)",
+    qp_mcp_weather: "🌦️ Live-Wetter Berlin & München (MCP)",
+    qp_mcp_news: "📰 Aktuelle Tagesschau-News (MCP)",
     qp_python_fastapi: "🐍 Schreibe einen Streaming FastAPI-Endpunkt",
+    qp_mcp_math: "🧮 Zinseszins Python-Sandbox (MCP)",
     qp_gpu_sharding: "🧩 Wie funktioniert Pipeline-Layer-Sharding?",
     qp_compare_costs: "💰 Berechne meine Kostenersparnis",
     pg_prompt_placeholder: "Stelle eine Frage oder teste die Inferenz-Geschwindigkeit... (Enter zum Senden, Shift+Enter für neue Zeile)",
@@ -1814,13 +1822,21 @@ function clearPlaygroundChat() {
 const QUICK_PROMPTS = {
   de: {
     explain_mesh: "Was macht ComputeMesh einzigartig und wie funktioniert die dezentrale GPU-Inferenz?",
+    mcp_bitcoin: "Wie steht der Bitcoin (BTC) und Ethereum (ETH) Kurs aktuell und was ist der 24h Trend?",
+    mcp_weather: "Wie ist das aktuelle Wetter und die Temperatur in Berlin und München?",
+    mcp_news: "Welche aktuellen Nachrichten und Schlagzeilen meldet die Tagesschau heute?",
     python_fastapi: "Schreibe einen performanten Python-FastAPI-Endpunkt, der Requests an das OpenAI-kompatible /v1/chat/completions Gateway mit Streaming weiterleitet.",
+    mcp_math: "Berechne mit der Python-Sandbox: Wie viel Endkapital erhalte ich bei 10.000 € Startkapital nach 10 Jahren bei 7% jährlicher Rendite mit Zinseszins?",
     gpu_sharding: "Erkläre wie Pipeline-Layer-Sharding große KI-Modelle effizient über mehrere GPUs aufteilt.",
     compare_costs: "Wie viel Geld kann ich mit ComputeMesh im Vergleich zu AWS oder Azure sparen?"
   },
   en: {
     explain_mesh: "What makes ComputeMesh unique and how does decentralized GPU inference work?",
+    mcp_bitcoin: "What is the current Bitcoin (BTC) and Ethereum (ETH) market quote and 24h price trend?",
+    mcp_weather: "What is the current weather and temperature in Berlin and Munich?",
+    mcp_news: "What are the latest breaking news and top headlines reported today?",
     python_fastapi: "Write a high-performance Python FastAPI streaming endpoint using the OpenAI-compatible /v1/chat/completions gateway.",
+    mcp_math: "Calculate with the Python sandbox: What is the final capital on a $10,000 investment after 10 years at 7% annual compound interest?",
     gpu_sharding: "Explain how pipeline layer sharding efficiently distributes large AI models across multiple GPUs.",
     compare_costs: "How much money can I save with ComputeMesh compared to AWS or Azure?"
   }

@@ -114,27 +114,14 @@ def fetch_rss_news(rss_url: str, max_items: int = 5, timeout: float = 8.0) -> Li
     return items
 
 
-def get_live_news(
-    topic: str = "",
-    category: str = "",
-    query: str = "",
-    search: str = "",
-    max_results: int = 5,
-    timeout: float = 10.0,
-) -> Dict[str, Any]:
-    """
-    Fetches real-time news articles by topic or custom search term.
-    """
-    raw_topic = (topic or category or query or search or "general").strip()
-    clean_topic = raw_topic.lower()
-    max_results = max(1, min(max_results, 10))
-
+def _get_single_feed_news(raw_topic: str, max_results: int = 5, timeout: float = 10.0) -> Dict[str, Any]:
+    clean_topic = raw_topic.strip().lower()
     feed_url = None
-    display_topic = raw_topic
+    display_topic = raw_topic.strip()
 
     if "spiegel" in clean_topic:
         feed_url = NEWS_FEEDS["spiegel"]
-        display_topic = "DER SPIEGEL (Top-Schlagzeilen)"
+        display_topic = "DER SPIEGEL"
     elif "tagesschau" in clean_topic:
         feed_url = NEWS_FEEDS["tagesschau"]
         display_topic = "Tagesschau"
@@ -162,19 +149,23 @@ def get_live_news(
         # Check topic keywords
         if any(k in clean_topic for k in ("krypto", "crypto", "bitcoin", "btc", "eth")):
             feed_url = NEWS_FEEDS["crypto"]
+            display_topic = "Krypto & Blockchain"
         elif any(k in clean_topic for k in ("tech", "technologie", "ki", "ai", "hardware")):
             feed_url = NEWS_FEEDS["tech"]
+            display_topic = "Technologie & KI"
         elif any(k in clean_topic for k in ("wirtschaft", "business", "finanzen", "boerse", "aktien")):
             feed_url = NEWS_FEEDS["business"]
+            display_topic = "Wirtschaft & Finanzen"
         elif any(k in clean_topic for k in ("welt", "ausland", "international", "world")):
             feed_url = NEWS_FEEDS["world"]
+            display_topic = "Internationale Schlagzeilen"
         elif any(k in clean_topic for k in ("deutschland", "inland", "politik")):
             feed_url = NEWS_FEEDS["germany"]
+            display_topic = "Deutschland & Politik"
 
     if feed_url:
         results = fetch_rss_news(feed_url, max_items=max_results, timeout=timeout)
     else:
-        # Custom topic search query via Google News RSS
         encoded_query = urllib.parse.quote(raw_topic)
         feed_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=de&gl=DE&ceid=DE:de"
         results = fetch_rss_news(feed_url, max_items=max_results, timeout=timeout)
@@ -184,6 +175,43 @@ def get_live_news(
         "total": len(results),
         "articles": results,
     }
+
+
+def get_live_news(
+    topic: str = "",
+    category: str = "",
+    query: str = "",
+    search: str = "",
+    max_results: int = 5,
+    timeout: float = 10.0,
+) -> Dict[str, Any]:
+    """
+    Fetches real-time news articles by topic or custom search term.
+    Supports multi-portal queries (e.g. 'Tagesschau und Spiegel' or 'Tech und Finanzen').
+    """
+    raw_topic = (topic or category or query or search or "general").strip()
+    max_results = max(1, min(max_results, 10))
+
+    # Multi-topic / multi-portal detection
+    raw_parts = [p.strip().rstrip("?.!") for p in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', raw_topic, flags=re.IGNORECASE) if p.strip()]
+    cleaned_parts = [p for p in raw_parts if len(p) >= 2]
+
+    if len(cleaned_parts) > 1:
+        feeds = []
+        for p in cleaned_parts:
+            f_res = _get_single_feed_news(p, max_results=max(2, max_results // len(cleaned_parts) + 1), timeout=timeout / 2)
+            if f_res and f_res.get("articles"):
+                feeds.append(f_res)
+        if feeds:
+            if len(feeds) == 1:
+                return feeds[0]
+            return {
+                "multiple_feeds": True,
+                "feeds": feeds,
+                "count": len(feeds),
+            }
+
+    return _get_single_feed_news(cleaned_parts[0] if cleaned_parts else raw_topic, max_results=max_results, timeout=timeout)
 
 
 # Backwards-compatible alias

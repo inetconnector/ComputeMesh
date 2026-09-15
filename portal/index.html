@@ -78,7 +78,7 @@
   }
   </script>
 
-  <link rel="stylesheet" href="portal.css?v=3.7">
+  <link rel="stylesheet" href="portal.css?v=4.0">
 </head>
 <body>
     <!-- Top Navigation Header (2-Row Layout) -->
@@ -92,6 +92,12 @@
 
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
         <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
         <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
         <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
@@ -174,6 +180,20 @@
                 <div>
                   <strong data-i18n="nav_app_hub">InetConnector App Suite</strong>
                   <p data-i18n="nav_app_hub_sub">Zentrale Übersicht aller Web-, Desktop- &amp; Mobile-Apps</p>
+                </div>
+              </a>
+              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📱</span>
+                <div>
+                  <strong>Google Play Store</strong>
+                  <p>Offizielle Android-Apps von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">💻</span>
+                <div>
+                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
+                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
                 </div>
               </a>
             </div>
@@ -521,7 +541,11 @@
         <!-- Quick Prompts Row -->
         <div class="pg-quick-prompts">
           <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain_mesh">⚡ Was macht ComputeMesh einzigartig?</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('mcp_bitcoin')" data-i18n="qp_mcp_bitcoin">📈 Live Bitcoin &amp; Krypto-Kurs (MCP)</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('mcp_weather')" data-i18n="qp_mcp_weather">🌦️ Live-Wetter Berlin &amp; München (MCP)</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('mcp_news')" data-i18n="qp_mcp_news">📰 Aktuelle Tagesschau-News (MCP)</button>
           <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_python_fastapi">🐍 Schreibe einen Streaming FastAPI-Endpunkt</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('mcp_math')" data-i18n="qp_mcp_math">🧮 Zinseszins Python-Sandbox (MCP)</button>
           <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_gpu_sharding">🧩 Wie funktioniert Pipeline-Layer-Sharding?</button>
           <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_compare_costs">💰 Berechne meine Kostenersparnis</button>
         </div>
@@ -1033,26 +1057,30 @@ for chunk in response:
     <div class="modal-box modal-lg">
       <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
       <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">Jetzt durchstarten</div>
-      <h3 style="font-size: 1.85rem; margin-bottom: 0.5rem;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3>
-      <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.75rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p>
+      <h3 style="font-size: 1.75rem; margin-bottom: 0.5rem; letter-spacing: -0.02em;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p>
       
       <div class="conv-options-grid">
         <div class="conv-card highlight">
-          <div class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</div>
-          <h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4>
-          <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p>
+          <div>
+            <span class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p>
+          </div>
           <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.85rem 1.25rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Kostenlosen API-Key holen →</button>
         </div>
 
         <div class="conv-card emerald">
-          <div class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</div>
-          <h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4>
-          <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p>
-          <div class="conv-cli-box">
-            <code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code>
-            <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')">📋</button>
+          <div>
+            <span class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</span>
+            <h4 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700; color: #ffffff;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4>
+            <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p>
+            <div class="conv-cli-box">
+              <code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code>
+              <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')" title="Befehl kopieren">📋</button>
+            </div>
           </div>
-          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;">
             <button class="btn btn-emerald" style="flex: 1 1 140px; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">GPU-Node registrieren</button>
             <a href="#downloads" class="btn btn-secondary" style="flex: 1 1 140px; text-align: center; text-decoration: none; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Downloads ansehen</a>
           </div>
