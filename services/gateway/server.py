@@ -1824,6 +1824,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._handle_ollama_generate(body)
             return
 
+        if clean_path in ("/api/show", "/api/v1/show"):
+            self._handle_ollama_show(body)
+            return
+
         # MCP Ledger Receipt Verification & Sync Ingestion
         if clean_path in ("/v1/mcp/ledger/verify-receipt", "/api/v1/mcp/ledger/verify-receipt"):
             from services.mcp.ledger import get_compact_ledger, MerkleTree

@@ -370,11 +370,13 @@ class InferenceEngine:
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                             tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
+                            nodes_updated = True
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             except Exception:
                 pass
 
             return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
+
         except Exception:
             if hold and hasattr(self.ledger, "release_hold"):
                 try:
@@ -382,6 +384,8 @@ class InferenceEngine:
                 except Exception:
                     pass
             raise
+        finally:
+            secure_buf.zeroize()
 
     @staticmethod
     def format_openai_response(
