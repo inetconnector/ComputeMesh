@@ -13,14 +13,14 @@ log = logging.getLogger("computemesh.mcp.github_repo_tools")
 
 
 def _resolve_owner_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> tuple[str, str]:
-    if owner and repo:
-        if "/" in repo:
-            parts = repo.strip().strip("/").split("/", 1)
-            return parts[0].strip(), parts[1].strip()
+    import re
+    if owner and repo and "/" not in repo:
         return owner.strip(), repo.strip()
-    full = (repo or owner or "").strip().strip("/")
+    full = (repo or owner or "").strip()
+    full = re.sub(r"^https?://(?:www\.)?github\.com/", "", full, flags=re.IGNORECASE)
+    full = full.strip("/").rstrip(".git")
     if "/" not in full:
-        raise ValueError(f"Ungültiges Repository-Format '{full}'. Erwartet: 'owner/repo'.")
+        raise ValueError(f"Ungültiges Repository-Format '{full}'. Erwartet: 'owner/repo' oder 'https://github.com/owner/repo'.")
     parts = full.split("/", 1)
     return parts[0].strip(), parts[1].strip()
 
@@ -34,7 +34,7 @@ def github_get_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> 
 
     resp = execute_github_request(f"/repos/{r_owner}/{r_name}")
     if not resp.get("success"):
-        return {"error": resp.get("error", "Repository nicht gefunden."), "success": False}
+        return {"error": resp.get("error", f"Repository '{r_owner}/{r_name}' nicht auf GitHub gefunden."), "success": False}
 
     data = resp.get("data", {})
     return {
@@ -43,9 +43,12 @@ def github_get_repo(repo: Optional[str] = None, owner: Optional[str] = None) -> 
         "description": data.get("description") or "",
         "html_url": data.get("html_url", f"https://github.com/{r_owner}/{r_name}"),
         "stars": data.get("stargazers_count", 0),
+        "stargazers_count": data.get("stargazers_count", 0),
         "forks": data.get("forks_count", 0),
+        "forks_count": data.get("forks_count", 0),
         "watchers": data.get("watchers_count", 0),
         "open_issues": data.get("open_issues_count", 0),
+        "open_issues_count": data.get("open_issues_count", 0),
         "default_branch": data.get("default_branch", "main"),
         "language": data.get("language") or "N/A",
         "topics": data.get("topics", []),

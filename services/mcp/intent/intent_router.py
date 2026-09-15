@@ -203,10 +203,18 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if m_gh_ci:
         return ("github_get_workflow_runs", {"owner": m_gh_ci.group(1), "repo": m_gh_ci.group(2)})
 
-    # GitHub Repo info: e.g. "github repo owner/repo" or "zeige github repo owner/repo"
-    m_gh_repo = re.search(r"(?:github\s+(?:repo(?:sitory)?|info)\s+(?:von\s+|über\s+|zu\s+)?|gh\s+repo\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)", cleaned, re.IGNORECASE)
-    if m_gh_repo:
-        return ("github_get_repo", {"owner": m_gh_repo.group(1), "repo": m_gh_repo.group(2)})
+    # GitHub Repo info: e.g. "https://github.com/owner/repo", "checke repo https://github.com/owner/repo", "github repo owner/repo"
+    m_gh_url = re.search(
+        r"(?:https?://(?:www\.)?github\.com/([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)|(?:checke|analysiere|untersuche|inspect|clone|klone|lade|zeige|öffne|prüfe)\s+(?:das\s+)?(?:github\s+)?repo(?:sitory)?\s+(?:https?://(?:www\.)?github\.com/)?([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)|(?:github\s+(?:repo(?:sitory)?|info)\s+(?:von\s+|über\s+|zu\s+)?|gh\s+repo\s+)([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+))",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_gh_url:
+        g_owner = m_gh_url.group(1) or m_gh_url.group(3) or m_gh_url.group(5)
+        g_repo = m_gh_url.group(2) or m_gh_url.group(4) or m_gh_url.group(6)
+        if g_owner and g_repo:
+            g_repo = g_repo.rstrip(".git").rstrip("/.!?")
+            return ("github_get_repo", {"owner": g_owner, "repo": g_repo})
 
     # GitHub Repo Search: e.g. "suche github repos <query>"
     m_gh_search = re.search(r"(?:suche\s+github\s+repos?(?:itories)?\s+(?:nach\s+)?|search\s+github\s+repos?(?:itories)?\s+)(.+)", cleaned, re.IGNORECASE)

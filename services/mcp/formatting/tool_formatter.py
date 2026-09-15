@@ -401,12 +401,12 @@ def format_tool_content_if_json(content: str) -> str:
                 res += f"```text\n{data['body_preview'][:3000]}\n```"
             return res.strip()
 
-        if "full_name" in data and "stargazers_count" in data and "html_url" in data:
+        if "full_name" in data and ("stargazers_count" in data or "stars" in data) and "html_url" in data:
             name = data.get("full_name", "")
             url = data.get("html_url", "")
-            stars = data.get("stargazers_count", 0)
-            forks = data.get("forks_count", 0)
-            issues = data.get("open_issues_count", 0)
+            stars = data.get("stars", data.get("stargazers_count", 0))
+            forks = data.get("forks", data.get("forks_count", 0))
+            issues = data.get("open_issues", data.get("open_issues_count", 0))
             lang = data.get("language") or "Unbekannt"
             lic = data.get("license") or "Keine"
             desc = data.get("description") or "*Keine Beschreibung vorhanden.*"
@@ -416,6 +416,10 @@ def format_tool_content_if_json(content: str) -> str:
             res += f"- **⭐ Sterne:** {stars:,} | **🍴 Forks:** {forks:,} | **❗ Open Issues:** {issues:,}\n"
             res += f"- **💻 Sprache:** `{lang}` | **📜 Lizenz:** `{lic}` | **🌿 Default Branch:** `{branch}`\n"
             return res.strip()
+
+        if "error" in data and ("nicht auf github gefunden" in str(data.get("error", "")).lower() or "github api fehler" in str(data.get("error", "")).lower()):
+            err_msg = str(data.get("error", ""))
+            return f"### 🐙 GitHub Repository-Abfrage\n\n❌ **Fehler:** {err_msg}\n\n*Hinweis: Bitte stelle sicher, dass das Repository öffentlich erreichbar ist oder der Name exakt übereinstimmt.*"
 
         if "total_issues" in data and "issues" in data and isinstance(data.get("issues"), list):
             repo = data.get("repository", "")
