@@ -22,7 +22,7 @@
 				// Auto-authenticate with ComputeMesh credentials
 				var urlParams = new URLSearchParams(window.location.search);
 				var keyFromUrl = urlParams.get("key") || urlParams.get("api_key") || urlParams.get("token");
-				var cmKey = keyFromUrl || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key");
+				var cmKey = keyFromUrl || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token");
 
 				if (cmKey) {
 					localStorage.setItem("apiKey", cmKey);

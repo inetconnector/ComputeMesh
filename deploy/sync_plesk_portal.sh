@@ -115,8 +115,9 @@ echo "[6/6] Verifying public endpoint HTTP status codes..."
 if command -v curl >/dev/null 2>&1; then
   for url in \
     "https://mesh.inetconnector.com" \
-    "https://inetconnector.com"; do
-    code=$(curl -fsS -o /dev/null -w "%{http_code}" "$url" || true)
+    "https://inetconnector.com" \
+    "https://ai.inetconnector.com"; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -L "$url" || true)
     echo "Endpoint ${url} -> HTTP ${code}"
   done
 fi

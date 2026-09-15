@@ -3526,6 +3526,21 @@ for chunk in stream:
       document.getElementById("fleet-section").hidden = false;
       updateAuthNavBtn();
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get("redirect");
+      const source = urlParams.get("source");
+      const currentKey = (data && data.owner_key) || activeOwnerKey || localStorage.getItem("cm_fleet_owner_key") || "";
+
+      if (redirectUrl) {
+        const sep = redirectUrl.includes("?") ? "&" : "?";
+        window.location.href = currentKey ? `${redirectUrl}${sep}key=${encodeURIComponent(currentKey)}` : redirectUrl;
+        return;
+      }
+      if (window.location.hostname === "ai.inetconnector.com" || source === "ai_studio") {
+        window.location.href = currentKey ? `/webui/?key=${encodeURIComponent(currentKey)}` : "/webui/";
+        return;
+      }
+
       if (data && data.email) activeEmail = data.email;
       updateEmailUI();
       if (data && data.owner_key) {

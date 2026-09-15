@@ -1115,6 +1115,8 @@ function toggleLanguage() {
 
 function getActiveComputeMeshApiKey() {
   try {
+    const fleetOwnerKey = localStorage.getItem('cm_fleet_owner_key');
+    if (fleetOwnerKey) return fleetOwnerKey;
     const ownerKey = localStorage.getItem('cm_owner_key');
     if (ownerKey) return ownerKey;
     const apiKey = localStorage.getItem('cm_api_key');
@@ -1131,8 +1133,10 @@ function hasActiveSession() {
       (typeof window.isLoggedIn !== 'undefined' && window.isLoggedIn) ||
       (document.cookie && document.cookie.includes('cm_session=')) ||
       (typeof localStorage !== 'undefined' && (
+        Boolean(localStorage.getItem('cm_fleet_owner_key')) ||
         Boolean(localStorage.getItem('cm_owner_key')) ||
         Boolean(localStorage.getItem('cm_api_key')) ||
+        Boolean(localStorage.getItem('cm_token')) ||
         Boolean(localStorage.getItem('cm_fleet_email'))
       ))
     );
@@ -1140,6 +1144,29 @@ function hasActiveSession() {
     return false;
   }
 }
+
+function handleAiSubdomainRouting() {
+  try {
+    if (window.location.hostname === 'ai.inetconnector.com') {
+      const pathname = window.location.pathname;
+      const isRoot = pathname === '/' || pathname === '/index.html' || pathname === '';
+      if (isRoot) {
+        if (hasActiveSession()) {
+          const key = getActiveComputeMeshApiKey();
+          const target = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+          window.location.replace(target);
+        } else {
+          window.location.replace('/fleet?source=ai_studio&redirect=/webui/');
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('AI subdomain routing check:', e);
+  }
+}
+
+// Trigger early routing check immediately
+handleAiSubdomainRouting();
 
 function openWebUI(event) {
   if (event && event.preventDefault) event.preventDefault();
@@ -1347,6 +1374,7 @@ window.getActiveComputeMeshApiKey = getActiveComputeMeshApiKey;
 window.hasActiveSession = hasActiveSession;
 window.handleAuthNavClick = handleAuthNavClick;
 window.initUnifiedPortalHeader = initUnifiedPortalHeader;
+window.handleAiSubdomainRouting = handleAiSubdomainRouting;
 window.translations = translations;
 window.currentLang = currentLang;
 

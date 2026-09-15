@@ -7,8 +7,33 @@
   <meta name="description" content="ComputeMesh verbindet verteilte GPUs zu einem ultra-schnellen Inferenz-Netzwerk. OpenAI-kompatible Drop-in API für Entwickler, interaktiver GPU-Marketplace, Model Library und automatische Einnahmen für GPU-Provider. Bis zu 80% günstiger als Hyperscaler.">
   <meta name="keywords" content="ComputeMesh, GPU Cloud, Vast.ai Alternative, Distributed AI, GPU Inferenz, OpenAI API, Ollama, DeepSeek R1, Llama 3.3, Qwen 2.5, GPU Mining, KI Rechenzentrum, LocalCode">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <meta name="theme-color" content="#00f2fe">
   <link rel="canonical" href="https://mesh.inetconnector.com/">
+
+  <script>
+    (function() {
+      if (window.location.hostname === 'ai.inetconnector.com') {
+        try {
+          var isAuth = Boolean(
+            (document.cookie && document.cookie.includes('cm_session=')) ||
+            (typeof localStorage !== 'undefined' && (
+              localStorage.getItem('cm_fleet_owner_key') ||
+              localStorage.getItem('cm_owner_key') ||
+              localStorage.getItem('cm_api_key') ||
+              localStorage.getItem('cm_token')
+            ))
+          );
+          if (window.location.pathname === '/' || window.location.pathname === '/index.html' || window.location.pathname === '') {
+            if (isAuth) {
+              var k = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || '';
+              window.location.replace(k ? '/webui/?key=' + encodeURIComponent(k) : '/webui/');
+            } else {
+              window.location.replace('/fleet?source=ai_studio&redirect=/webui/');
+            }
+          }
+        } catch(e) {}
+      }
+    })();
+  </script>
 
   <!-- Favicons & Web App Manifest -->
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
