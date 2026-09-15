@@ -79,6 +79,19 @@ def generate_ai_image(
         return {"error": "Prompt darf nicht leer sein"}
 
     enriched_prompt = clean_prompt
+
+    # Intelligent contextual resolution for meta-prompts (e.g. 'aus den aktuellen nachrichten')
+    if any(k in clean_prompt.lower() for k in ("aktuellen nachrichten", "aktuelle nachrichten", "heutige nachrichten", "breaking news", "top news", "schlagzeilen", "current news")):
+        try:
+            from .news_feed import fetch_rss_news, NEWS_FEEDS
+            news_items = fetch_rss_news(NEWS_FEEDS.get("tagesschau", ""), max_items=2)
+            if news_items:
+                top_title = news_items[0].get("title", "")
+                top_desc = news_items[0].get("description", "")
+                enriched_prompt = f"Editorial conceptual art representing top news: {top_title} ({top_desc}), {clean_prompt}"
+        except Exception:
+            pass
+
     if style:
         style_key = style.lower().strip().replace(" ", "_")
         matched_suffix = None
@@ -86,10 +99,10 @@ def generate_ai_image(
             if key in style_key or (key == "photorealistic" and any(w in style_key for w in ("photo", "realis", "foto"))):
                 matched_suffix = suffix
                 break
-        if matched_suffix and matched_suffix.split(",")[0] not in clean_prompt.lower():
-            enriched_prompt = f"{clean_prompt}, {matched_suffix}"
-        elif not matched_suffix and style not in clean_prompt.lower():
-            enriched_prompt = f"{clean_prompt}, {style} style, masterpiece"
+        if matched_suffix and matched_suffix.split(",")[0] not in enriched_prompt.lower():
+            enriched_prompt = f"{enriched_prompt}, {matched_suffix}"
+        elif not matched_suffix and style not in enriched_prompt.lower():
+            enriched_prompt = f"{enriched_prompt}, {style} style, masterpiece"
 
     _ensure_image_engine_running(timeout=1.5)
 

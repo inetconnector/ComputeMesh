@@ -1722,6 +1722,23 @@ function formatChatMarkdown(text) {
     return `<pre>${langLabel}<code>${code.trim()}</code></pre>`;
   });
 
+  // Format Markdown Images ![alt](url)
+  escaped = escaped.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+|data:image\/[^\s\)]+)\)/g, (match, alt, url) => {
+    const cleanUrl = url.replace(/&amp;/g, '&');
+    return `<div class="chat-image-wrap" style="margin: 0.9rem 0; text-align: center;">
+      <a href="${cleanUrl}" target="_blank" rel="noopener" title="Klicken für Vollbild">
+        <img src="${cleanUrl}" alt="${alt}" style="max-width: 100%; max-height: 480px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: inline-block; cursor: pointer; transition: transform 0.25s ease;" loading="lazy" onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='scale(1)'" />
+      </a>
+      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic;">🖼️ ${alt}</div>
+    </div>`;
+  });
+
+  // Format Markdown Links [text](url)
+  escaped = escaped.replace(/\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g, (match, txt, url) => {
+    const cleanUrl = url.replace(/&amp;/g, '&');
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: underline; font-weight: 500;">${txt}</a>`;
+  });
+
   // Format inline code `...`
   escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
 
