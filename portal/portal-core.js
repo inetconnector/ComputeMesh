@@ -1064,6 +1064,9 @@ function switchLanguage(lang) {
   } catch (e) {}
   updateCalculators();
   updateAuthNavBtn();
+  if (typeof renderRealMarketplaceCards === 'function' && typeof _lastFetchedNodes !== 'undefined') {
+    renderRealMarketplaceCards(_lastFetchedNodes, lang === 'de');
+  }
   if (typeof window.syncComplianceLanguage === 'function') {
     window.syncComplianceLanguage(lang);
   }
@@ -2189,6 +2192,8 @@ function initPortal() {
   updateCalculators();
   loadCanonicalPricing();
   fetchMeshTelemetry();
+  loadRealMarketplaceData();
+  setInterval(loadRealMarketplaceData, 20000);
   setInterval(fetchMeshTelemetry, 15000);
 
   try {
@@ -2216,27 +2221,171 @@ window.initPortal = initPortal;
 let currentMarketFilters = {
   gpu: 'all',
   vram: 'all',
-  region: 'all',
+  status: 'all',
   search: ''
 };
+
+let _lastFetchedNodes = [];
+
+async function loadRealMarketplaceData() {
+  const container = document.getElementById('marketplace-cards-container');
+  if (!container) return;
+
+  const isDe = (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de')));
+
+  try {
+    const res = await fetch('/api/v1/mesh/fleet', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Fleet status HTTP ' + res.status);
+    const data = await res.json();
+    _lastFetchedNodes = (data && data.nodes) ? data.nodes : [];
+
+    renderRealMarketplaceCards(_lastFetchedNodes, isDe);
+  } catch (err) {
+    console.warn('Real marketplace fetch note:', err);
+    renderRealMarketplaceCards(_lastFetchedNodes, isDe);
+  }
+}
+
+function renderRealMarketplaceCards(nodes, isDe) {
+  const container = document.getElementById('marketplace-cards-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!nodes || nodes.length === 0) {
+    container.innerHTML = `
+      <div class="market-card highlight" style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem; background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(56, 189, 248, 0.08)); border: 1px dashed rgba(56, 189, 248, 0.35);">
+        <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🌐</div>
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">${isDe ? 'Mesh-Gateway ist live &amp; betriebsbereit' : 'Mesh Gateway is Live &amp; Ready'}</h3>
+        <p style="color: var(--text-muted); max-width: 620px; margin: 0 auto 1.5rem auto; font-size: 0.95rem; line-height: 1.6;">
+          ${isDe ? 'Führe KI-Inferenz über unsere OpenAI-kompatible High-Speed-API aus oder verbinde deine eigenen GPUs &amp; Mining-Rigs, um hier in Echtzeit als Hardware-Provider gelistet zu werden.' : 'Run high-speed AI inference via our OpenAI-compatible gateway or connect your own GPUs &amp; mining rigs to be listed here as a live hardware provider.'}
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="openModal('consumer')">${isDe ? '🚀 API-Key holen' : '🚀 Get API Key'}</button>
+          <a href="#downloads" class="btn btn-emerald">${isDe ? '⚡ Provider-Software laden (.exe / Linux / NodeOS)' : '⚡ Download Provider Agent'}</a>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Render each REAL live node
+  nodes.forEach(node => {
+    const gpusList = (node.gpus && node.gpus.length > 0) ? node.gpus : ['ComputeMesh Hardware Worker'];
+    const gpusStr = gpusList.join(' • ');
+    const isOnline = Boolean(node.is_online || node.status === 'online');
+    const vram = node.vram_gb ? Number(node.vram_gb).toFixed(1) : '16.0';
+    const tflops = node.tflops ? Number(node.tflops).toFixed(1) : '24.0';
+    const nodeId = node.node_id || 'Node';
+
+    let gpuCategory = 'nvidia';
+    let badgeClass = 'nvidia';
+    let badgeText = 'NVIDIA (CUDA)';
+    const gpusLower = gpusStr.toLowerCase();
+
+    if (gpusLower.includes('amd') || gpusLower.includes('radeon') || gpusLower.includes('rocm') || gpusLower.includes('mi25')) {
+      gpuCategory = 'amd';
+      badgeClass = 'amd';
+      badgeText = 'AMD ROCm / Vulkan';
+    } else if (gpusLower.includes('apple') || gpusLower.includes('metal') || gpusLower.includes('m1') || gpusLower.includes('m2') || gpusLower.includes('m3')) {
+      gpuCategory = 'apple';
+      badgeClass = 'enterprise';
+      badgeText = 'Apple Silicon';
+    } else if (gpusList.length > 1) {
+      gpuCategory = 'rig';
+      badgeClass = 'rig';
+      badgeText = `${gpusList.length}x Multi-GPU Cluster`;
+    }
+
+    const remoteUrl = node.remote_url || (node.candidate_local_urls && node.candidate_local_urls[0]) || '';
+
+    const card = document.createElement('div');
+    card.className = 'market-card';
+    card.setAttribute('data-gpu', gpuCategory);
+    card.setAttribute('data-vram', Math.round(Number(vram)));
+    card.setAttribute('data-status', isOnline ? 'online' : 'standby');
+
+    card.innerHTML = `
+      <div class="market-card-head">
+        <div class="gpu-badge ${badgeClass}">${badgeText}</div>
+        <span class="status-pill ${isOnline ? 'online' : 'offline'}">
+          ${isOnline ? '<span class="pulse-dot"></span> Online' : (isDe ? 'Standby' : 'Standby')}
+        </span>
+      </div>
+      <h3 class="market-gpu-name" style="font-family: var(--font-mono); font-size: 1.15rem; color: #ffffff;">${nodeId}</h3>
+      <p class="market-gpu-sub">${gpusStr}</p>
+      <div class="market-specs-row">
+        <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">${vram} GB</span></div>
+        <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">${tflops} TFLOPS</span></div>
+        <div class="spec-box"><span class="spec-lbl">${isDe ? 'Netzwerk' : 'Network'}</span><span class="spec-val">Direct P2P</span></div>
+      </div>
+      <div class="market-price-row">
+        <div>
+          <span class="price-val">$0.15</span> <span class="price-unit">/ 1M Tokens</span>
+          <div class="hourly-est">${isDe ? 'Pay-per-Token Abrechnung' : 'Pay-per-Token Billing'}</div>
+        </div>
+        <span class="verified-tag">${isDe ? '✓ Echter Mesh-Knoten' : '✓ Real Mesh Node'}</span>
+      </div>
+      <div class="market-card-actions">
+        <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('deepseek-ai/deepseek-r1')">⚡ ${isDe ? 'Inferenz starten' : 'Run Inference'}</button>
+        ${remoteUrl ? `<a href="${remoteUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🖥️ ${isDe ? 'Node Dashboard' : 'Node Dashboard'}</a>` : `<button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('deepseek-ai/deepseek-r1')">📋 API-Snippet</button>`}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // Persistent Real Provider Connection Card
+  const addCard = document.createElement('div');
+  addCard.className = 'market-card highlight';
+  addCard.style.border = '1px dashed rgba(16, 185, 129, 0.4)';
+  addCard.style.background = 'linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(6, 78, 59, 0.2))';
+  addCard.style.display = 'flex';
+  addCard.style.flexDirection = 'column';
+  addCard.style.justifyContent = 'space-between';
+  addCard.innerHTML = `
+    <div>
+      <div class="market-card-head">
+        <div class="gpu-badge rig" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);">75% REVENUE SHARE</div>
+        <span class="status-pill online" style="color: var(--accent-emerald);"><span class="pulse-dot"></span> ${isDe ? 'Live-Kopplung' : 'Live Pairing'}</span>
+      </div>
+      <h3 class="market-gpu-name" style="font-size: 1.25rem;">+ ${isDe ? 'Eigenen GPU-Node verbinden' : 'Connect Your GPU Node'}</h3>
+      <p class="market-gpu-sub">${isDe ? 'Windows Agent, Linux Headless Daemon oder Mining Rig OS (NodeOS).' : 'Windows Agent, Linux Headless Daemon or Mining Rig OS (NodeOS).'}</p>
+      <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.75rem; margin-bottom: 1.25rem;">
+        ${isDe ? 'Schließe deine Gaming-GPU, Workstation oder dein Mining-Rig an und erhalte automatische Auszahlungen ab 25 €/$ über Stripe Connect.' : 'Connect your gaming GPU, workstation or mining rig and receive automatic payouts from 25 €/$ via Stripe Connect.'}
+      </div>
+    </div>
+    <div class="market-card-actions">
+      <a href="#downloads" class="btn btn-emerald btn-sm" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;">${isDe ? 'Provider-Software herunterladen ➔' : 'Download Provider Software ➔'}</a>
+    </div>
+  `;
+  container.appendChild(addCard);
+
+  filterMarketplace();
+}
 
 function filterMarketplace() {
   const searchInput = document.getElementById('market-search');
   currentMarketFilters.search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-  
-  const cards = document.querySelectorAll('.market-card');
+
+  const cards = document.querySelectorAll('.marketplace-grid .market-card');
   cards.forEach(card => {
+    // If it is the add-node onboarding card, always show it unless specific search excludes it
+    if (card.classList.contains('highlight') && card.textContent.includes('75% REVENUE SHARE')) {
+      card.style.display = 'flex';
+      return;
+    }
+
     const gpu = card.getAttribute('data-gpu') || '';
     const vram = parseInt(card.getAttribute('data-vram') || '0', 10);
-    const region = card.getAttribute('data-region') || '';
+    const status = card.getAttribute('data-status') || '';
     const textContent = card.textContent.toLowerCase();
-    
+
     let matchGpu = (currentMarketFilters.gpu === 'all') || (gpu === currentMarketFilters.gpu);
     let matchVram = (currentMarketFilters.vram === 'all') || (vram >= parseInt(currentMarketFilters.vram, 10));
-    let matchRegion = (currentMarketFilters.region === 'all') || (region === currentMarketFilters.region);
+    let matchStatus = (currentMarketFilters.status === 'all') || (status === currentMarketFilters.status);
     let matchSearch = (!currentMarketFilters.search) || textContent.includes(currentMarketFilters.search);
-    
-    if (matchGpu && matchVram && matchRegion && matchSearch) {
+
+    if (matchGpu && matchVram && matchStatus && matchSearch) {
       card.style.display = 'flex';
     } else {
       card.style.display = 'none';
@@ -2247,8 +2396,8 @@ function filterMarketplace() {
 function setMarketFilter(type, val, btn) {
   if (type === 'gpu') currentMarketFilters.gpu = val;
   else if (type === 'vram') currentMarketFilters.vram = val;
-  else if (type === 'region') currentMarketFilters.region = val;
-  
+  else if (type === 'status') currentMarketFilters.status = val;
+
   if (btn && btn.parentElement) {
     btn.parentElement.querySelectorAll(`[data-filter-type="${type}"]`).forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -2440,6 +2589,7 @@ function copyDxCode() {
 
 // Window Global Exports
 window.filterMarketplace = filterMarketplace;
+window.loadRealMarketplaceData = loadRealMarketplaceData;
 window.setMarketFilter = setMarketFilter;
 window.filterModelCategory = filterModelCategory;
 window.selectModelInPlayground = selectModelInPlayground;

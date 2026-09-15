@@ -260,199 +260,46 @@
   <section class="marketplace-sec" id="marketplace">
     <div class="container">
       <div class="section-header">
-        <span class="section-tag" data-i18n="market_tag">LIVE GPU-MARKTPLATZ</span>
-        <h2 data-i18n="market_title">Verfügbare High-Performance Nodes in Echtzeit</h2>
-        <p data-i18n="market_sub">Miete verteilte GPU-Kapazität oder führe Inferenz auf dedizierten Hardware-Klassen aus. Transparente Preise, verifizierte Zuverlässigkeit und minimale Latenz.</p>
+        <span class="section-tag" data-i18n="market_tag">LIVE GPU-MARKTPLATZ &amp; NODE-TELEMETRIE</span>
+        <h2 data-i18n="market_title">Echte verteilte Rechenknoten in Echtzeit</h2>
+        <p data-i18n="market_sub">Live-Hardware, VRAM und Inferenz-Knoten im ComputeMesh-Netzwerk. 100% echte Telemetriedaten direkt aus der Control-Plane.</p>
       </div>
 
       <!-- Marketplace Filter & Search Controls -->
       <div class="marketplace-controls">
         <div class="search-box">
           <span class="search-icon">🔍</span>
-          <input type="text" id="market-search" placeholder="GPU-Modell, Node-ID oder Region filtern (z. B. 4090, 3090, EU, A100)..." oninput="filterMarketplace()">
+          <input type="text" id="market-search" placeholder="Node-ID, GPU-Modell oder Interface filtern..." oninput="filterMarketplace()">
         </div>
         
         <div class="filter-pills-row">
-          <span class="filter-label" data-i18n="market_filter_gpu">GPU-Klasse:</span>
-          <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)">Alle GPUs</button>
-          <button class="filter-pill" data-filter-type="gpu" data-filter-val="4090" onclick="setMarketFilter('gpu', '4090', this)">RTX 4090</button>
-          <button class="filter-pill" data-filter-type="gpu" data-filter-val="3090" onclick="setMarketFilter('gpu', '3090', this)">RTX 3080 / 3090</button>
-          <button class="filter-pill" data-filter-type="gpu" data-filter-val="a100" onclick="setMarketFilter('gpu', 'a100', this)">A100 Enterprise</button>
-          <button class="filter-pill" data-filter-type="gpu" data-filter-val="amd" onclick="setMarketFilter('gpu', 'amd', this)">AMD ROCm / MI25</button>
-          <button class="filter-pill" data-filter-type="gpu" data-filter-val="rig" onclick="setMarketFilter('gpu', 'rig', this)">Multi-GPU Rigs (4-12x)</button>
+          <span class="filter-label" data-i18n="market_filter_gpu">Hardware:</span>
+          <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)">Alle Knoten</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="nvidia" onclick="setMarketFilter('gpu', 'nvidia', this)">NVIDIA (CUDA)</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="amd" onclick="setMarketFilter('gpu', 'amd', this)">AMD (ROCm / Vulkan)</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="apple" onclick="setMarketFilter('gpu', 'apple', this)">Apple Silicon</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="rig" onclick="setMarketFilter('gpu', 'rig', this)">Multi-GPU Rigs</button>
         </div>
 
         <div class="filter-pills-row secondary">
-          <span class="filter-label" data-i18n="market_filter_vram">VRAM:</span>
+          <span class="filter-label" data-i18n="market_filter_vram">Min. VRAM:</span>
           <button class="filter-pill active" data-filter-type="vram" data-filter-val="all" onclick="setMarketFilter('vram', 'all', this)">Beliebig</button>
+          <button class="filter-pill" data-filter-type="vram" data-filter-val="8" onclick="setMarketFilter('vram', '8', this)">&ge; 8 GB</button>
           <button class="filter-pill" data-filter-type="vram" data-filter-val="16" onclick="setMarketFilter('vram', '16', this)">&ge; 16 GB</button>
           <button class="filter-pill" data-filter-type="vram" data-filter-val="24" onclick="setMarketFilter('vram', '24', this)">&ge; 24 GB</button>
           <button class="filter-pill" data-filter-type="vram" data-filter-val="48" onclick="setMarketFilter('vram', '48', this)">&ge; 48 GB</button>
-          <button class="filter-pill" data-filter-type="vram" data-filter-val="80" onclick="setMarketFilter('vram', '80', this)">&ge; 80 GB</button>
 
-          <span class="filter-label" style="margin-left: 1rem;" data-i18n="market_filter_region">Region:</span>
-          <button class="filter-pill active" data-filter-type="region" data-filter-val="all" onclick="setMarketFilter('region', 'all', this)">Alle</button>
-          <button class="filter-pill" data-filter-type="region" data-filter-val="eu" onclick="setMarketFilter('region', 'eu', this)">🇩🇪 EU / DE</button>
-          <button class="filter-pill" data-filter-type="region" data-filter-val="us" onclick="setMarketFilter('region', 'us', this)">🇺🇸 US</button>
+          <span class="filter-label" style="margin-left: 1rem;" data-i18n="market_filter_status">Status:</span>
+          <button class="filter-pill active" data-filter-type="status" data-filter-val="all" onclick="setMarketFilter('status', 'all', this)">Alle</button>
+          <button class="filter-pill" data-filter-type="status" data-filter-val="online" onclick="setMarketFilter('status', 'online', this)">🟢 Nur Online</button>
         </div>
       </div>
 
-      <!-- Marketplace Cards Grid -->
+      <!-- Marketplace Cards Grid (Dynamically Populated from Real Control-Plane Telemetry) -->
       <div class="marketplace-grid" id="marketplace-cards-container">
-        <!-- Card 1 -->
-        <div class="market-card" data-gpu="4090" data-vram="24" data-region="eu">
-          <div class="market-card-head">
-            <div class="gpu-badge nvidia">NVIDIA CUDA</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">1x NVIDIA GeForce RTX 4090</h3>
-          <p class="market-gpu-sub">Ada Lovelace • 24 GB GDDR6X • PCIe 4.0</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">24.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">82.6 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~8 ms (DE)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.15</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.22 / Stunde</div>
-            </div>
-            <span class="verified-tag">✓ Verified Tier</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('qwen2.5:7b')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('qwen2.5:7b')">📋 API-Snippet</button>
-          </div>
-        </div>
-
-        <!-- Card 2 -->
-        <div class="market-card" data-gpu="3090" data-vram="48" data-region="eu">
-          <div class="market-card-head">
-            <div class="gpu-badge nvidia">NVIDIA NVLINK</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">2x NVIDIA RTX 3090 Cluster</h3>
-          <p class="market-gpu-sub">Ampere Sharded • 48 GB GDDR6X • High Interconnect</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">48.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">71.2 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~11 ms (EU)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.28</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.38 / Stunde</div>
-            </div>
-            <span class="verified-tag">✓ Verified Tier</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('llama3.1:8b')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('llama3.1:8b')">📋 API-Snippet</button>
-          </div>
-        </div>
-
-        <!-- Card 3 -->
-        <div class="market-card" data-gpu="rig" data-vram="64" data-region="eu">
-          <div class="market-card-head">
-            <div class="gpu-badge rig">8x MINING RIG (NodeOS)</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">8x 8GB GPU Mining Appliance</h3>
-          <p class="market-gpu-sub">Layer-Sharded Cluster • 64 GB VRAM • Pipeline Parallel</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">64.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">196.0 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~14 ms (DE)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.35</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.45 / Stunde</div>
-            </div>
-            <span class="verified-tag emerald">⚡ High-Capacity</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('deepseek-coder:6.7b')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('deepseek-coder:6.7b')">📋 API-Snippet</button>
-          </div>
-        </div>
-
-        <!-- Card 4 -->
-        <div class="market-card" data-gpu="a100" data-vram="80" data-region="us">
-          <div class="market-card-head">
-            <div class="gpu-badge enterprise">ENTERPRISE SXM4</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">1x NVIDIA A100 80GB SXM4</h3>
-          <p class="market-gpu-sub">HBM2e 2.0 TB/s • 80 GB VRAM • NVLink 600 GB/s</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">80.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">312.0 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~28 ms (US)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.65</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.85 / Stunde</div>
-            </div>
-            <span class="verified-tag purple">🛡️ Enterprise Tier</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('qwen2.5:7b')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('qwen2.5:7b')">📋 API-Snippet</button>
-          </div>
-        </div>
-
-        <!-- Card 5 -->
-        <div class="market-card" data-gpu="amd" data-vram="24" data-region="eu">
-          <div class="market-card-head">
-            <div class="gpu-badge amd">AMD ROCm / Vulkan</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">1x AMD Radeon RX 7900 XTX</h3>
-          <p class="market-gpu-sub">RDNA 3 • 24 GB GDDR6 • Dual AI Accelerators</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">24.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">61.4 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~10 ms (EU)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.14</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.20 / Stunde</div>
-            </div>
-            <span class="verified-tag">✓ Verified Tier</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('mistral:7b')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('mistral:7b')">📋 API-Snippet</button>
-          </div>
-        </div>
-
-        <!-- Card 6 -->
-        <div class="market-card" data-gpu="amd" data-vram="40" data-region="eu">
-          <div class="market-card-head">
-            <div class="gpu-badge amd">5x AMD MI25 / VEGA</div>
-            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
-          </div>
-          <h3 class="market-gpu-name">5x AMD Radeon MI25 Cluster</h3>
-          <p class="market-gpu-sub">5x 8GB HBM2 • 40 GB Aggregate • Zero-Latency P2P</p>
-          <div class="market-specs-row">
-            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">40.0 GB</span></div>
-            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">122.8 TFLOPS</span></div>
-            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~12 ms (DE)</span></div>
-          </div>
-          <div class="market-price-row">
-            <div>
-              <span class="price-val">$0.20</span> <span class="price-unit">/ 1M Tokens</span>
-              <div class="hourly-est">ca. $0.25 / Stunde</div>
-            </div>
-            <span class="verified-tag emerald">⚡ Sharded Mesh</span>
-          </div>
-          <div class="market-card-actions">
-            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('phi3:mini')">⚡ Inferenz starten</button>
-            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('phi3:mini')">📋 API-Snippet</button>
-          </div>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">⚡</div>
+          <p data-i18n="market_loading">Echte Knoten-Telemetrie wird live vom Mesh-Gateway geladen...</p>
         </div>
       </div>
     </div>
