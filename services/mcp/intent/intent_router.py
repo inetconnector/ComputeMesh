@@ -313,7 +313,31 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if re.search(r"(?:welche\s+webapps|welche\s+apps\s+sind\s+gehostet|zeige\s+apps|list\s+webapps|gehostete\s+spiele|installierte\s+webapps)", cleaned, re.IGNORECASE):
         return ("list_deployed_webapps", {})
 
+    # 0.20 Market Movers & Top Gainers / Losers (e.g. "Zeige die 5 Top Gewinner und Verlierer an der NASDAQ in einer Tabelle")
+    m_movers = re.search(
+        r"(?:top\s+(\d+)\s+)?(?:gewinner\s+und\s+verlierer|top\s+gewinner|verlierer|gainers\s+and\s+losers|top\s+gainers|top\s+losers|market\s+movers|beste\s+und\s+schlechteste\s+aktien)\b",
+        cleaned,
+        re.IGNORECASE
+    )
+    if not m_movers:
+        m_movers = re.search(
+            r"(?:nasdaq|dax|sp500|s&p500)\b.*?(?:top\s+(\d+)\s+)?(?:gewinner|verlierer|movers|aktien)",
+            cleaned,
+            re.IGNORECASE
+        )
+    if m_movers:
+        cnt = int(m_movers.group(1)) if m_movers.group(1) and m_movers.group(1).isdigit() else 5
+        mkt = "nasdaq"
+        if "dax" in cleaned.lower():
+            mkt = "dax"
+        elif "sp500" in cleaned.lower() or "s&p" in cleaned.lower():
+            mkt = "sp500"
+        elif "krypto" in cleaned.lower() or "crypto" in cleaned.lower():
+            mkt = "crypto"
+        return ("get_market_movers", {"market": mkt, "count": cnt})
+
     # 1. Currency Conversion & Cryptocurrency Exchanges (e.g. "100 EUR in USD, GBP und JPY", "Wie viel sind 500 Dollar in Euro")
+    KNOWN_CURRENCY_SYMBOLS = {"eur", "euro", "usd", "dollar", "gbp", "pfund", "pound", "jpy", "yen", "chf", "franken", "btc", "bitcoin", "eth", "ethereum", "cad", "aud", "cny", "yuan", "rub", "rubel", "$", "€", "£", "¥"}
     m_curr = re.search(
         r"(?:(?:rechne|konvertiere|währungsumrechnung|wechselkurs)\s+(?:von\s+)?|wie\s+viel(?:e)?\s+sind\s+)?([\d.,]+)\s*([a-zA-ZäöüÄÖÜß\$\€\£\¥\s\-]{2,15})\s*(?:in|to|zu|nach)\s*([a-zA-ZäöüÄÖÜß\$\€\£\¥\s\-,&+]+)",
         cleaned,
@@ -323,9 +347,11 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         raw_amt = m_curr.group(1).replace(",", ".")
         raw_from = m_curr.group(2).strip()
         raw_to = m_curr.group(3).strip()
+        has_curr_verb = bool(re.search(r"(?:rechne|konvertiere|währung|wechselkurs|wie\s+viel(?:e)?\s+sind|currency|exchange)", cleaned, re.IGNORECASE))
+        has_curr_token = raw_from.lower() in KNOWN_CURRENCY_SYMBOLS or any(t in raw_to.lower().split() for t in KNOWN_CURRENCY_SYMBOLS)
         # Avoid matching distance queries like "100 km in Meilen" if not currency
-        non_curr_words = {"km", "kilometer", "m", "meter", "cm", "kg", "gramm", "stunden", "minuten", "sekunden", "grad", "celsius", "fahrenheit"}
-        if raw_from.lower() not in non_curr_words and raw_to.lower() not in non_curr_words:
+        non_curr_words = {"km", "kilometer", "m", "meter", "cm", "kg", "gramm", "stunden", "minuten", "sekunden", "grad", "celsius", "fahrenheit", "gewinner", "verlierer", "top"}
+        if (has_curr_verb or has_curr_token) and raw_from.lower() not in non_curr_words and not any(w in raw_to.lower() for w in non_curr_words):
             try:
                 amt_val = float(raw_amt)
                 return ("convert_currency", {"amount": amt_val, "from_currency": raw_from, "to_currency": raw_to, "query": cleaned})
