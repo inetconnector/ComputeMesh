@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ComputeMesh — Dezentrale High-Performance GPU-Rechenleistung für KI</title>
-  <meta name="description" content="ComputeMesh verbindet verteilte GPUs zu einem ultra-schnellen Inferenz-Netzwerk. OpenAI-kompatible High-Speed-API für Entwickler und automatische Einnahmen für GPU-Provider. Bis zu 80% günstiger als Hyperscaler.">
-  <meta name="keywords" content="ComputeMesh, Distributed AI, GPU Inferenz, OpenAI API, Ollama, DeepSeek R1, Llama 3.3, Qwen 2.5, GPU Mining, KI Rechenzentrum">
+  <title>ComputeMesh — Dezentrale High-Performance GPU-Infrastruktur & KI-Inferenz</title>
+  <meta name="description" content="ComputeMesh verbindet verteilte GPUs zu einem ultra-schnellen Inferenz-Netzwerk. OpenAI-kompatible Drop-in API für Entwickler, interaktiver GPU-Marketplace, Model Library und automatische Einnahmen für GPU-Provider. Bis zu 80% günstiger als Hyperscaler.">
+  <meta name="keywords" content="ComputeMesh, GPU Cloud, Vast.ai Alternative, Distributed AI, GPU Inferenz, OpenAI API, Ollama, DeepSeek R1, Llama 3.3, Qwen 2.5, GPU Mining, KI Rechenzentrum, LocalCode">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <meta name="theme-color" content="#00f2fe">
   <link rel="canonical" href="https://mesh.inetconnector.com/">
@@ -19,27 +19,27 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh — Dezentrale High-Performance GPU-Rechenleistung für KI">
-  <meta property="og:description" content="ComputeMesh verbindet verteilte GPUs zu einem ultra-schnellen Inferenz-Netzwerk. Bis zu 80% günstiger als herkömmliche Hyperscaler.">
+  <meta property="og:title" content="ComputeMesh — Dezentrale High-Performance GPU-Infrastruktur & Inferenz">
+  <meta property="og:description" content="Verteilte GPU-Power für LLM-Inferenz. Drop-in OpenAI API, GPU-Marketplace, Model Library & bis zu 80% Ersparnis gegenüber Hyperscalern.">
   <meta property="og:url" content="https://mesh.inetconnector.com/">
   <meta property="og:image" content="https://mesh.inetconnector.com/assets/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="ComputeMesh Decentralized GPU Compute Fabric Preview">
+  <meta property="og:image:alt" content="ComputeMesh GPU Inference & Compute Marketplace Preview">
   <meta property="og:locale" content="de_DE">
   <meta property="og:locale:alternate" content="en_US">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ComputeMesh — Dezentrale High-Performance GPU-Rechenleistung für KI">
-  <meta name="twitter:description" content="OpenAI-kompatible High-Speed-API für Entwickler und lukrative Einnahmen für Hardware-Provider.">
+  <meta name="twitter:title" content="ComputeMesh — Dezentrale High-Performance GPU-Infrastruktur & Inferenz">
+  <meta name="twitter:description" content="OpenAI-kompatible High-Speed-API für Entwickler, GPU-Marketplace und lukrative Einnahmen für Hardware-Provider.">
   <meta name="twitter:image" content="https://mesh.inetconnector.com/assets/og-image.png">
 
   <!-- Google Verification -->
   <meta name="google-site-verification" content="yIkGwAE1cB6y6996hZP0Dc3WZ4XMd518fTJcIN95AuQ">
   <meta name="google-site-verification" content="google55d49cbebf6659d4">
 
-  <!-- Schema.org JSON-LD Graph for Rich Snippets -->
+  <!-- Schema.org JSON-LD Graph -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -51,7 +51,7 @@
         "alternateName": "InetConnector ComputeMesh",
         "url": "https://mesh.inetconnector.com/",
         "logo": "https://mesh.inetconnector.com/assets/apple-touch-icon.png",
-        "description": "Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-LLM-Inferenz.",
+        "description": "Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-LLM-Inferenz und GPU-Kapazitätsmarktplatz.",
         "sameAs": ["https://github.com/inetconnector/ComputeMesh"]
       },
       {
@@ -64,75 +64,748 @@
       {
         "@type": "SoftwareApplication",
         "@id": "https://mesh.inetconnector.com/#application",
-        "name": "ComputeMesh AI Gateway",
+        "name": "ComputeMesh AI Gateway & Marketplace",
         "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Linux, Windows, HiveOS, macOS",
+        "operatingSystem": "Linux, Windows, HiveOS, Android, macOS",
         "offers": {
           "@type": "Offer",
-          "price": "1.00",
+          "price": "0.15",
           "priceCurrency": "USD",
-          "description": "Pro 1 Million Inferenz-Tokens"
+          "description": "Ab 0.15 USD pro 1 Million Inferenz-Tokens"
         }
       }
     ]
   }
   </script>
 
-  <link rel="stylesheet" href="portal.css?v=3.0">
-  <style>
-    .nav-top-row { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; padding: 0.65rem 1.5rem !important; }
-    .nav-actions { display: flex !important; align-items: center !important; margin-left: auto !important; gap: 0.75rem !important; }
-  </style>
+  <link rel="stylesheet" href="portal.css?v=3.5">
 </head>
 <body>
+  <!-- Header Navigation -->
   <header class="site-header">
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
-        <span class="brand-badge">LIVE MESH</span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
       </a>
+
+      <!-- Desktop Navigation Menu -->
+      <nav class="main-nav">
+        <ul class="nav-menu">
+          <li class="nav-item has-dropdown">
+            <a href="#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="#playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="#marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="#models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
+                </div>
+              </a>
+              <a href="#lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+              <a href="#downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_prod_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_prod_localcode_sub">Autonome Desktop-IDE &amp; Android Remote</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item"><a href="#marketplace" class="nav-link" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li class="nav-item"><a href="#models" class="nav-link" data-i18n="nav_models">Modelle</a></li>
+          <li class="nav-item"><a href="#pricing" class="nav-link" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li class="nav-item"><a href="#quickstart" class="nav-link" data-i18n="nav_developers">Entwickler</a></li>
+          <li class="nav-item"><a href="#downloads" class="nav-link" data-i18n="nav_downloads">Downloads</a></li>
+          <li class="nav-item"><a href="/docs" class="nav-link" data-i18n="nav_docs">Docs</a></li>
+          <li class="nav-item"><a href="/status" class="nav-link" data-i18n="nav_status">Status</a></li>
+        </ul>
+      </nav>
+
+      <!-- Action Buttons -->
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-        <button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
-        <button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
-        <button id="auth-nav-btn" class="btn btn-secondary" onclick="handleAuthNavClick()">
-          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span>
-        </button>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn">
+          <span>🔑</span> <span data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
       </div>
     </div>
-    <nav class="nav-sub-row">
-      <div class="container nav-sub-container">
-        <ul class="nav-links">
-          <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
-          <li><a href="/#features" data-i18n="nav_features">Funktionen</a></li>
-          <li><a href="/#lan-mesh" data-i18n="nav_lan_mesh">🏠 LAN-Mesh & Ökonomie</a></li>
-          <li><a href="/#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li>
-          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
-          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li>
-          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
-          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
-        </ul>
-      </div>
-    </nav>
   </header>
 
-  <section class="hero"><div class="container"><div class="hero-tagline"><span>⚡</span><span data-i18n="hero_tagline">Verteilte GPU-Power. Unendliche KI-Skalierung.</span></div><h1 data-i18n="hero_title">High-Performance KI-Inferenz.<br><span class="gradient-text">Dezentral. Skalierbar. 80% günstiger.</span></h1><p class="hero-sub" data-i18n="hero_sub">ComputeMesh bündelt verteilte GPU-Rechenleistung zu einem nahtlosen, extrem schnellen Inferenz-Netzwerk. Nutze modernste Open-Source-LLMs über unsere OpenAI-kompatible High-Speed-API zu einem Bruchteil herkömmlicher Cloud-Preise oder verdiene attraktive Erträge mit deinen eigenen Grafikkarten.</p><div class="hero-cta"><a href="#playground" class="btn btn-primary" data-i18n="btn_start_inferencing">⚡ Live-Playground testen</a><button class="btn btn-emerald" onclick="openModal('provider')" data-i18n="btn_provide_compute">🖥️ Hardware anbieten</button><a href="/fleet" class="btn btn-secondary" style="border-color:rgba(56,189,248,0.4);color:var(--accent-cyan);text-decoration:none;"><span>⚡</span> <span data-i18n="btn_manage_fleet">Flotten-Cockpit</span></a></div><div class="telemetry-ticker"><div class="ticker-item emerald"><div class="ticker-val" id="portal-ticker-vram">-- GB</div><div class="ticker-lbl" data-i18n="ticker_vram">Aktiver Mesh-VRAM</div></div><div class="ticker-item"><div class="ticker-val" id="portal-ticker-gpus">-- GPUs online</div><div class="ticker-lbl" data-i18n="ticker_gpus">Verbundene GPUs online</div></div><div class="ticker-item indigo"><div class="ticker-val" id="portal-ticker-tflops">-- TFLOPS</div><div class="ticker-lbl" data-i18n="ticker_tflops">Mesh-Rechenleistung</div></div><div class="ticker-item amber"><div class="ticker-val" id="portal-ticker-nodes">-- Nodes aktiv</div><div class="ticker-lbl" data-i18n="ticker_nodes">Verteilte Cluster-Knoten</div></div></div></div></section>
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-tagline">
+          <span>⚡</span>
+          <span data-i18n="hero_tagline">Verteilte GPU-Power • OpenAI-kompatibel • Unendliche KI-Skalierung</span>
+        </div>
+        
+        <h1 data-i18n="hero_title">
+          Agent-Ready GPU-Infrastruktur.<br>
+          <span class="gradient-text">Dezentral. Ultra-Schnell. 80% günstiger.</span>
+        </h1>
+        
+        <p class="hero-sub" data-i18n="hero_sub">
+          ComputeMesh bündelt verteilte High-End GPUs weltweit zu einem nahtlosen Inferenz-Netzwerk. Nutze führende Open-Source-LLMs (DeepSeek-R1, Qwen 2.5 Coder, Llama 3.3) über unsere OpenAI-kompatible High-Speed-API oder monetarisiere deine eigenen Grafikkarten mit 75% Revenue Share.
+        </p>
 
-  <section class="playground-sec" id="playground"><div class="container"><div class="section-header" style="margin-bottom: 2rem;"><span class="section-tag" data-i18n="pg_tag">INTERAKTIVE DEMO</span><h2 data-i18n="pg_title">Erlebe die <span class="gradient-text">Geschwindigkeit des Meshs</span></h2><p data-i18n="pg_sub">Teste unsere ultra-schnelle Streaming-Inferenz direkt im Browser. Wähle ein Open-Source-Modell und sende deinen ersten Prompt.</p></div><div class="playground-studio"><div class="pg-toolbar"><div class="pg-toolbar-left"><div class="pg-control-group"><label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Modell:</label><select id="playground-model-select" class="pg-select"><option value="qwen2.5:7b" selected>Qwen 2.5 7B (High-Speed)</option><option value="qwen2.5-vl:7b">Qwen 2.5 VL 7B (Vision & Image AI)</option><option value="llama3.1:8b">Llama 3.1 8B (Instruct)</option><option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option><option value="mistral:7b">Mistral 7B (v0.3)</option><option value="phi3:mini">Phi-3 Mini (3.8B)</option></select></div><div class="pg-cluster-badge"><span class="pulse-dot"></span><span id="pg-cluster-status" data-i18n="pg_cluster_pending">Mesh-Cluster verbunden</span></div></div><div class="pg-toolbar-right"><div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="Konto- & API-Optionen ansehen"><span>⚡</span><span id="pg-quota-text" data-i18n="pg_quota_pill">Kostenloses Demo-Guthaben</span></div><button id="pg-clear-chat-btn" class="pg-btn-icon" onclick="clearPlaygroundChat()" title="Chat leeren">🗑️</button></div></div><div id="playground-chat-stream" class="pg-chat-stream"><div class="chat-msg chat-msg-ai"><div class="chat-avatar">🤖</div><div class="chat-bubble"><div class="chat-author"><span data-i18n="pg_ai_author">ComputeMesh AI</span> <span class="chat-badge" data-i18n="pg_ai_badge">LIVE MESH</span></div><div class="chat-body" data-i18n="pg_ai_welcome">Willkommen bei ComputeMesh! Unser dezentrales Inferenz-Netzwerk ist online. Wie kann ich dir heute bei deinem Projekt helfen?</div></div></div></div><div id="playground-live-metrics" class="pg-metrics-bar"><div class="pg-metric-item"><span class="pg-metric-lbl" data-i18n="pg_status_lbl">Status:</span><span id="pg-metric-status" class="pg-metric-val emerald" data-i18n="pg_status_ready">Bereit</span></div><div class="pg-metric-item"><span class="pg-metric-lbl" data-i18n="pg_speed_lbl">Geschwindigkeit:</span><span id="pg-metric-tps" class="pg-metric-val">— tok/s</span></div><div class="pg-metric-item"><span class="pg-metric-lbl" data-i18n="pg_latency_lbl">TTFT / Latenz:</span><span id="pg-metric-latency" class="pg-metric-val">— ms</span></div><div class="pg-metric-item"><span class="pg-metric-lbl" data-i18n="pg_tokens_lbl">Generierte Tokens:</span><span id="pg-metric-tokens" class="pg-metric-val">0</span></div></div><div class="pg-quick-prompts"><button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain_mesh">⚡ Was macht ComputeMesh einzigartig?</button><button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_python_fastapi">🐍 Schreibe einen Streaming FastAPI-Endpunkt</button><button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_gpu_sharding">🧩 Wie funktioniert Pipeline-Layer-Sharding?</button><button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_compare_costs">💰 Berechne meine Kostenersparnis</button></div><div class="pg-input-container"><textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Stelle eine Frage oder teste die Inferenz-Geschwindigkeit... (Enter zum Senden, Shift+Enter für neue Zeile)" onkeydown="handlePlaygroundKey(event)"></textarea><div class="pg-input-actions"><button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()"><span id="pg-send-btn-text" data-i18n="pg_send_btn">Prompt senden</span><span class="pg-send-icon">🚀</span></button></div></div><div class="pg-ollama-config"><div class="pg-config-head"><div style="display: flex; align-items: center; gap: 0.6rem;"><span data-i18n="pg_ollama_title">Ollama & OpenAI-kompatibler Endpunkt</span><span data-i18n="pg_ollama_badge">Sofort einsatzbereit</span></div><button id="copy-playground-cmd-btn" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer;" onclick="copyPlaygroundCommand()" data-i18n="pg_copy_cmd_btn">📋 Befehl kopieren</button></div><div class="pg-snippet-tabs"><button class="pg-tab-btn active" id="tab-btn-curl-bash" onclick="switchPlaygroundCodeTab('curl_bash')">🐧 cURL (Linux / macOS)</button><button class="pg-tab-btn" id="tab-btn-curl-win" onclick="switchPlaygroundCodeTab('curl_win')">🪟 Windows (CMD)</button><button class="pg-tab-btn" id="tab-btn-powershell" onclick="switchPlaygroundCodeTab('powershell')">⚡ Windows (PowerShell)</button><button class="pg-tab-btn" id="tab-btn-python" onclick="switchPlaygroundCodeTab('python')">🐍 Python</button><button class="pg-tab-btn" id="tab-btn-ollama" onclick="switchPlaygroundCodeTab('ollama')">🦙 Ollama CLI</button></div><pre id="pg-ollama-code-block"><code id="pg-ollama-code-content"># Linux / macOS (cURL / Bash)
-export OLLAMA_HOST=https://mesh.inetconnector.com
-curl https://mesh.inetconnector.com/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer cm_live_your_key" \
-  -d '{"model":"qwen2.5:7b","messages":[{"role":"user","content":"What is ComputeMesh?"}],"stream":true}'</code></pre><p data-i18n="pg_ollama_desc">Wähle oben dein Betriebssystem (Windows CMD, PowerShell, Linux cURL, Python oder Ollama), kopiere den Befehl und füge ihn direkt in dein Terminal ein.</p></div></div></div></section>
+        <!-- Dual CTA Row -->
+        <div class="hero-cta-row">
+          <button class="btn btn-primary btn-lg" onclick="openModal('consumer')" data-i18n="btn_get_api_key">
+            🚀 In 60 Sekunden starten (API-Key)
+          </button>
+          <button class="btn btn-emerald btn-lg" onclick="openModal('provider')" data-i18n="btn_provide_compute">
+            🖥️ GPU vermieten &amp; 75% verdienen
+          </button>
+          <a href="#playground" class="btn btn-secondary btn-lg" data-i18n="btn_try_playground">
+            ⚡ Live-Playground testen
+          </a>
+        </div>
 
-  <section class="container" id="features" style="padding: 5rem 1.5rem;"><div class="section-header"><span class="section-tag" data-i18n="features_tag">ENTERPRISE-ARCHITEKTUR</span><h2 data-i18n="features_title">Modernste Technologie für maximale Performance</h2><p data-i18n="features_sub">Von intelligentem Layer-Splitting bis hin zu kryptografischen Ausführungsnachweisen – gebaut für höchste Zuverlässigkeit und minimale Latenzen.</p></div><div class="features-grid"><div class="feature-card"><div class="feature-icon">🧩</div><h3 data-i18n="feat1_title">Intelligentes Pipeline-Sharding</h3><p data-i18n="feat1_desc">Große Modelle werden dynamisch und verlustfrei über mehrere GPUs und Standorte aufgeteilt. Unser intelligentes Sharding minimiert Latenzen und maximiert den Token-Durchsatz.</p></div><div class="feature-card"><div class="feature-icon">⚡</div><h3 data-i18n="feat2_title">Heterogenes GPU-Pooling</h3><p data-i18n="feat2_desc">Kombiniere NVIDIA (CUDA), AMD (ROCm) und Apple Silicon in einem einheitlichen Rechencluster für optimale Hardware-Auslastung.</p></div><div class="feature-card"><div class="feature-icon">🧠</div><h3 data-i18n="feat3_title">Smart Latency-Aware Placement</h3><p data-i18n="feat3_desc">Unser Placement-Optimizer platziert Anfragen in Echtzeit auf den geografisch und bandbreitentechnisch optimalen Knoten für unübertroffene Reaktionszeiten.</p></div><div class="feature-card"><div class="feature-icon">🌐</div><h3 data-i18n="feat4_title">100% OpenAI-kompatible API</h3><p data-i18n="feat4_desc">Nahtloser Drop-in-Ersatz für OpenAI SDKs, LangChain, LlamaIndex und AutoGPT. Einfach die Base-URL ändern und sofort bis zu 80% Kosten sparen.</p></div><div class="feature-card"><div class="feature-icon">📦</div><h3 data-i18n="feat5_title">One-Click Provider Node</h3><p data-i18n="feat5_desc">Einfachste Einrichtung für Hardware-Besitzer: Unser Installer für Windows und Linux erkennt Grafikkarten automatisch und bindet sie sicher ein.</p></div><div class="feature-card"><div class="feature-icon">🔒</div><h3 data-i18n="feat6_title">Kryptografische Sicherheit & Ledger</h3><p data-i18n="feat6_desc">Jede Inferenz wird durch Ed25519-Signaturen attestiert. Unser transparenter Double-Entry-Ledger garantiert faire Abrechnungen und pünktliche Auszahlungen.</p></div></div></section>
+        <!-- Trust & Compliance Badges -->
+        <div class="trust-bar">
+          <span class="trust-badge"><span class="badge-icon">🛡️</span> <span data-i18n="trust_gdpr">100% DSGVO / EWR-Hosting</span></span>
+          <span class="trust-badge"><span class="badge-icon">🔒</span> <span data-i18n="trust_zero_retention">Zero-Disk-Retention</span></span>
+          <span class="trust-badge"><span class="badge-icon">💳</span> <span data-i18n="trust_stripe">Stripe Connect SEPA-Auszahlungen</span></span>
+          <span class="trust-badge"><span class="badge-icon">🔑</span> <span data-i18n="trust_attestation">Ed25519 Signierte Attestierungen</span></span>
+        </div>
+
+        <!-- Live Telemetry Ticker -->
+        <div class="telemetry-ticker">
+          <div class="ticker-item emerald">
+            <div class="ticker-val" id="portal-ticker-vram">-- GB</div>
+            <div class="ticker-lbl" data-i18n="ticker_vram">Aktiver Mesh-VRAM</div>
+          </div>
+          <div class="ticker-item cyan">
+            <div class="ticker-val" id="portal-ticker-gpus">-- GPUs online</div>
+            <div class="ticker-lbl" data-i18n="ticker_gpus">Verbundene GPUs online</div>
+          </div>
+          <div class="ticker-item indigo">
+            <div class="ticker-val" id="portal-ticker-tflops">-- TFLOPS</div>
+            <div class="ticker-lbl" data-i18n="ticker_tflops">Mesh-Rechenleistung</div>
+          </div>
+          <div class="ticker-item amber">
+            <div class="ticker-val" id="portal-ticker-nodes">-- Nodes aktiv</div>
+            <div class="ticker-lbl" data-i18n="ticker_nodes">Verteilte Cluster-Knoten</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GPU Marketplace Section -->
+  <section class="marketplace-sec" id="marketplace">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="market_tag">LIVE GPU-MARKTPLATZ</span>
+        <h2 data-i18n="market_title">Verfügbare High-Performance Nodes in Echtzeit</h2>
+        <p data-i18n="market_sub">Miete verteilte GPU-Kapazität oder führe Inferenz auf dedizierten Hardware-Klassen aus. Transparente Preise, verifizierte Zuverlässigkeit und minimale Latenz.</p>
+      </div>
+
+      <!-- Marketplace Filter & Search Controls -->
+      <div class="marketplace-controls">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="market-search" placeholder="GPU-Modell, Node-ID oder Region filtern (z. B. 4090, 3090, EU, A100)..." oninput="filterMarketplace()">
+        </div>
+        
+        <div class="filter-pills-row">
+          <span class="filter-label" data-i18n="market_filter_gpu">GPU-Klasse:</span>
+          <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)">Alle GPUs</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="4090" onclick="setMarketFilter('gpu', '4090', this)">RTX 4090</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="3090" onclick="setMarketFilter('gpu', '3090', this)">RTX 3080 / 3090</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="a100" onclick="setMarketFilter('gpu', 'a100', this)">A100 Enterprise</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="amd" onclick="setMarketFilter('gpu', 'amd', this)">AMD ROCm / MI25</button>
+          <button class="filter-pill" data-filter-type="gpu" data-filter-val="rig" onclick="setMarketFilter('gpu', 'rig', this)">Multi-GPU Rigs (4-12x)</button>
+        </div>
+
+        <div class="filter-pills-row secondary">
+          <span class="filter-label" data-i18n="market_filter_vram">VRAM:</span>
+          <button class="filter-pill active" data-filter-type="vram" data-filter-val="all" onclick="setMarketFilter('vram', 'all', this)">Beliebig</button>
+          <button class="filter-pill" data-filter-type="vram" data-filter-val="16" onclick="setMarketFilter('vram', '16', this)">&ge; 16 GB</button>
+          <button class="filter-pill" data-filter-type="vram" data-filter-val="24" onclick="setMarketFilter('vram', '24', this)">&ge; 24 GB</button>
+          <button class="filter-pill" data-filter-type="vram" data-filter-val="48" onclick="setMarketFilter('vram', '48', this)">&ge; 48 GB</button>
+          <button class="filter-pill" data-filter-type="vram" data-filter-val="80" onclick="setMarketFilter('vram', '80', this)">&ge; 80 GB</button>
+
+          <span class="filter-label" style="margin-left: 1rem;" data-i18n="market_filter_region">Region:</span>
+          <button class="filter-pill active" data-filter-type="region" data-filter-val="all" onclick="setMarketFilter('region', 'all', this)">Alle</button>
+          <button class="filter-pill" data-filter-type="region" data-filter-val="eu" onclick="setMarketFilter('region', 'eu', this)">🇩🇪 EU / DE</button>
+          <button class="filter-pill" data-filter-type="region" data-filter-val="us" onclick="setMarketFilter('region', 'us', this)">🇺🇸 US</button>
+        </div>
+      </div>
+
+      <!-- Marketplace Cards Grid -->
+      <div class="marketplace-grid" id="marketplace-cards-container">
+        <!-- Card 1 -->
+        <div class="market-card" data-gpu="4090" data-vram="24" data-region="eu">
+          <div class="market-card-head">
+            <div class="gpu-badge nvidia">NVIDIA CUDA</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">1x NVIDIA GeForce RTX 4090</h3>
+          <p class="market-gpu-sub">Ada Lovelace • 24 GB GDDR6X • PCIe 4.0</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">24.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">82.6 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~8 ms (DE)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.15</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.22 / Stunde</div>
+            </div>
+            <span class="verified-tag">✓ Verified Tier</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('qwen2.5:7b')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('qwen2.5:7b')">📋 API-Snippet</button>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="market-card" data-gpu="3090" data-vram="48" data-region="eu">
+          <div class="market-card-head">
+            <div class="gpu-badge nvidia">NVIDIA NVLINK</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">2x NVIDIA RTX 3090 Cluster</h3>
+          <p class="market-gpu-sub">Ampere Sharded • 48 GB GDDR6X • High Interconnect</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">48.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">71.2 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~11 ms (EU)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.28</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.38 / Stunde</div>
+            </div>
+            <span class="verified-tag">✓ Verified Tier</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('llama3.1:8b')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('llama3.1:8b')">📋 API-Snippet</button>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="market-card" data-gpu="rig" data-vram="64" data-region="eu">
+          <div class="market-card-head">
+            <div class="gpu-badge rig">8x MINING RIG (NodeOS)</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">8x 8GB GPU Mining Appliance</h3>
+          <p class="market-gpu-sub">Layer-Sharded Cluster • 64 GB VRAM • Pipeline Parallel</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">64.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">196.0 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~14 ms (DE)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.35</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.45 / Stunde</div>
+            </div>
+            <span class="verified-tag emerald">⚡ High-Capacity</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('deepseek-coder:6.7b')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('deepseek-coder:6.7b')">📋 API-Snippet</button>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="market-card" data-gpu="a100" data-vram="80" data-region="us">
+          <div class="market-card-head">
+            <div class="gpu-badge enterprise">ENTERPRISE SXM4</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">1x NVIDIA A100 80GB SXM4</h3>
+          <p class="market-gpu-sub">HBM2e 2.0 TB/s • 80 GB VRAM • NVLink 600 GB/s</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">80.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">312.0 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~28 ms (US)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.65</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.85 / Stunde</div>
+            </div>
+            <span class="verified-tag purple">🛡️ Enterprise Tier</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('qwen2.5:7b')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('qwen2.5:7b')">📋 API-Snippet</button>
+          </div>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="market-card" data-gpu="amd" data-vram="24" data-region="eu">
+          <div class="market-card-head">
+            <div class="gpu-badge amd">AMD ROCm / Vulkan</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">1x AMD Radeon RX 7900 XTX</h3>
+          <p class="market-gpu-sub">RDNA 3 • 24 GB GDDR6 • Dual AI Accelerators</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">24.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">61.4 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~10 ms (EU)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.14</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.20 / Stunde</div>
+            </div>
+            <span class="verified-tag">✓ Verified Tier</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('mistral:7b')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('mistral:7b')">📋 API-Snippet</button>
+          </div>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="market-card" data-gpu="amd" data-vram="40" data-region="eu">
+          <div class="market-card-head">
+            <div class="gpu-badge amd">5x AMD MI25 / VEGA</div>
+            <span class="status-pill online"><span class="pulse-dot"></span> Online</span>
+          </div>
+          <h3 class="market-gpu-name">5x AMD Radeon MI25 Cluster</h3>
+          <p class="market-gpu-sub">5x 8GB HBM2 • 40 GB Aggregate • Zero-Latency P2P</p>
+          <div class="market-specs-row">
+            <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">40.0 GB</span></div>
+            <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">122.8 TFLOPS</span></div>
+            <div class="spec-box"><span class="spec-lbl">Latenz</span><span class="spec-val">~12 ms (DE)</span></div>
+          </div>
+          <div class="market-price-row">
+            <div>
+              <span class="price-val">$0.20</span> <span class="price-unit">/ 1M Tokens</span>
+              <div class="hourly-est">ca. $0.25 / Stunde</div>
+            </div>
+            <span class="verified-tag emerald">⚡ Sharded Mesh</span>
+          </div>
+          <div class="market-card-actions">
+            <button class="btn btn-primary btn-sm" onclick="deployMarketplaceOffer('phi3:mini')">⚡ Inferenz starten</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyMarketCommand('phi3:mini')">📋 API-Snippet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Curated Model Library Section -->
+  <section class="models-sec" id="models">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="models_tag">KURATIERTE MODEL LIBRARY</span>
+        <h2 data-i18n="models_title">Führende Open-Source KI-Modelle sofort einsatzbereit</h2>
+        <p data-i18n="models_sub">Wähle aus den leistungsstärksten State-of-the-Art Modellen. Vollständig optimiert für verteiltes Inferenz-Streaming mit maximalem Token-Durchsatz.</p>
+      </div>
+
+      <!-- Model Category Pills -->
+      <div class="model-category-pills">
+        <button class="category-pill active" onclick="filterModelCategory('all', this)">Alle Modelle</button>
+        <button class="category-pill" onclick="filterModelCategory('code', this)">💻 Code &amp; Agents</button>
+        <button class="category-pill" onclick="filterModelCategory('reasoning', this)">🧠 Reasoning &amp; Math</button>
+        <button class="category-pill" onclick="filterModelCategory('vision', this)">👁️ Vision &amp; Multimodal</button>
+        <button class="category-pill" onclick="filterModelCategory('fast', this)">⚡ High-Speed Lightweight</button>
+      </div>
+
+      <!-- Model Cards Grid -->
+      <div class="models-grid" id="models-cards-container">
+        <!-- Model 1 -->
+        <div class="model-card" data-category="code">
+          <div class="model-card-top">
+            <span class="model-badge code">💻 Coding &amp; Agent Flagship</span>
+            <span class="model-context">128k Context</span>
+          </div>
+          <h3 class="model-name">Qwen 2.5 Coder 32B</h3>
+          <p class="model-desc">Top-Tier Code-Generierung, Refactoring, Multi-File-Synthese und autonome Agenten-Steuerung.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">32.7B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">20 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~68 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.25 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('qwen2.5:7b')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('qwen2.5:7b')">📋 Code kopieren</button>
+          </div>
+        </div>
+
+        <!-- Model 2 -->
+        <div class="model-card" data-category="reasoning">
+          <div class="model-card-top">
+            <span class="model-badge reasoning">🧠 Reasoning &amp; Math</span>
+            <span class="model-context">64k Context</span>
+          </div>
+          <h3 class="model-name">DeepSeek-R1 (Distill 32B)</h3>
+          <p class="model-desc">Reinforcement-Learning Reasoning-Modell mit explizitem Chain-of-Thought für komplexe Logik- und Mathe-Aufgaben.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">32.0B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">22 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~45 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.35 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('deepseek-coder:6.7b')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('deepseek-coder:6.7b')">📋 Code kopieren</button>
+          </div>
+        </div>
+
+        <!-- Model 3 -->
+        <div class="model-card" data-category="reasoning">
+          <div class="model-card-top">
+            <span class="model-badge enterprise">🏢 Enterprise LLM</span>
+            <span class="model-context">128k Context</span>
+          </div>
+          <h3 class="model-name">Llama 3.3 70B Instruct</h3>
+          <p class="model-desc">Meta's Flaggschiff für mehrsprachige Dialoge, komplexe Analysen und professionelle Enterprise-Assistenten.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">70.6B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">42 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~52 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.45 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('llama3.1:8b')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('llama3.1:8b')">📋 Code kopieren</button>
+          </div>
+        </div>
+
+        <!-- Model 4 -->
+        <div class="model-card" data-category="vision">
+          <div class="model-card-top">
+            <span class="model-badge vision">👁️ Vision &amp; Multimodal</span>
+            <span class="model-context">32k Context</span>
+          </div>
+          <h3 class="model-name">Qwen 2.5 VL 7B (Vision)</h3>
+          <p class="model-desc">Visuelle Dokumentenanalyse, OCR, UI-Screenshots, Diagramme und detaillierte Bildbeschreibungen.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">7.6B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">8 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~85 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.18 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('qwen2.5-vl:7b')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('qwen2.5-vl:7b')">📋 Code kopieren</button>
+          </div>
+        </div>
+
+        <!-- Model 5 -->
+        <div class="model-card" data-category="fast">
+          <div class="model-card-top">
+            <span class="model-badge fast">⚡ Ultra High-Speed</span>
+            <span class="model-context">128k Context</span>
+          </div>
+          <h3 class="model-name">Mistral NeMo 12B</h3>
+          <p class="model-desc">Gemeinsam mit NVIDIA trainiert. Extrem effiziente und reaktionsschnelle Allround-Inferenz.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">12.2B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">10 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~94 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.15 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('mistral:7b')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('mistral:7b')">📋 Code kopieren</button>
+          </div>
+        </div>
+
+        <!-- Model 6 -->
+        <div class="model-card" data-category="fast">
+          <div class="model-card-top">
+            <span class="model-badge fast">📱 Lightweight &amp; Mobile</span>
+            <span class="model-context">32k Context</span>
+          </div>
+          <h3 class="model-name">Phi-3 Mini (3.8B)</h3>
+          <p class="model-desc">Microsofts ultra-kompaktes Modell. Perfekt für Edge-Nodes, Smartphones und schnelle Chat-Routinen.</p>
+          <div class="model-metrics">
+            <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">3.8B</span></div>
+            <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">4 GB</span></div>
+            <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~140 tok/s</span></div>
+            <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.09 / 1M</span></div>
+          </div>
+          <div class="model-card-footer">
+            <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('phi3:mini')">⚡ Im Playground testen</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('phi3:mini')">📋 Code kopieren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Live Playground Section -->
+  <section class="playground-sec" id="playground">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="pg_tag">INTERAKTIVE DEMO</span>
+        <h2 data-i18n="pg_title">Erlebe die <span class="gradient-text">Geschwindigkeit des Meshs</span></h2>
+        <p data-i18n="pg_sub">Teste unsere ultra-schnelle Streaming-Inferenz direkt im Browser. Wähle ein Open-Source-Modell und sende deinen ersten Prompt.</p>
+      </div>
+
+      <div class="playground-studio">
+        <!-- Toolbar -->
+        <div class="pg-toolbar">
+          <div class="pg-toolbar-left">
+            <div class="pg-control-group">
+              <label for="playground-model-select" class="pg-label" data-i18n="pg_model_lbl">Modell:</label>
+              <select id="playground-model-select" class="pg-select" onchange="syncPlaygroundModel(this.value)">
+                <option value="qwen2.5:7b" selected>Qwen 2.5 7B (High-Speed Coder)</option>
+                <option value="qwen2.5-vl:7b">Qwen 2.5 VL 7B (Vision &amp; Image AI)</option>
+                <option value="llama3.1:8b">Llama 3.1 8B (Instruct)</option>
+                <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option>
+                <option value="mistral:7b">Mistral 7B (v0.3)</option>
+                <option value="phi3:mini">Phi-3 Mini (3.8B)</option>
+              </select>
+            </div>
+            <div class="pg-cluster-badge">
+              <span class="pulse-dot"></span>
+              <span id="pg-cluster-status" data-i18n="pg_cluster_pending">Mesh-Cluster verbunden</span>
+            </div>
+          </div>
+          <div class="pg-toolbar-right">
+            <div id="pg-teaser-quota-pill" class="pg-quota-pill" onclick="openTeaserConversionModal()" title="Konto- &amp; API-Optionen ansehen">
+              <span>⚡</span><span id="pg-quota-text" data-i18n="pg_quota_pill">Kostenloses Demo-Guthaben</span>
+            </div>
+            <button id="pg-clear-chat-btn" class="pg-btn-icon" onclick="clearPlaygroundChat()" title="Chat leeren">🗑️</button>
+          </div>
+        </div>
+
+        <!-- Chat Stream Box -->
+        <div id="playground-chat-stream" class="pg-chat-stream">
+          <div class="chat-msg chat-msg-ai">
+            <div class="chat-avatar">🤖</div>
+            <div class="chat-bubble">
+              <div class="chat-author">
+                <span data-i18n="pg_ai_author">ComputeMesh AI</span>
+                <span class="chat-badge" data-i18n="pg_ai_badge">LIVE MESH</span>
+              </div>
+              <div class="chat-body" data-i18n="pg_ai_welcome">
+                Willkommen bei ComputeMesh! Unser dezentrales Inferenz-Netzwerk ist online. Wie kann ich dir heute bei deinem Projekt helfen?
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Metrics Bar -->
+        <div id="playground-live-metrics" class="pg-metrics-bar">
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_status_lbl">Status:</span>
+            <span id="pg-metric-status" class="pg-metric-val emerald" data-i18n="pg_status_ready">Bereit</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_speed_lbl">Geschwindigkeit:</span>
+            <span id="pg-metric-tps" class="pg-metric-val">— tok/s</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_latency_lbl">TTFT / Latenz:</span>
+            <span id="pg-metric-latency" class="pg-metric-val">— ms</span>
+          </div>
+          <div class="pg-metric-item">
+            <span class="pg-metric-lbl" data-i18n="pg_tokens_lbl">Generierte Tokens:</span>
+            <span id="pg-metric-tokens" class="pg-metric-val">0</span>
+          </div>
+        </div>
+
+        <!-- Quick Prompts Row -->
+        <div class="pg-quick-prompts">
+          <button class="pg-pill" onclick="applyQuickPrompt('explain_mesh')" data-i18n="qp_explain_mesh">⚡ Was macht ComputeMesh einzigartig?</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('python_fastapi')" data-i18n="qp_python_fastapi">🐍 Schreibe einen Streaming FastAPI-Endpunkt</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('gpu_sharding')" data-i18n="qp_gpu_sharding">🧩 Wie funktioniert Pipeline-Layer-Sharding?</button>
+          <button class="pg-pill" onclick="applyQuickPrompt('compare_costs')" data-i18n="qp_compare_costs">💰 Berechne meine Kostenersparnis</button>
+        </div>
+
+        <!-- Input Area -->
+        <div class="pg-input-container">
+          <textarea id="playground-prompt-input" class="pg-textarea" rows="2" placeholder="Stelle eine Frage oder teste die Inferenz-Geschwindigkeit... (Enter zum Senden, Shift+Enter für neue Zeile)" onkeydown="handlePlaygroundKey(event)"></textarea>
+          <div class="pg-input-actions">
+            <button id="playground-send-btn" class="btn btn-primary pg-send-btn" onclick="sendPlaygroundMessage()">
+              <span id="pg-send-btn-text" data-i18n="pg_send_btn">Prompt senden</span>
+              <span class="pg-send-icon">🚀</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dual Interactive Pricing & Earnings Calculator Section -->
+  <section class="calculator-sec" id="pricing">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="calc_tag">TRANSPARENTE PREISE &amp; RECHNER</span>
+        <h2 data-i18n="calc_title">Faire Preise für Entwickler • Lukrative Erträge für Provider</h2>
+        <p data-i18n="calc_sub">Spare bis zu 80% gegenüber herkömmlichen Cloud-Anbietern oder verwandle ungenutzte Grafikkarten in eine kontinuierliche Einnahmequelle.</p>
+      </div>
+
+      <div class="calc-box">
+        <div class="calc-tabs">
+          <button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')" data-i18n="tab_developer">
+            👨‍💻 Entwickler: Kostenersparnis berechnen
+          </button>
+          <button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')" data-i18n="tab_provider">
+            ⚡ Provider / Miner: Einnahmen berechnen
+          </button>
+        </div>
+
+        <!-- Developer Savings Calculator Pane -->
+        <div id="pane-dev" class="calc-content calc-pane">
+          <div>
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span data-i18n="lbl_monthly_tokens">Monatliches Inferenzvolumen (Millionen Tokens)</span>
+                <span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">50 M</span>
+              </div>
+              <input type="range" id="slider-tokens" min="1" max="500" value="50" step="5" oninput="updateCalculators()">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span data-i18n="lbl_model_tier">Modellgröße / Klasse</span>
+              </div>
+              <select id="select-model" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
+                <option value="2b">2B-Klasse (z.B. Phi-3 Mini, Qwen 2.5 1.5B) — $0.09 / 1M</option>
+                <option value="8b" selected>8B-Klasse (z.B. Llama 3.1 8B, Qwen 2.5 7B) — $0.15 / 1M</option>
+                <option value="14b">14B-Klasse (z.B. Qwen 2.5 14B, Mistral NeMo) — $0.20 / 1M</option>
+                <option value="32b">32B-Klasse (z.B. Qwen 2.5 Coder 32B, DeepSeek-R1) — $0.25 / 1M</option>
+                <option value="70b">70B-Klasse (z.B. Llama 3.3 70B Distributed) — $0.45 / 1M</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="calc-result-card">
+            <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_computemesh_cost">Geschätzte ComputeMesh-Kosten</div>
+            <div id="calc-cm-cost" class="calc-big-num">$7.50</div>
+            <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem;">
+              <span data-i18n="lbl_cloud_cost">Traditionelle Hyperscaler-Kosten:</span>
+              <span id="calc-cloud-cost" style="text-decoration: line-through; color: #f87171;">$37.50</span>
+            </div>
+            <div class="savings-pill" id="calc-savings-badge">
+              💰 Ersparnis: $30.00 / Monat (80%)
+            </div>
+          </div>
+        </div>
+
+        <!-- Provider Earnings Calculator Pane -->
+        <div id="pane-prov" class="calc-content calc-pane" style="display: none;">
+          <div>
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span data-i18n="lbl_gpu_setup">Hardware-Konfiguration / GPU-Klasse</span>
+              </div>
+              <select id="select-rig" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
+                <option value="rtx4090" selected>1x NVIDIA GeForce RTX 4090 (24GB VRAM, 82.6 TFLOPS)</option>
+                <option value="rtx3090">1x NVIDIA RTX 3080 / 3090 (24GB VRAM, 35.6 TFLOPS)</option>
+                <option value="5x8gb">5x 8GB GPU Mining Rig (40GB VRAM, 122.8 TFLOPS)</option>
+                <option value="8x3070">8x 8GB GPU Mining Rig (64GB VRAM, 196.0 TFLOPS)</option>
+                <option value="rx7900">1x AMD Radeon RX 7900 XTX (24GB VRAM, 61.4 TFLOPS)</option>
+                <option value="apple_m">1x Apple Silicon M3 Max (128GB Unified Memory)</option>
+              </select>
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span data-i18n="lbl_hours_online">Tägliche Online-Zeit</span>
+                <span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">24 h/Tag</span>
+              </div>
+              <input type="range" id="slider-hours" min="1" max="24" value="24" step="1" oninput="updateCalculators()">
+            </div>
+          </div>
+
+          <div class="calc-result-card">
+            <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Geschätzte monatliche Netto-Einnahmen</div>
+            <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$158.40</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-top: 0.5rem;" data-i18n="lbl_payout_note">
+              75% aller Job-Gebühren wandern direkt in dein Provider-Ledger. Automatische SEPA-/Stripe-Connect-Auszahlung ab $25.00.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Developer Experience (DX) & 60s Quickstart Section -->
+  <section class="quickstart-sec" id="quickstart">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="api_tag">ENTWICKLER-SCHNITTSTELLE (60s QUICKSTART)</span>
+        <h2 data-i18n="api_title">Zwei Zeilen Code. 100% OpenAI-kompatibel.</h2>
+        <p data-i18n="api_sub">Binde ComputeMesh nahtlos in jede bestehende Anwendung ein – kompatibel mit OpenAI SDKs, LangChain, LiteLLM, Ollama CLI und LocalCode.</p>
+      </div>
+
+      <div class="dx-box">
+        <div class="dx-tabs">
+          <button class="dx-tab-btn active" onclick="switchDxTab('python', this)">🐍 Python (OpenAI SDK)</button>
+          <button class="dx-tab-btn" onclick="switchDxTab('nodejs', this)">⚡ Node.js / TypeScript</button>
+          <button class="dx-tab-btn" onclick="switchDxTab('curl', this)">🐧 cURL / Bash</button>
+          <button class="dx-tab-btn" onclick="switchDxTab('ollama', this)">🦙 Ollama CLI</button>
+          <button class="dx-tab-btn" onclick="switchDxTab('langchain', this)">🦜 LangChain / LiteLLM</button>
+        </div>
+
+        <div class="code-window">
+          <div class="code-header">
+            <div class="window-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span id="dx-filename" class="code-file-title">inference_client.py</span>
+            </div>
+            <button id="copy-dx-btn" class="btn btn-secondary btn-sm" onclick="copyDxCode()">📋 Code kopieren</button>
+          </div>
+          <pre><code id="dx-code-content">from openai import OpenAI
+
+# 100% drop-in replacement for OpenAI SDK
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="cm_live_your_key"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[{"role": "user", "content": "Explain distributed AI inference in simple terms."}],
+    stream=True
+)
+
+for chunk in response:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Zero-Config LAN Mesh & Economics Section -->
   <section class="container" id="lan-mesh" style="padding: 5rem 1.5rem;">
     <div class="section-header">
-      <span class="section-tag" data-i18n="lan_eco_tag">HYBRID MESH & ÖKONOMIE</span>
-      <h2 data-i18n="lan_eco_title">100% Kostenfreies Privates LAN-Mesh & Globale Miner-Verdienste</h2>
+      <span class="section-tag" data-i18n="lan_eco_tag">HYBRID MESH &amp; ÖKONOMIE</span>
+      <h2 data-i18n="lan_eco_title">100% Kostenfreies Privates LAN-Mesh &amp; Globale Miner-Verdienste</h2>
       <p data-i18n="lan_eco_sub">Standardmäßig ohne Owner-Key: Geräte im selben Netzwerk finden sich automatisch und teilen GPU-Power kostenfrei. Nutze den Owner-Key nur, wenn du deine Hardware weltweit vermieten und 75% der Umsätze verdienen willst.</p>
     </div>
 
@@ -155,7 +828,7 @@ curl https://mesh.inetconnector.com/v1/chat/completions \
       <div class="feature-card" style="border-color: rgba(99, 102, 241, 0.35); background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(49, 46, 129, 0.2));">
         <div style="font-size: 0.75rem; font-weight: 800; color: var(--accent-indigo); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;" data-i18n="lan_card3_tag">75% REVENUE SHARE</div>
         <div class="feature-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo);">💰</div>
-        <h3 data-i18n="lan_card3_title">Miner & Provider Verdienste</h3>
+        <h3 data-i18n="lan_card3_title">Miner &amp; Provider Verdienste</h3>
         <p data-i18n="lan_card3_desc">Stelle deine GPU dem globalen ComputeMesh-Pool bereit: 75% aller Inferenz-Gebühren wandern direkt in dein Provider-Ledger. Automatische SEPA-Auszahlungen ab 25 €/$ via Stripe Connect.</p>
       </div>
     </div>
@@ -191,7 +864,7 @@ curl https://mesh.inetconnector.com/v1/chat/completions \
             <td style="padding: 1rem;" data-i18n="lan_tbl_r2_network">Verschlüsseltes globales WAN Gateway</td>
             <td style="padding: 1rem; color: var(--accent-cyan);" data-i18n="lan_tbl_r2_cost">Kostenlos für eigene Nodes</td>
             <td style="padding: 1rem; color: var(--text-dim);" data-i18n="lan_tbl_r2_earnings">Keine (Privater Cluster)</td>
-            <td style="padding: 1rem;" data-i18n="lan_tbl_r2_privacy">Ende-zu-Ende mTLS & Zero-Disk-Retention</td>
+            <td style="padding: 1rem;" data-i18n="lan_tbl_r2_privacy">Ende-zu-Ende mTLS &amp; Zero-Disk-Retention</td>
           </tr>
           <tr style="background: rgba(99, 102, 241, 0.04);">
             <td style="padding: 1rem; font-weight: 700; color: var(--accent-indigo);" data-i18n="lan_tbl_r3_mode">Modus 3: Public Compute Miner</td>
@@ -206,99 +879,281 @@ curl https://mesh.inetconnector.com/v1/chat/completions \
     </div>
   </section>
 
-  <section class="calculator-sec" id="pricing"><div class="container"><div class="section-header"><span class="section-tag" data-i18n="calc_tag">TRANSPARENTE PREISE</span><h2 data-i18n="calc_title">Faire Preise & lukrative Provider-Erträge</h2><p data-i18n="calc_sub">Spare bis zu 80% gegenüber herkömmlichen Cloud-Anbietern oder verwandle ungenutzte Grafikkarten in eine kontinuierliche Einnahmequelle.</p></div><div class="calc-box"><div class="calc-tabs"><button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')" data-i18n="tab_developer">👨‍💻 Entwickler: Kostenersparnis berechnen</button><button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')" data-i18n="tab_provider">⚡ Provider: Einnahmen berechnen</button></div><div id="pane-dev" class="calc-content calc-pane"><div><div class="slider-group"><div class="slider-labels"><span data-i18n="lbl_monthly_tokens">Monatliches Inferenzvolumen (Millionen Tokens)</span><span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono);">50 M</span></div><input type="range" id="slider-tokens" min="1" max="500" value="50" step="5"></div><div class="slider-group"><div class="slider-labels"><span data-i18n="lbl_model_tier">Modellgröße / Klasse</span></div><select id="select-model" class="form-control" style="cursor: pointer;"><option value="2b">2B-Klasse (z.B. MiniCPM5 2B, Qwen 2.5 1.5B)</option><option value="8b" selected>8B-Klasse (z.B. Llama 3.1 8B, Qwen 2.5 7B)</option><option value="14b">14B-Klasse (z.B. Qwen 2.5 14B)</option><option value="32b">32B-Klasse (z.B. Qwen 2.5 32B, DeepSeek Coder 33B)</option><option value="70b">70B-Klasse (z.B. Llama 3.1 70B Distributed)</option></select></div></div><div class="calc-result-card"><div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_computemesh_cost">Geschätzte ComputeMesh-Kosten</div><div id="calc-cm-cost" class="calc-big-num">$8.75</div><div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1rem;"><span data-i18n="lbl_cloud_cost">Traditionelle Hyperscaler-Kosten:</span> <span id="calc-cloud-cost" style="text-decoration: line-through;">$38.25</span></div><div class="gradient-emerald" style="font-weight: 700; font-size: 1.05rem;" data-i18n="lbl_your_savings">Bis zu 80% Ersparnis gegenüber AWS & Azure</div></div></div><div id="pane-prov" class="calc-content calc-pane" style="display: none;"><div><div class="slider-group"><div class="slider-labels"><span data-i18n="lbl_gpu_setup">Hardware-Konfiguration / GPU-Klasse</span></div><select id="select-rig" class="form-control" style="cursor: pointer;"><option value="5x8gb">5x 8GB GPU Mining Rig (z.B. RTX 3070 / RX 6600)</option><option value="8x3070">8x 8GB GPU Mining Rig (High-Density)</option><option value="rtx3080">1x High-End Workstation (RTX 3080 / 3090 24GB)</option><option value="rtx4090">1x Flagship GPU (RTX 4090 24GB)</option></select></div><div class="slider-group"><div class="slider-labels"><span data-i18n="lbl_hours_online">Tägliche Online-Zeit</span><span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono);">24 h/Tag</span></div><input type="range" id="slider-hours" min="1" max="24" value="24" step="1"></div></div><div class="calc-result-card"><div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Geschätzte monatliche Einnahmen</div><div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$165.00</div><div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45;" data-i18n="lbl_payout_note">Verdiente Credits werden in Echtzeit berechnet und transparent verbucht. Automatische Auszahlungen ab $25.00 via Stripe Connect oder Krypto.</div></div></div></div><div style="margin-top: 3rem;" class="feature-card"><h3 data-i18n="commercial_plans_title">Individuelle Enterprise-Lösungen</h3><p style="color: var(--text-muted); line-height: 1.6;" data-i18n="commercial_plans_desc">Du benötigst dedizierte GPU-Cluster, garantierte SLAs oder On-Premise-Deployments? Unser Enterprise-Team erstellt gerne ein maßgeschneidertes Angebot.</p><a href="/contact" class="btn btn-secondary" style="margin-top: 1rem;" data-i18n="btn_contact_sales">Enterprise-Beratung anfragen</a></div></div></section>
-
-  <section class="downloads-sec" id="downloads"><div class="container"><div class="section-header"><span class="section-tag" data-i18n="dl_tag">PROVIDER-SOFTWARE</span><h2 data-i18n="dl_title">Starte als Hardware-Provider in wenigen Minuten</h2><p data-i18n="dl_sub">Lade den passenden Agenten für dein System herunter und mache deine Grafikkarten sofort zu einer profitablen Einnahmequelle.</p></div><div class="download-grid"><div class="download-card highlight"><div><div class="dl-platform-icon">🤖</div><h3 data-i18n="dl_localcode_title">LocalCode Autonome KI-IDE & Remote</h3><p data-i18n="dl_localcode_desc">Autonomer lokaler KI-Coding-Agent mit nativer Ollama- & ComputeMesh-Anbindung, Desktop-IDE und mobiler Android Remote-App.</p><div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.45); border-radius: 12px; padding: 0.85rem; margin: 1rem 0; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.35);"><div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; margin-bottom: 0.45rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;"><span>📱</span> <span data-i18n="dl_qr_scan_title">Mit Handy-Kamera scannen:</span></div><a href="/downloads/LocalCode-Remote-debug.apk" title="LocalCode Android APK herunterladen" target="_blank" style="display: inline-block;"><img src="/assets/qr-localcode-apk.svg" alt="LocalCode Android APK QR-Code" style="width: 135px; height: 135px; background: #ffffff; padding: 6px; border-radius: 8px; display: block; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"></a><div style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.45rem; line-height: 1.3;" data-i18n="dl_qr_scan_sub">Direkt scannen für <strong>Sofort-Download &amp; Installation</strong></div></div></div><div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;"><a href="/downloads/LocalCode-Setup.exe" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" data-i18n="dl_localcode_win_btn">Für Windows herunterladen (.exe)</a><a href="/downloads/LocalCode-Remote-debug.apk" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.85rem;" download="LocalCode-Remote-debug.apk" data-i18n="dl_localcode_apk_btn">Android Companion herunterladen (.apk)</a><a href="/downloads/localcode-0.1.0.vsix" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="localcode-0.1.0.vsix" data-i18n="dl_localcode_vsix_btn">VS Code &amp; IDE Extension (.vsix)</a></div></div><div class="download-card"><div><div class="dl-platform-icon">🪟</div><h3 data-i18n="dl_win_title">Windows Provider Agent</h3><p data-i18n="dl_win_desc">Vollständige Desktop-App mit System-Tray-Status, automatischer GPU-Erkennung und unauffälligem Hintergrunddienst.</p></div><a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-secondary" style="width: 100%;" data-i18n="dl_win_btn">Für Windows herunterladen (.exe)</a></div><div class="download-card"><div><div class="dl-platform-icon">🐧</div><h3 data-i18n="dl_linux_title">Linux Headless Daemon</h3><p data-i18n="dl_linux_desc">High-Performance-Daemon optimiert für Ubuntu, Debian, Mining-Rigs und Server. Einzeilige Installation.</p><div class="dl-code-box">curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</div></div><div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;"><button class="btn btn-secondary" style="width: 100%;" onclick="copyLinuxCommand()" data-i18n="dl_linux_btn">Installationsbefehl kopieren</button><a href="/downloads/computemesh-linux-x86_64.tar.gz" class="btn btn-secondary" style="width: 100%; text-align: center;" data-i18n="dl_rig_tar_btn">Linux-Paket herunterladen (.tar.gz)</a></div></div><div class="download-card highlight"><div><div class="dl-platform-icon">📱</div><h3 data-i18n="dl_android_title">Android Mobile Node & KI</h3><p data-i18n="dl_android_desc">100% private On-Device Inferenz mit MiniCPM5-2B, Direct-LAN P2P und akkuschonender Edge-Node Hintergrunddienst.</p><div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.45); border-radius: 12px; padding: 0.85rem; margin: 1rem 0; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.35);"><div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; margin-bottom: 0.45rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;"><span>📱</span> <span>Mit Handy-Kamera scannen:</span></div><a href="/downloads/ComputeMesh-Android.apk" title="ComputeMesh Android APK herunterladen" target="_blank" style="display: inline-block;"><img src="/assets/qr-android-apk.svg" alt="ComputeMesh Android APK QR-Code" style="width: 135px; height: 135px; background: #ffffff; padding: 6px; border-radius: 8px; display: block; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"></a><div style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.45rem; line-height: 1.3;">Direkt scannen für <strong>Sofort-Download &amp; Installation</strong></div></div></div><div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;"><a href="/downloads/ComputeMesh-Android.apk" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" download="ComputeMesh-Android.apk" data-i18n="dl_android_btn">Für Android herunterladen (.apk)</a><a href="/downloads/ComputeMesh-Android.aab" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="ComputeMesh-Android.aab">Play Store Bundle (.aab)</a></div></div><div class="download-card"><div><div class="dl-platform-icon">⚡</div><h3 data-i18n="dl_rig_title">Mining-Rig Appliance (NodeOS)</h3><p data-i18n="dl_rig_desc">Eigenständiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4–12 GPUs) mit Zero-Touch-Konfiguration.</p></div><div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;"><a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-secondary" style="width: 100%; text-align: center;" data-i18n="dl_rig_iso_btn">Bootfähige ISO herunterladen (.iso)</a><a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" style="width: 100%; text-align: center;" data-i18n="dl_rig_img_btn">Flash-Image herunterladen (.img.xz)</a><a href="/docs#nodeos" class="btn btn-secondary" style="width: 100%; text-align: center;" data-i18n="dl_rig_guide_btn">NodeOS Setup Guide ansehen</a></div></div></div></div></section>
-
-  <section class="container" id="api" style="padding: 5rem 1.5rem;"><div class="section-header"><span class="section-tag" data-i18n="api_tag">ENTWICKLER-SCHNITTSTELLE</span><h2 data-i18n="api_title">Zwei Zeilen Code. Sofort einsatzbereit.</h2><p data-i18n="api_sub">Binde ComputeMesh nahtlos in jede bestehende Anwendung ein – 100% kompatibel mit den offiziellen OpenAI-SDKs.</p></div><div class="code-window"><div class="code-header" style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 0.5rem;"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div><span style="margin-left: 0.5rem;">inference_example.py</span></div><button id="copy-python-code-btn" class="btn btn-secondary" style="font-size: 0.76rem; padding: 0.25rem 0.65rem; cursor: pointer;" onclick="copyPythonCode()" data-i18n="pg_copy_code_btn">📋 Code kopieren</button></div><pre><code id="python-sdk-code-content">from openai import OpenAI
-
-# 100% drop-in replacement for OpenAI SDK
-client = OpenAI(
-    base_url="https://mesh.inetconnector.com/v1",
-    api_key="cm_live_your_key"
-)
-
-response = client.chat.completions.create(
-    model="qwen2.5:7b",
-    messages=[{"role": "user", "content": "Explain distributed AI inference in simple terms."}],
-    stream=True
-)
-
-for chunk in response:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)</code></pre></div></section>
-
-  <!-- Ecosystem Integrations & 1-Click Setup -->
-  <section class="container" id="ecosystem" style="padding: 3rem 1.5rem 5rem 1.5rem;">
-    <div class="section-header">
-      <span class="section-tag">ÖKOSYSTEM & INTEGRATIONEN</span>
-      <h2>Nahtlos in deine Lieblingstools integriert</h2>
-      <p style="color: var(--text-muted); font-size: 1.05rem;">ComputeMesh lässt sich mit nur einer Zeile Konfiguration in alle führenden Open-Source-GUIs und Orchestratoren einbinden.</p>
-    </div>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 3.5rem;">
-      <div class="feature-card" style="padding: 1.5rem;">
-        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">💬</div>
-        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">Open WebUI</h3>
-        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1rem;">Verbinde das populärste ChatGPT-Interface per Docker direkt mit dem Mesh.</p>
-        <code style="background: #040711; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); display: block; overflow-x: auto;">OPENAI_API_BASE_URL="https://mesh.inetconnector.com/v1"</code>
+  <!-- Multi-Platform App Center & Downloads Section -->
+  <section class="downloads-sec" id="downloads">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="dl_tag">PROVIDER-SOFTWARE &amp; APPS</span>
+        <h2 data-i18n="dl_title">Starte als Hardware-Provider &amp; KI-Entwickler in wenigen Minuten</h2>
+        <p data-i18n="dl_sub">Lade den passenden Client für dein System herunter und binde deine Grafikkarten sofort in das Mesh ein.</p>
       </div>
-      <div class="feature-card" style="padding: 1.5rem;">
-        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">🔀</div>
-        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">LiteLLM Proxy</h3>
-        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1rem;">Load Balancing, Fallbacks und Budget-Tracking für 100+ LLMs im Mesh.</p>
-        <code style="background: #040711; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.75rem; color: var(--accent-emerald); display: block; overflow-x: auto;">api_base: https://mesh.inetconnector.com/v1</code>
-      </div>
-      <div class="feature-card" style="padding: 1.5rem;">
-        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">🤗</div>
-        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">Hugging Face Spaces</h3>
-        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1rem;">Kostenlose Gradio-Playgrounds und AI-Demos direkt über ComputeMesh hosten.</p>
-        <span style="font-size: 0.8rem; color: var(--accent-cyan);">Zero-VRAM Hosting auf HF</span>
-      </div>
-      <div class="feature-card" style="padding: 1.5rem;">
-        <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">🤖</div>
-        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">LibreChat</h3>
-        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1rem;">Multi-User AI Chat-Plattform für Teams und Organisationen mit Zero-Retention.</p>
-        <span style="font-size: 0.8rem; color: var(--accent-emerald);">DSGVO-konformes B2B Chatting</span>
-      </div>
-    </div>
 
-    <!-- Supported Model Profiles Grid -->
-    <div class="section-header" style="text-align: left; margin-bottom: 1.5rem;">
-      <span class="section-tag">OPTIMIERTE MODELLE</span>
-      <h3 style="font-size: 1.6rem;">Führende Open-Source KI-Modelle im Mesh</h3>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 3.5rem;">
-      <a href="/models/deepseek-r1" style="text-decoration: none;" class="feature-card">
-        <h4 style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 0.25rem;">DeepSeek-R1</h4>
-        <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">Reasoning & Math Flagship</p>
-        <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;">$0.55 / 1M tok →</span>
-      </a>
-      <a href="/models/llama-3-3-70b" style="text-decoration: none;" class="feature-card">
-        <h4 style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 0.25rem;">Llama 3.3 70B</h4>
-        <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">High-Speed Enterprise LLM</p>
-        <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;">$0.29 / 1M tok →</span>
-      </a>
-      <a href="/models/qwen-2-5-coder-32b" style="text-decoration: none;" class="feature-card">
-        <h4 style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 0.25rem;">Qwen 2.5 Coder</h4>
-        <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">State-of-the-Art Code Model</p>
-        <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600;">$0.25 / 1M tok →</span>
-      </a>
-      <a href="/compare/aws-bedrock" style="text-decoration: none;" class="feature-card">
-        <h4 style="color: #fff; font-size: 1.1rem; margin-bottom: 0.25rem;">ComputeMesh vs. AWS</h4>
-        <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem;">Kosten- & Architekturvergleich</p>
-        <span style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 600;">70% Ersparnis →</span>
-      </a>
+      <div class="download-grid">
+        <!-- Card 1: LocalCode -->
+        <div class="download-card highlight">
+          <div>
+            <div class="dl-platform-icon">🤖</div>
+            <h3 data-i18n="dl_localcode_title">LocalCode Autonome KI-IDE &amp; Remote</h3>
+            <p data-i18n="dl_localcode_desc">Autonomer lokaler KI-Coding-Agent mit nativer Ollama- &amp; ComputeMesh-Anbindung, Windows-Tray-Modus und mobiler Android Remote-App.</p>
+            <div class="qr-box">
+              <div class="qr-title"><span>📱</span> <span data-i18n="dl_qr_scan_title">Mit Handy-Kamera scannen:</span></div>
+              <a href="/downloads/LocalCode-Remote-debug.apk" title="LocalCode Android APK herunterladen" target="_blank" style="display: inline-block;">
+                <img src="/assets/qr-localcode-apk.svg" alt="LocalCode Android APK QR-Code" class="qr-img">
+              </a>
+              <div class="qr-sub" data-i18n="dl_qr_scan_sub">Direkt scannen für <strong>Sofort-Download &amp; Installation</strong></div>
+            </div>
+          </div>
+          <div class="dl-actions-col">
+            <a href="/downloads/LocalCode-Setup.exe" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" data-i18n="dl_localcode_win_btn">LocalCode Setup für Windows (.exe)</a>
+            <a href="/downloads/LocalCode-Remote-debug.apk" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.85rem;" download="LocalCode-Remote-debug.apk" data-i18n="dl_localcode_apk_btn">Android Companion APK herunterladen</a>
+            <a href="/downloads/localcode-0.1.0.vsix" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="localcode-0.1.0.vsix" data-i18n="dl_localcode_vsix_btn">VS Code &amp; Antigravity Extension (.vsix)</a>
+          </div>
+        </div>
+
+        <!-- Card 2: Windows Provider -->
+        <div class="download-card">
+          <div>
+            <div class="dl-platform-icon">🪟</div>
+            <h3 data-i18n="dl_win_title">Windows Provider Agent</h3>
+            <p data-i18n="dl_win_desc">Desktop-App mit System-Tray-Status, LocalCode-Auto-Launcher, automatischer GPU-Erkennung und unauffälligem Hintergrunddienst.</p>
+          </div>
+          <div class="dl-actions-col">
+            <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_win_btn">ComputeMesh für Windows (.exe)</a>
+          </div>
+        </div>
+
+        <!-- Card 3: Linux Daemon -->
+        <div class="download-card">
+          <div>
+            <div class="dl-platform-icon">🐧</div>
+            <h3 data-i18n="dl_linux_title">Linux Headless Daemon</h3>
+            <p data-i18n="dl_linux_desc">High-Performance-Daemon optimiert für Ubuntu, Debian, Mining-Rigs und Server. Einzeilige Installation.</p>
+            <div class="dl-code-box">curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</div>
+          </div>
+          <div class="dl-actions-col">
+            <button class="btn btn-secondary" style="width: 100%;" onclick="copyLinuxCommand()" data-i18n="dl_linux_btn">Installationsbefehl kopieren</button>
+            <a href="/downloads/computemesh-linux-x86_64.tar.gz" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_tar_btn">Linux-Paket herunterladen (.tar.gz)</a>
+          </div>
+        </div>
+
+        <!-- Card 4: Android Node -->
+        <div class="download-card highlight">
+          <div>
+            <div class="dl-platform-icon">📱</div>
+            <h3 data-i18n="dl_android_title">Android Mobile Node &amp; Companion</h3>
+            <p data-i18n="dl_android_desc">Natives Jetpack Compose Interface, On-Device Inferenz, Direct-LAN P2P und LocalCode-Launcher.</p>
+            <div class="qr-box">
+              <div class="qr-title"><span>📱</span> <span>Mit Handy-Kamera scannen:</span></div>
+              <a href="/downloads/ComputeMesh-Android.apk" title="ComputeMesh Android APK herunterladen" target="_blank" style="display: inline-block;">
+                <img src="/assets/qr-android-apk.svg" alt="ComputeMesh Android APK QR-Code" class="qr-img">
+              </a>
+              <div class="qr-sub">Direkt scannen für <strong>Sofort-Download &amp; Installation</strong></div>
+            </div>
+          </div>
+          <div class="dl-actions-col">
+            <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" download="ComputeMesh-Android.apk" data-i18n="dl_android_btn">ComputeMesh Android APK (v1.2.163)</a>
+            <a href="/downloads/ComputeMesh-Android.aab" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="ComputeMesh-Android.aab">Play Store Bundle (.aab)</a>
+          </div>
+        </div>
+
+        <!-- Card 5: Mining Rig Appliance -->
+        <div class="download-card">
+          <div>
+            <div class="dl-platform-icon">⚡</div>
+            <h3 data-i18n="dl_rig_title">Mining-Rig Appliance (NodeOS)</h3>
+            <p data-i18n="dl_rig_desc">Eigenständiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4–12 GPUs) mit Zero-Touch-Konfiguration.</p>
+          </div>
+          <div class="dl-actions-col">
+            <a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_iso_btn">Bootfähige ISO herunterladen (.iso)</a>
+            <a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_img_btn">Flash-Image herunterladen (.img.xz)</a>
+            <a href="/docs#nodeos" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_guide_btn">NodeOS Setup Guide ansehen</a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <div id="register-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p><form id="registration-form" onsubmit="handleRegistration(event)"><div class="form-group"><label data-i18n="modal_role_lbl">Konto-Typ:</label><select id="modal-role" class="form-control"><option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option><option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option></select></div><div class="form-group"><label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label><input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com"></div><div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);"><div class="form-group" style="margin-bottom: 0;"><label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label><select id="cm-provider-country" class="form-control" style="cursor: pointer;"><option value="" data-i18n="modal_country_select">Land auswählen…</option><option value="DE">Deutschland (DE)</option><option value="AT">Österreich (AT)</option><option value="CH">Schweiz (CH)</option><option value="FR">Frankreich (FR)</option><option value="NL">Niederlande (NL)</option><option value="SE">Schweden (SE)</option><option value="NO">Norwegen (NO)</option><option value="FI">Finnland (FI)</option><option value="DK">Dänemark (DK)</option><option value="PL">Polen (PL)</option><option value="IT">Italien (IT)</option><option value="ES">Spanien (ES)</option><option value="IE">Irland (IE)</option><option value="BE">Belgien (BE)</option></select></div><div class="form-group" style="margin-bottom: 0;"><label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label><input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)"></div></div><div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;"><label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;"><input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> & <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span></label></div><button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button></form><div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;"><label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label><div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;"><input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);"><button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Schlüssel kopieren</button></div></div></div></div>
+  <!-- Modals -->
+  <!-- Registration Modal -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_title">Mit ComputeMesh starten</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
+      
+      <form id="registration-form" onsubmit="handleRegistration(event)">
+        <div class="form-group">
+          <label data-i18n="modal_role_lbl">Konto-Typ:</label>
+          <select id="modal-role" class="form-control">
+            <option value="consumer" data-i18n="role_consumer">Developer-API nutzen (KI-Inferenz ausführen)</option>
+            <option value="provider" data-i18n="role_provider">Hardware-Provider werden (GPUs monetarisieren)</option>
+          </select>
+        </div>
 
-  <div id="deposit-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeDepositModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p><form onsubmit="handleDepositSubmit(event)"><div class="form-group"><label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label><input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);"></div><div class="form-group"><label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label><select id="deposit-amount-select" class="form-control" style="cursor: pointer;"><option value="10">$10.00 USD (Starter)</option><option value="25" selected>$25.00 USD (Pro)</option><option value="50">$50.00 USD (Scale)</option><option value="100">$100.00 USD (Enterprise Light)</option><option value="500">$500.00 USD (High-Volume)</option></select></div><button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button></form><div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div></div></div>
+        <div class="form-group">
+          <label data-i18n="modal_email_lbl">Geschäftliche E-Mail-Adresse</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="developer@company.com">
+        </div>
 
-  <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;"><div class="modal-box modal-lg"><button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button><div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">Jetzt durchstarten</div><h3 style="font-size: 1.85rem; margin-bottom: 0.5rem;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3><p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.75rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p><div class="conv-options-grid"><div class="conv-card highlight"><div class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</div><h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4><p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p><button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.85rem 1.25rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Kostenlosen API-Key holen →</button></div><div class="conv-card emerald"><div class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</div><h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4><p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p><div class="conv-cli-box"><code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code><button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')">📋</button></div><div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;"><button class="btn btn-emerald" style="flex: 1 1 140px; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">GPU-Node registrieren</button><a href="#downloads" class="btn btn-secondary" style="flex: 1 1 140px; text-align: center; text-decoration: none; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Downloads ansehen</a></div></div></div></div></div>
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Provider-Betriebsland (EWR/EU)</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="" data-i18n="modal_country_select">Land auswählen…</option>
+              <option value="DE">Deutschland (DE)</option>
+              <option value="AT">Österreich (AT)</option>
+              <option value="CH">Schweiz (CH)</option>
+              <option value="FR">Frankreich (FR)</option>
+              <option value="NL">Niederlande (NL)</option>
+              <option value="SE">Schweden (SE)</option>
+              <option value="NO">Norwegen (NO)</option>
+              <option value="FI">Finnland (FI)</option>
+              <option value="DK">Dänemark (DK)</option>
+              <option value="PL">Polen (PL)</option>
+              <option value="IT">Italien (IT)</option>
+              <option value="ES">Spanien (ES)</option>
+              <option value="IE">Irland (IE)</option>
+              <option value="BE">Belgien (BE)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Auszahlungs-Wallet (Optional)</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="0x... (EVM / Polygon / Arbitrum)">
+          </div>
+        </div>
 
-  <footer class="site-footer"><div class="container"><div class="footer-grid"><div><div class="brand" style="margin-bottom: 1rem;"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span></div><p style="color: var(--text-muted); font-size: 0.9rem; max-width: 320px;" data-i18n="footer_brand_desc">Dezentrale High-Performance GPU-Rechenleistung für moderne KI-Workloads. Nahtlos skalieren mit OpenAI-kompatibler API.</p></div><div class="footer-col"><h4 data-i18n="footer_col_platform">Plattform</h4><ul class="footer-links"><li><a href="#features" data-i18n="nav_features">Funktionen</a></li><li><a href="#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li><li><a href="#downloads" data-i18n="nav_downloads">Downloads</a></li><li><a href="#api">API-Integration</a></li></ul></div><div class="footer-col"><h4 data-i18n="footer_col_resources">Ressourcen</h4><ul class="footer-links"><li><a href="https://github.com/inetconnector/ComputeMesh">GitHub-Repository</a></li><li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li><li><a href="/status" data-i18n="nav_status">Systemstatus</a></li><li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks</a></li></ul></div><div class="footer-col"><h4 data-i18n="footer_col_legal">Rechtliches & Compliance</h4><ul class="footer-links"><li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald); font-weight: 600;">🛡️ Sicherheit & DSGVO</a></li><li><a href="/terms" data-i18n="nav_terms">AGB</a></li><li><a href="/privacy" data-i18n="nav_privacy">Datenschutz</a></li><li><a href="/impressum" data-i18n="nav_impressum">Impressum</a></li><li><a href="/contact" data-i18n="nav_support">Support</a></li></ul></div></div><div class="footer-bottom"><div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span></div><div><span data-i18n="footer_tech_status">Systemstatus: Voll einsatzbereit</span></div></div></div></footer>
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;"><input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span></label>
+        </div>
+
+        <button id="modal-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">🚀 API-Key generieren</button>
+      </form>
+
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input id="generated-key-val" type="text" class="form-control" readonly style="font-family: var(--font-mono); color: var(--accent-cyan);">
+          <button class="btn btn-secondary" onclick="copyKey()" data-i18n="modal_copy_btn">Schlüssel kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit Modal -->
+  <div id="deposit-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeDepositModal()">&times;</button>
+      <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p>
+      
+      <form onsubmit="handleDepositSubmit(event)">
+        <div class="form-group">
+          <label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label>
+          <input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);">
+        </div>
+        <div class="form-group">
+          <label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label>
+          <select id="deposit-amount-select" class="form-control" style="cursor: pointer;">
+            <option value="10">$10.00 USD (Starter)</option>
+            <option value="25" selected>$25.00 USD (Pro)</option>
+            <option value="50">$50.00 USD (Scale)</option>
+            <option value="100">$100.00 USD (Enterprise Light)</option>
+            <option value="500">$500.00 USD (High-Volume)</option>
+          </select>
+        </div>
+        <button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button>
+      </form>
+      <div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
+    </div>
+  </div>
+
+  <!-- Teaser Conversion Modal -->
+  <div id="teaser-conversion-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-box modal-lg">
+      <button class="modal-close" onclick="closeTeaserConversionModal()">&times;</button>
+      <div class="section-tag" style="display: inline-block; margin-bottom: 0.5rem;" data-i18n="conv_tag">Jetzt durchstarten</div>
+      <h3 style="font-size: 1.85rem; margin-bottom: 0.5rem;" data-i18n="conv_title">Bereit für High-Speed KI-Inferenz?</h3>
+      <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.75rem;" data-i18n="conv_sub">Generiere deinen API-Key oder werde Teil unseres globalen GPU-Netzwerks.</p>
+      
+      <div class="conv-options-grid">
+        <div class="conv-card highlight">
+          <div class="conv-card-badge" data-i18n="conv_opt1_badge">Entwickler</div>
+          <h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt1_title">🔑 Sofortiger API-Zugang</h4>
+          <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt1_desc">Starte in unter 60 Sekunden mit leistungsstarken Open-Source-Modellen.</p>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.85rem 1.25rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('consumer');" data-i18n="conv_opt1_btn">Kostenlosen API-Key holen →</button>
+        </div>
+
+        <div class="conv-card emerald">
+          <div class="conv-card-badge emerald" data-i18n="conv_opt2_badge">Hardware-Provider</div>
+          <h4 style="font-size: 1.25rem; margin-bottom: 0.75rem;" data-i18n="conv_opt2_title">⚡ Rechenleistung monetarisieren</h4>
+          <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);" data-i18n="conv_opt2_desc">Schließe deine Grafikkarten an und profitiere von automatischen Auszahlungen.</p>
+          <div class="conv-cli-box">
+            <code>curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</code>
+            <button class="btn-copy-code" onclick="copyCliCommand(this, 'curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash')">📋</button>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-emerald" style="flex: 1 1 140px; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal(); openModal('provider');" data-i18n="conv_opt2_btn">GPU-Node registrieren</button>
+            <a href="#downloads" class="btn btn-secondary" style="flex: 1 1 140px; text-align: center; text-decoration: none; padding: 0.85rem 1rem; font-size: 0.95rem;" onclick="closeTeaserConversionModal();" data-i18n="conv_opt2_dl">Downloads ansehen</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand" style="margin-bottom: 1rem;">
+            <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 340px;" data-i18n="footer_brand_desc">
+            Dezentrale High-Performance GPU-Rechenleistung für moderne KI-Workloads. Nahtlos skalieren mit OpenAI-kompatibler API und globalem Hardware-Marketplace.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_platform">Plattform</h4>
+          <ul class="footer-links">
+            <li><a href="#marketplace" data-i18n="nav_marketplace">GPU Marketplace</a></li>
+            <li><a href="#models" data-i18n="nav_models">Model Library</a></li>
+            <li><a href="#playground" data-i18n="nav_playground">Inferenz Playground</a></li>
+            <li><a href="#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+            <li><a href="#downloads" data-i18n="nav_downloads">Downloads &amp; Apps</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_resources">Ressourcen &amp; Docs</h4>
+          <ul class="footer-links">
+            <li><a href="/docs" data-i18n="nav_docs">API-Dokumentation</a></li>
+            <li><a href="#quickstart" data-i18n="nav_developers">60s Quickstart</a></li>
+            <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+            <li><a href="/benchmarks" data-i18n="nav_benchmarks">Benchmarks &amp; Performance</a></li>
+            <li><a href="/fleet" data-i18n="nav_fleet">Flotten-Cockpit</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_col_legal">Rechtliches &amp; Compliance</h4>
+          <ul class="footer-links">
+            <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald); font-weight: 600;">🛡️ Sicherheit &amp; DSGVO</a></li>
+            <li><a href="/terms" data-i18n="nav_terms">AGB (Terms of Service)</a></li>
+            <li><a href="/privacy" data-i18n="nav_privacy">Datenschutzerklärung</a></li>
+            <li><a href="/impressum" data-i18n="nav_impressum">Impressum</a></li>
+            <li><a href="/contact" data-i18n="nav_support">Enterprise &amp; Support</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span></div>
+        <div><span data-i18n="footer_tech_status">Systemstatus: 🟢 Voll einsatzbereit</span></div>
+      </div>
+    </div>
+  </footer>
+
   <script src="portal.js"></script>
 </body>
 </html>

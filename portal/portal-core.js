@@ -80,6 +80,20 @@ var translations = window.translations || {
     fleet_owner_key_title: "Your Secret Fleet Owner Key",
     fleet_owner_key_desc: "This is your private security key (API Secret). Enter it into your mining rigs or workstations to bind them securely to this fleet:",
     fleet_btn_copy_key: "Copy Key",
+    nav_products: "Products",
+    nav_prod_inference: "Serverless Inference API",
+    nav_prod_inference_sub: "Drop-in OpenAI & Ollama compatible streaming",
+    nav_prod_market: "GPU Marketplace",
+    nav_prod_market_sub: "Rent live hardware, VRAM & distributed nodes",
+    nav_prod_models: "Model Library",
+    nav_prod_models_sub: "Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL",
+    nav_prod_lan: "Private LAN Mesh",
+    nav_prod_lan_sub: "Zero-config & 100% free local inference",
+    nav_prod_localcode: "LocalCode AI Studio",
+    nav_prod_localcode_sub: "Autonomous desktop IDE & Android Remote",
+    nav_marketplace: "Marketplace",
+    nav_models: "Models",
+    nav_developers: "Developers",
     nav_register: "Get API Key",
     nav_topup: "💳 Credits",
     nav_playground: "⚡ Live Playground",
@@ -103,10 +117,29 @@ var translations = window.translations || {
     hero_sub: "ComputeMesh unifies distributed GPUs into an ultra-fast, resilient compute fabric. Deploy open-source LLMs through our drop-in OpenAI-compatible API at a fraction of hyperscaler pricing, or monetize your idle GPUs with automated payouts.",
     btn_start_inferencing: "⚡ Launch Live Playground",
     btn_provide_compute: "🖥️ Monetize GPUs",
+    btn_get_api_key: "🚀 Start in 60s (Get API Key)",
+    btn_try_playground: "⚡ Try Live Playground",
+    trust_gdpr: "100% GDPR / EEA Hosting",
+    trust_zero_retention: "Zero-Disk-Retention",
+    trust_stripe: "Stripe Connect SEPA Payouts",
+    trust_attestation: "Ed25519 Signed Attestations",
     ticker_vram: "Active Mesh VRAM",
     ticker_gpus: "Connected GPUs Online",
     ticker_tflops: "Mesh Compute Power",
     ticker_nodes: "Distributed Cluster Nodes",
+
+    // Marketplace Section
+    market_tag: "LIVE GPU MARKETPLACE",
+    market_title: "Real-Time Available High-Performance Nodes",
+    market_sub: "Rent distributed GPU capacity or execute inference on dedicated hardware tiers. Transparent pricing, verified reliability, and ultra-low latency.",
+    market_filter_gpu: "GPU Tier:",
+    market_filter_vram: "VRAM:",
+    market_filter_region: "Region:",
+
+    // Curated Model Library
+    models_tag: "CURATED MODEL LIBRARY",
+    models_title: "Leading Open-Source AI Models Ready to Deploy",
+    models_sub: "Choose from the most capable state-of-the-art models. Fully optimized for distributed inference streaming with maximum token throughput.",
 
     // Playground Section
     pg_tag: "INTERACTIVE DEMO",
@@ -528,6 +561,20 @@ var translations = window.translations || {
     fleet_owner_key_title: "Dein geheimer Flotten Owner Key",
     fleet_owner_key_desc: "Dies ist dein privater Sicherheitsschlüssel (API-Secret). Trage ihn in deinen Mining-Rigs oder Workstations ein, um sie dieser Flotte sicher zuzuordnen:",
     fleet_btn_copy_key: "Kopieren",
+    nav_products: "Produkte",
+    nav_prod_inference: "Serverless Inferenz-API",
+    nav_prod_inference_sub: "Drop-in OpenAI & Ollama kompatibles Streaming",
+    nav_prod_market: "GPU Marketplace",
+    nav_prod_market_sub: "Live-Hardware, VRAM & verteilte Knoten mieten",
+    nav_prod_models: "Model Library",
+    nav_prod_models_sub: "Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL",
+    nav_prod_lan: "Privates LAN-Mesh",
+    nav_prod_lan_sub: "Zero-Config & 100% kostenlose lokale Inferenz",
+    nav_prod_localcode: "LocalCode AI Studio",
+    nav_prod_localcode_sub: "Autonome Desktop-IDE & Android Remote",
+    nav_marketplace: "Marketplace",
+    nav_models: "Modelle",
+    nav_developers: "Entwickler",
     nav_register: "API-Key holen",
     nav_topup: "💳 Guthaben",
     nav_playground: "⚡ Live-Playground",
@@ -551,10 +598,29 @@ var translations = window.translations || {
     hero_sub: "ComputeMesh bündelt verteilte GPU-Rechenleistung zu einem nahtlosen, extrem schnellen Inferenz-Netzwerk. Nutze modernste Open-Source-LLMs über unsere OpenAI-kompatible High-Speed-API zu einem Bruchteil herkömmlicher Cloud-Preise oder verdiene attraktive Erträge mit deinen eigenen Grafikkarten.",
     btn_start_inferencing: "⚡ Live-Playground testen",
     btn_provide_compute: "🖥️ Hardware anbieten",
+    btn_get_api_key: "🚀 In 60 Sekunden starten (API-Key)",
+    btn_try_playground: "⚡ Live-Playground testen",
+    trust_gdpr: "100% DSGVO / EWR-Hosting",
+    trust_zero_retention: "Zero-Disk-Retention",
+    trust_stripe: "Stripe Connect SEPA-Auszahlungen",
+    trust_attestation: "Ed25519 Signierte Attestierungen",
     ticker_vram: "Aktiver Mesh-VRAM",
     ticker_gpus: "Verbundene GPUs online",
     ticker_tflops: "Mesh-Rechenleistung",
     ticker_nodes: "Verteilte Cluster-Knoten",
+
+    // Marketplace Section
+    market_tag: "LIVE GPU-MARKTPLATZ",
+    market_title: "Verfügbare High-Performance Nodes in Echtzeit",
+    market_sub: "Miete verteilte GPU-Kapazität oder führe Inferenz auf dedizierten Hardware-Klassen aus. Transparente Preise, verifizierte Zuverlässigkeit und minimale Latenz.",
+    market_filter_gpu: "GPU-Klasse:",
+    market_filter_vram: "VRAM:",
+    market_filter_region: "Region:",
+
+    // Curated Model Library
+    models_tag: "KURATIERTE MODEL LIBRARY",
+    models_title: "Führende Open-Source KI-Modelle sofort einsatzbereit",
+    models_sub: "Wähle aus den leistungsstärksten State-of-the-Art Modellen. Vollständig optimiert für verteiltes Inferenz-Streaming mit maximalem Token-Durchsatz.",
 
     // Playground Section
     pg_tag: "INTERAKTIVE DEMO",
@@ -2089,3 +2155,245 @@ if (document.readyState === 'loading') {
 }
 
 window.initPortal = initPortal;
+
+
+/* ==============================================================================
+   ComputeMesh Marketplace, Model Library, DX & Calculator Extensions
+   ============================================================================== */
+
+let currentMarketFilters = {
+  gpu: 'all',
+  vram: 'all',
+  region: 'all',
+  search: ''
+};
+
+function filterMarketplace() {
+  const searchInput = document.getElementById('market-search');
+  currentMarketFilters.search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  
+  const cards = document.querySelectorAll('.market-card');
+  cards.forEach(card => {
+    const gpu = card.getAttribute('data-gpu') || '';
+    const vram = parseInt(card.getAttribute('data-vram') || '0', 10);
+    const region = card.getAttribute('data-region') || '';
+    const textContent = card.textContent.toLowerCase();
+    
+    let matchGpu = (currentMarketFilters.gpu === 'all') || (gpu === currentMarketFilters.gpu);
+    let matchVram = (currentMarketFilters.vram === 'all') || (vram >= parseInt(currentMarketFilters.vram, 10));
+    let matchRegion = (currentMarketFilters.region === 'all') || (region === currentMarketFilters.region);
+    let matchSearch = (!currentMarketFilters.search) || textContent.includes(currentMarketFilters.search);
+    
+    if (matchGpu && matchVram && matchRegion && matchSearch) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+function setMarketFilter(type, val, btn) {
+  if (type === 'gpu') currentMarketFilters.gpu = val;
+  else if (type === 'vram') currentMarketFilters.vram = val;
+  else if (type === 'region') currentMarketFilters.region = val;
+  
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll(`[data-filter-type="${type}"]`).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  filterMarketplace();
+}
+
+function deployMarketplaceOffer(modelId) {
+  selectModelInPlayground(modelId);
+}
+
+function copyMarketCommand(modelId) {
+  copyModelApiSnippet(modelId);
+}
+
+function filterModelCategory(cat, btn) {
+  document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  
+  const cards = document.querySelectorAll('.model-card');
+  cards.forEach(card => {
+    const cardCat = card.getAttribute('data-category') || '';
+    if (cat === 'all' || cardCat === cat) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+function selectModelInPlayground(modelId) {
+  const select = document.getElementById('playground-model-select');
+  if (select) {
+    select.value = modelId;
+    if (typeof syncPlaygroundModel === 'function') syncPlaygroundModel(modelId);
+  }
+  const pgSec = document.getElementById('playground');
+  if (pgSec) {
+    pgSec.scrollIntoView({ behavior: 'smooth' });
+    const promptInput = document.getElementById('playground-prompt-input');
+    if (promptInput) promptInput.focus();
+  }
+}
+
+function copyModelApiSnippet(modelId) {
+  const apiKey = localStorage.getItem('cm_api_key') || 'cm_live_your_key';
+  const snippet = `from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="${apiKey}"
+)
+
+response = client.chat.completions.create(
+    model="${modelId}",
+    messages=[{"role": "user", "content": "Hello from ComputeMesh!"}],
+    stream=True
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)`;
+
+  navigator.clipboard.writeText(snippet).then(() => {
+    alert(currentLang === 'de' ? `API-Snippet für ${modelId} kopiert!` : `API snippet for ${modelId} copied!`);
+  }).catch(() => {});
+}
+
+function syncPlaygroundModel(modelId) {
+  const statusEl = document.getElementById('pg-cluster-status');
+  if (statusEl) {
+    statusEl.textContent = (currentLang === 'de' ? `Mesh-Cluster aktiv (${modelId})` : `Mesh cluster active (${modelId})`);
+  }
+}
+
+// DX Code Window Tab Switching
+const DX_CODE_TEMPLATES = {
+  python: {
+    filename: 'inference_client.py',
+    code: (key) => `from openai import OpenAI
+
+# 100% drop-in replacement for OpenAI SDK
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="${key}"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[{"role": "user", "content": "Explain distributed AI inference in simple terms."}],
+    stream=True
+)
+
+for chunk in response:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)`
+  },
+  nodejs: {
+    filename: 'inference.ts',
+    code: (key) => `import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "https://mesh.inetconnector.com/v1",
+  apiKey: "${key}",
+});
+
+async function main() {
+  const stream = await openai.chat.completions.create({
+    model: "qwen2.5:7b",
+    messages: [{ role: "user", content: "Write a quick TypeScript helper." }],
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+  }
+}
+
+main();`
+  },
+  curl: {
+    filename: 'curl_request.sh',
+    code: (key) => `curl https://mesh.inetconnector.com/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${key}" \\
+  -d '{
+    "model": "qwen2.5:7b",
+    "messages": [{"role": "user", "content": "What is ComputeMesh?"}],
+    "stream": true
+  }'`
+  },
+  ollama: {
+    filename: 'ollama_cli.sh',
+    code: (key) => `# Point Ollama CLI to the ComputeMesh distributed pool
+export OLLAMA_HOST=https://mesh.inetconnector.com
+
+# Run any open-source model instantly
+ollama run qwen2.5:7b "Explain pipeline layer sharding."`
+  },
+  langchain: {
+    filename: 'langchain_mesh.py',
+    code: (key) => `from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="${key}",
+    model="qwen2.5:7b",
+    temperature=0.7
+)
+
+for chunk in llm.stream("Summarize the benefits of decentralized GPUs:"):
+    print(chunk.content, end="", flush=True)`
+  }
+};
+
+let currentDxTab = 'python';
+
+function switchDxTab(lang, btn) {
+  currentDxTab = lang;
+  document.querySelectorAll('.dx-tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  
+  const apiKey = localStorage.getItem('cm_api_key') || 'cm_live_your_key';
+  const tpl = DX_CODE_TEMPLATES[lang] || DX_CODE_TEMPLATES.python;
+  
+  const fileTitle = document.getElementById('dx-filename');
+  const codeContent = document.getElementById('dx-code-content');
+  
+  if (fileTitle) fileTitle.textContent = tpl.filename;
+  if (codeContent) codeContent.textContent = tpl.code(apiKey);
+}
+
+function copyDxCode() {
+  const codeEl = document.getElementById('dx-code-content');
+  const btn = document.getElementById('copy-dx-btn');
+  if (!codeEl) return;
+  const text = codeEl.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = currentLang === 'de' ? '✓ Kopiert!' : '✓ Copied!';
+      btn.style.color = 'var(--accent-emerald)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.color = '';
+      }, 2000);
+    }
+  }).catch(() => {});
+}
+
+// Window Global Exports
+window.filterMarketplace = filterMarketplace;
+window.setMarketFilter = setMarketFilter;
+window.filterModelCategory = filterModelCategory;
+window.selectModelInPlayground = selectModelInPlayground;
+window.copyModelApiSnippet = copyModelApiSnippet;
+window.syncPlaygroundModel = syncPlaygroundModel;
+window.deployMarketplaceOffer = deployMarketplaceOffer;
+window.copyMarketCommand = copyMarketCommand;
+window.switchDxTab = switchDxTab;
+window.copyDxCode = copyDxCode;
