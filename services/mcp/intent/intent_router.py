@@ -12,9 +12,27 @@ if TYPE_CHECKING:
 
 from .entity_tokenizer import split_multi_entities, clean_entity_token
 
+def is_compound_multi_step_query(text: str) -> bool:
+    """Checks if a user query has multiple compound actions, steps, or multi-hop requirements."""
+    lower = text.lower().strip()
+    compound_patterns = [
+        r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe)\b",
+        r"\b(?:and|and\s+then|then|afterwards|also)\s+(?:create|generate|draw|paint|calculate|search|summarize|plot|show|analyze|check)\b",
+        r"\b(?:aus\s+den|aus\s+dem|aus\s+der|von\s+den|von\s+der|basierend\s+auf)\s+(?:nachrichten|news|schlagzeilen|kursen|wetter|daten|artikeln)\b",
+        r"\b(?:based\s+on|from\s+the)\s+(?:news|headlines|quotes|weather|data|articles)\b",
+        r"\b(?:recherchier\w*|such\w*|find\w*)\b.*\b(?:und|dann|anschließend|and)\b.*\b(?:erstell\w*|generier\w*|zeichn\w*|mal\w*|plot\w*|berechn\w*)\b",
+    ]
+    for pat in compound_patterns:
+        if re.search(pat, lower):
+            return True
+    return False
+
+
 def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None) -> Optional[tuple[str, dict[str, Any]]]:
     """Detects direct tool calling intent from user query with high precision."""
     cleaned = text.strip()
+    if not cleaned or is_compound_multi_step_query(cleaned):
+        return None
     
     # 0. List Active MCP Modules & Tools
     if re.search(r"(?:welche\s+mcp|welche\s+tools|welche\s+module|aktive\s+tools|aktive\s+module|list\s+tools|available\s+tools|mcp\s+status|welche\s+funktionen\s+hast\s+du|was\s+kannst\s+du|welche\s+werkzeuge)", cleaned, re.IGNORECASE):
@@ -28,7 +46,12 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     )
     if m_img:
         raw_prompt = m_img.group(1).strip().rstrip(".!?")
-        if len(raw_prompt) >= 3:
+        # If the image prompt references external dynamic context or multi-step reasoning, delegate to LLM planner
+        is_meta_reference = any(k in raw_prompt.lower() for k in (
+            "nachrichten", "news", "schlagzeilen", "kurs", "wetter", "aktie", "artikel",
+            "recherche", "such", "basierend", "aus dem", "aus der", "aus den", "von heute", "von gestern"
+        ))
+        if len(raw_prompt) >= 3 and not is_meta_reference:
             style = "photorealistic"
             if any(w in cleaned.lower() for w in ("gemälde", "painting", "artistic", "ölgemälde", "künstlerisch")):
                 style = "artistic"

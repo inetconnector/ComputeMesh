@@ -80,17 +80,7 @@ def generate_ai_image(
 
     enriched_prompt = clean_prompt
 
-    # Intelligent contextual resolution for meta-prompts (e.g. 'aus den aktuellen nachrichten')
-    if any(k in clean_prompt.lower() for k in ("aktuellen nachrichten", "aktuelle nachrichten", "heutige nachrichten", "breaking news", "top news", "schlagzeilen", "current news")):
-        try:
-            from .news_feed import fetch_rss_news, NEWS_FEEDS
-            news_items = fetch_rss_news(NEWS_FEEDS.get("tagesschau", ""), max_items=2)
-            if news_items:
-                top_title = news_items[0].get("title", "")
-                top_desc = news_items[0].get("description", "")
-                enriched_prompt = f"Editorial conceptual art representing top news: {top_title} ({top_desc}), {clean_prompt}"
-        except Exception:
-            pass
+
 
     if style:
         style_key = style.lower().strip().replace(" ", "_")

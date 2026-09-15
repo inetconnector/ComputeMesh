@@ -155,24 +155,6 @@ class InferenceEngine:
 
                 def local_llm_caller(msg_list, tool_list):
                     nonlocal backend_result
-                    # If tool message is present in conversation, format directly for instant response
-                    tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                    if tool_msg:
-                        from services.mcp.agent_loop import format_tool_content_if_json
-                        formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": formatted,
-                                }
-                            }],
-                            "usage": {
-                                "prompt_tokens": 15,
-                                "completion_tokens": 25,
-                            },
-                        }
-
                     try:
                         res = self.backend.complete(
                             model_id=canonical_model_id,
@@ -195,7 +177,23 @@ class InferenceEngine:
                                 messages=msg_list,
                             )
                     except Exception as e:
-                        # Resilient fallback if backend is offline
+                        # Resilient fallback if backend is offline/unreachable
+                        tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
+                        if tool_msg:
+                            from services.mcp.agent_loop import format_tool_content_if_json
+                            formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
+                            return {
+                                "choices": [{
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": formatted,
+                                    }
+                                }],
+                                "usage": {
+                                    "prompt_tokens": 15,
+                                    "completion_tokens": 25,
+                                },
+                            }
                         return {
                             "choices": [{
                                 "message": {

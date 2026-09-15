@@ -622,6 +622,80 @@ class TestAgentLoop(unittest.TestCase):
         self.assertEqual(len(res.tool_calls_executed), 1)
         self.assertEqual(res.tool_calls_executed[0].name, "get_stock_price")
 
+    def test_agent_loop_multistep_tool_chaining(self):
+        self.registry.register_tool(
+            name="generate_image",
+            description="Generates an image",
+            parameters={"type": "object", "properties": {"prompt": {"type": "string"}}},
+            handler=lambda prompt: {"url": "http://img.test/photo.png", "prompt": prompt},
+        )
+        calls_count = 0
+
+        def fake_llm(messages, tools):
+            nonlocal calls_count
+            calls_count += 1
+            if calls_count == 1:
+                # Step 1: LLM decides to fetch stock data first
+                return {
+                    "choices": [{
+                        "message": {
+                            "role": "assistant",
+                            "tool_calls": [{
+                                "id": "call_stock_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_stock_price",
+                                    "arguments": json.dumps({"symbol": "BTC"}),
+                                },
+                            }]
+                        }
+                    }],
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 10},
+                }
+            elif calls_count == 2:
+                # Step 2: LLM has received stock data, now calls image tool with contextual prompt
+                tool_msg = next((m for m in messages if m.get("role") == "tool"), None)
+                self.assertIsNotNone(tool_msg)
+                return {
+                    "choices": [{
+                        "message": {
+                            "role": "assistant",
+                            "tool_calls": [{
+                                "id": "call_img_2",
+                                "type": "function",
+                                "function": {
+                                    "name": "generate_image",
+                                    "arguments": json.dumps({"prompt": "A futuristic golden bull rising on crypto chart"}),
+                                },
+                            }]
+                        }
+                    }],
+                    "usage": {"prompt_tokens": 40, "completion_tokens": 15},
+                }
+            else:
+                # Step 3: LLM outputs final synthesized response
+                return {
+                    "choices": [{
+                        "message": {
+                            "role": "assistant",
+                            "content": "Bitcoin liegt bei $180.0. Hier ist das generierte Bild: ![Chart](http://img.test/photo.png)",
+                        }
+                    }],
+                    "usage": {"prompt_tokens": 60, "completion_tokens": 20},
+                }
+
+        res = self.loop.run(
+            messages=[{"role": "user", "content": "Recherchiere BTC und erstelle ein passendes Bullen-Bild"}],
+            model="qwen2.5:7b",
+            llm_caller=fake_llm,
+        )
+        self.assertIn("Bitcoin liegt bei $180.0", res.final_content)
+        self.assertIn("![Chart](http://img.test/photo.png)", res.final_content)
+        self.assertEqual(len(res.tool_calls_executed), 2)
+        self.assertEqual(res.tool_calls_executed[0].name, "get_stock_price")
+        self.assertEqual(res.tool_calls_executed[1].name, "generate_image")
+        self.assertEqual(res.iterations, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
