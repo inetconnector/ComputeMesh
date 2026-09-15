@@ -15,6 +15,12 @@ from .entity_tokenizer import split_multi_entities, clean_entity_token
 def is_compound_multi_step_query(text: str) -> bool:
     """Checks if a user query has multiple compound actions, steps, or multi-hop requirements."""
     lower = text.lower().strip()
+    # Exclude pure presentation / formatting phrases like "und zeige es in einer tabelle", "und zeige die besten angebote in einer tabelle", etc.
+    if re.search(r"\bund\s+zeige\b.*?\b(?:in|als)?\s*(?:einer?\s+)?tabelle\b", lower):
+        return False
+    if re.search(r"\bund\s+(?:bereite|fasse|stelle)\b.*?\b(?:in|als|zu)?\s*(?:einer?\s+)?tabelle\b", lower):
+        return False
+
     compound_patterns = [
         r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe)\b",
         r"\b(?:and|and\s+then|then|afterwards|also)\s+(?:create|generate|draw|paint|calculate|search|summarize|plot|show|analyze|check)\b",
@@ -335,6 +341,25 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         elif "krypto" in cleaned.lower() or "crypto" in cleaned.lower():
             mkt = "crypto"
         return ("get_market_movers", {"market": mkt, "count": cnt})
+
+    # 0.21 Real-Time Product & Price Comparison (e.g. "Preisvergleich für iPhone 16 Pro 256GB", "Was kostet das MacBook Pro M3?", "Günstigster Preis für RTX 4090")
+    m_price = re.search(
+        r"(?:(?:führe\s+(?:einen\s+)?|mache\s+(?:einen\s+)?)?preisvergleich\s+(?:für|fuer|von|zu|beim)?\s*|(?:vergleiche\s+(?:die\s+)?(?:preise|angebote)\s+(?:für|fuer|von|zu)?\s*)|(?:finde\s+(?:die\s+)?(?:besten\s+)?(?:angebote|preise)(?:\s+und\s+preise)?\s+(?:für|fuer)?\s*)|(?:was\s+kostet\s+(?:das\s+|ein\s+|die\s+|der\s+)?)|(?:günstigster\s+preis\s+(?:für|fuer|von)?\s*)|(?:wo\s+gibt\s+es\s+(?:das\s+|ein\s+|die\s+)?)|(?:suche\s+angebote\s+(?:für|fuer)?\s*)|(?:best\s+price\s+(?:for|of)?\s*)|(?:compare\s+prices\s+(?:for|of)?\s*)|(?:price\s+comparison\s+(?:for|of)?\s*))([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\s+(?:im\s+vergleich|online|kaufen|in\s+einer\s+tabelle|tabelle)|\?|\.|$)",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_price:
+        p_target = m_price.group(1).strip().rstrip("?.!")
+        p_target = re.sub(r"^(?:das|ein|eine|einen|der|die|den|dem|für|fuer|von)\s+", "", p_target, flags=re.IGNORECASE).strip()
+        p_target = re.sub(r"\s+(?:im\s+vergleich|durch|in\s+einer\s+tabelle|tabelle|kaufen|online|am\s+günstigsten|am\s+billigsten)$", "", p_target, flags=re.IGNORECASE).strip()
+        if p_target and len(p_target) >= 2 and not any(p_target.lower().startswith(w) for w in ("das wetter", "die aktie", "der dax", "bitcoin", "wie spät")):
+            return ("search_product_prices", {"query": p_target})
+
+    if re.search(r"\b(?:preisvergleich|preise\s+vergleichen|vergleiche\s+preise|günstigste\s+angebote|billigste\s+angebote|price\s+comparison)\b", cleaned, re.IGNORECASE):
+        cleaned_p = re.sub(r"\b(?:führe\s+einen\s+|mache\s+einen\s+|preisvergleich|preise\s+vergleichen|vergleiche\s+preise|günstigste\s+angebote|billigste\s+angebote|price\s+comparison|für|fuer|von|und\s+zeige|in\s+einer\s+tabelle|tabelle|zeig\w*|besten\s+händler\s+angebote|angebote|händler-angebote)\b", " ", cleaned, flags=re.IGNORECASE)
+        cleaned_p = re.sub(r"\s+", " ", cleaned_p).strip()
+        if len(cleaned_p) >= 2:
+            return ("search_product_prices", {"query": cleaned_p})
 
     # 1. Currency Conversion & Cryptocurrency Exchanges (e.g. "100 EUR in USD, GBP und JPY", "Wie viel sind 500 Dollar in Euro")
     KNOWN_CURRENCY_SYMBOLS = {"eur", "euro", "usd", "dollar", "gbp", "pfund", "pound", "jpy", "yen", "chf", "franken", "btc", "bitcoin", "eth", "ethereum", "cad", "aud", "cny", "yuan", "rub", "rubel", "$", "€", "£", "¥"}

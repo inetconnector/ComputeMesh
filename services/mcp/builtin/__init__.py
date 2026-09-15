@@ -35,6 +35,7 @@ from .news_feed import get_live_news
 from .office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
 from .package_registry import lookup_software_package
 from .places import search_places
+from .product_price_engine import search_product_prices
 from .python_calc import run_python_calc
 from .sports_data import get_sports_data
 from .system_tools import execute_system_info, execute_gpu_telemetry, execute_process_summary

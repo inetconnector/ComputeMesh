@@ -52,6 +52,7 @@ from .builtin.news_feed import execute_get_news, get_live_news
 from .builtin.office_suite import generate_office_document, parse_office_document, convert_data_to_markdown_table
 from .builtin.package_registry import lookup_software_package
 from .builtin.places import search_places
+from .builtin.product_price_engine import search_product_prices
 from .builtin.python_calc import run_python_calc
 from .builtin.python_sandbox import execute_python_code
 from .builtin.rag_tool import search_knowledge_base, index_document_text, list_indexed_documents
@@ -703,6 +704,18 @@ class ToolRegistry:
                 }),
                 get_market_movers,
                 source="builtin_finance",
+            )
+            self.register_tool(
+                "search_product_prices",
+                "Führt einen Live-Produkt- und Preisvergleich über Online-Händler, Marktplätze und Shops durch und ermittelt den Bestpreis, Durchschnittspreis und Ersparnispotenziale.",
+                schema({
+                    "query": {"type": "string", "description": "Name oder Modell des Produkts (z. B. 'iPhone 16 Pro 256GB', 'RTX 4090')."},
+                    "category": {"type": "string", "description": "Optionale Kategorie (z. B. 'Smartphones', 'Hardware')."},
+                    "max_offers": {"type": "integer", "description": "Maximal 1-10 Händlerangebote.", "default": 6},
+                    "country": {"type": "string", "description": "Ländercode für Shopping (z. B. 'DE', 'AT', 'CH').", "default": "DE"},
+                }, ["query"]),
+                search_product_prices,
+                source="builtin_shopping",
             )
 
         if self.config.web_fetch_enabled:

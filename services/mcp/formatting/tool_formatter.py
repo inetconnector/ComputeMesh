@@ -57,6 +57,43 @@ def format_tool_content_if_json(content: str) -> str:
             )
             return res.strip()
 
+        if "price_comparison" in data or ("best_price" in data and "offers" in data and isinstance(data.get("offers"), list)):
+            p_name = data.get("product_name") or data.get("product") or data.get("query", "Produkt")
+            best_p = data.get("best_price", 0.0)
+            best_m = data.get("best_merchant") or (data.get("best_deal", {}).get("merchant") if isinstance(data.get("best_deal"), dict) else "Online-Händler")
+            avg_p = data.get("average_price", 0.0)
+            max_p = data.get("max_price", 0.0)
+            curr = data.get("currency", "EUR")
+            curr_sym = "€" if curr == "EUR" else ("$" if curr == "USD" else curr)
+            sav_val = data.get("max_savings_val") if data.get("max_savings_val") is not None else data.get("savings_max", 0.0)
+            sav_pct = data.get("max_savings_percent") if data.get("max_savings_percent") is not None else data.get("savings_percent", 0.0)
+            offers = data.get("offers", [])
+
+            lines = [
+                f"### 🛍️ **Preisvergleich: {p_name}**\n",
+                f"> 🏆 **Bestpreis:** `{best_p:,.2f} {curr_sym}` bei **{best_m}** | 📊 **Durchschnitt:** `{avg_p:,.2f} {curr_sym}` | 💰 **Ersparnis:** bis zu `{sav_val:,.2f} {curr_sym} ({sav_pct:.1f}%)`\n",
+                "| 🏢 Händler / Shop | 💵 Preis | 🚚 Versand | 📦 Verfügbarkeit | 🔗 Angebot |",
+                "| :--- | :---: | :---: | :---: | :---: |",
+            ]
+
+            medals = ["🥇", "🥈", "🥉"]
+            for idx, off in enumerate(offers):
+                m_name = off.get("merchant", "Händler")
+                badge = medals[idx] if idx < len(medals) else "🔹"
+                p_val = off.get("price", 0.0)
+                ship_str = off.get("shipping", "0,00 €")
+                avail_str = off.get("availability", "🟢 Auf Lager")
+                u = off.get("url", "#")
+                
+                is_best = (idx == 0)
+                p_fmt = f"**`{p_val:,.2f} {curr_sym}`** ⭐" if is_best else f"`{p_val:,.2f} {curr_sym}`"
+                lines.append(f"| {badge} **{m_name}** | {p_fmt} | `{ship_str}` | {avail_str} | [👉 Zum Angebot]({u}) |")
+
+            if sav_val > 0:
+                lines.append(f"\n💡 **Kaufempfehlung:** Der Bestpreis liegt aktuell bei **{best_p:,.2f} {curr_sym}** bei **{best_m}** (eine Ersparnis von **{sav_val:,.2f} {curr_sym}** gegenüber dem Höchstpreis/UVP).")
+
+            return "\n".join(lines).strip()
+
         if "market_movers" in data or ("top_gainers" in data and "top_losers" in data):
             mkt = data.get("market", "Markt")
             gainers = data.get("top_gainers", [])
