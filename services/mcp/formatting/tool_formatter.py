@@ -57,24 +57,54 @@ def format_tool_content_if_json(content: str) -> str:
             )
             return res.strip()
 
-        if "multiple_quotes" in data and "quotes" in data:
+        if ("multiple_symbols" in data or "multiple_quotes" in data) and "quotes" in data:
             quotes = data.get("quotes", [])
             lines = [
-                "### 📈 **Finanz- & Krypto-Marktübersicht**\n",
-                "| 🪙 Asset / Ticker | 💵 Kurs | 📊 24h Änderung | 📈 24h Hoch | 📉 24h Tief |",
-                "| :--- | :---: | :---: | :---: | :---: |",
+                "### 📈 **Finanz- & Börsenkurs-Übersicht**\n",
+                "| 🪙 Asset / Ticker | 🏢 Name | 💵 Kurs | 📊 Veränderung | 📈 Tageshoch | 📉 Tagestief |",
+                "| :--- | :--- | :---: | :---: | :---: | :---: |",
             ]
             for q in quotes:
                 sym = q.get("symbol", "-")
-                pr = q.get("price", "-")
+                name = q.get("name", sym)
+                pr = q.get("price", q.get("price_usd", "-"))
                 curr = q.get("currency", "USD")
-                chg = q.get("change_percent_24h")
-                chg_str = f"+{chg:.2f}%" if isinstance(chg, (int, float)) and chg > 0 else (f"{chg:.2f}%" if isinstance(chg, (int, float)) else "-")
-                icon = "🟢" if isinstance(chg, (int, float)) and chg >= 0 else "🔴"
-                h24 = q.get("high_24h", "-")
-                l24 = q.get("low_24h", "-")
-                lines.append(f"| **{sym}** | `{pr} {curr}` | {icon} `{chg_str}` | `{h24}` | `{l24}` |")
+                chg_pct = q.get("change_percent", q.get("change_24h_percent"))
+                if chg_pct is not None and isinstance(chg_pct, (int, float)):
+                    chg_sign = "+" if chg_pct > 0 else ""
+                    chg_str = f"{chg_sign}{chg_pct:.2f}%"
+                    icon = "🟢" if chg_pct >= 0 else "🔴"
+                else:
+                    chg_str = "-"
+                    icon = "⚪"
+                h_val = q.get("day_high", "-")
+                l_val = q.get("day_low", "-")
+                h_str = f"{h_val} {curr}" if h_val != "-" else "-"
+                l_str = f"{l_val} {curr}" if l_val != "-" else "-"
+                lines.append(f"| **{sym}** | {name} | `{pr} {curr}` | {icon} `{chg_str}` | `{h_str}` | `{l_str}` |")
             return "\n".join(lines).strip()
+
+        if "symbol" in data and ("price" in data or "price_usd" in data):
+            sym = data.get("symbol", "")
+            name = data.get("name", sym)
+            pr = data.get("price", data.get("price_usd", "-"))
+            curr = data.get("currency", "USD")
+            chg_pct = data.get("change_percent", data.get("change_24h_percent"))
+            h_val = data.get("day_high", "-")
+            l_val = data.get("day_low", "-")
+            icon = "🟢" if (isinstance(chg_pct, (int, float)) and chg_pct >= 0) else "🔴"
+            chg_str = f"+{chg_pct:.2f}%" if (isinstance(chg_pct, (int, float)) and chg_pct > 0) else (f"{chg_pct:.2f}%" if isinstance(chg_pct, (int, float)) else "-")
+            
+            res = (
+                f"### 📈 **Börsenkurs: {name} ({sym})**\n\n"
+                f"| Metrik | Wert |\n"
+                f"| :--- | :--- |\n"
+                f"| **💵 Aktueller Kurs** | `{pr} {curr}` |\n"
+                f"| **📊 Veränderung** | {icon} `{chg_str}` |\n"
+                f"| **📈 Tagesspanne (High / Low)** | `{h_val} {curr}` / `{l_val} {curr}` |\n"
+                f"| **🏛️ Börsenplatz** | `{data.get('exchange', 'Global')}` |"
+            )
+            return res.strip()
 
         if "file_name" in data and "data_uri" in data and "markdown_table" in data:
             f_name = data.get("file_name", "Dokument")

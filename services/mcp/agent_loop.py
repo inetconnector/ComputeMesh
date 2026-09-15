@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -302,9 +303,10 @@ class AgentLoop:
 
             # If no tools were called, this is the final answer
             if not tool_calls:
-                is_json_explaining = any(kw in content.lower() for kw in (
-                    "the provided json", "the open-meteo api", "the api provides", "the api returned", "the tool provides", "json object contains",
-                    "das bereitgestellte json", "das json-objekt enthält", "die open-meteo api", "die api liefert"
+                is_json_explaining = bool(re.search(
+                    r"\b(?:is\s+a\s+json\s+object|json\s+object\s+(?:that\s+)?contains|the\s+provided\s+json|the\s+response\s+you\s+provided|here(?:'s|\s+is)\s+the\s+breakdown|quotes\s+array|this\s+array\s+contains|the\s+(?:open-meteo|yahoo\s+finance|coingecko|api|tool)\s+(?:api\s+)?(?:provides|returned|contains)|bereitgestellte\s+json|json-objekt\s+enthält|die\s+open-meteo\s+api)\b",
+                    content,
+                    re.IGNORECASE,
                 ))
                 user_wants_table = any(w in last_user_text.lower() for w in ("tabelle", "tabellarisch", "table", "im vergleich", "vergleich", "gegenüberstellung", "matrix"))
                 missing_table_structure = user_wants_table and "|" not in content
