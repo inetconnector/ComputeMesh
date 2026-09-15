@@ -879,59 +879,47 @@ for chunk in response:
       </div>
 
       <div class="download-grid">
-        <!-- Card 1: LocalCode -->
-        <div class="download-card highlight">
+        <!-- Card 1: Windows Provider -->
+        <div class="download-card">
           <div>
-            <div class="dl-platform-icon">🤖</div>
-            <h3 data-i18n="dl_localcode_title">LocalCode Autonome KI-IDE &amp; Remote</h3>
-            <p data-i18n="dl_localcode_desc">Autonomer lokaler KI-Coding-Agent mit nativer Ollama- &amp; ComputeMesh-Anbindung, Windows-Tray-Modus und mobiler Android Remote-App.</p>
-            <div class="qr-box">
-              <div class="qr-title"><span>📱</span> <span data-i18n="dl_qr_scan_title">Mit Handy-Kamera scannen:</span></div>
-              <a href="/downloads/LocalCode-Remote-debug.apk" title="LocalCode Android APK herunterladen" target="_blank" style="display: inline-block;">
-                <img src="/assets/qr-localcode-apk.svg" alt="LocalCode Android APK QR-Code" class="qr-img">
-              </a>
-              <div class="qr-sub" data-i18n="dl_qr_scan_sub">Direkt scannen für <strong>Sofort-Download &amp; Installation</strong></div>
+            <div class="dl-card-header">
+              <div class="dl-platform-icon-wrap">🪟</div>
+              <span class="dl-tag-badge cyan">Windows 10/11 &amp; Server</span>
             </div>
-          </div>
-          <div class="dl-actions-col">
-            <a href="/downloads/LocalCode-Setup.exe" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" data-i18n="dl_localcode_win_btn">LocalCode Setup für Windows (.exe)</a>
-            <a href="/downloads/LocalCode-Remote-debug.apk" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.85rem;" download="LocalCode-Remote-debug.apk" data-i18n="dl_localcode_apk_btn">Android Companion APK herunterladen</a>
-            <a href="/downloads/localcode-0.1.0.vsix" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="localcode-0.1.0.vsix" data-i18n="dl_localcode_vsix_btn">VS Code &amp; Antigravity Extension (.vsix)</a>
-          </div>
-        </div>
-
-        <!-- Card 2: Windows Provider -->
-        <div class="download-card">
-          <div>
-            <div class="dl-platform-icon">🪟</div>
             <h3 data-i18n="dl_win_title">Windows Provider Agent</h3>
-            <p data-i18n="dl_win_desc">Desktop-App mit System-Tray-Status, LocalCode-Auto-Launcher, automatischer GPU-Erkennung und unauffälligem Hintergrunddienst.</p>
+            <p data-i18n="dl_win_desc">Desktop-App mit System-Tray-Status, automatischer GPU-Erkennung, One-Click Setup und unauffälligem Hintergrunddienst.</p>
           </div>
           <div class="dl-actions-col">
-            <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_win_btn">ComputeMesh für Windows (.exe)</a>
+            <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-primary" style="font-weight: 700;" data-i18n="dl_win_btn">ComputeMesh für Windows (.exe)</a>
           </div>
         </div>
 
-        <!-- Card 3: Linux Daemon -->
+        <!-- Card 2: Linux Daemon -->
         <div class="download-card">
           <div>
-            <div class="dl-platform-icon">🐧</div>
+            <div class="dl-card-header">
+              <div class="dl-platform-icon-wrap">🐧</div>
+              <span class="dl-tag-badge">CLI / Server</span>
+            </div>
             <h3 data-i18n="dl_linux_title">Linux Headless Daemon</h3>
             <p data-i18n="dl_linux_desc">High-Performance-Daemon optimiert für Ubuntu, Debian, Mining-Rigs und Server. Einzeilige Installation.</p>
             <div class="dl-code-box">curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | sudo bash</div>
           </div>
           <div class="dl-actions-col">
-            <button class="btn btn-secondary" style="width: 100%;" onclick="copyLinuxCommand()" data-i18n="dl_linux_btn">Installationsbefehl kopieren</button>
-            <a href="/downloads/computemesh-linux-x86_64.tar.gz" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_tar_btn">Linux-Paket herunterladen (.tar.gz)</a>
+            <button class="btn btn-secondary" onclick="copyLinuxCommand()" data-i18n="dl_linux_btn">Installationsbefehl kopieren</button>
+            <a href="/downloads/computemesh-linux-x86_64.tar.gz" class="btn btn-secondary" data-i18n="dl_rig_tar_btn">Linux-Paket herunterladen (.tar.gz)</a>
           </div>
         </div>
 
-        <!-- Card 4: Android Node -->
+        <!-- Card 3: Android Node -->
         <div class="download-card highlight">
           <div>
-            <div class="dl-platform-icon">📱</div>
+            <div class="dl-card-header">
+              <div class="dl-platform-icon-wrap">📱</div>
+              <span class="dl-tag-badge emerald">Mobile &amp; On-Device</span>
+            </div>
             <h3 data-i18n="dl_android_title">Android Mobile Node &amp; Companion</h3>
-            <p data-i18n="dl_android_desc">Natives Jetpack Compose Interface, On-Device Inferenz, Direct-LAN P2P und LocalCode-Launcher.</p>
+            <p data-i18n="dl_android_desc">Natives Jetpack Compose Interface, On-Device Inferenz, Direct-LAN P2P und mobiler Mesh-Worker.</p>
             <div class="qr-box">
               <div class="qr-title"><span>📱</span> <span>Mit Handy-Kamera scannen:</span></div>
               <a href="/downloads/ComputeMesh-Android.apk" title="ComputeMesh Android APK herunterladen" target="_blank" style="display: inline-block;">
@@ -941,22 +929,49 @@ for chunk in response:
             </div>
           </div>
           <div class="dl-actions-col">
-            <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-emerald" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;" download="ComputeMesh-Android.apk" data-i18n="dl_android_btn">ComputeMesh Android APK (v1.2.163)</a>
-            <a href="/downloads/ComputeMesh-Android.aab" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none; font-size: 0.8rem; padding: 0.4rem;" download="ComputeMesh-Android.aab">Play Store Bundle (.aab)</a>
+            <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-emerald" style="font-weight: 700;" download="ComputeMesh-Android.apk" data-i18n="dl_android_btn">ComputeMesh Android APK (v1.2.163)</a>
+            <a href="/downloads/ComputeMesh-Android.aab" class="btn btn-secondary btn-sm" download="ComputeMesh-Android.aab">Play Store Bundle (.aab)</a>
           </div>
         </div>
 
-        <!-- Card 5: Mining Rig Appliance -->
+        <!-- Card 4: Mining Rig Appliance -->
         <div class="download-card">
           <div>
-            <div class="dl-platform-icon">⚡</div>
+            <div class="dl-card-header">
+              <div class="dl-platform-icon-wrap">⚡</div>
+              <span class="dl-tag-badge">Bare Metal OS</span>
+            </div>
             <h3 data-i18n="dl_rig_title">Mining-Rig Appliance (NodeOS)</h3>
             <p data-i18n="dl_rig_desc">Eigenständiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4–12 GPUs) mit Zero-Touch-Konfiguration.</p>
           </div>
           <div class="dl-actions-col">
-            <a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_iso_btn">Bootfähige ISO herunterladen (.iso)</a>
-            <a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_img_btn">Flash-Image herunterladen (.img.xz)</a>
-            <a href="/docs#nodeos" class="btn btn-secondary" style="width: 100%; text-align: center; text-decoration: none;" data-i18n="dl_rig_guide_btn">NodeOS Setup Guide ansehen</a>
+            <a href="/downloads/computemesh-nodeos-x86_64.iso" class="btn btn-secondary" data-i18n="dl_rig_iso_btn">Bootfähige ISO herunterladen (.iso)</a>
+            <a href="/downloads/computemesh-nodeos-x86_64.img.xz" class="btn btn-secondary" data-i18n="dl_rig_img_btn">Flash-Image herunterladen (.img.xz)</a>
+            <a href="/docs#nodeos" class="btn btn-secondary btn-sm" data-i18n="dl_rig_guide_btn">NodeOS Setup Guide ansehen</a>
+          </div>
+        </div>
+
+        <!-- Card 5: LocalCode (Placed LAST as requested) -->
+        <div class="download-card highlight">
+          <div>
+            <div class="dl-card-header">
+              <div class="dl-platform-icon-wrap">🤖</div>
+              <span class="dl-tag-badge purple">Autonome KI-IDE</span>
+            </div>
+            <h3 data-i18n="dl_localcode_title">LocalCode Autonome KI-IDE &amp; Remote</h3>
+            <p data-i18n="dl_localcode_desc">Autonomer lokaler KI-Coding-Agent mit nativer Ollama- &amp; ComputeMesh-Anbindung, Windows-Tray-Modus und mobiler Android Remote-App.</p>
+            <div class="qr-box">
+              <div class="qr-title"><span>📱</span> <span data-i18n="dl_qr_scan_title">Mit Handy-Kamera scannen:</span></div>
+              <a href="/downloads/LocalCode-Remote-debug.apk" title="LocalCode Android APK herunterladen" target="_blank" style="display: inline-block;">
+                <img src="/assets/qr-localcode-apk.svg" alt="LocalCode Android APK QR-Code" class="qr-img">
+              </a>
+              <div class="qr-sub" data-i18n="dl_qr_scan_sub">Direkt scannen für <strong>Remote-Companion APK</strong></div>
+            </div>
+          </div>
+          <div class="dl-actions-col">
+            <a href="/downloads/LocalCode-Setup.exe" class="btn btn-emerald" style="font-weight: 700;" data-i18n="dl_localcode_win_btn">LocalCode Setup für Windows (.exe)</a>
+            <a href="/downloads/LocalCode-Remote-debug.apk" class="btn btn-secondary" download="LocalCode-Remote-debug.apk" data-i18n="dl_localcode_apk_btn">Android Companion APK herunterladen</a>
+            <a href="/downloads/localcode-0.1.0.vsix" class="btn btn-secondary btn-sm" download="localcode-0.1.0.vsix" data-i18n="dl_localcode_vsix_btn">VS Code &amp; Antigravity Extension (.vsix)</a>
           </div>
         </div>
       </div>
