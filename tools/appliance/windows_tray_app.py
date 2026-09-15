@@ -17,9 +17,11 @@ import json
 import multiprocessing
 import os
 from pathlib import Path
+import subprocess
 import sys
 import threading
 import time
+import urllib.request
 
 # Ensure PyInstaller Windows child process bootloader compatibility
 multiprocessing.freeze_support()
@@ -247,6 +249,7 @@ class ComputeMeshProviderApp:
         self.inventory = scan_rig_hardware_stable()
         self.autostart_var = tk.BooleanVar(value=is_windows_autostart_enabled())
         self.autoupdate_var = tk.BooleanVar(value=self._load_autoupdate_setting())
+        self.localcode_var = tk.BooleanVar(value=self._load_localcode_setting())
 
         self._apply_styles()
         self._build_ui()
@@ -290,6 +293,10 @@ class ComputeMeshProviderApp:
         self.updater_thread = threading.Thread(target=self._auto_updater_loop, daemon=True)
         self.updater_thread.start()
 
+        # Auto-launch LocalCode in tray if enabled
+        if self.localcode_var.get():
+            threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()
+
         # Initialize System Tray Icon & Keepalive Watchdog
         self.tray_icon = None
         if HAS_PYSTRAY:
@@ -331,6 +338,7 @@ class ComputeMeshProviderApp:
             menu = pystray.Menu(
                 pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
                 pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
+                pystray.MenuItem("💻 LocalCode im Tray starten", lambda item: threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()),
                 pystray.MenuItem("🎨 Bildgenerator starten (Port 8085)", self._launch_image_engine),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
@@ -513,6 +521,89 @@ class ComputeMeshProviderApp:
                 cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
             except Exception:
                 pass
+
+    def _load_localcode_setting(self) -> bool:
+        try:
+            cfg = self._get_config_path()
+            if cfg.exists():
+                return json.loads(cfg.read_text(encoding="utf-8")).get("localcode_tray", False)
+        except Exception:
+            pass
+        return False
+
+    def _on_localcode_toggle(self) -> None:
+        enable = self.localcode_var.get()
+        cfg_file = self._get_config_path()
+        try:
+            cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
+            cfg_data["localcode_tray"] = enable
+            cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        if enable:
+            threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()
+
+    def _get_localcode_exe(self) -> Path | None:
+        candidates = [
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "LocalCode" / "LocalCode.exe",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "LocalCode" / "LocalCode.exe",
+            Path.home() / ".computemesh" / "bin" / "LocalCode.exe",
+            Path(os.environ.get("ProgramFiles", "")) / "LocalCode" / "LocalCode.exe",
+            Path(os.environ.get("ProgramFiles(x86)", "")) / "LocalCode" / "LocalCode.exe",
+            Path("C:/Users/frede/Projekte/LocalCode/dist/LocalCode.exe"),
+            REPO_ROOT / "portal" / "downloads" / "LocalCode.exe",
+        ]
+        for p in candidates:
+            if p and p.exists() and p.is_file():
+                return p
+        return None
+
+    def _ensure_and_launch_localcode(self, tray_mode: bool = True) -> None:
+        """Ensure latest LocalCode is present and launch it with /tray."""
+        try:
+            exe_path = self._get_localcode_exe()
+            if exe_path is None or not exe_path.exists():
+                target_bin_dir = Path.home() / ".computemesh" / "bin"
+                target_bin_dir.mkdir(parents=True, exist_ok=True)
+                target_exe = target_bin_dir / "LocalCode.exe"
+                _log_crash(f"[LocalCode] Downloading latest binary from mesh.inetconnector.com to {target_exe}...")
+                url = "https://mesh.inetconnector.com/downloads/LocalCode.exe"
+                urllib.request.urlretrieve(url, str(target_exe))
+                if target_exe.exists() and target_exe.stat().st_size > 1000000:
+                    exe_path = target_exe
+                else:
+                    _log_crash("[LocalCode] Downloaded binary was invalid or too small.")
+                    return
+
+            if exe_path and exe_path.exists():
+                try:
+                    check = subprocess.run(
+                        ["tasklist", "/FI", "IMAGENAME eq LocalCode.exe", "/NH"],
+                        capture_output=True,
+                        text=True,
+                        timeout=3
+                    )
+                    if "LocalCode.exe" in check.stdout:
+                        _log_crash("[LocalCode] LocalCode.exe is already running in background.")
+                        return
+                except Exception:
+                    pass
+
+                cmd = [str(exe_path)]
+                if tray_mode:
+                    cmd.append("/tray")
+                _log_crash(f"[LocalCode] Launching: {' '.join(cmd)}")
+                creationflags = 0
+                if sys.platform == "win32":
+                    creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                subprocess.Popen(
+                    cmd,
+                    creationflags=creationflags,
+                    close_fds=True
+                )
+                _log_crash("[LocalCode] LocalCode successfully started in system tray.")
+        except Exception as e:
+            _log_crash(f"[LocalCode] Error launching LocalCode: {e}\n{traceback.format_exc()}")
 
     def _apply_styles(self) -> None:
         self.style = ttk.Style()
@@ -814,6 +905,20 @@ class ComputeMeshProviderApp:
             font=("Inter", 9),
         )
         self.chk_autoupdate.pack(side="right", padx=10)
+
+        self.chk_localcode = tk.Checkbutton(
+            ctrl_frame,
+            text="LocalCode (Tray)",
+            variable=self.localcode_var,
+            command=self._on_localcode_toggle,
+            bg="#0b0f19",
+            fg="#f3f4f6",
+            selectcolor="#111827",
+            activebackground="#0b0f19",
+            activeforeground="#00f2fe",
+            font=("Inter", 9),
+        )
+        self.chk_localcode.pack(side="right", padx=(0, 10))
 
         # Remote LAN Access Info Row
         import socket
