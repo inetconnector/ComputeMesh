@@ -81,17 +81,30 @@
   <link rel="stylesheet" href="portal.css?v=3.6">
 </head>
 <body>
-  <!-- Header Navigation -->
+    <!-- Top Navigation Header (2-Row Layout) -->
   <header class="site-header">
+    <!-- Row 1: Brand & Actions -->
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
         <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
       </a>
 
-      <!-- Desktop Navigation Menu -->
-      <nav class="main-nav">
-        <ul class="nav-menu">
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
           <li class="nav-item has-dropdown">
             <a href="#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
             <div class="dropdown-menu">
@@ -121,13 +134,6 @@
                 <div>
                   <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
                   <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
-                </div>
-              </a>
-              <a href="#downloads" class="dropdown-item">
-                <span class="item-icon">🤖</span>
-                <div>
-                  <strong data-i18n="nav_prod_localcode">LocalCode AI Studio</strong>
-                  <p data-i18n="nav_prod_localcode_sub">Autonome Desktop-IDE &amp; Android Remote</p>
                 </div>
               </a>
             </div>
@@ -172,26 +178,17 @@
               </a>
             </div>
           </li>
-          <li class="nav-item"><a href="#marketplace" class="nav-link" data-i18n="nav_marketplace">Marketplace</a></li>
-          <li class="nav-item"><a href="#models" class="nav-link" data-i18n="nav_models">Modelle</a></li>
-          <li class="nav-item"><a href="#pricing" class="nav-link" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
-          <li class="nav-item"><a href="#quickstart" class="nav-link" data-i18n="nav_developers">Entwickler</a></li>
-          <li class="nav-item"><a href="#downloads" class="nav-link" data-i18n="nav_downloads">Downloads</a></li>
-          <li class="nav-item"><a href="/docs" class="nav-link" data-i18n="nav_docs">Docs</a></li>
-          <li class="nav-item"><a href="/status" class="nav-link" data-i18n="nav_status">Status</a></li>
+          <li><a href="#marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="#models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
         </ul>
-      </nav>
-
-      <!-- Action Buttons -->
-      <div class="nav-actions">
-        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
-        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
-        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
-        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn">
-          <span>🔑</span> <span data-i18n="fleet_btn_login_nav">Flotte / Login</span>
-        </a>
       </div>
-    </div>
+    </nav>
   </header>
 
   <!-- Hero Section -->

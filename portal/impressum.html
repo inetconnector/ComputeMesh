@@ -1,6 +1,115 @@
 <!DOCTYPE html>
 <html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Impressum — ComputeMesh</title><meta name="description" content="Anbieterkennzeichnung für ComputeMesh und InetConnector.com."><link rel="canonical" href="https://mesh.inetconnector.com/impressum"><link rel="stylesheet" href="portal.css?v=3.6"></head><body>
-<header class="site-header"><div class="container nav-top-row"><a href="/" class="brand"><span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span><span class="brand-badge">LIVE MESH</span></a><div class="nav-actions"><button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button><button class="btn btn-secondary" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button><button class="btn btn-primary" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button><button id="auth-nav-btn" class="btn btn-secondary" onclick="handleAuthNavClick()"><span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Anmelden</span></button></div></div><nav class="nav-sub-row"><div class="container nav-sub-container"><ul class="nav-links"><li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li><li><a href="/#features" data-i18n="nav_features">Funktionen</a></li><li><a href="/#pricing" data-i18n="nav_pricing">Preise & Rechner</a></li><li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li><li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit & DSGVO</a></li><li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li><li><a href="/status" data-i18n="nav_status">Systemstatus</a></li><li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li></ul></div></nav></header>
+<!-- Top Navigation Header (2-Row Layout) -->
+  <!-- Top Navigation Header (2-Row Layout) -->
+  <header class="site-header">
+    <!-- Row 1: Brand & Actions -->
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/#playground" data-i18n="nav_playground">⚡ Live-Playground</a></li>
+          <li class="nav-item has-dropdown">
+            <a href="/#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/#playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="/#marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="/#models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
+                </div>
+              </a>
+              <a href="/#lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item has-dropdown">
+            <a href="https://apps.inetconnector.com" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/#downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
+                </div>
+              </a>
+              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🛡️</span>
+                <div>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Security</strong>
+                  <p data-i18n="nav_app_aegis_sub">Zero-Knowledge Prompt-Firewall &amp; Datenschutz</p>
+                </div>
+              </a>
+              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🌳</span>
+                <div>
+                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogie &amp; historische Dokumenten-KI</p>
+                </div>
+              </a>
+              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📅</span>
+                <div>
+                  <strong data-i18n="nav_app_today">Today Assistant</strong>
+                  <p data-i18n="nav_app_today_sub">Tagesbriefing, smarte Aufgaben &amp; Kalender-Agent</p>
+                </div>
+              </a>
+              <a href="https://apps.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🚀</span>
+                <div>
+                  <strong data-i18n="nav_app_hub">InetConnector App Suite</strong>
+                  <p data-i18n="nav_app_hub_sub">Zentrale Übersicht aller Web-, Desktop- &amp; Mobile-Apps</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li><a href="/#marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/#models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
 <main class="container" style="padding:4rem 1.5rem;max-width:900px"><h1>Impressum / Anbieterkennzeichnung</h1><p style="color:var(--text-muted)">Angaben nach § 5 DDG. Angaben nach dem MStV gelten zusätzlich nur, soweit der Dienst journalistisch-redaktionelle Angebote enthält und die gesetzlichen Voraussetzungen erfüllt sind.</p><div class="feature-card" style="line-height:1.75;color:var(--text-muted);display:flex;flex-direction:column;gap:1.4rem">
 <section><h3>Diensteanbieter</h3><p><strong>InetConnector.com</strong><br>Herbert Daniel Frede<br>Bismarckstraße 6<br>97209 Veitshöchheim<br>Deutschland</p></section>
 <section><h3>Kontakt</h3><p>E-Mail: <a href="mailto:kontakt@inetconnector.com">kontakt@inetconnector.com</a><br>Support: <a href="mailto:support@inetconnector.com">support@inetconnector.com</a><br>Telefon: <a href="tel:+499312078432">+49 (0) 931 2078432</a></p></section>
