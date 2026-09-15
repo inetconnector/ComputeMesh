@@ -302,7 +302,14 @@ class AgentLoop:
 
             # If no tools were called, this is the final answer
             if not tool_calls:
-                if (is_refusal or not content.strip()) and executed_records:
+                is_json_explaining = any(kw in content.lower() for kw in (
+                    "the provided json", "the open-meteo api", "the api provides", "the api returned", "the tool provides", "json object contains",
+                    "das bereitgestellte json", "das json-objekt enthält", "die open-meteo api", "die api liefert"
+                ))
+                user_wants_table = any(w in last_user_text.lower() for w in ("tabelle", "tabellarisch", "table", "im vergleich", "vergleich", "gegenüberstellung", "matrix"))
+                missing_table_structure = user_wants_table and "|" not in content
+
+                if (is_refusal or is_json_explaining or missing_table_structure or not content.strip()) and executed_records:
                     parts = []
                     for rec in executed_records:
                         t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)
@@ -312,7 +319,7 @@ class AgentLoop:
                     final = "\n\n---\n\n".join(parts) if parts else format_tool_content_if_json(content)
                 else:
                     final = format_tool_content_if_json(content)
-                    if (not final or is_refusal) and executed_records:
+                    if (not final or is_refusal or is_json_explaining) and executed_records:
                         parts = []
                         for rec in executed_records:
                             t_res = rec.result if isinstance(rec.result, str) else json.dumps(rec.result, ensure_ascii=False)
