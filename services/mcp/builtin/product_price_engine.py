@@ -316,6 +316,9 @@ def search_product_prices(
     """
     effective_country = country_code or country or "DE"
     clean_query = (query or "").strip().rstrip("?.!")
+    clean_query = re.sub(r"^(?:das|ein|eine|einen|der|die|den|dem|für|fuer|von)\s+", "", clean_query, flags=re.IGNORECASE).strip()
+    clean_query = re.sub(r"(?:\s+durch|\s+durchführen|\s+machen)?\s*(?:und\s+zeige.*|und\s+stelle.*|und\s+bereite.*|in\s+einer\s+tabelle.*|tabelle.*|im\s+vergleich.*|kaufen.*|online.*|am\s+günstigsten.*)$", "", clean_query, flags=re.IGNORECASE).strip()
+    clean_query = re.sub(r"\s+", " ", clean_query).strip()
     if not clean_query:
         return {"error": "Suchbegriff für Produktvergleich darf nicht leer sein."}
 

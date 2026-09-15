@@ -351,7 +351,8 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     if m_price:
         p_target = m_price.group(1).strip().rstrip("?.!")
         p_target = re.sub(r"^(?:das|ein|eine|einen|der|die|den|dem|für|fuer|von)\s+", "", p_target, flags=re.IGNORECASE).strip()
-        p_target = re.sub(r"\s+(?:im\s+vergleich|durch|in\s+einer\s+tabelle|tabelle|kaufen|online|am\s+günstigsten|am\s+billigsten)$", "", p_target, flags=re.IGNORECASE).strip()
+        p_target = re.sub(r"(?:\s+durch|\s+durchführen|\s+machen)?\s*(?:und\s+zeige.*|und\s+stelle.*|und\s+bereite.*|in\s+einer\s+tabelle.*|tabelle.*|im\s+vergleich.*|kaufen.*|online.*|am\s+günstigsten.*)$", "", p_target, flags=re.IGNORECASE).strip()
+        p_target = re.sub(r"\s+", " ", p_target).strip()
         if p_target and len(p_target) >= 2 and not any(p_target.lower().startswith(w) for w in ("das wetter", "die aktie", "der dax", "bitcoin", "wie spät")):
             return ("search_product_prices", {"query": p_target})
 
