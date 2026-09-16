@@ -27,8 +27,8 @@ class TestMailAndRoutesExtended(unittest.TestCase):
         magic_url = "https://mesh.inetconnector.com/fleet?magic_token=abc&next=%2F"
         self.assertTrue(mail_dispatcher.send_magic_link("owner@example.com", magic_url))
         html_body = mock_send.call_args.args[3]
-        self.assertIn('bgcolor="#075985"', html_body)
-        self.assertIn("color:#ffffff!important", html_body)
+        self.assertIn('bgcolor="#bfdbfe"', html_body)
+        self.assertIn("color:#111827!important", html_body)
         self.assertIn("background-color:#ffffff", html_body)
         self.assertIn("color:#172033", html_body)
         self.assertIn("overflow-wrap:anywhere", html_body)

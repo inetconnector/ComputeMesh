@@ -21,6 +21,14 @@
   gateway is active; `/health` and `/v1/models` return HTTP 200. The previous
   outstanding login link was invalidated and a fresh link request succeeded.
 
+## Magic-link button contrast adjustment — 2026-09-16
+
+- User's follow-up screenshot showed their mail client hid the button label
+  while retaining the lightning icon. Set the CTA to near-black text on a
+  pale-blue button, with explicit HTML attributes and inline foreground and
+  background colors. Regression coverage is being updated; a new link will be
+  requested after deployment because the screenshot exposed the previous one.
+
 ## 2026-09-16 Large camera-photo upload optimization
 
 - The user hit the gateway's 10 MiB request-body limit with a phone photo.

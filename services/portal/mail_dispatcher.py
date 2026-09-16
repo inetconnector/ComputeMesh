@@ -226,8 +226,8 @@ a {{ color: #075985; }}
     Du hast einen direkten Login- und Wiederherstellungs-Link für dein ComputeMesh Flotten-Konto angefordert.
   </p>
   <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:20px auto;">
-    <tr><td align="center" bgcolor="#075985" style="background-color:#075985;border-radius:8px;">
-      <a href="{safe_magic_url}" style="display:inline-block;padding:14px 22px;border:1px solid #075985;border-radius:8px;background-color:#075985;color:#ffffff!important;-webkit-text-fill-color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:15px;line-height:1.4;">⚡ Jetzt im Flotten-Cockpit anmelden &rarr;</a>
+    <tr><td align="center" bgcolor="#bfdbfe" style="background-color:#bfdbfe;border-radius:8px;">
+      <a href="{safe_magic_url}" style="display:inline-block;padding:14px 22px;border:1px solid #93c5fd;border-radius:8px;background-color:#bfdbfe;color:#111827!important;-webkit-text-fill-color:#111827;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:15px;line-height:1.4;">⚡ Jetzt im Flotten-Cockpit anmelden &rarr;</a>
     </td></tr>
   </table>
   <p class="muted" style="color:#475569;font-size:13px;line-height:1.5;margin:20px 0 8px;">Falls der Button nicht funktioniert, öffne diesen Link im Browser:</p>
