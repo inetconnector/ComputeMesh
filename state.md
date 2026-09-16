@@ -23,7 +23,15 @@
   capability checks passed; Node syntax and browser-shim checks verified
   picker mounting, selected model injection, `/props` sync, capability changes
   and persistence; Python compile and `git diff --check` passed. Production
-  deploy and live UI check remain.
+  The production deploy and live verification are complete. Public commit
+  `bd7e53c46850753b2197e72eef3a9c5b44f176a3` is on `origin/main`; Plesk
+  `/opt/computemesh` fast-forwarded cleanly and its gateway service is active.
+  Both `site2/webui` and `httpdocs/webui` match tested index/selector hashes.
+  Live `/webui/`, selector JS, `/v1/models` and `/props` return 200; live model
+  metadata confirms text-only DeepSeek and vision on Qwen VL, Llama Vision and
+  LLaVA. Backup: `/root/computemesh-backups/model-switch-20260916-model-switch/`.
+  The generated service worker was not rebuilt, so already-installed offline
+  clients may require an online refresh to fetch the updated shell.
 
 ## 2026-09-16 Hide unsupported media actions
 
