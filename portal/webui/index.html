@@ -22,26 +22,42 @@
 				// Auto-authenticate with ComputeMesh credentials
 				var urlParams = new URLSearchParams(window.location.search);
 				var keyFromUrl = urlParams.get("key") || urlParams.get("api_key") || urlParams.get("token");
-				var cmKey = keyFromUrl || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token");
+				var rawKey = keyFromUrl || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey");
 
-				if (cmKey) {
-					localStorage.setItem("apiKey", cmKey);
-					var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
-					configKeys.forEach(function(k) {
+				if (rawKey) {
+					var cmKey = String(rawKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
+					if (cmKey) {
+						localStorage.setItem("apiKey", cmKey);
+						localStorage.setItem("cm_fleet_owner_key", cmKey);
+						localStorage.setItem("cm_owner_key", cmKey);
+						localStorage.setItem("cm_api_key", cmKey);
+						localStorage.setItem("cm_token", cmKey);
+
+						var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
+						configKeys.forEach(function(k) {
+							try {
+								var cfgRaw = localStorage.getItem(k) || "{}";
+								var cfg = JSON.parse(cfgRaw);
+								cfg.apiKey = cmKey;
+								localStorage.setItem(k, JSON.stringify(cfg));
+							} catch(e) {}
+						});
 						try {
-							var cfgRaw = localStorage.getItem(k) || "{}";
-							var cfg = JSON.parse(cfgRaw);
-							cfg.apiKey = cmKey;
-							localStorage.setItem(k, JSON.stringify(cfg));
+							var ovRaw = localStorage.getItem("LlamaUi.userOverrides") || "[]";
+							var ov = JSON.parse(ovRaw);
+							if (!Array.isArray(ov)) ov = [];
+							if (!ov.includes("apiKey")) ov.push("apiKey");
+							localStorage.setItem("LlamaUi.userOverrides", JSON.stringify(ov));
 						} catch(e) {}
-					});
-					try {
-						var ovRaw = localStorage.getItem("LlamaUi.userOverrides") || "[]";
-						var ov = JSON.parse(ovRaw);
-						if (!Array.isArray(ov)) ov = [];
-						if (!ov.includes("apiKey")) ov.push("apiKey");
-						localStorage.setItem("LlamaUi.userOverrides", JSON.stringify(ov));
-					} catch(e) {}
+
+						try {
+							var isSecure = window.location.protocol === 'https:';
+							var cookieStr = 'cm_session=' + encodeURIComponent(cmKey) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+							if (window.location.hostname.endsWith('inetconnector.com')) cookieStr += '; Domain=.inetconnector.com';
+							if (isSecure) cookieStr += '; Secure';
+							document.cookie = cookieStr;
+						} catch(e) {}
+					}
 				}
 			} catch (e) {}
 		</script>

@@ -1117,14 +1117,14 @@ function toggleLanguage() {
 
 function getActiveComputeMeshApiKey() {
   try {
-    const fleetOwnerKey = localStorage.getItem('cm_fleet_owner_key');
-    if (fleetOwnerKey) return fleetOwnerKey;
-    const ownerKey = localStorage.getItem('cm_owner_key');
-    if (ownerKey) return ownerKey;
-    const apiKey = localStorage.getItem('cm_api_key');
-    if (apiKey) return apiKey;
-    const token = localStorage.getItem('cm_token');
-    if (token) return token;
+    const raw = localStorage.getItem('cm_fleet_owner_key') ||
+                localStorage.getItem('cm_owner_key') ||
+                localStorage.getItem('cm_api_key') ||
+                localStorage.getItem('cm_token') ||
+                localStorage.getItem('apiKey');
+    if (raw) {
+      return String(raw).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
+    }
   } catch (e) {}
   return '';
 }
@@ -1139,6 +1139,7 @@ function hasActiveSession() {
         Boolean(localStorage.getItem('cm_owner_key')) ||
         Boolean(localStorage.getItem('cm_api_key')) ||
         Boolean(localStorage.getItem('cm_token')) ||
+        Boolean(localStorage.getItem('apiKey')) ||
         Boolean(localStorage.getItem('cm_fleet_email'))
       ))
     );
@@ -1151,14 +1152,43 @@ function handleAiSubdomainRouting() {
   try {
     if (window.location.hostname === 'ai.inetconnector.com') {
       var urlParams = new URLSearchParams(window.location.search);
-      var qKey = urlParams.get('key') || urlParams.get('api_key');
-      if (qKey) {
-        localStorage.setItem('cm_fleet_owner_key', qKey);
-        localStorage.setItem('cm_owner_key', qKey);
-        localStorage.setItem('cm_api_key', qKey);
-        localStorage.setItem('apiKey', qKey);
-        window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
-        return;
+      var rawQKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
+      if (rawQKey) {
+        var qKey = String(rawQKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
+        if (qKey) {
+          localStorage.setItem('cm_fleet_owner_key', qKey);
+          localStorage.setItem('cm_owner_key', qKey);
+          localStorage.setItem('cm_api_key', qKey);
+          localStorage.setItem('cm_token', qKey);
+          localStorage.setItem('apiKey', qKey);
+
+          var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
+          configKeys.forEach(function(k) {
+            try {
+              var cfgRaw = localStorage.getItem(k) || "{}";
+              var cfg = JSON.parse(cfgRaw);
+              cfg.apiKey = qKey;
+              localStorage.setItem(k, JSON.stringify(cfg));
+            } catch(e) {}
+          });
+          try {
+            var ovRaw = localStorage.getItem("LlamaUi.userOverrides") || "[]";
+            var ov = JSON.parse(ovRaw);
+            if (!Array.isArray(ov)) ov = [];
+            if (!ov.includes("apiKey")) ov.push("apiKey");
+            localStorage.setItem("LlamaUi.userOverrides", JSON.stringify(ov));
+          } catch(e) {}
+
+          try {
+            var isSecure = window.location.protocol === 'https:';
+            var cookieStr = 'cm_session=' + encodeURIComponent(qKey) + '; Path=/; Max-Age=31536000; SameSite=Lax; Domain=.inetconnector.com';
+            if (isSecure) cookieStr += '; Secure';
+            document.cookie = cookieStr;
+          } catch(e) {}
+
+          window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+          return;
+        }
       }
       const pathname = window.location.pathname;
       const isRoot = pathname === '/' || pathname === '/index.html' || pathname === '';

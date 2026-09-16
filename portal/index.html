@@ -14,14 +14,24 @@
       if (window.location.hostname === 'ai.inetconnector.com') {
         try {
           var urlParams = new URLSearchParams(window.location.search);
-          var qKey = urlParams.get('key') || urlParams.get('api_key');
-          if (qKey) {
-            localStorage.setItem('cm_fleet_owner_key', qKey);
-            localStorage.setItem('cm_owner_key', qKey);
-            localStorage.setItem('cm_api_key', qKey);
-            localStorage.setItem('apiKey', qKey);
-            window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
-            return;
+          var rawQKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
+          if (rawQKey) {
+            var qKey = String(rawQKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
+            if (qKey) {
+              localStorage.setItem('cm_fleet_owner_key', qKey);
+              localStorage.setItem('cm_owner_key', qKey);
+              localStorage.setItem('cm_api_key', qKey);
+              localStorage.setItem('cm_token', qKey);
+              localStorage.setItem('apiKey', qKey);
+              try {
+                var isSecure = window.location.protocol === 'https:';
+                var cookieStr = 'cm_session=' + encodeURIComponent(qKey) + '; Path=/; Max-Age=31536000; SameSite=Lax; Domain=.inetconnector.com';
+                if (isSecure) cookieStr += '; Secure';
+                document.cookie = cookieStr;
+              } catch(e) {}
+              window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+              return;
+            }
           }
           var isAuth = Boolean(
             (document.cookie && document.cookie.includes('cm_session=')) ||
@@ -29,12 +39,14 @@
               localStorage.getItem('cm_fleet_owner_key') ||
               localStorage.getItem('cm_owner_key') ||
               localStorage.getItem('cm_api_key') ||
-              localStorage.getItem('cm_token')
+              localStorage.getItem('cm_token') ||
+              localStorage.getItem('apiKey')
             ))
           );
           if (window.location.pathname === '/' || window.location.pathname === '/index.html' || window.location.pathname === '') {
             if (isAuth) {
-              var k = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || '';
+              var rawK = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || localStorage.getItem('cm_token') || localStorage.getItem('apiKey') || '';
+              var k = rawK ? String(rawK).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim() : '';
               window.location.replace(k ? '/webui/?key=' + encodeURIComponent(k) : '/webui/');
             } else {
               window.location.replace('/ai-auth.html');

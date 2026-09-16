@@ -359,9 +359,13 @@
       <!-- Feedback Notification -->
       <div id="ai-status-msg" class="ai-status-msg"></div>
 
-      <!-- Auth Selection Tabs -->
+      <!-- Auth Selection Tabs (API-Key is First & Default) -->
       <div class="ai-auth-tabs">
-        <button class="ai-auth-tab active" onclick="switchStudioTab('passkey')" id="tab-btn-passkey">
+        <button class="ai-auth-tab active" onclick="switchStudioTab('key')" id="tab-btn-key">
+          <span class="ai-auth-tab-icon">🛡️</span>
+          <span id="tab-lbl-key">API-Key</span>
+        </button>
+        <button class="ai-auth-tab" onclick="switchStudioTab('passkey')" id="tab-btn-passkey">
           <span class="ai-auth-tab-icon">🔑</span>
           <span id="tab-lbl-passkey">Passkey</span>
         </button>
@@ -369,22 +373,41 @@
           <span class="ai-auth-tab-icon">✉️</span>
           <span id="tab-lbl-magic">Magic-Link</span>
         </button>
-        <button class="ai-auth-tab" onclick="switchStudioTab('key')" id="tab-btn-key">
-          <span class="ai-auth-tab-icon">🛡️</span>
-          <span id="tab-lbl-key">API-Key</span>
-        </button>
         <button class="ai-auth-tab" onclick="switchStudioTab('register')" id="tab-btn-register">
           <span class="ai-auth-tab-icon">⚡</span>
           <span id="tab-lbl-register">Neu</span>
         </button>
       </div>
 
-      <!-- Tab 1: Passkey / Biometrics -->
-      <div id="pane-passkey" class="ai-tab-pane active">
+      <!-- Tab 1: Direct API-Key / Owner Key (Default Active) -->
+      <div id="pane-key" class="ai-tab-pane active">
+        <form onsubmit="handleKeyLogin(event)">
+          <div class="ai-form-group">
+            <label class="ai-form-label" id="lbl-key-input">Secret API-Key / Owner-Key</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="text" id="input-owner-key" class="ai-form-input" placeholder="cm_live_... / cm_sec_... oder dein API-Key" required autocomplete="off" autocapitalize="off" spellcheck="false" style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; padding-right: 2.8rem;">
+              <button type="button" id="toggle-key-visibility" onclick="toggleKeyVisibility()" style="position: absolute; right: 0.6rem; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0.35rem; font-size: 1.1rem; line-height: 1;" title="API-Key ein-/ausblenden">👁️</button>
+            </div>
+          </div>
+          <div style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="remember-key-check" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
+            <label for="remember-key-check" style="color: #94a3b8; font-size: 0.82rem; cursor: pointer;" id="lbl-remember-key">Auf diesem Gerät dauerhaft merken</label>
+          </div>
+          <button type="submit" class="ai-btn-primary" id="btn-key-login">
+            🚀 <span id="lbl-btn-key-login">AI Studio Chat öffnen ➔</span>
+          </button>
+        </form>
+        <div class="ai-hint-box" id="hint-key">
+          🛡️ <strong>Sofortiger Chat-Zugriff:</strong> Gib deinen <code>cm_live_...</code>, <code>cm_sec_...</code> oder persönlichen API-Key ein, um direkt in den Multi-Modell KI-Chat zu starten.
+        </div>
+      </div>
+
+      <!-- Tab 2: Passkey / Biometrics -->
+      <div id="pane-passkey" class="ai-tab-pane">
         <form onsubmit="handlePasskeyLogin(event)">
           <div class="ai-form-group">
             <label class="ai-form-label" id="lbl-email-pk">E-Mail-Adresse für deinen Zugang</label>
-            <input type="email" id="input-email-pk" class="ai-form-input" placeholder="name@beispiel.de" required autocomplete="username webauthn">
+            <input type="text" id="input-email-pk" class="ai-form-input" placeholder="name@beispiel.de" required autocomplete="username webauthn">
           </div>
           <button type="submit" class="ai-btn-primary" id="btn-login-pk">
             🔑 <span id="lbl-btn-login-pk">Mit Passkey / Face ID anmelden</span>
@@ -398,12 +421,12 @@
         </div>
       </div>
 
-      <!-- Tab 2: Magic Link -->
+      <!-- Tab 3: Magic Link -->
       <div id="pane-magic" class="ai-tab-pane">
         <form onsubmit="handleMagicLink(event)">
           <div class="ai-form-group">
             <label class="ai-form-label" id="lbl-email-magic">E-Mail-Adresse für Einmal-Link</label>
-            <input type="email" id="input-email-magic" class="ai-form-input" placeholder="name@beispiel.de" required>
+            <input type="text" id="input-email-magic" class="ai-form-input" placeholder="name@beispiel.de" required>
           </div>
           <button type="submit" class="ai-btn-primary" id="btn-magic">
             ✉️ <span id="lbl-btn-magic">Sicheren Login-Link per E-Mail senden</span>
@@ -414,32 +437,12 @@
         </div>
       </div>
 
-      <!-- Tab 3: Direct API / Owner Key -->
-      <div id="pane-key" class="ai-tab-pane">
-        <form onsubmit="handleKeyLogin(event)">
-          <div class="ai-form-group">
-            <label class="ai-form-label" id="lbl-key-input">Secret Owner Key / API-Key</label>
-            <input type="password" id="input-owner-key" class="ai-form-input" placeholder="cm_sec_... oder dein Owner-Key" required autocomplete="current-password">
-          </div>
-          <div style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="remember-key-check" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
-            <label for="remember-key-check" style="color: #94a3b8; font-size: 0.82rem; cursor: pointer;" id="lbl-remember-key">Auf diesem Gerät dauerhaft merken</label>
-          </div>
-          <button type="submit" class="ai-btn-primary" id="btn-key-login">
-            🚀 <span id="lbl-btn-key-login">AI Studio Chat öffnen ➔</span>
-          </button>
-        </form>
-        <div class="ai-hint-box" id="hint-key">
-          🛡️ Sofortzugriff mit deinem persönlichen API-Key oder Secret Owner Key.
-        </div>
-      </div>
-
       <!-- Tab 4: Instant 10-Second Registration -->
       <div id="pane-register" class="ai-tab-pane">
         <form onsubmit="handleInstantRegister(event)">
           <div class="ai-form-group">
             <label class="ai-form-label" id="lbl-reg-email">Deine geschäftliche E-Mail-Adresse</label>
-            <input type="email" id="input-reg-email" class="ai-form-input" placeholder="name@beispiel.de" required>
+            <input type="text" id="input-reg-email" class="ai-form-input" placeholder="name@beispiel.de" required>
           </div>
           <div style="margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 0.5rem;">
             <input type="checkbox" id="reg-terms-check" required style="accent-color: var(--accent-cyan); width: 16px; height: 16px; margin-top: 2px; cursor: pointer;">
@@ -468,7 +471,7 @@
   </footer>
 
   <!-- Scripts -->
-  <script src="portal-core.js?v=4.5"></script>
+  <script src="portal-core.js?v=4.6"></script>
   <script>
     var currentLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
 
@@ -481,6 +484,10 @@
         tab_magic: "Magic-Link",
         tab_key: "API-Key",
         tab_reg: "Neu",
+        lbl_key_input: "Secret API-Key / Owner-Key",
+        lbl_remember_key: "Auf diesem Gerät dauerhaft merken",
+        btn_key_login: "AI Studio Chat öffnen ➔",
+        hint_key: "🛡️ <strong>Sofortiger Chat-Zugriff:</strong> Gib deinen <code>cm_live_...</code>, <code>cm_sec_...</code> oder persönlichen API-Key ein, um direkt in den Multi-Modell KI-Chat zu starten.",
         lbl_email_pk: "E-Mail-Adresse für deinen Zugang",
         btn_login_pk: "Mit Passkey / Face ID anmelden",
         btn_reg_pk: "Neuen Passkey registrieren",
@@ -488,10 +495,6 @@
         lbl_email_magic: "E-Mail-Adresse für Einmal-Link",
         btn_magic: "Sicheren Login-Link per E-Mail senden",
         hint_magic: "📬 Du erhältst einen kryptografisch signierten Einmal-Link direkt von <code>mesh@inetconnector.com</code>, der dich sofort einloggt.",
-        lbl_key_input: "Secret Owner Key / API-Key",
-        lbl_remember_key: "Auf diesem Gerät dauerhaft merken",
-        btn_key_login: "AI Studio Chat öffnen ➔",
-        hint_key: "🛡️ Sofortzugriff mit deinem persönlichen API-Key oder Secret Owner Key.",
         lbl_reg_email: "Deine geschäftliche E-Mail-Adresse",
         lbl_reg_terms: "Ich akzeptiere die <a href=\"https://mesh.inetconnector.com/terms\" target=\"_blank\" style=\"color: var(--accent-cyan);\">AGB</a> und <a href=\"https://mesh.inetconnector.com/privacy\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Datenschutzerklärung</a> (B2B-Nutzung).",
         btn_instant_reg: "Kostenlosen API-Key erstellen & starten",
@@ -509,6 +512,10 @@
         tab_magic: "Magic-Link",
         tab_key: "API Key",
         tab_reg: "New",
+        lbl_key_input: "Secret API Key / Owner Key",
+        lbl_remember_key: "Remember on this device",
+        btn_key_login: "Open AI Studio Chat ➔",
+        hint_key: "🛡️ <strong>Instant Chat Access:</strong> Enter your <code>cm_live_...</code>, <code>cm_sec_...</code> or personal API Key to launch directly into the AI Studio.",
         lbl_email_pk: "Account Email Address",
         btn_login_pk: "Sign in with Passkey / Face ID",
         btn_reg_pk: "Register New Passkey",
@@ -516,10 +523,6 @@
         lbl_email_magic: "Email Address for Magic-Link",
         btn_magic: "Send Secure Login Link via Email",
         hint_magic: "📬 You'll receive a cryptographically signed one-time login link from <code>mesh@inetconnector.com</code>.",
-        lbl_key_input: "Secret Owner Key / API Key",
-        lbl_remember_key: "Remember on this device",
-        btn_key_login: "Open AI Studio Chat ➔",
-        hint_key: "🛡️ Direct instant access with your personal API Key or Secret Owner Key.",
         lbl_reg_email: "Your Business Email Address",
         lbl_reg_terms: "I accept the <a href=\"https://mesh.inetconnector.com/terms\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Terms of Service</a> & <a href=\"https://mesh.inetconnector.com/privacy\" target=\"_blank\" style=\"color: var(--accent-cyan);\">Privacy Policy</a> (B2B).",
         btn_instant_reg: "Generate Free API Key & Start",
@@ -540,10 +543,15 @@
       document.getElementById('lbl-badge').textContent = d.badge;
       document.getElementById('lbl-title').textContent = d.title;
       document.getElementById('lbl-sub').textContent = d.sub;
+      document.getElementById('tab-lbl-key').textContent = d.tab_key;
       document.getElementById('tab-lbl-passkey').textContent = d.tab_pk;
       document.getElementById('tab-lbl-magic').textContent = d.tab_magic;
-      document.getElementById('tab-lbl-key').textContent = d.tab_key;
       document.getElementById('tab-lbl-register').textContent = d.tab_reg;
+
+      document.getElementById('lbl-key-input').textContent = d.lbl_key_input;
+      document.getElementById('lbl-remember-key').textContent = d.lbl_remember_key;
+      document.getElementById('lbl-btn-key-login').textContent = d.btn_key_login;
+      document.getElementById('hint-key').innerHTML = d.hint_key;
 
       document.getElementById('lbl-email-pk').textContent = d.lbl_email_pk;
       document.getElementById('lbl-btn-login-pk').textContent = d.btn_login_pk;
@@ -553,11 +561,6 @@
       document.getElementById('lbl-email-magic').textContent = d.lbl_email_magic;
       document.getElementById('lbl-btn-magic').textContent = d.btn_magic;
       document.getElementById('hint-magic').innerHTML = d.hint_magic;
-
-      document.getElementById('lbl-key-input').textContent = d.lbl_key_input;
-      document.getElementById('lbl-remember-key').textContent = d.lbl_remember_key;
-      document.getElementById('lbl-btn-key-login').textContent = d.btn_key_login;
-      document.getElementById('hint-key').innerHTML = d.hint_key;
 
       document.getElementById('lbl-reg-email').textContent = d.lbl_reg_email;
       document.getElementById('lbl-reg-terms').innerHTML = d.lbl_reg_terms;
@@ -589,14 +592,65 @@
       el.style.display = 'block';
     }
 
-    function storeKeyAndLaunch(key) {
-      if (!key) return;
+    function toggleKeyVisibility() {
+      var input = document.getElementById('input-owner-key');
+      var btn = document.getElementById('toggle-key-visibility');
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = '👁️';
+      } else {
+        input.type = 'password';
+        if (btn) btn.textContent = '🙈';
+      }
+    }
+
+    function cleanApiKey(raw) {
+      if (!raw) return '';
+      var k = String(raw).trim();
+      k = k.replace(/^["'`]|["'`]$/g, '').trim();
+      k = k.replace(/^Bearer\s+/i, '').trim();
+      k = k.split(/[\r\n]/)[0].trim();
+      return k;
+    }
+
+    function setSubdomainCookie(name, value) {
       try {
-        localStorage.setItem('cm_fleet_owner_key', key);
-        localStorage.setItem('cm_owner_key', key);
-        localStorage.setItem('cm_api_key', key);
-        localStorage.setItem('apiKey', key);
-        var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "settings", "config"];
+        var maxAge = 31536000;
+        var isSecure = window.location.protocol === 'https:';
+        var cookieStr = name + '=' + encodeURIComponent(value) + '; Path=/; Max-Age=' + maxAge + '; SameSite=Lax';
+        if (window.location.hostname.endsWith('inetconnector.com')) {
+          cookieStr += '; Domain=.inetconnector.com';
+        }
+        if (isSecure) {
+          cookieStr += '; Secure';
+        }
+        document.cookie = cookieStr;
+      } catch(e) {}
+    }
+
+    function storeKeyAndLaunch(rawKey) {
+      var key = cleanApiKey(rawKey);
+      if (!key) {
+        var d = studioI18n[currentLang] || studioI18n.de;
+        showStatus(d.key_missing, 'error');
+        return;
+      }
+
+      showStatus('✅ API-Key erkannt — Weiterleitung zum AI Studio...', 'success');
+
+      try {
+        var remember = document.getElementById('remember-key-check') ? document.getElementById('remember-key-check').checked : true;
+        if (remember) {
+          localStorage.setItem('cm_fleet_owner_key', key);
+          localStorage.setItem('cm_owner_key', key);
+          localStorage.setItem('cm_api_key', key);
+          localStorage.setItem('cm_token', key);
+          localStorage.setItem('apiKey', key);
+        }
+        
+        // Sync to all LlamaUi config keys
+        var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
         configKeys.forEach(function(k) {
           try {
             var raw = localStorage.getItem(k) || "{}";
@@ -605,15 +659,46 @@
             localStorage.setItem(k, JSON.stringify(cfg));
           } catch(e) {}
         });
-      } catch(e) {}
 
-      window.location.replace('/webui/?key=' + encodeURIComponent(key));
+        // Sync to userOverrides
+        try {
+          var ovRaw = localStorage.getItem("LlamaUi.userOverrides") || "[]";
+          var ov = JSON.parse(ovRaw);
+          if (!Array.isArray(ov)) ov = [];
+          if (!ov.includes("apiKey")) ov.push("apiKey");
+          localStorage.setItem("LlamaUi.userOverrides", JSON.stringify(ov));
+        } catch(e) {}
+
+        // Set cross-subdomain session cookies
+        setSubdomainCookie('cm_session', key);
+        setSubdomainCookie('cm_fleet_session', key);
+      } catch(e) {
+        console.warn('Storage sync error:', e);
+      }
+
+      setTimeout(function() {
+        window.location.replace('/webui/?key=' + encodeURIComponent(key));
+      }, 200);
+    }
+
+    function detectAndRedirectKey(val) {
+      if (!val) return false;
+      var clean = cleanApiKey(val);
+      if (clean && (clean.startsWith('cm_') || clean.startsWith('owner_') || clean.startsWith('sk-') || (!clean.includes('@') && clean.length >= 12))) {
+        switchStudioTab('key');
+        var keyInput = document.getElementById('input-owner-key');
+        if (keyInput) keyInput.value = clean;
+        storeKeyAndLaunch(clean);
+        return true;
+      }
+      return false;
     }
 
     // Direct Key Login
     function handleKeyLogin(e) {
-      e.preventDefault();
-      var key = document.getElementById('input-owner-key').value.trim();
+      if (e && e.preventDefault) e.preventDefault();
+      var keyInput = document.getElementById('input-owner-key');
+      var key = keyInput ? keyInput.value : '';
       var d = studioI18n[currentLang] || studioI18n.de;
       if (!key) {
         showStatus(d.key_missing, 'error');
@@ -624,10 +709,11 @@
 
     // Magic Link
     async function handleMagicLink(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       var email = document.getElementById('input-email-magic').value.trim();
-      var d = studioI18n[currentLang] || studioI18n.de;
       if (!email) return;
+      if (detectAndRedirectKey(email)) return;
+      var d = studioI18n[currentLang] || studioI18n.de;
       showStatus('Sende Login-Link...', 'success');
       try {
         var res = await fetch('/api/auth/magic-link/request', {
@@ -648,10 +734,11 @@
 
     // Instant Register
     async function handleInstantRegister(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       var email = document.getElementById('input-reg-email').value.trim();
-      var d = studioI18n[currentLang] || studioI18n.de;
       if (!email) return;
+      if (detectAndRedirectKey(email)) return;
+      var d = studioI18n[currentLang] || studioI18n.de;
       showStatus('Generiere API-Key...', 'success');
       try {
         var res = await fetch('/api/portal/register', {
@@ -664,7 +751,7 @@
           showStatus(d.reg_success, 'success');
           setTimeout(function() {
             storeKeyAndLaunch(data.api_key);
-          }, 800);
+          }, 600);
         } else {
           showStatus(data.error || 'Registrierung fehlgeschlagen', 'error');
         }
@@ -691,9 +778,10 @@
     }
 
     async function handlePasskeyLogin(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       var email = document.getElementById('input-email-pk').value.trim();
       if (!email) return;
+      if (detectAndRedirectKey(email)) return;
       showStatus('Starte Passkey-Authentifizierung...', 'success');
 
       try {
@@ -733,8 +821,8 @@
           body: JSON.stringify({ email: email, assertionResponse: assertionResponse })
         });
         var verData = await verRes.json();
-        if (verRes.ok && verData.owner_key) {
-          storeKeyAndLaunch(verData.owner_key);
+        if (verRes.ok && (verData.owner_key || verData.api_key)) {
+          storeKeyAndLaunch(verData.owner_key || verData.api_key);
         } else {
           showStatus(verData.error || "Passkey-Verifikation fehlgeschlagen", "error");
         }
@@ -749,6 +837,7 @@
         showStatus('Bitte gib zuerst deine E-Mail-Adresse ein.', 'error');
         return;
       }
+      if (detectAndRedirectKey(email)) return;
       showStatus('Registriere Passkey...', 'success');
 
       try {
@@ -787,8 +876,8 @@
           body: JSON.stringify({ email: email, attestationResponse: attestationResponse })
         });
         var verData = await verRes.json();
-        if (verRes.ok && verData.owner_key) {
-          storeKeyAndLaunch(verData.owner_key);
+        if (verRes.ok && (verData.owner_key || verData.api_key)) {
+          storeKeyAndLaunch(verData.owner_key || verData.api_key);
         } else {
           showStatus(verData.error || "Registrierung fehlgeschlagen", "error");
         }
@@ -797,19 +886,42 @@
       }
     }
 
+    // Auto-detection listeners on email inputs
+    ['input-email-pk', 'input-email-magic', 'input-reg-email'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', function() {
+          var val = el.value.trim();
+          if (val.startsWith('cm_') || val.startsWith('owner_') || val.startsWith('sk-') || (!val.includes('@') && val.length >= 16)) {
+            detectAndRedirectKey(val);
+          }
+        });
+      }
+    });
+
+    // Auto-clean on paste in input-owner-key
+    var ownerKeyEl = document.getElementById('input-owner-key');
+    if (ownerKeyEl) {
+      ownerKeyEl.addEventListener('paste', function(e) {
+        setTimeout(function() {
+          ownerKeyEl.value = cleanApiKey(ownerKeyEl.value);
+        }, 10);
+      });
+    }
+
     // On Load: check if key in URL or session exists
     (function init() {
       try {
         var urlParams = new URLSearchParams(window.location.search);
-        var qKey = urlParams.get('key') || urlParams.get('api_key');
+        var qKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
         if (qKey) {
           storeKeyAndLaunch(qKey);
           return;
         }
-        var key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || localStorage.getItem('cm_token');
+        var key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || localStorage.getItem('cm_token') || localStorage.getItem('apiKey');
         var isSession = document.cookie && document.cookie.includes('cm_session=');
         if (key || isSession) {
-          window.location.replace(key ? '/webui/?key=' + encodeURIComponent(key) : '/webui/');
+          window.location.replace(key ? '/webui/?key=' + encodeURIComponent(cleanApiKey(key)) : '/webui/');
           return;
         }
       } catch(e) {}
