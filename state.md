@@ -6,6 +6,22 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-16 Hide unsupported media actions
+
+- User reported that the Android photo action was offered for an incompatible
+  model. The live `/slots` endpoint currently identifies
+  `deepseek-ai/deepseek-r1` as the active model. The plus menu's image/camera,
+  audio and video actions are now hidden unless the active model ID indicates
+  corresponding capability; unknown/unreadable capability state fails closed.
+  Text and PDF actions remain available.
+- Implemented in the maintained ComputeMesh WebUI shell
+  `portal/webui/index.html`, using the active slot and CSS classes already used
+  by the bundled menu actions. The shell has no frontend source/build project
+  in this checkout; do not modify the minified bundle.
+- Local checks: 7 modality-mapping cases passed; enhancement script parsed;
+  `git diff --check` passed. Production rollout and live visual verification
+  remain to be recorded.
+
 ## 2026-09-16 Magic-link login fix — deployed
 
 - Commit `532a7d6` fixes the AI Studio secure-login-link flow: frontend route now

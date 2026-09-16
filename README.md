@@ -45,6 +45,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
+- modality-specific photo, image, audio and video attachment actions are hidden unless the active model ID identifies matching support; unknown models fail closed, while text and PDF attachments remain available;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;

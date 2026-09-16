@@ -1024,6 +1024,14 @@
 				transition: none !important;
 			}
 
+			/* Hide modality-specific attachment actions when the active model lacks support. */
+			html.cm-model-no-vision .images-button,
+			html.cm-model-no-vision .camera-button,
+			html.cm-model-no-audio .audio-button,
+			html.cm-model-no-video .video-button {
+				display: none !important;
+			}
+
 			.chat-message-user-bubble,
 			[data-slot="card"].chat-message-user-bubble {
 				align-self: flex-end !important;
@@ -2093,6 +2101,33 @@
 						}
 					}
 				});
+
+				// The gateway's active slot is the source of truth for modality actions.
+				// Fail closed: do not offer photo/audio/video actions when support is
+				// unknown, instead of letting a user capture a file that will be rejected.
+				function cmModelSupports(modelId, modality) {
+					var model = String(modelId || '').toLowerCase();
+					if (modality === 'vision') return /(^|[-_./])(vl|vision)([-_./]|$)|llava|moondream/.test(model);
+					if (modality === 'audio') return /audio|omni|whisper/.test(model);
+					if (modality === 'video') return /video/.test(model);
+					return false;
+				}
+
+				async function cmUpdateModalityActions() {
+					try {
+						var response = await fetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
+						if (!response.ok) throw new Error('Unable to read active model');
+						var slots = await response.json();
+						var activeModel = Array.isArray(slots) && slots.length ? slots[0].model : '';
+						document.documentElement.classList.toggle('cm-model-no-vision', !cmModelSupports(activeModel, 'vision'));
+						document.documentElement.classList.toggle('cm-model-no-audio', !cmModelSupports(activeModel, 'audio'));
+						document.documentElement.classList.toggle('cm-model-no-video', !cmModelSupports(activeModel, 'video'));
+					} catch (err) {
+						document.documentElement.classList.add('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
+					}
+				}
+				cmUpdateModalityActions();
+				setInterval(cmUpdateModalityActions, 5000);
 			})();
 		</script>
 	</body>
