@@ -31,6 +31,7 @@ class ModelSpec:
     context_window: int = 32768
     created: int = 1700000000
     price_tier: ModelPriceTier = DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"]
+    modalities: tuple[str, ...] = ("text",)
 
 
 AVAILABLE_MODELS: list[ModelSpec] = [
@@ -81,12 +82,14 @@ AVAILABLE_MODELS: list[ModelSpec] = [
         context_window=32768,
         created=int(time.time()),
         price_tier=DEFAULT_PRICE_TIERS["qwen/qwen2.5-vl-7b-instruct"],
+        modalities=("text", "vision"),
     ),
     ModelSpec(
         id="meta-llama/llama-3.2-11b-vision-instruct",
         context_window=131072,
         created=int(time.time()),
         price_tier=DEFAULT_PRICE_TIERS["meta-llama/llama-3.2-11b-vision-instruct"],
+        modalities=("text", "vision"),
     ),
     ModelSpec(
         id="openbmb/minicpm5-2b",
@@ -99,6 +102,7 @@ AVAILABLE_MODELS: list[ModelSpec] = [
         context_window=32768,
         created=int(time.time()),
         price_tier=DEFAULT_PRICE_TIERS["llava/llava-1.6-7b"],
+        modalities=("text", "vision"),
     ),
 ]
 
@@ -115,6 +119,21 @@ def current_models() -> list[ModelSpec | RegistryModel]:
         # An explicitly configured registry is authoritative; never advertise
         # stale static or synthetic models after it becomes unavailable.
         return []
+
+
+def model_modalities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:
+    """Return normalized, explicitly advertised model input modalities."""
+    if isinstance(model, ModelSpec):
+        return model.modalities
+    capabilities = {value.strip().lower().replace("-", "_") for value in model.capabilities}
+    modalities = {"text"}
+    if capabilities.intersection({"vision", "image", "images", "image_input", "multimodal"}):
+        modalities.add("vision")
+    if capabilities.intersection({"audio", "speech", "audio_input", "speech_input"}):
+        modalities.add("audio")
+    if "video" in capabilities or "video_input" in capabilities:
+        modalities.add("video")
+    return tuple(modality for modality in ("text", "vision", "audio", "video") if modality in modalities)
 
 
 def resolve_model_id(raw_model: str) -> str:

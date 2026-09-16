@@ -206,6 +206,10 @@ class TestGatewayServer(unittest.TestCase):
             model_ids = [m["id"] for m in data["data"]]
             self.assertIn("qwen/qwen2.5-7b-instruct", model_ids)
             self.assertIn("llama/llama-3.1-70b-instruct", model_ids)
+            by_id = {model["id"]: model for model in data["data"]}
+            self.assertEqual(by_id["deepseek-ai/deepseek-r1"]["modalities"], ["text"])
+            self.assertEqual(by_id["qwen/qwen2.5-vl-7b-instruct"]["modalities"], ["text", "vision"])
+            self.assertTrue(by_id["qwen/qwen2.5-vl-7b-instruct"]["available"])
 
     def test_native_tools_endpoint_returns_empty_list_when_not_enabled(self) -> None:
         # Native llama.cpp tools are not enabled by this gateway; the WebUI

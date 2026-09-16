@@ -78,6 +78,7 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         self.assertIn("total_slots", data)
         self.assertIn("chat_template", data)
         self.assertIn("webui_settings", data)
+        self.assertEqual(data["modalities"], ["text"])
 
     def test_get_webui_props(self):
         status, data = self._get("/webui/props")

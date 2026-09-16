@@ -13,9 +13,11 @@ from services.gateway.catalog import (
     DEFAULT_PRICE_TIERS,
     ModelSpec,
     PriceTier,
+    model_modalities,
     provider_shares_from_env,
     resolve_model_id,
 )
+from services.gateway.registry_client import RegistryModel
 
 
 class TestCatalogAndPricing(unittest.TestCase):
@@ -33,6 +35,22 @@ class TestCatalogAndPricing(unittest.TestCase):
             self.assertIsInstance(m.price_tier, PriceTier)
             self.assertGreaterEqual(m.price_tier.prompt_micro_per_token, 0)
             self.assertGreater(m.price_tier.completion_micro_per_token, 0)
+
+        modalities_by_id = {m.id: model_modalities(m) for m in AVAILABLE_MODELS}
+        self.assertEqual(modalities_by_id["deepseek-ai/deepseek-r1"], ("text",))
+        self.assertEqual(modalities_by_id["qwen/qwen2.5-vl-7b-instruct"], ("text", "vision"))
+        self.assertEqual(modalities_by_id["llava/llava-1.6-7b"], ("text", "vision"))
+
+    def test_registry_capabilities_are_normalized_for_webui(self) -> None:
+        model = RegistryModel(
+            id="example/omni-vl",
+            display_name="Example Omni VL",
+            context_length=8192,
+            capabilities=("vision", "audio-input", "video"),
+            availability="available_warm",
+            license="Apache-2.0",
+        )
+        self.assertEqual(model_modalities(model), ("text", "vision", "audio", "video"))
 
     def test_resolve_model_id_aliases(self) -> None:
         # Exact match

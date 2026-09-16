@@ -6,6 +6,25 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-16 Browser-local model selector
+
+- Added `portal/webui/model-selector.js`, loaded by the WebUI shell. It fetches
+  `/v1/models`, filters unavailable registry entries, mounts an accessible
+  model dropdown above the composer, persists the selection per browser, and
+  injects the selected ID into non-streaming/streaming chat completion requests
+  without globally changing other users' model choice.
+- `services/gateway/catalog.py` now advertises per-model modalities; vision
+  models in the static catalogue are explicitly identified. `/v1/models`
+  exposes modalities/capabilities/availability, and `/props` reports modalities
+  for its actual default model rather than claiming vision unconditionally.
+- Media action visibility now follows the browser's selected model metadata,
+  not the server's fixed `/slots` response. Unknown metadata remains fail-closed.
+- Verification: targeted gateway tests **39 passed + 2 subtests**; seven prior
+  capability checks passed; Node syntax and browser-shim checks verified
+  picker mounting, selected model injection, `/props` sync, capability changes
+  and persistence; Python compile and `git diff --check` passed. Production
+  deploy and live UI check remain.
+
 ## 2026-09-16 Hide unsupported media actions
 
 - User reported that the Android photo action was offered for an incompatible
@@ -23,9 +42,9 @@
   Public commit `000c2b0` is pushed, Plesk `/opt/computemesh` is clean at that
   commit, and both webroots' `webui/index.html` hashes match the tested file.
   Live GET returned HTTP 200 and included the modality filtering logic.
-- Limitation: `/slots` currently reports DeepSeek R1 only. The UI has no
-  working model switch today, so these actions remain hidden until actual model
-  switching and per-model capability metadata are available.
+- At this entry's original revision, `/slots` reported DeepSeek R1 only and no
+  UI model switch existed. That limitation is resolved by the browser-local
+  selector below; `/slots` remains the server default, not per-user state.
 
 ## 2026-09-16 Magic-link login fix — deployed
 

@@ -61,6 +61,7 @@
 				}
 			} catch (e) {}
 		</script>
+		<script src="./model-selector.js"></script>
 		<link rel="icon" href="favicon.ico" sizes="48x48" />
 		<link rel="icon" href="favicon.svg" sizes="any" type="image/svg+xml" />
 
@@ -1030,6 +1031,33 @@
 			html.cm-model-no-audio .audio-button,
 			html.cm-model-no-video .video-button {
 				display: none !important;
+			}
+
+			.cm-model-picker {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				width: 100%;
+				padding: 0.45rem 0.7rem;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+				background: rgba(15, 23, 42, 0.72);
+			}
+			.cm-model-picker label {
+				flex: 0 0 auto;
+				color: #94a3b8;
+				font-size: 0.78rem;
+			}
+			.cm-model-picker select {
+				min-width: 0;
+				max-width: 100%;
+				flex: 1 1 auto;
+				padding: 0.55rem 2rem 0.55rem 0.7rem;
+				border: 1px solid rgba(56, 189, 248, 0.42);
+				border-radius: 0.65rem;
+				background: #111827;
+				color: #f8fafc;
+				font: inherit;
+				font-size: 0.88rem;
 			}
 
 			.chat-message-user-bubble,
@@ -2105,28 +2133,26 @@
 				// The gateway's active slot is the source of truth for modality actions.
 				// Fail closed: do not offer photo/audio/video actions when support is
 				// unknown, instead of letting a user capture a file that will be rejected.
-				function cmModelSupports(modelId, modality) {
-					var model = String(modelId || '').toLowerCase();
-					if (modality === 'vision') return /(^|[-_./])(vl|vision)([-_./]|$)|llava|moondream/.test(model);
-					if (modality === 'audio') return /audio|omni|whisper/.test(model);
-					if (modality === 'video') return /video/.test(model);
-					return false;
-				}
-
 				async function cmUpdateModalityActions() {
 					try {
-						var response = await fetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
-						if (!response.ok) throw new Error('Unable to read active model');
-						var slots = await response.json();
-						var activeModel = Array.isArray(slots) && slots.length ? slots[0].model : '';
-						document.documentElement.classList.toggle('cm-model-no-vision', !cmModelSupports(activeModel, 'vision'));
-						document.documentElement.classList.toggle('cm-model-no-audio', !cmModelSupports(activeModel, 'audio'));
-						document.documentElement.classList.toggle('cm-model-no-video', !cmModelSupports(activeModel, 'video'));
+						var selector = window.ComputeMeshModelSelector;
+						var selected = selector && selector.getSelectedModel();
+						if (!selected) {
+							var response = await fetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
+							if (!response.ok) throw new Error('Unable to read active model');
+							var slots = await response.json();
+							selected = { id: Array.isArray(slots) && slots.length ? slots[0].model : '' };
+						}
+						var modalities = selector ? selector.modalitiesFor(selected) : ['text'];
+						document.documentElement.classList.toggle('cm-model-no-vision', !modalities.includes('vision'));
+						document.documentElement.classList.toggle('cm-model-no-audio', !modalities.includes('audio'));
+						document.documentElement.classList.toggle('cm-model-no-video', !modalities.includes('video'));
 					} catch (err) {
 						document.documentElement.classList.add('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
 					}
 				}
 				cmUpdateModalityActions();
+				window.addEventListener('cm:model-selection-change', cmUpdateModalityActions);
 				setInterval(cmUpdateModalityActions, 5000);
 			})();
 		</script>

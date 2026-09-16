@@ -294,7 +294,7 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import current_models, resolve_model_id
+from services.gateway.catalog import current_models, model_modalities, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     _extract_candidate_local_urls,
@@ -1950,7 +1950,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             },
             "total_slots": 1,
             "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}",
-            "modalities": ["text", "vision"],
+            "modalities": list(model_modalities(models[0])) if models else ["text"],
             "webui_settings": {
                 "theme": "Dark",
                 "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
@@ -1989,6 +1989,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "permission": [],
                 "root": m.id,
                 "parent": None,
+                "modalities": list(model_modalities(m)),
+                "capabilities": list(model_modalities(m)),
+                "availability": getattr(m, "availability", "catalogued"),
+                "available": getattr(m, "available", True),
             }
             for m in models
         ]
