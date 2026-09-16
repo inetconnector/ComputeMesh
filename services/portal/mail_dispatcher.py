@@ -7,6 +7,7 @@ Sends cryptographically signed / TLS-secured operational emails from `mesh@inetc
 """
 from __future__ import annotations
 
+from html import escape as html_escape
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import logging
@@ -183,6 +184,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helv
 
 def send_magic_link(to_address: str, magic_url: str, expires_minutes: int = 15) -> bool:
     """Sends a secure login / recovery magic link."""
+    safe_magic_url = html_escape(magic_url, quote=True)
     subject = "ComputeMesh Flotten-Zugang / Login-Link"
     text = f"""Hallo,
 
@@ -201,39 +203,44 @@ mesh@inetconnector.com
 """
 
     html = f"""<!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <style>
-body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #090d16; color: #f8fafc; margin: 0; padding: 20px; }}
-.card {{ max-width: 560px; margin: 0 auto; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 32px; }}
-.brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; margin-bottom: 24px; }}
-.btn {{ display: inline-block; background: #0284c7; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 15px; margin: 20px 0; }}
-.footer {{ font-size: 12px; color: #64748b; margin-top: 32px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #172033; margin: 0; padding: 20px; }}
+a {{ color: #075985; }}
+@media (prefers-color-scheme: dark) {{ body {{ background-color: #090d16 !important; color: #f8fafc !important; }} .card {{ background-color: #0f172a !important; border-color: #164e63 !important; }} .copy {{ color: #cbd5e1 !important; }} .muted {{ color: #cbd5e1 !important; }} .footer {{ color: #cbd5e1 !important; border-color: #334155 !important; }} .fallback {{ color: #7dd3fc !important; }} }}
 </style>
 </head>
-<body>
-<div class="card">
-  <div class="brand">⚡ ComputeMesh</div>
-  <h2 style="color: #f8fafc; margin-top: 0;">Flotten-Cockpit Zugang</h2>
-  <p style="color: #cbd5e1; font-size: 15px; line-height: 1.5;">
+<body style="margin:0;padding:20px;background-color:#f1f5f9;color:#172033;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f1f5f9;">
+<tr><td align="center" style="padding:16px 8px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" class="card" style="width:100%;max-width:560px;border-collapse:separate;background-color:#ffffff;border:1px solid #cbd5e1;border-radius:12px;">
+<tr><td style="padding:30px 28px;font-family:Arial,Helvetica,sans-serif;color:#172033;">
+  <div style="font-size:20px;font-weight:800;color:#075985;margin:0 0 24px;">⚡ ComputeMesh</div>
+  <h2 style="color:#172033;margin:0 0 16px;font-size:24px;line-height:1.3;">Flotten-Cockpit Zugang</h2>
+  <p class="copy" style="color:#334155;font-size:15px;line-height:1.6;margin:0 0 16px;">
     Du hast einen direkten Login- und Wiederherstellungs-Link für dein ComputeMesh Flotten-Konto angefordert.
   </p>
-  <div style="text-align: center;">
-    <a href="{magic_url}" class="btn">⚡ Jetzt im Flotten-Cockpit anmelden →</a>
-  </div>
-  <p style="color: #94a3b8; font-size: 13px; line-height: 1.4;">
-    Oder kopiere diesen Link direkt in deinen Browser:<br>
-    <code style="color: #38bdf8; word-break: break-all;">{magic_url}</code>
+  <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:20px auto;">
+    <tr><td align="center" bgcolor="#075985" style="background-color:#075985;border-radius:8px;">
+      <a href="{safe_magic_url}" style="display:inline-block;padding:14px 22px;border:1px solid #075985;border-radius:8px;background-color:#075985;color:#ffffff!important;-webkit-text-fill-color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:15px;line-height:1.4;">⚡ Jetzt im Flotten-Cockpit anmelden &rarr;</a>
+    </td></tr>
+  </table>
+  <p class="muted" style="color:#475569;font-size:13px;line-height:1.5;margin:20px 0 8px;">Falls der Button nicht funktioniert, öffne diesen Link im Browser:</p>
+  <p class="fallback" style="margin:0;padding:12px;background-color:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;overflow-wrap:anywhere;word-break:break-all;">
+    <a href="{safe_magic_url}" style="color:#075985;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all;">{safe_magic_url}</a>
   </p>
-  <p style="color: #ef4444; font-size: 12px;">
-    ⏳ Gültigkeit: {expires_minutes} Minuten (Einmal-Link).
-  </p>
-  <div class="footer">
+  <p style="color:#9f1239;font-size:13px;line-height:1.5;margin:18px 0;">⏳ Gültig für {expires_minutes} Minuten. Der Link kann nur einmal verwendet werden.</p>
+  <div class="footer" style="color:#475569;font-size:12px;line-height:1.6;margin-top:26px;border-top:1px solid #cbd5e1;padding-top:16px;">
     Falls du diesen Login nicht selbst angefordert hast, ignoriere diese E-Mail. Dein Konto ist durch deine Passkeys geschützt.<br><br>
-    &copy; 2026 ComputeMesh &middot; <a href="https://mesh.inetconnector.com" style="color: #38bdf8;">mesh.inetconnector.com</a>
+    &copy; 2026 ComputeMesh &middot; <a href="https://mesh.inetconnector.com" style="color:#075985;">mesh.inetconnector.com</a>
   </div>
-</div>
+</td></tr></table>
+</td></tr></table>
 </body>
 </html>"""
     return send_email(to_address, subject, text, html)

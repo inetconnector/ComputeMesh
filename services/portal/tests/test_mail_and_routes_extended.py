@@ -22,6 +22,19 @@ class TestMailAndRoutesExtended(unittest.TestCase):
         passkey_routes.FLEET_ACCOUNT_STORE = self.original_store
         self.tmp_dir.cleanup()
 
+    @patch("services.portal.mail_dispatcher.send_email", return_value=True)
+    def test_magic_link_email_has_high_contrast_fallback_and_escaped_url(self, mock_send: Any) -> None:
+        magic_url = "https://mesh.inetconnector.com/fleet?magic_token=abc&next=%2F"
+        self.assertTrue(mail_dispatcher.send_magic_link("owner@example.com", magic_url))
+        html_body = mock_send.call_args.args[3]
+        self.assertIn('bgcolor="#075985"', html_body)
+        self.assertIn("color:#ffffff!important", html_body)
+        self.assertIn("background-color:#ffffff", html_body)
+        self.assertIn("color:#172033", html_body)
+        self.assertIn("overflow-wrap:anywhere", html_body)
+        self.assertIn("magic_token=abc&amp;next=%2F", html_body)
+        self.assertNotIn("magic_token=abc&next=%2F", html_body)
+
     @patch("services.portal.passkey_routes.send_security_alert", return_value=True)
     @patch("services.portal.passkey_routes.send_magic_link", return_value=True)
     def test_magic_link_request_and_verify(self, mock_send: Any, mock_alert: Any) -> None:

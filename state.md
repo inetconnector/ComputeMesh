@@ -6,6 +6,19 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## Magic-link email readability — 2026-09-16
+
+- Reworked the transactional login email for clients that rewrite colors or
+  ignore embedded CSS: light/high-contrast inline defaults, table-based layout,
+  explicit button foreground/background, dark-mode enhancement, and wrapping
+  fallback URL. HTML-escape the URL before inserting it into link attributes
+  and visible content.
+- Regression test checks contrast fallbacks, URL wrapping and HTML escaping.
+- Local verification: `python -m unittest
+  services.portal.tests.test_mail_and_routes_extended -v` (4 tests),
+  `py_compile`, and `git diff --check` passed. Production deployment and fresh
+  link delivery are pending.
+
 ## 2026-09-16 Large camera-photo upload optimization
 
 - The user hit the gateway's 10 MiB request-body limit with a phone photo.
