@@ -473,7 +473,7 @@
   <!-- Scripts -->
   <script src="portal-core.js?v=4.6"></script>
   <script>
-    var currentLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
+    var studioLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
 
     var studioI18n = {
       de: {
@@ -535,7 +535,7 @@
     };
 
     function applyStudioLanguage(lang) {
-      currentLang = lang;
+      studioLang = lang;
       var d = studioI18n[lang] || studioI18n.de;
       var tBtn = document.getElementById('lang-toggle-btn');
       if (tBtn) tBtn.textContent = d.toggle_btn;
@@ -569,7 +569,7 @@
     }
 
     function toggleStudioLanguage() {
-      var next = currentLang === 'de' ? 'en' : 'de';
+      var next = studioLang === 'de' ? 'en' : 'de';
       try { localStorage.setItem('cm_portal_lang', next); } catch(e) {}
       applyStudioLanguage(next);
     }
@@ -632,7 +632,7 @@
     function storeKeyAndLaunch(rawKey) {
       var key = cleanApiKey(rawKey);
       if (!key) {
-        var d = studioI18n[currentLang] || studioI18n.de;
+        var d = studioI18n[studioLang] || studioI18n.de;
         showStatus(d.key_missing, 'error');
         return;
       }
@@ -699,7 +699,7 @@
       if (e && e.preventDefault) e.preventDefault();
       var keyInput = document.getElementById('input-owner-key');
       var key = keyInput ? keyInput.value : '';
-      var d = studioI18n[currentLang] || studioI18n.de;
+      var d = studioI18n[studioLang] || studioI18n.de;
       if (!key) {
         showStatus(d.key_missing, 'error');
         return;
@@ -713,7 +713,7 @@
       var email = document.getElementById('input-email-magic').value.trim();
       if (!email) return;
       if (detectAndRedirectKey(email)) return;
-      var d = studioI18n[currentLang] || studioI18n.de;
+      var d = studioI18n[studioLang] || studioI18n.de;
       showStatus('Sende Login-Link...', 'success');
       try {
         var res = await fetch('/api/auth/magic-link/request', {
@@ -738,7 +738,7 @@
       var email = document.getElementById('input-reg-email').value.trim();
       if (!email) return;
       if (detectAndRedirectKey(email)) return;
-      var d = studioI18n[currentLang] || studioI18n.de;
+      var d = studioI18n[studioLang] || studioI18n.de;
       showStatus('Generiere API-Key...', 'success');
       try {
         var res = await fetch('/api/portal/register', {
@@ -925,7 +925,7 @@
           return;
         }
       } catch(e) {}
-      applyStudioLanguage(currentLang);
+      applyStudioLanguage(studioLang);
     })();
   </script>
 </body>

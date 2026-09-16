@@ -207,6 +207,17 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("qwen/qwen2.5-7b-instruct", model_ids)
             self.assertIn("llama/llama-3.1-70b-instruct", model_ids)
 
+    def test_native_tools_endpoint_returns_empty_list_when_not_enabled(self) -> None:
+        # Native llama.cpp tools are not enabled by this gateway; the WebUI
+        # should receive an empty list rather than a misleading 404.
+        for path in ("/tools", "/webui/tools"):
+            with self.subTest(path=path), urllib.request.urlopen(
+                f"http://127.0.0.1:18000{path}"
+            ) as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.headers.get_content_type(), "application/json")
+                self.assertEqual(json.loads(resp.read().decode("utf-8")), [])
+
     def test_list_models_ollama_tags_format(self) -> None:
         # Publicly accessible for Ollama CLI model discovery
         req = urllib.request.Request("http://127.0.0.1:18000/api/tags")

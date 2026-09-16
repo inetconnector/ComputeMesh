@@ -1,10 +1,30 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-16
 **Release Version:** `v1.2.170`
 **Active Mission / Last Prompt:** "ein aufgenommenes bild wird riesig im chat angezeigt. ich denke das muss verkleinert angezeigt werden und evtl auch verkleinert losgeschickt" -> Implementierung von `ImageUploadOptimizer.kt` zur intelligenten Vorab-Komprimierung & EXIF-Korrektur von Kamera-/Upload-Fotos auf max. 1024px vor dem Versand, Behebung der 100%-Breite-Erzwingung im Chat-CSS durch kompakte Thumbnail-Vorschau mit Tap-to-Lightbox (Vollbildansicht) sowie 100% Testpass-Rate (`216/216 Tests passed`).
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
+
+## 2026-09-16 AI Studio production repair
+
+- GitHub `origin/main` and the clean Plesk checkout were verified at
+  `030dc04acd64b59ff4ee8e577c7cd3c840e3a3db` before changes. The live portal
+  files are deployed copies; `ai.inetconnector.com` uses Plesk vhost config
+  and `/var/www/vhosts/inetconnector.com/site2`, so keep source and deployment
+  artifacts synchronized deliberately rather than running the broad sync job.
+- Fixed the auth page's global lexical collision by renaming its local language
+  state to `studioLang`; this allows the inline script and
+  `switchStudioTab()` to parse and initialize alongside `portal-core.js`.
+- The WebUI's native llama.cpp built-in-tools probe calls `GET /tools`. The
+  public gateway does not run llama.cpp's optional `--tools` server, and its
+  ComputeMesh MCP API is a distinct contract. The gateway now returns an
+  explicit empty JSON list for `/tools` and `/webui/tools`, avoiding a false
+  404 without exposing unrelated MCP tools or implying native tool execution.
+  The portal Nginx snippet proxies these endpoints to the gateway.
+- Focused verification: gateway server tests passed **23 tests plus 2
+  subtests**. Node syntax verification and production rollout/browser
+  verification are recorded below only after actually run.
 
 ## Latest operational change
 
@@ -2388,4 +2408,3 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   - `services/mcp/tests/` + `services/appliance_dashboard/tests/`: 114 / 114 passed (100%).
   - `tests/`: 63 / 63 passed (100%).
   - Total: 177 / 177 passed across all test suites.
-

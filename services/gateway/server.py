@@ -603,6 +603,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._handle_slots()
             return
 
+        if clean_path in ("/tools", "/webui/tools"):
+            # The public gateway does not run llama.cpp's optional native
+            # --tools server. Keep the WebUI contract explicit: no native
+            # tools are available here. ComputeMesh MCP tools remain exposed
+            # separately through the authenticated/public MCP API routes.
+            self._send_json([])
+            return
+
         if clean_path.startswith("/node/"):
             node_rel = clean_path.removeprefix("/node/").strip("/")
             parts = node_rel.split("/", 1)
