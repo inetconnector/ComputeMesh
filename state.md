@@ -26,8 +26,10 @@
 - User's follow-up screenshot showed their mail client hid the button label
   while retaining the lightning icon. Set the CTA to near-black text on a
   pale-blue button, with explicit HTML attributes and inline foreground and
-  background colors. Regression coverage is being updated; a new link will be
-  requested after deployment because the screenshot exposed the previous one.
+  background colors. The targeted mail suite passed (4 tests), compilation
+  and diff checks passed. Commit `6c5256a8181d7743131d00944c2ebfc19f38cb9b`
+  is deployed to Plesk; the gateway is active (`NRestarts=0`). The exposed
+  one-time link was invalidated and a fresh request succeeded.
 
 ## 2026-09-16 Large camera-photo upload optimization
 
