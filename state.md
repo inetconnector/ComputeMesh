@@ -14,10 +14,12 @@
   fallback URL. HTML-escape the URL before inserting it into link attributes
   and visible content.
 - Regression test checks contrast fallbacks, URL wrapping and HTML escaping.
-- Local verification: `python -m unittest
+- Verification: `python -m unittest
   services.portal.tests.test_mail_and_routes_extended -v` (4 tests),
-  `py_compile`, and `git diff --check` passed. Production deployment and fresh
-  link delivery are pending.
+  `py_compile`, and `git diff --check` passed. Public commit
+  `389faa99335d065007f5326090dca9f6975c36de` is deployed to production. The
+  gateway is active; `/health` and `/v1/models` return HTTP 200. The previous
+  outstanding login link was invalidated and a fresh link request succeeded.
 
 ## 2026-09-16 Large camera-photo upload optimization
 
