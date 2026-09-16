@@ -7,6 +7,11 @@
 	var models = [];
 	var selectedModel = null;
 	var picker = null;
+	// Image bytes become base64 in the chat JSON; keep their combined binary size
+	// near 5 MiB to leave room for base64 expansion and the rest of the request.
+	var uploadLimitBytes = 5 * 1024 * 1024;
+	var maxImageEdge = 1600;
+	var replayingFileInputs = new WeakSet();
 	try {
 		var savedModelId = localStorage.getItem(STORAGE_KEY);
 		if (savedModelId) selectedModel = { id: savedModelId };
@@ -119,6 +124,92 @@
 
 	function displayName(model) {
 		return String(model.name || model.id || '').replace(/^[^/]+\//, '').replace(/[-_]/g, ' ');
+	}
+
+	function canvasBlob(canvas, type, quality) {
+		return new Promise(function (resolve) { canvas.toBlob(resolve, type, quality); });
+	}
+
+	async function optimizeImageFile(file, maxOutputBytes) {
+		if (!file.type || !file.type.startsWith('image/') || /image\/(gif|svg\+xml)/i.test(file.type)) return file;
+		if (typeof createImageBitmap !== 'function') return file;
+
+		var bitmap;
+		try { bitmap = await createImageBitmap(file); } catch (_) { return file; }
+		try {
+			var longestEdge = Math.max(bitmap.width, bitmap.height);
+			if (longestEdge <= maxImageEdge && file.size <= maxOutputBytes) return file;
+
+			var scale = Math.min(1, maxImageEdge / longestEdge);
+			var width = Math.max(1, Math.round(bitmap.width * scale));
+			var height = Math.max(1, Math.round(bitmap.height * scale));
+			var canvas = document.createElement('canvas');
+			var context = canvas.getContext('2d', { alpha: file.type === 'image/png' });
+			if (!context) return file;
+			var outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+			var quality = 0.84;
+			var blob = null;
+
+			for (var attempt = 0; attempt < 12; attempt++) {
+				canvas.width = width;
+				canvas.height = height;
+				context.drawImage(bitmap, 0, 0, width, height);
+				blob = await canvasBlob(canvas, outputType, outputType === 'image/jpeg' ? quality : undefined);
+				if (!blob || blob.size <= maxOutputBytes) break;
+
+				if (outputType === 'image/jpeg' && quality > 0.56) {
+					quality = Math.max(0.56, quality - 0.1);
+				} else {
+					width = Math.max(1, Math.round(width * 0.78));
+					height = Math.max(1, Math.round(height * 0.78));
+					quality = 0.82;
+				}
+			}
+
+			if (!blob || blob.size > maxOutputBytes) return file;
+			var extension = outputType === 'image/png' ? '.png' : '.jpg';
+			var baseName = file.name.replace(/\.[^.]+$/, '');
+			return new File([blob], baseName + extension, {
+				type: outputType,
+				lastModified: file.lastModified
+			});
+		} finally {
+			if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+		}
+	}
+
+	function installImageUploadOptimization() {
+		document.addEventListener('change', function (event) {
+			var input = event.target;
+			if (!input || input.type !== 'file') return;
+			if (replayingFileInputs.has(input)) {
+				replayingFileInputs.delete(input);
+				return;
+			}
+			var originalFiles = Array.from(input.files || []);
+			if (!originalFiles.some(function (file) { return file.type && file.type.startsWith('image/'); })) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			(async function () {
+				try {
+					var compressibleImages = originalFiles.filter(function (file) {
+						return file.type && file.type.startsWith('image/') && !/image\/(gif|svg\+xml)/i.test(file.type);
+					});
+					var perImageBudget = Math.floor(uploadLimitBytes / Math.max(1, compressibleImages.length));
+					var optimizedFiles = await Promise.all(originalFiles.map(function (file) {
+						return compressibleImages.includes(file) ? optimizeImageFile(file, perImageBudget) : file;
+					}));
+					var transfer = new DataTransfer();
+					optimizedFiles.forEach(function (file) { transfer.items.add(file); });
+					input.files = transfer.files;
+				} catch (_) {
+					// If this browser cannot replace FileList, let the normal uploader try the originals.
+				}
+				replayingFileInputs.add(input);
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			})();
+		}, true);
 	}
 
 	function renderOptions(select) {
@@ -240,6 +331,7 @@
 	}
 
 	window.ComputeMeshModelSelector = { getSelectedModel: currentModel, modalitiesFor: modalitiesFor };
+	installImageUploadOptimization();
 	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true });
 	else initialize();
 })();

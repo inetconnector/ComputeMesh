@@ -6,6 +6,19 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-16 Large camera-photo upload optimization
+
+- The user hit the gateway's 10 MiB request-body limit with a phone photo.
+  The early-loaded WebUI adapter now resizes large image files to at most
+  1600 px on the longest edge and compresses photographic inputs as JPEG,
+  retrying at lower quality/downscaled dimensions. It budgets 5 MiB combined
+  across selected images to leave space for Base64 expansion and other request
+  content. PNG keeps transparency; GIF/SVG and non-image files are unchanged. The
+  optimized FileList is redispatched to the bundled WebUI uploader.
+- Browser shim modeled a 12 MiB, 4032×3024 JPEG and verified it became a
+  smaller 1600×1200 JPEG before the uploader received the change event;
+  `node --check` and `git diff --check` passed. Production rollout pending.
+
 ## 2026-09-16 Browser-local model selector
 
 - Added `portal/webui/model-selector.js`, loaded by the WebUI shell. It fetches
