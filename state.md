@@ -40,7 +40,11 @@
   Model-switch request injection, local persistence, capability-based media
   controls and draft restoration are unchanged. Static DOM-shim test verified
   placement, preserved row label and selection persistence; `node --check` and
-  `git diff --check` passed. Production rollout is pending.
+  `git diff --check` passed. Public code commit
+  `1b85625586c4568cd7dbdd11c7e995c322d4da85` is deployed to Plesk
+  `/opt/computemesh` and both production webroots. Live `/webui/` and
+  selector-JS URLs return 200 and serve the updated code. Hash-matched backup:
+  `/root/computemesh-backups/model-info-picker-20260916/`.
 
 ## 2026-09-16 Hide unsupported media actions
 
