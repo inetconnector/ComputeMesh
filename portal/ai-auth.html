@@ -588,8 +588,16 @@
       if (!el) return;
       if (!msg) { el.style.display = 'none'; return; }
       el.className = 'ai-status-msg ' + (type || 'error');
-      el.textContent = msg;
+      el.textContent = typeof msg === 'string' ? msg : String(msg && (msg.message || msg.detail) || 'Unbekannter Fehler');
       el.style.display = 'block';
+    }
+
+    function getApiErrorMessage(error, fallback) {
+      if (typeof error === 'string' && error.trim()) return error;
+      if (error && typeof error === 'object') {
+        return getApiErrorMessage(error.message || error.detail || error.error, fallback);
+      }
+      return fallback;
     }
 
     function toggleKeyVisibility() {
@@ -708,27 +716,47 @@
     }
 
     // Magic Link
+    var magicLinkPending = false;
     async function handleMagicLink(e) {
       if (e && e.preventDefault) e.preventDefault();
+      if (magicLinkPending) return;
       var email = document.getElementById('input-email-magic').value.trim();
       if (!email) return;
       if (detectAndRedirectKey(email)) return;
       var d = studioI18n[studioLang] || studioI18n.de;
-      showStatus('Sende Login-Link...', 'success');
+      var magicButton = document.getElementById('btn-magic');
+      magicLinkPending = true;
+      if (magicButton) {
+        magicButton.disabled = true;
+        magicButton.setAttribute('aria-busy', 'true');
+      }
+      document.getElementById('lbl-btn-magic').textContent = studioLang === 'de' ? 'Wird gesendet…' : 'Sending…';
+      showStatus(studioLang === 'de' ? 'Login-Link wird angefordert…' : 'Requesting login link…', 'success');
       try {
-        var res = await fetch('/api/auth/magic-link/request', {
+        var controller = new AbortController();
+        var timeout = setTimeout(function() { controller.abort(); }, 20000);
+        var res = await fetch('/api/auth/magic_link/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email })
+          body: JSON.stringify({ email: email }),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
         var data = await res.json();
         if (res.ok) {
           showStatus(d.magic_sent, 'success');
         } else {
-          showStatus(data.error || 'Fehler beim Senden des Magic-Links', 'error');
+          showStatus(getApiErrorMessage(data.error, 'Fehler beim Senden des Magic-Links'), 'error');
         }
       } catch(err) {
-        showStatus('Netzwerkfehler: ' + (err.message || err), 'error');
+        showStatus(err.name === 'AbortError' ? 'Zeitüberschreitung: Bitte prüfe deine Verbindung und versuche es erneut.' : 'Netzwerkfehler: ' + (err.message || err), 'error');
+      } finally {
+        magicLinkPending = false;
+        if (magicButton) {
+          magicButton.disabled = false;
+          magicButton.removeAttribute('aria-busy');
+        }
+        document.getElementById('lbl-btn-magic').textContent = d.btn_magic;
       }
     }
 

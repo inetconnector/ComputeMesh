@@ -6,6 +6,26 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-16 Magic-link login follow-up
+
+- User reported that the secure login-link form showed `[object Object]`, kept
+  appearing to accept clicks, and gave no clear completion feedback. The AI
+  auth page called `/api/auth/magic-link/request`, while the gateway route is
+  `/api/auth/magic_link/request` (underscores).
+- Public source change in `ComputeMesh/portal/ai-auth.html`: corrected the
+  route; normalized structured API errors to readable messages; disabled the
+  submit button during a request, blocked duplicate submissions, restored the
+  localized button label afterward, and added a 20-second timeout message.
+- No login-link request or email was sent during diagnosis or verification.
+- Verification: focused portal auth/mail tests passed **19/19** using the
+  umbrella checkout's `.venv`; Node parsed the inline auth script; `git diff
+  --check` found no whitespace errors. The system Python did not have pytest,
+  so use the project `.venv` for Python tests. User-provided screenshot remains
+  untracked under `.codex-remote-attachments/` and must not be added to Git.
+- At inspection, Plesk `/opt/computemesh` was clean at `796ce7b`; both portal
+  webroots contained matching copies of `ai-auth.html`. Rollout record will be
+  added after the targeted production update and live-page verification.
+
 ## 2026-09-16 AI Studio production repair
 
 - GitHub `origin/main` and the clean Plesk checkout were verified at
