@@ -6,6 +6,21 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-16 Magic-link login fix — deployed
+
+- Commit `532a7d6` fixes the AI Studio secure-login-link flow: frontend route now
+  matches gateway `/api/auth/magic_link/request`; structured errors are rendered
+  as readable text; duplicate clicks are blocked while pending; button state is
+  restored after completion; requests time out after 20 seconds with guidance.
+- Focused auth/mail tests: **19 passed**. Node parsed the inline auth script;
+  `git diff --check` passed. No email request was generated for testing.
+- Public commit was pushed to `origin/main`; Plesk `/opt/computemesh` fast-
+  forwarded to `532a7d6` and is clean. Both `site2/ai-auth.html` and
+  `httpdocs/ai-auth.html` were backed up under
+  `/root/computemesh-backups/magic-link-fix-20260916-110549/` and updated; all
+  three deployed/local SHA-256 values matched. Live `ai.inetconnector.com`
+  returned HTTP 200 and served the corrected route and pending-state logic.
+
 ## 2026-09-16 Magic-link login follow-up
 
 - User reported that the secure login-link form showed `[object Object]`, kept
