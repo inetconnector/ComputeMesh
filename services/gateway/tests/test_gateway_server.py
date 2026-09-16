@@ -211,6 +211,15 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(by_id["qwen/qwen2.5-vl-7b-instruct"]["modalities"], ["text", "vision"])
             self.assertTrue(by_id["qwen/qwen2.5-vl-7b-instruct"]["available"])
 
+    def test_webui_model_list_exposes_boolean_modality_flags(self) -> None:
+        req = urllib.request.Request("http://127.0.0.1:18000/models")
+        with urllib.request.urlopen(req) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode("utf-8"))
+        by_id = {model["id"]: model for model in data["data"]}
+        self.assertEqual(by_id["deepseek-ai/deepseek-r1"]["modalities"], {"vision": False, "audio": False, "video": False})
+        self.assertEqual(by_id["qwen/qwen2.5-vl-7b-instruct"]["modalities"], {"vision": True, "audio": False, "video": False})
+
     def test_native_tools_endpoint_returns_empty_list_when_not_enabled(self) -> None:
         # Native llama.cpp tools are not enabled by this gateway; the WebUI
         # should receive an empty list rather than a misleading 404.

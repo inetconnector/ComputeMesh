@@ -136,6 +136,12 @@ def model_modalities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:
     return tuple(modality for modality in ("text", "vision", "audio", "video") if modality in modalities)
 
 
+def model_modality_flags(model: ModelSpec | RegistryModel) -> dict[str, bool]:
+    """Return the llama.cpp WebUI capability object for a model."""
+    modalities = set(model_modalities(model))
+    return {name: name in modalities for name in ("vision", "audio", "video")}
+
+
 def resolve_model_id(raw_model: str) -> str:
     """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, qwen2.5-vl:7b, llama3.1:8b), or alias to canonical model ID."""
     models = current_models()

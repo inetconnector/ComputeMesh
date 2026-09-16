@@ -79,7 +79,12 @@
 				props.default_generation_settings.model = selectedModel.id;
 				props.model_path = selectedModel.id;
 				props.model_alias = displayName(selectedModel);
-				props.modalities = modalitiesFor(selectedModel);
+				var supportedModalities = modalitiesFor(selectedModel);
+				props.modalities = {
+					vision: supportedModalities.includes('vision'),
+					audio: supportedModalities.includes('audio'),
+					video: supportedModalities.includes('video')
+				};
 				var headers = new Headers(propsResponse.headers);
 				['content-length', 'content-encoding', 'content-md5', 'etag'].forEach(function (name) { headers.delete(name); });
 				return new Response(JSON.stringify(props), {

@@ -14,6 +14,7 @@ from services.gateway.catalog import (
     ModelSpec,
     PriceTier,
     model_modalities,
+    model_modality_flags,
     provider_shares_from_env,
     resolve_model_id,
 )
@@ -40,6 +41,8 @@ class TestCatalogAndPricing(unittest.TestCase):
         self.assertEqual(modalities_by_id["deepseek-ai/deepseek-r1"], ("text",))
         self.assertEqual(modalities_by_id["qwen/qwen2.5-vl-7b-instruct"], ("text", "vision"))
         self.assertEqual(modalities_by_id["llava/llava-1.6-7b"], ("text", "vision"))
+        self.assertEqual(model_modality_flags(AVAILABLE_MODELS[0]), {"vision": False, "audio": False, "video": False})
+        self.assertEqual(model_modality_flags(AVAILABLE_MODELS[7]), {"vision": True, "audio": False, "video": False})
 
     def test_registry_capabilities_are_normalized_for_webui(self) -> None:
         model = RegistryModel(

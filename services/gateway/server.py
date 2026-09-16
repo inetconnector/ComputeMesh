@@ -294,7 +294,7 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import current_models, model_modalities, resolve_model_id
+from services.gateway.catalog import current_models, model_modalities, model_modality_flags, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     _extract_candidate_local_urls,
@@ -1950,7 +1950,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             },
             "total_slots": 1,
             "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n'}}{% endfor %}{% if add_generation_prompt %}{{'<|im_start|>assistant\\n'}}{% endif %}",
-            "modalities": list(model_modalities(models[0])) if models else ["text"],
+            "modalities": model_modality_flags(models[0]) if models else {"vision": False, "audio": False, "video": False},
             "webui_settings": {
                 "theme": "Dark",
                 "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
@@ -1980,6 +1980,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
+        openai_model_list = self.path.partition("?")[0].rstrip("/") in {"/v1/models", "/api/v1/models"}
         models_data = [
             {
                 "id": m.id,
@@ -1989,7 +1990,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "permission": [],
                 "root": m.id,
                 "parent": None,
-                "modalities": list(model_modalities(m)),
+                "modalities": list(model_modalities(m)) if openai_model_list else model_modality_flags(m),
                 "capabilities": list(model_modalities(m)),
                 "availability": getattr(m, "availability", "catalogued"),
                 "available": getattr(m, "available", True),

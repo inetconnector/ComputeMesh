@@ -46,6 +46,20 @@
   selector-JS URLs return 200 and serve the updated code. Hash-matched backup:
   `/root/computemesh-backups/model-info-picker-20260916/`.
 
+## 2026-09-16 Correct WebUI modality contract for uploads
+
+- Root cause of the blank “This model supports” list and rejected image uploads:
+  bundled Llama UI's `buildModalities()` reads `modalities.vision/audio/video`
+  as booleans, but gateway `/props` and `/models` were returning an array. The
+  browser-local `/props` adapter repeated the same schema mismatch.
+- Gateway now emits boolean modality objects on `/props` and the WebUI `/models`
+  route; OpenAI `/v1/models` deliberately remains a string-array contract. The
+  browser adapter also overrides `/props` with the matching boolean object.
+- Verification: targeted gateway/WebUI suite **41 passed + 2 subtests**;
+  Python compile, `node --check`, diff check, and browser shim (vision prop
+  flags plus selected-model request injection) passed. Production rollout
+  pending.
+
 ## 2026-09-16 Hide unsupported media actions
 
 - User reported that the Android photo action was offered for an incompatible

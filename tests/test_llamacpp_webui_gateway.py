@@ -78,7 +78,14 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         self.assertIn("total_slots", data)
         self.assertIn("chat_template", data)
         self.assertIn("webui_settings", data)
-        self.assertEqual(data["modalities"], ["text"])
+        self.assertEqual(data["modalities"], {"vision": False, "audio": False, "video": False})
+
+    def test_get_models_exposes_webui_modality_flags(self):
+        status, data = self._get("/models")
+        self.assertEqual(status, 200)
+        by_id = {model["id"]: model for model in data["data"]}
+        self.assertEqual(by_id["deepseek-ai/deepseek-r1"]["modalities"], {"vision": False, "audio": False, "video": False})
+        self.assertEqual(by_id["qwen/qwen2.5-vl-7b-instruct"]["modalities"], {"vision": True, "audio": False, "video": False})
 
     def test_get_webui_props(self):
         status, data = self._get("/webui/props")
