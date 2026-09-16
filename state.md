@@ -23,8 +23,17 @@
   404 without exposing unrelated MCP tools or implying native tool execution.
   The portal Nginx snippet proxies these endpoints to the gateway.
 - Focused verification: gateway server tests passed **23 tests plus 2
-  subtests**. Node syntax verification and production rollout/browser
-  verification are recorded below only after actually run.
+  subtests**. Node parsed the login inline script; no `currentLang`
+  redeclaration remains. Commit `8a653fd977abfb320fbc800c96c81d2c179fe04d`
+  was pushed to `main`; the clean Plesk source checkout fast-forwarded to it.
+  Gateway restarted active; `/tools` and `/webui/tools` returned HTTP 200 with
+  `[]` locally and publicly. Both live webroots and the active AI vhost received
+  the targeted files after backup; `nginx -t` and reload passed. Post-deploy
+  HTTPS returned 200 for the auth page on AI, mesh and apex domains and for the
+  UI/tools/version/model endpoints. Browser checks proved all four login tabs
+  switch to their matching panes. No forms or prompts were submitted. One old
+  ToolsStore 404 remains in browser log history, timestamped before rollout;
+  none was newly logged after reload.
 
 ## Latest operational change
 
