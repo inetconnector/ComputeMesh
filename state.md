@@ -18,9 +18,14 @@
   `portal/webui/index.html`, using the active slot and CSS classes already used
   by the bundled menu actions. The shell has no frontend source/build project
   in this checkout; do not modify the minified bundle.
-- Local checks: 7 modality-mapping cases passed; enhancement script parsed;
-  `git diff --check` passed. Production rollout and live visual verification
-  remain to be recorded.
+- Checks: 7 modality-mapping cases passed; enhancement script parsed; menu
+  selectors were confirmed in the bundled UI; `git diff --check` passed.
+  Public commit `000c2b0` is pushed, Plesk `/opt/computemesh` is clean at that
+  commit, and both webroots' `webui/index.html` hashes match the tested file.
+  Live GET returned HTTP 200 and included the modality filtering logic.
+- Limitation: `/slots` currently reports DeepSeek R1 only. The UI has no
+  working model switch today, so these actions remain hidden until actual model
+  switching and per-model capability metadata are available.
 
 ## 2026-09-16 Magic-link login fix — deployed
 
