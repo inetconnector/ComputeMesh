@@ -128,39 +128,69 @@
 		select.value = selectedModel ? selectedModel.id : '';
 	}
 
-	function mountPicker() {
-		if (picker && picker.isConnected) return;
-		picker = null;
-		if (!models.length) return;
-		var textarea = document.querySelector('textarea');
-		var form = textarea && textarea.closest('form');
-		if (!form) return;
-
-		picker = document.createElement('div');
-		picker.className = 'cm-model-picker';
-		var label = document.createElement('label');
-		label.htmlFor = 'cm-model-select';
-		label.textContent = 'Modell';
-		var select = document.createElement('select');
-		select.id = 'cm-model-select';
-		select.setAttribute('aria-label', 'Modell für diese Unterhaltung');
-		select.addEventListener('change', function () {
-			selectedModel = models.find(function (model) { return model.id === select.value; }) || null;
-			if (!selectedModel) return;
-			try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
-			try {
-				var draft = document.querySelector('textarea');
-				if (draft && draft.value) sessionStorage.setItem(DRAFT_KEY, draft.value);
-			} catch (_) {}
-			applyCapabilities(selectedModel);
-			window.dispatchEvent(new CustomEvent('cm:model-selection-change', { detail: { model: selectedModel } }));
-			// Reload so the bundled WebUI refreshes its internal modality checks from /props.
-			window.location.reload();
+	function findModelInfoValueCell() {
+		var headings = Array.from(document.querySelectorAll('h1, h2, h3, [role="heading"]'));
+		var title = headings.find(function (node) {
+			return /model information/i.test(node.textContent || '');
 		});
-		picker.append(label, select);
-		form.insertBefore(picker, form.firstChild);
+		if (!title) return null;
+
+		var panel = title;
+		for (var depth = 0; panel && depth < 9; depth++, panel = panel.parentElement) {
+			var text = panel.textContent || '';
+			if (/file path/i.test(text)) break;
+		}
+		if (!panel || !/file path/i.test(panel.textContent || '')) return null;
+
+		var modelLabel = Array.from(panel.querySelectorAll('*')).find(function (node) {
+			return node.children.length === 0 && (node.textContent || '').trim() === 'Model';
+		});
+		if (!modelLabel) return null;
+
+		var branch = modelLabel;
+		for (var level = 0; branch && branch.parentElement && level < 5; level++, branch = branch.parentElement) {
+			var siblings = Array.from(branch.parentElement.children).filter(function (node) {
+				return node !== branch && (node.textContent || '').trim();
+			});
+			if (siblings.length) return siblings[0];
+		}
+		return modelLabel.parentElement;
+	}
+
+	function mountPicker() {
+		if (!models.length) return;
+		var valueCell = findModelInfoValueCell();
+		if (!valueCell) {
+			if (picker && picker.parentElement) picker.remove();
+			return;
+		}
+
+		if (!picker) {
+			picker = document.createElement('div');
+			picker.className = 'cm-model-picker';
+			var select = document.createElement('select');
+			select.id = 'cm-model-select';
+			select.setAttribute('aria-label', 'Model');
+			select.addEventListener('change', function () {
+				selectedModel = models.find(function (model) { return model.id === select.value; }) || null;
+				if (!selectedModel) return;
+				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
+				try {
+					var draft = document.querySelector('textarea');
+					if (draft && draft.value) sessionStorage.setItem(DRAFT_KEY, draft.value);
+				} catch (_) {}
+				applyCapabilities(selectedModel);
+				window.dispatchEvent(new CustomEvent('cm:model-selection-change', { detail: { model: selectedModel } }));
+				// Reload so the bundled WebUI refreshes its internal modality checks from /props.
+				window.location.reload();
+			});
+			picker.append(select);
+		}
+		if (picker.parentElement === valueCell) return;
+		valueCell.replaceChildren(picker);
+		var select = picker.querySelector('select');
 		renderOptions(select);
-		restoreDraft(textarea);
+		restoreDraft(document.querySelector('textarea'));
 	}
 
 	function restoreDraft(textarea) {

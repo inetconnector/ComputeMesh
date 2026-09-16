@@ -33,6 +33,15 @@
   The generated service worker was not rebuilt, so already-installed offline
   clients may require an online refresh to fetch the updated shell.
 
+## 2026-09-16 Model picker in Model Information
+
+- The browser-local model selector now mounts in the existing **Model** row
+  inside the Model Information modal, replacing the composer-level selector.
+  Model-switch request injection, local persistence, capability-based media
+  controls and draft restoration are unchanged. Static DOM-shim test verified
+  placement, preserved row label and selection persistence; `node --check` and
+  `git diff --check` passed. Production rollout is pending.
+
 ## 2026-09-16 Hide unsupported media actions
 
 - User reported that the Android photo action was offered for an incompatible
