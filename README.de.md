@@ -29,7 +29,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Live-Zähler für öffentliche Kapazität, die nur frische authentifizierte Node-Heartbeats zählen;
 - signierte Windows- und Linux-Clients mit Update-Prüfung;
 - ein Gateway, über das KI-Anfragen angenommen werden können;
-- eine Modellauswahl im Bereich **Model Information** in der Zeile **Model**, die pro Browser gespeichert und bei jeder Chat-Anfrage mitgesendet wird; Modellfähigkeiten steuern, ob Foto-/Bild-, Audio- und Videoanhänge angeboten werden. Große Fotos werden vor dem Upload im Browser verkleinert und komprimiert; die Bilddaten bleiben zusammen bei höchstens etwa 5 MiB, damit auch die Base64-Kodierung ins Gateway-Limit passt;
+- eine Modellauswahl im Bereich **Model Information** in der Zeile **Model**, die pro Browser gespeichert und bei jeder Chat-Anfrage mitgesendet wird; Modellfähigkeiten steuern, ob Foto-/Bild-, Audio- und Videoanhänge angeboten werden. Bis zu fünf große Fotos werden im Browser verkleinert und komprimiert; die Größe des vollständigen serialisierten Requests wird dynamisch geprüft und Bilder werden bei Bedarf weiter komprimiert, damit Prompt, Verlauf und Anhänge innerhalb des Gateway-Limits bleiben;
 - eine Provider-App, mit der ein Rechner seine verfügbare Leistung melden kann;
 - erste echte Zwei-Rechner-Experimente mit llama.cpp;
 - Messungen für Rechnerleistung, Netzwerkverbindung und Ausführung;

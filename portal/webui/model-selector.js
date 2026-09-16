@@ -10,6 +10,8 @@
 	// Image bytes become base64 in the chat JSON; keep their combined binary size
 	// near 5 MiB to leave room for base64 expansion and the rest of the request.
 	var uploadLimitBytes = 5 * 1024 * 1024;
+	var maxChatRequestBytes = 9 * 1024 * 1024;
+	var gatewayRequestLimitBytes = 10 * 1024 * 1024;
 	var maxImageEdge = 1600;
 	var replayingFileInputs = new WeakSet();
 	try {
@@ -62,16 +64,77 @@
 		}
 	}
 
-	function withSelectedModel(bodyText) {
+	function findImageDataUrls(value, found) {
+		if (!value || typeof value !== 'object') return;
+		Object.keys(value).forEach(function (key) {
+			if (typeof value[key] === 'string' && /^data:image\//i.test(value[key])) {
+				found.push({ parent: value, key: key, value: value[key] });
+			} else {
+				findImageDataUrls(value[key], found);
+			}
+		});
+	}
+
+	async function dataUrlToFile(dataUrl, index) {
+		var response = await originalFetch(dataUrl);
+		var blob = await response.blob();
+		var type = blob.type || 'image/jpeg';
+		var extension = type === 'image/png' ? '.png' : '.jpg';
+		return new File([blob], 'chat-image-' + index + extension, { type: type });
+	}
+
+	function fileToDataUrl(file) {
+		return new Promise(function (resolve, reject) {
+			var reader = new FileReader();
+			reader.onload = function () { resolve(String(reader.result || '')); };
+			reader.onerror = function () { reject(reader.error || new Error('Unable to read optimized image')); };
+			reader.readAsDataURL(file);
+		});
+	}
+
+	async function fitChatBody(body) {
+		var serialized = JSON.stringify(body);
+		if (new Blob([serialized]).size <= maxChatRequestBytes) return serialized;
+
+		var imageRefs = [];
+		findImageDataUrls(body, imageRefs);
+		if (!imageRefs.length) return serialized;
+
+		var encodedImagesSize = imageRefs.reduce(function (total, ref) { return total + ref.value.length; }, 0);
+		var nonImageSize = new Blob([serialized]).size - encodedImagesSize;
+		if (nonImageSize >= gatewayRequestLimitBytes) {
+			throw new Error('The message and conversation history alone exceed the gateway size limit. Shorten the prompt or remove older messages.');
+		}
+		if (new Blob([serialized]).size <= gatewayRequestLimitBytes && nonImageSize >= maxChatRequestBytes) return serialized;
+		var availableEncodedSize = maxChatRequestBytes - nonImageSize - imageRefs.length * 128;
+		var perImageBudget = Math.floor(Math.max(0, availableEncodedSize) * 0.74 / imageRefs.length);
+		for (var attempt = 0; attempt < 5; attempt++) {
+			if (perImageBudget < 32768) break;
+			for (var index = 0; index < imageRefs.length; index++) {
+				var ref = imageRefs[index];
+				var sourceFile = await dataUrlToFile(ref.value, index);
+				var optimized = await optimizeImageFile(sourceFile, perImageBudget);
+				ref.parent[ref.key] = await fileToDataUrl(optimized);
+			}
+			serialized = JSON.stringify(body);
+			if (new Blob([serialized]).size <= maxChatRequestBytes) return serialized;
+			perImageBudget = Math.floor(perImageBudget * 0.72);
+		}
+		if (new Blob([serialized]).size <= gatewayRequestLimitBytes) return serialized;
+		throw new Error('The images could not be reduced enough for this request. Remove an image or use a smaller photo.');
+	}
+
+	async function withSelectedModel(bodyText) {
 		if (!selectedModel || !bodyText) return null;
+		var body;
 		try {
-			var body = JSON.parse(bodyText);
-			if (!body || typeof body !== 'object' || (!Array.isArray(body.messages) && typeof body.prompt !== 'string')) return null;
-			body.model = selectedModel.id;
-			return JSON.stringify(body);
+			body = JSON.parse(bodyText);
 		} catch (_) {
 			return null;
 		}
+		if (!body || typeof body !== 'object' || (!Array.isArray(body.messages) && typeof body.prompt !== 'string')) return null;
+		body.model = selectedModel.id;
+		return await fitChatBody(body);
 	}
 
 	window.fetch = async function (input, init) {
@@ -104,7 +167,7 @@
 		if (!isCompletionUrl(input)) return originalFetch(input, init);
 
 		if (init && typeof init.body === 'string') {
-			var rewrittenBody = withSelectedModel(init.body);
+			var rewrittenBody = await withSelectedModel(init.body);
 			if (rewrittenBody) init = Object.assign({}, init, { body: rewrittenBody });
 			return originalFetch(input, init);
 		}
@@ -112,7 +175,7 @@
 		if (input instanceof Request) {
 			var cloned = input.clone();
 			var requestBody = await cloned.text();
-			var rewritten = withSelectedModel(requestBody);
+			var rewritten = await withSelectedModel(requestBody);
 			if (rewritten) {
 				var headers = new Headers(input.headers);
 				headers.delete('content-length');

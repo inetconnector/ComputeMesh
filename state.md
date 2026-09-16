@@ -17,7 +17,26 @@
   optimized FileList is redispatched to the bundled WebUI uploader.
 - Browser shim modeled a 12 MiB, 4032×3024 JPEG and verified it became a
   smaller 1600×1200 JPEG before the uploader received the change event;
-  `node --check` and `git diff --check` passed. Production rollout pending.
+  a two-photo shim also verified optimized files reach the uploader;
+  `node --check` and `git diff --check` passed. Public commit
+  `046a544c22b87494b7a7e907852af4fd7d19cf73` is deployed to both Plesk
+  webroots; the live WebUI and selector JS return 200 and the served JS contains
+  the optimizer. SHA-256 matches in both webroots. Backup:
+  `/root/computemesh-backups/photo-upload-resize-20260916/`.
+
+## 2026-09-16 Dynamic multi-image request sizing
+
+- Extended the browser adapter to measure the actual serialized completion JSON
+  (messages/history, prompt, model and attachments) before sending it. When
+  images push it above a 9 MiB working target, all embedded image data URLs are
+  adaptively recompressed and the full JSON size is remeasured; up to five
+  images remain attached. Requests that fit the 10 MiB gateway cap are allowed,
+  and an image request that still exceeds it is stopped in the browser rather
+  than sent to fail at the gateway. Text-only requests retain existing behavior.
+- Node browser shim exercised the real fetch wrapper with five large embedded
+  image data URLs: all five remained present and the resulting JSON body was
+  667,070 bytes. `node --check` and `git diff --check` passed. Production rollout
+  is pending.
 
 ## 2026-09-16 Browser-local model selector
 
