@@ -57,8 +57,12 @@
   browser adapter also overrides `/props` with the matching boolean object.
 - Verification: targeted gateway/WebUI suite **41 passed + 2 subtests**;
   Python compile, `node --check`, diff check, and browser shim (vision prop
-  flags plus selected-model request injection) passed. Production rollout
-  pending.
+  flags plus selected-model request injection) passed. Public fix commit
+  `241d78f06a90e2d523f18055db30ae297d929a70` is deployed; gateway service is
+  active. Live `/models` confirms Qwen VL `vision:true`; `/v1/models` retains
+  `text,vision` array metadata and `/props` returns boolean flags for the
+  default model. Both webroot selector scripts match the tested hash.
+  Backup: `/root/computemesh-backups/vision-modalities-fix-20260916/`.
 
 ## 2026-09-16 Hide unsupported media actions
 
