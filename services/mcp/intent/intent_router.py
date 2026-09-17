@@ -17,15 +17,36 @@ def is_compound_multi_step_query(text: str) -> bool:
     lower = text.lower().strip()
     # Exclude pure presentation / formatting phrases like "und zeige es in einer tabelle", "und zeige die besten angebote in einer tabelle", etc.
     if re.search(r"\bund\s+zeige\b.*?\b(?:in|als)?\s*(?:einer?\s+)?tabelle\b", lower):
-        return False
+        stripped_table = re.sub(r"\bund\s+zeige\b.*?\b(?:in|als)?\s*(?:einer?\s+)?tabelle\b", "", lower).strip()
+        if not any(re.search(pat, stripped_table) for pat in [
+            r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem|and|plus)\s+(?:was|wie|wo|welch\w*|wann|warum|wer|erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe|schau|hol\w*|find\w*|sag\w*|gib|berichte)\b",
+            r"\b(?:und|sowie|and)\s+(?:nachricht\w*|news|schlagzeil\w*|tagesschau|wetter|temperatur|kurs\w*|aktie\w*|krypto\w*|bitcoin|btc\b|eth\b|sol\b|uhrzeit|zeit\b)\b",
+        ]):
+            return False
+
     if re.search(r"\bund\s+(?:bereite|fasse|stelle)\b.*?\b(?:in|als|zu)?\s*(?:einer?\s+)?tabelle\b", lower):
-        return False
+        stripped_table = re.sub(r"\bund\s+(?:bereite|fasse|stelle)\b.*?\b(?:in|als|zu)?\s*(?:einer?\s+)?tabelle\b", "", lower).strip()
+        if not any(re.search(pat, stripped_table) for pat in [
+            r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem|and|plus)\s+(?:was|wie|wo|welch\w*|wann|warum|wer|erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe|schau|hol\w*|find\w*|sag\w*|gib|berichte)\b",
+            r"\b(?:und|sowie|and)\s+(?:nachricht\w*|news|schlagzeil\w*|tagesschau|wetter|temperatur|kurs\w*|aktie\w*|krypto\w*|bitcoin|btc\b|eth\b|sol\b|uhrzeit|zeit\b)\b",
+        ]):
+            return False
 
     compound_patterns = [
-        r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe)\b",
-        r"\b(?:and|and\s+then|then|afterwards|also)\s+(?:create|generate|draw|paint|calculate|search|summarize|plot|show|analyze|check)\b",
-        r"\b(?:based\s+on|from\s+the)\s+(?:quotes|weather|data)\b",
+        # Conjunction + Action Verb
+        r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem|plus)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe|schau|hol\w*|find\w*|sag\w*|gib|berichte|lies|starte)\b",
+        r"\b(?:and|and\s+then|then|afterwards|also|plus)\s+(?:create|generate|draw|paint|calculate|search|summarize|plot|show|analyze|check|look|get|fetch|tell|give|read|start)\b",
+        # Conjunction + Question Word / Clause (e.g. "und was in den nachrichten so läuft", "und wie steht apple", "und welche news gibt es")
+        r"\b(?:und|sowie|außerdem|and|also)\s+(?:was|wie|wo|welch\w*|wann|warum|wer|wen|wessen|what|how|where|which|when|who)\b",
+        # Conjunction + Domain Topic Keyword (e.g. "sowie nachrichten", "und live news", "und der bitcoin kurs", "und das wetter in hamburg")
+        r"\b(?:und|sowie|außerdem|and|also)\s+(?:die\s+|das\s+|der\s+|den\s+|ein\s+|eine\s+|aktuelle\s+|neue\s+)?(?:nachricht\w*|news|schlagzeil\w*|tagesschau|breaking\s+news|wetter\w*|temperatur\w*|klima|aktie\w*|aktienkurs\w*|kurs\w*|krypto\w*|crypto|bitcoin|btc\b|eth\b|sol\b|uhrzeit\w*|zeit\s+in|feiertag\w*|bip\b|inflation|fakten\s+über|preisvergleich|preise)\b",
+        # Dependent multi-step data chaining
+        r"\b(?:based\s+on|from\s+the|basierend\s+auf|anhand\s+der|aus\s+den)\s+(?:quotes|weather|data|daten|nachrichten|news|ergebnissen)\b",
         r"\b(?:recherchier\w*|such\w*|find\w*)\b.*\b(?:und|dann|anschließend|and)\b.*\b(?:erstell\w*|generier\w*|zeichn\w*|mal\w*|plot\w*|berechn\w*)\b",
+        # Multi-domain combinations in the same prompt (e.g. Weather + News, Weather + Stocks, News + Image)
+        r"\b(?:wetter|temperatur)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:nachricht\w*|news|schlagzeil\w*|aktie\w*|kurs\w*|bitcoin|krypto|uhrzeit|bild|foto)\b",
+        r"\b(?:nachricht\w*|news|schlagzeil\w*)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:wetter|temperatur|aktie\w*|kurs\w*|bitcoin|krypto|uhrzeit|bild|foto)\b",
+        r"\b(?:aktie\w*|kurs\w*|bitcoin|krypto)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:wetter|temperatur|nachricht\w*|news|uhrzeit|bild|foto)\b",
     ]
     for pat in compound_patterns:
         if re.search(pat, lower):
@@ -446,6 +467,8 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     )
     if m_world_time:
         loc_target = m_world_time.group(1).strip().rstrip("?.!")
+        # Stop at conjunctions if followed by another clause
+        loc_target = re.split(r"\s+(?:und|sowie|and)\s+(?:was|wie|wo|welch\w*|wann|nachricht|news|aktie|kurs|bitcoin)", loc_target, flags=re.IGNORECASE)[0].strip()
         if len(loc_target) >= 2:
             return ("get_current_time_calendar", {"city": loc_target})
 
@@ -459,12 +482,19 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         loc = m_weather.group(1).strip()
         loc = re.sub(r"^(?:den|dem|der|die|das|in|für|fuer|von|bei)\s+", "", loc, flags=re.IGNORECASE).strip()
         loc = re.sub(r"\s+(?:wird|ist|heute|morgen|aktuell)$", "", loc, flags=re.IGNORECASE).strip()
+        # Clean boundary if followed by trailing conjunction clause
+        loc = re.split(r"\s+(?:und|sowie|and)\s+(?:was|wie|wo|welch\w*|wann|warum|wer|nachricht|news|schlagzeil|aktie|kurs|bitcoin|krypto|uhrzeit|bild)", loc, flags=re.IGNORECASE)[0].strip()
+        if loc.lower() in ("mir", "uns", "hier", "mich", "bei mir", "fuer mich", "für mich"):
+            loc = "Veitshöchheim"
         if loc and len(loc) >= 2:
             return ("get_current_weather", {"location": loc})
 
     m_city = re.search(r"(?:wetter|weather|temperatur|regen|sonnig|klima).+?(?:in|für|fuer|bei|nach)\s+([a-zA-ZäöüÄÖÜß\-,\+&\s]+)", cleaned, re.IGNORECASE)
     if m_city:
         loc = m_city.group(1).strip().rstrip("?.!")
+        loc = re.split(r"\s+(?:und|sowie|and)\s+(?:was|wie|wo|welch\w*|wann|warum|wer|nachricht|news|schlagzeil|aktie|kurs|bitcoin|krypto|uhrzeit|bild)", loc, flags=re.IGNORECASE)[0].strip()
+        if loc.lower() in ("mir", "uns", "hier", "mich", "bei mir", "fuer mich", "für mich"):
+            loc = "Veitshöchheim"
         if loc and len(loc) >= 2 and loc.lower() not in {"heute", "morgen", "deutschland", "bayern", "wird", "ist"}:
             return ("get_current_weather", {"location": loc})
 

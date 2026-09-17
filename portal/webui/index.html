@@ -126,64 +126,13 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-750x1334.png">
 		<style>
 			html {
-				height: 100% !important;
-				min-height: 100% !important;
-				width: 100% !important;
-				margin: 0 !important;
-				padding: 0 !important;
-				overflow-x: hidden !important;
-				overflow-y: auto !important;
 				background-color: #0b0f19 !important;
 				-webkit-tap-highlight-color: transparent !important;
 				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 			}
 
 			body {
-				min-height: 100% !important;
-				height: auto !important;
-				width: 100% !important;
-				margin: 0 !important;
-				padding: 0 !important;
-				overflow-x: hidden !important;
-				overflow-y: auto !important;
-				-webkit-overflow-scrolling: touch !important;
-				touch-action: pan-y !important;
 				background-color: #0b0f19 !important;
-			}
-
-			body > div {
-				min-height: 100% !important;
-				height: auto !important;
-				display: flex !important;
-				flex-direction: column !important;
-			}
-
-			.chat-screen {
-				min-height: auto !important;
-				padding-top: 16px !important;
-				padding-bottom: 140px !important;
-				display: flex !important;
-				flex-direction: column !important;
-			}
-
-			.chat-message-assistant, .chat-message {
-				display: block !important;
-				visibility: visible !important;
-				opacity: 1 !important;
-				margin-top: 12px !important;
-			}
-
-			.chat-message-user {
-				display: flex !important;
-				flex-direction: column !important;
-				align-items: flex-end !important;
-				justify-content: flex-end !important;
-				width: 100% !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
-				visibility: visible !important;
-				opacity: 1 !important;
-				margin-top: 12px !important;
 			}
 
 			/* Compact, elegant image display in chat */
@@ -298,13 +247,8 @@
 			button,
 			[role="button"],
 			[data-slot="button"],
-			.chat-screen button,
-			.chat-message button,
-			.chat-message-assistant button,
-			.chat-message-user button,
 			button[aria-label],
 			button[data-state],
-			button:has(svg),
 			.pointer-events-auto,
 			.pointer-events-auto button {
 				pointer-events: auto !important;
@@ -317,105 +261,85 @@
 				pointer-events: none !important;
 			}
 
-			/* Sidebar / Chat History Drawer */
-			aside:not(.is-expanded) {
-				pointer-events: none !important;
-				width: 0 !important;
-				min-width: 0 !important;
-				max-width: 0 !important;
-				height: 0 !important;
-				min-height: 0 !important;
-				max-height: 0 !important;
-				overflow: hidden !important;
-				border: none !important;
-				box-shadow: none !important;
-				background: transparent !important;
-				visibility: hidden !important;
-			}
+			/* Mobile Drawer - strictly scoped to small mobile screens */
+			@media (max-width: 768px) {
+				aside.is-expanded {
+					position: fixed !important;
+					top: 0 !important;
+					left: 0 !important;
+					bottom: 0 !important;
+					width: 85vw !important;
+					max-width: 320px !important;
+					height: 100vh !important;
+					height: 100% !important;
+					background: rgba(15, 23, 42, 0.98) !important;
+					backdrop-filter: blur(24px) !important;
+					-webkit-backdrop-filter: blur(24px) !important;
+					border-right: 1.5px solid rgba(56, 189, 248, 0.3) !important;
+					box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85) !important;
+					z-index: 99990 !important;
+					display: flex !important;
+					flex-direction: column !important;
+					padding: 16px 12px !important;
+					border-radius: 0 24px 24px 0 !important;
+					visibility: visible !important;
+					pointer-events: auto !important;
+				}
 
-			aside:not(.is-expanded) * {
-				pointer-events: none !important;
-				display: none !important;
-				visibility: hidden !important;
-			}
+				aside.is-expanded * {
+					visibility: visible !important;
+				}
 
-			/* ONLY when explicitly expanded does the drawer show up */
-			aside.is-expanded {
-				position: fixed !important;
-				top: 0 !important;
-				left: 0 !important;
-				bottom: 0 !important;
-				width: 85vw !important;
-				max-width: 320px !important;
-				height: 100vh !important;
-				height: 100% !important;
-				background: rgba(15, 23, 42, 0.98) !important;
-				backdrop-filter: blur(24px) !important;
-				-webkit-backdrop-filter: blur(24px) !important;
-				border-right: 1.5px solid rgba(56, 189, 248, 0.3) !important;
-				box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85) !important;
-				z-index: 99990 !important;
-				display: flex !important;
-				flex-direction: column !important;
-				padding: 16px 12px !important;
-				border-radius: 0 24px 24px 0 !important;
-				visibility: visible !important;
-				pointer-events: auto !important;
-			}
+				aside.is-expanded div {
+					display: flex !important;
+					opacity: 1 !important;
+					pointer-events: auto !important;
+				}
 
-			aside.is-expanded * {
-				visibility: visible !important;
-			}
+				aside.is-expanded button,
+				aside.is-expanded a,
+				aside.is-expanded [role="button"],
+				aside.is-expanded li {
+					display: flex !important;
+					opacity: 1 !important;
+					pointer-events: auto !important;
+					touch-action: manipulation !important;
+					cursor: pointer !important;
+				}
 
-			aside.is-expanded div {
-				display: flex !important;
-				opacity: 1 !important;
-				pointer-events: auto !important;
-			}
+				aside.is-expanded .overflow-y-auto {
+					height: auto !important;
+					flex: 1 1 0% !important;
+					display: flex !important;
+					flex-direction: column !important;
+					overflow-y: auto !important;
+				}
 
-			aside.is-expanded button,
-			aside.is-expanded a,
-			aside.is-expanded [role="button"],
-			aside.is-expanded li {
-				display: flex !important;
-				opacity: 1 !important;
-				pointer-events: auto !important;
-				touch-action: manipulation !important;
-				cursor: pointer !important;
-			}
+				aside.is-expanded [class*="opacity-0"] {
+					opacity: 1 !important;
+					height: auto !important;
+				}
 
-			aside.is-expanded .overflow-y-auto {
-				height: auto !important;
-				flex: 1 1 0% !important;
-				display: flex !important;
-				flex-direction: column !important;
-				overflow-y: auto !important;
-			}
+				aside.is-expanded [class*="!h-0"],
+				aside.is-expanded [class*="h-0!"] {
+					height: auto !important;
+				}
 
-			aside.is-expanded [class*="opacity-0"] {
-				opacity: 1 !important;
-				height: auto !important;
-			}
-
-			aside.is-expanded [class*="!h-0"],
-			aside.is-expanded [class*="h-0!"] {
-				height: auto !important;
-			}
-
-			.cm-sidebar-backdrop {
-				position: fixed !important;
-				inset: 0 !important;
-				background: rgba(0, 0, 0, 0.65) !important;
-				backdrop-filter: blur(4px) !important;
-				-webkit-backdrop-filter: blur(4px) !important;
-				z-index: 99980 !important;
-				cursor: pointer !important;
-				display: none !important;
-				pointer-events: none !important;
-			}
-			.cm-sidebar-backdrop.is-active {
-				display: block !important;
-				pointer-events: auto !important;
+				.cm-sidebar-backdrop {
+					position: fixed !important;
+					inset: 0 !important;
+					background: rgba(0, 0, 0, 0.65) !important;
+					backdrop-filter: blur(4px) !important;
+					-webkit-backdrop-filter: blur(4px) !important;
+					z-index: 99980 !important;
+					cursor: pointer !important;
+					display: none !important;
+					pointer-events: none !important;
+				}
+				.cm-sidebar-backdrop.is-active {
+					display: block !important;
+					pointer-events: auto !important;
+				}
 			}
 
 			/* Backdrop Overlay for modal dialogs */
@@ -1051,44 +975,6 @@
 				color: #f8fafc;
 				font: inherit;
 				font-size: 0.88rem;
-			}
-
-			.chat-message-user-bubble,
-			[data-slot="card"].chat-message-user-bubble {
-				align-self: flex-end !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
-				max-width: 82% !important;
-				background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
-				color: #ffffff !important;
-				border-radius: 18px 18px 4px 18px !important;
-				padding: 10px 16px !important;
-				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
-				text-align: left !important;
-			}
-
-			.chat-message-user > div:not(.chat-message-user-bubble),
-			.chat-message-user .pointer-events-auto,
-			.chat-message-user [data-slot="button"] {
-				align-self: flex-end !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
-			}
-
-			.chat-message-assistant {
-				display: block !important;
-				align-self: flex-start !important;
-				margin-right: auto !important;
-				margin-left: 0 !important;
-				width: 100% !important;
-				max-width: 96% !important;
-				background: rgba(15, 23, 42, 0.85) !important;
-				border: 1px solid rgba(56, 189, 248, 0.25) !important;
-				color: #f8fafc !important;
-				border-radius: 4px 18px 18px 18px !important;
-				padding: 14px 16px !important;
-				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 			}
 
 		</style>

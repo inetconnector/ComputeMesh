@@ -500,8 +500,14 @@ class LocalChatServer(
             }
         }
 
+        // Check if query is compound multi-step (should be handled by gateway agent loop)
+        val isCompoundQuery = lastUserText.isNotBlank() && (
+            Regex("""(?i)\b(?:und|sowie|and|dann|plus)\s+(?:was|wie|wo|welch|nachricht|news|schlagzeil|tagesschau|wetter|temperatur|kurs|aktie|krypto|bitcoin|btc|eth|sol|uhrzeit|zeit|bild|foto|suche)\b""").containsMatchIn(lastUserText) ||
+            Regex("""(?i)\b(?:wetter|temperatur)\b.*\b(?:und|sowie|and|plus)\b.*\b(?:nachricht|news|schlagzeil|aktie|kurs|bitcoin|krypto|uhrzeit)\b""").containsMatchIn(lastUserText)
+        )
+
         // Real-Time Live News Intent Intercept (Typo-Tolerant, Tagesschau / Spiegel / Heise RSS)
-        val isNewsIntent = lastUserText.isNotBlank() && (
+        val isNewsIntent = !isCompoundQuery && lastUserText.isNotBlank() && (
             Regex("""(?i)(?:was\s+(?:gibt'?s?|gibts|bits?|bit'?s?|geht|gehts|is|ist|steht)(?:\s+es)?\s+neu(?:es)?|aktuelle\s+(?:nachrichten|news|schlagzeilen|meldungen|berichte)|nachrichten\s+(?:von\s+|aus\s+|in\s+|für\s+|fuer\s+|jn\s+)?(?:den\s+)?(?:nachrichten|heute|aktuell)|news\s+(?:von\s+|aus\s+|in\s+|für\s+|fuer\s+)?heute|schlagzeilen(?:\s+von)?\s+heute|top\s+news|breaking\s+news|what'?s\s+new(?:\s+in\s+the\s+news)?|latest\s+news)""").containsMatchIn(lastUserText) ||
             (lastUserText.contains("nachricht", ignoreCase = true) && listOf("neu", "aktuell", "heute", "was", "gibt", "bit", "schlagzeil", "world", "deutschland", "jn", "in", "top").any { lastUserText.contains(it, ignoreCase = true) }) ||
             listOf("tagesschau", "spiegel online", "spiegel", "heise", "zeit online", "faz.net", "schlagzeilen").any { lastUserText.contains(it, ignoreCase = true) }
@@ -512,7 +518,7 @@ class LocalChatServer(
         }
 
         // Real-Time Live Weather Intent Intercept (Open-Meteo API)
-        val isWeatherIntent = lastUserText.isNotBlank() && (
+        val isWeatherIntent = !isCompoundQuery && lastUserText.isNotBlank() && (
             Regex("""(?i)(?:wie\s+(?:ist|wird)\s+das\s+wetter|wetter\s+in|wetter\s+für|wetter\s+fuer|wetter\s+heute|wetter\s+morgen|temperatur\s+in|regnet\s+es|wetterbericht|weather\s+in|weather\s+today|\bwetter\b)""").containsMatchIn(lastUserText)
         )
         if (isWeatherIntent) {

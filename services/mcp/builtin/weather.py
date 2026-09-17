@@ -47,38 +47,62 @@ WMO_WEATHER_CODES = {
 }
 
 
+NON_LOCATION_WORDS = {
+    "in", "für", "fuer", "von", "bei", "im", "am", "heute", "morgen",
+    "aktuell", "wird", "ist", "sein", "das", "der", "die", "den", "dem",
+    "ein", "eine", "einen", "wetter", "temperature", "temperatur", "regnet",
+    "es", "mir", "uns", "bitte", "mal", "wie", "kannst", "du", "sagen",
+    "mich", "dir", "ihm", "ihr", "ihnen", "hier", "dort", "da", "so",
+    "läuft", "laeuft", "nachrichten", "news", "schlagzeilen", "was",
+    "wo", "wann", "warum", "wer", "ort", "stadt", "land", "überall"
+}
+
+DEFAULT_LOCATION = "Veitshöchheim"
+
+
 def _extract_candidates(location_name: str) -> list[str]:
     raw = location_name.strip()
-    stop_words = {
-        "in", "für", "fuer", "von", "bei", "im", "am", "heute", "morgen",
-        "aktuell", "wird", "ist", "sein", "das", "der", "die", "den", "dem",
-        "ein", "eine", "einen", "wetter", "temperature", "temperatur", "regnet",
-        "es", "mir", "uns", "bitte", "mal", "wie", "kannst", "du", "sagen"
-    }
-    words = [w.strip(",.!?\"'") for w in raw.split() if w.strip(",.!?\"'").lower() not in stop_words and len(w.strip(",.!?\"'")) > 0]
+    if not raw:
+        return [DEFAULT_LOCATION]
+
+    words = [w.strip(",.!?\"'") for w in raw.split() if w.strip(",.!?\"'").lower() not in NON_LOCATION_WORDS and len(w.strip(",.!?\"'")) > 0]
     cleaned = " ".join(words).strip()
+
+    # If the query is specifically asking for user location (e.g. "mir", "bei mir", "hier")
+    if not words and any(w in raw.lower().split() for w in ("mir", "hier", "uns", "mich")):
+        return [DEFAULT_LOCATION]
+    
+    if not words:
+        return []
+
     candidates: list[str] = []
     if cleaned and cleaned.lower() != raw.lower():
         candidates.append(cleaned)
     if words:
         candidates.append(words[0])
-    if raw:
+    if raw and raw.lower() not in NON_LOCATION_WORDS:
         candidates.append(raw)
     
     seen = set()
     deduped = []
     for c in candidates:
-        if c.lower() not in seen:
+        if c.lower() not in seen and c.lower() not in NON_LOCATION_WORDS and len(c) >= 2:
             seen.add(c.lower())
             deduped.append(c)
-    return deduped or [raw or "Veitshöchheim"]
+    return deduped
 
 
 def geocode_location(location_name: str, timeout: float = 6.0) -> Optional[Dict[str, Any]]:
     """Resolves city/place name to coordinates using Open-Meteo Geocoding API with multi-candidate fallback."""
     candidates = _extract_candidates(location_name)
+    if not candidates:
+        return None
+
     for cand in candidates:
-        encoded = urllib.parse.quote(cand.strip())
+        cand_clean = cand.strip()
+        if len(cand_clean) < 2 or cand_clean.lower() in NON_LOCATION_WORDS:
+            continue
+        encoded = urllib.parse.quote(cand_clean)
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={encoded}&count=1&language=de&format=json"
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
         try:
@@ -87,8 +111,9 @@ def geocode_location(location_name: str, timeout: float = 6.0) -> Optional[Dict[
             results = data.get("results")
             if results and len(results) > 0:
                 top = results[0]
+                top_name = str(top.get("name", "")).strip()
                 return {
-                    "name": top.get("name"),
+                    "name": top_name or cand_clean,
                     "latitude": top.get("latitude"),
                     "longitude": top.get("longitude"),
                     "country": top.get("country", ""),
@@ -187,16 +212,18 @@ def get_current_weather(
             target = c.strip()
             break
 
-    if not target:
-        target = "Veitshöchheim"
+    if not target or target.lower().strip() in ("mir", "uns", "hier", "mich", "bei mir", "fuer mich", "für mich") or all(w.lower() in NON_LOCATION_WORDS for w in target.split()):
+        target = DEFAULT_LOCATION
 
     # Multi-location detection (e.g. "Berlin, München und Hamburg", "in Berlin und in Hamburg")
     raw_parts = [p.strip().rstrip("?.!") for p in re.split(r'\s+(?:und|and|&|\+|,|sowie)\s+|,\s*', target, flags=re.IGNORECASE) if p.strip()]
     cleaned_locs = []
     for p in raw_parts:
         clean_p = re.sub(r'^(?:in|für|fuer|von|bei|im|am|die\s+stadt|stadt)\s+', '', p, flags=re.IGNORECASE).strip()
-        if clean_p and len(clean_p) >= 2:
-            cleaned_locs.append(clean_p)
+        if clean_p and len(clean_p) >= 2 and clean_p.lower() not in NON_LOCATION_WORDS:
+            cands = _extract_candidates(clean_p)
+            if cands and cands[0] not in cleaned_locs:
+                cleaned_locs.append(cands[0])
 
     if len(cleaned_locs) > 1:
         locations_data = []
