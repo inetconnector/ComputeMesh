@@ -1,24 +1,24 @@
 ---
 document_type: PROJECT_STATE
 state_schema_version: "1.0"
-project_state_version: 3
+project_state_version: 4
 project_id: "PRJ-20260917-AGENTS-PLATFORM"
 project_name: "ComputeMesh Agents Platform"
-status: VALIDATING_PRIVATE_PIN
+status: FINAL_PUBLIC_STATE_VALIDATION
 created_at: "2026-09-17T11:47:00+02:00"
-updated_at: "2026-09-17T14:02:00+02:00"
+updated_at: "2026-09-17T15:00:00+02:00"
 state_owner: "ComputeMesh"
 primary_goal: "Introduce a production-oriented agent platform without replacing existing MCP, memory, security or control-plane subsystems."
-integrity_status: PUBLIC_VALIDATED
+integrity_status: REVIEW2_VALIDATED
 ---
 
 # Executive state snapshot
 
-The public ComputeMesh `AgentsPlatform` branch contains the generic agent-runtime layer required by the implementation plan: persistent skill registry, automatic hybrid skill router, capability/side-effect tool policy, hierarchical `AGENTS.md` resolution, resumable DAG/workflow execution, versioned project state, structured scoped memory, audit/observability hooks, feature-gated integration around the existing MCP `AgentLoop`, routing evaluation and staged rollback documentation.
+The public ComputeMesh `AgentsPlatform` branch now contains the generic agent-runtime layer required by the implementation plan and the second security/architecture review: persistent skill registry, automatic hybrid skill router, capability/side-effect tool policy, hierarchical `AGENTS.md` resolution, resumable leased DAG/workflow execution, versioned project state, structured scoped memory, audit/observability hooks, feature-gated integration around the existing MCP `AgentLoop`, routing evaluation, staged rollback documentation and permanent review-2 security regression tests.
 
-The private `ComputeMesh-ControlPlane/AgentsPlatform` branch contains only private policy/rollout adapters and preserves the public/private responsibility boundary. Existing MCP execution, owner authorization and emergency killswitch behavior remain authoritative.
+The private `ComputeMesh-ControlPlane/AgentsPlatform` branch contains private policy/rollout adapters only and preserves the public/private responsibility boundary. Private policy decisions are request-, principal- and fleet-bound before the public runtime receives a minimized envelope. Existing MCP owner authorization and emergency killswitch behavior remain authoritative.
 
-The former public release blocker caused by third-party Google Fonts in `portal/ai-auth.html` has been removed without weakening the Portal security test. Public Agents Platform CI run `35218556118` on commit `cdc61dd4fbd990cb24ac832ba78d7a059710fe0c` passed all component gates and the complete ComputeMesh regression. This state/documentation revision must itself be validated before becoming the exact public pin for the private ControlPlane.
+Review 2 closed the principal execution-path gaps identified after the first implementation pass: active requests now traverse routing and persistent DAG execution; skill instructions and memory data are separated by authority; memory remains untrusted data; tool grants are bound to request, tool and argument hash; egress secrets fail closed; non-idempotent writes are never blindly retried; workflow nodes use cross-process leases; memory supersession/deletion/derivation is scope-safe; project-state writes use locking/CAS; manifest schemas fail closed; runtime policy reaches the existing fleet-scoped killswitch key; and a killswitch-check failure blocks execution instead of silently continuing.
 
 ## Scope
 
@@ -28,16 +28,17 @@ Private ControlPlane owns fleet/model/commercial/billing/provider/placement poli
 
 ## Requirements
 
-- REQ-001 DONE: persistent, versioned, validated skill registry with checksums and lifecycle state.
+- REQ-001 DONE: persistent, versioned, validated skill registry with checksums, supported manifest schema versions and lifecycle state.
 - REQ-002 DONE: request envelope plus hybrid skill routing with abstention, ambiguity handling, dependencies/conflicts, context budget and DAG output.
-- REQ-003 DONE: capability/side-effect policy in front of the existing ToolRegistry with preview/confirm/execute/verify, authorization, idempotency, retry and circuit breaking.
+- REQ-003 DONE: capability/side-effect policy in front of the existing ToolRegistry with preview/confirm/execute/verify, request-bound authorization grants, idempotency, safe retry behavior, circuit breaking and egress-secret checks.
 - REQ-004 DONE: hierarchical AGENTS rule discovery and root-to-leaf scope resolution.
-- REQ-005 DONE: canonical, versioned, atomic project-state persistence with checkpoints and stale-write detection.
-- REQ-006 DONE: scoped/provenance-aware structured memory with expiry, conflict/supersession behavior, deletion and legacy JSON migration.
+- REQ-005 DONE: canonical, versioned, atomic project-state persistence with checkpoints, stale-write detection and cross-process write locking.
+- REQ-006 DONE: scoped/provenance-aware structured memory with expiry, conflict/supersession behavior, scope-safe deletion/derivation and legacy JSON migration.
 - REQ-007 DONE: feature-gated runtime facade and documented staged rollout/rollback path.
-- REQ-008 DONE FOR PUBLIC CODE: component/security/MCP/full public regression gates pass after the Portal blocker was fixed; exact final state/documentation commit is being revalidated before private pinning.
-- REQ-009 DONE: persistent resumable DAG/workflow engine with bounded parallelism, retry, validation, resume and duplicate-definition/execution protection.
-- REQ-010 DONE: routing evaluation dataset and append-only observable decision audit.
+- REQ-008 DONE: public component/security/MCP/full regression gates pass in shadow, active and enforced runtime modes.
+- REQ-009 DONE: persistent resumable DAG/workflow engine with bounded parallelism, validation, resume, lease-based cross-process duplicate-execution protection and legacy interrupted-state compatibility.
+- REQ-010 DONE: routing evaluation dataset, append-only observable decision audit and permanent review-2 regression coverage.
+- REQ-011 DONE: private ControlPlane policy is request/principal/fleet bound and validated end-to-end against the pinned public runtime.
 
 ## Decisions
 
@@ -46,18 +47,21 @@ Private ControlPlane owns fleet/model/commercial/billing/provider/placement poli
 - DEC-003: Use SQLite for durable skill, memory, workflow and execution-policy state; use atomic versioned project-state snapshots/checkpoints for resumability.
 - DEC-004: Keep private fleet/model/billing/provider/placement policy out of public generic runtime code.
 - DEC-005: Agents Platform rollout remains opt-in. Disabled mode follows the legacy MCP path; shadow mode routes/audits without prompt/tool behavior changes; tool-policy enforcement is a separate flag.
-- DEC-006: Unknown or malformed skills/tools fail closed. No safety test is weakened to make a release gate pass.
-- DEC-007: The Portal third-party-font violation was resolved by removing external browser font resources, not by weakening the Portal security test.
-- DEC-008: The private ControlPlane must pin the exact final validated public commit and re-run its complete validation layer before release readiness can be declared.
+- DEC-006: Unknown or malformed skills/tools and unavailable higher-level safety checks fail closed. No safety test is weakened to make a release gate pass.
+- DEC-007: Tool authorization for side effects is not represented by a global boolean; grants are bound to request, tool and exact argument hash with expiry and confirmation state.
+- DEC-008: Non-idempotent writes/execute actions are not blindly retried after ambiguous failures even when a local idempotency key exists, because local persistence cannot prove the remote side effect did not occur.
+- DEC-009: The private ControlPlane pins an exact validated public commit and verifies that pin in CI before running cross-repository contract and full private regression tests.
 
 ## Known facts
 
 - Existing root legacy state remains in `state.md`; it is not deleted or silently rewritten.
 - Legacy JSON user memory remains readable/migratable; migration does not silently delete it.
 - Existing owner authorization and emergency killswitch behavior remains authoritative.
-- Public Agents Platform execution is wrapped around the existing `AgentLoop`; the existing `ToolRegistry` remains the concrete handler registry.
-- Private ControlPlane adapters expose only minimized allow/deny/budget/side-effect decisions to the public runtime.
-- `portal/ai-auth.html` no longer contains `fonts.googleapis.com` or `fonts.gstatic.com` references on the AgentsPlatform branch.
+- Public Agents Platform execution wraps the existing `AgentLoop`; the existing `ToolRegistry` remains the concrete handler registry.
+- Memory values are injected as explicitly untrusted user-context data rather than system instructions.
+- Skill workflow guidance is subordinate context and does not grant tool authorization.
+- Private ControlPlane adapters expose only minimized allow/budget/side-effect decisions plus request/principal/fleet bindings needed for public enforcement.
+- No release PR has been opened and neither repository's `main` branch has been modified by this work.
 
 ## Tasks
 
@@ -68,20 +72,24 @@ Private ControlPlane owns fleet/model/commercial/billing/provider/placement poli
 - TASK-005 DONE: versioned Project State runtime and structured Memory v2 migration path.
 - TASK-006 DONE: feature-gated Agents Platform runtime integration around the existing MCP AgentLoop, including disabled and shadow modes.
 - TASK-007 DONE: private ControlPlane policy adapters, public/private boundary documentation and private regression tests.
-- TASK-008 DONE FOR PUBLIC CODE: the public full regression passed after removal of forbidden Portal font origins; exact final documentation/state commit is now the validation candidate.
-- TASK-009 DONE: resumable DAG/workflow engine with persistence, bounded parallelism, retries, node validation, restart recovery and duplicate execution/definition safeguards.
+- TASK-008 DONE: full public regression plus explicit shadow/active/enforced CI matrix.
+- TASK-009 DONE: resumable DAG/workflow engine with persistence, bounded parallelism, validation, restart recovery and lease-based duplicate execution protection.
 - TASK-010 DONE: routing evaluation dataset and CI gate.
 - TASK-011 DONE: staged rollout/rollback documentation and feature-flag sequence.
-- TASK-012 IN_PROGRESS: validate this exact final public candidate, update the private ControlPlane gitlink/public-pin marker, and re-run complete private CI.
+- TASK-012 DONE FOR FUNCTIONAL CODE: second-review security findings fixed and covered by permanent regression tests.
+- TASK-013 DONE FOR CROSS-REPO CODE: private policy envelope round-trips into the pinned public RuntimePolicyEnvelope and public tool enforcement; request/principal/fleet replay is rejected.
+- TASK-014 IN_PROGRESS: validate this exact state-only public commit, then pin/document that exact SHA in ControlPlane and re-run private CI once more.
 
 ## Validation evidence
 
-### Public Agents Platform and full regression
+### Public Agents Platform — review 2
 
-GitHub Actions run `35218556118` on public commit `cdc61dd4fbd990cb24ac832ba78d7a059710fe0c` completed successfully. The run reports PASS for:
+GitHub Actions run `35224503092` on public commit `892be0364ee1f1d8db0d87044a84856b91501572` completed successfully. The run reports PASS for:
 
-- compile Agents Platform;
-- Agents Platform contract tests;
+- compile Agents Platform including `ToolRegistry`;
+- base Agents Platform contract tests;
+- review-2 security and end-to-end regressions;
+- review-2 side-effect and killswitch safety tests;
 - routing evaluation dataset;
 - DAG workflow engine tests;
 - operational health tests;
@@ -91,40 +99,49 @@ GitHub Actions run `35218556118` on public commit `cdc61dd4fbd990cb24ac832ba78d7
 - existing skill execution regression;
 - existing MCP agent hardening regression;
 - existing MCP system regression;
-- full ComputeMesh regression (`python run_all_tests.py`).
+- complete ComputeMesh regression (`python run_all_tests.py`);
+- runtime matrix: shadow PASS, active PASS, enforced PASS.
 
-The preceding complete public run had executed 775 tests with exactly one Portal security-policy failure. The external Google Fonts references causing that failure were subsequently removed from `portal/ai-auth.html`, and the full gate then passed.
+The permanent review-2 tests cover active routed DAG execution, memory trust separation, runtime-policy binding, exact side-effect grants, idempotency replay, egress secret blocking, cross-process workflow leasing, scope-safe memory mutation, manifest schema/version hardening, non-idempotent write retry prevention and fail-closed killswitch behavior.
 
-### Private ControlPlane validation
+### Private ControlPlane — pinned public runtime and cross-repo enforcement
 
-Private `ComputeMesh-ControlPlane/AgentsPlatform` GitHub Actions run `35212852178` on private commit `7f70ab0d46fccad80c92e25c697cb4df92f4ea0c` passed:
+Private `ComputeMesh-ControlPlane/AgentsPlatform` GitHub Actions run `35224956044` on private commit `df452b033e1ac02d41e62f6d6ffc76ab95e8d84f` completed successfully while the `ComputeMesh` submodule was pinned to public commit `892be0364ee1f1d8db0d87044a84856b91501572`.
 
-- public submodule contract verification;
-- private adapter compile;
+That run reports PASS for:
+
+- exact public submodule SHA verification;
+- public Agents Platform contract compilation;
+- private adapter and cross-repo test compilation;
 - Ruff;
 - private Agents Platform policy tests;
+- cross-repository ControlPlane -> public RuntimePolicyEnvelope -> public tool-enforcement contract;
 - complete private `pytest` regression.
 
-That run validated an older public pin (`dc77b25a59190c53ccc19578374acd71128df028`). The private branch must therefore be advanced to the exact final validated public candidate produced after this state update and then re-tested.
+The cross-repository test verifies that an allowed read tool is exposed and executed, a non-allowed write tool is blocked, the existing fleet-scoped emergency-stop key receives the policy-bound fleet id, and replay across request, principal or fleet scope is rejected.
 
 ## Risks and issues
 
-- RISK-001 MITIGATED: backward-compatibility regressions are reduced by wrapping rather than replacing the existing AgentLoop/ToolRegistry and by opt-in feature flags.
+- RISK-001 MITIGATED: backward-compatibility regressions are reduced by wrapping rather than replacing the existing AgentLoop/ToolRegistry and by opt-in feature flags; legacy interrupted-workflow recovery remains tested.
 - RISK-002 MITIGATED: public/private responsibility leakage is controlled by a minimized private policy envelope and explicit boundary documentation.
-- RISK-003 MITIGATED: malformed/manipulated skills are validated, checksummed and fail closed; broken skills are not auto-activated.
-- RISK-004 RESOLVED: forbidden third-party Portal font resources were removed and the full public gate passed.
-- RISK-005 ACTIVE: private ControlPlane submodule pin must be updated to the exact final validated public commit and revalidated.
+- RISK-003 MITIGATED: malformed/manipulated skills are validated, checksummed and fail closed; unsupported manifest schemas are recorded broken rather than auto-activated.
+- RISK-004 RESOLVED: memory/skill prompt-authority mixing identified in review 1 was separated and regression-tested.
+- RISK-005 RESOLVED: write confirmation/idempotency grants are exact and request-bound; non-idempotent writes are not blindly retried.
+- RISK-006 RESOLVED: cross-process duplicate workflow execution is prevented by transactional node leases.
+- RISK-007 RESOLVED: killswitch check errors now block execution; policy fleet binding reaches the existing fleet-scoped guard key.
+- RISK-008 ACTIVE ONLY FOR RELEASE BOOKKEEPING: this state-only commit must become the final public validation candidate and then be pinned exactly by ControlPlane.
 
 ## Next actions
 
-1. Run Agents Platform CI against this exact state/documentation candidate commit.
-2. If green, update the private ControlPlane `ComputeMesh` gitlink and `PUBLIC_PIN.md` to that exact public SHA.
-3. Re-run the complete private Agents Platform CI against the updated pin.
-4. Record the exact public/private validation pair and review the final public/private diff.
-5. Open or merge release PRs only if explicitly requested.
+1. Run Agents Platform CI against this exact v4 state commit.
+2. If green, pin the private ControlPlane `ComputeMesh` gitlink to that exact public SHA.
+3. Create `PUBLIC_PIN.md` in ControlPlane recording the exact public SHA and validation run.
+4. Re-run complete private Agents Platform CI against that final pin.
+5. Review final branch diffs/status; open or merge release PRs only if explicitly requested.
 
 ## Change log
 
 - v1: initial canonical state created from the observed repository baseline; legacy `state.md` preserved.
-- v2: registry/router, tool policy, AGENTS resolver, Project State, Memory v2, feature-gated runtime, resumable DAG engine, audit/evaluation, private adapters and staged rollout implemented; exact CI evidence recorded; pre-existing Portal full-suite blocker retained explicitly.
-- v3: Portal third-party font blocker resolved without weakening security policy; full public regression recorded green; project moved to exact-final-public-candidate/private-pin validation stage.
+- v2: registry/router, tool policy, AGENTS resolver, Project State, Memory v2, feature-gated runtime, resumable DAG engine, audit/evaluation, private adapters and staged rollout implemented.
+- v3: first complete public regression recorded green and project moved to exact-final-public/private-pin validation stage.
+- v4: second security/architecture review findings closed in code; permanent security tests added; shadow/active/enforced public matrix and full regression green; private ControlPlane pinned to the reviewed public runtime; real cross-repository policy-to-enforcement contract and complete private regression green. This state-only revision is the final public validation candidate before exact final pin bookkeeping.
