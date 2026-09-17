@@ -1,147 +1,101 @@
 ---
 document_type: PROJECT_STATE
 state_schema_version: "1.0"
-project_state_version: 4
+project_state_version: 5
 project_id: "PRJ-20260917-AGENTS-PLATFORM"
 project_name: "ComputeMesh Agents Platform"
-status: FINAL_PUBLIC_STATE_VALIDATION
+status: FINAL_RELEASE_CANDIDATE_VALIDATION
 created_at: "2026-09-17T11:47:00+02:00"
-updated_at: "2026-09-17T15:00:00+02:00"
+updated_at: "2026-09-17T15:25:00+02:00"
 state_owner: "ComputeMesh"
 primary_goal: "Introduce a production-oriented agent platform without replacing existing MCP, memory, security or control-plane subsystems."
-integrity_status: REVIEW2_VALIDATED
+integrity_status: REVIEW3_MAIN_MERGED_VALIDATED
 ---
 
 # Executive state snapshot
 
-The public ComputeMesh `AgentsPlatform` branch now contains the generic agent-runtime layer required by the implementation plan and the second security/architecture review: persistent skill registry, automatic hybrid skill router, capability/side-effect tool policy, hierarchical `AGENTS.md` resolution, resumable leased DAG/workflow execution, versioned project state, structured scoped memory, audit/observability hooks, feature-gated integration around the existing MCP `AgentLoop`, routing evaluation, staged rollback documentation and permanent review-2 security regression tests.
+The public ComputeMesh `AgentsPlatform` branch contains the generic Agents Platform required by the implementation plan: persistent Skill Registry, automatic hybrid Skill Router, capability/side-effect-aware Tool execution, hierarchical `AGENTS.md`, resumable leased DAG/workflow execution, validation/rerouting, versioned Project State, structured scoped Memory, audit/observability hooks, feature-gated integration around the existing MCP `AgentLoop`, evaluation data and staged rollback controls.
 
-The private `ComputeMesh-ControlPlane/AgentsPlatform` branch contains private policy/rollout adapters only and preserves the public/private responsibility boundary. Private policy decisions are request-, principal- and fleet-bound before the public runtime receives a minimized envelope. Existing MCP owner authorization and emergency killswitch behavior remain authoritative.
+Review 1 findings were corrected in the actual execution path rather than only in isolated components. Review 2 added permanent security/regression coverage for prompt-authority separation, request/principal/fleet-bound runtime policy, exact side-effect grants, secret egress protection, non-idempotent write retry prevention, fail-closed emergency-stop checks, cross-process DAG leases, scope-safe memory mutation, Project State CAS/locking and manifest/schema hardening.
 
-Review 2 closed the principal execution-path gaps identified after the first implementation pass: active requests now traverse routing and persistent DAG execution; skill instructions and memory data are separated by authority; memory remains untrusted data; tool grants are bound to request, tool and argument hash; egress secrets fail closed; non-idempotent writes are never blindly retried; workflow nodes use cross-process leases; memory supersession/deletion/derivation is scope-safe; project-state writes use locking/CAS; manifest schemas fail closed; runtime policy reaches the existing fleet-scoped killswitch key; and a killswitch-check failure blocks execution instead of silently continuing.
+Review 3 integrated the then-current public `main` commit `1825076ce429040a362ce484dda0f1129c1dba8b` into `AgentsPlatform` with merge commit `cd7d93614b5ed62c5a87598d6559653a696dfc99`. The incoming main change generalized the Playwright/Web Automation portal presentation and did not replace the Agents Platform security architecture. Public CI run `35226468154` passed the complete regression plus shadow, active and enforced runtime modes on that merge commit.
 
-## Scope
+The private `ComputeMesh-ControlPlane/AgentsPlatform` branch also integrated its then-current `main` commit `307ab3af76ab73548e7c60044ee0f508716a7e7e` while deliberately retaining the validated Agents Platform public gitlink during conflict resolution. Private merge CI run `35226639140` passed policy tests, cross-repository enforcement and the full private regression. Once this state revision is itself public-CI green, ControlPlane must pin that exact final public SHA and re-run private CI one final time.
 
-Public ComputeMesh owns generic runtime contracts and reusable implementations for request envelopes, skill registry/routing, DAG/workflow execution, tool capability/side-effect policy, AGENTS scope resolution, project state, structured memory, validation/provenance, audit and feature-gated integration.
+## Scope and authority boundary
 
-Private ControlPlane owns fleet/model/commercial/billing/provider/placement policy and production-specific authorization/rollout decisions. Private scoring inputs, economics, credentials and fleet internals are not copied into the public runtime.
+Public ComputeMesh owns generic request contracts, skill registry/routing, DAG/workflow execution, tool capability/side-effect policy, AGENTS resolution, Project State, structured Memory, validation/provenance, audit and feature-gated runtime integration.
 
-## Requirements
+Private ControlPlane owns fleet/model/commercial/billing/provider/placement policy and production-specific authorization/rollout decisions. Private scoring inputs, credentials, economics and fleet internals are not copied into the public runtime. Only the minimized runtime policy envelope crosses the boundary.
 
-- REQ-001 DONE: persistent, versioned, validated skill registry with checksums, supported manifest schema versions and lifecycle state.
-- REQ-002 DONE: request envelope plus hybrid skill routing with abstention, ambiguity handling, dependencies/conflicts, context budget and DAG output.
-- REQ-003 DONE: capability/side-effect policy in front of the existing ToolRegistry with preview/confirm/execute/verify, request-bound authorization grants, idempotency, safe retry behavior, circuit breaking and egress-secret checks.
-- REQ-004 DONE: hierarchical AGENTS rule discovery and root-to-leaf scope resolution.
-- REQ-005 DONE: canonical, versioned, atomic project-state persistence with checkpoints, stale-write detection and cross-process write locking.
-- REQ-006 DONE: scoped/provenance-aware structured memory with expiry, conflict/supersession behavior, scope-safe deletion/derivation and legacy JSON migration.
-- REQ-007 DONE: feature-gated runtime facade and documented staged rollout/rollback path.
-- REQ-008 DONE: public component/security/MCP/full regression gates pass in shadow, active and enforced runtime modes.
-- REQ-009 DONE: persistent resumable DAG/workflow engine with bounded parallelism, validation, resume, lease-based cross-process duplicate-execution protection and legacy interrupted-state compatibility.
-- REQ-010 DONE: routing evaluation dataset, append-only observable decision audit and permanent review-2 regression coverage.
-- REQ-011 DONE: private ControlPlane policy is request/principal/fleet bound and validated end-to-end against the pinned public runtime.
+Memory/context data is explicitly untrusted data. Skill guidance is subordinate workflow instruction. Neither grants tool authorization. Existing owner authorization and the emergency killswitch remain authoritative.
 
-## Decisions
+## Requirements status
 
-- DEC-001: Extend `services/mcp` instead of introducing a parallel agent loop.
-- DEC-002: Keep the existing MCP `ToolRegistry` as the concrete execution backend and place capability/side-effect policy in front of it.
-- DEC-003: Use SQLite for durable skill, memory, workflow and execution-policy state; use atomic versioned project-state snapshots/checkpoints for resumability.
-- DEC-004: Keep private fleet/model/billing/provider/placement policy out of public generic runtime code.
-- DEC-005: Agents Platform rollout remains opt-in. Disabled mode follows the legacy MCP path; shadow mode routes/audits without prompt/tool behavior changes; tool-policy enforcement is a separate flag.
-- DEC-006: Unknown or malformed skills/tools and unavailable higher-level safety checks fail closed. No safety test is weakened to make a release gate pass.
-- DEC-007: Tool authorization for side effects is not represented by a global boolean; grants are bound to request, tool and exact argument hash with expiry and confirmation state.
-- DEC-008: Non-idempotent writes/execute actions are not blindly retried after ambiguous failures even when a local idempotency key exists, because local persistence cannot prove the remote side effect did not occur.
-- DEC-009: The private ControlPlane pins an exact validated public commit and verifies that pin in CI before running cross-repository contract and full private regression tests.
+- REQ-001 DONE: persistent, versioned, validated Skill Registry with checksums, schema compatibility and lifecycle state.
+- REQ-002 DONE: hybrid Skill Router with explicit selection, abstention, ambiguity handling, dependencies/conflicts, context budgets and DAG output.
+- REQ-003 DONE: capability/side-effect tool policy with preview/confirm/execute/verify, exact request/tool/argument-bound grants, egress checks, safe retry behavior and circuit breaking.
+- REQ-004 DONE: hierarchical root-to-leaf `AGENTS.md` resolution.
+- REQ-005 DONE: versioned Project State with atomic persistence, checkpoints, cross-process locking and stale-write/CAS protection.
+- REQ-006 DONE: scoped/provenance-aware Memory v2 with expiry, conflict/supersession semantics, scope-safe deletion/derivation and legacy migration.
+- REQ-007 DONE: disabled/shadow/active/enforced feature-gated rollout and documented rollback.
+- REQ-008 DONE: public full regression plus explicit shadow/active/enforced CI matrix.
+- REQ-009 DONE: persistent resumable DAG engine with bounded parallelism, validation, restart recovery and transactional cross-process node leasing.
+- REQ-010 DONE: routing evaluation, append-only audit and permanent Review-2 security tests.
+- REQ-011 DONE: private ControlPlane policy request/principal/fleet binding and real cross-repository public-runtime enforcement test.
+- REQ-012 DONE: latest public/private `main` changes integrated without leaving either feature branch behind its corresponding `main` at Review-3 merge time.
 
-## Known facts
+## Safety decisions
 
-- Existing root legacy state remains in `state.md`; it is not deleted or silently rewritten.
-- Legacy JSON user memory remains readable/migratable; migration does not silently delete it.
-- Existing owner authorization and emergency killswitch behavior remains authoritative.
-- Public Agents Platform execution wraps the existing `AgentLoop`; the existing `ToolRegistry` remains the concrete handler registry.
-- Memory values are injected as explicitly untrusted user-context data rather than system instructions.
-- Skill workflow guidance is subordinate context and does not grant tool authorization.
-- Private ControlPlane adapters expose only minimized allow/budget/side-effect decisions plus request/principal/fleet bindings needed for public enforcement.
-- No release PR has been opened and neither repository's `main` branch has been modified by this work.
-
-## Tasks
-
-- TASK-001 DONE: inventory current public/private architecture and create `AgentsPlatform` branches.
-- TASK-002 DONE: persistent Skill Registry plus validated `SKILL.md` discovery/loading and automatic hybrid Skill Router.
-- TASK-003 DONE: Tool Capability Registry and Side-Effect execution policy wrapping the existing ToolRegistry.
-- TASK-004 DONE: hierarchical `AGENTS.md` scope resolver.
-- TASK-005 DONE: versioned Project State runtime and structured Memory v2 migration path.
-- TASK-006 DONE: feature-gated Agents Platform runtime integration around the existing MCP AgentLoop, including disabled and shadow modes.
-- TASK-007 DONE: private ControlPlane policy adapters, public/private boundary documentation and private regression tests.
-- TASK-008 DONE: full public regression plus explicit shadow/active/enforced CI matrix.
-- TASK-009 DONE: resumable DAG/workflow engine with persistence, bounded parallelism, validation, restart recovery and lease-based duplicate execution protection.
-- TASK-010 DONE: routing evaluation dataset and CI gate.
-- TASK-011 DONE: staged rollout/rollback documentation and feature-flag sequence.
-- TASK-012 DONE FOR FUNCTIONAL CODE: second-review security findings fixed and covered by permanent regression tests.
-- TASK-013 DONE FOR CROSS-REPO CODE: private policy envelope round-trips into the pinned public RuntimePolicyEnvelope and public tool enforcement; request/principal/fleet replay is rejected.
-- TASK-014 IN_PROGRESS: validate this exact state-only public commit, then pin/document that exact SHA in ControlPlane and re-run private CI once more.
+- Existing `AgentLoop` and `ToolRegistry` remain the execution foundation; the Agents Platform wraps rather than silently replaces them.
+- Unknown/malformed skills or tools and unavailable higher-level safety checks fail closed.
+- Side-effect authorization is never inferred from skill routing or from a global boolean.
+- Non-idempotent writes/execute actions are never blindly retried after ambiguous failures.
+- The fleet id from an accepted private runtime policy binds the existing fleet-scoped emergency-stop key.
+- Rollback does not silently destroy legacy `state.md` or legacy JSON memory.
+- Agents Platform remains opt-in; production activation is a separate rollout decision from code merge.
 
 ## Validation evidence
 
-### Public Agents Platform — review 2
+### Review 2 baseline
 
-GitHub Actions run `35224503092` on public commit `892be0364ee1f1d8db0d87044a84856b91501572` completed successfully. The run reports PASS for:
+Public run `35225118707` on `61166dfca2398d1072e8ac1de65035eb25ab45a8` passed full public regression and shadow/active/enforced modes. Private run `35225459727` on `c4330b97e38aa0f34b05510f1bbf0656c3a1f35e` passed exact submodule verification, compile, Ruff, private policy tests, cross-repository enforcement and full private regression while pinning that public SHA.
 
-- compile Agents Platform including `ToolRegistry`;
-- base Agents Platform contract tests;
-- review-2 security and end-to-end regressions;
-- review-2 side-effect and killswitch safety tests;
-- routing evaluation dataset;
-- DAG workflow engine tests;
-- operational health tests;
-- advanced orchestration contract tests;
-- integrated orchestration pipeline tests;
-- tool-result and egress safety tests;
-- existing skill execution regression;
-- existing MCP agent hardening regression;
-- existing MCP system regression;
-- complete ComputeMesh regression (`python run_all_tests.py`);
-- runtime matrix: shadow PASS, active PASS, enforced PASS.
+### Review 3 current-main integration
 
-The permanent review-2 tests cover active routed DAG execution, memory trust separation, runtime-policy binding, exact side-effect grants, idempotency replay, egress secret blocking, cross-process workflow leasing, scope-safe memory mutation, manifest schema/version hardening, non-idempotent write retry prevention and fail-closed killswitch behavior.
+Public merge commit `cd7d93614b5ed62c5a87598d6559653a696dfc99` has both the previous reviewed Agents Platform head and public `main` commit `1825076ce429040a362ce484dda0f1129c1dba8b` as parents. GitHub compare reports `AgentsPlatform` ahead of public `main` and `behind_by=0`. Public CI run `35226468154` completed successfully, including:
 
-### Private ControlPlane — pinned public runtime and cross-repo enforcement
+- Agents Platform compile/contracts;
+- Review-2 security/end-to-end and side-effect/killswitch tests;
+- routing, DAG, health, orchestration and tool-result/egress suites;
+- existing MCP regressions;
+- complete `python run_all_tests.py` regression;
+- runtime shadow PASS;
+- runtime active PASS;
+- runtime enforced PASS.
 
-Private `ComputeMesh-ControlPlane/AgentsPlatform` GitHub Actions run `35224956044` on private commit `df452b033e1ac02d41e62f6d6ffc76ab95e8d84f` completed successfully while the `ComputeMesh` submodule was pinned to public commit `892be0364ee1f1d8db0d87044a84856b91501572`.
+Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous reviewed private head and private `main` commit `307ab3af76ab73548e7c60044ee0f508716a7e7e` as parents. GitHub compare reports the private `AgentsPlatform` branch ahead of private `main` and `behind_by=0`. Private CI run `35226639140` completed successfully, including exact current public-pin verification, compile, Ruff, private policy tests, cross-repository enforcement and full private pytest regression.
 
-That run reports PASS for:
+## Risks and release status
 
-- exact public submodule SHA verification;
-- public Agents Platform contract compilation;
-- private adapter and cross-repo test compilation;
-- Ruff;
-- private Agents Platform policy tests;
-- cross-repository ControlPlane -> public RuntimePolicyEnvelope -> public tool-enforcement contract;
-- complete private `pytest` regression.
-
-The cross-repository test verifies that an allowed read tool is exposed and executed, a non-allowed write tool is blocked, the existing fleet-scoped emergency-stop key receives the policy-bound fleet id, and replay across request, principal or fleet scope is rejected.
-
-## Risks and issues
-
-- RISK-001 MITIGATED: backward-compatibility regressions are reduced by wrapping rather than replacing the existing AgentLoop/ToolRegistry and by opt-in feature flags; legacy interrupted-workflow recovery remains tested.
-- RISK-002 MITIGATED: public/private responsibility leakage is controlled by a minimized private policy envelope and explicit boundary documentation.
-- RISK-003 MITIGATED: malformed/manipulated skills are validated, checksummed and fail closed; unsupported manifest schemas are recorded broken rather than auto-activated.
-- RISK-004 RESOLVED: memory/skill prompt-authority mixing identified in review 1 was separated and regression-tested.
-- RISK-005 RESOLVED: write confirmation/idempotency grants are exact and request-bound; non-idempotent writes are not blindly retried.
-- RISK-006 RESOLVED: cross-process duplicate workflow execution is prevented by transactional node leases.
-- RISK-007 RESOLVED: killswitch check errors now block execution; policy fleet binding reaches the existing fleet-scoped guard key.
-- RISK-008 ACTIVE ONLY FOR RELEASE BOOKKEEPING: this state-only commit must become the final public validation candidate and then be pinned exactly by ControlPlane.
+- RISK-001 MITIGATED: backward compatibility is protected by feature flags and full regression coverage.
+- RISK-002 MITIGATED: public/private policy leakage is constrained by the minimized envelope and explicit boundary tests.
+- RISK-003 MITIGATED: prompt/memory authority escalation is separated and regression-tested.
+- RISK-004 MITIGATED: duplicate/ambiguous side effects are constrained by leases, grants, idempotency rules and no-blind-retry behavior.
+- RISK-005 MITIGATED: emergency-stop lookup failures fail closed.
+- RISK-006 MITIGATED: latest `main` changes were merged and revalidated rather than ignored before release review.
+- RISK-007 ACTIVE ONLY FOR BOOKKEEPING: this v5 state commit changes documentation after the green Review-3 merge commit; it must be the exact final public CI candidate before ControlPlane is repinned.
 
 ## Next actions
 
-1. Run Agents Platform CI against this exact v4 state commit.
-2. If green, pin the private ControlPlane `ComputeMesh` gitlink to that exact public SHA.
-3. Create `PUBLIC_PIN.md` in ControlPlane recording the exact public SHA and validation run.
-4. Re-run complete private Agents Platform CI against that final pin.
-5. Review final branch diffs/status; open or merge release PRs only if explicitly requested.
+1. Run public Agents Platform CI on this exact v5 state commit.
+2. If green, make that exact public SHA the authoritative private `ComputeMesh` gitlink and update both private pin markers plus CI pin assertion.
+3. Re-run complete private CI on the exact resulting private head.
+4. Confirm both feature branches remain `behind_by=0`, the private gitlink equals the final public head, and no temporary fixer workflows remain.
+5. Open draft release PRs only after those invariants hold; do not merge to `main` without an explicit release instruction.
 
 ## Change log
 
-- v1: initial canonical state created from the observed repository baseline; legacy `state.md` preserved.
-- v2: registry/router, tool policy, AGENTS resolver, Project State, Memory v2, feature-gated runtime, resumable DAG engine, audit/evaluation, private adapters and staged rollout implemented.
-- v3: first complete public regression recorded green and project moved to exact-final-public/private-pin validation stage.
-- v4: second security/architecture review findings closed in code; permanent security tests added; shadow/active/enforced public matrix and full regression green; private ControlPlane pinned to the reviewed public runtime; real cross-repository policy-to-enforcement contract and complete private regression green. This state-only revision is the final public validation candidate before exact final pin bookkeeping.
+- v1-v3: initial architecture, platform implementation and first complete validation.
+- v4: Review-2 security/architecture findings closed; permanent security tests and real private-to-public enforcement validation added.
+- v5: current public/private `main` changes merged into both AgentsPlatform branches, semantic submodule conflict handled deliberately, and both merge states revalidated. This state revision is the final public CI candidate before exact private re-pin and PR readiness.
