@@ -1955,7 +1955,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             </div>
           </div>
 
-          <!-- Sovereign Playwright MCP Browser & Tax Automation Sandbox -->
+          <!-- Sovereign Playwright MCP Browser & Web Automation Sandbox -->
           <div style="margin-top:2.5rem;background:radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 70%), rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.35);border-radius:16px;padding:1.75rem;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
               <div>
@@ -1963,10 +1963,10 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                   <span>🛡️ ZERO-TRUST PRIVACY SANDBOX</span>
                 </div>
                 <h3 style="margin:0;font-size:1.35rem;color:#f8fafc;display:flex;align-items:center;gap:0.6rem;">
-                  <span>🤖</span> <span>Souveräner Playwright MCP-Browser &amp; Steuer-Sandbox</span>
+                  <span>🤖</span> <span>Souveräner Playwright MCP-Browser &amp; Web-Automation Sandbox</span>
                 </h3>
                 <p style="color:#94a3b8;font-size:0.9rem;margin:0.35rem 0 0 0;line-height:1.6;max-width:850px;">
-                  Vollständig isolierte Playwright-Browser-Umgebung in einer abgesicherten MicroVM/Sandbox. Entwickelt für autonome Web-Aufgaben &amp; Online-Steuererklärungen (ELSTER, WISO, Smartsteuer, Taxfix) mit strengem Egress-Whitelisting, lokalem Dokumententresor und obligatorischer Human-in-the-Loop (HITL) Freigabe.
+                  Vollständig isolierte Playwright-Browser-Umgebung in einer abgesicherten MicroVM/Sandbox. Entwickelt für beliebige autonome Web-Aufgaben, Recherchen, Portal-Interaktionen, Formularbefüllungen, Script-Ausführungen, Datei-Uploads &amp; Downloads – gesteuert durch deine Benutzeranweisungen mit absolutem Zero-Trust Schutz.
                 </p>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;">
@@ -1981,10 +1981,10 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem;margin-bottom:1.5rem;">
               <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:1rem;">
                 <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;color:#38bdf8;font-weight:700;font-size:0.88rem;">
-                  <span>🌐</span> <span>Egress-Whitelist</span>
+                  <span>🌐</span> <span>Open Web &amp; Egress-Control</span>
                 </div>
                 <p style="margin:0;font-size:0.8rem;color:#cbd5e1;line-height:1.5;">
-                  Nur freigegebene Steuer- und Finanzportale (<code style="color:#38bdf8;">*.elster.de</code>, <code style="color:#38bdf8;">*.buhl.de</code>, <code style="color:#38bdf8;">*.smartsteuer.de</code>, <code style="color:#38bdf8;">*.taxfix.de</code>, <code style="color:#38bdf8;">*.finanzamt.de</code>). Alle anderen Domains werden hardwarenah verworfen.
+                  Standardmäßig offener Internetzugriff (<code style="color:#38bdf8;">ALLOWED_DOMAINS=*</code>) für universelle Web-Aufgaben. Optional einschränkbar auf benutzerdefinierte Domain-Whitelists.
                 </p>
               </div>
 
@@ -1993,16 +1993,16 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                   <span>🔐</span> <span>Fleet-Owner Auth</span>
                 </div>
                 <p style="margin:0;font-size:0.8rem;color:#cbd5e1;line-height:1.5;">
-                  Keine öffentliche Mesh-Freigabe. Steuerung ausschließlich über HMAC-SHA256 Signatur deines lokalen Flottenschlüssels (<code style="color:#34d399;">X-Fleet-HMAC</code>) vom eigenen PC aus.
+                  Keine unbefugte externe Steuerung. Zugriff ausschließlich über HMAC-SHA256 Signatur deines lokalen Flottenschlüssels (<code style="color:#34d399;">X-Fleet-HMAC</code>) vom eigenen PC aus.
                 </p>
               </div>
 
               <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,146,60,0.2);border-radius:12px;padding:1rem;">
                 <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;color:#fb923c;font-weight:700;font-size:0.88rem;">
-                  <span>📁</span> <span>Dokumenten-Tresor</span>
+                  <span>📁</span> <span>Staging-Dateitresor</span>
                 </div>
                 <p style="margin:0;font-size:0.8rem;color:#cbd5e1;line-height:1.5;">
-                  Isolierter Staging-Speicher (<code style="color:#fb923c;">~/.computemesh/tax_vault/</code>) für Lohnsteuerbescheinigungen, Spenden und Handwerkerrechnungen mit striktem Traversal-Schutz.
+                  Isolierter lokaler Staging-Speicher (<code style="color:#fb923c;">~/.computemesh/vault/</code>) für beliebige Dokumente, PDFs, Medien &amp; Datensätze mit striktem Traversal-Schutz.
                 </p>
               </div>
 
@@ -2011,7 +2011,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
                   <span>🛑</span> <span>HITL-Freigabe</span>
                 </div>
                 <p style="margin:0;font-size:0.8rem;color:#cbd5e1;line-height:1.5;">
-                  Unwiderrufliche Steuer-Übermittlungen und Zertifikats-Einreichungen erfordern vorab eine explizite Bestätigung mit kryptografischem Request-Token.
+                  Kritische oder unwiderrufliche Aktionen (Bestellungen, Zahlungen, Löschvorgänge, Einreichungen) erfordern vorab eine explizite Bestätigung mit kryptografischem Request-Token.
                 </p>
               </div>
             </div>
@@ -2040,7 +2040,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       "env": {
         "COMPUTEMESH_FLEET_KEY": "DEIN_OWNER_KEY",
         "PLAYWRIGHT_HEADLESS": "true",
-        "COMPUTEMESH_VAULT_DIR": "~/.computemesh/tax_vault"
+        "COMPUTEMESH_VAULT_DIR": "~/.computemesh/vault"
       }
     }
   }
@@ -4547,7 +4547,7 @@ for chunk in stream:
             "env": {
               "COMPUTEMESH_FLEET_KEY": key,
               "PLAYWRIGHT_HEADLESS": "true",
-              "COMPUTEMESH_VAULT_DIR": "~/.computemesh/tax_vault"
+              "COMPUTEMESH_VAULT_DIR": "~/.computemesh/vault"
             }
           }
         }
