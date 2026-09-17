@@ -13,6 +13,7 @@ on:
       - 'services/mcp/tests/test_agents_health.py'
       - 'services/mcp/tests/test_agents_advanced_contracts.py'
       - 'services/mcp/tests/test_agents_pipeline.py'
+      - 'services/mcp/tests/test_agents_tool_contracts.py'
       - 'services/mcp/tests/data/agents_routing_eval.json'
       - 'services/memory/structured_memory.py'
       - 'services/memory/__init__.py'
@@ -72,6 +73,9 @@ jobs:
 
       - name: Integrated orchestration pipeline tests
         run: python -m unittest services.mcp.tests.test_agents_pipeline -v
+
+      - name: Tool result and egress safety tests
+        run: python -m unittest services.mcp.tests.test_agents_tool_contracts -v
 
       - name: Existing skill execution regression
         run: python -m unittest services.mcp.tests.test_skill_execution -v
