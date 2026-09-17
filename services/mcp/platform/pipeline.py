@@ -200,7 +200,15 @@ class AgentsOrchestrationPipeline:
         )
 
     def _validator(self, names: Sequence[str]) -> Callable[[Any], bool]:
-        selected = tuple(names or ("not_none", "no_error_field"))
+        builtins = {"not_none", "non_empty", "no_error_field"}
+        selected_list: list[str] = []
+        for raw_name in names:
+            name = str(raw_name)
+            if name in builtins:
+                selected_list.append(name)
+            elif name.startswith("validator:"):
+                selected_list.append(name.split(":", 1)[1])
+        selected = tuple(selected_list or ("not_none", "no_error_field"))
 
         def validate(value: Any) -> bool:
             return self.validation.run(value, selected).passed

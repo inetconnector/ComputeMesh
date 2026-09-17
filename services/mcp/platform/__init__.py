@@ -5,12 +5,14 @@ from .agents_rules import AgentRuleDocument, AgentsRuleResolver, RuleResolution
 from .audit import AuditEvent, AuditLogger
 from .contracts import (
     RequestEnvelope,
+    RuntimePolicyEnvelope,
     RiskLevel,
     RouteCandidate,
     RoutingDecision,
     SideEffectLevel,
     SkillManifest,
     SkillStatus,
+    ToolAuthorizationGrant,
     ToolExecutionContext,
     ToolExecutionResult,
     ToolLifecycle,
@@ -29,7 +31,7 @@ from .request_analysis import (
     RequirementStrength,
 )
 from .reroute import RerouteAttempt, RerouteManager, RerouteResult, reroute_trigger_for_error
-from .runtime import AgentsPlatformRuntime, PlatformPreparation, build_agents_platform_runtime
+from .runtime import AgentsPlatformRuntime, PlatformContextBlock, PlatformPreparation, build_agents_platform_runtime
 from .skill_registry import PersistentSkillRegistry, parse_frontmatter
 from .skill_router import SkillRouter
 from .subagents import SubagentContract, SubagentGate, SubagentResult
@@ -94,6 +96,7 @@ __all__ = [
     "PersistentSkillRegistry",
     "PlannedTask",
     "PlatformError",
+    "PlatformContextBlock",
     "PlatformPreparation",
     "PolicyToolRegistryProxy",
     "ProjectStateStore",
@@ -111,6 +114,7 @@ __all__ = [
     "RouteCandidate",
     "RoutingDecision",
     "RuleResolution",
+    "RuntimePolicyEnvelope",
     "SafeToolExecutor",
     "SecretFinding",
     "SecretKind",
@@ -126,6 +130,7 @@ __all__ = [
     "SubagentGate",
     "SubagentResult",
     "ToolCapabilityRegistry",
+    "ToolAuthorizationGrant",
     "ToolEgressGuard",
     "ToolExecutionContext",
     "ToolExecutionResult",

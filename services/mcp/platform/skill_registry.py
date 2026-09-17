@@ -202,6 +202,9 @@ class PersistentSkillRegistry:
         return resolved
 
     def _manifest_from_metadata(self, metadata: dict[str, Any], *, checksum: str, location: str) -> SkillManifest:
+        schema_version = str(metadata.get("schema_version", "1.0")).strip()
+        if schema_version not in {"1", "1.0"}:
+            raise ValueError(f"unsupported skill manifest schema_version: {schema_version}")
         status_raw = str(metadata.get("status", "ACTIVE")).upper()
         if status_raw == "QUARANTINED":
             status_raw = "BROKEN"
@@ -384,7 +387,11 @@ class PersistentSkillRegistry:
 
     @staticmethod
     def _version_key(version: str) -> tuple[Any, ...]:
-        return tuple(int(part) if part.isdigit() else part.casefold() for part in version.replace("-", ".").split("."))
+        parts = version.replace("-", ".").split(".")
+        return tuple(
+            (0, int(part)) if part.isdigit() else (1, part.casefold())
+            for part in parts
+        )
 
     def get(self, skill_id: str, *, version: str | None = None, include_inactive: bool = True) -> SkillManifest | None:
         with self._lock:

@@ -95,15 +95,21 @@ class AgentLoop:
             if _canonical_name(self.registry, tool.get("function", {}).get("name", "")) not in disabled_set
         ]
 
-        # Ensure tools guidance & persistent user memory are present in system instructions
+        # Legacy persistent-memory prompt injection is retained only in
+        # disabled/shadow mode for backwards compatibility. Active Agents Platform
+        # injects scoped memory as UNTRUSTED_DATA at user authority in runtime.py.
         mem_info = ""
-        try:
-            from ..memory import get_user_memory_store
-            mem_summary = get_user_memory_store().get_memory_summary()
-            if mem_summary and "Keine gespeicherten" not in mem_summary:
-                mem_info = f"\n\n[Persistentes Benutzer-Gedächtnis & Fakten]:\n{mem_summary}"
-        except Exception:
-            pass
+        if not (
+            self.config.agents_platform_enabled
+            and not self.config.agents_platform_shadow_mode
+        ):
+            try:
+                from ..memory import get_user_memory_store
+                mem_summary = get_user_memory_store().get_memory_summary()
+                if mem_summary and "Keine gespeicherten" not in mem_summary:
+                    mem_info = f"\n\n[Persistentes Benutzer-Gedächtnis & Fakten]:\n{mem_summary}"
+            except Exception:
+                pass
 
         if tools or mem_info:
             has_system = any(m.get("role") == "system" for m in curr_messages)
@@ -127,14 +133,9 @@ class AgentLoop:
                 "1. Sprache: Antworte IMMER in derselben Sprache, in der die Benutzeranfrage gestellt wurde (z.B. deutschsprachige Prompts IMMER auf Deutsch beantworten).\n"
                 "2. Tabellen & Struktur: Wenn der Benutzer nach einer Tabelle, Übersicht, Gegenüberstellung oder einem Vergleich fragt (z.B. Wetter/Kurse mehrerer Orte oder Kennzahlen), MUSS das Ergebnis als saubere Markdown-Tabelle (`| Spalte 1 | Spalte 2 | ... |`) formatiert werden.\n"
                 "3. Vollständigkeit: Fasse alle abgerufenen Daten präzise zusammen und präsentiere generierte Bilder, Diagramme oder Links übersichtlich.\n\n"
-                "[Chain-of-Thought Denkphase & Tool-Planung]:\n"
-                "Bei komplexen, mehrteiligen oder recherchebedürftigen Anfragen kannst du einen einleitenden `<think>`-Block schreiben, um deine Schritte vor der Ausführung zu strukturieren:\n"
-                "<think>\n"
-                "1. Analyse der Benutzerabsicht und der benötigten Werkzeuge.\n"
-                "2. Schritt 1: Recherche- oder Daten-Tool aufrufen.\n"
-                "3. Schritt 2: Nach Erhalt der Daten Folge-Tool (z.B. `generate_ai_image` oder Python Plot) mit abgeleiteten Parametern aufrufen.\n"
-                "4. Schritt 3: Gesamtergebnis klar und ansprechend in der gewünschten Struktur (z.B. Tabelle) formulieren.\n"
-                "</think>\n\n"
+                "[Tool-Planung]:\n"
+                "Plane komplexe Tool-Schritte intern und gib nur knappe, überprüfbare Fortschritts- oder Ergebnisinformationen aus. "
+                "Gib keine privaten Gedankengänge und keine `<think>`-Blöcke aus.\n\n"
                 "[Tool-Calling Format]:\n"
                 "Rufe Werkzeuge entweder über native Function Calls oder direkt im JSON/XML-Format auf:\n"
                 "<tool_call>{\"name\": \"get_live_news\", \"arguments\": {\"topic\": \"allgemein\"}}</tool_call>\n"

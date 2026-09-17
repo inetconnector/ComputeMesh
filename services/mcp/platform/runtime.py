@@ -225,7 +225,7 @@ class AgentsPlatformRuntime:
     def _policy_allowed_skills(
         policy: RuntimePolicyEnvelope | None,
     ) -> tuple[str, ...] | None:
-        if policy is None or not policy.allowed_skills:
+        if policy is None:
             return None
         return policy.allowed_skills
 
@@ -233,7 +233,7 @@ class AgentsPlatformRuntime:
     def _policy_allowed_tools(
         policy: RuntimePolicyEnvelope | None,
     ) -> tuple[str, ...] | None:
-        if policy is None or not policy.allowed_tools:
+        if policy is None:
             return None
         return policy.allowed_tools
 
@@ -584,7 +584,7 @@ class AgentsPlatformRuntime:
             authorization_grants=authorization_grants,
         )
         policy_disabled = set(disabled_tools or [])
-        if runtime_policy is not None and runtime_policy.allowed_tools:
+        if runtime_policy is not None:
             all_names = {
                 tool.name
                 for tool in self.tool_registry.list_tools(is_owner=is_owner)

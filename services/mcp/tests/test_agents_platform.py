@@ -237,7 +237,7 @@ class TestStructuredMemory(unittest.TestCase):
         store.put("favorite", "green", scope=MemoryScope.USER, scope_id="A", provenance="correction", memory_type=MemoryType.CORRECTION)
         self.assertGreaterEqual(len(store.conflicts("favorite", scope=MemoryScope.USER, scope_id="A")), 2)
         derived = store.put("derived", "from red", scope=MemoryScope.USER, scope_id="A", provenance="derived", explicit=False, derived_from=(user_a.memory_id,))
-        self.assertEqual(store.delete(user_a.memory_id, cascade_derived=True), 2)
+        self.assertEqual(store.delete(user_a.memory_id, scope=MemoryScope.USER, scope_id="A", cascade_derived=True), 2)
         self.assertIsNotNone(store.get(derived.memory_id).deleted_at)
         store.put("temp", "soon gone", scope=MemoryScope.USER, scope_id="A", provenance="session", memory_type=MemoryType.TEMPORARY, valid_until=time.time() - 1)
         store.purge_expired()
