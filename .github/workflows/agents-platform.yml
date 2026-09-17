@@ -8,8 +8,10 @@ on:
     paths:
       - 'services/mcp/platform/**'
       - 'services/mcp/agent_loop.py'
+      - 'services/mcp/tool_registry.py'
       - 'services/mcp/tests/test_agents_platform.py'
       - 'services/mcp/tests/test_agents_review2.py'
+      - 'services/mcp/tests/test_agents_review2_safety.py'
       - 'services/mcp/tests/test_agents_routing_eval.py'
       - 'services/mcp/tests/test_agents_workflow.py'
       - 'services/mcp/tests/test_agents_health.py'
@@ -58,13 +60,16 @@ jobs:
 
       - name: Compile Agents Platform
         run: |
-          python -m compileall -q services/mcp/platform services/memory services/mcp/config.py services/mcp/__init__.py services/mcp/agent_loop.py
+          python -m compileall -q services/mcp/platform services/memory services/mcp/config.py services/mcp/__init__.py services/mcp/agent_loop.py services/mcp/tool_registry.py
 
       - name: Agents Platform contract tests
         run: python -m unittest services.mcp.tests.test_agents_platform -v
 
       - name: Review 2 security and end-to-end regressions
         run: python -m unittest services.mcp.tests.test_agents_review2 -v
+
+      - name: Review 2 side-effect and kill-switch safety
+        run: python -m unittest services.mcp.tests.test_agents_review2_safety -v
 
       - name: Routing evaluation dataset
         run: python -m unittest services.mcp.tests.test_agents_routing_eval -v
@@ -135,7 +140,7 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Compile active runtime
-        run: python -m compileall -q services/mcp/platform services/memory services/mcp/agent_loop.py
+        run: python -m compileall -q services/mcp/platform services/memory services/mcp/agent_loop.py services/mcp/tool_registry.py
 
       - name: Mode config contract
         run: |
@@ -148,6 +153,9 @@ jobs:
 
       - name: Review 2 end-to-end tests
         run: python -m unittest services.mcp.tests.test_agents_review2 -v
+
+      - name: Review 2 side-effect safety
+        run: python -m unittest services.mcp.tests.test_agents_review2_safety -v
 
       - name: Core platform tests
         run: python -m unittest services.mcp.tests.test_agents_platform services.mcp.tests.test_agents_pipeline services.mcp.tests.test_agents_workflow -v
