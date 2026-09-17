@@ -287,6 +287,10 @@ class SafeToolExecutor:
             return self._error(manifest.tool_id, context.mode, "circuit breaker open")
 
         attempts = max(1, manifest.retry_limit + 1)
+        # A local idempotency record cannot prove that an ambiguous remote write
+        # did not already happen. Never retry non-idempotent side effects blindly.
+        if side_effecting and not manifest.idempotent:
+            attempts = 1
         result: Any = None
         for attempt in range(1, attempts + 1):
             try:
@@ -296,8 +300,15 @@ class SafeToolExecutor:
                     is_owner=context.is_owner,
                     owner_id=context.owner_id,
                 )
-                if isinstance(result, dict) and result.get("error"):
-                    raise RuntimeError(str(result.get("error")))
+                normalized_attempt = normalize_tool_result(
+                    manifest.tool_id,
+                    result,
+                    source=manifest.source,
+                    version=manifest.version,
+                )
+                if normalized_attempt.status.value == "FAILURE":
+                    message = normalized_attempt.errors[0] if normalized_attempt.errors else "tool failure"
+                    raise RuntimeError(str(message))
                 self.store.success(manifest.tool_id)
                 break
             except Exception as exc:

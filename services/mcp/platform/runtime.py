@@ -550,7 +550,10 @@ class AgentsPlatformRuntime:
                 self.safe_tool_executor,
                 is_owner=is_owner,
                 request_id=request_id,
-                owner_id=owner_id,
+                # The legacy ToolRegistry uses owner_id as the fleet-scoped
+                # emergency-stop key. A private policy therefore binds that safety scope
+                # to its fleet_id instead of trusting a second caller-controlled value.
+                owner_id=(runtime_policy.fleet_id if runtime_policy and runtime_policy.fleet_id else owner_id),
                 allowed_tools=self._policy_allowed_tools(runtime_policy),
                 max_side_effect=(
                     runtime_policy.max_side_effect
