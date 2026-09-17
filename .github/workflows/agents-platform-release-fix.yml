@@ -1,0 +1,54 @@
+name: Agents Platform Release Fix
+
+on:
+  push:
+    branches: [AgentsPlatform]
+
+permissions:
+  contents: write
+
+jobs:
+  remove-forbidden-font-resources:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout AgentsPlatform
+        uses: actions/checkout@v5
+        with:
+          ref: AgentsPlatform
+          fetch-depth: 0
+
+      - name: Remove forbidden third-party font resources
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('portal/ai-auth.html')
+          text = path.read_text(encoding='utf-8')
+          forbidden = (
+              '  <link rel="preconnect" href="https://fonts.googleapis.com">\n',
+              '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n',
+              '  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">\n',
+          )
+          before = text
+          for line in forbidden:
+              text = text.replace(line, '')
+          text = text.replace('  <!-- Google Fonts & Styles -->', '  <!-- Local/system typography & styles; no third-party browser resources -->')
+          if text == before:
+              raise SystemExit('Expected forbidden Google Fonts references were not found; refusing an unrelated rewrite.')
+          if 'fonts.googleapis.com' in text or 'fonts.gstatic.com' in text:
+              raise SystemExit('Forbidden Google Fonts origin remains after rewrite.')
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate targeted portal security test
+        run: python -m unittest services.portal.tests.test_portal_server.TestPortalServer.test_portal_html_has_no_forbidden_third_party_resources -v
+
+      - name: Commit release blocker fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add portal/ai-auth.html
+          git diff --cached --check
+          git commit -m "Remove forbidden third-party portal font resources"
+          git push origin HEAD:AgentsPlatform
