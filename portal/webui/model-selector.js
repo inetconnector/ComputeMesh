@@ -1,4 +1,4 @@
-/* ComputeMesh's per-browser model selector for the bundled AI Studio WebUI. */
+/* ComputeMesh's per-browser model selector and P2P Local Node Auto-Router for the bundled AI Studio WebUI. */
 (function () {
 	'use strict';
 
@@ -7,6 +7,10 @@
 	var models = [];
 	var selectedModel = null;
 	var picker = null;
+	var localNodeEndpoint = null;
+	var localNodeChecked = false;
+	var localNodeCheckingPromise = null;
+
 	// Image bytes become base64 in the chat JSON; keep their combined binary size
 	// near 5 MiB to leave room for base64 expansion and the rest of the request.
 	var uploadLimitBytes = 5 * 1024 * 1024;
@@ -14,11 +18,51 @@
 	var gatewayRequestLimitBytes = 10 * 1024 * 1024;
 	var maxImageEdge = 1600;
 	var replayingFileInputs = new WeakSet();
+
 	try {
 		var savedModelId = localStorage.getItem(STORAGE_KEY);
 		if (savedModelId) selectedModel = { id: savedModelId };
 	} catch (_) {}
 	var originalFetch = window.fetch.bind(window);
+
+	async function probeLocalNode() {
+		if (localNodeChecked) return localNodeEndpoint;
+		if (localNodeCheckingPromise) return localNodeCheckingPromise;
+
+		localNodeCheckingPromise = (async function () {
+			var isLocalHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+			if (isLocalHost) {
+				localNodeEndpoint = window.location.origin;
+				localNodeChecked = true;
+				return localNodeEndpoint;
+			}
+
+			// Probe local appliance on port 8080 (Zero router configuration required - loopback P2P)
+			var candidates = ['http://127.0.0.1:8080', 'http://localhost:8080'];
+			for (var i = 0; i < candidates.length; i++) {
+				var candidate = candidates[i];
+				try {
+					var controller = new AbortController();
+					var timer = setTimeout(function () { controller.abort(); }, 600);
+					var resp = await originalFetch(candidate + '/webui/props', {
+						signal: controller.signal,
+						mode: 'cors',
+						cache: 'no-store'
+					});
+					clearTimeout(timer);
+					if (resp.ok) {
+						localNodeEndpoint = candidate;
+						console.log('[ComputeMesh] Auto-discovered local GPU node at ' + candidate + ' (P2P direct loopback mode)');
+						break;
+					}
+				} catch (_) {}
+			}
+			localNodeChecked = true;
+			return localNodeEndpoint;
+		})();
+
+		return localNodeCheckingPromise;
+	}
 
 	function modalitiesFor(model) {
 		if (model && Array.isArray(model.modalities)) return model.modalities;
@@ -138,6 +182,8 @@
 	}
 
 	window.fetch = async function (input, init) {
+		await probeLocalNode();
+
 		if (isPropsUrl(input) && selectedModel) {
 			var propsResponse = await originalFetch(input, init);
 			if (!propsResponse.ok) return propsResponse;
@@ -164,25 +210,81 @@
 				return propsResponse;
 			}
 		}
+
 		if (!isCompletionUrl(input)) return originalFetch(input, init);
 
-		if (init && typeof init.body === 'string') {
-			var rewrittenBody = await withSelectedModel(init.body);
-			if (rewrittenBody) init = Object.assign({}, init, { body: rewrittenBody });
-			return originalFetch(input, init);
-		}
+		var isCrossRouting = Boolean(localNodeEndpoint && window.location.origin !== localNodeEndpoint);
+		var targetUrl = isCrossRouting ? (localNodeEndpoint + '/webui/chat/completions') : input;
+		var fetchOptions = init ? Object.assign({}, init) : {};
 
-		if (input instanceof Request) {
+		if (typeof fetchOptions.body === 'string') {
+			var rewrittenBody = await withSelectedModel(fetchOptions.body);
+			if (rewrittenBody) fetchOptions.body = rewrittenBody;
+		} else if (input instanceof Request) {
 			var cloned = input.clone();
 			var requestBody = await cloned.text();
 			var rewritten = await withSelectedModel(requestBody);
 			if (rewritten) {
-				var headers = new Headers(input.headers);
-				headers.delete('content-length');
-				return originalFetch(new Request(input, { body: rewritten, headers: headers }));
+				var h = new Headers(input.headers);
+				h.delete('content-length');
+				fetchOptions = Object.assign({}, fetchOptions, {
+					method: input.method,
+					headers: h,
+					body: rewritten
+				});
 			}
 		}
-		return originalFetch(input, init);
+
+		try {
+			var response = await originalFetch(targetUrl, fetchOptions);
+
+			if (isCrossRouting && response.ok) {
+				var contentType = response.headers.get('content-type') || '';
+				if (contentType.includes('application/json')) {
+					var rawJson = await response.json();
+					var stringified = JSON.stringify(rawJson);
+					var rewrittenJson = stringified.replace(/(\/generated\/image_[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp))/g, localNodeEndpoint + '$1');
+					var outHeaders = new Headers(response.headers);
+					outHeaders.delete('content-length');
+					return new Response(rewrittenJson, {
+						status: response.status,
+						statusText: response.statusText,
+						headers: outHeaders
+					});
+				} else if (contentType.includes('text/event-stream') && response.body) {
+					var reader = response.body.getReader();
+					var decoder = new TextDecoder();
+					var encoder = new TextEncoder();
+					var transformedStream = new ReadableStream({
+						async start(controller) {
+							while (true) {
+								var chunk = await reader.read();
+								if (chunk.done) {
+									controller.close();
+									break;
+								}
+								var text = decoder.decode(chunk.value, { stream: true });
+								var rewrittenText = text.replace(/(\/generated\/image_[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp))/g, localNodeEndpoint + '$1');
+								controller.enqueue(encoder.encode(rewrittenText));
+							}
+						}
+					});
+					return new Response(transformedStream, {
+						status: response.status,
+						statusText: response.statusText,
+						headers: response.headers
+					});
+				}
+			}
+			return response;
+		} catch (err) {
+			if (isCrossRouting) {
+				console.warn('[ComputeMesh] Local node unreachable, falling back to cloud gateway:', err);
+				localNodeEndpoint = null;
+				return originalFetch(input, init);
+			}
+			throw err;
+		}
 	};
 
 	function displayName(model) {
@@ -340,10 +442,28 @@
 				} catch (_) {}
 				applyCapabilities(selectedModel);
 				window.dispatchEvent(new CustomEvent('cm:model-selection-change', { detail: { model: selectedModel } }));
-				// Reload so the bundled WebUI refreshes its internal modality checks from /props.
 				window.location.reload();
 			});
 			picker.append(select);
+
+			// Append node status pill
+			var badge = document.createElement('div');
+			badge.id = 'cm-node-status-badge';
+			badge.style.cssText = 'margin-top: 6px; font-size: 11px; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;';
+			if (localNodeEndpoint) {
+				badge.style.background = 'rgba(16, 185, 129, 0.15)';
+				badge.style.color = '#10b981';
+				badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+				badge.innerHTML = '<span>🟢</span> <span>Lokale GPU-Node aktiv (P2P · Zero-Config)</span>';
+				badge.title = 'Inferenz & Bildgenerierung laufen direkt über deine lokale RTX 3080 ohne Router-Konfiguration.';
+			} else {
+				badge.style.background = 'rgba(99, 102, 241, 0.12)';
+				badge.style.color = '#818cf8';
+				badge.style.border = '1px solid rgba(99, 102, 241, 0.25)';
+				badge.innerHTML = '<span>☁️</span> <span>ComputeMesh Cloud-Gateway</span>';
+				badge.title = 'Verbindung zum dezentralen ComputeMesh Netzwerk.';
+			}
+			picker.append(badge);
 		}
 		if (picker.parentElement === valueCell) return;
 		valueCell.replaceChildren(picker);
@@ -363,8 +483,26 @@
 		} catch (_) {}
 	}
 
+	// Rewrites any image elements pointing to relative /generated/ to the local node when cross-routing
+	function installImageTagRewriter() {
+		var observer = new MutationObserver(function (mutations) {
+			if (!localNodeEndpoint || window.location.origin === localNodeEndpoint) return;
+			var imgs = document.querySelectorAll('img[src^="/generated/"]');
+			for (var i = 0; i < imgs.length; i++) {
+				var img = imgs[i];
+				var currentSrc = img.getAttribute('src');
+				if (currentSrc && currentSrc.startsWith('/generated/')) {
+					img.src = localNodeEndpoint + currentSrc;
+				}
+			}
+		});
+		observer.observe(document.documentElement, { childList: true, subtree: true });
+	}
+
 	async function initialize() {
 		try {
+			await probeLocalNode();
+
 			var response = await originalFetch('/v1/models', { credentials: 'same-origin', cache: 'no-store' });
 			if (!response.ok) throw new Error('Model list unavailable');
 			var result = await response.json();
@@ -388,13 +526,13 @@
 			mountPicker();
 			new MutationObserver(mountPicker).observe(document.documentElement, { childList: true, subtree: true });
 		} catch (error) {
-			// No model metadata means media actions stay hidden and no misleading switcher is shown.
 			applyCapabilities(null);
 		}
 	}
 
-	window.ComputeMeshModelSelector = { getSelectedModel: currentModel, modalitiesFor: modalitiesFor };
+	window.ComputeMeshModelSelector = { getSelectedModel: currentModel, modalitiesFor: modalitiesFor, probeLocalNode: probeLocalNode };
 	installImageUploadOptimization();
+	installImageTagRewriter();
 	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true });
 	else initialize();
 })();

@@ -339,6 +339,7 @@ class InferenceRouter:
                     handler.send_header("Cache-Control", "no-cache")
                     handler.send_header("Connection", "close")
                     handler.send_header("Access-Control-Allow-Origin", "*")
+                    handler.send_header("Access-Control-Allow-Private-Network", "true")
                     handler.end_headers()
 
                     chunk_obj = {

@@ -241,6 +241,36 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_cors_options_preflight_and_private_network(self) -> None:
+        from http.server import ThreadingHTTPServer
+        from http.client import HTTPConnection
+        server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        time.sleep(0.1)
+
+        try:
+            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+            conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
+            self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
+            conn.close()
+
+            # Test GET /props also returns Access-Control-Allow-Private-Network
+            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+            conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
+            conn.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()
