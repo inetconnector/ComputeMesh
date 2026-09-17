@@ -7,7 +7,9 @@ on:
     branches: [main]
     paths:
       - 'services/mcp/platform/**'
+      - 'services/mcp/agent_loop.py'
       - 'services/mcp/tests/test_agents_platform.py'
+      - 'services/mcp/tests/test_agents_review2.py'
       - 'services/mcp/tests/test_agents_routing_eval.py'
       - 'services/mcp/tests/test_agents_workflow.py'
       - 'services/mcp/tests/test_agents_health.py'
@@ -24,6 +26,7 @@ on:
       - 'TOOLS.md'
       - 'MEMORY.md'
       - 'PROJECT_STATE.md'
+      - '.github/workflows/agents-platform.yml'
 
 permissions:
   contents: read
@@ -37,6 +40,7 @@ jobs:
       COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: '1'
       COMPUTEMESH_AGENTS_PLATFORM_ENABLED: 'true'
       COMPUTEMESH_AGENTS_PLATFORM_SHADOW_MODE: 'true'
+      COMPUTEMESH_AGENTS_ENFORCE_TOOL_POLICY: 'false'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -54,10 +58,13 @@ jobs:
 
       - name: Compile Agents Platform
         run: |
-          python -m compileall -q services/mcp/platform services/memory services/mcp/config.py services/mcp/__init__.py
+          python -m compileall -q services/mcp/platform services/memory services/mcp/config.py services/mcp/__init__.py services/mcp/agent_loop.py
 
       - name: Agents Platform contract tests
         run: python -m unittest services.mcp.tests.test_agents_platform -v
+
+      - name: Review 2 security and end-to-end regressions
+        run: python -m unittest services.mcp.tests.test_agents_review2 -v
 
       - name: Routing evaluation dataset
         run: python -m unittest services.mcp.tests.test_agents_routing_eval -v
@@ -88,3 +95,62 @@ jobs:
 
       - name: Full ComputeMesh regression
         run: python run_all_tests.py
+
+  runtime-modes:
+    name: runtime-${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: shadow
+            shadow: 'true'
+            enforce: 'false'
+          - mode: active
+            shadow: 'false'
+            enforce: 'false'
+          - mode: enforced
+            shadow: 'false'
+            enforce: 'true'
+    env:
+      COMPUTEMESH_INFERENCE_BACKEND: synthetic
+      COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: '1'
+      COMPUTEMESH_AGENTS_PLATFORM_ENABLED: 'true'
+      COMPUTEMESH_AGENTS_PLATFORM_SHADOW_MODE: ${{ matrix.shadow }}
+      COMPUTEMESH_AGENTS_ENFORCE_TOOL_POLICY: ${{ matrix.enforce }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Compile active runtime
+        run: python -m compileall -q services/mcp/platform services/memory services/mcp/agent_loop.py
+
+      - name: Mode config contract
+        run: |
+          python - <<'PY'
+          from services.mcp.config import MCPConfig
+          cfg = MCPConfig.from_env()
+          assert cfg.agents_platform_enabled is True
+          print('shadow=', cfg.agents_platform_shadow_mode, 'enforce=', cfg.agents_platform_enforce_tool_policy)
+          PY
+
+      - name: Review 2 end-to-end tests
+        run: python -m unittest services.mcp.tests.test_agents_review2 -v
+
+      - name: Core platform tests
+        run: python -m unittest services.mcp.tests.test_agents_platform services.mcp.tests.test_agents_pipeline services.mcp.tests.test_agents_workflow -v
+
+      - name: MCP hardening regression
+        run: python -m unittest services.mcp.tests.test_mcp_agent_hardening -v
