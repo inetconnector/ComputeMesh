@@ -6,8 +6,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 import random
 import re
+import subprocess
+import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -79,7 +83,6 @@ def _ensure_image_engine_running(timeout: float = 2.0) -> bool:
         pass
 
     try:
-        import subprocess, sys
         repo_root = Path(__file__).resolve().parents[3]
         service_script = repo_root / "runtime" / "sd_cpp" / "image_engine_service.py"
         if service_script.exists():
@@ -97,6 +100,36 @@ def _ensure_image_engine_running(timeout: float = 2.0) -> bool:
     except Exception:
         pass
     return False
+
+
+def _get_candidate_endpoints() -> list[str]:
+    """Resolves local and cluster-wide GPU diffusion endpoints."""
+    endpoints = []
+    env_backend = os.environ.get("COMPUTEMESH_IMAGE_BACKEND_URL", "").strip()
+    if env_backend:
+        endpoints.append(env_backend)
+
+    endpoints.append("http://127.0.0.1:8085/v1/images/generations")
+    endpoints.append("http://localhost:8085/v1/images/generations")
+
+    # Discover online GPU nodes from gateway telemetry registry
+    try:
+        from services.gateway.server import NODE_TELEMETRY_REGISTRY
+        for node_id, node in list(NODE_TELEMETRY_REGISTRY.items()):
+            gpus = node.get("inventory", {}).get("total_gpus", 0) or len(node.get("inventory", {}).get("gpus", []))
+            if gpus > 0:
+                for cand in node.get("candidate_local_urls", []):
+                    base = cand.rstrip("/")
+                    endpoints.append(f"{base}/v1/images/generations")
+                client_ip = node.get("client_ip")
+                if client_ip and client_ip not in ("127.0.0.1", "::1"):
+                    endpoints.append(f"http://{client_ip}:8085/v1/images/generations")
+                    endpoints.append(f"http://{client_ip}:8080/v1/images/generations")
+    except Exception:
+        pass
+
+    seen = set()
+    return [ep for ep in endpoints if ep and ep not in seen and not seen.add(ep)]
 
 
 def generate_ai_image(
@@ -126,12 +159,8 @@ def generate_ai_image(
 
     _ensure_image_engine_running(timeout=1.5)
 
-    # 1. Try local High-Performance GPU Engine endpoints
-    local_backend = os.environ.get("COMPUTEMESH_IMAGE_BACKEND_URL", "").strip()
-    local_endpoints = [
-        local_backend,
-        "http://127.0.0.1:8085/v1/images/generations",
-    ]
+    local_endpoints = _get_candidate_endpoints()
+    timeout_sec = float(os.environ.get("COMPUTEMESH_IMAGE_TIMEOUT_SECONDS", 60.0))
 
     provenance_meta = {
         "engine": "ComputeMesh RealVisXL / stable-diffusion.cpp (CUDA)",
@@ -156,7 +185,8 @@ def generate_ai_image(
                 headers={"Content-Type": "application/json", "Accept": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            # Use a quick connect timeout if remote, longer for generation
+            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
                 if resp.status in (200, 201):
                     res_body = json.loads(resp.read().decode("utf-8"))
                     data_arr = res_body.get("data", [])
