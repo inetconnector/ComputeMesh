@@ -61,7 +61,7 @@ class InferenceRouter:
         clean_path = req_path.rstrip("/")
 
         # 1. Models & Tags listing
-        if clean_path in ("/v1/models", "/models", "/api/tags", "/tags"):
+        if clean_path in ("/v1/models", "/models", "/api/tags", "/tags", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             try:
                 target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
                 req = urllib.request.Request(target, headers={"Accept": "application/json"})
@@ -86,10 +86,21 @@ class InferenceRouter:
                 handler._send_json(payload)
                 return True
 
-        if clean_path in ("/props", "/slots", "/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
-            if clean_path in ("/props",):
-                handler._send_json({"default_generation_settings": {"n_predict": 2048, "temperature": 0.7}, "total_slots": 1})
-            elif clean_path in ("/slots",):
+        if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
+            if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
+                handler._send_json({
+                    "default_generation_settings": {
+                        "n_predict": 2048,
+                        "temperature": 0.7,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                    },
+                    "total_slots": 1,
+                    "webui_settings": {
+                        "theme": "Dark",
+                        "system_message": "Du bist ComputeMesh AI, ein hochperformanter intelligenter Assistent im dezentralen GPU-Netzwerk mit Live-Werkzeugen.",
+                    },
+                })
+            elif clean_path in ("/slots", "/webui/slots", "/api/slots", "/v1/slots"):
                 handler._send_json([{"id": 0, "is_processing": False}])
             elif clean_path in ("/api/version", "/version"):
                 handler._send_json({"version": appliance_version})
@@ -110,7 +121,18 @@ class InferenceRouter:
         ollama_url = raw_ollama if (raw_ollama.startswith("http://") or raw_ollama.startswith("https://")) else f"http://{raw_ollama}"
 
         # 1. Chat completions & Generation with autonomous MCP Tool Execution Loop
-        if clean_path in ("/v1/chat/completions", "/chat/completions", "/completions", "/api/chat", "/api/generate"):
+        if clean_path in (
+            "/v1/chat/completions",
+            "/chat/completions",
+            "/completions",
+            "/api/chat",
+            "/api/generate",
+            "/webui/chat/completions",
+            "/webui/v1/chat/completions",
+            "/webui/completion",
+            "/webui/completions",
+            "/webui/v1/completions",
+        ):
             try:
                 from runtime.safety.dead_mans_switch import get_lease_guard
                 guard = get_lease_guard(handler._current_node_id())
@@ -361,7 +383,13 @@ class InferenceRouter:
                 return True
 
         # 2. Image Generation Route (/v1/images/generations)
-        if clean_path in ("/v1/images/generations", "/images/generations", "/api/v1/images/generations"):
+        if clean_path in (
+            "/v1/images/generations",
+            "/images/generations",
+            "/api/v1/images/generations",
+            "/webui/images/generations",
+            "/webui/v1/images/generations",
+        ):
             try:
                 payload = json.loads(post_body.decode("utf-8")) if post_body else {}
             except Exception:
@@ -384,7 +412,7 @@ class InferenceRouter:
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(f_req, timeout=8.0) as img_resp:
+                with urllib.request.urlopen(f_req, timeout=60.0) as img_resp:
                     img_data = json.loads(img_resp.read().decode("utf-8"))
                     if isinstance(img_data, dict) and "data" in img_data and isinstance(img_data["data"], list):
                         for item in img_data["data"]:

@@ -678,6 +678,7 @@
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="switchTab('overview', this)">📊 Live Overview</button>
       <button class="nav-tab" onclick="switchTab('config', this)">⚙️ Settings & Update</button>
+      <a class="nav-tab" href="/webui/" style="text-decoration: none; color: #00f0ff; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: inline-flex; align-items: center;">💬 AI Chat Studio</a>
     </div>
   </header>
 
@@ -721,6 +722,22 @@
 
     <!-- TAB 1: OVERVIEW -->
     <div id="tab-overview" class="tab-content active">
+      <!-- 0. AI CHAT & IMAGE GENERATION QUICK ACCESS -->
+      <div style="background: linear-gradient(135deg, rgba(16, 24, 48, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(0, 240, 255, 0.4); box-shadow: 0 0 20px rgba(0, 240, 255, 0.1); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 260px;">
+          <div style="font-weight: 700; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span>💬 Lokales AI Chat Studio & Bild-Generator</span>
+            <span style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">100% Lokal & Privat</span>
+          </div>
+          <div style="color: var(--text-dim); font-size: 0.88rem; line-height: 1.4;">
+            Chatte direkt mit deinen lokalen LLM-Modellen (Ollama), nutze autonome Live-Tools & News und rendere KI-Bilder mit deiner lokalen GPU.
+          </div>
+        </div>
+        <a href="/webui/" class="btn btn-primary" style="text-decoration: none; font-weight: 700; padding: 0.75rem 1.6rem; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; border-radius: 8px;">
+          🚀 Chat Studio öffnen (/webui/)
+        </a>
+      </div>
+
       <!-- 1. LOCAL NODE PERFORMANCE & VRAM (PRIMARY FOCUS) -->
       <div class="section-title" style="font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem;">
         <span>🖥️ Lokale Node-Leistung & VRAM-Kapazität (Dieser Rechner)</span>

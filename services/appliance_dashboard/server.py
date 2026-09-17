@@ -48,6 +48,21 @@ from services.appliance_dashboard.webapp_handler import WebAppsHandler
 
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
+PORTAL_DIR = (REPO_ROOT / "portal").resolve()
+
+
+def _safe_resolve_portal_file(filename: str) -> Path | None:
+    """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR."""
+    if "\0" in filename or ".." in filename:
+        return None
+    try:
+        candidate = (PORTAL_DIR / filename.lstrip("/")).resolve()
+        if candidate.is_relative_to(PORTAL_DIR) and candidate.is_file():
+            return candidate
+    except Exception:
+        return None
+    return None
+
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -123,6 +138,74 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
             return
+
+        # llama.cpp WebUI & Chat Studio static assets
+        clean_path = req_path.rstrip("/")
+        if clean_path in ("/webui", "/chat", "/llama") or req_path in ("/webui/", "/chat/", "/llama/"):
+            index_target = _safe_resolve_portal_file("webui/index.html")
+            if index_target and index_target.exists():
+                data = index_target.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
+        if req_path.startswith("/webui/"):
+            sub_rel = req_path.removeprefix("/webui/")
+            target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                content_types = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".mjs": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".webmanifest": "application/manifest+json; charset=utf-8",
+                    ".svg": "image/svg+xml",
+                    ".png": "image/png",
+                    ".ico": "image/x-icon",
+                    ".wasm": "application/wasm",
+                }
+                ctype = content_types.get(suffix, "application/octet-stream")
+                data = target_f.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
+        if req_path.startswith("/_app/") or req_path.startswith("/workbox-") or req_path in ("/sw.js", "/build.json", "/manifest.webmanifest"):
+            sub_rel = req_path.lstrip("/")
+            target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                content_types = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".mjs": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".webmanifest": "application/manifest+json; charset=utf-8",
+                    ".svg": "image/svg+xml",
+                    ".png": "image/png",
+                    ".ico": "image/x-icon",
+                    ".wasm": "application/wasm",
+                }
+                ctype = content_types.get(suffix, "application/octet-stream")
+                data = target_f.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
 
         if KillswitchHandler.handle_get(self, req_path):
             return
