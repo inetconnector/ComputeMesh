@@ -260,10 +260,11 @@ class DAGWorkflowEngine:
             )
 
     def reset_failed(self, workflow_id: str) -> int:
-        """Explicitly reset failed/blocked nodes for a controlled retry."""
+        """Explicitly start a fresh bounded attempt cycle for failed/blocked nodes."""
         with self._db_lock, self._conn:
             cursor = self._conn.execute(
-                "UPDATE workflow_nodes SET status='PENDING',error='',completed_at=NULL,updated_at=? "
+                "UPDATE workflow_nodes SET status='PENDING',attempts=0,result_json=NULL,error='',"
+                "started_at=NULL,completed_at=NULL,updated_at=? "
                 "WHERE workflow_id=? AND status IN ('FAILED','BLOCKED')",
                 (time.time(), workflow_id),
             )
