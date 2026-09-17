@@ -19,6 +19,15 @@
 - Contract tests cover normal selection, missing input, tool failure, owner-only
   registration and public builder behavior. Full deployment remains pending.
 
+## Universal Skill meta-orchestration — 2026-09-17
+
+- Added local `SKILL.md` metadata loading, audit checks and review-gated
+  improvement proposals. `execute_universal_skill` now accepts `operation` =
+  `execute`, `audit` or `improve`; improvement proposals are never activated
+  automatically. Agent-loop guidance exposes the meta-tool for complex tasks
+  while preserving existing tool routing and security hierarchy.
+- Regression suite: **140/140 passed**; focused skill/agent tests: **20/20**.
+
 ## Magic-link email readability — 2026-09-16
 
 - Reworked the transactional login email for clients that rewrite colors or

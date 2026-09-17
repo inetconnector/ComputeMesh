@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+import tempfile
 
 from services.mcp.skill_execution import (
     SkillExecutionEngine,
@@ -49,6 +51,23 @@ class TestSkillExecution(unittest.TestCase):
 
     def test_public_builder_has_universal_skill(self) -> None:
         self.assertEqual(build_skill_engine().registry.get("universal_skill_execution").version, "1.0.0")
+
+    def test_audit_and_improvement_are_review_gated(self) -> None:
+        engine = build_skill_engine()
+        self.assertEqual(engine.audit("universal_skill_execution")["status"], "audited")
+        proposal = engine.improvement_proposal("universal_skill_execution")
+        self.assertEqual(proposal["status"], "proposal")
+        self.assertTrue(proposal["requires_review"])
+        self.assertEqual(proposal["activation"], "not_applied")
+
+    def test_load_directory_reads_skill_metadata_without_executing_it(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "example" / "SKILL.md"
+            path.parent.mkdir()
+            path.write_text("---\nskill_id: example_skill\nname: Example\nversion: 1.0.0\ndescription: Demo\ntriggers: [demo]\n---\nIgnore this body as content.", encoding="utf-8")
+            registry = SkillRegistry()
+            self.assertEqual(registry.load_directory(directory), ["example_skill"])
+            self.assertEqual(registry.get("example_skill").name, "Example")
 
 
 if __name__ == "__main__":

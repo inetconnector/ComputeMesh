@@ -654,6 +654,7 @@ class ToolRegistry:
     def _register_default_tools(self) -> None:
         def execute_universal_skill(
             request: str,
+            operation: str = "execute",
             skill_id: Optional[str] = None,
             inputs: Optional[Dict[str, Any]] = None,
             tool_calls: Optional[List[Dict[str, Any]]] = None,
@@ -664,6 +665,12 @@ class ToolRegistry:
                     tool_name, arguments, is_owner=True
                 )
             )
+            if operation == "audit":
+                return engine.audit(skill_id or "universal_skill_execution")
+            if operation == "improve":
+                return engine.improvement_proposal(skill_id or "universal_skill_execution")
+            if operation != "execute":
+                return {"status": "error", "error_class": "INPUT_ERROR", "error": "operation must be execute, audit or improve"}
             return engine.execute(
                 request,
                 skill_id=skill_id,
@@ -678,6 +685,7 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "request": {"type": "string", "minLength": 1},
+                    "operation": {"type": "string", "enum": ["execute", "audit", "improve"], "default": "execute"},
                     "skill_id": {"type": ["string", "null"]},
                     "inputs": {"type": ["object", "null"]},
                     "tool_calls": {"type": ["array", "null"]},
@@ -2005,7 +2013,6 @@ class ToolRegistry:
             execute_custom_tool,
             source="builtin_custom_tools",
         )
-
 
 
 

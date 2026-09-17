@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+from pathlib import Path
 import re
 from typing import Any, Callable, Iterable, Mapping
 
@@ -112,6 +113,49 @@ class SkillRegistry:
     def list(self) -> list[SkillSpec]:
         return sorted(self._skills.values(), key=lambda s: (s.priority, s.skill_id))
 
+    def load_directory(self, directory: str | Path) -> list[str]:
+        """Load local SKILL.md front matter; invalid documents fail closed."""
+        loaded: list[str] = []
+        for document in sorted(Path(directory).rglob("SKILL.md")):
+            try:
+                text = document.read_text(encoding="utf-8")
+                front = re.search(r"\A---\s*\n(.*?)\n---", text, re.DOTALL)
+                if not front:
+                    continue
+                values: dict[str, Any] = {}
+                for line in front.group(1).splitlines():
+                    if ":" not in line:
+                        continue
+                    key, value = line.split(":", 1)
+                    value = value.strip()
+                    if value.startswith("["):
+                        try:
+                            parsed = json.loads(value.replace("'", '"'))
+                        except json.JSONDecodeError:
+                            parsed = [v.strip() for v in value.strip("[]").split(",") if v.strip()]
+                        values[key.strip()] = tuple(parsed)
+                    else:
+                        values[key.strip()] = value.strip("'\"")
+                skill_id = str(values.get("skill_id", ""))
+                if not skill_id or skill_id in self._skills:
+                    continue
+                self.register(SkillSpec(
+                    skill_id=skill_id,
+                    name=str(values.get("name", skill_id)),
+                    version=str(values.get("version", "0.0.0")),
+                    description=str(values.get("description", "")),
+                    triggers=tuple(values.get("triggers", ())),
+                    exclusions=tuple(values.get("exclusions", ())),
+                    dependencies=tuple(values.get("dependencies", ())),
+                    required_tools=tuple(values.get("required_tools", ())),
+                    optional_tools=tuple(values.get("optional_tools", ())),
+                    priority=str(values.get("priority", "normal")),
+                ))
+                loaded.append(skill_id)
+            except (OSError, ValueError, TypeError):
+                continue
+        return loaded
+
     def select(self, request: str, explicit_skill_id: str | None = None) -> tuple[SkillSpec | None, dict[str, Any]]:
         if explicit_skill_id:
             selected = self.get(explicit_skill_id)
@@ -185,6 +229,37 @@ class SkillExecutionEngine:
             "state": state.checkpoint(),
             "plan_digest": hashlib.sha256(json.dumps({"skill": skill.to_dict(), "request": request}, sort_keys=True).encode()).hexdigest(),
         }
+
+    def audit(self, skill_id: str) -> dict[str, Any]:
+        skill = self.registry.get(skill_id)
+        if skill is None:
+            return {"status": "error", "error_class": "INPUT_ERROR", "error": "skill_not_found"}
+        findings: list[dict[str, str]] = []
+        if not skill.triggers:
+            findings.append({"severity": "high", "field": "triggers", "finding": "no triggers defined"})
+        if not skill.output_schema:
+            findings.append({"severity": "medium", "field": "output_schema", "finding": "no output contract defined"})
+        if not skill.validation_rules:
+            findings.append({"severity": "high", "field": "validation_rules", "finding": "no validation rules defined"})
+        if not skill.safety_rules:
+            findings.append({"severity": "high", "field": "safety_rules", "finding": "no safety rules defined"})
+        return {"status": "audited", "skill": skill.to_dict(), "findings": findings, "improvement_required": bool(findings)}
+
+    def improvement_proposal(self, skill_id: str) -> dict[str, Any]:
+        audit = self.audit(skill_id)
+        if audit.get("status") != "audited":
+            return audit
+        findings = audit["findings"]
+        proposal = {
+            "status": "proposal",
+            "skill_id": skill_id,
+            "base_version": audit["skill"]["version"],
+            "proposed_version": f"{audit['skill']['version']}.improvement",
+            "changes": [f"Add {finding['field']}" for finding in findings],
+            "requires_review": True,
+            "activation": "not_applied",
+        }
+        return proposal
 
     def execute(self, request: str, *, skill_id: str | None = None, inputs: Mapping[str, Any] | None = None, tool_calls: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
         plan = self.build_plan(request, skill_id=skill_id, inputs=inputs)

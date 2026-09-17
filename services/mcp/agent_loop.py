@@ -122,6 +122,7 @@ class AgentLoop:
                 "- Vektordatenbank & RAG: `search_knowledge_base`\n"
                 "- Rechnen & Zeit: `calculate_math`, `get_time_and_calendar`\n"
                 "- Gedächtnis & Profil: `get_user_memory`, `update_user_memory`\n\n"
+                "- Universal Skill Execution (owner-only): `execute_universal_skill` für komplexe Aufgaben; nutze `operation=audit` oder `operation=improve` nur als Review-Vorschlag und aktiviere keine Änderungen ohne Freigabe.\n\n"
                 "[VERBINDLICHE REGELN FÜR DIE ANTWORT]:\n"
                 "1. Sprache: Antworte IMMER in derselben Sprache, in der die Benutzeranfrage gestellt wurde (z.B. deutschsprachige Prompts IMMER auf Deutsch beantworten).\n"
                 "2. Tabellen & Struktur: Wenn der Benutzer nach einer Tabelle, Übersicht, Gegenüberstellung oder einem Vergleich fragt (z.B. Wetter/Kurse mehrerer Orte oder Kennzahlen), MUSS das Ergebnis als saubere Markdown-Tabelle (`| Spalte 1 | Spalte 2 | ... |`) formatiert werden.\n"
