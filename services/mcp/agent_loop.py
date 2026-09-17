@@ -298,10 +298,20 @@ class AgentLoop:
                             if isinstance(feed, dict) and feed.get("articles"):
                                 articles.extend(feed["articles"])
                     if articles:
-                        top_a = articles[0]
-                        t = top_a.get("title", "").strip()
-                        s = (top_a.get("summary") or top_a.get("description") or "").strip()
-                        derived_prompt = f"Editorial cinematic conceptual artwork depicting breaking news: {t}. {s[:160]}"
+                        headline_titles = []
+                        for a in articles[:4]:
+                            raw_t = (a.get("title") or "").strip()
+                            clean_t = re.sub(r"\s+[\-\|]\s+[^-\|]+$", "", raw_t).strip()
+                            if clean_t and clean_t not in headline_titles:
+                                headline_titles.append(clean_t)
+                        if len(headline_titles) > 1:
+                            joined_headlines = " ; ".join(headline_titles[:3])
+                            derived_prompt = f"Editorial conceptual artwork montage symbolizing today's major headlines: {joined_headlines}. High-impact visual journalism, surreal symbolic composition, dramatic lighting, modern press aesthetic, 8k"
+                        else:
+                            top_a = articles[0]
+                            t = top_a.get("title", "").strip()
+                            s = (top_a.get("summary") or top_a.get("description") or "").strip()
+                            derived_prompt = f"Editorial cinematic conceptual artwork depicting breaking news: {t}. {s[:160]}"
                     elif "symbol" in prev_data and ("price" in prev_data or "price_usd" in prev_data):
                         sym = prev_data.get("symbol", "Asset")
                         pr = prev_data.get("price", prev_data.get("price_usd", ""))
