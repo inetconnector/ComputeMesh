@@ -580,8 +580,13 @@ class ToolRegistry:
                 return {"error": f"Tool-Ausführung blockiert: Globaler Emergency Kill Switch ist aktiv ({guard.trip_reason})"}
             if owner_id and guard.is_fleet_tripped(owner_id):
                 return {"error": f"Tool-Ausführung blockiert: Flotte '{owner_id}' ist gestoppt ({guard.get_fleet_trip_reason(owner_id)})"}
-        except Exception:
-            pass
+        except Exception as exc:
+            return {
+                "error": (
+                    "Tool-Ausführung blockiert: übergeordnete Sicherheitsprüfung "
+                    f"ist nicht verfügbar ({exc})"
+                )
+            }
 
         # Check in-memory TTL cache
         cache_hit, cached_val = self._cache.get(resolved, arguments)

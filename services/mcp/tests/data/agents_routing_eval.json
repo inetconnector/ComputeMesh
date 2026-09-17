@@ -1,0 +1,55 @@
+[
+  {
+    "name": "explicit router request",
+    "skills": [
+      {"skill_id": "core.skill-router", "name": "Router", "description": "Route skills and agent workflows", "priority": 100, "triggers": ["skill router", "agent platform"], "intents": ["route_skill"], "domains": ["agents"]}
+    ],
+    "request": "use the skill router for this agent platform request",
+    "expected_status": "ROUTED",
+    "expected_primary": "core.skill-router"
+  },
+  {
+    "name": "unknown request abstains",
+    "skills": [
+      {"skill_id": "research.web", "name": "Web research", "description": "Research current sources", "priority": 80, "triggers": ["research the web"], "intents": ["research"], "domains": ["research"]}
+    ],
+    "request": "hello there",
+    "expected_status": "ABSTAIN"
+  },
+  {
+    "name": "negative trigger blocks",
+    "skills": [
+      {"skill_id": "danger.test", "name": "Danger", "description": "Dangerous demo", "priority": 100, "triggers": ["danger"], "negative_triggers": ["do not danger"]}
+    ],
+    "request": "do not danger",
+    "expected_status": "ABSTAIN"
+  },
+  {
+    "name": "explicit skill wins",
+    "skills": [
+      {"skill_id": "alpha.skill", "name": "Alpha", "description": "alpha", "priority": 20, "triggers": ["work"]},
+      {"skill_id": "beta.skill", "name": "Beta", "description": "beta", "priority": 100, "triggers": ["work"]}
+    ],
+    "request": "work",
+    "explicit_skill": "alpha.skill",
+    "expected_status": "ROUTED",
+    "expected_primary": "alpha.skill"
+  },
+  {
+    "name": "missing dependency fails closed",
+    "skills": [
+      {"skill_id": "dependent.skill", "name": "Dependent", "description": "dependency demo", "priority": 90, "triggers": ["dependency demo"], "dependencies": ["missing.skill"]}
+    ],
+    "request": "dependency demo",
+    "expected_status": "ABSTAIN"
+  },
+  {
+    "name": "context budget fails closed",
+    "skills": [
+      {"skill_id": "large.skill", "name": "Large", "description": "large context", "priority": 90, "triggers": ["large context"], "estimated_context_tokens": 5000}
+    ],
+    "request": "large context",
+    "context_budget": 100,
+    "expected_status": "ABSTAIN"
+  }
+]

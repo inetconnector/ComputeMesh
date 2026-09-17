@@ -135,13 +135,58 @@ class TestLlamaCppWebUIGateway(unittest.TestCase):
         self.assertIn("choices", data)
 
     def test_post_webui_chat_mcp_weather(self):
-        status, data = self._post(
-            "/webui/chat/completions",
-            body={
-                "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
-                "stream": False,
-            },
+        # This is an integration test for HTTP -> Gateway -> AgentLoop -> intent
+        # routing -> ToolRegistry -> synthesis. External weather providers are not
+        # part of that contract and made the test nondeterministic (their network
+        # timeout can exceed this local HTTP test's five-second deadline), so keep
+        # the real registry/schema and replace only the provider-facing handler.
+        registry = GatewayHandler.inference_engine.tool_registry
+        weather_tool = registry.get_tool("get_current_weather")
+        self.assertIsNotNone(weather_tool)
+        assert weather_tool is not None
+
+        def deterministic_weather(**_kwargs):
+            return {
+                "location": "Veitshöchheim",
+                "region": "Bayern",
+                "country": "Deutschland",
+                "temperature_celsius": 21.0,
+                "apparent_temperature_celsius": 21.0,
+                "condition": "Teilweise bewölkt",
+                "humidity_percent": 58,
+                "precipitation_mm": 0.0,
+                "wind_speed_kmh": 9.0,
+                "source": "deterministic-test-provider",
+            }
+
+        registry.register_tool(
+            weather_tool.name,
+            weather_tool.description,
+            weather_tool.parameters,
+            deterministic_weather,
+            owner_only=weather_tool.owner_only,
+            source=weather_tool.source,
         )
+        registry._cache.clear()
+        try:
+            status, data = self._post(
+                "/webui/chat/completions",
+                body={
+                    "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
+                    "stream": False,
+                },
+            )
+        finally:
+            registry.register_tool(
+                weather_tool.name,
+                weather_tool.description,
+                weather_tool.parameters,
+                weather_tool.handler,
+                owner_only=weather_tool.owner_only,
+                source=weather_tool.source,
+            )
+            registry._cache.clear()
+
         self.assertEqual(status, 200)
         self.assertIn("choices", data)
         content = data["choices"][0]["message"]["content"]
