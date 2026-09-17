@@ -243,6 +243,21 @@ class DAGWorkflowEngine:
             ).fetchall()
         return {str(row["node_id"]): row for row in rows}
 
+    def _set_running(self, workflow_id: str, node_id: str, attempts: int) -> None:
+        """Compatibility helper used by recovery tests and migration tooling.
+
+        It represents an interrupted legacy RUNNING state, not an active lease.
+        The zero lease expiry makes the node immediately reclaimable on resume.
+        """
+        now = time.time()
+        with self._db_lock, self._conn:
+            self._conn.execute(
+                "UPDATE workflow_nodes SET status='RUNNING',attempts=?,started_at=COALESCE(started_at,?),"
+                "error='',updated_at=?,lease_id=NULL,lease_expires_at=0 "
+                "WHERE workflow_id=? AND node_id=?",
+                (attempts, now, now, workflow_id, node_id),
+            )
+
     def _claim_node(self, workflow_id: str, node: WorkflowNode) -> tuple[str, int] | None:
         now = time.time()
         lease_id = f"lease_{uuid.uuid4().hex}"
