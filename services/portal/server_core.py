@@ -419,6 +419,15 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_bytes(target_f.read_bytes(), ctype)
                 return
 
+        if clean_path.startswith("/generated/"):
+            sub_rel = clean_path.removeprefix("/generated/").lstrip("/\\")
+            target_f = _safe_resolve_portal_file(f"generated/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                ctype = "image/png" if suffix == ".png" else "image/jpeg" if suffix in (".jpg", ".jpeg") else "application/octet-stream"
+                self._send_bytes(target_f.read_bytes(), ctype)
+                return
+
         if clean_path in STATIC_TEXT_ROUTES:
             filename, content_type = STATIC_TEXT_ROUTES[clean_path]
             target_file = _safe_resolve_portal_file(filename)

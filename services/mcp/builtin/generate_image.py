@@ -194,15 +194,34 @@ def generate_ai_image(
                         b64 = data_arr[0].get("b64_json")
                         img_url = data_arr[0].get("url")
                         if b64:
-                            data_uri = f"data:image/png;base64,{b64}"
+                            import base64
+                            import uuid
+                            try:
+                                raw_bytes = base64.b64decode(b64)
+                                img_id = uuid.uuid4().hex[:12]
+                                fname = f"image_{img_id}.png"
+                                target_dirs = [
+                                    REPO_ROOT / "portal" / "generated",
+                                    Path(getattr(sys, "_MEIPASS", REPO_ROOT)) / "portal" / "generated",
+                                ]
+                                for td in target_dirs:
+                                    try:
+                                        td.mkdir(parents=True, exist_ok=True)
+                                        (td / fname).write_bytes(raw_bytes)
+                                    except Exception:
+                                        pass
+                                clean_url = f"/generated/{fname}"
+                            except Exception:
+                                clean_url = f"data:image/png;base64,{b64}"
+
                             return {
                                 "status": "success",
                                 "source": "local_mesh_gpu",
                                 "prompt": clean_prompt,
                                 "enriched_prompt": enriched_prompt,
                                 "style": style,
-                                "image_url": data_uri,
-                                "markdown": f"![{clean_prompt}]({data_uri})\n\n[⬇️ **Bild in voller Auflösung herunterladen**]({data_uri})",
+                                "image_url": clean_url,
+                                "markdown": f"![{clean_prompt}]({clean_url})\n\n[⬇️ **Bild in voller Auflösung herunterladen**]({clean_url})",
                                 "width": width,
                                 "height": height,
                                 "provenance": provenance_meta,

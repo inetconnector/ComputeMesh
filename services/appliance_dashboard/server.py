@@ -217,6 +217,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
                 return
 
+        if req_path.startswith("/generated/"):
+            sub_rel = req_path.removeprefix("/generated/").lstrip("/\\")
+            target_f = _safe_resolve_portal_file(f"generated/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                ctype = "image/png" if suffix == ".png" else "image/jpeg" if suffix in (".jpg", ".jpeg") else "application/octet-stream"
+                data = target_f.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
         if KillswitchHandler.handle_get(self, req_path):
             return
 

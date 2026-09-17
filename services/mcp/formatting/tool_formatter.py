@@ -9,9 +9,54 @@ from typing import Any, Dict, List, Optional
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
 
+
+def _convert_data_uris_to_static_files(text: str) -> str:
+    """Detects embedded data:image/... base64 URLs in text/markdown and converts them to static /generated/ files."""
+    if "data:image/" not in text:
+        return text
+
+    cache: dict[str, str] = {}
+
+    def _replacer(match: re.Match) -> str:
+        prefix = match.group(1)
+        mime = match.group(2)
+        b64_data = match.group(3)
+        suffix = match.group(4)
+        if b64_data in cache:
+            return f"{prefix}{cache[b64_data]}{suffix}"
+        try:
+            import base64
+            import hashlib
+            import sys
+            from pathlib import Path
+            img_bytes = base64.b64decode(b64_data)
+            h = hashlib.sha256(img_bytes).hexdigest()[:16]
+            ext = mime if mime in ("png", "jpeg", "webp", "jpg") else "png"
+            fname = f"image_{h}.{ext}"
+            repo_root = Path(__file__).resolve().parents[3]
+            target_dirs = [
+                repo_root / "portal" / "generated",
+                Path(getattr(sys, "_MEIPASS", repo_root)) / "portal" / "generated",
+            ]
+            for td in target_dirs:
+                try:
+                    td.mkdir(parents=True, exist_ok=True)
+                    (td / fname).write_bytes(img_bytes)
+                except Exception:
+                    pass
+            url = f"/generated/{fname}"
+            cache[b64_data] = url
+            return f"{prefix}{url}{suffix}"
+        except Exception:
+            return match.group(0)
+
+    pattern = re.compile(r'(\!?\[.*?\]\(|href=["\']|src=["\'])data:image/([a-zA-Z0-9\+\-]+);base64,([a-zA-Z0-9\+/=\r\n]+)([\) "\'])')
+    return pattern.sub(_replacer, text)
+
+
 def format_tool_content_if_json(content: str) -> str:
     """Format a few common raw JSON tool responses for direct user display."""
-    content = format_reasoning_and_thinking_blocks(content)
+    content = _convert_data_uris_to_static_files(format_reasoning_and_thinking_blocks(content))
     cleaned = str(content or "").strip()
     if not (cleaned.startswith("{") and cleaned.endswith("}")):
         return str(content or "")
@@ -836,15 +881,15 @@ def format_tool_content_if_json(content: str) -> str:
                 f"[⬇️ **Bild in voller Auflösung herunterladen**]({url})\n\n"
                 f"> 💡 **Motiv:** *\"{p}\"* | 🎭 **Stil:** `{st}` | ⚡ **Engine:** `{engine}`"
             )
-            return res.strip()
+            return _convert_data_uris_to_static_files(res.strip())
 
         if "image_url" in data or "markdown" in data:
             md = data.get("markdown")
             if md:
-                return md.strip()
+                return _convert_data_uris_to_static_files(md.strip())
             url = data.get("image_url")
             prompt = data.get("prompt", "KI-Bild")
-            return f"![{prompt}]({url})\n\n[⬇️ **Bild in voller Auflösung herunterladen**]({url})"
+            return _convert_data_uris_to_static_files(f"![{prompt}]({url})\n\n[⬇️ **Bild in voller Auflösung herunterladen**]({url})")
 
         if "safe" in data and ("resolved_public_ips" in data or "status" in data):
             safe = data.get("safe", False)

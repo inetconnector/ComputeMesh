@@ -417,7 +417,19 @@ class InferenceRouter:
                     if isinstance(img_data, dict) and "data" in img_data and isinstance(img_data["data"], list):
                         for item in img_data["data"]:
                             if isinstance(item, dict) and "b64_json" in item and not item.get("url"):
-                                item["url"] = f"data:image/png;base64,{item['b64_json']}"
+                                b64 = item["b64_json"]
+                                try:
+                                    import base64
+                                    import uuid
+                                    raw_bytes = base64.b64decode(b64)
+                                    img_id = uuid.uuid4().hex[:12]
+                                    fname = f"image_{img_id}.png"
+                                    gen_dir = REPO_ROOT / "portal" / "generated"
+                                    gen_dir.mkdir(parents=True, exist_ok=True)
+                                    (gen_dir / fname).write_bytes(raw_bytes)
+                                    item["url"] = f"/generated/{fname}"
+                                except Exception:
+                                    item["url"] = f"data:image/png;base64,{b64}"
                     handler._send_json(img_data)
                     return True
             except Exception:

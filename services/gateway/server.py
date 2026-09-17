@@ -661,6 +661,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
+        if clean_path.startswith("/generated/"):
+            sub_rel = clean_path.removeprefix("/generated/").lstrip("/\\")
+            gen_dir = (REPO_ROOT / "portal" / "generated").resolve()
+            candidate = (gen_dir / sub_rel).resolve()
+            if candidate.is_relative_to(gen_dir) and candidate.is_file():
+                suffix = candidate.suffix.lower()
+                ctype = "image/png" if suffix == ".png" else "image/jpeg" if suffix in (".jpg", ".jpeg") else "application/octet-stream"
+                data = candidate.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                for h_name, h_val in SECURITY_HEADERS.items():
+                    self.send_header(h_name, h_val)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(data)
+                self.close_connection = True
+                return
+
         if clean_path in ("/models/sse", "/webui/models/sse", "/v1/models/sse"):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
