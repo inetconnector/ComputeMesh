@@ -9,6 +9,7 @@ from .config import MCPConfig, get_mcp_config
 from .tool_registry import ToolRegistry, ToolDefinition
 from .mcp_client import MCPClient, MCPStdioClient
 from .agent_loop import AgentLoop, AgentExecutionResult
+from .skill_execution import SkillExecutionEngine, SkillRegistry, SkillSpec
 
 __all__ = [
     "MCPConfig",
@@ -19,4 +20,7 @@ __all__ = [
     "MCPStdioClient",
     "AgentLoop",
     "AgentExecutionResult",
+    "SkillExecutionEngine",
+    "SkillRegistry",
+    "SkillSpec",
 ]

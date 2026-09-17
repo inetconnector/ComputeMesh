@@ -74,6 +74,7 @@ from .builtin.wikipedia import get_wikipedia_summary
 from .builtin.world_bank import get_world_bank_stats
 from .builtin.workspace_doctor import run_doctor_diagnostics
 from .builtin.workspace_quarantine import quarantine_stage_files, quarantine_validate, quarantine_commit, quarantine_rollback
+from .skill_execution import build_skill_engine
 from services.memory.user_memory import get_user_memory, update_user_memory, delete_user_memory
 
 DEFAULT_TOOL_TTL: Dict[str, float] = {
@@ -651,6 +652,44 @@ class ToolRegistry:
 
 
     def _register_default_tools(self) -> None:
+        def execute_universal_skill(
+            request: str,
+            skill_id: Optional[str] = None,
+            inputs: Optional[Dict[str, Any]] = None,
+            tool_calls: Optional[List[Dict[str, Any]]] = None,
+        ) -> Dict[str, Any]:
+            """Plan/execute a skill through this registry without inventing tool results."""
+            engine = build_skill_engine(
+                tool_router=lambda tool_name, arguments: self.execute_tool(
+                    tool_name, arguments, is_owner=True
+                )
+            )
+            return engine.execute(
+                request,
+                skill_id=skill_id,
+                inputs=inputs,
+                tool_calls=tool_calls or [],
+            )
+
+        self.register_tool(
+            "execute_universal_skill",
+            "Plant und orchestriert eine komplexe Aufgabe über das Universal Skill Execution System; liefert Zustand, Annahmen, Evidenz, Plan und Quality-Gate.",
+            {
+                "type": "object",
+                "properties": {
+                    "request": {"type": "string", "minLength": 1},
+                    "skill_id": {"type": ["string", "null"]},
+                    "inputs": {"type": ["object", "null"]},
+                    "tool_calls": {"type": ["array", "null"]},
+                },
+                "required": ["request"],
+                "additionalProperties": False,
+            },
+            execute_universal_skill,
+            owner_only=True,
+            source="builtin_skill_execution",
+        )
+
         def schema(properties: Dict[str, Any], required: List[str] | None = None, *, strict: bool = False) -> Dict[str, Any]:
             value: Dict[str, Any] = {"type": "object", "properties": properties}
             if required:
@@ -1966,7 +2005,6 @@ class ToolRegistry:
             execute_custom_tool,
             source="builtin_custom_tools",
         )
-
 
 
 

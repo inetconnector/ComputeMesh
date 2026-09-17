@@ -6,6 +6,19 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## Universal Skill Execution MCP — 2026-09-17
+
+- Added `services/mcp/skill_execution.py` and its canonical `SKILL.md`.
+  The owner-only `execute_universal_skill` tool now exposes a declarative skill
+  registry, trigger/exclusion matching, explicit missing-input handling,
+  task/dependency metadata, state/checkpoints, assumptions/evidence fields,
+  plan digests, injected tool routing, structured failures and a quality gate.
+- The implementation is fail-closed: it does not fabricate tool results,
+  sources, evidence or successful execution. It preserves the instruction
+  hierarchy and provenance boundary in the skill contract.
+- Contract tests cover normal selection, missing input, tool failure, owner-only
+  registration and public builder behavior. Full deployment remains pending.
+
 ## Magic-link email readability — 2026-09-16
 
 - Reworked the transactional login email for clients that rewrite colors or
