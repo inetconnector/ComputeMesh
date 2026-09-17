@@ -25,45 +25,43 @@ jobs:
 
           def replace_required(path, old, new):
               p = Path(path)
-              text = p.read_text(encoding='utf-8')
+              text = p.read_text(encoding="utf-8")
               if old not in text:
-                  raise SystemExit(f'expected patch anchor missing in {path}: {old[:80]!r}')
-              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+                  raise SystemExit(f"expected patch anchor missing in {path}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-          # Active Agents Platform owns scoped memory injection. Legacy memory
-          # remains unchanged only for disabled/shadow backwards compatibility.
-          replace_required(
-              'services/mcp/agent_loop.py',
-              '''        # Ensure tools guidance & persistent user memory are present in system instructions
-        mem_info = ""
-        try:
-            from ..memory import get_user_memory_store
-            mem_summary = get_user_memory_store().get_memory_summary()
-            if mem_summary and "Keine gespeicherten" not in mem_summary:
-                mem_info = f"\\n\\n[Persistentes Benutzer-Gedächtnis & Fakten]:\\n{mem_summary}"
-        except Exception:
-            pass
-''',
-              '''        # Legacy persistent-memory prompt injection is retained only in
-        # disabled/shadow mode for backwards compatibility. Active Agents Platform
-        # injects scoped memory as UNTRUSTED_DATA at user authority in runtime.py.
-        mem_info = ""
-        if not (
-            self.config.agents_platform_enabled
-            and not self.config.agents_platform_shadow_mode
-        ):
-            try:
-                from ..memory import get_user_memory_store
-                mem_summary = get_user_memory_store().get_memory_summary()
-                if mem_summary and "Keine gespeicherten" not in mem_summary:
-                    mem_info = f"\\n\\n[Persistentes Benutzer-Gedächtnis & Fakten]:\\n{mem_summary}"
-            except Exception:
-                pass
-'''
+          old = (
+              "        # Ensure tools guidance & persistent user memory are present in system instructions\n"
+              "        mem_info = \"\"\n"
+              "        try:\n"
+              "            from ..memory import get_user_memory_store\n"
+              "            mem_summary = get_user_memory_store().get_memory_summary()\n"
+              "            if mem_summary and \"Keine gespeicherten\" not in mem_summary:\n"
+              "                mem_info = f\"\\n\\n[Persistentes Benutzer-Gedächtnis & Fakten]:\\n{mem_summary}\"\n"
+              "        except Exception:\n"
+              "            pass\n"
           )
+          new = (
+              "        # Legacy persistent-memory prompt injection is retained only in\n"
+              "        # disabled/shadow mode for backwards compatibility. Active Agents Platform\n"
+              "        # injects scoped memory as UNTRUSTED_DATA at user authority in runtime.py.\n"
+              "        mem_info = \"\"\n"
+              "        if not (\n"
+              "            self.config.agents_platform_enabled\n"
+              "            and not self.config.agents_platform_shadow_mode\n"
+              "        ):\n"
+              "            try:\n"
+              "                from ..memory import get_user_memory_store\n"
+              "                mem_summary = get_user_memory_store().get_memory_summary()\n"
+              "                if mem_summary and \"Keine gespeicherten\" not in mem_summary:\n"
+              "                    mem_info = f\"\\n\\n[Persistentes Benutzer-Gedächtnis & Fakten]:\\n{mem_summary}\"\n"
+              "            except Exception:\n"
+              "                pass\n"
+          )
+          replace_required("services/mcp/agent_loop.py", old, new)
 
-          p = Path('services/mcp/agent_loop.py')
-          text = p.read_text(encoding='utf-8')
+          p = Path("services/mcp/agent_loop.py")
+          text = p.read_text(encoding="utf-8")
           start = text.index('                "[Chain-of-Thought Denkphase & Tool-Planung]:\\n"')
           end = text.index('                "[Tool-Calling Format]:\\n"', start)
           replacement = (
@@ -71,132 +69,126 @@ jobs:
               '                "Plane komplexe Tool-Schritte intern und gib nur knappe, überprüfbare Fortschritts- oder Ergebnisinformationen aus. "\n'
               '                "Gib keine privaten Gedankengänge und keine `<think>`-Blöcke aus.\\n\\n"\n'
           )
-          p.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+          p.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
 
-          # Manifest schema compatibility and comparison-safe version ordering.
-          replace_required(
-              'services/mcp/platform/skill_registry.py',
-              '''    def _manifest_from_metadata(self, metadata: dict[str, Any], *, checksum: str, location: str) -> SkillManifest:
-        status_raw = str(metadata.get("status", "ACTIVE")).upper()
-''',
-              '''    def _manifest_from_metadata(self, metadata: dict[str, Any], *, checksum: str, location: str) -> SkillManifest:
-        schema_version = str(metadata.get("schema_version", "1.0")).strip()
-        if schema_version not in {"1", "1.0"}:
-            raise ValueError(f"unsupported skill manifest schema_version: {schema_version}")
-        status_raw = str(metadata.get("status", "ACTIVE")).upper()
-'''
+          old = (
+              "    def _manifest_from_metadata(self, metadata: dict[str, Any], *, checksum: str, location: str) -> SkillManifest:\n"
+              "        status_raw = str(metadata.get(\"status\", \"ACTIVE\")).upper()\n"
           )
-          replace_required(
-              'services/mcp/platform/skill_registry.py',
-              '''    @staticmethod
-    def _version_key(version: str) -> tuple[Any, ...]:
-        return tuple(int(part) if part.isdigit() else part.casefold() for part in version.replace("-", ".").split("."))
-''',
-              '''    @staticmethod
-    def _version_key(version: str) -> tuple[Any, ...]:
-        parts = version.replace("-", ".").split(".")
-        return tuple(
-            (0, int(part)) if part.isdigit() else (1, part.casefold())
-            for part in parts
-        )
-'''
+          new = (
+              "    def _manifest_from_metadata(self, metadata: dict[str, Any], *, checksum: str, location: str) -> SkillManifest:\n"
+              "        schema_version = str(metadata.get(\"schema_version\", \"1.0\")).strip()\n"
+              "        if schema_version not in {\"1\", \"1.0\"}:\n"
+              "            raise ValueError(f\"unsupported skill manifest schema_version: {schema_version}\")\n"
+              "        status_raw = str(metadata.get(\"status\", \"ACTIVE\")).upper()\n"
           )
+          replace_required("services/mcp/platform/skill_registry.py", old, new)
 
-          # Human-readable validation rules are quality requirements; only named
-          # machine validators (or validator:<name>) become executable gates.
-          replace_required(
-              'services/mcp/platform/pipeline.py',
-              '''        selected = tuple(names or ("not_none", "no_error_field"))
-
-        def validate(value: Any) -> bool:
-''',
-              '''        builtins = {"not_none", "non_empty", "no_error_field"}
-        selected_list: list[str] = []
-        for raw_name in names:
-            name = str(raw_name)
-            if name in builtins:
-                selected_list.append(name)
-            elif name.startswith("validator:"):
-                selected_list.append(name.split(":", 1)[1])
-        selected = tuple(selected_list or ("not_none", "no_error_field"))
-
-        def validate(value: Any) -> bool:
-'''
+          old = (
+              "    @staticmethod\n"
+              "    def _version_key(version: str) -> tuple[Any, ...]:\n"
+              "        return tuple(int(part) if part.isdigit() else part.casefold() for part in version.replace(\"-\", \".\").split(\".\"))\n"
           )
+          new = (
+              "    @staticmethod\n"
+              "    def _version_key(version: str) -> tuple[Any, ...]:\n"
+              "        parts = version.replace(\"-\", \".\").split(\".\")\n"
+              "        return tuple(\n"
+              "            (0, int(part)) if part.isdigit() else (1, part.casefold())\n"
+              "            for part in parts\n"
+              "        )\n"
+          )
+          replace_required("services/mcp/platform/skill_registry.py", old, new)
 
-          # A supplied private policy is an allow-list contract. Empty means none,
-          # not unrestricted. Only absence of policy means unrestricted public mode.
-          replace_required(
-              'services/mcp/platform/runtime.py',
-              '''    def _policy_allowed_skills(
-        policy: RuntimePolicyEnvelope | None,
-    ) -> tuple[str, ...] | None:
-        if policy is None or not policy.allowed_skills:
-            return None
-        return policy.allowed_skills
-''',
-              '''    def _policy_allowed_skills(
-        policy: RuntimePolicyEnvelope | None,
-    ) -> tuple[str, ...] | None:
-        if policy is None:
-            return None
-        return policy.allowed_skills
-'''
+          old = (
+              "        selected = tuple(names or (\"not_none\", \"no_error_field\"))\n\n"
+              "        def validate(value: Any) -> bool:\n"
           )
-          replace_required(
-              'services/mcp/platform/runtime.py',
-              '''    def _policy_allowed_tools(
-        policy: RuntimePolicyEnvelope | None,
-    ) -> tuple[str, ...] | None:
-        if policy is None or not policy.allowed_tools:
-            return None
-        return policy.allowed_tools
-''',
-              '''    def _policy_allowed_tools(
-        policy: RuntimePolicyEnvelope | None,
-    ) -> tuple[str, ...] | None:
-        if policy is None:
-            return None
-        return policy.allowed_tools
-'''
+          new = (
+              "        builtins = {\"not_none\", \"non_empty\", \"no_error_field\"}\n"
+              "        selected_list: list[str] = []\n"
+              "        for raw_name in names:\n"
+              "            name = str(raw_name)\n"
+              "            if name in builtins:\n"
+              "                selected_list.append(name)\n"
+              "            elif name.startswith(\"validator:\"):\n"
+              "                selected_list.append(name.split(\":\", 1)[1])\n"
+              "        selected = tuple(selected_list or (\"not_none\", \"no_error_field\"))\n\n"
+              "        def validate(value: Any) -> bool:\n"
           )
-          replace_required(
-              'services/mcp/platform/runtime.py',
-              '''        if runtime_policy is not None and runtime_policy.allowed_tools:
-            all_names = {
-                tool.name
-                for tool in self.tool_registry.list_tools(is_owner=is_owner)
-            }
-            policy_disabled |= all_names - set(runtime_policy.allowed_tools)
-''',
-              '''        if runtime_policy is not None:
-            all_names = {
-                tool.name
-                for tool in self.tool_registry.list_tools(is_owner=is_owner)
-            }
-            policy_disabled |= all_names - set(runtime_policy.allowed_tools)
-'''
-          )
+          replace_required("services/mcp/platform/pipeline.py", old, new)
 
-          # Existing memory test now uses the mandatory mutation scope.
+          old = (
+              "    def _policy_allowed_skills(\n"
+              "        policy: RuntimePolicyEnvelope | None,\n"
+              "    ) -> tuple[str, ...] | None:\n"
+              "        if policy is None or not policy.allowed_skills:\n"
+              "            return None\n"
+              "        return policy.allowed_skills\n"
+          )
+          new = (
+              "    def _policy_allowed_skills(\n"
+              "        policy: RuntimePolicyEnvelope | None,\n"
+              "    ) -> tuple[str, ...] | None:\n"
+              "        if policy is None:\n"
+              "            return None\n"
+              "        return policy.allowed_skills\n"
+          )
+          replace_required("services/mcp/platform/runtime.py", old, new)
+
+          old = (
+              "    def _policy_allowed_tools(\n"
+              "        policy: RuntimePolicyEnvelope | None,\n"
+              "    ) -> tuple[str, ...] | None:\n"
+              "        if policy is None or not policy.allowed_tools:\n"
+              "            return None\n"
+              "        return policy.allowed_tools\n"
+          )
+          new = (
+              "    def _policy_allowed_tools(\n"
+              "        policy: RuntimePolicyEnvelope | None,\n"
+              "    ) -> tuple[str, ...] | None:\n"
+              "        if policy is None:\n"
+              "            return None\n"
+              "        return policy.allowed_tools\n"
+          )
+          replace_required("services/mcp/platform/runtime.py", old, new)
+
+          old = (
+              "        if runtime_policy is not None and runtime_policy.allowed_tools:\n"
+              "            all_names = {\n"
+              "                tool.name\n"
+              "                for tool in self.tool_registry.list_tools(is_owner=is_owner)\n"
+              "            }\n"
+              "            policy_disabled |= all_names - set(runtime_policy.allowed_tools)\n"
+          )
+          new = (
+              "        if runtime_policy is not None:\n"
+              "            all_names = {\n"
+              "                tool.name\n"
+              "                for tool in self.tool_registry.list_tools(is_owner=is_owner)\n"
+              "            }\n"
+              "            policy_disabled |= all_names - set(runtime_policy.allowed_tools)\n"
+          )
+          replace_required("services/mcp/platform/runtime.py", old, new)
+
           replace_required(
-              'services/mcp/tests/test_agents_platform.py',
+              "services/mcp/tests/test_agents_platform.py",
               '        self.assertEqual(store.delete(user_a.memory_id, cascade_derived=True), 2)\n',
-              '        self.assertEqual(store.delete(user_a.memory_id, scope=MemoryScope.USER, scope_id="A", cascade_derived=True), 2)\n'
+              '        self.assertEqual(store.delete(user_a.memory_id, scope=MemoryScope.USER, scope_id="A", cascade_derived=True), 2)\n',
           )
 
-          # Public exports for the new review-2 contracts.
-          p = Path('services/mcp/platform/__init__.py')
-          text = p.read_text(encoding='utf-8')
+          p = Path("services/mcp/platform/__init__.py")
+          text = p.read_text(encoding="utf-8")
           text = text.replace(
-              '    RequestEnvelope,\n',
-              '    RequestEnvelope,\n    RuntimePolicyEnvelope,\n'
+              "    RequestEnvelope,\n",
+              "    RequestEnvelope,\n    RuntimePolicyEnvelope,\n",
           ).replace(
-              '    ToolExecutionContext,\n',
-              '    ToolAuthorizationGrant,\n    ToolExecutionContext,\n'
+              "    ToolExecutionContext,\n",
+              "    ToolAuthorizationGrant,\n    ToolExecutionContext,\n",
           ).replace(
-              'from .runtime import AgentsPlatformRuntime, PlatformPreparation, build_agents_platform_runtime\n',
-              'from .runtime import AgentsPlatformRuntime, PlatformContextBlock, PlatformPreparation, build_agents_platform_runtime\n'
+              "from .runtime import AgentsPlatformRuntime, PlatformPreparation, build_agents_platform_runtime\n",
+              "from .runtime import AgentsPlatformRuntime, PlatformContextBlock, PlatformPreparation, build_agents_platform_runtime\n",
           )
           for symbol, anchor in (
               ('    "RuntimePolicyEnvelope",\n', '    "RuleResolution",\n'),
@@ -205,7 +197,7 @@ jobs:
           ):
               if symbol not in text:
                   text = text.replace(anchor, anchor + symbol, 1)
-          p.write_text(text, encoding='utf-8')
+          p.write_text(text, encoding="utf-8")
           PY
 
       - name: Validate patch syntax
