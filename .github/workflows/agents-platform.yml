@@ -8,6 +8,8 @@ on:
     paths:
       - 'services/mcp/platform/**'
       - 'services/mcp/tests/test_agents_platform.py'
+      - 'services/mcp/tests/test_agents_routing_eval.py'
+      - 'services/mcp/tests/data/agents_routing_eval.json'
       - 'services/memory/structured_memory.py'
       - 'services/memory/__init__.py'
       - 'services/mcp/config.py'
@@ -24,7 +26,7 @@ permissions:
 jobs:
   agents-platform:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       COMPUTEMESH_INFERENCE_BACKEND: synthetic
       COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: '1'
@@ -52,6 +54,9 @@ jobs:
       - name: Agents Platform contract tests
         run: python -m unittest services.mcp.tests.test_agents_platform -v
 
+      - name: Routing evaluation dataset
+        run: python -m unittest services.mcp.tests.test_agents_routing_eval -v
+
       - name: Existing skill execution regression
         run: python -m unittest services.mcp.tests.test_skill_execution -v
 
@@ -60,3 +65,6 @@ jobs:
 
       - name: Existing MCP system regression
         run: python -m unittest services.mcp.tests.test_mcp_system -v
+
+      - name: Full ComputeMesh regression
+        run: python run_all_tests.py
