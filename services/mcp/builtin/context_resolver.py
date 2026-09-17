@@ -71,6 +71,13 @@ def resolve_contextual_query(
     if not messages or len(messages) <= 1:
         return cleaned, None, False
 
+    # Guard: Do not resolve context on user corrections, negations, or explicit site/portal directives
+    if re.search(r"^(?:nein|nicht|falsch|stopp|stop|halt|ich meine|ich meinte|du sollst|schau|guck|sieh|öffne|lies)\b", cleaned, re.IGNORECASE):
+        return cleaned, None, False
+
+    if any(w in cleaned.lower() for w in ("taz", "spiegel", "zeit", "tagesschau", "heise", "golem", "faz", "welt", "focus", "sueddeutsche", "seite", "webseite", "website", "homepage", "http://", "https://", ".de", ".com", ".org", ".net")):
+        return cleaned, None, False
+
     has_deictic = bool(DEICTIC_RE.search(cleaned))
     is_short_followup = len(cleaned.split()) <= 7
 
@@ -79,6 +86,9 @@ def resolve_contextual_query(
         history = messages[:-1] if messages and messages[-1].get("content") == user_query else messages
         dominant_topic = extract_dominant_topic(history)
         if dominant_topic:
+            if dominant_topic.lower() in cleaned.lower():
+                return cleaned, dominant_topic, True
+
             # Construct enriched, grounded query
             if any(w in cleaned.lower() for w in ("passiert", "letztes", "geschehen", "neu", "aktuell", "stand")):
                 resolved = f"{dominant_topic} aktuelle Ereignisse und letzte Entwicklungen"
@@ -86,8 +96,10 @@ def resolve_contextual_query(
                 resolved = f"{dominant_topic} beteiligte Personen und Akteure"
             elif any(w in cleaned.lower() for w in ("warum", "ursache", "grund", "hintergrund")):
                 resolved = f"{dominant_topic} Ursachen und Hintergrund"
-            else:
+            elif len(cleaned.split()) <= 4:
                 resolved = f"{dominant_topic} {cleaned}"
+            else:
+                return cleaned, None, False
             return resolved.strip(), dominant_topic, True
 
     return cleaned, None, False

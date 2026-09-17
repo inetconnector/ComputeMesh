@@ -198,7 +198,7 @@ class TestMCPAdvancedPerformance(unittest.TestCase):
                 return {"choices": [{"message": {"role": "assistant", "content": ""}}], "usage": {"prompt_tokens": 20, "completion_tokens": 0}}
 
         res = loop.run(
-            messages=[{"role": "user", "content": "male ein bild aus den neuesten nschrichten"}],
+            messages=[{"role": "user", "content": "male aus den headlines ein bild des tages"}],
             model="qwen2.5:7b",
             llm_caller=fake_llm,
         )
@@ -208,4 +208,21 @@ class TestMCPAdvancedPerformance(unittest.TestCase):
         self.assertIn("generate_ai_image", tool_names)
         self.assertIn("![", res.final_content)
         self.assertIn("Bild in voller Auflösung herunterladen", res.final_content)
+
+    def test_direct_intent_taz_site_headline_lookup(self):
+        intent_taz = detect_direct_tool_intent("nein du sollst schauen auf der taz seite was da die headline ist")
+        self.assertIsNotNone(intent_taz)
+        self.assertEqual(intent_taz[0], "get_live_news")
+        self.assertEqual(intent_taz[1]["topic"], "taz")
+
+        intent_spiegel = detect_direct_tool_intent("schau auf spiegel.de was die top news sind")
+        self.assertIsNotNone(intent_spiegel)
+        self.assertEqual(intent_spiegel[0], "get_live_news")
+        self.assertEqual(intent_spiegel[1]["topic"], "spiegel")
+
+    def test_direct_intent_headlines_image_of_the_day(self):
+        intent = detect_direct_tool_intent("male aus den headlines ein bild des tages")
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent[0], "get_live_news")
+        self.assertEqual(intent[1]["topic"], "allgemein")
 

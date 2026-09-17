@@ -32,6 +32,9 @@ def is_compound_multi_step_query(text: str) -> bool:
         ]):
             return False
 
+    # Normalize common fixed noun pairings (e.g. "Angebote und Preise", "Gewinner und Verlierer")
+    normalized = re.sub(r"\b(?:angebote\s+und\s+preise|preise\s+und\s+angebote|gewinner\s+und\s+verlierer|beste\s+und\s+schlechteste)\b", "", lower)
+
     compound_patterns = [
         # Conjunction + Action Verb
         r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem|plus)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe|schau|hol\w*|find\w*|sag\w*|gib|berichte|lies|starte)\b",
@@ -41,15 +44,15 @@ def is_compound_multi_step_query(text: str) -> bool:
         # Conjunction + Domain Topic Keyword (e.g. "sowie nachrichten", "und live news", "und der bitcoin kurs", "und das wetter in hamburg")
         r"\b(?:und|sowie|außerdem|and|also)\s+(?:die\s+|das\s+|der\s+|den\s+|ein\s+|eine\s+|aktuelle\s+|neue\s+)?(?:nachricht\w*|news|schlagzeil\w*|tagesschau|breaking\s+news|wetter\w*|temperatur\w*|klima|aktie\w*|aktienkurs\w*|kurs\w*|krypto\w*|crypto|bitcoin|btc\b|eth\b|sol\b|uhrzeit\w*|zeit\s+in|feiertag\w*|bip\b|inflation|fakten\s+über|preisvergleich|preise)\b",
         # Dependent multi-step data chaining
-        r"\b(?:based\s+on|from\s+the|basierend\s+auf|anhand\s+der|aus\s+den)\s+(?:quotes|weather|data|daten|nachrichten|news|ergebnissen)\b",
+        r"\b(?:based\s+on|from\s+the|basierend\s+auf|anhand\s+der|aus\s+den|zu\s+den|von\s+den)\s+(?:quotes|weather|data|daten|nachrichten|news|ergebnissen|headlines?|schlagzeilen?)\b",
         r"\b(?:recherchier\w*|such\w*|find\w*)\b.*\b(?:und|dann|anschließend|and)\b.*\b(?:erstell\w*|generier\w*|zeichn\w*|mal\w*|plot\w*|berechn\w*)\b",
         # Multi-domain combinations in the same prompt (e.g. Weather + News, Weather + Stocks, News + Image)
         r"\b(?:wetter|temperatur)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:nachricht\w*|news|schlagzeil\w*|aktie\w*|kurs\w*|bitcoin|krypto|uhrzeit|bild|foto)\b",
-        r"\b(?:nachricht\w*|news|schlagzeil\w*)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:wetter|temperatur|aktie\w*|kurs\w*|bitcoin|krypto|uhrzeit|bild|foto)\b",
+        r"\b(?:nachricht\w*|news|schlagzeil\w*|headline\w*)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:wetter|temperatur|aktie\w*|kurs\w*|bitcoin|krypto|uhrzeit|bild|foto)\b",
         r"\b(?:aktie\w*|kurs\w*|bitcoin|krypto)\b.*\b(?:und|sowie|plus|and)\b.*\b(?:wetter|temperatur|nachricht\w*|news|uhrzeit|bild|foto)\b",
     ]
     for pat in compound_patterns:
-        if re.search(pat, lower):
+        if re.search(pat, normalized):
             return True
     return False
 
@@ -96,17 +99,22 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
                     city = extracted.capitalize()
             return ("get_current_weather", {"city": city})
 
-        # 3. Check if news / current events context (with typo tolerance: nachrichten, nschrichten, schlagzeilen, etc.)
-        if re.search(r"(?:nachricht\w*|nschricht\w*|schlagzeil\w*|news|tagesschau|breaking)", full_text):
+        # 3. Check if news / headlines / current events context (with typo tolerance & portal awareness)
+        if re.search(r"(?:nachricht\w*|nschricht\w*|schlagzeil\w*|headline\w*|news|tagesschau|breaking|tagesgeschehen|ereigniss\w*|bild\s+des\s+tages|des\s+tages\b|vom\s+tage\b|tages\b)", full_text):
             topic = "allgemein"
-            if re.search(r"(?:tech\w*|technologie|ki\b|ai\b|software)", full_text):
-                topic = "Technologie"
-            elif re.search(r"(?:krypto|crypto|bitcoin|btc\b|ethereum|eth\b)", full_text):
-                topic = "Krypto"
-            elif re.search(r"(?:wirtschaft|finanz\w*|börse|boerse|aktie\w*)", full_text):
-                topic = "Wirtschaft"
-            elif re.search(r"(?:politik|deutschland)", full_text):
-                topic = "Politik"
+            for p in ("taz", "spiegel", "tagesschau", "heise", "golem", "zeit", "faz", "welt", "focus", "sueddeutsche"):
+                if p in full_text:
+                    topic = p
+                    break
+            if topic == "allgemein":
+                if re.search(r"(?:tech\w*|technologie|ki\b|ai\b|software)", full_text):
+                    topic = "Technologie"
+                elif re.search(r"(?:krypto|crypto|bitcoin|btc\b|ethereum|eth\b)", full_text):
+                    topic = "Krypto"
+                elif re.search(r"(?:wirtschaft|finanz\w*|börse|boerse|aktie\w*)", full_text):
+                    topic = "Wirtschaft"
+                elif re.search(r"(?:politik|deutschland)", full_text):
+                    topic = "Politik"
             return ("get_live_news", {"topic": topic})
 
         if len(raw_prompt) >= 3:
@@ -384,7 +392,7 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
 
     # 0.21 Real-Time Product & Price Comparison (e.g. "Preisvergleich für iPhone 16 Pro 256GB", "Was kostet das MacBook Pro M3?", "Günstigster Preis für RTX 4090")
     m_price = re.search(
-        r"(?:(?:führe\s+(?:einen\s+)?|mache\s+(?:einen\s+)?)?preisvergleich\s+(?:für|fuer|von|zu|beim)?\s*|(?:vergleiche\s+(?:die\s+)?(?:preise|angebote)\s+(?:für|fuer|von|zu)?\s*)|(?:finde\s+(?:die\s+)?(?:besten\s+)?(?:angebote|preise)(?:\s+und\s+preise)?\s+(?:für|fuer)?\s*)|(?:was\s+kostet\s+(?:das\s+|ein\s+|die\s+|der\s+)?)|(?:günstigster\s+preis\s+(?:für|fuer|von)?\s*)|(?:wo\s+gibt\s+es\s+(?:das\s+|ein\s+|die\s+)?)|(?:suche\s+angebote\s+(?:für|fuer)?\s*)|(?:best\s+price\s+(?:for|of)?\s*)|(?:compare\s+prices\s+(?:for|of)?\s*)|(?:price\s+comparison\s+(?:for|of)?\s*))([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\s+(?:im\s+vergleich|online|kaufen|in\s+einer\s+tabelle|tabelle)|\?|\.|$)",
+        r"(?:(?:führe\s+(?:einen\s+)?|mache\s+(?:einen\s+)?)?preisvergleich\s+(?:für|fuer|von|zu|beim)?\s*|(?:vergleiche\s+(?:die\s+)?(?:preise|angebote)\s+(?:für|fuer|von|zu)?\s*)|(?:finde\s+(?:die\s+)?(?:besten\s+)?(?:angebote|preise)(?:\s+und\s+(?:angebote|preise))?\s+(?:für|fuer)?\s*)|(?:was\s+kostet\s+(?:das\s+|ein\s+|die\s+|der\s+)?)|(?:günstigster\s+preis\s+(?:für|fuer|von)?\s*)|(?:wo\s+gibt\s+es\s+(?:das\s+|ein\s+|die\s+)?)|(?:suche\s+angebote\s+(?:für|fuer)?\s*)|(?:best\s+price\s+(?:for|of)?\s*)|(?:compare\s+prices\s+(?:for|of)?\s*)|(?:price\s+comparison\s+(?:for|of)?\s*))([a-zA-Z0-9äöüÄÖÜß\s\-,\+&]+?)(?:\s+(?:im\s+vergleich|online|kaufen|in\s+einer\s+tabelle|tabelle)|\?|\.|$)",
         cleaned,
         re.IGNORECASE
     )
@@ -574,7 +582,23 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
             return ("calculate_math", {"expression": expr})
 
-    # 10. News Feed & Headlines from Portals (Spiegel, Tagesschau, Heise, General News with Typo Tolerance)
+    # 10. News Feed, Headlines & Direct Site Inspection (taz, Spiegel, Tagesschau, Heise, Zeit, etc.)
+    KNOWN_NEWS_PORTALS = ("spiegel", "tagesschau", "heise", "taz", "zeit", "faz", "welt", "focus", "sueddeutsche", "golem", "stern", "n-tv", "ntv", "krypto", "crypto", "tech", "wirtschaft")
+
+    # Direct site lookup / portal inspection (e.g. "schau auf der taz seite was da die headline ist", "schau auf taz.de was die headlines sind", "was steht heute auf spiegel.de")
+    m_site = re.search(
+        r"(?:(?:schau\w*|guck\w*|sieh\w*|lies\w*|öffne\w*|besuche\w*|geh\w*)\s+(?:mal\s+)?(?:auf\s+(?:die\s+|der\s+|das\s+)?|in\s+(?:die\s+|der\s+|das\s+)?)(?:seite\s+|webseite\s+|homepage\s+)?([a-zA-Z0-9_\-\.]+)(?:\s+(?:was|nach|um|und|für|wie|ob|den|die|das).*)?|(?:was\s+(?:steht|gibt\s+es|sind\s+die\s+(?:schlagzeilen|headlines|nachrichten|news|top\s+news|artikel))\s+(?:auf|bei|in)\s+(?:der\s+)?)([a-zA-Z0-9_\-\.]+))",
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_site:
+        target_portal = (m_site.group(1) or m_site.group(2) or "").strip().lower().rstrip("/.!?")
+        matched_portal = next((p for p in KNOWN_NEWS_PORTALS if p in target_portal), None)
+        if matched_portal or any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "top news", "artikel", "titel")):
+            return ("get_live_news", {"topic": matched_portal or target_portal})
+        elif target_portal.startswith("http://") or target_portal.startswith("https://") or any(target_portal.endswith(tld) for tld in (".de", ".com", ".org", ".net", ".io", ".ai", ".eu")):
+            return ("fetch_web_page", {"url": target_portal if target_portal.startswith("http") else f"https://{target_portal}"})
+
     m_portal_news = re.search(
         r"(?:(?:die\s+|die\s+aktuellen\s+|aktuelle\s+)?(?:headlines|schlagzeilen|nachrichten|news|top\s+news|artikel)\s+(?:von\s+|aus\s+|auf\s+|bei\s+)?|was\s+gibt\s+es\s+neues\s+(?:bei\s+|auf\s+)?)\s*([a-zA-ZäöüÄÖÜß\s\-,\+&]+)",
         cleaned,
@@ -582,11 +606,11 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
     )
     if m_portal_news:
         portal = m_portal_news.group(1).strip().rstrip("?.!")
-        if any(p in portal.lower() for p in ("spiegel", "tagesschau", "heise", "golem", "zeit", "faz", "welt", "focus", "sueddeutsche", "krypto", "crypto", "tech", "wirtschaft")):
+        if any(p in portal.lower() for p in KNOWN_NEWS_PORTALS):
             return ("get_live_news", {"topic": portal})
 
-    if any(re.search(rf"\b{p}\b", cleaned, re.IGNORECASE) for p in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche")) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel")):
-        matched_portals = [p_name for p_name in ("spiegel", "tagesschau", "heise", "zeit", "faz", "welt", "focus", "sueddeutsche") if re.search(rf"\b{p_name}\b", cleaned, re.IGNORECASE)]
+    if any(re.search(rf"\b{p}\b", cleaned, re.IGNORECASE) for p in KNOWN_NEWS_PORTALS) and any(w in cleaned.lower() for w in ("headline", "schlagzeil", "nachricht", "news", "aktuell", "heute", "artikel", "titel", "seite", "webseite")):
+        matched_portals = [p_name for p_name in KNOWN_NEWS_PORTALS if re.search(rf"\b{p_name}\b", cleaned, re.IGNORECASE)]
         if matched_portals:
             return ("get_live_news", {"topic": " und ".join(matched_portals)})
         return ("get_live_news", {"topic": "tagesschau"})

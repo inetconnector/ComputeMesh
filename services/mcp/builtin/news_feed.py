@@ -24,6 +24,10 @@ NEWS_FEEDS = {
     "spiegel online": "https://www.spiegel.de/schlagzeilen/tops/index.rss",
     "spiegel.de": "https://www.spiegel.de/schlagzeilen/tops/index.rss",
     "tagesschau": "https://www.tagesschau.de/xml/rss2/",
+    "taz": "https://taz.de/rss.xml",
+    "taz.de": "https://taz.de/rss.xml",
+    "die tageszeitung": "https://taz.de/rss.xml",
+    "tageszeitung": "https://taz.de/rss.xml",
     "heise": "https://www.heise.de/rss/heise-atom.xml",
     "golem": "https://rss.golem.de/rss.php?feed=RSS2.0",
     "zeit": "https://newsfeed.zeit.de/index",
@@ -125,6 +129,9 @@ def _get_single_feed_news(raw_topic: str, max_results: int = 5, timeout: float =
     elif "tagesschau" in clean_topic:
         feed_url = NEWS_FEEDS["tagesschau"]
         display_topic = "Tagesschau"
+    elif "taz" in clean_topic:
+        feed_url = NEWS_FEEDS["taz"]
+        display_topic = "taz (die tageszeitung)"
     elif "heise" in clean_topic:
         feed_url = NEWS_FEEDS["heise"]
         display_topic = "Heise Online"

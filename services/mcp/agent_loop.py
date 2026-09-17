@@ -171,13 +171,15 @@ class AgentLoop:
         # Check proactive pre-flight intent only for pure text queries without images
         direct_intent = detect_direct_tool_intent(last_user_text, self.registry) if (last_user_text and not has_images) else None
 
-        # If no direct intent matched, check if resolving conversational references yields a research topic
+        # If no direct intent matched, check if resolving conversational references yields a concrete intent
         if not direct_intent and last_user_text and not has_images and len(curr_messages) > 1:
             try:
                 from .builtin.context_resolver import resolve_contextual_query
                 resolved_q, resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
-                if was_resolved and resolved_entity:
-                    direct_intent = ("cross_source_knowledge_search", {"query": resolved_q})
+                if was_resolved and resolved_q:
+                    direct_intent = detect_direct_tool_intent(resolved_q, self.registry)
+                    if not direct_intent and any(w in resolved_q.lower() for w in ("recherchiere", "tiefenrecherche", "deep research", "hintergründe", "ereignisse")):
+                        direct_intent = ("cross_source_knowledge_search", {"query": resolved_q})
             except Exception:
                 pass
         if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
