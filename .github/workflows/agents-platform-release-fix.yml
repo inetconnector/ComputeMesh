@@ -33,7 +33,10 @@ jobs:
           before = text
           for line in forbidden:
               text = text.replace(line, '')
-          text = text.replace('  <!-- Google Fonts & Styles -->', '  <!-- Local/system typography & styles; no third-party browser resources -->')
+          text = text.replace(
+              '  <!-- Google Fonts & Styles -->',
+              '  <!-- Local/system typography & styles; no third-party browser resources -->',
+          )
           if text == before:
               raise SystemExit('Expected forbidden Google Fonts references were not found; refusing an unrelated rewrite.')
           if 'fonts.googleapis.com' in text or 'fonts.gstatic.com' in text:
@@ -41,8 +44,29 @@ jobs:
           path.write_text(text, encoding='utf-8')
           PY
 
-      - name: Validate targeted portal security test
-        run: python -m unittest services.portal.tests.test_portal_server.TestPortalServer.test_portal_html_has_no_forbidden_third_party_resources -v
+      - name: Validate portal third-party resource policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          forbidden_origins = (
+              'fonts.googleapis.com',
+              'fonts.gstatic.com',
+              'cdn.jsdelivr.net',
+              'googletagmanager.com',
+              'google-analytics.com',
+              'connect.facebook.net',
+          )
+          violations = []
+          for path in sorted(Path('portal').glob('*.html')):
+              text = path.read_text(encoding='utf-8')
+              for origin in forbidden_origins:
+                  if origin in text:
+                      violations.append(f'{path.name}: {origin}')
+          if violations:
+              raise SystemExit('Forbidden third-party browser resources: ' + ', '.join(violations))
+          print('Portal third-party resource scan passed.')
+          PY
 
       - name: Commit release blocker fix
         run: |
