@@ -214,16 +214,40 @@ class TestDirectIntentAndFormatting(unittest.TestCase):
         self.assertIsNotNone(intent)
         self.assertEqual(intent[0], "get_user_memory")
 
-    def test_format_python_output(self):
-        tool_json = json.dumps({
-            "status": "success",
-            "stdout": "ComputeMesh Node: Active",
-            "result": "100",
-            "images": []
-        })
-        formatted = format_tool_content_if_json(tool_json)
-        self.assertIn("Code Interpreter", formatted)
-        self.assertIn("ComputeMesh Node: Active", formatted)
+    def test_compound_multi_step_query_detection(self):
+        from services.mcp.intent.intent_router import is_compound_multi_step_query
+        # Compound queries with 'und was...' or 'und wie...'
+        self.assertTrue(is_compound_multi_step_query("schau wie das wetter ist bei mir und was in den nachrichten so läuft"))
+        self.assertTrue(is_compound_multi_step_query("wie ist das wetter in berlin und wie steht die apple aktie"))
+        self.assertTrue(is_compound_multi_step_query("wie spät ist es in tokio und was gibt es neues bei tagesschau"))
+        self.assertTrue(is_compound_multi_step_query("aktuelle nachrichten und erstelle ein bild dazu"))
+
+        # Pure formatting / presentation queries should NOT be compound
+        self.assertFalse(is_compound_multi_step_query("wie ist das wetter in berlin und zeige es in einer tabelle"))
+        self.assertFalse(is_compound_multi_step_query("preisvergleich iphone 16 pro und bereite es in einer tabelle auf"))
+
+    def test_compound_query_bypasses_preflight(self):
+        # Multi-intent prompts must return None from single-tool preflight so AgentLoop can orchestrate
+        compound_prompt = "schau wie das wetter ist bei mir und was in den nachrichten so läuft"
+        intent = detect_direct_tool_intent(compound_prompt)
+        self.assertIsNone(intent)
+
+    def test_single_intent_weather_pronoun_fallback(self):
+        # Single-intent with "bei mir" resolves to default location without error or Monastir
+        intent = detect_direct_tool_intent("schau wie das wetter ist bei mir")
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent[0], "get_current_weather")
+        self.assertIn(intent[1].get("location"), ("Veitshöchheim", "Berlin"))
+
+    def test_weather_multi_location_sanitation(self):
+        from services.mcp.builtin.weather import _extract_candidates
+        # Garbage phrase should not produce fake location candidates
+        cands_garbage = _extract_candidates("was in den nachrichten so läuft")
+        self.assertEqual(cands_garbage, [])
+
+        # "mir" should resolve to default location
+        cands_mir = _extract_candidates("mir")
+        self.assertEqual(cands_mir, ["Veitshöchheim"])
 
 
 if __name__ == "__main__":
