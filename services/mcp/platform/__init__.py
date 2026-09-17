@@ -18,6 +18,7 @@ from .contracts import (
     ToolMode,
 )
 from .health import AgentsPlatformHealth, ComponentHealth, collect_agents_platform_health
+from .pipeline import AgentsOrchestrationPipeline, OrchestrationPlan, PlannedTask
 from .project_state import ProjectStateStore, StateSnapshot, StaleStateError
 from .request_analysis import (
     ConstraintSignal,
@@ -60,6 +61,7 @@ from .workflow import (
 
 __all__ = [
     "AgentRuleDocument",
+    "AgentsOrchestrationPipeline",
     "AgentsPlatformHealth",
     "AgentsPlatformRuntime",
     "AgentsRuleResolver",
@@ -73,7 +75,9 @@ __all__ = [
     "EvidenceLedger",
     "EvidenceRecord",
     "IntentSignal",
+    "OrchestrationPlan",
     "PersistentSkillRegistry",
+    "PlannedTask",
     "PlatformError",
     "PlatformPreparation",
     "PolicyToolRegistryProxy",
