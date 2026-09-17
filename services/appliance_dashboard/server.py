@@ -52,16 +52,26 @@ PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
-    """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR."""
+    """Canonicalizes and verifies that a target file strictly resides within PORTAL_DIR or PyInstaller MEIPASS."""
     if "\0" in filename or ".." in filename:
         return None
-    try:
-        candidate = (PORTAL_DIR / filename.lstrip("/")).resolve()
-        if candidate.is_relative_to(PORTAL_DIR) and candidate.is_file():
-            return candidate
-    except Exception:
-        return None
+    sub_path = filename.lstrip("/\\")
+    candidates: list[Path] = []
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / "portal" / sub_path)
+        candidates.append(Path(sys._MEIPASS) / sub_path)
+    candidates.append(PORTAL_DIR / sub_path)
+    candidates.append(REPO_ROOT / "portal" / sub_path)
+
+    for c in candidates:
+        try:
+            resolved = c.resolve()
+            if resolved.is_file():
+                return resolved
+        except Exception:
+            continue
     return None
+
 
 
 

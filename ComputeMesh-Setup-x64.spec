@@ -13,7 +13,7 @@ a = Analysis(
     ['tools/appliance/windows_tray_app.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('config.py', '.'), ('services', 'services'), ('tools/appliance', 'tools/appliance'), ('tools/security', 'tools/security'), ('portal/assets', 'portal/assets'), (str(_tcl_dir), '_tcl_data'), (str(_tk_dir), '_tk_data')],
+    datas=[('config.py', '.'), ('services', 'services'), ('tools/appliance', 'tools/appliance'), ('tools/security', 'tools/security'), ('portal', 'portal'), (str(_tcl_dir), '_tcl_data'), (str(_tk_dir), '_tk_data')],
     hiddenimports=[
         'config', 'services.common', 'services.common.config', 'services',
         'services.appliance_dashboard', 'services.appliance_dashboard.server',
