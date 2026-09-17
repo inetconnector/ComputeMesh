@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from .contracts import RequestEnvelope, RoutingDecision
+from .contracts import RequestEnvelope, RoutingDecision, SideEffectLevel
 from .request_analysis import RequestAnalysis, RequestAnalyzer
 from .reroute import RerouteManager, RerouteResult
 from .skill_registry import PersistentSkillRegistry
@@ -44,7 +44,7 @@ class OrchestrationPlan:
 
 
 class AgentsOrchestrationPipeline:
-    """Dependency-light coordinator used by hosts needing the full pipeline."""
+    """Dependency-light coordinator for the full public orchestration pipeline."""
 
     def __init__(
         self,
@@ -70,25 +70,68 @@ class AgentsOrchestrationPipeline:
         explicit_skill: str | Sequence[str] | None = None,
         context_budget: int | None = None,
         available_tools: Iterable[str] | None = None,
+        allowed_skill_ids: Iterable[str] | None = None,
+        max_side_effect: SideEffectLevel | None = None,
+        request_id: str | None = None,
+        privacy_level: str = "default",
     ) -> OrchestrationPlan:
         envelope = RequestEnvelope.from_text(
             text,
             explicit_skill=explicit_skill,
             context_budget=context_budget,
+            request_id=request_id,
+            privacy_level=privacy_level,
         )
+        return self.prepare_envelope(
+            envelope,
+            available_tools=available_tools,
+            allowed_skill_ids=allowed_skill_ids,
+            max_side_effect=max_side_effect,
+        )
+
+    def prepare_envelope(
+        self,
+        envelope: RequestEnvelope,
+        *,
+        available_tools: Iterable[str] | None = None,
+        allowed_skill_ids: Iterable[str] | None = None,
+        max_side_effect: SideEffectLevel | None = None,
+    ) -> OrchestrationPlan:
         analysis = self.analyzer.analyze(envelope)
-        routing = self.router.route(envelope, available_tools=available_tools)
+        routing = self.router.route(
+            envelope,
+            available_tools=available_tools,
+            allowed_skill_ids=allowed_skill_ids,
+            max_side_effect=max_side_effect,
+        )
         tasks = self._tasks_from_routing(routing)
         return OrchestrationPlan(envelope, analysis, routing, tasks)
 
-    def _tasks_from_routing(self, routing: RoutingDecision) -> tuple[PlannedTask, ...]:
+    def plan_from_routing(
+        self,
+        request: RequestEnvelope,
+        analysis: RequestAnalysis,
+        routing: RoutingDecision,
+    ) -> OrchestrationPlan:
+        return OrchestrationPlan(
+            request,
+            analysis,
+            routing,
+            self._tasks_from_routing(routing),
+        )
+
+    def _tasks_from_routing(
+        self,
+        routing: RoutingDecision,
+    ) -> tuple[PlannedTask, ...]:
         if routing.status != "ROUTED":
             return ()
-        incoming: dict[str, list[str]] = {node: [] for node in routing.dag_nodes}
+        incoming: dict[str, list[str]] = {
+            node: [] for node in routing.dag_nodes
+        }
         for dependency, node in routing.dag_edges:
             incoming.setdefault(node, []).append(dependency)
             incoming.setdefault(dependency, [])
-        # Explicitly selected single skills may not appear in dag_nodes when there are no dependencies.
         for skill_id in routing.selected_skills:
             incoming.setdefault(skill_id, [])
         tasks: list[PlannedTask] = []
@@ -101,9 +144,15 @@ class AgentsOrchestrationPipeline:
                     task_id=f"skill:{skill_id}",
                     description=manifest.description or manifest.name,
                     skill_id=skill_id,
-                    dependencies=tuple(f"skill:{dep}" for dep in sorted(incoming[skill_id])),
+                    dependencies=tuple(
+                        f"skill:{dependency}"
+                        for dependency in sorted(incoming[skill_id])
+                    ),
                     expected_output="skill_output",
-                    validation=tuple(manifest.validation_rules or ("not_none", "no_error_field")),
+                    validation=tuple(
+                        manifest.validation_rules
+                        or ("not_none", "no_error_field")
+                    ),
                     failure_policy="classify_then_retry_fallback_or_reroute",
                     parallelizable=True,
                     side_effect=manifest.side_effect_level.value,
@@ -129,12 +178,15 @@ class AgentsOrchestrationPipeline:
                 skill_id=task.skill_id,
                 dependencies=task.dependencies,
                 max_attempts=2,
+                idempotency_key=f"{workflow_id}:{task.task_id}",
+                metadata={"side_effect": task.side_effect},
             )
             for task in plan.tasks
         )
-        validators: dict[str, Callable[[Any], bool]] = {}
-        for task in plan.tasks:
-            validators[task.task_id] = self._validator(task.validation)
+        validators: dict[str, Callable[[Any], bool]] = {
+            task.task_id: self._validator(task.validation)
+            for task in plan.tasks
+        }
 
         def node_runner(node: WorkflowNode) -> Any:
             return runner(task_map[node.node_id])
