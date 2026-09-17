@@ -9,6 +9,7 @@ on:
       - 'services/mcp/platform/**'
       - 'services/mcp/tests/test_agents_platform.py'
       - 'services/mcp/tests/test_agents_routing_eval.py'
+      - 'services/mcp/tests/test_agents_workflow.py'
       - 'services/mcp/tests/data/agents_routing_eval.json'
       - 'services/memory/structured_memory.py'
       - 'services/memory/__init__.py'
@@ -56,6 +57,9 @@ jobs:
 
       - name: Routing evaluation dataset
         run: python -m unittest services.mcp.tests.test_agents_routing_eval -v
+
+      - name: DAG workflow engine tests
+        run: python -m unittest services.mcp.tests.test_agents_workflow -v
 
       - name: Existing skill execution regression
         run: python -m unittest services.mcp.tests.test_skill_execution -v
