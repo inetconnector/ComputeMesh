@@ -1,16 +1,25 @@
 """Capability-aware safety wrapper around the existing MCP ToolRegistry."""
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 import hashlib
 import json
 from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
-from .contracts import SideEffectLevel, ToolExecutionContext, ToolExecutionResult, ToolLifecycle, ToolManifest, ToolMode
+from .contracts import (
+    SideEffectLevel,
+    ToolAuthorizationGrant,
+    ToolExecutionContext,
+    ToolExecutionResult,
+    ToolLifecycle,
+    ToolManifest,
+    ToolMode,
+)
+from .tool_contracts import EgressPolicy, ToolEgressGuard, normalize_tool_result
 
 
 class ToolCapabilityRegistry:
@@ -92,12 +101,17 @@ class _ExecutionStore:
             )
 
     @staticmethod
-    def args_hash(arguments: dict[str, Any]) -> str:
-        return hashlib.sha256(json.dumps(arguments, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+    def args_hash(arguments: Mapping[str, Any]) -> str:
+        return hashlib.sha256(
+            json.dumps(dict(arguments), sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8")
+        ).hexdigest()
 
     def replay(self, tool_id: str, key: str, arguments: dict[str, Any]) -> Any | None:
         with self.lock:
-            row = self.conn.execute("SELECT arguments_hash,result_json FROM idempotency WHERE tool_id=? AND idem_key=?", (tool_id, key)).fetchone()
+            row = self.conn.execute(
+                "SELECT arguments_hash,result_json FROM idempotency WHERE tool_id=? AND idem_key=?",
+                (tool_id, key),
+            ).fetchone()
         if not row:
             return None
         if row["arguments_hash"] != self.args_hash(arguments):
@@ -113,7 +127,9 @@ class _ExecutionStore:
 
     def breaker_state(self, tool_id: str) -> tuple[int, float]:
         with self.lock:
-            row = self.conn.execute("SELECT failures,opened_until FROM breaker WHERE tool_id=?", (tool_id,)).fetchone()
+            row = self.conn.execute(
+                "SELECT failures,opened_until FROM breaker WHERE tool_id=?", (tool_id,)
+            ).fetchone()
         return (int(row["failures"]), float(row["opened_until"])) if row else (0, 0.0)
 
     def success(self, tool_id: str) -> None:
@@ -137,15 +153,32 @@ class _ExecutionStore:
 
 
 class SafeToolExecutor:
-    """Policy layer that delegates real execution to the existing ToolRegistry."""
+    """Policy layer that delegates real execution to the existing ToolRegistry.
 
-    def __init__(self, backend: Any, capabilities: ToolCapabilityRegistry | None = None, *, state_db: str | Path = ":memory:", breaker_threshold: int = 3, breaker_cooldown_seconds: float = 30.0, verifier: Callable[[ToolManifest, dict[str, Any], Any], bool | dict[str, Any]] | None = None) -> None:
+    Every enforced execution passes authorization, confirmation/idempotency,
+    egress-secret scanning and normalized result classification before returning.
+    """
+
+    def __init__(
+        self,
+        backend: Any,
+        capabilities: ToolCapabilityRegistry | None = None,
+        *,
+        state_db: str | Path = ":memory:",
+        breaker_threshold: int = 3,
+        breaker_cooldown_seconds: float = 30.0,
+        verifier: Callable[[ToolManifest, dict[str, Any], Any], bool | dict[str, Any]] | None = None,
+        egress_guard: ToolEgressGuard | None = None,
+        egress_policy_resolver: Callable[[ToolManifest], EgressPolicy] | None = None,
+    ) -> None:
         self.backend = backend
         self.capabilities = capabilities or ToolCapabilityRegistry(backend)
         self.store = _ExecutionStore(state_db)
         self.breaker_threshold = max(1, int(breaker_threshold))
         self.breaker_cooldown_seconds = max(0.1, float(breaker_cooldown_seconds))
         self.verifier = verifier
+        self.egress_guard = egress_guard or ToolEgressGuard()
+        self.egress_policy_resolver = egress_policy_resolver or (lambda _manifest: EgressPolicy())
 
     @staticmethod
     def _error(tool_id: str, mode: ToolMode, error: str, **extra: Any) -> ToolExecutionResult:
@@ -155,10 +188,20 @@ class SafeToolExecutor:
         manifest = self.capabilities.get(tool_id)
         if manifest is None:
             return self._error(tool_id, ToolMode.PREVIEW, "tool manifest not found")
+        side_effecting = manifest.side_effect.rank >= SideEffectLevel.WRITE_REVERSIBLE.rank
         return ToolExecutionResult(
-            status="preview", tool_id=manifest.tool_id, mode=ToolMode.PREVIEW,
-            result={"tool": manifest.to_dict(), "arguments": arguments, "requires_confirmation": manifest.confirmation_required or manifest.side_effect.rank >= SideEffectLevel.WRITE_REVERSIBLE.rank, "authorized": context.authorized},
-            confirmation_required=manifest.confirmation_required,
+            status="preview",
+            tool_id=manifest.tool_id,
+            mode=ToolMode.PREVIEW,
+            result={
+                "tool": manifest.to_dict(),
+                "argument_keys": sorted(str(key) for key in arguments),
+                "arguments_hash": _ExecutionStore.args_hash(arguments),
+                "requires_confirmation": manifest.confirmation_required or side_effecting,
+                "requires_idempotency_key": side_effecting and not manifest.idempotent,
+                "authorized": context.authorized,
+            },
+            confirmation_required=manifest.confirmation_required or side_effecting,
             provenance={"source": manifest.source, "executed": False},
         )
 
@@ -177,31 +220,82 @@ class SafeToolExecutor:
             return self._error(manifest.tool_id, context.mode, f"missing permissions: {', '.join(missing_permissions)}")
         if context.mode == ToolMode.PREVIEW:
             return self.preview(tool_id, arguments, context)
+
         side_effecting = manifest.side_effect.rank >= SideEffectLevel.WRITE_REVERSIBLE.rank
         if side_effecting and not context.authorized:
             return self._error(manifest.tool_id, context.mode, "side-effect action is not authorized")
         needs_confirmation = manifest.confirmation_required or side_effecting
         if context.mode == ToolMode.CONFIRM and not context.confirmed:
-            return ToolExecutionResult(status="confirmation_required", tool_id=manifest.tool_id, mode=context.mode, confirmation_required=True, provenance={"source": manifest.source, "executed": False})
+            return ToolExecutionResult(
+                status="confirmation_required",
+                tool_id=manifest.tool_id,
+                mode=context.mode,
+                confirmation_required=True,
+                provenance={"source": manifest.source, "executed": False},
+            )
         if needs_confirmation and not context.confirmed:
-            return self._error(manifest.tool_id, context.mode, "confirmation required", confirmation_required=True)
+            return self._error(
+                manifest.tool_id,
+                context.mode,
+                "confirmation required",
+                confirmation_required=True,
+            )
         if side_effecting and not context.idempotency_key and not manifest.idempotent:
-            return self._error(manifest.tool_id, context.mode, "idempotency key required for non-idempotent write/execute action")
+            return self._error(
+                manifest.tool_id,
+                context.mode,
+                "idempotency key required for non-idempotent write/execute action",
+            )
+
+        try:
+            egress_policy = self.egress_policy_resolver(manifest)
+            egress = self.egress_guard.check(arguments, egress_policy)
+        except Exception as exc:
+            return self._error(manifest.tool_id, context.mode, f"egress policy evaluation failed: {exc}")
+        if not egress.get("allowed"):
+            return self._error(
+                manifest.tool_id,
+                context.mode,
+                f"egress blocked: {egress.get('reason', 'policy_denied')}",
+                provenance={"source": manifest.source, "executed": False, "egress": egress},
+            )
+
         if context.idempotency_key:
             try:
                 replay = self.store.replay(manifest.tool_id, context.idempotency_key, arguments)
             except ValueError as exc:
                 return self._error(manifest.tool_id, context.mode, str(exc))
             if replay is not None:
-                return ToolExecutionResult(status="completed", tool_id=manifest.tool_id, mode=context.mode, result=replay, idempotency_replay=True, provenance={"source": manifest.source, "executed": False, "idempotency_replay": True})
+                normalized = normalize_tool_result(manifest.tool_id, replay, source=manifest.source, version=manifest.version)
+                return ToolExecutionResult(
+                    status="completed",
+                    tool_id=manifest.tool_id,
+                    mode=context.mode,
+                    result=replay,
+                    idempotency_replay=True,
+                    provenance={
+                        "source": manifest.source,
+                        "executed": False,
+                        "idempotency_replay": True,
+                        "result_status": normalized.status.value,
+                        "pagination": asdict(normalized.pagination),
+                    },
+                )
+
         _, opened_until = self.store.breaker_state(manifest.tool_id)
         if opened_until > time.time():
             return self._error(manifest.tool_id, context.mode, "circuit breaker open")
+
         attempts = max(1, manifest.retry_limit + 1)
         result: Any = None
         for attempt in range(1, attempts + 1):
             try:
-                result = self.backend.execute_tool(manifest.name, arguments, is_owner=context.is_owner, owner_id=context.owner_id)
+                result = self.backend.execute_tool(
+                    manifest.name,
+                    arguments,
+                    is_owner=context.is_owner,
+                    owner_id=context.owner_id,
+                )
                 if isinstance(result, dict) and result.get("error"):
                     raise RuntimeError(str(result.get("error")))
                 self.store.success(manifest.tool_id)
@@ -209,9 +303,23 @@ class SafeToolExecutor:
             except Exception as exc:
                 self.store.failure(manifest.tool_id, self.breaker_threshold, self.breaker_cooldown_seconds)
                 if attempt >= attempts:
-                    return ToolExecutionResult(status="failed", tool_id=manifest.tool_id, mode=context.mode, error=str(exc), provenance={"source": manifest.source, "attempts": attempt, "executed": True})
+                    return ToolExecutionResult(
+                        status="failed",
+                        tool_id=manifest.tool_id,
+                        mode=context.mode,
+                        error=str(exc),
+                        provenance={"source": manifest.source, "attempts": attempt, "executed": True},
+                    )
+
+        normalized = normalize_tool_result(
+            manifest.tool_id,
+            result,
+            source=manifest.source,
+            version=manifest.version,
+        )
         if context.idempotency_key:
             self.store.remember(manifest.tool_id, context.idempotency_key, arguments, result)
+
         verification: Any = None
         if context.mode == ToolMode.VERIFY:
             if self.verifier is None:
@@ -222,9 +330,20 @@ class SafeToolExecutor:
                 except Exception as exc:
                     verification = {"verified": False, "error": str(exc)}
         return ToolExecutionResult(
-            status="completed", tool_id=manifest.tool_id, mode=context.mode,
+            status="completed",
+            tool_id=manifest.tool_id,
+            mode=context.mode,
             result={"result": result, "verification": verification} if context.mode == ToolMode.VERIFY else result,
-            provenance={"source": manifest.source, "executed": True, "side_effect": manifest.side_effect.value, "request_id": context.request_id},
+            provenance={
+                "source": manifest.source,
+                "executed": True,
+                "side_effect": manifest.side_effect.value,
+                "request_id": context.request_id,
+                "egress": {"allowed": True, "size_bytes": egress.get("size_bytes")},
+                "result_status": normalized.status.value,
+                "pagination": asdict(normalized.pagination),
+                "resources": [asdict(resource) for resource in normalized.resources],
+            },
         )
 
 
@@ -245,10 +364,23 @@ _READ_ONLY_TOOLS = {
     "adb_capture_screenshot", "adb_get_system_log", "list_deployed_webapps", "search_knowledge_base",
     "list_indexed_documents", "get_user_memory", "mission_get_summary", "detect_missing_tools",
 }
-_TRANSFORM_TOOLS = {"generate_ai_image", "execute_finance_quote", "transcribe_audio_data", "synthesize_speech_audio", "convert_data_to_markdown_table", "run_python_calc"}
-_WRITE_REVERSIBLE_TOOLS = {"generate_office_document", "index_document_text", "update_user_memory", "replace_file_content", "multi_replace_file_content", "quarantine_stage_files", "quarantine_rollback", "mission_start", "mission_log_step", "deploy_local_webapp"}
-_WRITE_IRREVERSIBLE_TOOLS = {"delete_user_memory", "github_create_issue", "github_add_issue_comment", "remove_deployed_webapp", "quarantine_commit"}
-_EXECUTE_TOOLS = {"execute_python_code", "run_terminal_command", "run_project_tests", "install_dev_tool", "adb_install_app", "launch_deployed_webapp", "execute_http_request", "execute_universal_skill"}
+_TRANSFORM_TOOLS = {
+    "generate_ai_image", "execute_finance_quote", "transcribe_audio_data", "synthesize_speech_audio",
+    "convert_data_to_markdown_table", "run_python_calc",
+}
+_WRITE_REVERSIBLE_TOOLS = {
+    "generate_office_document", "index_document_text", "update_user_memory", "replace_file_content",
+    "multi_replace_file_content", "quarantine_stage_files", "quarantine_rollback", "mission_start",
+    "mission_log_step", "deploy_local_webapp",
+}
+_WRITE_IRREVERSIBLE_TOOLS = {
+    "delete_user_memory", "github_create_issue", "github_add_issue_comment", "remove_deployed_webapp",
+    "quarantine_commit",
+}
+_EXECUTE_TOOLS = {
+    "execute_python_code", "run_terminal_command", "run_project_tests", "install_dev_tool", "adb_install_app",
+    "launch_deployed_webapp", "execute_http_request", "execute_universal_skill",
+}
 
 
 def apply_default_compute_mesh_tool_policy(registry: ToolCapabilityRegistry) -> None:
@@ -269,38 +401,134 @@ def apply_default_compute_mesh_tool_policy(registry: ToolCapabilityRegistry) -> 
 class PolicyToolRegistryProxy:
     """Drop-in ToolRegistry facade enforcing SafeToolExecutor for AgentLoop calls."""
 
-    def __init__(self, backend: Any, executor: SafeToolExecutor, *, is_owner: bool, request_id: str | None = None) -> None:
+    def __init__(
+        self,
+        backend: Any,
+        executor: SafeToolExecutor,
+        *,
+        is_owner: bool,
+        request_id: str | None = None,
+        owner_id: str | None = None,
+        allowed_tools: Iterable[str] | None = None,
+        max_side_effect: SideEffectLevel = SideEffectLevel.EXECUTE,
+        authorization_grants: Mapping[str, ToolAuthorizationGrant] | None = None,
+    ) -> None:
         self.backend = backend
         self.executor = executor
         self.is_owner = is_owner
         self.request_id = request_id
+        self.owner_id = owner_id
+        self.allowed_tools = None if allowed_tools is None else {str(x) for x in allowed_tools}
+        self.max_side_effect = max_side_effect
+        self.authorization_grants = dict(authorization_grants or {})
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.backend, name)
 
+    def _manifest_allowed(self, name: str) -> bool:
+        manifest = self.executor.capabilities.get(name)
+        if manifest is None:
+            return False
+        if self.allowed_tools is not None and manifest.name not in self.allowed_tools and manifest.tool_id not in self.allowed_tools:
+            return False
+        return manifest.side_effect.rank <= self.max_side_effect.rank
+
     def get_tool(self, name: str) -> Any:
+        if not self._manifest_allowed(name):
+            return None
         return self.backend.get_tool(name)
 
     def list_tools(self, is_owner: bool = True) -> Any:
-        return self.backend.list_tools(is_owner=is_owner)
+        return [
+            tool for tool in self.backend.list_tools(is_owner=is_owner and self.is_owner)
+            if self._manifest_allowed(str(getattr(tool, "name", "") or ""))
+        ]
 
     def get_openai_tools(self, is_owner: bool = True) -> Any:
-        return self.backend.get_openai_tools(is_owner=is_owner)
+        allowed_names = {
+            str(getattr(tool, "name", "") or "")
+            for tool in self.list_tools(is_owner=is_owner)
+        }
+        return [
+            tool for tool in self.backend.get_openai_tools(is_owner=is_owner and self.is_owner)
+            if str((tool.get("function") or {}).get("name") or "") in allowed_names
+        ]
 
-    def execute_tool(self, name: str, arguments: dict[str, Any], is_owner: bool = True, owner_id: str | None = None) -> Any:
+    def _grant_for(self, manifest: ToolManifest, arguments: dict[str, Any]) -> ToolAuthorizationGrant | None:
+        grant = self.authorization_grants.get(manifest.tool_id) or self.authorization_grants.get(manifest.name)
+        if grant is None:
+            return None
+        grant.validate(
+            tool_id=manifest.tool_id,
+            request_id=self.request_id,
+            arguments=arguments,
+        )
+        return grant
+
+    @staticmethod
+    def _present(result: ToolExecutionResult) -> Any:
+        if result.status != "completed":
+            return {
+                "error": result.error or result.status,
+                "status": result.status,
+                "confirmation_required": result.confirmation_required,
+                "agents_platform_policy": True,
+                "provenance": dict(result.provenance),
+            }
+        metadata = {
+            "status": result.provenance.get("result_status", "SUCCESS"),
+            "pagination": result.provenance.get("pagination", {}),
+            "resources": result.provenance.get("resources", []),
+            "idempotency_replay": result.idempotency_replay,
+        }
+        if isinstance(result.result, dict):
+            presented = dict(result.result)
+            presented.setdefault("_agents_platform_result", metadata)
+            return presented
+        return {"data": result.result, "_agents_platform_result": metadata}
+
+    def execute_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        is_owner: bool = True,
+        owner_id: str | None = None,
+    ) -> Any:
         manifest = self.executor.capabilities.get(name)
         if manifest is None:
             return {"error": f"Tool '{name}' has no capability manifest"}
-        safe_auto = manifest.side_effect.rank <= SideEffectLevel.READ.rank and not manifest.confirmation_required
-        result = self.executor.execute(name, arguments, ToolExecutionContext(
-            mode=ToolMode.EXECUTE, is_owner=is_owner and self.is_owner, authorized=safe_auto, confirmed=safe_auto,
-            owner_id=owner_id, request_id=self.request_id,
-        ))
-        if result.status == "completed":
-            return result.result
-        return {"error": result.error or result.status, "status": result.status, "confirmation_required": result.confirmation_required, "agents_platform_policy": True}
+        if not self._manifest_allowed(name):
+            return {"error": f"Tool '{name}' is not allowed by runtime policy", "agents_platform_policy": True}
 
-    def execute_tools_batch(self, tool_calls: list[dict[str, Any]], is_owner: bool = True, owner_id: str | None = None, max_workers: int = 8) -> list[dict[str, Any]]:
+        safe_auto = manifest.side_effect.rank <= SideEffectLevel.READ.rank and not manifest.confirmation_required
+        grant: ToolAuthorizationGrant | None = None
+        if not safe_auto:
+            try:
+                grant = self._grant_for(manifest, arguments)
+            except PermissionError as exc:
+                return {"error": str(exc), "agents_platform_policy": True}
+
+        context = ToolExecutionContext(
+            mode=ToolMode.EXECUTE,
+            is_owner=is_owner and self.is_owner,
+            authorized=safe_auto or bool(grant and grant.authorized),
+            confirmed=safe_auto or bool(grant and grant.confirmed),
+            owner_id=owner_id or self.owner_id,
+            idempotency_key=None if grant is None else grant.idempotency_key,
+            request_id=self.request_id,
+            allowed_permissions=() if grant is None else grant.allowed_permissions,
+        )
+        return self._present(self.executor.execute(name, arguments, context))
+
+    def execute_tools_batch(
+        self,
+        tool_calls: list[dict[str, Any]],
+        is_owner: bool = True,
+        owner_id: str | None = None,
+        max_workers: int = 8,
+    ) -> list[dict[str, Any]]:
+        # Keep ordering deterministic. Side-effect calls must not be launched in
+        # parallel unless a future transaction contract explicitly permits it.
         results: list[dict[str, Any]] = []
         for index, tc in enumerate(tool_calls):
             cid = str(tc.get("id") or f"call_{index + 1}")
@@ -311,12 +539,27 @@ class PolicyToolRegistryProxy:
                 try:
                     args = json.loads(raw_args)
                 except Exception as exc:
-                    results.append({"id": cid, "name": name, "arguments": {}, "result": {"error": f"invalid JSON arguments: {exc}"}})
+                    results.append({
+                        "id": cid,
+                        "name": name,
+                        "arguments": {},
+                        "result": {"error": f"invalid JSON arguments: {exc}"},
+                    })
                     continue
             else:
                 args = raw_args
             if not isinstance(args, dict):
-                results.append({"id": cid, "name": name, "arguments": {}, "result": {"error": "arguments must be an object"}})
+                results.append({
+                    "id": cid,
+                    "name": name,
+                    "arguments": {},
+                    "result": {"error": "arguments must be an object"},
+                })
                 continue
-            results.append({"id": cid, "name": name, "arguments": args, "result": self.execute_tool(name, args, is_owner=is_owner, owner_id=owner_id)})
+            results.append({
+                "id": cid,
+                "name": name,
+                "arguments": args,
+                "result": self.execute_tool(name, args, is_owner=is_owner, owner_id=owner_id),
+            })
         return results
