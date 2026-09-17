@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+import hashlib
+import json
 import re
 import time
 import uuid
@@ -157,6 +159,7 @@ class RequestEnvelope:
         context_budget: int | None = None,
         privacy_level: str = "default",
         side_effect_intent: SideEffectLevel = SideEffectLevel.NONE,
+        request_id: str | None = None,
     ) -> "RequestEnvelope":
         raw = str(text or "")
         normalized = " ".join(raw.casefold().split())
@@ -165,8 +168,11 @@ class RequestEnvelope:
         else:
             selected = tuple(str(item).strip() for item in (explicit_skill or ()) if str(item).strip())
         language = "de" if re.search(r"\b(der|die|das|und|bitte|erstelle|suche|analysiere|prüfe)\b", normalized) else "und"
+        clean_request_id = str(request_id or "").strip() or f"req_{uuid.uuid4().hex}"
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{8,160}", clean_request_id):
+            raise ValueError("invalid request_id")
         return cls(
-            request_id=f"req_{uuid.uuid4().hex}",
+            request_id=clean_request_id,
             raw_text=raw,
             normalized_text=normalized,
             language=language,
@@ -177,6 +183,69 @@ class RequestEnvelope:
             privacy_level=privacy_level,
             side_effect_intent=side_effect_intent,
         )
+
+
+@dataclass(frozen=True)
+class RuntimePolicyEnvelope:
+    """Generic, minimized policy decision accepted by the public runtime.
+
+    Private policy engines may create this contract, but private scoring inputs,
+    commercial state and policy internals must never be embedded in it.
+    """
+
+    decision_id: str
+    request_id: str
+    allow_agents: bool
+    principal_id: str = ""
+    fleet_id: str = ""
+    allowed_skills: tuple[str, ...] = ()
+    allowed_tools: tuple[str, ...] = ()
+    max_side_effect: SideEffectLevel = SideEffectLevel.READ
+    privacy_level: str = "default"
+    context_budget: int | None = None
+    cost_budget: str | None = None
+    expires_at: float = 0.0
+    policy_version: str = "1"
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "RuntimePolicyEnvelope":
+        return cls(
+            decision_id=str(value.get("decision_id") or ""),
+            request_id=str(value.get("request_id") or ""),
+            allow_agents=bool(value.get("allow_agents", False)),
+            principal_id=str(value.get("principal_id") or value.get("owner_id") or ""),
+            fleet_id=str(value.get("fleet_id") or ""),
+            allowed_skills=tuple(str(x) for x in (value.get("allowed_skills") or ())),
+            allowed_tools=tuple(str(x) for x in (value.get("allowed_tools") or ())),
+            max_side_effect=SideEffectLevel(str(value.get("max_side_effect") or "READ").upper()),
+            privacy_level=str(value.get("privacy_level") or "default"),
+            context_budget=None if value.get("context_budget") is None else int(value.get("context_budget")),
+            cost_budget=None if value.get("cost_budget") is None else str(value.get("cost_budget")),
+            expires_at=float(value.get("expires_at") or 0.0),
+            policy_version=str(value.get("policy_version") or "1"),
+        )
+
+    def validate(
+        self,
+        *,
+        request_id: str,
+        principal_id: str | None = None,
+        fleet_id: str | None = None,
+        now: float | None = None,
+    ) -> None:
+        timestamp = time.time() if now is None else float(now)
+        if not self.decision_id:
+            raise PermissionError("runtime policy decision_id is required")
+        if self.request_id != request_id:
+            raise PermissionError("runtime policy is bound to a different request")
+        if self.expires_at <= timestamp:
+            raise PermissionError("runtime policy decision expired")
+        if principal_id is not None and self.principal_id and self.principal_id != str(principal_id):
+            raise PermissionError("runtime policy principal binding mismatch")
+        if fleet_id is not None and self.fleet_id and self.fleet_id != str(fleet_id):
+            raise PermissionError("runtime policy fleet binding mismatch")
+        if not self.allow_agents:
+            raise PermissionError("runtime policy denied agents execution")
 
 
 @dataclass(frozen=True)
@@ -243,6 +312,60 @@ class ToolManifest:
         value["lifecycle"] = self.lifecycle.value
         value["side_effect"] = self.side_effect.value
         return value
+
+
+@dataclass(frozen=True)
+class ToolAuthorizationGrant:
+    """Server-side authorization/confirmation bound to one exact tool call."""
+
+    tool_id: str
+    request_id: str
+    arguments_hash: str
+    authorized: bool = False
+    confirmed: bool = False
+    idempotency_key: str | None = None
+    allowed_permissions: tuple[str, ...] = ()
+    expires_at: float = 0.0
+
+    @staticmethod
+    def hash_arguments(arguments: Mapping[str, Any]) -> str:
+        raw = json.dumps(dict(arguments), ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def issue(
+        cls,
+        tool_id: str,
+        request_id: str,
+        arguments: Mapping[str, Any],
+        *,
+        authorized: bool,
+        confirmed: bool,
+        idempotency_key: str | None = None,
+        allowed_permissions: Sequence[str] = (),
+        ttl_seconds: float = 300.0,
+    ) -> "ToolAuthorizationGrant":
+        return cls(
+            tool_id=str(tool_id),
+            request_id=str(request_id),
+            arguments_hash=cls.hash_arguments(arguments),
+            authorized=bool(authorized),
+            confirmed=bool(confirmed),
+            idempotency_key=idempotency_key,
+            allowed_permissions=tuple(str(x) for x in allowed_permissions),
+            expires_at=time.time() + min(max(float(ttl_seconds), 1.0), 3600.0),
+        )
+
+    def validate(self, *, tool_id: str, request_id: str | None, arguments: Mapping[str, Any], now: float | None = None) -> None:
+        timestamp = time.time() if now is None else float(now)
+        if self.tool_id != tool_id:
+            raise PermissionError("tool authorization grant tool mismatch")
+        if self.request_id != str(request_id or ""):
+            raise PermissionError("tool authorization grant request mismatch")
+        if self.expires_at <= timestamp:
+            raise PermissionError("tool authorization grant expired")
+        if self.arguments_hash != self.hash_arguments(arguments):
+            raise PermissionError("tool authorization grant arguments mismatch")
 
 
 @dataclass(frozen=True)
