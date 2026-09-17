@@ -27,7 +27,7 @@ from .parser.tool_call_parser import (
     _decode_arguments,
 )
 from .intent.entity_tokenizer import split_multi_entities, clean_entity_token
-from .intent.intent_router import detect_direct_tool_intent, REFUSAL_KEYWORDS
+from .intent.intent_router import detect_direct_tool_intent, detect_compound_tool_intents, REFUSAL_KEYWORDS
 
 MAX_AGENT_ITERATIONS = 20
 MAX_TOOL_MESSAGE_CHARS = 100_000
@@ -239,27 +239,43 @@ class AgentLoop:
             # Check if model emitted refusal or no tool call despite clear user tool intent
             is_refusal = any(kw in content.lower() for kw in REFUSAL_KEYWORDS)
             if (not tool_calls or is_refusal) and not has_images and iteration == 1 and not executed_records:
-                target_intent = direct_intent or detect_direct_tool_intent(last_user_text, self.registry, allow_compound=True)
-                if not target_intent:
-                    if any(w in last_user_text.lower() for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell")):
-                        target_intent = ("get_live_news", {"topic": "allgemein"})
-                    elif any(w in last_user_text.lower() for w in ("btc", "bitcoin", "eth", "krypto", "aktie")):
-                        target_intent = ("get_market_quote", {"asset": "BTC"})
-                    elif any(w in last_user_text.lower() for w in ("wetter", "weather")):
-                        target_intent = ("get_current_weather", {"city": "Berlin"})
-                    elif any(w in last_user_text.lower() for w in ("generiere ein bild", "erstelle ein bild", "male ein bild", "zeichne ein bild", "generate an image", "create an image")):
-                        target_intent = ("generate_ai_image", {"prompt": last_user_text, "style": "photorealistic"})
-                if target_intent:
-                    fn_name, fn_args = target_intent
-                    if fn_name not in disabled_set and self.registry.get_tool(fn_name):
-                        tool_calls = [{
-                            "id": f"call_auto_{len(executed_records)+1}",
-                            "type": "function",
-                            "function": {
-                                "name": fn_name,
-                                "arguments": json.dumps(fn_args, ensure_ascii=False),
-                            },
-                        }]
+                compound_intents = detect_compound_tool_intents(last_user_text, self.registry)
+                if compound_intents:
+                    auto_calls = []
+                    for idx, (fn_name, fn_args) in enumerate(compound_intents):
+                        if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                            auto_calls.append({
+                                "id": f"call_auto_{len(executed_records)+idx+1}",
+                                "type": "function",
+                                "function": {
+                                    "name": fn_name,
+                                    "arguments": json.dumps(fn_args, ensure_ascii=False),
+                                },
+                            })
+                    if auto_calls:
+                        tool_calls = auto_calls
+                else:
+                    target_intent = direct_intent or detect_direct_tool_intent(last_user_text, self.registry, allow_compound=True)
+                    if not target_intent:
+                        if any(w in last_user_text.lower() for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell")):
+                            target_intent = ("get_live_news", {"topic": "allgemein"})
+                        elif any(w in last_user_text.lower() for w in ("btc", "bitcoin", "eth", "krypto", "aktie")):
+                            target_intent = ("get_market_quote", {"asset": "BTC"})
+                        elif any(w in last_user_text.lower() for w in ("wetter", "weather")):
+                            target_intent = ("get_current_weather", {"city": "Berlin"})
+                        elif any(w in last_user_text.lower() for w in ("generiere ein bild", "erstelle ein bild", "male ein bild", "zeichne ein bild", "generate an image", "create an image")):
+                            target_intent = ("generate_ai_image", {"prompt": last_user_text, "style": "photorealistic"})
+                    if target_intent:
+                        fn_name, fn_args = target_intent
+                        if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                            tool_calls = [{
+                                "id": f"call_auto_{len(executed_records)+1}",
+                                "type": "function",
+                                "function": {
+                                    "name": fn_name,
+                                    "arguments": json.dumps(fn_args, ensure_ascii=False),
+                                },
+                            }]
 
             # Multi-step chained fallback: If user requested an image and previous data tool succeeded, but LLM refused or did not call image tool
             user_wants_image = any(w in last_user_text.lower() for w in ("bild", "foto", "image", "male", "zeichne", "generiere ein bild", "erstelle ein bild", "paint", "draw", "picture", "gemälde"))

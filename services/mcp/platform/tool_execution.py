@@ -152,6 +152,16 @@ class _ExecutionStore:
             )
 
 
+    def close(self) -> None:
+        with self.lock:
+            if hasattr(self, "conn") and self.conn is not None:
+                try:
+                    self.conn.close()
+                except Exception:
+                    pass
+                self.conn = None
+
+
 class SafeToolExecutor:
     """Policy layer that delegates real execution to the existing ToolRegistry.
 
@@ -179,6 +189,10 @@ class SafeToolExecutor:
         self.verifier = verifier
         self.egress_guard = egress_guard or ToolEgressGuard()
         self.egress_policy_resolver = egress_policy_resolver or (lambda _manifest: EgressPolicy())
+
+    def close(self) -> None:
+        if hasattr(self, "store") and self.store is not None:
+            self.store.close()
 
     @staticmethod
     def _error(tool_id: str, mode: ToolMode, error: str, **extra: Any) -> ToolExecutionResult:

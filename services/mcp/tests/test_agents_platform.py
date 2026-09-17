@@ -112,10 +112,13 @@ class TestPersistentSkillRegistry(unittest.TestCase):
             bad.parent.mkdir(parents=True)
             bad.write_text("not-frontmatter", encoding="utf-8")
             registry = PersistentSkillRegistry(Path(directory) / "registry.sqlite3", allowed_roots=(root,))
-            result = registry.discover()
-            self.assertEqual(result["loaded"], [])
-            self.assertEqual(len(result["broken"]), 1)
-            self.assertTrue(any(skill.status == SkillStatus.BROKEN for skill in registry.list()))
+            try:
+                result = registry.discover()
+                self.assertEqual(result["loaded"], [])
+                self.assertEqual(len(result["broken"]), 1)
+                self.assertTrue(any(skill.status == SkillStatus.BROKEN for skill in registry.list()))
+            finally:
+                registry.close()
 
     def test_same_version_with_changed_checksum_is_rejected(self):
         registry = PersistentSkillRegistry(":memory:")
@@ -284,11 +287,14 @@ class TestFeatureGatedRuntime(unittest.TestCase):
                 agents_platform_project_state="data/state.json",
             )
             runtime = AgentsPlatformRuntime(config=config, tool_registry=FakeToolRegistry(), repo_root=root)
-            prep = runtime.prepare([{"role": "user", "content": "demo please"}])
-            self.assertTrue(prep.enabled)
-            self.assertTrue(prep.shadow_mode)
-            self.assertEqual(prep.context_sections, ())
-            self.assertEqual(prep.routing["status"], "ROUTED")
+            try:
+                prep = runtime.prepare([{"role": "user", "content": "demo please"}])
+                self.assertTrue(prep.enabled)
+                self.assertTrue(prep.shadow_mode)
+                self.assertEqual(prep.context_sections, ())
+                self.assertEqual(prep.routing["status"], "ROUTED")
+            finally:
+                runtime.close()
 
 
 if __name__ == "__main__":

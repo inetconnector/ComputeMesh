@@ -26,9 +26,9 @@ class MCPConfig:
     allowed_domains: List[str] = field(default_factory=lambda: ["*"])
     custom_mcp_servers: dict = field(default_factory=dict)
 
-    # Agents Platform rollout controls. Disabled by default for backwards compatibility.
-    agents_platform_enabled: bool = False
-    agents_platform_shadow_mode: bool = True
+    # Agents Platform rollout controls. Active by default with backward-compatible fallback.
+    agents_platform_enabled: bool = True
+    agents_platform_shadow_mode: bool = False
     agents_platform_enforce_tool_policy: bool = False
     agents_platform_skill_roots: str = "skills;services/mcp"
     agents_platform_registry_db: str = "data/agents/skill_registry.sqlite3"
@@ -66,8 +66,8 @@ class MCPConfig:
             config_path=os.getenv("COMPUTEMESH_MCP_CONFIG_PATH", ""),
             max_agent_iterations=max_iter,
             request_timeout_seconds=timeout_s,
-            agents_platform_enabled=_env_bool("COMPUTEMESH_AGENTS_PLATFORM_ENABLED", False),
-            agents_platform_shadow_mode=_env_bool("COMPUTEMESH_AGENTS_PLATFORM_SHADOW_MODE", True),
+            agents_platform_enabled=_env_bool("COMPUTEMESH_AGENTS_PLATFORM_ENABLED", True),
+            agents_platform_shadow_mode=_env_bool("COMPUTEMESH_AGENTS_PLATFORM_SHADOW_MODE", False),
             agents_platform_enforce_tool_policy=_env_bool("COMPUTEMESH_AGENTS_ENFORCE_TOOL_POLICY", False),
             agents_platform_skill_roots=os.getenv("COMPUTEMESH_AGENTS_SKILL_ROOTS", "skills;services/mcp"),
             agents_platform_registry_db=os.getenv("COMPUTEMESH_AGENTS_REGISTRY_DB", "data/agents/skill_registry.sqlite3"),

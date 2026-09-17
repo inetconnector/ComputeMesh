@@ -156,14 +156,14 @@ class AgentsPlatformRuntime:
                 minimum_score=self.config.agents_platform_routing_min_score,
                 ambiguity_margin=self.config.agents_platform_routing_ambiguity_margin,
             )
-            workflow = DAGWorkflowEngine(
+            self.workflow = DAGWorkflowEngine(
                 self._resolve_path("data/agents/workflows.sqlite3")
             )
             self.pipeline = AgentsOrchestrationPipeline(
                 self.skill_registry,
                 router=self.router,
                 analyzer=RequestAnalyzer(),
-                workflow=workflow,
+                workflow=self.workflow,
             )
         except Exception as exc:
             self.initialization_errors.append(f"skill_registry:{exc}")
@@ -904,6 +904,25 @@ class AgentsPlatformRuntime:
                 result=result,
             )
         return result
+
+    def close(self) -> None:
+        """Close SQLite and persistent resource handles cleanly."""
+        if self.safe_tool_executor is not None:
+            self.safe_tool_executor.close()
+        if self.skill_registry is not None:
+            self.skill_registry.close()
+        if getattr(self, "workflow", None) is not None:
+            self.workflow.close()
+        if self.pipeline is not None and getattr(self.pipeline, "workflow", None) is not None:
+            self.pipeline.workflow.close()
+        if self.memory is not None:
+            self.memory.close()
+
+    def __enter__(self) -> AgentsPlatformRuntime:
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
 
 
 def build_agents_platform_runtime(

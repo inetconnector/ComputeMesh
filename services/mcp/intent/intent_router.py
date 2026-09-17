@@ -1027,7 +1027,57 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if sp_target and len(sp_target) >= 2 and not any(w in sp_target.lower() for w in ("wetter", "uhr", "tag", "heute")):
             return ("get_sports_data", {"query": sp_target, "mode": "teams"})
 
-    return None
+def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = None) -> list[tuple[str, dict[str, Any]]]:
+    """Extracts multiple tool calling intents from compound / multi-domain user queries."""
+    cleaned = text.strip()
+    if not cleaned:
+        return []
+
+    intents: list[tuple[str, dict[str, Any]]] = []
+    seen_names: set[str] = set()
+
+    def _add_intent(name: str, args: dict[str, Any]) -> None:
+        if name not in seen_names:
+            seen_names.add(name)
+            intents.append((name, args))
+
+    # Split by conjunctions and clause boundaries
+    segments = re.split(r"\s+(?:und(?:\s+dann|\s+anschließend|\s+danach)?|sowie|außerdem|and(?:\s+then|\s+afterwards)?|plus|danach|dann)\s+", cleaned, flags=re.IGNORECASE)
+    for seg in segments:
+        seg_clean = seg.strip()
+        if len(seg_clean) < 3:
+            continue
+        res = detect_direct_tool_intent(seg_clean, registry, allow_compound=True)
+        if res:
+            _add_intent(res[0], res[1])
+
+    # Fallback multi-domain scanner if segmentation missed sub-clauses
+    lower = cleaned.lower()
+    if "get_current_weather" not in seen_names and "get_weather_forecast" not in seen_names:
+        if any(w in lower for w in ("wetter", "weather", "temperatur", "regenwahrscheinlichkeit", "regen")):
+            w_res = detect_direct_tool_intent(cleaned, registry, allow_compound=True)
+            if w_res and w_res[0] in ("get_current_weather", "get_weather_forecast"):
+                _add_intent(w_res[0], w_res[1])
+            else:
+                m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+                city = m_city.group(1).strip().capitalize() if m_city else "Berlin"
+                _add_intent("get_current_weather", {"city": city})
+
+    if "get_live_news" not in seen_names:
+        if any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "heise", "spiegel")):
+            _add_intent("get_live_news", {"topic": "allgemein"})
+
+    if "get_market_quote" not in seen_names:
+        if any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto")):
+            m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", cleaned, re.IGNORECASE)
+            sym = m_coin.group(1).upper() if m_coin else "BTC"
+            if sym == "BITCOIN":
+                sym = "BTC"
+            elif sym == "ETHEREUM":
+                sym = "ETH"
+            _add_intent("get_market_quote", {"asset": sym})
+
+    return intents
 
 
 REFUSAL_KEYWORDS = [
@@ -1055,6 +1105,7 @@ REFUSAL_KEYWORDS = [
     "habe keinen echtzeit",
     "keinen echtzeit-zugriff",
     "keine wetterdaten",
+    "keine echtzeit-wetter",
     "keine der funktionen",
     "keines der werkzeuge",
     "keines der tools",
@@ -1062,6 +1113,18 @@ REFUSAL_KEYWORDS = [
     "steht kein tool",
     "kein passendes tool",
     "kein werkzeug",
+    "metadaten zur wettervorhersage",
+    "metadaten zur wetter",
+    "metadaten sind nicht verfügbar",
+    "metadaten nicht verfügbar",
+    "angeforderten metadaten",
+    "überprüfen sie die angegebenen parameter",
+    "korrekt eingeben werden",
+    "nicht verfügbar. bitte überprüfen",
+    "kann das wetter nicht abrufen",
+    "kann nicht direkt auf wetter",
+    "keine informationen zum wetter",
+    "keine echtzeit-informationen",
     "as a text model",
     "as a text-based model",
     "as a language model",

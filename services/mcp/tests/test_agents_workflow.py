@@ -19,23 +19,26 @@ class TestAgentsWorkflow(unittest.TestCase):
     def test_dependency_order_and_resume_skip_completed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             engine = DAGWorkflowEngine(Path(directory) / "workflow.sqlite3")
-            nodes = (
-                WorkflowNode("a", "first"),
-                WorkflowNode("b", "second", dependencies=("a",)),
-            )
-            calls: list[str] = []
+            try:
+                nodes = (
+                    WorkflowNode("a", "first"),
+                    WorkflowNode("b", "second", dependencies=("a",)),
+                )
+                calls: list[str] = []
 
-            def runner(node: WorkflowNode) -> dict[str, str]:
-                calls.append(node.node_id)
-                return {"node": node.node_id}
+                def runner(node: WorkflowNode) -> dict[str, str]:
+                    calls.append(node.node_id)
+                    return {"node": node.node_id}
 
-            first = engine.execute("wf-1", nodes, runner)
-            self.assertEqual(first.status, "COMPLETED")
-            self.assertEqual(calls, ["a", "b"])
-            second = engine.execute("wf-1", nodes, runner)
-            self.assertEqual(second.status, "COMPLETED")
-            self.assertTrue(second.resumed)
-            self.assertEqual(calls, ["a", "b"])
+                first = engine.execute("wf-1", nodes, runner)
+                self.assertEqual(first.status, "COMPLETED")
+                self.assertEqual(calls, ["a", "b"])
+                second = engine.execute("wf-1", nodes, runner)
+                self.assertEqual(second.status, "COMPLETED")
+                self.assertTrue(second.resumed)
+                self.assertEqual(calls, ["a", "b"])
+            finally:
+                engine.close()
 
     def test_independent_nodes_may_execute_in_parallel(self) -> None:
         engine = DAGWorkflowEngine()
@@ -155,17 +158,20 @@ class TestAgentsWorkflow(unittest.TestCase):
             engine._set_running("wf-interrupt", "a", 1)
             engine.close()
             resumed = DAGWorkflowEngine(db)
-            calls = 0
+            try:
+                calls = 0
 
-            def runner(_: WorkflowNode) -> str:
-                nonlocal calls
-                calls += 1
-                return "recovered"
+                def runner(_: WorkflowNode) -> str:
+                    nonlocal calls
+                    calls += 1
+                    return "recovered"
 
-            result = resumed.execute("wf-interrupt", (node,), runner)
-            self.assertEqual(result.status, "COMPLETED")
-            self.assertEqual(calls, 1)
-            self.assertEqual(result.nodes[0].attempts, 2)
+                result = resumed.execute("wf-interrupt", (node,), runner)
+                self.assertEqual(result.status, "COMPLETED")
+                self.assertEqual(calls, 1)
+                self.assertEqual(result.nodes[0].attempts, 2)
+            finally:
+                resumed.close()
 
 
 if __name__ == "__main__":
