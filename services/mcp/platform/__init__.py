@@ -16,6 +16,7 @@ from .contracts import (
     ToolManifest,
     ToolMode,
 )
+from .health import AgentsPlatformHealth, ComponentHealth, collect_agents_platform_health
 from .project_state import ProjectStateStore, StateSnapshot, StaleStateError
 from .runtime import AgentsPlatformRuntime, PlatformPreparation, build_agents_platform_runtime
 from .skill_registry import PersistentSkillRegistry, parse_frontmatter
@@ -37,10 +38,12 @@ from .workflow import (
 
 __all__ = [
     "AgentRuleDocument",
-    "AgentsRuleResolver",
+    "AgentsPlatformHealth",
     "AgentsPlatformRuntime",
+    "AgentsRuleResolver",
     "AuditEvent",
     "AuditLogger",
+    "ComponentHealth",
     "DAGWorkflowEngine",
     "PersistentSkillRegistry",
     "PlatformPreparation",
@@ -71,5 +74,6 @@ __all__ = [
     "WorkflowStateConflict",
     "apply_default_compute_mesh_tool_policy",
     "build_agents_platform_runtime",
+    "collect_agents_platform_health",
     "parse_frontmatter",
 ]
