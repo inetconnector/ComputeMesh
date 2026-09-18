@@ -602,6 +602,11 @@
 
     /* Smartphone & Touchscreen Mobile Screens (< 768px) */
     @media (max-width: 768px) {
+      /* A phone cannot scan a QR code displayed on its own screen. Keep the
+         direct LAN/tunnel links, but hide the scan-only presentation. */
+      .remote-access-card.is-mobile-view .remote-qr-box {
+        display: none !important;
+      }
       header {
         flex-direction: column;
         align-items: stretch;
@@ -694,7 +699,7 @@
           </div>
           <span class="remote-badge" style="background: rgba(0, 240, 255, 0.15); border-color: rgba(0, 240, 255, 0.4); color: var(--accent-cyan);">Weltweit per Smartphone erreichbar</span>
         </div>
-        <div class="remote-subtitle">
+        <div class="remote-subtitle" id="remote-access-subtitle">
           Scanne den QR-Code mit dem Smartphone oder öffne das offizielle Web-Portal im Browser:
         </div>
         <div class="ip-addresses-row" id="remote-ip-chips">
@@ -996,6 +1001,22 @@
   </footer>
 
   <script>
+    function updateMobileQrPresentation() {
+      const banner = document.getElementById('remote-banner');
+      const subtitle = document.getElementById('remote-access-subtitle');
+      if (!banner) return;
+      const isMobile = window.matchMedia('(max-width: 768px)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      banner.classList.toggle('is-mobile-view', isMobile);
+      if (subtitle) {
+        subtitle.textContent = isMobile
+          ? 'Öffne einen der untenstehenden Links direkt auf diesem Gerät:'
+          : 'Scanne den QR-Code mit dem Smartphone oder öffne das offizielle Web-Portal im Browser:';
+      }
+    }
+
+    updateMobileQrPresentation();
+    window.addEventListener('resize', updateMobileQrPresentation, { passive: true });
+
     let nodeState = null;
 
     function applyPlatformView(isWindows, platformName) {

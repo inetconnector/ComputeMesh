@@ -16,6 +16,51 @@ import urllib.request
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _looks_like_vision_model(model_name: str) -> bool:
+    """Return whether an Ollama model name conventionally accepts images."""
+    lowered = str(model_name or "").lower()
+    return any(token in lowered for token in ("-vl", ":vl", "vision", "llava", "moondream", "gemma3", "gemma4", "minicpm"))
+
+
+def _ollama_message(message: Any) -> dict[str, Any]:
+    """Translate OpenAI multimodal content parts to Ollama's message shape."""
+    if not isinstance(message, dict):
+        return {"role": "user", "content": str(message)}
+
+    role = str(message.get("role", "user")).strip() or "user"
+    content = message.get("content")
+    if not isinstance(content, list):
+        return {"role": role, "content": str(content or "")}
+
+    text_parts: list[str] = []
+    images: list[str] = []
+    for part in content:
+        if not isinstance(part, dict):
+            if part is not None:
+                text_parts.append(str(part))
+            continue
+        part_type = str(part.get("type", "")).lower()
+        if part_type == "text":
+            text_parts.append(str(part.get("text", "")))
+            continue
+        if part_type == "image_url":
+            image_value = part.get("image_url")
+            image_url = image_value.get("url", "") if isinstance(image_value, dict) else image_value
+            image_url = str(image_url or "")
+            if image_url.startswith("data:image/") and "," in image_url:
+                images.append(image_url.split(",", 1)[1])
+            elif image_url:
+                # Ollama requires base64 image payloads. Do not stringify a
+                # remote URL into the prompt; the caller gets a clear error
+                # if the selected local model cannot consume it.
+                text_parts.append(f"[Bildquelle nicht lokal verfügbar: {image_url}]")
+
+    normalized: dict[str, Any] = {"role": role, "content": "\n".join(text_parts).strip()}
+    if images:
+        normalized["images"] = images
+    return normalized
+
+
 def _ensure_image_engine_running(timeout: float = 3.0) -> bool:
     """Verifies or auto-launches the local sd-server image engine on port 8085 if available."""
     try:
@@ -167,6 +212,12 @@ class InferenceRouter:
             # Check if query is coding-oriented
             all_text = " ".join(str(m.get("content", "")) for m in messages if isinstance(m, dict))
             is_coding_query = any(k in all_text.lower() for k in ("code", "def ", "func ", "class ", "refactor", "bug", "patch", "pytest", "test", "syntax", "git diff", "function", "import "))
+            has_image_input = any(
+                isinstance(message, dict)
+                and isinstance(message.get("content"), list)
+                and any(isinstance(part, dict) and str(part.get("type", "")).lower() == "image_url" for part in message["content"])
+                for message in messages
+            )
 
             target_model = requested_model
             if available_models:
@@ -177,23 +228,51 @@ class InferenceRouter:
                     else:
                         target_model = available_models[0]
                 elif requested_model not in available_models:
-                    matched = None
-                    for m in available_models:
-                        if requested_model.lower() in m.lower() or m.lower() in requested_model.lower():
-                            matched = m
-                            break
-                        if is_coding_query and ("coder" in m.lower() or "code" in m.lower()):
-                            matched = m
-                            break
-                        if "qwen" in requested_model.lower() and "qwen" in m.lower():
-                            matched = m
-                            break
-                        if "gemma" in requested_model.lower() and "gemma" in m.lower():
-                            matched = m
-                            break
-                    target_model = matched if matched else available_models[0]
+                    # An explicit model request is a contract. Never silently
+                    # replace it with the first locally available model: that
+                    # makes the UI, billing and response metadata lie about
+                    # which model processed the request.
+                    handler._send_json(
+                        {
+                            "error": {
+                                "message": f"Requested model is not available on this node: {requested_model}",
+                                "type": "invalid_request_error",
+                                "code": "model_not_available",
+                                "available_models": available_models,
+                            }
+                        },
+                        HTTPStatus.BAD_REQUEST,
+                    )
+                    return True
+            elif requested_model and requested_model.lower() not in ("default", "auto", "computemesh"):
+                handler._send_json(
+                    {
+                        "error": {
+                            "message": "The node model catalogue is unavailable; explicit model selection is refused",
+                            "type": "server_error",
+                            "code": "model_catalog_unavailable",
+                        }
+                    },
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+                return True
             if not target_model:
                 target_model = "qwen2.5-coder:7b" if is_coding_query else "qwen2.5:7b"
+
+            if has_image_input and not _looks_like_vision_model(target_model):
+                vision_models = [model for model in available_models if _looks_like_vision_model(model)]
+                handler._send_json(
+                    {
+                        "error": {
+                            "message": f"Das ausgewählte Modell {target_model} unterstützt keine Bilder. Bitte wähle ein Vision-Modell.",
+                            "type": "invalid_request_error",
+                            "code": "vision_model_required",
+                            "available_vision_models": vision_models,
+                        }
+                    },
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
 
             is_stream = payload.get("stream", True)
 
@@ -226,7 +305,7 @@ class InferenceRouter:
                             "content": f"[Tool aufgerufen: {call_names}]",
                         })
                     else:
-                        ollama_messages.append(m)
+                        ollama_messages.append(_ollama_message(m))
 
                 if not available_models:
                     tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)

@@ -18,6 +18,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 from .config import MCPConfig, get_mcp_config
 from .builtin.adb_bridge_tools import adb_list_devices, adb_capture_screenshot, adb_install_app, adb_get_system_log
+from .builtin.android_play_store_tools import (
+    validate_store_listing,
+    validate_store_graphics,
+    inspect_android_manifest_or_bundle,
+    sync_play_console_metadata,
+)
 from .builtin.arxiv_research import search_arxiv_papers
 from .builtin.audio_tools import transcribe_audio_data, synthesize_speech_audio
 from .builtin.chemical_data import lookup_chemical_compound
@@ -33,8 +39,9 @@ from .builtin.document_reader import extract_document_content
 from .builtin.earthquake_feed import get_recent_earthquakes
 from .builtin.events import search_events
 from .builtin.fact_triangulation import verify_fact_multi_source
-from .builtin.file_system_tools import list_workspace_files, read_workspace_file
+from .builtin.file_system_tools import list_workspace_files, read_workspace_file, write_workspace_file
 from .builtin.finance_market import execute_finance_quote, get_market_movers
+
 from .builtin.food_products import lookup_food_product
 from .builtin.generate_image import generate_ai_image
 from .builtin.geo_routing import get_distance_route
@@ -94,7 +101,13 @@ DEFAULT_TOOL_TTL: Dict[str, float] = {
     "get_system_info": 10.0,
     "list_workspace_files": 30.0,
     "read_workspace_file": 30.0,
+    "write_workspace_file": 0.0,
+    "validate_store_listing": 60.0,
+    "validate_store_graphics": 60.0,
+    "inspect_android_manifest_or_bundle": 30.0,
+    "sync_play_console_metadata": 0.0,
     "grep_search_code": 10.0,
+
     "extract_code_symbols": 30.0,
     "validate_code_syntax": 30.0,
     "check_code_quality": 30.0,
@@ -326,7 +339,24 @@ TOOL_ALIASES: Dict[str, str] = {
     "read_file": "read_workspace_file",
     "cat": "read_workspace_file",
     "view_file": "read_workspace_file",
+    "write_file": "write_workspace_file",
+    "create_file": "write_workspace_file",
+    "new_file": "write_workspace_file",
+    "save_file": "write_workspace_file",
+    "validate_listing": "validate_store_listing",
+    "check_listing": "validate_store_listing",
+    "validate_play_listing": "validate_store_listing",
+    "validate_graphics": "validate_store_graphics",
+    "check_graphics": "validate_store_graphics",
+    "validate_play_graphics": "validate_store_graphics",
+    "inspect_manifest": "inspect_android_manifest_or_bundle",
+    "inspect_bundle": "inspect_android_manifest_or_bundle",
+    "inspect_apk": "inspect_android_manifest_or_bundle",
+    "inspect_aab": "inspect_android_manifest_or_bundle",
+    "sync_play_metadata": "sync_play_console_metadata",
+    "play_metadata": "sync_play_console_metadata",
     "analyze_table": "analyze_data_table",
+
     "analyze_csv": "analyze_data_table",
     "table_summary": "analyze_data_table",
     "extract_document": "extract_document_content",
@@ -1179,6 +1209,70 @@ class ToolRegistry:
             read_workspace_file,
             source="builtin_filesystem",
         )
+
+        self.register_tool(
+            "write_workspace_file",
+            "Schreibt UTF-8-Text atomar in eine Datei im lokalen Workspace und erstellt fehlende Eltern-Verzeichnisse automatisch.",
+            schema({
+                "relative_path": {"type": "string", "description": "Relativer Zieldateipfad im Workspace."},
+                "content": {"type": "string", "description": "Vollständiger Dateiinhalt in UTF-8."},
+                "overwrite": {"type": "boolean", "description": "Ob eine existierende Datei überschrieben werden darf (Standard True).", "default": True},
+                "create_dirs": {"type": "boolean", "description": "Ob übergeordnete Verzeichnisse automatisch erstellt werden sollen (Standard True).", "default": True},
+            }, ["relative_path", "content"]),
+            write_workspace_file,
+            source="builtin_filesystem",
+        )
+
+        self.register_tool(
+            "validate_store_listing",
+            "Validiert Google Play Store Texte (Titel <= 30 Zeichen, Kurzbeschreibung <= 80 Zeichen, Volltext <= 4000 Zeichen) und Marketing-Richtlinien.",
+            schema({
+                "title": {"type": "string", "description": "App-Titel (max. 30 Zeichen)."},
+                "short_description": {"type": "string", "description": "Kurzbeschreibung (max. 80 Zeichen)."},
+                "full_description": {"type": "string", "description": "Vollständige Beschreibung (max. 4000 Zeichen)."},
+                "check_prohibited_terms": {"type": "boolean", "description": "Ob Werbefloskeln (#1, best app, etc.) geprüft werden sollen.", "default": True},
+            }, ["title", "short_description", "full_description"]),
+            validate_store_listing,
+            source="builtin_developer",
+        )
+
+        self.register_tool(
+            "validate_store_graphics",
+            "Validiert Play Store Assets: App-Icon (512x512 PNG <= 1MB), Feature Graphic (1024x500 <= 15MB) und Screenshots.",
+            schema({
+                "icon_path": {"type": "string", "description": "Pfad zum App-Icon (512x512 PNG)."},
+                "feature_graphic_path": {"type": "string", "description": "Pfad zur Feature Graphic (1024x500)."},
+                "screenshots_dir": {"type": "string", "description": "Verzeichnis mit Telefon-/Tablet-Screenshots (mindestens 2)."},
+            }),
+            validate_store_graphics,
+            source="builtin_developer",
+        )
+
+        self.register_tool(
+            "inspect_android_manifest_or_bundle",
+            "Analysiert Android-Projekte (build.gradle, AndroidManifest.xml, .aab, .apk) und extrahiert PackageName, VersionCode und SDKs.",
+            schema({
+                "file_path": {"type": "string", "description": "Pfad zur build.gradle, AndroidManifest.xml oder .aab/.apk-Datei."},
+            }, ["file_path"]),
+            inspect_android_manifest_or_bundle,
+            source="builtin_developer",
+        )
+
+        self.register_tool(
+            "sync_play_console_metadata",
+            "Erstellt oder synchronisiert die standardisierte Play-Store-Ordnerstruktur (package_name.txt, metadata.json) für eine Edition.",
+            schema({
+                "asset_dir": {"type": "string", "description": "Zielverzeichnis für die Play-Store-Assets."},
+                "package_name": {"type": "string", "description": "Vollständiger Android-Paketname (z. B. com.inetconnector.app.pro)."},
+                "edition_name": {"type": "string", "description": "Name der Edition (z. B. englishPro)."},
+                "is_paid": {"type": "boolean", "description": "Ob es sich um eine kostenpflichtige App handelt (Standard False).", "default": False},
+                "default_price_eur": {"type": "string", "description": "Standardpreis in EUR bei Kauf-Apps (z. B. '5.99')."},
+                "output_dir": {"type": "string", "description": "Optionales alternatives Ausgabeverzeichnis."},
+            }, ["asset_dir", "package_name", "edition_name"]),
+            sync_play_console_metadata,
+            source="builtin_developer",
+        )
+
 
         self.register_tool(
             "analyze_data_table",

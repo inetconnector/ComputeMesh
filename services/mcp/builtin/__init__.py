@@ -2,6 +2,7 @@
 """ComputeMesh Built-in Tools for Live Intelligence."""
 
 from .adb_bridge_tools import adb_list_devices, adb_capture_screenshot, adb_install_app, adb_get_system_log
+from .android_play_store_tools import validate_store_listing, validate_store_graphics, inspect_android_manifest_or_bundle, sync_play_console_metadata
 from .arxiv_research import search_arxiv_papers
 from .audio_tools import transcribe_audio_data, synthesize_speech_audio
 from .chemical_data import lookup_chemical_compound
@@ -17,8 +18,9 @@ from .document_reader import extract_document_content
 from .earthquake_feed import get_recent_earthquakes
 from .events import search_events
 from .fact_triangulation import verify_fact_multi_source
-from .file_system_tools import list_workspace_files, read_workspace_file
+from .file_system_tools import list_workspace_files, read_workspace_file, write_workspace_file
 from .finance_market import get_market_quote, get_market_movers
+
 from .food_products import lookup_food_product
 from .geo_routing import get_distance_route
 from .git_tools import get_git_status, get_git_diff, get_git_log
@@ -110,6 +112,7 @@ __all__ = [
     "github_search_repositories",
     "grep_search_code",
     "install_dev_tool",
+    "inspect_android_manifest_or_bundle",
     "list_deployed_webapps",
     "list_workspace_files",
     "lookup_chemical_compound",
@@ -139,10 +142,15 @@ __all__ = [
     "search_arxiv_papers",
     "search_events",
     "search_places",
+    "sync_play_console_metadata",
     "synthesize_speech_audio",
     "transcribe_audio_data",
     "validate_code_syntax",
+    "validate_store_graphics",
+    "validate_store_listing",
     "verify_fact_multi_source",
+    "write_workspace_file",
 ]
+
 
 

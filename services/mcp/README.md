@@ -11,11 +11,18 @@ With the normal configuration (`system_tools_enabled=false`) the registry expose
 | Web/current information | `search_web`, `fetch_web_content`, `get_live_news` |
 | Weather | `get_current_weather`, `get_weather_forecast` |
 | Local discovery | `search_events`, `search_places`, `get_distance_route` |
-| Markets/business | `get_market_quote`, `convert_currency`, `lookup_company` |
+| Markets/business | `get_market_quote`, `convert_currency`, `lookup_company`, `search_product_prices` |
 | Sports/transit | `get_sports_data`, `lookup_train_schedule` |
 | Reference/open data | `get_wikipedia_summary`, `lookup_country_data`, `get_world_bank_stats`, `search_arxiv_papers`, `lookup_food_product`, `lookup_software_package`, `get_recent_earthquakes`, `lookup_chemical_compound`, `lookup_word_definition` |
+| Developer & Filesystem | `write_workspace_file`, `read_workspace_file`, `list_workspace_files`, `replace_file_content`, `multi_replace_file_content`, `grep_search_code`, `extract_code_symbols`, `run_terminal_command`, `run_project_tests`, `run_doctor_diagnostics` |
+| Android & Play Store Automation | `validate_store_listing`, `validate_store_graphics`, `inspect_android_manifest_or_bundle`, `sync_play_console_metadata`, `adb_list_devices`, `adb_capture_screenshot`, `adb_install_app`, `adb_get_system_log` |
 | Calculation/time | `calculate_math`, `get_time_and_calendar` |
-| Owner-only diagnostics | `lookup_network_host`, optionally `get_system_info` |
+| Owner-only diagnostics | `lookup_network_host`, optionally `get_system_info`, `get_gpu_telemetry` |
+
+## Autonomous Operating Protocol (UAOP)
+
+For multi-step, autonomous engineering tasks without human intervention, see the [Universal Autonomous Operating Protocol (UAOP)](./UAOP.md).
+
 
 `search_events` reuses the existing `services.concert_research` index/crawler rather than maintaining a second event database. Public registry calls do not expose the operator-only `force_refresh` control.
 
@@ -80,9 +87,12 @@ Core coverage is in:
 
 - `services/mcp/tests/test_mcp_system.py`
 - `services/mcp/tests/test_mcp_completion.py`
+- `services/mcp/tests/test_write_workspace_file.py`
+- `services/mcp/tests/test_android_play_store_tools.py`
 - `services/mcp/tests/test_mcp_url_security.py`
 - `services/mcp/tests/test_mcp_client_hardening.py`
 - `services/mcp/tests/test_mcp_agent_hardening.py`
 - `services/mcp/tests/test_mcp_calc_hardening.py`
+
 
 The repository CI compiles all Python sources and executes the full project test suite on pull requests to `main`.

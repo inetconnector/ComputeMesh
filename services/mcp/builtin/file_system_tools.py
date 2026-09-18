@@ -129,3 +129,50 @@ def read_workspace_file(
         }
     except Exception as exc:
         return {"error": f"Fehler beim Lesen der Datei '{relative_path}': {exc}"}
+
+
+def write_workspace_file(
+    relative_path: str,
+    content: str,
+    overwrite: bool = True,
+    create_dirs: bool = True,
+) -> Dict[str, Any]:
+    """Safely writes UTF-8 text content to a file in the workspace with atomic write and auto-directory creation."""
+    target_file = _resolve_safe_path(relative_path)
+    if not target_file:
+        return {"error": f"Pfad '{relative_path}' liegt außerhalb des erlaubten Workspace-Bereichs.", "success": False}
+
+    already_exists = target_file.exists() and target_file.is_file()
+    if already_exists and not overwrite:
+        return {"error": f"Datei '{relative_path}' existiert bereits und overwrite=False ist gesetzt.", "success": False}
+
+    try:
+        if create_dirs:
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+
+        norm_content = str(content or "").replace("\r\n", "\n")
+        
+        # Write atomically using a temporary file in the same directory
+        temp_path = target_file.with_name(f".tmp_{target_file.name}_{os.getpid()}")
+        with open(temp_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(norm_content)
+        
+        if target_file.exists():
+            target_file.unlink()
+        temp_path.rename(target_file)
+
+        line_count = len(norm_content.splitlines())
+        byte_size = len(norm_content.encode("utf-8"))
+
+        return {
+            "status": "success",
+            "success": True,
+            "file": str(relative_path).replace("\\", "/"),
+            "absolute_path": str(target_file).replace("\\", "/"),
+            "lines_written": line_count,
+            "size_bytes": byte_size,
+            "overwritten": already_exists,
+        }
+    except Exception as exc:
+        return {"error": f"Fehler beim Schreiben der Datei '{relative_path}': {exc}", "success": False}
+

@@ -8,12 +8,19 @@ import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.launch
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.server.LocalChatServer
 import com.inetconnector.compumesh.service.MeshNodeService
+import com.inetconnector.compumesh.update.AndroidUpdateChecker
+import com.inetconnector.compumesh.update.AndroidUpdateInfo
 import com.inetconnector.compumesh.ui.components.ComputeMeshMainScreen
 import com.inetconnector.compumesh.ui.theme.ComputeMeshTheme
 
@@ -42,6 +49,8 @@ class MainActivity : ComponentActivity() {
     // Reactive Compose state for instant multi-tab synchronization
     private val ownerKeyState = mutableStateOf("")
     private val gatewayUrlState = mutableStateOf("https://mesh.inetconnector.com")
+    private val pendingUpdateState = mutableStateOf<AndroidUpdateInfo?>(null)
+    private val updateCheckInProgressState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +81,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             ComputeMeshTheme {
+                val pendingUpdate = pendingUpdateState.value
                 ComputeMeshMainScreen(
                     guard = batteryGuard,
                     lanDiscovery = lanDiscovery,
@@ -84,8 +94,38 @@ class MainActivity : ComponentActivity() {
                         saveFleetConfig(key, gateway)
                     }
                 )
+                if (pendingUpdate != null) {
+                    AlertDialog(
+                        onDismissRequest = { pendingUpdateState.value = null },
+                        title = { Text("Neue App-Version verfügbar") },
+                        text = { Text("ComputeMesh ${pendingUpdate.version} ist verfügbar. Jetzt herunterladen und installieren?") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                pendingUpdateState.value = null
+                                lifecycleScope.launch {
+                                    updateCheckInProgressState.value = true
+                                    try {
+                                        AndroidUpdateChecker.downloadAndInstall(this@MainActivity, pendingUpdate)
+                                    } catch (error: Throwable) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Update konnte nicht installiert werden: ${error.message ?: "unbekannter Fehler"}",
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    } finally {
+                                        updateCheckInProgressState.value = false
+                                    }
+                                }
+                            }) { Text("Aktualisieren") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { pendingUpdateState.value = null }) { Text("Später") }
+                        },
+                    )
+                }
             }
         }
+
     }
 
     override fun onResume() {
@@ -93,6 +133,9 @@ class MainActivity : ComponentActivity() {
         if (localChatServer == null || !localChatServer!!.isAlive) {
             startLocalChatServer()
         }
+        // Check on every foreground transition so an update published while
+        // the app was open is not missed. The in-flight guard prevents overlap.
+        checkForAndroidUpdate()
     }
 
     override fun onDestroy() {
@@ -184,5 +227,20 @@ class MainActivity : ComponentActivity() {
             action = MeshNodeService.ACTION_STOP
         }
         startService(intent)
+    }
+
+    private fun checkForAndroidUpdate() {
+        if (updateCheckInProgressState.value) return
+        updateCheckInProgressState.value = true
+        lifecycleScope.launch {
+            try {
+                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                pendingUpdateState.value = AndroidUpdateChecker.check(currentVersion)
+            } catch (error: Throwable) {
+                android.util.Log.i("MainActivity", "Android update check skipped: ${error.message}")
+            } finally {
+                updateCheckInProgressState.value = false
+            }
+        }
     }
 }

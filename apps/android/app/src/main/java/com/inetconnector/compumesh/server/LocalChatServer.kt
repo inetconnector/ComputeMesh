@@ -64,8 +64,8 @@ class LocalChatServer(
                         put("chat_template", "{% for message in messages %}{% if message['role'] == 'system' %}<|im_start|>system\n{{ message['content'] }}<|im_end|>\n{% elif message['role'] == 'user' %}<|im_start|>user\n{{ message['content'] }}<|im_end|>\n{% elif message['role'] == 'assistant' %}<|im_start|>assistant\n{% if message['reasoning_content'] %}<think>\n{{ message['reasoning_content'] }}\n</think>\n{% endif %}{{ message['content'] }}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}")
                         put("modalities", JSONObject().apply {
                             put("text", true)
-                            put("vision", true)
-                            put("image", true)
+                            put("vision", false)
+                            put("image", false)
                             put("audio", true)
                             put("video", false)
                         })
@@ -176,10 +176,15 @@ class LocalChatServer(
                     for (i in 0 until models.length()) {
                         val m = models.getJSONObject(i)
                         m.put("status", JSONObject().put("value", "loaded"))
+                        val modelId = m.optString("name", m.optString("model", "")).lowercase()
+                        val isVisionModel = modelId.contains("vision") || modelId.contains("-vl") ||
+                                modelId.contains(":vl") || modelId.contains("llava") ||
+                                modelId.contains("gemma3") || modelId.contains("gemma4") ||
+                                modelId.contains("minicpm")
                         m.put("modalities", JSONObject().apply {
-                            put("vision", true)
+                            put("vision", isVisionModel)
                             put("text", true)
-                            put("audio", true)
+                            put("audio", false)
                             put("video", false)
                         })
                         if (!m.has("meta")) m.put("meta", JSONObject())
@@ -191,13 +196,18 @@ class LocalChatServer(
                     val enriched = JSONArray()
                     for (i in 0 until data.length()) {
                         val m = data.getJSONObject(i)
+                        val modelId = m.optString("id", "").lowercase()
+                        val isVisionModel = modelId.contains("vision") || modelId.contains("-vl") ||
+                                modelId.contains(":vl") || modelId.contains("llava") ||
+                                modelId.contains("gemma3") || modelId.contains("gemma4") ||
+                                modelId.contains("minicpm")
                         m.put("status", JSONObject().put("value", "loaded"))
                         m.put("object", "model")
                         m.put("owned_by", "computemesh")
                         m.put("modalities", JSONObject().apply {
-                            put("vision", true)
+                            put("vision", isVisionModel)
                             put("text", true)
-                            put("audio", true)
+                            put("audio", false)
                             put("video", false)
                         })
                         if (!m.has("meta")) m.put("meta", JSONObject())
@@ -227,10 +237,16 @@ class LocalChatServer(
                     put("model", id)
                     put("description", desc)
                     put("status", JSONObject().put("value", "loaded"))
-                    put("modalities", JSONObject().apply {
-                        put("vision", true)
-                        put("text", true)
-                        put("audio", true)
+                        val isVisionModel = id.lowercase().let { modelId ->
+                            modelId.contains("vision") || modelId.contains("-vl") ||
+                                    modelId.contains(":vl") || modelId.contains("llava") ||
+                                    modelId.contains("gemma3") || modelId.contains("gemma4") ||
+                                    modelId.contains("minicpm")
+                        }
+                        put("modalities", JSONObject().apply {
+                            put("vision", isVisionModel)
+                            put("text", true)
+                            put("audio", false)
                         put("video", false)
                     })
                     put("meta", JSONObject())
@@ -250,10 +266,16 @@ class LocalChatServer(
                     put("object", "model")
                     put("owned_by", "computemesh")
                     put("description", desc)
-                    put("modalities", JSONObject().apply {
-                        put("vision", true)
-                        put("text", true)
-                        put("audio", true)
+                        val isVisionModel = id.lowercase().let { modelId ->
+                            modelId.contains("vision") || modelId.contains("-vl") ||
+                                    modelId.contains(":vl") || modelId.contains("llava") ||
+                                    modelId.contains("gemma3") || modelId.contains("gemma4") ||
+                                    modelId.contains("minicpm")
+                        }
+                        put("modalities", JSONObject().apply {
+                            put("vision", isVisionModel)
+                            put("text", true)
+                            put("audio", false)
                         put("video", false)
                     })
                     put("meta", JSONObject())
@@ -284,6 +306,13 @@ class LocalChatServer(
             return "Inferenz-Dienst vorübergehend nicht erreichbar (503)"
         }
         return clean.take(150)
+    }
+
+    private fun modelIdsCompatible(requested: String, returned: String): Boolean {
+        val wanted = requested.trim().lowercase()
+        val actual = returned.trim().lowercase()
+        if (wanted.isBlank() || actual.isBlank()) return true
+        return actual == wanted || actual.startsWith("$wanted:") || wanted.startsWith("$actual:")
     }
 
     private fun handleChatCompletionProxy(session: IHTTPSession): Response {
@@ -319,6 +348,7 @@ class LocalChatServer(
         } catch (_: Throwable) {
             JSONObject()
         }
+        val explicitModelSelection = rootJson.optString("model", "").trim().isNotBlank()
 
         val isStream = rootJson.optBoolean("stream", true)
         val rawGateway = MeshNodeService.gatewayUrl.trim()
@@ -469,7 +499,35 @@ class LocalChatServer(
                         val sseData = "data: ${chunkObj}\n\ndata: [DONE]\n\n"
                         pipedOut.write(sseData.toByteArray(StandardCharsets.UTF_8))
                         pipedOut.flush()
-                    } catch (_: Throwable) {}
+                    } catch (error: Throwable) {
+                        // Always terminate the SSE contract. If image generation
+                        // fails after the initial progress chunk, closing the
+                        // pipe without a final chunk leaves the WebUI forever in
+                        // its processing state and keeps the composer disabled.
+                        try {
+                            val errorMessage = error.message?.take(240)?.ifBlank { null }
+                                ?: "Unbekannter Fehler bei der Bildgenerierung"
+                            val errorChunk = JSONObject().apply {
+                                put("id", "chatcmpl-img-error-${System.currentTimeMillis()}")
+                                put("object", "chat.completion.chunk")
+                                put("created", System.currentTimeMillis() / 1000)
+                                put("model", "computemesh-generative-art")
+                                put("choices", JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("index", 0)
+                                        put("delta", JSONObject().apply {
+                                            put("content", "⚠️ Bildgenerierung fehlgeschlagen: $errorMessage")
+                                        })
+                                        put("finish_reason", "stop")
+                                    })
+                                })
+                            }
+                            pipedOut.write("data: ${errorChunk}\n\ndata: [DONE]\n\n".toByteArray(StandardCharsets.UTF_8))
+                            pipedOut.flush()
+                        } catch (_: Throwable) {
+                            // The client may already have disconnected.
+                        }
+                    }
                     finally {
                         try { pipedOut.close() } catch (_: Throwable) {}
                     }
@@ -604,12 +662,28 @@ class LocalChatServer(
                             val contentType = conn.contentType ?: ""
                             if (contentType.contains("event-stream")) {
                                 conn.inputStream.use { netIn ->
-                                    val buffer = ByteArray(4096)
-                                    var read: Int
-                                    while (netIn.read(buffer).also { read = it } != -1) {
-                                        pipedOut.write(buffer, 0, read)
+                                    val reader = netIn.bufferedReader(StandardCharsets.UTF_8)
+                                    var modelMismatch = false
+                                    while (true) {
+                                        val line = reader.readLine() ?: break
+                                        if (line.startsWith("data:") && explicitModelSelection) {
+                                            val data = line.removePrefix("data:").trim()
+                                            if (data.isNotEmpty() && data != "[DONE]") {
+                                                val returnedModel = runCatching { JSONObject(data).optString("model") }.getOrDefault("")
+                                                if (!modelIdsCompatible(rootJson.optString("model"), returnedModel)) {
+                                                    lastErrorMessage = "Ausgewähltes Modell ${rootJson.optString("model")} wurde nicht verwendet (Server antwortete mit $returnedModel)."
+                                                    modelMismatch = true
+                                                    break
+                                                }
+                                            }
+                                        }
+                                        pipedOut.write((line + "\n").toByteArray(StandardCharsets.UTF_8))
                                         pipedOut.flush()
                                         streamedAnyBytes = true
+                                    }
+                                    if (modelMismatch) {
+                                        streamedAnyBytes = false
+                                        try { conn.disconnect() } catch (_: Throwable) {}
                                     }
                                 }
                             } else {
@@ -650,6 +724,11 @@ class LocalChatServer(
                             lastErrorMessage = sanitizeErrorMessage(rawErr)
                             Log.w(TAG, "Candidate $candidateUrl returned HTTP $code: $lastErrorMessage")
                             try { conn.disconnect() } catch (_: Throwable) {}
+                            // An explicit model is a contract. Do not silently
+                            // retry another gateway that may answer with a
+                            // different model (the old cause of gemma4 being
+                            // shown while qwen2.5 was selected).
+                            if (explicitModelSelection && code in 400..499) break
                         }
                     } catch (e: Throwable) {
                         lastErrorMessage = e.message ?: "Verbindungsfehler"
@@ -726,6 +805,7 @@ class LocalChatServer(
                     lastErrorMessage = sanitizeErrorMessage(rawErr)
                     Log.w(TAG, "Candidate $candidateUrl returned HTTP $code: $lastErrorMessage")
                     try { conn.disconnect() } catch (_: Throwable) {}
+                    if (explicitModelSelection && code in 400..499) break
                 }
             } catch (e: Throwable) {
                 lastErrorMessage = e.message ?: "Verbindungsfehler"
@@ -744,6 +824,20 @@ class LocalChatServer(
         }
 
         val responseBytes = conn.inputStream.use { it.readBytes() }
+        if (explicitModelSelection) {
+            val responseModel = runCatching {
+                JSONObject(String(responseBytes, StandardCharsets.UTF_8)).optString("model")
+            }.getOrDefault("")
+            if (!modelIdsCompatible(rootJson.optString("model"), responseModel)) {
+                return jsonResponse(
+                    JSONObject().put("error", JSONObject().put(
+                        "message",
+                        "Ausgewähltes Modell ${rootJson.optString("model")} wurde nicht verwendet (Server antwortete mit $responseModel)."
+                    )),
+                    Response.Status.BAD_REQUEST,
+                )
+            }
+        }
         val resp = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", ByteArrayInputStream(responseBytes), responseBytes.size.toLong())
         return addCorsHeaders(resp)
     }

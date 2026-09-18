@@ -503,7 +503,12 @@
 		try {
 			await probeLocalNode();
 
-			var response = await originalFetch('/v1/models', { credentials: 'same-origin', cache: 'no-store' });
+			// When a local node is active, the selectable catalogue must come from
+			// that node. The cloud catalogue can contain IDs that are not installed
+			// locally; showing those IDs would cause the node router to substitute a
+			// different model at inference time.
+			var modelCatalogUrl = localNodeEndpoint ? (localNodeEndpoint + '/v1/models') : '/v1/models';
+			var response = await originalFetch(modelCatalogUrl, { credentials: 'same-origin', cache: 'no-store' });
 			if (!response.ok) throw new Error('Model list unavailable');
 			var result = await response.json();
 			models = Array.isArray(result.data) ? result.data.filter(function (model) {

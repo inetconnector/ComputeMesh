@@ -133,7 +133,7 @@ class TestActiveRuntimePipeline(unittest.TestCase):
         )
 
     def test_active_runtime_executes_routed_skill_through_persistent_dag(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             self._write_skill(root)
             runtime = AgentsPlatformRuntime(
@@ -163,7 +163,7 @@ class TestActiveRuntimePipeline(unittest.TestCase):
             second_engine.close()
 
     def test_memory_is_user_authority_data_not_system_instruction(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             self._write_skill(root)
             runtime = AgentsPlatformRuntime(
@@ -196,8 +196,9 @@ class TestActiveRuntimePipeline(unittest.TestCase):
             self.assertIn("untrusted data", user_text.lower())
 
     def test_runtime_policy_is_bound_and_empty_allowlists_deny(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
+
             self._write_skill(root)
             runtime = AgentsPlatformRuntime(
                 config=self._config(),
@@ -393,7 +394,7 @@ class TestRegistryHardeningReview2(unittest.TestCase):
         self.assertEqual(len(registry.list()), 2)
 
     def test_unsupported_manifest_schema_fails_closed(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory) / "skills"
             bad = root / "bad" / "SKILL.md"
             bad.parent.mkdir(parents=True)

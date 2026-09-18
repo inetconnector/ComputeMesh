@@ -55,7 +55,9 @@ fun LocalCodeTab(
     var isNodeOnline by remember { mutableStateOf(false) }
     var nodeLatencyMs by remember { mutableStateOf<Long?>(null) }
     var isCheckingNode by remember { mutableStateOf(false) }
-    var customHost by remember { mutableStateOf("127.0.0.1:32145") }
+    // 127.0.0.1 points back to the phone. LocalCode runs on the Windows host,
+    // so use the known LAN address as the initial desktop endpoint.
+    var customHost by remember { mutableStateOf("192.168.1.94:32145") }
 
     // Download & installation state
     var isDownloading by remember { mutableStateOf(false) }
@@ -187,12 +189,16 @@ fun LocalCodeTab(
     suspend fun checkNodeConnection() {
         isCheckingNode = true
         withContext(Dispatchers.IO) {
-            val candidates = listOf(
-                "http://$customHost",
-                "http://127.0.0.1:32145",
-                "http://192.168.1.94:32145",
-                "http://localhost:32145"
-            )
+            val gatewayHost = runCatching {
+                val parsed = URL(gatewayUrl)
+                parsed.host.takeIf { it.isNotBlank() && it != "127.0.0.1" && it != "localhost" }
+                    ?.let { "http://$it:32145" }
+            }.getOrNull()
+            val candidates = listOfNotNull(
+                "http://$customHost".takeUnless { customHost.startsWith("127.") || customHost.startsWith("localhost") },
+                gatewayHost,
+                "http://192.168.1.94:32145"
+            ).distinct()
             var online = false
             var latency: Long? = null
 

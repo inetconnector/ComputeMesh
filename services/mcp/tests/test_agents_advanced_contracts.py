@@ -157,7 +157,7 @@ class TestSubagentsAndAdmin(unittest.TestCase):
         self.assertEqual(registry.get("admin.skill").status, SkillStatus.DISABLED)
 
     def test_registry_admin_backup_restore(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             db = Path(directory) / "registry.sqlite3"
             backup = Path(directory) / "backup.sqlite3"
             registry = PersistentSkillRegistry(db)
