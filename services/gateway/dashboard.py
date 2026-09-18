@@ -229,7 +229,6 @@ def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ComputeMesh Remote Node — {safe_node_id}</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
             --bg: #090d16;
