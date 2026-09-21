@@ -262,19 +262,26 @@
 			}
 
 			/* Sidebar navigation styling for desktop & mobile */
-			aside {
-				pointer-events: auto !important;
-				visibility: visible !important;
-			}
+			aside,
+			aside *,
+			aside div,
 			aside a,
 			aside button,
 			aside [role="button"],
-			aside li {
+			aside li,
+			aside span,
+			aside kbd {
 				pointer-events: auto !important;
 				touch-action: manipulation !important;
 				cursor: pointer !important;
 				-webkit-user-select: none !important;
 				user-select: none !important;
+			}
+
+			aside button svg,
+			aside [role="button"] svg,
+			aside a svg {
+				pointer-events: none !important;
 			}
 
 			/* Mobile Drawer - strictly scoped to small mobile screens */
@@ -838,10 +845,9 @@
 			}
 
 			/* All hidden triggers MUST NEVER intercept physical touches */
-			.pointer-events-none,
-			[class*="pointer-events-none"],
-			button.opacity-0,
-			[aria-hidden="true"].opacity-0,
+			.pointer-events-none:not(aside):not(aside *),
+			button.opacity-0:not(aside *),
+			[aria-hidden="true"].opacity-0:not(aside *),
 			[data-slot="popover-trigger"].pointer-events-none,
 			[data-state="closed"].opacity-0 {
 				pointer-events: none !important;
@@ -1960,79 +1966,32 @@
 					return true;
 				};
 
-				// Bulletproof Sidebar Navigation Dispatcher
+				// Sidebar Mobile Drawer Auto-Dismiss on selection (only on small screens <= 768px)
 				(function() {
-					function navigateToRoute(targetHash) {
-						if (!targetHash) return;
-						if (window.innerWidth <= 768) {
-							window.__closeSidebar();
-						}
-						if (window.location.hash !== targetHash) {
-							window.location.hash = targetHash;
-						}
-					}
-
 					document.addEventListener('click', function(e) {
+						if (window.innerWidth > 768) return;
 						const aside = document.querySelector('aside');
-						const target = e.target.closest('a, button, [role="button"], li');
-						if (!target) return;
+						if (!aside || !aside.classList.contains('is-expanded')) return;
+						if (!aside.contains(e.target)) return;
 
-						// Close collapse button on mobile
-						const isCollapse = target.closest('button[aria-label="Navigation einklappen"]');
+						// Close button
+						const isCollapse = e.target.closest('button[aria-label="Navigation einklappen"]');
 						if (isCollapse) {
-							if (window.innerWidth <= 768) {
+							window.__closeSidebar();
+							return;
+						}
+
+						// Don't close when interacting with 3-dots / dropdown context menus
+						if (e.target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
+							return;
+						}
+
+						// When tapping a navigation button or link on mobile, close the drawer after a brief moment
+						const isNavItem = e.target.closest('a, button, [role="button"]');
+						if (isNavItem) {
+							setTimeout(function() {
 								window.__closeSidebar();
-							}
-							return;
-						}
-
-						// Never intercept 3-dots / dropdown context menus
-						if (target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
-							return;
-						}
-
-						// 1. Settings (Einstellungen)
-						const isSettings = target.closest('a[href*="/settings"], button[aria-label*="Setting"], button[title*="Setting"]') ||
-							(target.textContent && (target.textContent.trim().toLowerCase() === 'einstellungen' || target.textContent.trim().toLowerCase() === 'settings'));
-						if (isSettings && !target.closest('[role="menu"]')) {
-							e.preventDefault();
-							navigateToRoute('#/settings/general');
-							return;
-						}
-
-						// 2. MCP Servers
-						const isMcp = target.closest('a[href*="mcp-servers"], button[aria-label*="MCP"], button[title*="MCP"]') ||
-							(target.textContent && target.textContent.trim().toLowerCase().includes('mcp-server'));
-						if (isMcp && !target.closest('[role="menu"]')) {
-							e.preventDefault();
-							navigateToRoute('#/mcp-servers');
-							return;
-						}
-
-						// 3. New Chat (Neuer Chat)
-						const isNewChat = target.closest('a[href*="new_chat"], button[aria-label*="New chat"], button[aria-label*="Neuer Chat"]') ||
-							(target.textContent && (target.textContent.trim().toLowerCase() === 'neuer chat' || target.textContent.trim().toLowerCase() === 'new chat'));
-						if (isNewChat && !target.closest('[role="menu"]')) {
-							e.preventDefault();
-							const textarea = document.querySelector('textarea');
-							if (textarea) {
-								textarea.value = '';
-								textarea.dispatchEvent(new Event('input', { bubbles: true }));
-							}
-							navigateToRoute('#/');
-							return;
-						}
-
-						// 4. Conversation Links
-						const convLink = target.closest('a[href*="#/chat/"]');
-						if (convLink) {
-							const href = convLink.getAttribute('href');
-							if (href && href.includes('#/chat/')) {
-								const hashPart = href.substring(href.indexOf('#/chat/'));
-								e.preventDefault();
-								navigateToRoute(hashPart);
-								return;
-							}
+							}, 150);
 						}
 					});
 				})();
