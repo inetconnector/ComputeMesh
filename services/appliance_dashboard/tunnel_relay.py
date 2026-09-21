@@ -131,6 +131,15 @@ class CloudTunnelRelay:
             inv = scan_rig_hardware()
             tf = self._calculate_tflops(inv)
         local_vram_gb = round(inv.total_vram_bytes / (1024**3), 1)
+
+        # Query local multi-GPU model engine status
+        engine_status = {}
+        try:
+            from services.appliance_dashboard.model_engine_service import ModelEngineService
+            engine_status = ModelEngineService.get_instance().get_status()
+        except Exception:
+            pass
+
         local_payload = {
             "node_id": self.node_id,
             "status": "online",
@@ -142,7 +151,11 @@ class CloudTunnelRelay:
                 "local_compute_tflops": tf,
                 "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
                 "is_simulated": False,
+                "model_engine": engine_status,
             },
+            "active_model_id": engine_status.get("active_model_id"),
+            "active_model_digest": engine_status.get("active_model_digest"),
+            "engine_state": engine_status.get("state", "IDLE"),
         }
         gm = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
         if not gm.get("total_vram_gb") and local_vram_gb > 0:
@@ -187,7 +200,11 @@ class CloudTunnelRelay:
                 "local_compute_tflops": tf,
                 "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
                 "is_simulated": False,
+                "model_engine": engine_status,
             },
+            "active_model_id": engine_status.get("active_model_id"),
+            "active_model_digest": engine_status.get("active_model_digest"),
+            "engine_state": engine_status.get("state", "IDLE"),
             "global_mesh": gm,
         }
 

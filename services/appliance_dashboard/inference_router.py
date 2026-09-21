@@ -107,29 +107,53 @@ class InferenceRouter:
 
         # 1. Models & Tags listing
         if clean_path in ("/v1/models", "/models", "/api/tags", "/tags", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
+            models_list: list[dict[str, Any]] = []
+
+            # Check local ModelEngineService
+            try:
+                from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                engine = ModelEngineService.get_instance()
+                if engine.state == EngineState.READY and engine.active_model_id:
+                    models_list.append({"id": engine.active_model_id, "object": "model", "owned_by": "nodeos-multi-gpu", "active": True})
+            except Exception:
+                pass
+
+            # Check local ModelManager
+            try:
+                from services.appliance_dashboard.model_manager import ModelManager
+                manager = ModelManager.get_instance()
+                for lm in manager.list_local_models():
+                    if not any(m["id"] == lm.filename for m in models_list):
+                        models_list.append({"id": lm.filename, "object": "model", "owned_by": "local-storage", "size_bytes": lm.size_bytes})
+            except Exception:
+                pass
+
+            # Check Ollama
             try:
                 target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
                 req = urllib.request.Request(target, headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    data = resp.read()
-                    handler.send_response(HTTPStatus.OK)
-                    handler.send_header("Content-Type", "application/json; charset=utf-8")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
-                    handler.send_header("Content-Length", str(len(data)))
-                    handler.end_headers()
-                    handler.wfile.write(data)
-                    return True
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    raw_data = json.loads(resp.read().decode("utf-8"))
+                    ollama_items = raw_data.get("data", []) if "data" in raw_data else raw_data.get("models", [])
+                    for item in ollama_items:
+                        m_id = item.get("id") or item.get("name") or item.get("model")
+                        if m_id and not any(m["id"] == m_id for m in models_list):
+                            models_list.append({"id": m_id, "object": "model", "owned_by": "ollama"})
             except Exception:
-                payload = {
-                    "object": "list",
-                    "data": [
-                        {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
-                        {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
-                        {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
-                    ]
-                }
-                handler._send_json(payload)
-                return True
+                pass
+
+            if not models_list:
+                models_list = [
+                    {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
+                    {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
+                    {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
+                ]
+
+            if "/tags" in clean_path:
+                handler._send_json({"models": [{"name": m["id"], "model": m["id"]} for m in models_list]})
+            else:
+                handler._send_json({"object": "list", "data": models_list})
+            return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
             if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
@@ -195,12 +219,36 @@ class InferenceRouter:
             except Exception:
                 payload = {}
 
-            available_models = []
+            available_models: list[str] = []
+
+            # Check local ModelEngineService
+            try:
+                from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                engine = ModelEngineService.get_instance()
+                if engine.state == EngineState.READY and engine.active_model_id:
+                    available_models.append(engine.active_model_id)
+            except Exception:
+                pass
+
+            # Check local ModelManager
+            try:
+                from services.appliance_dashboard.model_manager import ModelManager
+                manager = ModelManager.get_instance()
+                for lm in manager.list_local_models():
+                    if lm.filename not in available_models:
+                        available_models.append(lm.filename)
+            except Exception:
+                pass
+
+            # Check Ollama
             try:
                 tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
-                with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
+                with urllib.request.urlopen(tags_req, timeout=2) as tags_resp:
                     tags_data = json.loads(tags_resp.read().decode("utf-8"))
-                    available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
+                    for m in tags_data.get("models", []):
+                        m_name = m.get("name") or m.get("model")
+                        if m_name and m_name not in available_models:
+                            available_models.append(m_name)
             except Exception:
                 pass
 
@@ -227,37 +275,25 @@ class InferenceRouter:
                         target_model = coder_match if coder_match else available_models[0]
                     else:
                         target_model = available_models[0]
-                elif requested_model not in available_models:
-                    # An explicit model request is a contract. Never silently
-                    # replace it with the first locally available model: that
-                    # makes the UI, billing and response metadata lie about
-                    # which model processed the request.
-                    handler._send_json(
-                        {
-                            "error": {
-                                "message": f"Requested model is not available on this node: {requested_model}",
-                                "type": "invalid_request_error",
-                                "code": "model_not_available",
-                                "available_models": available_models,
-                            }
-                        },
-                        HTTPStatus.BAD_REQUEST,
-                    )
-                    return True
-            elif requested_model and requested_model.lower() not in ("default", "auto", "computemesh"):
-                handler._send_json(
-                    {
-                        "error": {
-                            "message": "The node model catalogue is unavailable; explicit model selection is refused",
-                            "type": "server_error",
-                            "code": "model_catalog_unavailable",
-                        }
-                    },
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                )
-                return True
-            if not target_model:
-                target_model = "qwen2.5-coder:7b" if is_coding_query else "qwen2.5:7b"
+                elif requested_model not in available_models and not any(requested_model.lower() in m.lower() for m in available_models):
+                    from services.mcp.intent.intent_router import detect_direct_tool_intent, is_compound_multi_step_query
+                    if not (detect_direct_tool_intent(all_text) or is_compound_multi_step_query(all_text)):
+                        # An explicit model request is a contract when not handled by autonomous live tools.
+                        handler._send_json(
+                            {
+                                "error": {
+                                    "message": f"Requested model is not available on this node: {requested_model}",
+                                    "type": "invalid_request_error",
+                                    "code": "model_not_available",
+                                    "available_models": available_models,
+                                }
+                            },
+                            HTTPStatus.BAD_REQUEST,
+                        )
+                        return True
+            else:
+                if not target_model or target_model.lower() in ("default", "auto", "computemesh"):
+                    target_model = "qwen2.5-coder:7b" if is_coding_query else "qwen2.5:7b"
 
             if has_image_input and not _looks_like_vision_model(target_model):
                 vision_models = [model for model in available_models if _looks_like_vision_model(model)]
@@ -283,6 +319,40 @@ class InferenceRouter:
             agent_loop = AgentLoop(registry=ToolRegistry(get_mcp_config()))
 
             def node_llm_caller(msg_list: list[dict[str, Any]], tools_list: list[dict[str, Any]]) -> dict[str, Any]:
+                # 1. Check if llama-server ModelEngineService is running with matching model
+                try:
+                    from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                    engine = ModelEngineService.get_instance()
+                    active_id = engine.active_model_id or ""
+                    active_fname = Path(engine.active_model_path or "").name
+
+                    is_engine_match = (
+                        engine.state == EngineState.READY and
+                        (target_model in (active_id, active_fname, "auto", "default", "computemesh") or
+                         target_model.replace(".gguf", "") == active_id.replace(".gguf", ""))
+                    )
+
+                    if is_engine_match:
+                        llama_url = f"http://{engine.config.host}:{engine.config.port}/v1/chat/completions"
+                        llama_req = {
+                            "model": target_model,
+                            "messages": msg_list,
+                            "stream": False,
+                            "temperature": float(payload.get("temperature", 0.7) or 0.7),
+                            "max_tokens": min(2048, int(payload.get("max_tokens", 512) or 512)),
+                        }
+                        req = urllib.request.Request(
+                            llama_url,
+                            data=json.dumps(llama_req).encode("utf-8"),
+                            headers={"Content-Type": "application/json"},
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            if resp.status == 200:
+                                return json.loads(resp.read().decode("utf-8"))
+                except Exception as exc:
+                    log.debug(f"Direct llama-server invocation failed: {exc}")
+
                 ollama_messages: list[dict[str, Any]] = []
                 for m in msg_list:
                     if not isinstance(m, dict):
@@ -307,90 +377,62 @@ class InferenceRouter:
                     else:
                         ollama_messages.append(_ollama_message(m))
 
-                if not available_models:
-                    tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                    if tool_msg:
-                        from services.mcp.agent_loop import format_tool_content_if_json
-                        formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": formatted,
-                                },
-                                "finish_reason": "stop",
-                            }],
-                            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-                        }
-                    user_msg = next((str(m.get("content", "")) for m in reversed(msg_list) if m.get("role") == "user"), "")
-                    return {
-                        "choices": [{
-                            "message": {
-                                "role": "assistant",
-                                "content": f"Antwort von {target_model}: {user_msg}",
-                            },
-                            "finish_reason": "stop",
-                        }],
-                        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-                    }
-
-                ollama_req = {
-                    "model": target_model,
-                    "messages": ollama_messages,
-                    "stream": False,
-                    "options": {
-                        "temperature": float(payload.get("temperature", 0.7) or 0.7),
-                        "num_predict": min(512, int(payload.get("max_tokens", 512) or 512)),
-                    },
-                }
+                # 2. Try Ollama backend
                 try:
+                    ollama_req = {
+                        "model": target_model,
+                        "messages": ollama_messages,
+                        "stream": False,
+                        "options": {
+                            "temperature": float(payload.get("temperature", 0.7) or 0.7),
+                            "num_predict": min(512, int(payload.get("max_tokens", 512) or 512)),
+                        },
+                    }
                     req = urllib.request.Request(
                         f"{ollama_url}/api/chat",
                         data=json.dumps(ollama_req).encode("utf-8"),
                         headers={"Content-Type": "application/json"},
+                        method="POST",
                     )
-                    with urllib.request.urlopen(req, timeout=12) as resp:
-                        resp_data = json.loads(resp.read().decode("utf-8"))
-                        msg_obj = resp_data.get("message", {})
-                        p_tok = resp_data.get("prompt_eval_count", 0)
-                        c_tok = resp_data.get("eval_count", 0)
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": msg_obj.get("role", "assistant"),
-                                    "content": msg_obj.get("content", ""),
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        if resp.status == 200:
+                            data = json.loads(resp.read().decode("utf-8"))
+                            msg = data.get("message", {})
+                            return {
+                                "choices": [{
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": msg.get("content", ""),
+                                    },
+                                    "finish_reason": "stop",
+                                }],
+                                "usage": {
+                                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                                    "completion_tokens": data.get("eval_count", 0),
+                                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
                                 },
-                                "finish_reason": "stop",
-                            }],
-                            "usage": {"prompt_tokens": p_tok, "completion_tokens": c_tok, "total_tokens": p_tok + c_tok},
-                        }
+                            }
                 except Exception as exc:
-                    log.warning(f"Ollama inference unavailable ({exc}), synthesizing fallback response")
-                    tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                    if tool_msg:
-                        from services.mcp.agent_loop import format_tool_content_if_json
-                        formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": formatted,
-                                },
-                                "finish_reason": "stop",
-                            }],
-                            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-                        }
-                    user_msg = next((str(m.get("content", "")) for m in reversed(msg_list) if m.get("role") == "user"), "")
+                    log.warning(f"Ollama inference unavailable ({exc})")
+
+                # If tool message is present and needs final formatting without active LLM:
+                tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
+                if tool_msg:
+                    from services.mcp.agent_loop import format_tool_content_if_json
+                    formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
                     return {
                         "choices": [{
                             "message": {
                                 "role": "assistant",
-                                "content": f"Antwort von {target_model}: {user_msg}",
+                                "content": formatted,
                             },
                             "finish_reason": "stop",
                         }],
-                        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                     }
+
+                # Backend is unreachable and model cannot be served: fail cleanly without fake tokens or fake answers
+                raise RuntimeError(f"Backend inference engine unavailable for model '{target_model}'.")
 
             try:
                 exec_res = agent_loop.run(
@@ -400,17 +442,19 @@ class InferenceRouter:
                     max_iterations=6,
                 )
 
-                try:
-                    handler.tokens_served += int(exec_res.total_tokens)
-                    handler.earnings_cm += (exec_res.total_tokens * 0.0001)
-                    from tools.appliance.token_metering import record_inference_tokens
-                    record_inference_tokens(
-                        prompt_tokens=exec_res.prompt_tokens,
-                        completion_tokens=exec_res.completion_tokens,
-                        model=target_model,
-                    )
-                except Exception:
-                    pass
+                # Record metering only when real tokens were generated
+                if exec_res.total_tokens > 0:
+                    try:
+                        handler.tokens_served += int(exec_res.total_tokens)
+                        handler.earnings_cm += (exec_res.total_tokens * 0.0001)
+                        from tools.appliance.token_metering import record_inference_tokens
+                        record_inference_tokens(
+                            prompt_tokens=exec_res.prompt_tokens,
+                            completion_tokens=exec_res.completion_tokens,
+                            model=target_model,
+                        )
+                    except Exception:
+                        pass
 
                 if is_stream:
                     handler.send_response(HTTPStatus.OK)
@@ -458,8 +502,9 @@ class InferenceRouter:
                     handler._send_json(openai_resp)
                 return True
             except Exception as e:
-                err_msg = f"Fehler bei Node-Inferenz: {str(e)}"
-                handler._send_json({"error": {"message": err_msg, "code": 502}}, HTTPStatus.BAD_GATEWAY)
+                err_msg = f"Inference backend unavailable: {str(e)}"
+                log.error(err_msg)
+                handler._send_json({"error": {"message": err_msg, "code": 502, "type": "backend_unavailable"}}, HTTPStatus.BAD_GATEWAY)
                 return True
 
         # 2. Image Generation Route (/v1/images/generations)

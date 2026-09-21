@@ -41,6 +41,7 @@ from services.appliance_dashboard.tunnel_relay import (
     CLOUD_TUNNEL_RELAY,
 )
 from services.appliance_dashboard.inference_router import InferenceRouter
+from services.appliance_dashboard.models_handler import ModelsHandler
 from services.appliance_dashboard.system_actions import SystemActionsHandler
 from services.appliance_dashboard.killswitch_actions import KillswitchHandler
 from services.appliance_dashboard.telemetry_handler import TelemetryHandler
@@ -96,23 +97,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pass
 
     def _verify_action_auth(self) -> bool:
-        client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0])
+        supplied_token = ""
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            supplied_token = auth_header.removeprefix("Bearer ").strip()
+        if not supplied_token:
+            supplied_token = self.headers.get("X-Node-Auth-Token", "").strip()
+        if not supplied_token:
+            parsed = urllib.parse.urlparse(self.path)
+            q = urllib.parse.parse_qs(parsed.query)
+            supplied_token = q.get("auth", [""])[0].strip()
+
+        if supplied_token and hmac.compare_digest(supplied_token, NODE_AUTH_TOKEN.strip()):
+            return True
+
+        client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0]).strip()
+        # Only strict local loopback (same machine) is permitted without explicit auth token.
+        # Remote LAN IPs must supply NODE_AUTH_TOKEN for any mutating or admin actions.
         try:
-            ip_obj = ipaddress.ip_address(client_ip.strip())
-            if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local:
+            ip_obj = ipaddress.ip_address(client_ip)
+            if ip_obj.is_loopback:
                 return True
         except Exception:
             if client_ip in ("127.0.0.1", "::1", "localhost"):
                 return True
 
-        supplied_token = self.headers.get("X-Node-Auth-Token", "")
-        if not supplied_token:
-            parsed = urllib.parse.urlparse(self.path)
-            q = urllib.parse.parse_qs(parsed.query)
-            supplied_token = q.get("auth", [""])[0]
-
-        if supplied_token and hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip()):
-            return True
         return False
 
     def do_OPTIONS(self) -> None:
@@ -244,6 +253,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
                 return
 
+        if ModelsHandler.handle_get(self, req_path):
+            return
+
         if KillswitchHandler.handle_get(self, req_path):
             return
 
@@ -265,6 +277,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
         if InferenceRouter.handle_post(self, req_path, post_body):
+            return
+
+        if ModelsHandler.handle_post(self, req_path, post_body):
             return
 
         if not self._verify_action_auth():

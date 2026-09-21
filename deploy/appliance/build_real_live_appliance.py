@@ -93,12 +93,15 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
             "x11-xserver-utils xinit openbox unclutter chromium"
         )
 
-        # Set root password to computemesh
-        chroot_exec("echo 'root:computemesh' | chpasswd")
-        # Enable SSH root login with password
+        # Security hardening: Disable password login and lock root password.
+        # SSH access is exclusively permitted via authorized_keys or Passkey web portal.
+        chroot_exec("passwd -d root && passwd -l root")
         ssh_config = CHROOT_DIR / "etc" / "ssh" / "sshd_config.d" / "live.conf"
         ssh_config.parent.mkdir(parents=True, exist_ok=True)
-        ssh_config.write_text("PermitRootLogin yes\nPasswordAuthentication yes\n", encoding="utf-8")
+        ssh_config.write_text("PermitRootLogin prohibit-password\nPasswordAuthentication no\nPubkeyAuthentication yes\n", encoding="utf-8")
+
+        # Create persistent model storage directory
+        (CHROOT_DIR / "var" / "lib" / "computemesh" / "models").mkdir(parents=True, exist_ok=True)
 
         # 3. Embed ComputeMesh Codebase into /opt/computemesh
         print("\n[Step 3/6] Embedding ComputeMesh NodeOS daemon and dashboard...")
