@@ -796,8 +796,15 @@
 			}
 
 			/* Links & Touch targets */
-			a {
+			.markdown-content a,
+			.chat-message a,
+			p a,
+			a.cm-link {
 				color: #38bdf8 !important;
+				text-decoration: underline !important;
+			}
+
+			a {
 				touch-action: manipulation !important;
 				cursor: pointer !important;
 				pointer-events: auto !important;
@@ -1110,28 +1117,33 @@
 				};
 			})();
 
-			// Global External Link Interceptor
+			// Global External Link Interceptor (for Markdown links to external websites)
 			(function() {
 				function handleExternalLink(e) {
 					const target = e.target.closest('a, [role="link"], button[data-external-url]');
 					if (!target) return;
-					const href = target.getAttribute('href') || target.dataset.externalUrl;
-					if (!href) return;
-					if (href.startsWith('http://') || href.startsWith('https://')) {
-						if (!href.includes('127.0.0.1') && !href.includes('localhost')) {
-							e.preventDefault();
-							e.stopPropagation();
-							if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
-								window.AndroidBridge.openExternalUrl(href);
-							} else if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.openExternalUrl === 'function') {
-								window.AndroidSpeechBridge.openExternalUrl(href);
-							} else {
-								window.open(href, '_blank');
-							}
+					const rawHref = target.getAttribute('href') || target.dataset.externalUrl || '';
+					if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return;
+
+					try {
+						const url = new URL(rawHref, window.location.href);
+						// Internal app navigation within the domain / local origin - never intercept!
+						if (url.origin === window.location.origin || url.hostname === window.location.hostname || url.hostname === '127.0.0.1' || url.hostname === 'localhost') {
+							return;
 						}
-					}
+						// Truly external link (e.g. google.com, github.com, etc.)
+						e.preventDefault();
+						e.stopPropagation();
+						if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+							window.AndroidBridge.openExternalUrl(url.href);
+						} else if (window.AndroidSpeechBridge && typeof window.AndroidSpeechBridge.openExternalUrl === 'function') {
+							window.AndroidSpeechBridge.openExternalUrl(url.href);
+						} else {
+							window.open(url.href, '_blank');
+						}
+					} catch (err) {}
 				}
-				document.addEventListener('click', handleExternalLink, { capture: true });
+				document.addEventListener('click', handleExternalLink);
 			})();
 
 			// Auto-dismiss floating tooltips on touch devices
