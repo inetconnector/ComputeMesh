@@ -8,6 +8,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<title>ComputeMesh AI Studio — Llama-UI</title>
 		<script>
 			// Pre-set MCP setup flags so onboarding modal is disabled by default on clean launch
 			try {
@@ -17,8 +18,50 @@
 				localStorage.setItem("mcp_modal_dismissed", "true");
 				localStorage.setItem("mcp_setup_done", "true");
 				localStorage.setItem("has_seen_mcp_modal", "true");
+
+				// Auto-authenticate with ComputeMesh credentials
+				var urlParams = new URLSearchParams(window.location.search);
+				var keyFromUrl = urlParams.get("key") || urlParams.get("api_key") || urlParams.get("token");
+				var rawKey = keyFromUrl || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey");
+
+				if (rawKey) {
+					var cmKey = String(rawKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
+					if (cmKey) {
+						localStorage.setItem("apiKey", cmKey);
+						localStorage.setItem("cm_fleet_owner_key", cmKey);
+						localStorage.setItem("cm_owner_key", cmKey);
+						localStorage.setItem("cm_api_key", cmKey);
+						localStorage.setItem("cm_token", cmKey);
+
+						var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
+						configKeys.forEach(function(k) {
+							try {
+								var cfgRaw = localStorage.getItem(k) || "{}";
+								var cfg = JSON.parse(cfgRaw);
+								cfg.apiKey = cmKey;
+								localStorage.setItem(k, JSON.stringify(cfg));
+							} catch(e) {}
+						});
+						try {
+							var ovRaw = localStorage.getItem("LlamaUi.userOverrides") || "[]";
+							var ov = JSON.parse(ovRaw);
+							if (!Array.isArray(ov)) ov = [];
+							if (!ov.includes("apiKey")) ov.push("apiKey");
+							localStorage.setItem("LlamaUi.userOverrides", JSON.stringify(ov));
+						} catch(e) {}
+
+						try {
+							var isSecure = window.location.protocol === 'https:';
+							var cookieStr = 'cm_session=' + encodeURIComponent(cmKey) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+							if (window.location.hostname.endsWith('inetconnector.com')) cookieStr += '; Domain=.inetconnector.com';
+							if (isSecure) cookieStr += '; Secure';
+							document.cookie = cookieStr;
+						} catch(e) {}
+					}
+				}
 			} catch (e) {}
 		</script>
+		<script src="./model-selector.js"></script>
 		<link rel="icon" href="favicon.ico" sizes="48x48" />
 		<link rel="icon" href="favicon.svg" sizes="any" type="image/svg+xml" />
 
@@ -83,64 +126,13 @@
 		<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="./apple-splash-portrait-dark-750x1334.png">
 		<style>
 			html {
-				height: 100% !important;
-				min-height: 100% !important;
-				width: 100% !important;
-				margin: 0 !important;
-				padding: 0 !important;
-				overflow-x: hidden !important;
-				overflow-y: auto !important;
 				background-color: #0b0f19 !important;
 				-webkit-tap-highlight-color: transparent !important;
 				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 			}
 
 			body {
-				min-height: 100% !important;
-				height: auto !important;
-				width: 100% !important;
-				margin: 0 !important;
-				padding: 0 !important;
-				overflow-x: hidden !important;
-				overflow-y: auto !important;
-				-webkit-overflow-scrolling: touch !important;
-				touch-action: pan-y !important;
 				background-color: #0b0f19 !important;
-			}
-
-			body > div {
-				min-height: 100% !important;
-				height: auto !important;
-				display: flex !important;
-				flex-direction: column !important;
-			}
-
-			.chat-screen {
-				min-height: auto !important;
-				padding-top: 16px !important;
-				padding-bottom: 140px !important;
-				display: flex !important;
-				flex-direction: column !important;
-			}
-
-			.chat-message-assistant, .chat-message {
-				display: block !important;
-				visibility: visible !important;
-				opacity: 1 !important;
-				margin-top: 12px !important;
-			}
-
-			.chat-message-user {
-				display: flex !important;
-				flex-direction: column !important;
-				align-items: flex-end !important;
-				justify-content: flex-end !important;
-				width: 100% !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
-				visibility: visible !important;
-				opacity: 1 !important;
-				margin-top: 12px !important;
 			}
 
 			/* Compact, elegant image display in chat */
@@ -255,13 +247,8 @@
 			button,
 			[role="button"],
 			[data-slot="button"],
-			.chat-screen button,
-			.chat-message button,
-			.chat-message-assistant button,
-			.chat-message-user button,
 			button[aria-label],
 			button[data-state],
-			button:has(svg),
 			.pointer-events-auto,
 			.pointer-events-auto button {
 				pointer-events: auto !important;
@@ -274,122 +261,113 @@
 				pointer-events: none !important;
 			}
 
-			/* Sidebar / Chat History Drawer */
-			aside:not(.is-expanded) {
-				pointer-events: none !important;
-				width: 0 !important;
-				min-width: 0 !important;
-				max-width: 0 !important;
-				height: 0 !important;
-				min-height: 0 !important;
-				max-height: 0 !important;
-				overflow: hidden !important;
-				border: none !important;
-				box-shadow: none !important;
-				background: transparent !important;
-				visibility: hidden !important;
-			}
+			/* Mobile Drawer - strictly scoped to small mobile screens */
+			@media (max-width: 768px) {
+				aside.is-expanded {
+					position: fixed !important;
+					top: 0 !important;
+					left: 0 !important;
+					bottom: 0 !important;
+					width: 85vw !important;
+					max-width: 320px !important;
+					height: 100vh !important;
+					height: 100% !important;
+					background: rgba(15, 23, 42, 0.98) !important;
+					backdrop-filter: blur(24px) !important;
+					-webkit-backdrop-filter: blur(24px) !important;
+					border-right: 1.5px solid rgba(56, 189, 248, 0.3) !important;
+					box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85) !important;
+					z-index: 99990 !important;
+					display: flex !important;
+					flex-direction: column !important;
+					padding: 16px 12px !important;
+					border-radius: 0 24px 24px 0 !important;
+					visibility: visible !important;
+					pointer-events: auto !important;
+				}
 
-			aside:not(.is-expanded) * {
-				pointer-events: none !important;
-				display: none !important;
-				visibility: hidden !important;
-			}
+				aside.is-expanded * {
+					visibility: visible !important;
+				}
 
-			/* ONLY when explicitly expanded does the drawer show up */
-			aside.is-expanded {
-				position: fixed !important;
-				top: 0 !important;
-				left: 0 !important;
-				bottom: 0 !important;
-				width: 85vw !important;
-				max-width: 320px !important;
-				height: 100vh !important;
-				height: 100% !important;
-				background: rgba(15, 23, 42, 0.98) !important;
-				backdrop-filter: blur(24px) !important;
-				-webkit-backdrop-filter: blur(24px) !important;
-				border-right: 1.5px solid rgba(56, 189, 248, 0.3) !important;
-				box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85) !important;
-				z-index: 99990 !important;
-				display: flex !important;
-				flex-direction: column !important;
-				padding: 16px 12px !important;
-				border-radius: 0 24px 24px 0 !important;
-				visibility: visible !important;
-				pointer-events: auto !important;
-			}
+				aside.is-expanded div {
+					display: flex !important;
+					opacity: 1 !important;
+					pointer-events: auto !important;
+				}
 
-			aside.is-expanded * {
-				visibility: visible !important;
-			}
+				aside.is-expanded button,
+				aside.is-expanded a,
+				aside.is-expanded [role="button"],
+				aside.is-expanded li {
+					display: flex !important;
+					opacity: 1 !important;
+					pointer-events: auto !important;
+					touch-action: manipulation !important;
+					cursor: pointer !important;
+				}
 
-			aside.is-expanded div {
-				display: flex !important;
-				opacity: 1 !important;
-				pointer-events: auto !important;
-			}
+				aside.is-expanded .overflow-y-auto {
+					height: auto !important;
+					flex: 1 1 0% !important;
+					display: flex !important;
+					flex-direction: column !important;
+					overflow-y: auto !important;
+				}
 
-			aside.is-expanded button,
-			aside.is-expanded a,
-			aside.is-expanded [role="button"],
-			aside.is-expanded li {
-				display: flex !important;
-				opacity: 1 !important;
-				pointer-events: auto !important;
-				touch-action: manipulation !important;
-				cursor: pointer !important;
-			}
+				aside.is-expanded [class*="opacity-0"] {
+					opacity: 1 !important;
+					height: auto !important;
+				}
 
-			aside.is-expanded .overflow-y-auto {
-				height: auto !important;
-				flex: 1 1 0% !important;
-				display: flex !important;
-				flex-direction: column !important;
-				overflow-y: auto !important;
-			}
+				aside.is-expanded [class*="!h-0"],
+				aside.is-expanded [class*="h-0!"] {
+					height: auto !important;
+				}
 
-			aside.is-expanded [class*="opacity-0"] {
-				opacity: 1 !important;
-				height: auto !important;
-			}
-
-			aside.is-expanded [class*="!h-0"],
-			aside.is-expanded [class*="h-0!"] {
-				height: auto !important;
-			}
-
-			.cm-sidebar-backdrop {
-				position: fixed !important;
-				inset: 0 !important;
-				background: rgba(0, 0, 0, 0.65) !important;
-				backdrop-filter: blur(4px) !important;
-				-webkit-backdrop-filter: blur(4px) !important;
-				z-index: 99980 !important;
-				cursor: pointer !important;
-				display: none !important;
-				pointer-events: none !important;
-			}
-			.cm-sidebar-backdrop.is-active {
-				display: block !important;
-				pointer-events: auto !important;
+				.cm-sidebar-backdrop {
+					position: fixed !important;
+					inset: 0 !important;
+					background: rgba(0, 0, 0, 0.65) !important;
+					backdrop-filter: blur(4px) !important;
+					-webkit-backdrop-filter: blur(4px) !important;
+					z-index: 99980 !important;
+					cursor: pointer !important;
+					display: none !important;
+					pointer-events: none !important;
+				}
+				.cm-sidebar-backdrop.is-active {
+					display: block !important;
+					pointer-events: auto !important;
+				}
 			}
 
 			/* Backdrop Overlay for modal dialogs */
-			[data-slot="dialog-overlay"],
-			[data-slot="alert-dialog-overlay"] {
+			[data-slot="dialog-overlay"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="alert-dialog-overlay"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dialog-overlay]:not([data-state="closed"]):not([hidden]),
+			[data-bits-alert-dialog-overlay]:not([data-state="closed"]):not([hidden]) {
 				position: fixed !important;
 				inset: 0 !important;
-				background: rgba(3, 7, 18, 0.88) !important;
-				backdrop-filter: blur(14px) !important;
-				-webkit-backdrop-filter: blur(14px) !important;
-				z-index: 99990 !important;
+				background: rgba(3, 7, 18, 0.82) !important;
+				backdrop-filter: blur(12px) !important;
+				-webkit-backdrop-filter: blur(12px) !important;
+				z-index: 999990 !important;
+				display: block !important;
 				pointer-events: auto !important;
 				cursor: pointer !important;
 			}
 
-			/* General Modal Dialogs (Settings, Fork, etc.) */
-			[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]):not([data-slot="alert-dialog-content"]) {
+			[data-slot="dialog-overlay"][data-state="closed"],
+			[data-slot="alert-dialog-overlay"][data-state="closed"],
+			[data-bits-dialog-overlay][data-state="closed"],
+			[data-bits-alert-dialog-overlay][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
+			}
+
+			/* General Modal Dialogs (Settings, System Prompt, MCP, etc.) */
+			[data-slot="dialog-content"]:not([data-state="closed"]):not([hidden]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]):not([data-slot="alert-dialog-content"]) {
 				position: fixed !important;
 				top: 50% !important;
 				left: 50% !important;
@@ -397,7 +375,7 @@
 				right: auto !important;
 				margin: 0 !important;
 				width: calc(100% - 32px) !important;
-				max-width: 500px !important;
+				max-width: 520px !important;
 				min-width: 0 !important;
 				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
 				height: auto !important;
@@ -415,9 +393,15 @@
 				box-sizing: border-box !important;
 			}
 
+			[data-slot="dialog-content"][data-state="closed"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]),
+			[data-slot="alert-dialog-content"][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
+			}
+
 			/* Alert Dialogs (Confirmations, Delete Message, etc.) */
-			[data-slot="alert-dialog-content"],
-			[role="alertdialog"] {
+			[data-slot="alert-dialog-content"]:not([data-state="closed"]):not([hidden]),
+			[role="alertdialog"]:not([data-state="closed"]):not([hidden]) {
 				position: fixed !important;
 				top: 50% !important;
 				left: 50% !important;
@@ -425,7 +409,7 @@
 				right: auto !important;
 				margin: 0 !important;
 				width: calc(100% - 36px) !important;
-				max-width: 400px !important;
+				max-width: 420px !important;
 				min-width: 0 !important;
 				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
 				min-height: auto !important;
@@ -451,20 +435,23 @@
 				display: none !important;
 			}
 
-			/* Context Menus, Dropdown Menus, Popovers & Select Options */
-			[role="menu"]:not([data-state="closed"]),
-			[role="menuitem"],
-			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
-			[data-slot="popover-content"]:not([data-state="closed"]),
-			[data-slot="select-content"]:not([data-state="closed"]),
-			[data-bits-menu-content]:not([data-state="closed"]),
-			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
-			[data-bits-popover-content]:not([data-state="closed"]),
-			[data-bits-select-content]:not([data-state="closed"]),
+			/* Context Menus, Dropdown Menus, Submenus, Popovers & Select Options */
+			[role="menu"]:not([data-state="closed"]):not([hidden]),
+			[role="listbox"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-context-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-popover-content]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="popover-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="context-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="select-content"]:not([data-state="closed"]):not([hidden]),
 			[data-radix-popper-content-wrapper],
 			[data-portal] {
 				z-index: 1000000 !important;
 				touch-action: manipulation !important;
+				pointer-events: auto !important;
 			}
 			[data-slot="dialog-content"] input,
 			[data-slot="dialog-content"] label,
@@ -873,11 +860,7 @@
 				[role="tooltip"],
 				[data-slot="tooltip-content"],
 				[data-bits-tooltip-content],
-				[data-bits-tooltip-root],
-				[data-radix-tooltip-content],
-				[data-tooltip-content],
-				.tooltip,
-				[data-tooltip] {
+				[data-radix-tooltip-content] {
 					display: none !important;
 					opacity: 0 !important;
 					visibility: hidden !important;
@@ -885,16 +868,18 @@
 				}
 			}
 
-			/* Dropdowns, Context Menus & Popovers */
-			[role="menu"]:not([data-state="closed"]),
-			[role="listbox"]:not([data-state="closed"]),
-			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
-			[data-bits-context-menu-content]:not([data-state="closed"]),
-			[data-bits-popover-content]:not([data-state="closed"]),
-			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
-			[data-slot="popover-content"]:not([data-state="closed"]),
-			[data-slot="context-menu-content"]:not([data-state="closed"]),
-			[data-slot="select-content"]:not([data-state="closed"]),
+			/* Dropdowns, Context Menus, Submenus & Popovers */
+			[role="menu"]:not([data-state="closed"]):not([hidden]),
+			[role="listbox"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-context-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-popover-content]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="popover-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="context-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="select-content"]:not([data-state="closed"]):not([hidden]),
 			[data-floating-content]:not([role="tooltip"]):not([data-bits-tooltip-content]):not([data-slot="tooltip-content"]):not([data-slot="alert-dialog-content"]):not([data-slot="dialog-content"]):not([data-state="closed"]) {
 				background: linear-gradient(180deg, #0f172a 0%, #0b0f19 100%) !important;
 				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
@@ -902,39 +887,65 @@
 				box-shadow: 0 18px 50px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
 				backdrop-filter: blur(16px) !important;
 				-webkit-backdrop-filter: blur(16px) !important;
-				z-index: 999999 !important;
+				z-index: 1000000 !important;
 				max-height: min(75vh, 480px) !important;
 				overflow-y: auto !important;
+				overflow-x: visible !important;
 				overscroll-behavior: contain !important;
 				touch-action: pan-y !important;
-				padding: 8px !important;
-				min-width: 180px !important;
+				padding: 6px !important;
+				min-width: 190px !important;
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 2px !important;
+				pointer-events: auto !important;
+			}
+
+			[role="menu"][data-state="closed"],
+			[data-bits-dropdown-menu-content][data-state="closed"],
+			[data-bits-dropdown-menu-sub-content][data-state="closed"],
+			[data-slot="dropdown-menu-content"][data-state="closed"],
+			[data-slot="dropdown-menu-sub-content"][data-state="closed"],
+			[data-slot="popover-content"][data-state="closed"],
+			[data-slot="context-menu-content"][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
 			}
 
 			[role="menuitem"],
+			[role="menuitemcheckbox"],
+			[role="menuitemradio"],
 			[role="option"],
 			[data-slot="dropdown-menu-item"],
+			[data-slot="dropdown-menu-sub-trigger"],
+			[data-bits-dropdown-menu-sub-trigger],
 			[data-slot="context-menu-item"],
 			[data-slot="select-item"] {
-				padding: 11px 15px !important;
-				font-size: 14.5px !important;
+				padding: 10px 14px !important;
+				font-size: 14px !important;
 				font-weight: 500 !important;
 				color: #f8fafc !important;
 				border-radius: 12px !important;
 				display: flex !important;
 				align-items: center !important;
+				justify-content: flex-start !important;
 				gap: 12px !important;
 				cursor: pointer !important;
-				min-height: 44px !important;
+				min-height: 42px !important;
 				touch-action: manipulation !important;
-				transition: background 0.15s ease !important;
+				transition: background 0.15s ease, color 0.15s ease !important;
+				pointer-events: auto !important;
+				user-select: none !important;
+				-webkit-user-select: none !important;
 			}
 
 			[role="menuitem"]:hover, [role="menuitem"]:focus, [role="menuitem"]:active,
 			[role="option"]:hover, [role="option"]:focus, [role="option"]:active,
 			[data-slot="dropdown-menu-item"]:hover, [data-slot="dropdown-menu-item"]:focus, [data-slot="dropdown-menu-item"]:active,
+			[data-slot="dropdown-menu-sub-trigger"]:hover, [data-slot="dropdown-menu-sub-trigger"]:focus, [data-slot="dropdown-menu-sub-trigger"]:active,
+			[data-bits-dropdown-menu-sub-trigger]:hover, [data-bits-dropdown-menu-sub-trigger]:focus, [data-bits-dropdown-menu-sub-trigger]:active,
 			[data-slot="context-menu-item"]:hover, [data-slot="context-menu-item"]:focus, [data-slot="context-menu-item"]:active {
-				background: rgba(56, 189, 248, 0.2) !important;
+				background: rgba(56, 189, 248, 0.22) !important;
 				color: #ffffff !important;
 			}
 
@@ -982,42 +993,32 @@
 				transition: none !important;
 			}
 
-			.chat-message-user-bubble,
-			[data-slot="card"].chat-message-user-bubble {
-				align-self: flex-end !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
-				max-width: 82% !important;
-				background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
-				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
-				color: #ffffff !important;
-				border-radius: 18px 18px 4px 18px !important;
-				padding: 10px 16px !important;
-				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
-				text-align: left !important;
+			/* Hide modality-specific attachment actions when the active model lacks support. */
+			html.cm-model-no-vision .images-button,
+			html.cm-model-no-vision .camera-button,
+			html.cm-model-no-audio .audio-button,
+			html.cm-model-no-video .video-button {
+				display: none !important;
 			}
 
-			.chat-message-user > div:not(.chat-message-user-bubble),
-			.chat-message-user .pointer-events-auto,
-			.chat-message-user [data-slot="button"] {
-				align-self: flex-end !important;
-				margin-left: auto !important;
-				margin-right: 0 !important;
+			.cm-model-picker {
+				display: flex;
+				align-items: stretch;
+				width: 100%;
+				min-width: 0;
 			}
-
-			.chat-message-assistant {
-				display: block !important;
-				align-self: flex-start !important;
-				margin-right: auto !important;
-				margin-left: 0 !important;
-				width: 100% !important;
-				max-width: 96% !important;
-				background: rgba(15, 23, 42, 0.85) !important;
-				border: 1px solid rgba(56, 189, 248, 0.25) !important;
-				color: #f8fafc !important;
-				border-radius: 4px 18px 18px 18px !important;
-				padding: 14px 16px !important;
-				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+			.cm-model-picker select {
+				min-width: 0;
+				width: 100%;
+				max-width: 100%;
+				flex: 1 1 0%;
+				padding: 0.55rem 2rem 0.55rem 0.7rem;
+				border: 1px solid rgba(56, 189, 248, 0.42);
+				border-radius: 0.65rem;
+				background: #111827;
+				color: #f8fafc;
+				font: inherit;
+				font-size: 0.88rem;
 			}
 
 		</style>
@@ -1073,78 +1074,40 @@
 						'[role="alertdialog"]:not([data-state="closed"])'
 					);
 
-					if (dialogs.length > 0) closedAny = true;
-
-					dialogs.forEach(function(d) {
-						const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close], .cm-modal-close-btn');
-						if (stdBtn) {
-							try { stdBtn.click(); } catch(e) {}
-						}
-						const buttons = Array.from(d.querySelectorAll('button, [role="button"]'));
-						const cancelBtn = buttons.find(function(b) {
-							const txt = (b.textContent || '').trim().toLowerCase();
-							return txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel') || txt.includes('schließen');
+					if (dialogs.length > 0) {
+						closedAny = true;
+						dialogs.forEach(function(d) {
+							const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close], .cm-modal-close-btn');
+							if (stdBtn) {
+								try { stdBtn.click(); } catch(e) {}
+							} else {
+								const buttons = Array.from(d.querySelectorAll('button, [role="button"]'));
+								const cancelBtn = buttons.find(function(b) {
+									const txt = (b.textContent || '').trim().toLowerCase();
+									return txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel') || txt.includes('schließen');
+								});
+								if (cancelBtn) {
+									try { cancelBtn.click(); } catch(e) {}
+								}
+							}
 						});
-						if (cancelBtn) {
-							try { cancelBtn.click(); } catch(e) {}
-						}
-					});
 
-					try {
-						const esc = new KeyboardEvent('keydown', {
-							key: 'Escape',
-							code: 'Escape',
-							keyCode: 27,
-							which: 27,
-							bubbles: true,
-							cancelable: true
-						});
-						window.dispatchEvent(esc);
-						document.dispatchEvent(esc);
-					} catch(e) {}
-
-					const hideElements = function() {
-						const allModals = document.querySelectorAll(
-							'[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]), ' +
-							'[data-slot="alert-dialog-content"]'
-						);
-						allModals.forEach(function(el) {
-							el.setAttribute('data-state', 'closed');
-							el.style.setProperty('display', 'none', 'important');
-							el.style.setProperty('pointer-events', 'none', 'important');
-						});
-						const allOverlays = document.querySelectorAll(
-							'[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]'
-						);
-						allOverlays.forEach(function(el) {
-							el.setAttribute('data-state', 'closed');
-							el.style.setProperty('display', 'none', 'important');
-							el.style.setProperty('pointer-events', 'none', 'important');
-						});
-					};
-
-					hideElements();
-					setTimeout(hideElements, 40);
+						try {
+							const esc = new KeyboardEvent('keydown', {
+								key: 'Escape',
+								code: 'Escape',
+								keyCode: 27,
+								which: 27,
+								bubbles: true,
+								cancelable: true
+							});
+							window.dispatchEvent(esc);
+							document.dispatchEvent(esc);
+						} catch(e) {}
+					}
 
 					return closedAny;
 				};
-
-				// Global Modal Close Interceptor
-				function handleModalCapture(e) {
-					const target = e.target;
-					if (!target) return;
-
-					// Only intercept close button on genuine onboarding modals
-					const closeBtn = target.closest('.cm-modal-close-btn, [data-dialog-close], [data-bits-dialog-close]');
-					if (closeBtn && closeBtn.closest('[data-slot="dialog-content"], [data-slot="alert-dialog-content"]')) {
-						e.preventDefault();
-						e.stopPropagation();
-						window.__dismissComputeMeshModals();
-						return;
-					}
-				}
-
-				window.addEventListener('click', handleModalCapture, { capture: true });
 			})();
 
 			// Global External Link Interceptor
@@ -1266,7 +1229,7 @@
 			(function() {
 				function sanitizeDialogs() {
 					const dialogs = document.querySelectorAll(
-						'[data-slot="dialog-content"]:not([data-slot="alert-dialog-content"]):not([role="alertdialog"]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content])'
+						'[data-slot="dialog-content"]:not([data-state="closed"]):not([data-slot="alert-dialog-content"]):not([role="alertdialog"]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content])'
 					);
 					for (let i = 0; i < dialogs.length; i++) {
 						const d = dialogs[i];
@@ -1275,7 +1238,7 @@
 						if (d.closest('[role="menu"], [data-slot*="menu"], [data-slot*="popover"], [data-bits-menu-content], [data-bits-popover-content], [data-radix-popper-content-wrapper]')) continue;
 
 						// Ensure close button exists on genuine modals
-						if (!d.querySelector('.cm-modal-close-btn') && !d.querySelector('[data-dialog-close]')) {
+						if (!d.querySelector('.cm-modal-close-btn') && !d.querySelector('[data-dialog-close]') && !d.querySelector('[data-bits-dialog-close]')) {
 							const closeBtn = document.createElement('button');
 							closeBtn.className = 'cm-modal-close-btn';
 							closeBtn.type = 'button';
@@ -1289,7 +1252,11 @@
 							closeBtn.addEventListener('click', function(e) {
 								e.preventDefault();
 								e.stopPropagation();
-								window.__dismissComputeMeshModals();
+								try {
+									const esc = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true });
+									d.dispatchEvent(esc);
+									window.dispatchEvent(esc);
+								} catch(err) {}
 							});
 							d.appendChild(closeBtn);
 						}
@@ -1832,52 +1799,22 @@
 				function isVoiceButton(el) {
 					if (!el) return false;
 					if (el.closest('.cm-voice-overlay')) return false;
+					if (el.closest('[role="menu"], [data-slot*="menu"], [data-slot*="dropdown"], [data-bits-menu-content], [data-radix-popper-content-wrapper], aside, [data-slot="dialog-content"], [role="dialog"]')) return false;
 
 					const btn = el.closest('button, [role="button"], a, .cursor-pointer');
 					if (!btn) return false;
-					if (btn.getAttribute('type') === 'submit' || isAttachButton(btn)) return false;
+					if (btn.getAttribute('type') === 'submit') return false;
 
 					const title = (btn.getAttribute('title') || '').toLowerCase();
 					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
 					const text = (btn.innerText || '').trim().toLowerCase();
 					const html = btn.innerHTML || '';
 
-					if (title.includes('aufnahme') || title.includes('sprach') || title.includes('mic') || title.includes('voice') || title.includes('diktier') || title.includes('audio')) return true;
-					if (aria.includes('aufnahme') || aria.includes('sprach') || aria.includes('mic') || aria.includes('voice') || aria.includes('diktier') || aria.includes('audio')) return true;
-					if (text === 'mic' || text === 'sprache' || text === 'aufnahme' || text === 'voice') return true;
-					if (btn.querySelector('.lucide-mic, .lucide-mic-off, [data-lucide="mic"], svg path[d*="M12 1"], svg path[d*="M19 10"]')) return true;
-					if (html.includes('lucide-mic') || html.includes('lucide-mic-off') || html.includes('M12 1a3') || html.includes('M19 10v2')) return true;
+					if (btn.querySelector('.lucide-mic, .lucide-mic-off, [data-lucide="mic"]') || html.includes('lucide-mic') || html.includes('lucide-mic-off')) return true;
+					if (title.includes('aufnahme') || title.includes('sprachnachricht') || aria.includes('aufnahme') || aria.includes('sprachaufnahme')) return true;
+					if ((text === 'mic' || text === 'sprache' || text === 'aufnahme') && !btn.closest('[role="menuitem"]')) return true;
 
 					return false;
-				}
-
-				// Native Plus / Attach / Camera Button Listener
-				function triggerNativeFileChooser() {
-					let fileInput = document.querySelector('input[type="file"]');
-					if (!fileInput) {
-						fileInput = document.createElement('input');
-						fileInput.type = 'file';
-						fileInput.accept = '*/*';
-						fileInput.multiple = true;
-						fileInput.style.display = 'none';
-						document.body.appendChild(fileInput);
-					}
-					fileInput.click();
-				}
-
-				function isAttachButton(el) {
-					if (!el) return false;
-					if (el.closest('.cm-voice-overlay')) return false;
-					const btn = el.closest('button, [role="button"], .cursor-pointer');
-					if (!btn) return false;
-					const title = (btn.getAttribute('title') || '').toLowerCase();
-					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-					const text = (btn.innerText || '').trim();
-					const html = btn.innerHTML || '';
-					return text === '+' || html.includes('lucide-plus') || html.includes('lucide-paperclip') ||
-					       aria.includes('upload') || aria.includes('datei') || aria.includes('anhang') || aria.includes('attach') || aria.includes('plus') ||
-					       title.includes('upload') || title.includes('datei') || title.includes('anhang') || title.includes('attach') || title.includes('plus') ||
-					       html.includes('M12 5v14') || html.includes('M5 12h14');
 				}
 
 				document.addEventListener('click', function(e) {
@@ -1887,23 +1824,9 @@
 						window.__openVoiceMode();
 						return;
 					}
-					if (isAttachButton(e.target)) {
-						setTimeout(function() {
-							const openMenu = document.querySelector('[role="menu"], .dropdown-menu, .modal');
-							if (!openMenu) {
-								triggerNativeFileChooser();
-							}
-						}, 60);
-					}
-				}, { capture: true });
+				});
 
 				document.addEventListener('touchend', function(e) {
-					if (e.target && e.target.closest('#cm-localcode-btn')) {
-						e.preventDefault();
-						e.stopPropagation();
-						window.__openOrInstallLocalCode();
-						return;
-					}
 					if (isVoiceButton(e.target)) {
 						e.preventDefault();
 						e.stopPropagation();
@@ -1994,10 +1917,16 @@
 					const aside = document.querySelector('aside');
 					if (aside && aside.classList.contains('is-expanded') && aside.contains(e.target)) {
 						const isCollapse = e.target.closest('button[aria-label="Navigation einklappen"]');
-						const isConv = e.target.closest('li button, a');
 						if (isCollapse) {
 							window.__closeSidebar();
-						} else if (isConv) {
+							return;
+						}
+						// Never close sidebar when clicking dropdown triggers, context menus (3 dots), or dialog triggers
+						if (e.target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-slot*="menu"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
+							return;
+						}
+						const isConvLink = e.target.closest('a[href*="#/chat/"], a[href^="#/"]');
+						if (isConvLink && !isConvLink.closest('button')) {
 							setTimeout(function() {
 								window.__closeSidebar();
 							}, 120);
@@ -2057,6 +1986,31 @@
 						}
 					}
 				});
+
+				// The gateway's active slot is the source of truth for modality actions.
+				// Fail closed: do not offer photo/audio/video actions when support is
+				// unknown, instead of letting a user capture a file that will be rejected.
+				async function cmUpdateModalityActions() {
+					try {
+						var selector = window.ComputeMeshModelSelector;
+						var selected = selector && selector.getSelectedModel();
+						if (!selected) {
+							var response = await fetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
+							if (!response.ok) throw new Error('Unable to read active model');
+							var slots = await response.json();
+							selected = { id: Array.isArray(slots) && slots.length ? slots[0].model : '' };
+						}
+						var modalities = selector ? selector.modalitiesFor(selected) : ['text'];
+						document.documentElement.classList.toggle('cm-model-no-vision', !modalities.includes('vision'));
+						document.documentElement.classList.toggle('cm-model-no-audio', !modalities.includes('audio'));
+						document.documentElement.classList.toggle('cm-model-no-video', !modalities.includes('video'));
+					} catch (err) {
+						document.documentElement.classList.add('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
+					}
+				}
+				cmUpdateModalityActions();
+				window.addEventListener('cm:model-selection-change', cmUpdateModalityActions);
+				setInterval(cmUpdateModalityActions, 5000);
 			})();
 		</script>
 	</body>

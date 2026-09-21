@@ -343,20 +343,31 @@
 			}
 
 			/* Backdrop Overlay for modal dialogs */
-			[data-slot="dialog-overlay"],
-			[data-slot="alert-dialog-overlay"] {
+			[data-slot="dialog-overlay"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="alert-dialog-overlay"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dialog-overlay]:not([data-state="closed"]):not([hidden]),
+			[data-bits-alert-dialog-overlay]:not([data-state="closed"]):not([hidden]) {
 				position: fixed !important;
 				inset: 0 !important;
-				background: rgba(3, 7, 18, 0.88) !important;
-				backdrop-filter: blur(14px) !important;
-				-webkit-backdrop-filter: blur(14px) !important;
-				z-index: 99990 !important;
+				background: rgba(3, 7, 18, 0.82) !important;
+				backdrop-filter: blur(12px) !important;
+				-webkit-backdrop-filter: blur(12px) !important;
+				z-index: 999990 !important;
+				display: block !important;
 				pointer-events: auto !important;
 				cursor: pointer !important;
 			}
 
-			/* General Modal Dialogs (Settings, Fork, etc.) */
-			[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]):not([data-slot="alert-dialog-content"]) {
+			[data-slot="dialog-overlay"][data-state="closed"],
+			[data-slot="alert-dialog-overlay"][data-state="closed"],
+			[data-bits-dialog-overlay][data-state="closed"],
+			[data-bits-alert-dialog-overlay][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
+			}
+
+			/* General Modal Dialogs (Settings, System Prompt, MCP, etc.) */
+			[data-slot="dialog-content"]:not([data-state="closed"]):not([hidden]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]):not([data-slot="alert-dialog-content"]) {
 				position: fixed !important;
 				top: 50% !important;
 				left: 50% !important;
@@ -364,7 +375,7 @@
 				right: auto !important;
 				margin: 0 !important;
 				width: calc(100% - 32px) !important;
-				max-width: 500px !important;
+				max-width: 520px !important;
 				min-width: 0 !important;
 				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
 				height: auto !important;
@@ -382,9 +393,15 @@
 				box-sizing: border-box !important;
 			}
 
+			[data-slot="dialog-content"][data-state="closed"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]),
+			[data-slot="alert-dialog-content"][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
+			}
+
 			/* Alert Dialogs (Confirmations, Delete Message, etc.) */
-			[data-slot="alert-dialog-content"],
-			[role="alertdialog"] {
+			[data-slot="alert-dialog-content"]:not([data-state="closed"]):not([hidden]),
+			[role="alertdialog"]:not([data-state="closed"]):not([hidden]) {
 				position: fixed !important;
 				top: 50% !important;
 				left: 50% !important;
@@ -392,7 +409,7 @@
 				right: auto !important;
 				margin: 0 !important;
 				width: calc(100% - 36px) !important;
-				max-width: 400px !important;
+				max-width: 420px !important;
 				min-width: 0 !important;
 				max-height: calc(var(--app-height, 100vh) * 0.88) !important;
 				min-height: auto !important;
@@ -418,20 +435,23 @@
 				display: none !important;
 			}
 
-			/* Context Menus, Dropdown Menus, Popovers & Select Options */
-			[role="menu"]:not([data-state="closed"]),
-			[role="menuitem"],
-			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
-			[data-slot="popover-content"]:not([data-state="closed"]),
-			[data-slot="select-content"]:not([data-state="closed"]),
-			[data-bits-menu-content]:not([data-state="closed"]),
-			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
-			[data-bits-popover-content]:not([data-state="closed"]),
-			[data-bits-select-content]:not([data-state="closed"]),
+			/* Context Menus, Dropdown Menus, Submenus, Popovers & Select Options */
+			[role="menu"]:not([data-state="closed"]):not([hidden]),
+			[role="listbox"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-context-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-popover-content]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="popover-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="context-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="select-content"]:not([data-state="closed"]):not([hidden]),
 			[data-radix-popper-content-wrapper],
 			[data-portal] {
 				z-index: 1000000 !important;
 				touch-action: manipulation !important;
+				pointer-events: auto !important;
 			}
 			[data-slot="dialog-content"] input,
 			[data-slot="dialog-content"] label,
@@ -840,11 +860,7 @@
 				[role="tooltip"],
 				[data-slot="tooltip-content"],
 				[data-bits-tooltip-content],
-				[data-bits-tooltip-root],
-				[data-radix-tooltip-content],
-				[data-tooltip-content],
-				.tooltip,
-				[data-tooltip] {
+				[data-radix-tooltip-content] {
 					display: none !important;
 					opacity: 0 !important;
 					visibility: hidden !important;
@@ -852,16 +868,18 @@
 				}
 			}
 
-			/* Dropdowns, Context Menus & Popovers */
-			[role="menu"]:not([data-state="closed"]),
-			[role="listbox"]:not([data-state="closed"]),
-			[data-bits-dropdown-menu-content]:not([data-state="closed"]),
-			[data-bits-context-menu-content]:not([data-state="closed"]),
-			[data-bits-popover-content]:not([data-state="closed"]),
-			[data-slot="dropdown-menu-content"]:not([data-state="closed"]),
-			[data-slot="popover-content"]:not([data-state="closed"]),
-			[data-slot="context-menu-content"]:not([data-state="closed"]),
-			[data-slot="select-content"]:not([data-state="closed"]),
+			/* Dropdowns, Context Menus, Submenus & Popovers */
+			[role="menu"]:not([data-state="closed"]):not([hidden]),
+			[role="listbox"]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-context-menu-content]:not([data-state="closed"]):not([hidden]),
+			[data-bits-popover-content]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="popover-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="context-menu-content"]:not([data-state="closed"]):not([hidden]),
+			[data-slot="select-content"]:not([data-state="closed"]):not([hidden]),
 			[data-floating-content]:not([role="tooltip"]):not([data-bits-tooltip-content]):not([data-slot="tooltip-content"]):not([data-slot="alert-dialog-content"]):not([data-slot="dialog-content"]):not([data-state="closed"]) {
 				background: linear-gradient(180deg, #0f172a 0%, #0b0f19 100%) !important;
 				border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
@@ -869,39 +887,65 @@
 				box-shadow: 0 18px 50px rgba(0, 0, 0, 0.98), 0 0 30px rgba(56, 189, 248, 0.25) !important;
 				backdrop-filter: blur(16px) !important;
 				-webkit-backdrop-filter: blur(16px) !important;
-				z-index: 999999 !important;
+				z-index: 1000000 !important;
 				max-height: min(75vh, 480px) !important;
 				overflow-y: auto !important;
+				overflow-x: visible !important;
 				overscroll-behavior: contain !important;
 				touch-action: pan-y !important;
-				padding: 8px !important;
-				min-width: 180px !important;
+				padding: 6px !important;
+				min-width: 190px !important;
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 2px !important;
+				pointer-events: auto !important;
+			}
+
+			[role="menu"][data-state="closed"],
+			[data-bits-dropdown-menu-content][data-state="closed"],
+			[data-bits-dropdown-menu-sub-content][data-state="closed"],
+			[data-slot="dropdown-menu-content"][data-state="closed"],
+			[data-slot="dropdown-menu-sub-content"][data-state="closed"],
+			[data-slot="popover-content"][data-state="closed"],
+			[data-slot="context-menu-content"][data-state="closed"] {
+				display: none !important;
+				pointer-events: none !important;
 			}
 
 			[role="menuitem"],
+			[role="menuitemcheckbox"],
+			[role="menuitemradio"],
 			[role="option"],
 			[data-slot="dropdown-menu-item"],
+			[data-slot="dropdown-menu-sub-trigger"],
+			[data-bits-dropdown-menu-sub-trigger],
 			[data-slot="context-menu-item"],
 			[data-slot="select-item"] {
-				padding: 11px 15px !important;
-				font-size: 14.5px !important;
+				padding: 10px 14px !important;
+				font-size: 14px !important;
 				font-weight: 500 !important;
 				color: #f8fafc !important;
 				border-radius: 12px !important;
 				display: flex !important;
 				align-items: center !important;
+				justify-content: flex-start !important;
 				gap: 12px !important;
 				cursor: pointer !important;
-				min-height: 44px !important;
+				min-height: 42px !important;
 				touch-action: manipulation !important;
-				transition: background 0.15s ease !important;
+				transition: background 0.15s ease, color 0.15s ease !important;
+				pointer-events: auto !important;
+				user-select: none !important;
+				-webkit-user-select: none !important;
 			}
 
 			[role="menuitem"]:hover, [role="menuitem"]:focus, [role="menuitem"]:active,
 			[role="option"]:hover, [role="option"]:focus, [role="option"]:active,
 			[data-slot="dropdown-menu-item"]:hover, [data-slot="dropdown-menu-item"]:focus, [data-slot="dropdown-menu-item"]:active,
+			[data-slot="dropdown-menu-sub-trigger"]:hover, [data-slot="dropdown-menu-sub-trigger"]:focus, [data-slot="dropdown-menu-sub-trigger"]:active,
+			[data-bits-dropdown-menu-sub-trigger]:hover, [data-bits-dropdown-menu-sub-trigger]:focus, [data-bits-dropdown-menu-sub-trigger]:active,
 			[data-slot="context-menu-item"]:hover, [data-slot="context-menu-item"]:focus, [data-slot="context-menu-item"]:active {
-				background: rgba(56, 189, 248, 0.2) !important;
+				background: rgba(56, 189, 248, 0.22) !important;
 				color: #ffffff !important;
 			}
 
@@ -1030,78 +1074,40 @@
 						'[role="alertdialog"]:not([data-state="closed"])'
 					);
 
-					if (dialogs.length > 0) closedAny = true;
-
-					dialogs.forEach(function(d) {
-						const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close], .cm-modal-close-btn');
-						if (stdBtn) {
-							try { stdBtn.click(); } catch(e) {}
-						}
-						const buttons = Array.from(d.querySelectorAll('button, [role="button"]'));
-						const cancelBtn = buttons.find(function(b) {
-							const txt = (b.textContent || '').trim().toLowerCase();
-							return txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel') || txt.includes('schließen');
+					if (dialogs.length > 0) {
+						closedAny = true;
+						dialogs.forEach(function(d) {
+							const stdBtn = d.querySelector('[data-slot="alert-dialog-cancel"], [data-dialog-close], [data-bits-dialog-close], .cm-modal-close-btn');
+							if (stdBtn) {
+								try { stdBtn.click(); } catch(e) {}
+							} else {
+								const buttons = Array.from(d.querySelectorAll('button, [role="button"]'));
+								const cancelBtn = buttons.find(function(b) {
+									const txt = (b.textContent || '').trim().toLowerCase();
+									return txt.includes('jetzt nicht') || txt.includes('not now') || txt.includes('abbrechen') || txt.includes('cancel') || txt.includes('schließen');
+								});
+								if (cancelBtn) {
+									try { cancelBtn.click(); } catch(e) {}
+								}
+							}
 						});
-						if (cancelBtn) {
-							try { cancelBtn.click(); } catch(e) {}
-						}
-					});
 
-					try {
-						const esc = new KeyboardEvent('keydown', {
-							key: 'Escape',
-							code: 'Escape',
-							keyCode: 27,
-							which: 27,
-							bubbles: true,
-							cancelable: true
-						});
-						window.dispatchEvent(esc);
-						document.dispatchEvent(esc);
-					} catch(e) {}
-
-					const hideElements = function() {
-						const allModals = document.querySelectorAll(
-							'[data-slot="dialog-content"]:not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content]), ' +
-							'[data-slot="alert-dialog-content"]'
-						);
-						allModals.forEach(function(el) {
-							el.setAttribute('data-state', 'closed');
-							el.style.setProperty('display', 'none', 'important');
-							el.style.setProperty('pointer-events', 'none', 'important');
-						});
-						const allOverlays = document.querySelectorAll(
-							'[data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]'
-						);
-						allOverlays.forEach(function(el) {
-							el.setAttribute('data-state', 'closed');
-							el.style.setProperty('display', 'none', 'important');
-							el.style.setProperty('pointer-events', 'none', 'important');
-						});
-					};
-
-					hideElements();
-					setTimeout(hideElements, 40);
+						try {
+							const esc = new KeyboardEvent('keydown', {
+								key: 'Escape',
+								code: 'Escape',
+								keyCode: 27,
+								which: 27,
+								bubbles: true,
+								cancelable: true
+							});
+							window.dispatchEvent(esc);
+							document.dispatchEvent(esc);
+						} catch(e) {}
+					}
 
 					return closedAny;
 				};
-
-				// Global Modal Close Interceptor
-				function handleModalCapture(e) {
-					const target = e.target;
-					if (!target) return;
-
-					// Only intercept close button on genuine onboarding modals
-					const closeBtn = target.closest('.cm-modal-close-btn, [data-dialog-close], [data-bits-dialog-close]');
-					if (closeBtn && closeBtn.closest('[data-slot="dialog-content"], [data-slot="alert-dialog-content"]')) {
-						e.preventDefault();
-						e.stopPropagation();
-						window.__dismissComputeMeshModals();
-						return;
-					}
-				}
-
-				window.addEventListener('click', handleModalCapture, { capture: true });
 			})();
 
 			// Global External Link Interceptor
@@ -1223,7 +1229,7 @@
 			(function() {
 				function sanitizeDialogs() {
 					const dialogs = document.querySelectorAll(
-						'[data-slot="dialog-content"]:not([data-slot="alert-dialog-content"]):not([role="alertdialog"]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content])'
+						'[data-slot="dialog-content"]:not([data-state="closed"]):not([data-slot="alert-dialog-content"]):not([role="alertdialog"]):not([role="menu"]):not([data-slot*="menu"]):not([data-slot*="popover"]):not([data-bits-menu-content]):not([data-bits-popover-content])'
 					);
 					for (let i = 0; i < dialogs.length; i++) {
 						const d = dialogs[i];
@@ -1232,7 +1238,7 @@
 						if (d.closest('[role="menu"], [data-slot*="menu"], [data-slot*="popover"], [data-bits-menu-content], [data-bits-popover-content], [data-radix-popper-content-wrapper]')) continue;
 
 						// Ensure close button exists on genuine modals
-						if (!d.querySelector('.cm-modal-close-btn') && !d.querySelector('[data-dialog-close]')) {
+						if (!d.querySelector('.cm-modal-close-btn') && !d.querySelector('[data-dialog-close]') && !d.querySelector('[data-bits-dialog-close]')) {
 							const closeBtn = document.createElement('button');
 							closeBtn.className = 'cm-modal-close-btn';
 							closeBtn.type = 'button';
@@ -1246,7 +1252,11 @@
 							closeBtn.addEventListener('click', function(e) {
 								e.preventDefault();
 								e.stopPropagation();
-								window.__dismissComputeMeshModals();
+								try {
+									const esc = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true });
+									d.dispatchEvent(esc);
+									window.dispatchEvent(esc);
+								} catch(err) {}
 							});
 							d.appendChild(closeBtn);
 						}
@@ -1789,52 +1799,22 @@
 				function isVoiceButton(el) {
 					if (!el) return false;
 					if (el.closest('.cm-voice-overlay')) return false;
+					if (el.closest('[role="menu"], [data-slot*="menu"], [data-slot*="dropdown"], [data-bits-menu-content], [data-radix-popper-content-wrapper], aside, [data-slot="dialog-content"], [role="dialog"]')) return false;
 
 					const btn = el.closest('button, [role="button"], a, .cursor-pointer');
 					if (!btn) return false;
-					if (btn.getAttribute('type') === 'submit' || isAttachButton(btn)) return false;
+					if (btn.getAttribute('type') === 'submit') return false;
 
 					const title = (btn.getAttribute('title') || '').toLowerCase();
 					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
 					const text = (btn.innerText || '').trim().toLowerCase();
 					const html = btn.innerHTML || '';
 
-					if (title.includes('aufnahme') || title.includes('sprach') || title.includes('mic') || title.includes('voice') || title.includes('diktier') || title.includes('audio')) return true;
-					if (aria.includes('aufnahme') || aria.includes('sprach') || aria.includes('mic') || aria.includes('voice') || aria.includes('diktier') || aria.includes('audio')) return true;
-					if (text === 'mic' || text === 'sprache' || text === 'aufnahme' || text === 'voice') return true;
-					if (btn.querySelector('.lucide-mic, .lucide-mic-off, [data-lucide="mic"], svg path[d*="M12 1"], svg path[d*="M19 10"]')) return true;
-					if (html.includes('lucide-mic') || html.includes('lucide-mic-off') || html.includes('M12 1a3') || html.includes('M19 10v2')) return true;
+					if (btn.querySelector('.lucide-mic, .lucide-mic-off, [data-lucide="mic"]') || html.includes('lucide-mic') || html.includes('lucide-mic-off')) return true;
+					if (title.includes('aufnahme') || title.includes('sprachnachricht') || aria.includes('aufnahme') || aria.includes('sprachaufnahme')) return true;
+					if ((text === 'mic' || text === 'sprache' || text === 'aufnahme') && !btn.closest('[role="menuitem"]')) return true;
 
 					return false;
-				}
-
-				// Native Plus / Attach / Camera Button Listener
-				function triggerNativeFileChooser() {
-					let fileInput = document.querySelector('input[type="file"]');
-					if (!fileInput) {
-						fileInput = document.createElement('input');
-						fileInput.type = 'file';
-						fileInput.accept = '*/*';
-						fileInput.multiple = true;
-						fileInput.style.display = 'none';
-						document.body.appendChild(fileInput);
-					}
-					fileInput.click();
-				}
-
-				function isAttachButton(el) {
-					if (!el) return false;
-					if (el.closest('.cm-voice-overlay')) return false;
-					const btn = el.closest('button, [role="button"], .cursor-pointer');
-					if (!btn) return false;
-					const title = (btn.getAttribute('title') || '').toLowerCase();
-					const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-					const text = (btn.innerText || '').trim();
-					const html = btn.innerHTML || '';
-					return text === '+' || html.includes('lucide-plus') || html.includes('lucide-paperclip') ||
-					       aria.includes('upload') || aria.includes('datei') || aria.includes('anhang') || aria.includes('attach') || aria.includes('plus') ||
-					       title.includes('upload') || title.includes('datei') || title.includes('anhang') || title.includes('attach') || title.includes('plus') ||
-					       html.includes('M12 5v14') || html.includes('M5 12h14');
 				}
 
 				document.addEventListener('click', function(e) {
@@ -1844,15 +1824,7 @@
 						window.__openVoiceMode();
 						return;
 					}
-					if (isAttachButton(e.target)) {
-						setTimeout(function() {
-							const openMenu = document.querySelector('[role="menu"], .dropdown-menu, .modal');
-							if (!openMenu) {
-								triggerNativeFileChooser();
-							}
-						}, 60);
-					}
-				}, { capture: true });
+				});
 
 				document.addEventListener('touchend', function(e) {
 					if (isVoiceButton(e.target)) {
@@ -1945,10 +1917,16 @@
 					const aside = document.querySelector('aside');
 					if (aside && aside.classList.contains('is-expanded') && aside.contains(e.target)) {
 						const isCollapse = e.target.closest('button[aria-label="Navigation einklappen"]');
-						const isConv = e.target.closest('li button, a');
 						if (isCollapse) {
 							window.__closeSidebar();
-						} else if (isConv) {
+							return;
+						}
+						// Never close sidebar when clicking dropdown triggers, context menus (3 dots), or dialog triggers
+						if (e.target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-slot*="menu"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
+							return;
+						}
+						const isConvLink = e.target.closest('a[href*="#/chat/"], a[href^="#/"]');
+						if (isConvLink && !isConvLink.closest('button')) {
 							setTimeout(function() {
 								window.__closeSidebar();
 							}, 120);
