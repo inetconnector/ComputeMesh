@@ -261,6 +261,22 @@
 				pointer-events: none !important;
 			}
 
+			/* Sidebar navigation styling for desktop & mobile */
+			aside {
+				pointer-events: auto !important;
+				visibility: visible !important;
+			}
+			aside a,
+			aside button,
+			aside [role="button"],
+			aside li {
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
+				cursor: pointer !important;
+				-webkit-user-select: none !important;
+				user-select: none !important;
+			}
+
 			/* Mobile Drawer - strictly scoped to small mobile screens */
 			@media (max-width: 768px) {
 				aside.is-expanded {
@@ -340,6 +356,17 @@
 					display: block !important;
 					pointer-events: auto !important;
 				}
+			}
+
+			/* Settings, Search & MCP Servers Views */
+			[role="region"][aria-label="Settings content"],
+			[role="region"][aria-label*="Settings"],
+			.settings-content,
+			[role="region"] {
+				opacity: 1 !important;
+				visibility: visible !important;
+				pointer-events: auto !important;
+				touch-action: pan-y !important;
 			}
 
 			/* Backdrop Overlay for modal dialogs */
@@ -1042,8 +1069,14 @@
 						localStorage.setItem("ComputeMesh.mcpServersSetupDone", "true");
 					} catch(e) {}
 
+					var basePath = window.location.pathname;
+					if (basePath.endsWith('/index.html')) {
+						basePath = basePath.slice(0, -'/index.html'.length);
+					} else if (basePath.endsWith('/')) {
+						basePath = basePath.slice(0, -1);
+					}
 					__sveltekit_na4fmg = {
-						base: new URL('.', location).pathname.slice(0, -1)
+						base: basePath
 					};
 
 					const element = document.currentScript.parentElement;
@@ -1910,9 +1943,12 @@
 					const aside = document.querySelector('aside');
 					if (aside) {
 						aside.classList.remove('is-expanded');
-						const collapseBtn = aside.querySelector('button[aria-label="Navigation einklappen"]');
-						if (collapseBtn) {
-							try { collapseBtn.click(); } catch(e) {}
+						// Only trigger collapse button on small mobile screens
+						if (window.innerWidth <= 768) {
+							const collapseBtn = aside.querySelector('button[aria-label="Navigation einklappen"]');
+							if (collapseBtn) {
+								try { collapseBtn.click(); } catch(e) {}
+							}
 						}
 					}
 					const backdrop = document.getElementById('cm-sidebar-backdrop');
@@ -1924,27 +1960,82 @@
 					return true;
 				};
 
-				// Auto-close sidebar when a conversation item is selected
-				document.addEventListener('click', function(e) {
-					const aside = document.querySelector('aside');
-					if (aside && aside.classList.contains('is-expanded') && aside.contains(e.target)) {
-						const isCollapse = e.target.closest('button[aria-label="Navigation einklappen"]');
-						if (isCollapse) {
+				// Bulletproof Sidebar Navigation Dispatcher
+				(function() {
+					function navigateToRoute(targetHash) {
+						if (!targetHash) return;
+						if (window.innerWidth <= 768) {
 							window.__closeSidebar();
-							return;
 						}
-						// Never close sidebar when clicking dropdown triggers, context menus (3 dots), or dialog triggers
-						if (e.target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-slot*="menu"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
-							return;
-						}
-						const isConvLink = e.target.closest('a[href*="#/chat/"], a[href^="#/"]');
-						if (isConvLink && !isConvLink.closest('button')) {
-							setTimeout(function() {
-								window.__closeSidebar();
-							}, 120);
+						if (window.location.hash !== targetHash) {
+							window.location.hash = targetHash;
 						}
 					}
-				});
+
+					document.addEventListener('click', function(e) {
+						const aside = document.querySelector('aside');
+						const target = e.target.closest('a, button, [role="button"], li');
+						if (!target) return;
+
+						// Close collapse button on mobile
+						const isCollapse = target.closest('button[aria-label="Navigation einklappen"]');
+						if (isCollapse) {
+							if (window.innerWidth <= 768) {
+								window.__closeSidebar();
+							}
+							return;
+						}
+
+						// Never intercept 3-dots / dropdown context menus
+						if (target.closest('button[aria-haspopup], [data-slot*="dropdown"], [data-bits-dropdown-menu-trigger], button:has(svg.lucide-ellipsis), button:has(svg.lucide-more-vertical), button:has(svg.lucide-more-horizontal)')) {
+							return;
+						}
+
+						// 1. Settings (Einstellungen)
+						const isSettings = target.closest('a[href*="/settings"], button[aria-label*="Setting"], button[title*="Setting"]') ||
+							(target.textContent && (target.textContent.trim().toLowerCase() === 'einstellungen' || target.textContent.trim().toLowerCase() === 'settings'));
+						if (isSettings && !target.closest('[role="menu"]')) {
+							e.preventDefault();
+							navigateToRoute('#/settings/general');
+							return;
+						}
+
+						// 2. MCP Servers
+						const isMcp = target.closest('a[href*="mcp-servers"], button[aria-label*="MCP"], button[title*="MCP"]') ||
+							(target.textContent && target.textContent.trim().toLowerCase().includes('mcp-server'));
+						if (isMcp && !target.closest('[role="menu"]')) {
+							e.preventDefault();
+							navigateToRoute('#/mcp-servers');
+							return;
+						}
+
+						// 3. New Chat (Neuer Chat)
+						const isNewChat = target.closest('a[href*="new_chat"], button[aria-label*="New chat"], button[aria-label*="Neuer Chat"]') ||
+							(target.textContent && (target.textContent.trim().toLowerCase() === 'neuer chat' || target.textContent.trim().toLowerCase() === 'new chat'));
+						if (isNewChat && !target.closest('[role="menu"]')) {
+							e.preventDefault();
+							const textarea = document.querySelector('textarea');
+							if (textarea) {
+								textarea.value = '';
+								textarea.dispatchEvent(new Event('input', { bubbles: true }));
+							}
+							navigateToRoute('#/');
+							return;
+						}
+
+						// 4. Conversation Links
+						const convLink = target.closest('a[href*="#/chat/"]');
+						if (convLink) {
+							const href = convLink.getAttribute('href');
+							if (href && href.includes('#/chat/')) {
+								const hashPart = href.substring(href.indexOf('#/chat/'));
+								e.preventDefault();
+								navigateToRoute(hashPart);
+								return;
+							}
+						}
+					});
+				})();
 
 				// Global New Chat Trigger
 				window.__startNewChat = function() {
