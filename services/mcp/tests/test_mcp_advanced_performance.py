@@ -184,7 +184,7 @@ class TestMCPAdvancedPerformance(unittest.TestCase):
         self.assertIn("ComputeMesh AI Image Pipeline", formatted_rich_img)
 
     def test_agent_loop_news_to_image_chaining(self):
-        from ..agent_loop import AgentLoop
+        from services.mcp.agent_loop import AgentLoop
         loop = AgentLoop(self.registry)
         
         calls = 0

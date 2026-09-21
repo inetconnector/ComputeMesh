@@ -35,6 +35,12 @@ def is_compound_multi_step_query(text: str) -> bool:
     # Normalize common fixed noun pairings (e.g. "Angebote und Preise", "Gewinner und Verlierer")
     normalized = re.sub(r"\b(?:angebote\s+und\s+preise|preise\s+und\s+angebote|gewinner\s+und\s+verlierer|beste\s+und\s+schlechteste)\b", "", lower)
 
+    # Normalize multi-asset crypto/stock mentions connected by 'und'/'and' (e.g. "Bitcoin und Ethereum", "BTC und ETH", "Apple und Microsoft")
+    normalized = re.sub(r"\b(?:bitcoin|btc|ethereum|eth|solana|sol|ripple|xrp|cardano|ada|dogecoin|doge|nvidia|nvda|apple|aapl|microsoft|msft|tesla|tsla|amazon|amzn|google|alphabet|meta)\s+(?:und|and|&|\+)\s+(?:bitcoin|btc|ethereum|eth|solana|sol|ripple|xrp|cardano|ada|dogecoin|doge|nvidia|nvda|apple|aapl|microsoft|msft|tesla|tsla|amazon|amzn|google|alphabet|meta)\b", "asset_pair", normalized)
+
+    # Normalize financial metrics/trend sub-clauses in queries (e.g. "und was ist der 24h Trend", "und der 24h Trend", "und die 24h Performance")
+    normalized = re.sub(r"\b(?:und|sowie|and)\s+(?:was\s+ist\s+|wie\s+ist\s+|what\s+is\s+)?(?:der\s+|die\s+|das\s+|the\s+)?(?:24h|24\s*h|24-stunden|tages|aktuelle[rsn]?|börsen)?\s*(?:trend|entwicklung|performance|veränderung|verlust|gewinn|hoch|tief|spanne|volumen)\b", "", normalized)
+
     compound_patterns = [
         # Conjunction + Action Verb
         r"\b(?:und|sowie|danach|dann|anschließend|nachdem|bevor|außerdem|plus)\s+(?:erstelle|generiere|zeichne|male|rechne|suche|recherchiere|fasse|plotte|zeige|analysiere|checke|prüfe|schau|hol\w*|find\w*|sag\w*|gib|berichte|lies|starte)\b",
@@ -529,9 +535,9 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             mkt = "crypto"
         return ("get_market_movers", {"market": mkt, "count": cnt})
 
-    # 7. Market / Stock / Crypto Quotes (e.g. "BTC, ETH und SOL", "Aktienkurs von NVIDIA, Apple und Microsoft")
+    # 7. Market / Stock / Crypto Quotes (e.g. "BTC, ETH und SOL", "Aktienkurs von NVIDIA, Apple und Microsoft", "Bitcoin und Ethereum Kurs und 24h Trend")
     has_market_context = bool(re.search(
-        r"(?:aktie|aktien|aktienkurs|kurs|kursziel|börse|boerse|market|stock|quote|preis|wert|krypto|crypto|kryptowährung|ticker|\$|usd|eur|\bbtc\b|\beth\b|\bsol\b|\bxrp\b)",
+        r"(?:aktie|aktien|aktienkurs|kurs|kursziel|börse|boerse|market|stock|quote|preis|wert|krypto|crypto|kryptowährung|ticker|\$|usd|eur|\bbtc\b|\beth\b|\bsol\b|\bxrp\b|trend|24h|tagesverlust|tagesgewinn)",
         cleaned,
         re.IGNORECASE
     ))
@@ -547,6 +553,8 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         found_symbols.append("XRP")
     if re.search(r"\b(?:cardano|ada)\b", cleaned, re.IGNORECASE):
         found_symbols.append("ADA")
+    if re.search(r"\b(?:dogecoin|doge)\b", cleaned, re.IGNORECASE):
+        found_symbols.append("DOGE")
 
     if has_market_context:
         if re.search(r"\b(?:nvidia|nvda)\b", cleaned, re.IGNORECASE):
@@ -555,10 +563,18 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             found_symbols.append("AAPL")
         if re.search(r"\b(?:microsoft|msft)\b", cleaned, re.IGNORECASE):
             found_symbols.append("MSFT")
+        if re.search(r"\b(?:tesla|tsla)\b", cleaned, re.IGNORECASE):
+            found_symbols.append("TSLA")
+        if re.search(r"\b(?:amazon|amzn)\b", cleaned, re.IGNORECASE):
+            found_symbols.append("AMZN")
+        if re.search(r"\b(?:alphabet|google|googl)\b", cleaned, re.IGNORECASE):
+            found_symbols.append("GOOGL")
+        if re.search(r"\b(?:meta|facebook)\b", cleaned, re.IGNORECASE):
+            found_symbols.append("META")
 
     if len(found_symbols) > 1:
         return ("get_market_quote", {"symbol": " und ".join(found_symbols)})
-    elif len(found_symbols) == 1 and (has_market_context or found_symbols[0] in {"BTC", "ETH", "SOL", "XRP", "ADA"}):
+    elif len(found_symbols) == 1 and (has_market_context or found_symbols[0] in {"BTC", "ETH", "SOL", "XRP", "ADA", "DOGE"}):
         return ("get_market_quote", {"symbol": found_symbols[0]})
 
     m_market = re.search(
@@ -920,9 +936,17 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
             "als letztes", "als naechstes", "als nächstes", "denn", "eigentlich", "losgewesen",
             "ueberhaupt", "überhaupt", "vorgefallen", "los gewesen", "losgeworden", "los ist"
         }
+        market_metrics_words = {
+            "24h", "24h trend", "trend", "kurs", "preis", "wert", "aktie", "aktien", "aktienkurs",
+            "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "krypto", "crypto",
+            "veränderung", "verlust", "gewinn", "hoch", "tief", "volumen", "allzeithoch",
+            "tagestief", "tageshoch", "wetter", "temperatur", "uhrzeit", "datum", "feiertag",
+            "status", "stand", "auslastung", "dax", "nasdaq", "dow", "sp500"
+        }
         topic_lower = topic.lower().strip()
         has_stop = any(topic_lower == sw or topic_lower.startswith(f"{sw} ") or f" {sw} " in f" {topic_lower} " for sw in stop_words)
-        if len(topic) >= 3 and not is_visual and not has_stop and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
+        is_metric_or_market = any(topic_lower == mw or topic_lower.startswith(f"{mw} ") or f" {mw} " in f" {topic_lower} " or topic_lower.endswith(f" {mw}") for mw in market_metrics_words)
+        if len(topic) >= 3 and not is_visual and not has_stop and not is_metric_or_market and not topic.lower().startswith("das wetter") and not any(op in topic for op in ("+", "*", "/")):
             return ("get_wikipedia_summary", {"query": topic})
 
     # 13. Web Search & Google Queries
@@ -1088,18 +1112,41 @@ def detect_compound_tool_intents(text: str, registry: Optional[ToolRegistry] = N
                 _add_intent("get_current_weather", {"city": city})
 
     if "get_live_news" not in seen_names:
-        if any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "aktuell", "heise", "spiegel")):
+        has_news_kw = any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "heise", "spiegel", "headlines", "presseschau", "tagesgeschehen", "breaking news")) or bool(re.search(r"\baktuelle\s+(?:nachrichten|news|schlagzeilen|meldungen|berichte)\b", lower))
+        is_other_single_domain = (
+            any(w in lower for w in ("bitcoin", "btc", "eth", "krypto", "crypto", "aktie", "kurs", "wetter", "temperatur", "uhrzeit", "feiertag"))
+            and not any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau"))
+        )
+        if has_news_kw and not is_other_single_domain:
             _add_intent("get_live_news", {"topic": "allgemein"})
 
     if "get_market_quote" not in seen_names:
-        if any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto")):
-            m_coin = re.search(r"\b(btc|bitcoin|eth|ethereum|sol|solana|nvda|nvidia|tsla|tesla|aapl|apple)\b", cleaned, re.IGNORECASE)
-            sym = m_coin.group(1).upper() if m_coin else "BTC"
-            if sym == "BITCOIN":
-                sym = "BTC"
-            elif sym == "ETHEREUM":
-                sym = "ETH"
-            _add_intent("get_market_quote", {"asset": sym})
+        if any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto", "ripple", "xrp", "doge", "cardano", "ada")):
+            found_coins = []
+            if re.search(r"\b(?:btc|bitcoin)\b", cleaned, re.IGNORECASE):
+                found_coins.append("BTC")
+            if re.search(r"\b(?:eth|ethereum)\b", cleaned, re.IGNORECASE):
+                found_coins.append("ETH")
+            if re.search(r"\b(?:sol|solana)\b", cleaned, re.IGNORECASE):
+                found_coins.append("SOL")
+            if re.search(r"\b(?:xrp|ripple)\b", cleaned, re.IGNORECASE):
+                found_coins.append("XRP")
+            if re.search(r"\b(?:ada|cardano)\b", cleaned, re.IGNORECASE):
+                found_coins.append("ADA")
+            if re.search(r"\b(?:doge|dogecoin)\b", cleaned, re.IGNORECASE):
+                found_coins.append("DOGE")
+            if re.search(r"\b(?:nvda|nvidia)\b", cleaned, re.IGNORECASE):
+                found_coins.append("NVDA")
+            if re.search(r"\b(?:tsla|tesla)\b", cleaned, re.IGNORECASE):
+                found_coins.append("TSLA")
+            if re.search(r"\b(?:aapl|apple)\b", cleaned, re.IGNORECASE):
+                found_coins.append("AAPL")
+            if re.search(r"\b(?:msft|microsoft)\b", cleaned, re.IGNORECASE):
+                found_coins.append("MSFT")
+            if found_coins:
+                _add_intent("get_market_quote", {"symbol": " und ".join(found_coins)})
+            else:
+                _add_intent("get_market_quote", {"symbol": "BTC"})
 
     return intents
 

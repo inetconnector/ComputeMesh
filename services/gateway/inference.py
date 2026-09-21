@@ -229,7 +229,8 @@ class InferenceEngine:
                         "rufe direkt das passende Tool auf (`execute_python_code`, `search_knowledge_base`, `get_user_memory`, `update_user_memory`, `generate_ai_image`, `check_url_safety`, `search_events`, `search_web`, `get_current_weather`, `get_live_news`, `get_market_quote`, `get_wikipedia_summary`, `calculate_math`, `get_time_and_calendar`, `generate_office_document`, `convert_data_to_markdown_table`, `list_available_tools`).\n\n"
                         "[VERBINDLICHE REGELN FÜR DIE ANTWORT]:\n"
                         "1. Sprache: Antworte IMMER in derselben Sprache wie die Frage (z.B. deutschsprachige Anfragen IMMER auf Deutsch beantworten).\n"
-                        "2. Tabellen & Struktur: Wenn der Nutzer nach einer Tabelle, Übersicht oder einem Vergleich fragt, MUSS das Ergebnis als formatierte Markdown-Tabelle (`| Spalte 1 | Spalte 2 | ... |`) aufbereitet werden."
+                        "2. KI-Synthese & Aufbereitung: Wenn Werkzeuge Live-Daten zurückliefern (z.B. Finanzkurse, Krypto, Marktdaten, Wetter, Websuche, Wikipedia), präsentiere die Daten niemals als unkommentierten oder unzusammenhängenden API-Dump. Formuliere eine flüssige, intelligente und kontextbezogene KI-Antwort. Gehe auf alle Aspekte der Benutzerfrage ein (z.B. aktueller Stand, 24h-Trend, Kursentwicklung, Einordnung und Vergleich) in verständlicher Sprache.\n"
+                        "3. Tabellen & Struktur: Wenn der Nutzer nach einer Tabelle, Übersicht oder einem Vergleich fragt, MUSS das Ergebnis als formatierte Markdown-Tabelle (`| Spalte 1 | Spalte 2 | ... |`) aufbereitet werden."
                     )
                     try:
                         from services.memory.user_memory import get_user_memory_store

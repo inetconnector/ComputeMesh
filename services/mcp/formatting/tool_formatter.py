@@ -182,14 +182,18 @@ def format_tool_content_if_json(content: str) -> str:
             quotes = data.get("quotes", [])
             lines = [
                 "### 📈 **Finanz- & Börsenkurs-Übersicht**\n",
-                "| 🪙 Asset / Ticker | 🏢 Name | 💵 Kurs | 📊 Veränderung | 📈 Tageshoch | 📉 Tagestief |",
+                "| 🪙 Asset / Ticker | 🏢 Name | 💵 Kurs | 📊 24h Trend / Veränderung | 📈 Tageshoch | 📉 Tagestief |",
                 "| :--- | :--- | :---: | :---: | :---: | :---: |",
             ]
             for q in quotes:
                 sym = q.get("symbol", "-")
                 name = q.get("name", sym)
-                pr = q.get("price", q.get("price_usd", "-"))
-                curr = q.get("currency", "USD")
+                if "price_usd" in q and "price_eur" in q:
+                    pr_str = f"{q['price_usd']} USD (~{q['price_eur']} EUR)"
+                else:
+                    pr = q.get("price", q.get("price_usd", "-"))
+                    curr = q.get("currency", "USD")
+                    pr_str = f"{pr} {curr}"
                 chg_pct = q.get("change_percent", q.get("change_24h_percent"))
                 if chg_pct is not None and isinstance(chg_pct, (int, float)):
                     chg_sign = "+" if chg_pct > 0 else ""
@@ -200,16 +204,20 @@ def format_tool_content_if_json(content: str) -> str:
                     icon = "⚪"
                 h_val = q.get("day_high", "-")
                 l_val = q.get("day_low", "-")
-                h_str = f"{h_val} {curr}" if h_val != "-" else "-"
-                l_str = f"{l_val} {curr}" if l_val != "-" else "-"
-                lines.append(f"| **{sym}** | {name} | `{pr} {curr}` | {icon} `{chg_str}` | `{h_str}` | `{l_str}` |")
+                h_str = f"{h_val} USD" if h_val != "-" else "-"
+                l_str = f"{l_val} USD" if l_val != "-" else "-"
+                lines.append(f"| **{sym}** | {name} | `{pr_str}` | {icon} `{chg_str}` | `{h_str}` | `{l_str}` |")
             return "\n".join(lines).strip()
 
         if "symbol" in data and ("price" in data or "price_usd" in data):
             sym = data.get("symbol", "")
             name = data.get("name", sym)
-            pr = data.get("price", data.get("price_usd", "-"))
-            curr = data.get("currency", "USD")
+            if "price_usd" in data and "price_eur" in data:
+                price_display = f"{data['price_usd']} USD (~{data['price_eur']} EUR)"
+            else:
+                pr = data.get("price", data.get("price_usd", "-"))
+                curr = data.get("currency", "USD")
+                price_display = f"{pr} {curr}"
             chg_pct = data.get("change_percent", data.get("change_24h_percent"))
             h_val = data.get("day_high", "-")
             l_val = data.get("day_low", "-")
@@ -220,9 +228,9 @@ def format_tool_content_if_json(content: str) -> str:
                 f"### 📈 **Börsenkurs: {name} ({sym})**\n\n"
                 f"| Metrik | Wert |\n"
                 f"| :--- | :--- |\n"
-                f"| **💵 Aktueller Kurs** | `{pr} {curr}` |\n"
-                f"| **📊 Veränderung** | {icon} `{chg_str}` |\n"
-                f"| **📈 Tagesspanne (High / Low)** | `{h_val} {curr}` / `{l_val} {curr}` |\n"
+                f"| **💵 Aktueller Kurs** | `{price_display}` |\n"
+                f"| **📊 24h Trend / Veränderung** | {icon} `{chg_str}` |\n"
+                f"| **📈 Tagesspanne (High / Low)** | `{h_val}` / `{l_val}` |\n"
                 f"| **🏛️ Börsenplatz** | `{data.get('exchange', 'Global')}` |"
             )
             return res.strip()
