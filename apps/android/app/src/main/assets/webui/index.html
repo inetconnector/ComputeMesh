@@ -473,6 +473,13 @@
 			[role="menu"]:not([data-state="closed"]):not([hidden]),
 			[role="listbox"]:not([data-state="closed"]):not([hidden]),
 			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]),
+			/* The nested file submenu shares its parent's portal; clipping the parent
+			   makes the visible submenu untouchable over the chat composer. */
+			[data-slot="dropdown-menu-content"]:not([data-state="closed"]):not([hidden]):has([data-slot="dropdown-menu-sub-trigger"]),
+			[data-bits-dropdown-menu-content]:not([data-state="closed"]):not([hidden]):has([data-bits-dropdown-menu-sub-trigger]) {
+				overflow: visible !important;
+			}
+
 			[data-bits-dropdown-menu-sub-content]:not([data-state="closed"]):not([hidden]),
 			[data-bits-context-menu-content]:not([data-state="closed"]):not([hidden]),
 			[data-bits-popover-content]:not([data-state="closed"]):not([hidden]),
@@ -927,7 +934,8 @@
 				-webkit-backdrop-filter: blur(16px) !important;
 				z-index: 1000000 !important;
 				max-height: min(75vh, 480px) !important;
-				overflow: visible !important;
+				overflow-y: auto !important;
+				overflow-x: hidden !important;
 				overscroll-behavior: contain !important;
 				touch-action: pan-y !important;
 				padding: 6px !important;
@@ -949,6 +957,9 @@
 				z-index: 1000005 !important;
 				padding: 6px !important;
 				min-width: 180px !important;
+				max-height: min(75vh, 480px) !important;
+				overflow-y: auto !important;
+				overflow-x: hidden !important;
 				display: flex !important;
 				flex-direction: column !important;
 				gap: 2px !important;
@@ -2086,127 +2097,6 @@
 						document.documentElement.classList.add('cm-model-no-vision', 'cm-model-no-audio', 'cm-model-no-video');
 					}
 				}
-				// Robust File Upload & Attachment Trigger Handler
-				(function() {
-					function getChatFileInput(isCamera, acceptType) {
-						var form = document.querySelector('form.conversation-chat-form') || document.querySelector('form') || document;
-						var inputs = Array.from(form.querySelectorAll('input[type="file"]'));
-						if (inputs.length === 0) {
-							inputs = Array.from(document.querySelectorAll('input[type="file"]'));
-						}
-						var target = null;
-						if (isCamera) {
-							target = inputs.find(function(i) {
-								return i.hasAttribute('capture') || (i.getAttribute('accept') || '').includes('image');
-							});
-						} else {
-							target = inputs.find(function(i) {
-								return !i.hasAttribute('capture');
-							}) || inputs[0];
-						}
-						return target;
-					}
-
-					function triggerFileUpload(acceptType, isCamera) {
-						var input = getChatFileInput(isCamera, acceptType);
-						if (input) {
-							if (acceptType && !isCamera) {
-								input.setAttribute('accept', acceptType);
-							} else if (!isCamera) {
-								input.removeAttribute('accept');
-							}
-							input.click();
-							return true;
-						}
-
-						// Fallback: dynamic input element that transfers files to chat form
-						var dynInput = document.createElement('input');
-						dynInput.type = 'file';
-						dynInput.multiple = !isCamera;
-						if (acceptType) dynInput.accept = acceptType;
-						if (isCamera) {
-							dynInput.accept = 'image/*';
-							dynInput.setAttribute('capture', 'environment');
-						}
-						dynInput.style.cssText = 'position:fixed;top:-10000px;opacity:0;';
-						document.body.appendChild(dynInput);
-						dynInput.onchange = function(ev) {
-							var files = Array.from(ev.target.files || []);
-							if (files.length > 0) {
-								var existingInput = getChatFileInput(isCamera, acceptType);
-								if (existingInput) {
-									try {
-										var dt = new DataTransfer();
-										files.forEach(function(f) { dt.items.add(f); });
-										existingInput.files = dt.files;
-										existingInput.dispatchEvent(new Event('change', { bubbles: true }));
-									} catch(e) {
-										console.error('DataTransfer dispatch error:', e);
-									}
-								}
-							}
-							setTimeout(function() { dynInput.remove(); }, 1000);
-						};
-						dynInput.click();
-						return true;
-					}
-
-					// Export global helper
-					window.__triggerChatFileUpload = triggerFileUpload;
-
-					// Attach delegated click listener for "Dateien hinzufügen" / "Add files" and submenu items
-					document.addEventListener('click', function(e) {
-						var target = e.target;
-						if (!target) return;
-
-						var item = target.closest('[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-sub-trigger"], [data-bits-dropdown-menu-sub-trigger], [data-bits-dropdown-menu-item]');
-						if (!item) return;
-
-						var text = (item.textContent || '').trim().toLowerCase();
-
-						// 1. "Dateien hinzufügen" / "Add files" SubTrigger or direct item
-						if (text.includes('dateien hinzufügen') || text.includes('add files') || text.includes('dateien hinzuf') || (text.includes('datei') && text.includes('hinzuf'))) {
-							triggerFileUpload('', false);
-							return;
-						}
-
-						// 2. Submenu item: Images / Bilder
-						if (text === 'bilder' || text === 'images' || text.includes('bilder') || text.includes('images')) {
-							triggerFileUpload('image/*', false);
-							return;
-						}
-
-						// 3. Submenu item: Camera / Kamera
-						if (text === 'kamera' || text === 'camera' || text.includes('kamera') || text.includes('camera')) {
-							triggerFileUpload('image/*', true);
-							return;
-						}
-
-						// 4. Submenu item: Audio / Audiodateien
-						if (text === 'audiodateien' || text === 'audio files' || text.includes('audio')) {
-							triggerFileUpload('audio/*', false);
-							return;
-						}
-
-						// 5. Submenu item: Video / Videodateien
-						if (text === 'videodateien' || text === 'video files' || text.includes('video')) {
-							triggerFileUpload('video/*', false);
-							return;
-						}
-
-						// 6. Submenu item: Text / Textdateien
-						if (text === 'textdateien' || text === 'text files' || text.includes('textdatei')) {
-							triggerFileUpload('.txt,.md,.py,.js,.html,.css,.json,.csv,.c,.cpp,.h,.rs,.go,.ts,.yaml,.yml,.xml,.sh', false);
-							return;
-						}
-
-						// 7. Submenu item: PDF / PDF-Dateien
-						if (text === 'pdf-dateien' || text === 'pdf files' || text.includes('pdf')) {
-							triggerFileUpload('.pdf,application/pdf', false);
-							return;
-						}
-					}, true);
-				})();
 
 				cmUpdateModalityActions();
 				window.addEventListener('cm:model-selection-change', cmUpdateModalityActions);

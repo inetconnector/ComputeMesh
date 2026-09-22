@@ -27,6 +27,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 
 - eine öffentliche Webseite, die in Deutschland standardmäßig Deutsch zeigt;
 - Live-Zähler für öffentliche Kapazität, die nur frische authentifizierte Node-Heartbeats zählen;
+- serialisierte Appliance-Heartbeats: Beim Umbenennen einer Node bleibt die ID vom sofortigen Sync über den gesendeten Payload bis zum Rückgabewert konsistent, auch wenn der periodische Hintergrundprozess läuft;
 - signierte Windows- und Linux-Clients mit Update-Prüfung;
 - ein Gateway, über das KI-Anfragen angenommen werden können;
 - eine Modellauswahl im Bereich **Model Information** in der Zeile **Model**, die pro Browser gespeichert und bei jeder Chat-Anfrage mitgesendet wird; Modellfähigkeiten steuern, ob Foto-/Bild-, Audio- und Videoanhänge angeboten werden. Bis zu fünf große Fotos werden im Browser verkleinert und komprimiert; die Größe des vollständigen serialisierten Requests wird dynamisch geprüft und Bilder werden bei Bedarf weiter komprimiert, damit Prompt, Verlauf und Anhänge innerhalb des Gateway-Limits bleiben;

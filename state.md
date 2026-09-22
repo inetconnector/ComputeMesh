@@ -1,10 +1,29 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-22
 **Release Version:** `v1.2.170`
+**Active local branch for this work:** `codex/mesh-sync-webui-followthrough`; the relay and WebUI fixes are separate local commits. Neither is a production release or `main` update.
 **Active Mission / Last Prompt:** "ein aufgenommenes bild wird riesig im chat angezeigt. ich denke das muss verkleinert angezeigt werden und evtl auch verkleinert losgeschickt" -> Implementierung von `ImageUploadOptimizer.kt` zur intelligenten Vorab-Komprimierung & EXIF-Korrektur von Kamera-/Upload-Fotos auf max. 1024px vor dem Versand, Behebung der 100%-Breite-Erzwingung im Chat-CSS durch kompakte Thumbnail-Vorschau mit Tap-to-Lightbox (Vollbildansicht) sowie 100% Testpass-Rate (`216/216 Tests passed`).
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
+
+## 2026-09-22 Relay lint and WebUI follow-through
+
+- `services/appliance_dashboard/tunnel_relay.py` and `tests/test_immediate_config_sync.py` now pass Ruff after cleaning legacy imports, unused test items and best-effort exception handling. The public browser attachment test mocks cloud-relay startup so running UI tests cannot send a real node heartbeat.
+- Verification: browser-enabled `tests/` 115 passed; unified `run_all_tests.py` 776/776 passed; the browser test and relay/test files pass Ruff and Python compilation. An Android offline debug build passed with non-fatal SDK XML-version warnings. A Windows PyInstaller binary was built locally for preflight, not installed or released. Android Gradle still declares version `1.2.164`; pushing the asset change to `main` would trigger the signed release workflow with that version, so this work remains on a feature branch. Live-node/deployment checks remain separate; no production rollout is claimed.
+
+## 2026-09-22 Immediate mesh-sync node-ID race
+
+- `services/appliance_dashboard/tunnel_relay.py` now serializes an entire sync (config, telemetry, heartbeat send, return) under the relay lock and uses a per-run node-ID snapshot. `trigger_immediate_mesh_sync()` no longer sets the shared ID outside the lock. A concurrent periodic worker therefore cannot change the identity of an in-flight immediate rename heartbeat.
+- `tests/test_immediate_config_sync.py` isolates the existing test from the process-global worker and adds a paused-heartbeat concurrency regression. Its mocked coordinator response cannot write a replacement owner key to local developer configuration.
+- Initial verification in this umbrella checkout: public `tests/` 112 passed, 3 skipped; immediate-sync module 4 passed in each of ten repetitions; unified `run_all_tests.py` 776/776 passed when run without an added private-root `PYTHONPATH`; private `tests/` 219 passed, 3 subtests passed; Python compile and `git diff --check` passed. An initial unified-harness attempt with private-root `PYTHONPATH` failed six imports because private and public packages both use `tests`; the corrected rerun passed. At this intermediate point Ruff reported 28 pre-existing findings (31 at HEAD); the follow-through section above records their cleanup. No live-node, release, or deployment validation was run. Preserve unrelated uncommitted WebUI/Android HTML and browser-test changes in this working tree.
+
+## 2026-09-22 WebUI attachment-menu browser regression
+
+- Removed the global capture-phase file-click workaround introduced at `5aa9920` from `portal/webui/index.html` and `apps/android/app/src/main/assets/webui/index.html`; it opened a file picker on the desktop submenu trigger before the native Svelte handler and could duplicate leaf actions. The bundled frontend's two existing file inputs and callbacks remain unchanged. The private portal snapshot was synchronized separately in ControlPlane.
+- Restored bounded vertical scrolling for ordinary open dropdowns and submenus, while preserving visible overflow on main menus with nested submenus; otherwise the visible image action was clipped and could not be clicked over the composer. Added `tests/test_webui_attachment_browser.py` with opt-in Playwright/Chrome-or-Edge coverage. The real desktop browser confirms the submenu opens without a picker, one text leaf click opens one picker, the selected file appears, and its content enters the chat request. A mobile-emulated browser confirms the sheet category toggles without a picker and a PDF file attaches. A fake vision catalogue enables the image action; a selected PNG thumbnail appears and its Base64 reaches a request with the selected vision model. All paths check uncaught JavaScript errors.
+- Verification on the private umbrella checkout: focused WebUI/gateway suite 20 passed, including 3 browser tests with `COMPUTEMESH_BROWSER_E2E=1`. A broader public `tests/` run without browser opt-in had 110 passed, 1 failed, 2 skipped: the unrelated immediate-config-sync test saw `test-node-custom` instead of `new-rig-name`; that module passed alone (3/3), and no cause/fix is claimed. Rerunning with browser tests enabled and this one case deselected yielded 113 passed, 1 deselected. The private `tests/` suite passed 219 tests and 3 subtests. Ruff, inline-script parsing and both repositories' `git diff --check` passed. This is not a claim that the unmodified full public suite passed.
+- Android `:app:assembleDebug --offline --no-daemon` succeeded; the packaged `assets/webui/index.html` SHA-256 matches source (`A41742E86336746D3C1BABD0E69386BC4F75E8D90ADD8E46CFE1B433D11EF678`). Gradle emitted non-fatal SDK XML-version warnings. No device installation, production release signing/deployment, or full browser feature-matrix validation was run. Next: investigate the test-order-dependent config sync failure and perform device/live smoke tests before distributing this WebUI.
 
 ## Universal Skill Execution MCP — 2026-09-17
 

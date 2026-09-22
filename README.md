@@ -42,11 +42,13 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
 - public live capacity counters based only on fresh authenticated node heartbeats;
+- serialized appliance heartbeats: a node rename keeps one consistent node ID from the immediate sync request through its posted payload and returned result, even while the periodic worker runs;
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
+- an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
