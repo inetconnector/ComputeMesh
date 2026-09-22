@@ -49,6 +49,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
 - an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
+- an Android 1.2.164 APK published on the project download site and as the `android-latest` GitHub release, signed with the production key. Earlier 1.2.163 website APKs used a different debug certificate: existing installations must be uninstalled before installing 1.2.164, which can remove local app data. This is a signing-key migration, not an in-place update;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
