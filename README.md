@@ -70,6 +70,8 @@ Clone/download the repository and use the launcher for your OS:
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
 
+The Windows standalone bundle built by `deploy/windows/build_installer.py` includes the embedded dashboard's `portal/webui` files as well as `portal/assets`; omitting the WebUI tree makes `/webui` and `/chat` return 404 in a frozen app. On Linux, model files default to `/var/lib/computemesh/models`; set `COMPUTEMESH_MODEL_STORAGE_DIR` to an explicit writable path for an alternate deployment. `python run_all_tests.py` isolates this model path and test databases in a temporary directory. The appliance-configuration tests also redirect home/boot writes to temporary files and must never alter a real provider config.
+
 The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 
 The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.

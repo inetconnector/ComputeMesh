@@ -7,6 +7,13 @@
 **Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
 **Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
 
+## 2026-09-22 Windows rollout and CI isolation follow-through
+
+- Linux public PR CI exposed `ModelManager`'s hard-coded `/var/lib/computemesh/models` directory in the unified test runner. The manager now accepts `COMPUTEMESH_MODEL_STORAGE_DIR`, and `run_all_tests.py` supplies a temporary path. The isolated manager override has a focused test.
+- `tools/appliance/tests/test_appliance_config.py` previously called `save_system_config` while the real home path was in scope, overwriting a developer provider config with test identity/payout/coordinator and an empty owner key. The test now redirects home and both boot paths to its temporary directory. On the local Windows node, the damaged config was backed up and restored through the running dashboard's own loopback config API from its in-memory values. The key was never printed. A full unified run passed 776/776 afterward, and the on-disk identity/key remained intact.
+- The first locally installed relay-fix EXE served `/` and `/v1/models`, but `/webui` returned 404. The one-file `build_installer.py` bundled `portal/assets` but not `portal/webui`; the build recipe and a focused packaging test now include/check that tree. A corrected EXE was built and installed locally (SHA-256 `68E0CCF86512B4BBA51A1D410929BC07B45C3CF0ECDD118693528080D5F532B1`). Live `/api/status`, `/webui`, `/webui/index.html`, `/v1/models` and a referenced `/_app` JavaScript bundle all returned HTTP 200; the served WebUI SHA-256 matched the repository source. The prior binaries were retained locally for rollback. This was a local Windows installation, not a public release.
+- Public and private branches remain draft PRs, not merged into `main`; production Plesk webroots and Android release have not been changed. The private Agents Platform CI still has an exact older public gitlink pin and requires a separate validation/pin decision, not an automatic pin bypass.
+
 ## 2026-09-22 Relay lint and WebUI follow-through
 
 - `services/appliance_dashboard/tunnel_relay.py` and `tests/test_immediate_config_sync.py` now pass Ruff after cleaning legacy imports, unused test items and best-effort exception handling. The public browser attachment test mocks cloud-relay startup so running UI tests cannot send a real node heartbeat.
