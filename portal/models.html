@@ -1,0 +1,318 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Library & Inferenz-Katalog — ComputeMesh</title>
+  <meta name="description" content="Entdecke optimierte Open-Source KI-Modelle für verteiltes High-Speed Inferenz-Streaming. DeepSeek-R1, Qwen 2.5 Coder, Llama 3.3, Mistral NeMo und SDXL.">
+  <meta name="keywords" content="AI Models, LLM Inferenz, DeepSeek R1, Qwen 2.5, Llama 3.3, OpenAI API Alternative, ComputeMesh">
+  <link rel="canonical" href="https://mesh.inetconnector.com/models">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="portal.css?v=4.2">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Navigation Links -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" class="active" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Models Content -->
+  <main class="container" style="padding: 3rem 1.5rem 5rem 1.5rem;">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="models_tag">KURATIERTE MODEL LIBRARY</span>
+      <h1 data-i18n="models_title">Führende Open-Source KI-Modelle sofort einsatzbereit</h1>
+      <p data-i18n="models_sub" style="max-width: 800px; margin: 0.5rem auto 0 auto;">
+        Wähle aus den leistungsstärksten State-of-the-Art Modellen. Vollständig optimiert für verteiltes Inferenz-Streaming mit maximalem Token-Durchsatz und 100% OpenAI Drop-In API.
+      </p>
+    </div>
+
+    <!-- Model Category Pills -->
+    <div class="model-category-pills" style="margin-bottom: 2.5rem;">
+      <button class="category-pill active" onclick="filterModelCategory('all', this)">Alle Modelle</button>
+      <button class="category-pill" onclick="filterModelCategory('code', this)">💻 Code &amp; Agents</button>
+      <button class="category-pill" onclick="filterModelCategory('reasoning', this)">🧠 Reasoning &amp; Math</button>
+      <button class="category-pill" onclick="filterModelCategory('vision', this)">👁️ Vision &amp; Multimodal</button>
+      <button class="category-pill" onclick="filterModelCategory('fast', this)">⚡ High-Speed Lightweight</button>
+    </div>
+
+    <!-- Models Grid -->
+    <div class="models-grid" id="models-cards-container">
+      <!-- Model 1 -->
+      <div class="model-card" data-category="code">
+        <div class="model-card-top">
+          <span class="model-badge code">💻 Coding &amp; Agent Flagship</span>
+          <span class="model-context">128k Context</span>
+        </div>
+        <h3 class="model-name"><a href="/models/qwen-2-5-coder-32b.html" style="color: inherit; text-decoration: none;">Qwen 2.5 Coder 32B</a></h3>
+        <p class="model-desc">Top-Tier Code-Generierung, Refactoring, Multi-File-Synthese und autonome Agenten-Steuerung.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">32.7B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">20 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~68 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.25 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('qwen/qwen2.5-coder-32b')">📋 Code kopieren</button>
+        </div>
+      </div>
+
+      <!-- Model 2 -->
+      <div class="model-card" data-category="reasoning">
+        <div class="model-card-top">
+          <span class="model-badge reasoning">🧠 Reasoning &amp; Math</span>
+          <span class="model-context">64k Context</span>
+        </div>
+        <h3 class="model-name"><a href="/models/deepseek-r1.html" style="color: inherit; text-decoration: none;">DeepSeek-R1 (Distill 32B / 671B MoE)</a></h3>
+        <p class="model-desc">Reinforcement-Learning Reasoning-Modell mit explizitem Chain-of-Thought für komplexe Logik- und Mathe-Aufgaben.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">32.0B / 671B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">22 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~45 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.35 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('deepseek-ai/deepseek-r1')">📋 Code kopieren</button>
+        </div>
+      </div>
+
+      <!-- Model 3 -->
+      <div class="model-card" data-category="reasoning">
+        <div class="model-card-top">
+          <span class="model-badge enterprise">🏢 Enterprise LLM</span>
+          <span class="model-context">128k Context</span>
+        </div>
+        <h3 class="model-name"><a href="/models/llama-3-3-70b.html" style="color: inherit; text-decoration: none;">Llama 3.3 70B Instruct</a></h3>
+        <p class="model-desc">Meta's Flaggschiff für mehrsprachige Dialoge, komplexe Analysen und professionelle Enterprise-Assistenten.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">70.6B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">42 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~52 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.45 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('meta-llama/llama-3.3-70b-instruct')">📋 Code kopieren</button>
+        </div>
+      </div>
+
+      <!-- Model 4 -->
+      <div class="model-card" data-category="vision">
+        <div class="model-card-top">
+          <span class="model-badge vision">👁️ Vision &amp; Multimodal</span>
+          <span class="model-context">32k Context</span>
+        </div>
+        <h3 class="model-name"><a href="/models/minicpm5-2b.html" style="color: inherit; text-decoration: none;">Qwen 2.5 VL 7B / MiniCPM-V</a></h3>
+        <p class="model-desc">Visuelle Dokumentenanalyse, OCR, UI-Screenshots, Diagramme und detaillierte Bildbeschreibungen.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">7.6B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">8 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~85 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.18 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('qwen2.5-vl:7b')">📋 Code kopieren</button>
+        </div>
+      </div>
+
+      <!-- Model 5 -->
+      <div class="model-card" data-category="fast">
+        <div class="model-card-top">
+          <span class="model-badge fast">⚡ Ultra High-Speed</span>
+          <span class="model-context">128k Context</span>
+        </div>
+        <h3 class="model-name"><a href="/models/mistral-large-2.html" style="color: inherit; text-decoration: none;">Mistral NeMo 12B</a></h3>
+        <p class="model-desc">Gemeinsam mit NVIDIA trainiert. Extrem effiziente und reaktionsschnelle Allround-Inferenz.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">12.2B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">10 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~94 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.15 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('mistral:7b')">📋 Code kopieren</button>
+        </div>
+      </div>
+
+      <!-- Model 6 -->
+      <div class="model-card" data-category="fast">
+        <div class="model-card-top">
+          <span class="model-badge fast">📱 Lightweight &amp; Edge</span>
+          <span class="model-context">32k Context</span>
+        </div>
+        <h3 class="model-name">Phi-3 Mini (3.8B)</h3>
+        <p class="model-desc">Microsofts ultra-kompaktes Modell. Perfekt für Edge-Nodes, Smartphones und schnelle Chat-Routinen.</p>
+        <div class="model-metrics">
+          <div class="m-metric"><span class="m-lbl">Parameter</span><span class="m-val">3.8B</span></div>
+          <div class="m-metric"><span class="m-lbl">Min. VRAM</span><span class="m-val">4 GB</span></div>
+          <div class="m-metric"><span class="m-lbl">Speed</span><span class="m-val">~140 tok/s</span></div>
+          <div class="m-metric"><span class="m-lbl">Preis</span><span class="m-val emerald">$0.09 / 1M</span></div>
+        </div>
+        <div class="model-card-footer">
+          <a href="/#playground" class="btn btn-primary btn-sm">⚡ Im Playground testen</a>
+          <button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('phi3:mini')">📋 Code kopieren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Drop-In Quickstart Section -->
+    <div style="margin-top: 4rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem;">
+      <div style="margin-bottom: 1.5rem;">
+        <span class="section-tag">OPENAI DROP-IN INTEGRATION</span>
+        <h2 style="font-size: 1.6rem; margin-top: 0.3rem;">Jedes Modell mit 2 Zeilen Code ansteuern</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">
+          Tausche einfach die `base_url` und den `api_key` in deinen bestehenden OpenAI SDKs aus:
+        </p>
+      </div>
+
+      <div class="code-window" style="background: #060911;">
+        <div class="code-header">
+          <div class="window-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <span class="code-file-title">inference_example.py</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="copyDxCode()">📋 Code kopieren</button>
+        </div>
+        <pre><code id="dx-code-content">from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://mesh.inetconnector.com/v1",
+    api_key="cm_live_your_key"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5:7b",
+    messages=[{"role": "user", "content": "Schreibe einen Algorithmus für verteiltes Inferenz-Routing."}],
+    stream=True
+)
+
+for chunk in response:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)</code></pre>
+      </div>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer" style="background: rgba(7, 10, 19, 0.95); border-top: 1px solid var(--border-subtle); padding: 4rem 1.5rem 2rem 1.5rem; margin-top: 4rem;">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem;">
+      <div>
+        <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+        </p>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
+          <li><a href="/models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
+          <li><a href="/pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
+          <li><a href="/status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
+          <li><a href="/security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none;">GitHub Repositories</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
+          <li><a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
+          <li><a href="/terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
+          <li><a href="/contact" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
+      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+  <div id="registration-modal" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="modal-title">🚀 ComputeMesh API-Zugang</h3>
+      <button class="modal-close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="registration-form" onsubmit="compliantRegistration(event)">
+        <input type="hidden" id="modal-role" value="consumer">
+        <div class="form-group">
+          <label for="modal-email">E-Mail-Adresse (Geschäftlich):</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="name@company.com">
+        </div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" id="business-user-confirm" required style="margin-top: 0.2rem;">
+            <span>Ich bestätige die geschäftliche B2B-Nutzung und akzeptiere die AGB &amp; Datenschutzbestimmungen.</span>
+          </label>
+        </div>
+        <button type="submit" id="modal-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;">
+          🚀 API-Key generieren
+        </button>
+      </form>
+      <div id="modal-result-box" style="display: none; margin-top: 1.25rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);">Dein API-Schlüssel:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
+          <input type="text" id="generated-key-val" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem;">
+          <button class="btn btn-secondary btn-sm" onclick="copyGeneratedKey()">Kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="portal-core.js?v=4.2"></script>
+  <script src="portal.js?v=4.2"></script>
+</body>
+</html>

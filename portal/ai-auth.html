@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
 
-  <!-- Local/system typography & styles; no third-party browser resources -->
+  <!-- Styles -->
   <link rel="stylesheet" href="portal.css?v=4.5">
 
   <style>
@@ -470,7 +470,7 @@
   <!-- Scripts -->
   <script src="portal-core.js?v=4.6"></script>
   <script>
-    var studioLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
+    var currentLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
 
     var studioI18n = {
       de: {
@@ -532,7 +532,7 @@
     };
 
     function applyStudioLanguage(lang) {
-      studioLang = lang;
+      currentLang = lang;
       var d = studioI18n[lang] || studioI18n.de;
       var tBtn = document.getElementById('lang-toggle-btn');
       if (tBtn) tBtn.textContent = d.toggle_btn;
@@ -566,7 +566,7 @@
     }
 
     function toggleStudioLanguage() {
-      var next = studioLang === 'de' ? 'en' : 'de';
+      var next = currentLang === 'de' ? 'en' : 'de';
       try { localStorage.setItem('cm_portal_lang', next); } catch(e) {}
       applyStudioLanguage(next);
     }
@@ -585,16 +585,8 @@
       if (!el) return;
       if (!msg) { el.style.display = 'none'; return; }
       el.className = 'ai-status-msg ' + (type || 'error');
-      el.textContent = typeof msg === 'string' ? msg : String(msg && (msg.message || msg.detail) || 'Unbekannter Fehler');
+      el.textContent = msg;
       el.style.display = 'block';
-    }
-
-    function getApiErrorMessage(error, fallback) {
-      if (typeof error === 'string' && error.trim()) return error;
-      if (error && typeof error === 'object') {
-        return getApiErrorMessage(error.message || error.detail || error.error, fallback);
-      }
-      return fallback;
     }
 
     function toggleKeyVisibility() {
@@ -637,7 +629,7 @@
     function storeKeyAndLaunch(rawKey) {
       var key = cleanApiKey(rawKey);
       if (!key) {
-        var d = studioI18n[studioLang] || studioI18n.de;
+        var d = studioI18n[currentLang] || studioI18n.de;
         showStatus(d.key_missing, 'error');
         return;
       }
@@ -704,7 +696,7 @@
       if (e && e.preventDefault) e.preventDefault();
       var keyInput = document.getElementById('input-owner-key');
       var key = keyInput ? keyInput.value : '';
-      var d = studioI18n[studioLang] || studioI18n.de;
+      var d = studioI18n[currentLang] || studioI18n.de;
       if (!key) {
         showStatus(d.key_missing, 'error');
         return;
@@ -713,47 +705,27 @@
     }
 
     // Magic Link
-    var magicLinkPending = false;
     async function handleMagicLink(e) {
       if (e && e.preventDefault) e.preventDefault();
-      if (magicLinkPending) return;
       var email = document.getElementById('input-email-magic').value.trim();
       if (!email) return;
       if (detectAndRedirectKey(email)) return;
-      var d = studioI18n[studioLang] || studioI18n.de;
-      var magicButton = document.getElementById('btn-magic');
-      magicLinkPending = true;
-      if (magicButton) {
-        magicButton.disabled = true;
-        magicButton.setAttribute('aria-busy', 'true');
-      }
-      document.getElementById('lbl-btn-magic').textContent = studioLang === 'de' ? 'Wird gesendet…' : 'Sending…';
-      showStatus(studioLang === 'de' ? 'Login-Link wird angefordert…' : 'Requesting login link…', 'success');
+      var d = studioI18n[currentLang] || studioI18n.de;
+      showStatus('Sende Login-Link...', 'success');
       try {
-        var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 20000);
-        var res = await fetch('/api/auth/magic_link/request', {
+        var res = await fetch('/api/auth/magic-link/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email }),
-          signal: controller.signal
+          body: JSON.stringify({ email: email })
         });
-        clearTimeout(timeout);
         var data = await res.json();
         if (res.ok) {
           showStatus(d.magic_sent, 'success');
         } else {
-          showStatus(getApiErrorMessage(data.error, 'Fehler beim Senden des Magic-Links'), 'error');
+          showStatus(data.error || 'Fehler beim Senden des Magic-Links', 'error');
         }
       } catch(err) {
-        showStatus(err.name === 'AbortError' ? 'Zeitüberschreitung: Bitte prüfe deine Verbindung und versuche es erneut.' : 'Netzwerkfehler: ' + (err.message || err), 'error');
-      } finally {
-        magicLinkPending = false;
-        if (magicButton) {
-          magicButton.disabled = false;
-          magicButton.removeAttribute('aria-busy');
-        }
-        document.getElementById('lbl-btn-magic').textContent = d.btn_magic;
+        showStatus('Netzwerkfehler: ' + (err.message || err), 'error');
       }
     }
 
@@ -763,7 +735,7 @@
       var email = document.getElementById('input-reg-email').value.trim();
       if (!email) return;
       if (detectAndRedirectKey(email)) return;
-      var d = studioI18n[studioLang] || studioI18n.de;
+      var d = studioI18n[currentLang] || studioI18n.de;
       showStatus('Generiere API-Key...', 'success');
       try {
         var res = await fetch('/api/portal/register', {
@@ -950,7 +922,7 @@
           return;
         }
       } catch(e) {}
-      applyStudioLanguage(studioLang);
+      applyStudioLanguage(currentLang);
     })();
   </script>
 </body>

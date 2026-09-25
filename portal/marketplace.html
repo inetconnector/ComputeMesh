@@ -1,0 +1,226 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Marketplace & Live Telemetrie — ComputeMesh</title>
+  <meta name="description" content="Echte verteilte GPU-Rechenknoten und VRAM in Echtzeit mieten oder eigene Hardware bereitstellen. Live-Telemetrie aus dem ComputeMesh Netzwerk.">
+  <meta name="keywords" content="GPU Marketplace, GPU mieten, VRAM mieten, RTX 4090, DeepSeek R1, Distributed GPU, ComputeMesh">
+  <link rel="canonical" href="https://mesh.inetconnector.com/marketplace">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="portal.css?v=4.2">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Navigation Links -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/marketplace" class="active" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Marketplace Content -->
+  <main class="container" style="padding: 3rem 1.5rem 5rem 1.5rem;">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="market_tag">LIVE GPU-MARKTPLATZ &amp; NODE-TELEMETRIE</span>
+      <h1 data-i18n="market_title">Echte verteilte Rechenknoten in Echtzeit</h1>
+      <p data-i18n="market_sub" style="max-width: 800px; margin: 0.5rem auto 0 auto;">
+        Live-Hardware, VRAM und Inferenz-Knoten im ComputeMesh-Netzwerk. Alle Telemetriedaten werden direkt aus der kryptografisch signierten Control-Plane bezogen.
+      </p>
+    </div>
+
+    <!-- Marketplace Controls -->
+    <div class="marketplace-controls" style="margin-bottom: 2rem;">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="market-search" placeholder="Node-ID, GPU-Modell oder Interface filtern..." oninput="filterMarketplace()">
+      </div>
+      
+      <div class="filter-pills-row">
+        <span class="filter-label" data-i18n="market_filter_gpu">Hardware:</span>
+        <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)">Alle Knoten</button>
+        <button class="filter-pill" data-filter-type="gpu" data-filter-val="nvidia" onclick="setMarketFilter('gpu', 'nvidia', this)">NVIDIA (CUDA)</button>
+        <button class="filter-pill" data-filter-type="gpu" data-filter-val="amd" onclick="setMarketFilter('gpu', 'amd', this)">AMD (ROCm / Vulkan)</button>
+        <button class="filter-pill" data-filter-type="gpu" data-filter-val="apple" onclick="setMarketFilter('gpu', 'apple', this)">Apple Silicon</button>
+        <button class="filter-pill" data-filter-type="gpu" data-filter-val="rig" onclick="setMarketFilter('gpu', 'rig', this)">Multi-GPU Rigs</button>
+      </div>
+
+      <div class="filter-pills-row secondary">
+        <span class="filter-label" data-i18n="market_filter_vram">Min. VRAM:</span>
+        <button class="filter-pill active" data-filter-type="vram" data-filter-val="all" onclick="setMarketFilter('vram', 'all', this)">Beliebig</button>
+        <button class="filter-pill" data-filter-type="vram" data-filter-val="8" onclick="setMarketFilter('vram', '8', this)">&ge; 8 GB</button>
+        <button class="filter-pill" data-filter-type="vram" data-filter-val="16" onclick="setMarketFilter('vram', '16', this)">&ge; 16 GB</button>
+        <button class="filter-pill" data-filter-type="vram" data-filter-val="24" onclick="setMarketFilter('vram', '24', this)">&ge; 24 GB</button>
+        <button class="filter-pill" data-filter-type="vram" data-filter-val="48" onclick="setMarketFilter('vram', '48', this)">&ge; 48 GB</button>
+
+        <span class="filter-label" style="margin-left: 1rem;" data-i18n="market_filter_status">Status:</span>
+        <button class="filter-pill active" data-filter-type="status" data-filter-val="all" onclick="setMarketFilter('status', 'all', this)">Alle</button>
+        <button class="filter-pill" data-filter-type="status" data-filter-val="online" onclick="setMarketFilter('status', 'online', this)">🟢 Nur Online</button>
+      </div>
+    </div>
+
+    <!-- Marketplace Cards Grid -->
+    <div class="marketplace-grid" id="marketplace-cards-container">
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+        <p data-i18n="market_loading">Echte Knoten-Telemetrie wird live vom Mesh-Gateway geladen...</p>
+      </div>
+    </div>
+
+    <!-- Provider Onboarding Banner -->
+    <div class="feature-card highlight" style="margin-top: 4rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 2.5rem;">
+      <div style="max-width: 650px;">
+        <div style="font-size: 0.8rem; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;">PROVIDER PROGRAMM</div>
+        <h2 style="font-size: 1.8rem; margin-bottom: 0.6rem;">Eigene GPU vermieten &amp; 75% Revenue Share verdienen</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
+          Schließe deinen Gaming-PC, dein Mining-Rig oder deine Server-Hardware in unter 2 Minuten an das globale Netzwerk an. Automatische wöchentliche Auszahlungen auf dein Bankkonto via Stripe Connect.
+        </p>
+      </div>
+      <div>
+        <button class="btn btn-emerald btn-lg" onclick="openModal('provider')">
+          ⚡ Jetzt GPU registrieren
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer" style="background: rgba(7, 10, 19, 0.95); border-top: 1px solid var(--border-subtle); padding: 4rem 1.5rem 2rem 1.5rem; margin-top: 4rem;">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem;">
+      <div>
+        <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+        </p>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
+          <li><a href="/models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
+          <li><a href="/pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
+          <li><a href="/status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
+          <li><a href="/security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none;">GitHub Repositories</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
+          <li><a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
+          <li><a href="/terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
+          <li><a href="/contact" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
+      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+    </div>
+  </footer>
+
+  <!-- Common Modals & Core Scripts -->
+  <div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+  
+  <div id="registration-modal" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="modal-title" data-i18n="modal_reg_title">🚀 ComputeMesh API-Zugang</h3>
+      <button class="modal-close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="registration-form" onsubmit="compliantRegistration(event)">
+        <input type="hidden" id="modal-role" value="consumer">
+        <div class="form-group">
+          <label for="modal-email" data-i18n="modal_email_lbl">E-Mail-Adresse (Geschäftlich):</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="name@company.com">
+        </div>
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 1rem;">
+          <div class="form-group">
+            <label for="cm-provider-country" data-i18n="modal_country_lbl">Betriebsland der Hardware:</label>
+            <select id="cm-provider-country" class="form-control">
+              <option value="DE" selected>🇩🇪 Deutschland (DE)</option>
+              <option value="AT">🇦🇹 Österreich (AT)</option>
+              <option value="CH">🇨🇭 Schweiz (CH)</option>
+              <option value="FR">🇫🇷 Frankreich (FR)</option>
+              <option value="NL">🇳🇱 Niederlande (NL)</option>
+              <option value="OTHER">🌍 Anderes EU/EWR-Land</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="modal-wallet" data-i18n="modal_wallet_lbl">Stripe Connect E-Mail oder Wallet für Auszahlungen:</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="payouts@yourdomain.com">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" id="business-user-confirm" required style="margin-top: 0.2rem;">
+            <span data-i18n="modal_b2b_confirm">Ich bestätige die geschäftliche B2B-Nutzung und akzeptiere die AGB &amp; Datenschutzbestimmungen.</span>
+          </label>
+        </div>
+        <button type="submit" id="modal-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;">
+          🚀 API-Key generieren
+        </button>
+      </form>
+      <div id="modal-result-box" style="display: none; margin-top: 1.25rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);">Dein API-Schlüssel:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
+          <input type="text" id="generated-key-val" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem;">
+          <button class="btn btn-secondary btn-sm" onclick="copyGeneratedKey()">Kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="portal-core.js?v=4.2"></script>
+  <script src="portal.js?v=4.2"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof window.initPortal === 'function') {
+        window.initPortal();
+      }
+    });
+  </script>
+</body>
+</html>
