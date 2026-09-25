@@ -151,6 +151,122 @@ class ModelEngineService:
 
         return devices
 
+    def _select_best_model(self) -> tuple[str, str] | None:
+        """Select the best locally available model for this node.
+
+        Criteria:
+        1. Fits within 90% of total VRAM (leaving headroom for KV cache).
+        2. Required layer count does not exceed the model's layer count.
+        3. Prefer higher‑popularity models as defined in ``ModelManager.POPULAR_GGUF_MODELS``.
+        Returns a tuple ``(model_path, model_id)`` or ``None`` if no suitable model is present.
+        """
+        from services.appliance_dashboard.model_manager import ModelManager
+        mm = ModelManager.get_instance()
+        total_vram = sum(g.vram_total_bytes for g in self._gpu_statuses)
+        usable_vram = int(total_vram * 0.9)
+
+        candidates = []
+        for lm in mm.list_local_models():
+            manifest_path = Path(lm.path).with_suffix('.computemesh-model-manifest.json')
+            if not manifest_path.exists():
+                continue
+            try:
+                manifest = json.loads(manifest_path.read_text())
+            except Exception:
+                continue
+            req_vram = manifest.get('recommended_vram_gb', 0) * 1024**3
+            layers = manifest.get('layers', 0)
+            if req_vram <= usable_vram and layers <= lm.layers:
+                candidates.append((lm, manifest))
+
+        if not candidates:
+            log.debug("No suitable local model candidates found.")
+            return None
+
+        popular_ids = [m['id'] for m in ModelManager.POPULAR_GGUF_MODELS]
+        def popularity_score(item):
+            lm, _ = item
+            try:
+                idx = popular_ids.index(lm.filename)
+            except ValueError:
+                idx = len(popular_ids)
+            return idx
+
+        # Sort by popularity (lower index = more popular)
+        candidates.sort(key=popularity_score)
+        best_lm, best_manifest = candidates[0]
+        # Detailed debug logging of selection process
+        log.debug({
+            "total_vram_gb": sum(g.vram_total_bytes for g in self._gpu_statuses) / (1024**3),
+            "usable_vram_gb": int(sum(g.vram_total_bytes for g in self._gpu_statuses) * 0.9 / (1024**3)),
+            "candidates": [
+                {
+                    "path": str(lm.path),
+                    "model_id": lm.filename,
+                    "req_vram_gb": manifest.get("recommended_vram_gb", 0),
+                    "layers": manifest.get("layers", 0),
+                }
+                for lm, manifest in candidates
+            ],
+            "selected": {
+                "path": str(best_lm.path),
+                "model_id": best_manifest.get("model_id")
+            },
+        })
+        return (str(best_lm.path), best_manifest.get('model_id'))
+
+    def ensure_best_model(self) -> bool:
+        """Guarantee that the optimal model for this node is running.
+
+        * If a suitable model is already active, returns ``True``.
+        * Otherwise it tries to start the best local model.
+        * If none fits, it downloads the highest‑rated model that fits the hardware,
+          generates its manifest, and starts it.
+        """
+        # Refresh GPU information
+        self._gpu_statuses = self.discover_gpus()
+        self.query_nvml_vram()
+
+        selection = self._select_best_model()
+        if selection:
+            model_path, model_id = selection
+            return self.start_model(model_path=model_path, model_id=model_id)
+
+        # No fitting local model – attempt to download the best that fits
+        from services.appliance_dashboard.model_manager import ModelManager
+        mm = ModelManager.get_instance()
+        total_vram = sum(g.vram_total_bytes for g in self._gpu_statuses)
+        usable_vram_gb = int(total_vram * 0.9 / (1024**3))
+
+        for entry in ModelManager.POPULAR_GGUF_MODELS:
+            if entry.get('recommended_vram_gb', 0) <= usable_vram_gb:
+                download_id = mm.start_download(
+                    url=entry['url'],
+                    filename=entry['filename'],
+                    repo_id=entry['id'],
+                    expected_size_bytes=entry['size_bytes'],
+                )
+                log.info(f"Started download {download_id} for model {entry['id']}")
+                # Simple poll until download finishes (synchronous for demo)
+                while download_id in mm.active_downloads and mm.active_downloads[download_id].status not in ('COMPLETED', 'FAILED'):
+                    time.sleep(1)
+                model_path = mm.storage_dir / entry['filename']
+                manifest_path = model_path.with_suffix('.computemesh-model-manifest.json')
+                if not manifest_path.exists():
+                    import subprocess
+                    subprocess.run([
+                        "python",
+                        "-m",
+                        "tools.benchmark.gguf_manifest",
+                        "build",
+                        f"--gguf={model_path}",
+                        "--partitioning",
+                        "contiguous_layers",
+                    ], check=False)
+                return self.start_model(model_path=str(model_path), model_id=entry['id'])
+        log.warning("No suitable model found for this node's hardware.")
+        return False
+
     def query_nvml_vram(self) -> None:
         """Query actual GPU memory used per card via nvidia-smi."""
         try:

@@ -1,0 +1,34 @@
+/* Theme overrides and dark/light mode */
+
+/* Dark theme (default) */
+[data-theme="dark"] {
+  --bg-base: #0a0e17;
+  --bg-surface: #111827;
+  --bg-card: rgba(19, 27, 46, 0.85);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-cyan: #00f0ff;
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --text-main: #f3f4f6;
+  --text-dim: #9ca3af;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --accent-cyan: #0099aa;
+  --accent-blue: #2563eb;
+  --accent-emerald: #059669;
+  --accent-amber: #d97706;
+  --accent-rose: #e11d48;
+  --text-main: #111827;
+  --text-dim: #4b5563;
+}
+
+/* Simple toggle via JavaScript */
+/* Add class "dark" or "light" to <html> element to switch */
