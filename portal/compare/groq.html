@@ -24,9 +24,8 @@
   <link rel="stylesheet" href="../portal.css?v=3.7">
 </head>
 <body>
-  <!-- Top Navigation Header (2-Row Layout) -->
+  <!-- Top Navigation Header -->
   <header class="site-header">
-    <!-- Row 1: Brand & Actions -->
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
@@ -35,6 +34,12 @@
 
       <div class="nav-actions">
         <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
         <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
         <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
         <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
@@ -43,84 +48,11 @@
       </div>
     </div>
 
-    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <!-- Row 2: Navigation Links -->
     <nav class="nav-sub-row">
       <div class="container nav-sub-container">
         <ul class="nav-links">
-          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
-          <li class="nav-item has-dropdown">
-            <a href="/#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/#playground" class="dropdown-item">
-                <span class="item-icon">⚡</span>
-                <div>
-                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
-                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
-                </div>
-              </a>
-              <a href="/marketplace" class="dropdown-item">
-                <span class="item-icon">🖥️</span>
-                <div>
-                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
-                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
-                </div>
-              </a>
-              <a href="/models" class="dropdown-item">
-                <span class="item-icon">📚</span>
-                <div>
-                  <strong data-i18n="nav_prod_models">Model Library</strong>
-                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
-                </div>
-              </a>
-              <a href="/downloads" class="dropdown-item">
-                <span class="item-icon">🏠</span>
-                <div>
-                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
-                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
-                </div>
-              </a>
-            </div>
-          </li>
-          <li class="nav-item has-dropdown">
-            <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/downloads" class="dropdown-item">
-                <span class="item-icon">🤖</span>
-                <div>
-                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
-                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
-                </div>
-              </a>
-              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🛡️</span>
-                <div>
-                  <strong data-i18n="nav_app_aegis">Aegis AI Security</strong>
-                  <p data-i18n="nav_app_aegis_sub">Zero-Knowledge Prompt-Firewall &amp; Datenschutz</p>
-                </div>
-              </a>
-              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🌳</span>
-                <div>
-                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
-                  <p data-i18n="nav_app_ancesora_sub">Genealogie &amp; historische Dokumenten-KI</p>
-                </div>
-              </a>
-              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📅</span>
-                <div>
-                  <strong data-i18n="nav_app_today">Today Assistant</strong>
-                  <p data-i18n="nav_app_today_sub">Tagesbriefing, smarte Aufgaben &amp; Kalender-Agent</p>
-                </div>
-              </a>
-              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📱</span>
-                <div>
-                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
-                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
-                </div>
-              </a>
-            </div>
-          </li>
+          <li><a href="/" data-i18n="nav_home">Home</a></li>
           <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
           <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
           <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
@@ -129,6 +61,7 @@
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
           <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
         </ul>
       </div>
     </nav>
