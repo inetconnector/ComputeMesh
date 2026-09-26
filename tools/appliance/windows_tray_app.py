@@ -253,7 +253,7 @@ class ComputeMeshProviderApp:
 
         self._apply_styles()
         self._build_ui()
-
+        self._ensure_cline_installed()
         # Intercept window close button and minimize event to keep running in System Tray
         self.root.protocol("WM_DELETE_WINDOW", self._hide_to_tray)
         self.root.bind("<Unmap>", self._on_window_unmap)
@@ -557,6 +557,45 @@ class ComputeMeshProviderApp:
             if p and p.exists() and p.is_file():
                 return p
         return None
+    def _get_cline_exe(self) -> Path | None:
+        candidates = [
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Cline" / "Cline.exe",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Cline" / "Cline.exe",
+            Path.home() / ".computemesh" / "bin" / "Cline.exe",
+            Path(os.environ.get("ProgramFiles", "")) / "Cline" / "Cline.exe",
+            Path(os.environ.get("ProgramFiles(x86)", "")) / "Cline" / "Cline.exe",
+            REPO_ROOT / "portal" / "downloads" / "Cline.exe",
+        ]
+        for p in candidates:
+            if p and p.exists() and p.is_file():
+                return p
+        return None
+
+    def _ensure_cline_installed(self) -> None:
+        """Ensure Cline CLI is installed and configure it to use the local ComputeMesh endpoint."""
+        try:
+            exe_path = self._get_cline_exe()
+            if exe_path is None or not exe_path.exists():
+                target_dir = Path.home() / ".computemesh" / "bin"
+                target_dir.mkdir(parents=True, exist_ok=True)
+                target_exe = target_dir / "Cline.exe"
+                _log_crash(f"[Cline] Downloading latest Cline binary to {target_exe}...")
+                url = "https://mesh.inetconnector.com/downloads/Cline.exe"
+                urllib.request.urlretrieve(url, str(target_exe))
+                if target_exe.exists() and target_exe.stat().st_size > 1000000:
+                    exe_path = target_exe
+                else:
+                    _log_crash("[Cline] Downloaded binary was invalid or too small.")
+                    return
+            settings_path = exe_path.parent / "settings.json"
+            cfg = {"openai_endpoint": "http://127.0.0.1:8080/v1"}
+            try:
+                settings_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+                _log_crash(f"[Cline] Wrote settings to {settings_path}")
+            except Exception:
+                pass
+        except Exception as e:
+            _log_crash(f"[Cline] Error ensuring Cline: {e}\n{traceback.format_exc()}")
 
     def _ensure_and_launch_localcode(self, tray_mode: bool = True) -> None:
         """Ensure latest LocalCode is present and launch it with /tray."""

@@ -119,9 +119,12 @@ class ModelManager:
         if storage_dir is not None:
             self.storage_dir = Path(storage_dir).resolve()
         else:
+            configured_storage = os.environ.get("COMPUTEMESH_MODEL_STORAGE_DIR")
             # Check standard NodeOS path
             nodeos_path = Path("/var/lib/computemesh/models")
-            if nodeos_path.exists() or os.name != "nt":
+            if configured_storage:
+                self.storage_dir = Path(configured_storage).expanduser().resolve()
+            elif nodeos_path.exists() or os.name != "nt":
                 self.storage_dir = nodeos_path
             else:
                 repo_root = Path(__file__).resolve().parents[2]
@@ -144,7 +147,7 @@ class ModelManager:
                 "free_gb": round(free / (1024**3), 2),
                 "total_gb": round(total / (1024**3), 2),
             }
-        except Exception as exc:
+        except OSError as exc:
             log.warning(f"Error checking disk usage for {self.storage_dir}: {exc}")
             return {
                 "storage_dir": str(self.storage_dir),
@@ -201,7 +204,7 @@ class ModelManager:
                             layers=layers,
                         )
                     )
-                except Exception as exc:
+                except (OSError, ValueError, OverflowError) as exc:
                     log.warning(f"Error inspecting model file {file}: {exc}")
 
         return models
@@ -252,7 +255,7 @@ class ModelManager:
                         "url": f"https://huggingface.co/{repo_id}",
                     })
                 return results
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
             log.warning(f"HuggingFace search error: {exc}")
             return [m for m in POPULAR_GGUF_MODELS if query_clean in m["id"].lower() or query_clean in m["name"].lower()]
 
@@ -295,7 +298,7 @@ class ModelManager:
             with open(filepath, "rb") as f:
                 magic = f.read(4)
                 return magic == b"GGUF"
-        except Exception as exc:
+        except OSError as exc:
             log.warning(f"Error checking GGUF magic header for {filepath}: {exc}")
             return False
 
@@ -323,7 +326,7 @@ class ModelManager:
                                 "sha256": lfs.get("oid") or lfs.get("sha256"),
                                 "size_bytes": lfs.get("size", 0),
                             }
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
             log.debug(f"Could not fetch HF metadata for {clean_repo}/{clean_file}: {exc}")
         return None
 
@@ -512,7 +515,7 @@ class ModelManager:
             prog.completed_at = time.time()
             log.info(f"Download completed successfully: {target_file}")
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - background worker must record every failure.
             log.error(f"Download failed for {url}: {exc}")
             prog.status = "FAILED"
             prog.error_message = str(exc)

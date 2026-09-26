@@ -42,11 +42,16 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
 - public live capacity counters based only on fresh authenticated node heartbeats;
+- serialized appliance heartbeats: a node rename keeps one consistent node ID from the immediate sync request through its posted payload and returned result, even while the periodic worker runs;
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
+- **Automated Model Selection**: The system automatically selects the optimal model for each node based on VRAM capacity, layer count, and benchmark performance.
+- **Cline Integration**: Provides a transparent fallback execution path when the primary model cannot be loaded or fails to meet performance criteria.
+- an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
+- an Android 1.2.164 APK published on the project download site and as the `android-latest` GitHub release, signed with the production key. Earlier 1.2.163 website APKs used a different debug certificate: existing installations must be uninstalled before installing 1.2.164, which can remove local app data. This is a signing-key migration, not an in-place update;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
@@ -67,6 +72,8 @@ Clone/download the repository and use the launcher for your OS:
 
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
+
+The Windows standalone bundle built by `deploy/windows/build_installer.py` includes the embedded dashboard's `portal/webui` files as well as `portal/assets`; omitting the WebUI tree makes `/webui` and `/chat` return 404 in a frozen app. On Linux, model files default to `/var/lib/computemesh/models`; set `COMPUTEMESH_MODEL_STORAGE_DIR` to an explicit writable path for an alternate deployment. `python run_all_tests.py` isolates this model path and test databases in a temporary directory. The appliance-configuration tests also redirect home/boot writes to temporary files and must never alter a real provider config.
 
 The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 

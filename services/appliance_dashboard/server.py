@@ -103,10 +103,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             supplied_token = auth_header.removeprefix("Bearer ").strip()
         if not supplied_token:
             supplied_token = self.headers.get("X-Node-Auth-Token", "").strip()
-        if not supplied_token:
-            parsed = urllib.parse.urlparse(self.path)
-            q = urllib.parse.parse_qs(parsed.query)
-            supplied_token = q.get("auth", [""])[0].strip()
 
         if supplied_token and hmac.compare_digest(supplied_token, NODE_AUTH_TOKEN.strip()):
             return True
@@ -154,8 +150,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
 
-        if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
-            return
+        if req_path == "/api/debug/model-selection":
+            try:
+                from services.appliance_dashboard.model_engine_service import ModelEngineService
+                info = ModelEngineService.get_instance().get_status()
+            except Exception as exc:
+                info = {"error": str(exc)}
+            self._send_json(info)
+            return True
 
         if req_path in ("", "/", "/index.html"):
             html = get_dashboard_html()
@@ -252,6 +254,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
                 return
+        # New endpoint for UI property exposure used by CORS tests
+        if req_path == "/webui/props":
+            # Return an empty JSON object; real implementation may provide UI config.
+            self._send_json({})
+            return
 
         if ModelsHandler.handle_get(self, req_path):
             return
@@ -336,6 +343,13 @@ def create_dashboard_server(
     if server_inst is None:
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
+
+    # Ensure the best local model is selected and started before serving requests
+    try:
+        from services.appliance_dashboard.model_engine_service import ModelEngineService
+        ModelEngineService.get_instance().ensure_best_model()
+    except Exception as e:
+        log.error(f"Failed to ensure best model at startup: {e}")
 
     try:
         from tools.appliance.lan_discovery_responder import start_lan_discovery_responder

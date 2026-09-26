@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
-  <link rel="stylesheet" href="/portal.css?v=4.0">
+  <link rel="stylesheet" href="/portal.css?v=4.3">
   <style>
     :root {
       --fleet-bg: #090d16;
@@ -540,10 +540,7 @@
 <body>
 
   <!-- Top Navigation Header -->
-  <!-- Top Navigation Header (2-Row Layout) -->
-  <!-- Top Navigation Header (2-Row Layout) -->
   <header class="site-header">
-    <!-- Row 1: Brand & Actions -->
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
@@ -566,99 +563,20 @@
       </div>
     </div>
 
-    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
+    <!-- Row 2: Navigation Links -->
     <nav class="nav-sub-row">
       <div class="container nav-sub-container">
         <ul class="nav-links">
-          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
-          <li class="nav-item has-dropdown">
-            <a href="/#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/#playground" class="dropdown-item">
-                <span class="item-icon">⚡</span>
-                <div>
-                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
-                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
-                </div>
-              </a>
-              <a href="/#marketplace" class="dropdown-item">
-                <span class="item-icon">🖥️</span>
-                <div>
-                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
-                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
-                </div>
-              </a>
-              <a href="/#models" class="dropdown-item">
-                <span class="item-icon">📚</span>
-                <div>
-                  <strong data-i18n="nav_prod_models">Model Library</strong>
-                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
-                </div>
-              </a>
-              <a href="/#lan-mesh" class="dropdown-item">
-                <span class="item-icon">🏠</span>
-                <div>
-                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
-                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
-                </div>
-              </a>
-            </div>
-          </li>
-          <li class="nav-item has-dropdown">
-            <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
-            <div class="dropdown-menu">
-              <a href="/#downloads" class="dropdown-item">
-                <span class="item-icon">🤖</span>
-                <div>
-                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
-                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
-                </div>
-              </a>
-              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🛡️</span>
-                <div>
-                  <strong data-i18n="nav_app_aegis">Aegis AI Security</strong>
-                  <p data-i18n="nav_app_aegis_sub">Zero-Knowledge Prompt-Firewall &amp; Datenschutz</p>
-                </div>
-              </a>
-              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">🌳</span>
-                <div>
-                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
-                  <p data-i18n="nav_app_ancesora_sub">Genealogie &amp; historische Dokumenten-KI</p>
-                </div>
-              </a>
-              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📅</span>
-                <div>
-                  <strong data-i18n="nav_app_today">Today Assistant</strong>
-                  <p data-i18n="nav_app_today_sub">Tagesbriefing, smarte Aufgaben &amp; Kalender-Agent</p>
-                </div>
-              </a>
-              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">📱</span>
-                <div>
-                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
-                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
-                </div>
-              </a>
-              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
-                <span class="item-icon">💻</span>
-                <div>
-                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
-                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
-                </div>
-              </a>
-            </div>
-          </li>
-          <li><a href="/#marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
-          <li><a href="/#models" data-i18n="nav_models">Modelle</a></li>
-          <li><a href="/#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/" data-i18n="nav_home">Home</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
           <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="/fleet" class="active" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
         </ul>
       </div>
     </nav>
@@ -2294,16 +2212,45 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
   <div id="deposit-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeDepositModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p><form onsubmit="handleDepositSubmit(event)"><div class="form-group"><label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label><input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);"></div><div class="form-group"><label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label><select id="deposit-amount-select" class="form-control" style="cursor: pointer;"><option value="10">$10.00 USD (Starter)</option><option value="25" selected>$25.00 USD (Pro)</option><option value="50">$50.00 USD (Scale)</option><option value="100">$100.00 USD (Enterprise Light)</option><option value="500">$500.00 USD (High-Volume)</option></select></div><button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button></form><div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div></div></div>
 
   <!-- Footer -->
+    <!-- Site Footer -->
   <footer class="site-footer">
-    <div class="container footer-bottom">
-      <div>&copy; 2026 ComputeMesh · InetConnector.com · <span data-i18n="footer_rights">Alle Rechte vorbehalten.</span></div>
-      <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-        <a href="/" data-i18n="nav_home">Startseite</a>
-        <a href="/security" style="color: var(--accent-emerald);" data-i18n="nav_security">Sicherheit & DSGVO</a>
-        <a href="/privacy" data-i18n="nav_privacy">Datenschutz</a>
-        <a href="/terms" data-i18n="nav_terms">AGB</a>
-        <a href="/impressum" data-i18n="nav_impressum">Impressum</a>
+    <div class="container footer-grid">
+      <div>
+        <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+        </p>
       </div>
+      <div>
+        <h4>Produkte</h4>
+        <ul>
+          <li><a href="/marketplace">GPU Marketplace</a></li>
+          <li><a href="/models">Model Library</a></li>
+          <li><a href="/pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Entwickler</h4>
+        <ul>
+          <li><a href="/docs">API Dokumentation</a></li>
+          <li><a href="/status">Systemstatus</a></li>
+          <li><a href="/security">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener">GitHub Repositories</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Rechtliches</h4>
+        <ul>
+          <li><a href="/impressum">Impressum</a></li>
+          <li><a href="/privacy">Datenschutz</a></li>
+          <li><a href="/terms">AGB</a></li>
+          <li><a href="/contact">Kontakt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
     </div>
   </footer>
 

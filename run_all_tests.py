@@ -6,13 +6,13 @@ across the entire ComputeMesh repository with granular category reporting and be
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from dataclasses import dataclass
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
@@ -35,6 +35,10 @@ os.environ.setdefault(
 os.environ.setdefault(
     "COMPUTEMESH_ACCOUNTING_DB_PATH",
     str(_TEST_STATE_ROOT / "accounting.db"),
+)
+os.environ.setdefault(
+    "COMPUTEMESH_MODEL_STORAGE_DIR",
+    str(_TEST_STATE_ROOT / "models"),
 )
 
 CATEGORIES: dict[str, list[str]] = {
@@ -182,8 +186,8 @@ class CategoryResult:
 def run_test_suite() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
+    except (AttributeError, OSError, ValueError):
+        pass  # stdout reconfiguration is optional on hosted consoles.
     print("=" * 80)
     print(" [COMPUTEMESH] UNIFIED TEST SUITE & QUALITY ASSURANCE HARNESS")
     print("=" * 80)
@@ -197,7 +201,7 @@ def run_test_suite() -> int:
         for mod in modules:
             try:
                 suite.addTests(loader.loadTestsFromName(mod))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - report a bad module and continue other suites.
                 print(f"  [ERROR] Failed to load test module {mod}: {exc}")
                 all_successful = False
         cat_start = time.perf_counter()

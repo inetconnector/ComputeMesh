@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from pathlib import Path
 import secrets
+import socket
 import sys
 import threading
-import time
-from typing import Any
 import urllib.request
+from pathlib import Path
+from typing import Any
 
 from config import CONFIG
 
@@ -24,14 +23,14 @@ def get_or_create_node_auth_token() -> str:
             token = token_file.read_text(encoding="utf-8").strip()
             if token:
                 return token
-    except Exception:
-        pass
+    except OSError:
+        logger.warning("Cannot read the saved node authentication token")
     new_token = "cm_tunnel_" + secrets.token_hex(16)
     try:
         token_file.parent.mkdir(parents=True, exist_ok=True)
         token_file.write_text(new_token, encoding="utf-8")
-    except Exception:
-        pass
+    except OSError:
+        logger.warning("Cannot persist the node authentication token")
     return new_token
 
 
@@ -44,12 +43,11 @@ def get_default_node_id() -> str:
         cfg = load_appliance_config()
         if getattr(cfg, "rig_name", "") and getattr(cfg, "rig_name", "").strip():
             return getattr(cfg, "rig_name", "").strip()
-    except Exception:
-        pass
-    import socket
+    except Exception:  # noqa: BLE001 - optional config must not prevent node startup
+        logger.debug("Appliance configuration unavailable; using hostname identity")
     try:
         raw_host = socket.gethostname().lower().replace("_", "-").strip()
-    except Exception:
+    except OSError:
         raw_host = "node"
     if sys.platform == "win32":
         return f"cm-win-{raw_host}"
@@ -68,8 +66,8 @@ class CloudTunnelRelay:
         try:
             from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - LAN discovery is best-effort
+            logger.debug("LAN discovery responder did not start")
         if autostart:
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
@@ -102,34 +100,38 @@ class CloudTunnelRelay:
     def perform_sync(self, updated_cfg: Any = None, previous_node_id: str | None = None) -> dict[str, Any]:
         """Performs a synchronous heartbeat and mesh sync to the coordinator."""
         with self._sync_lock:
-            from tools.appliance.appliance_config import load_appliance_config
-            from tools.appliance.hardware_detector import scan_rig_hardware
-            from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
-            from tools.appliance.token_metering import get_token_stats, sync_with_coordinator
+            return self._perform_sync_locked(updated_cfg, previous_node_id)
 
-            if updated_cfg is not None:
-                cfg_now = updated_cfg
-                eff_name = str(getattr(updated_cfg, "rig_name", "") or "").strip()
-                if eff_name:
-                    self.node_id = eff_name
-            else:
-                try:
-                    cfg_now = load_appliance_config()
-                    if getattr(cfg_now, "rig_name", "") and getattr(cfg_now, "rig_name", "").strip():
-                        self.node_id = getattr(cfg_now, "rig_name", "").strip()
-                except Exception:
-                    cfg_now = None
+    def _perform_sync_locked(self, updated_cfg: Any, previous_node_id: str | None) -> dict[str, Any]:
+        """Keep node identity and its heartbeat payload together for one complete sync."""
+        from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+        from tools.appliance.appliance_config import load_appliance_config
+        from tools.appliance.hardware_detector import scan_rig_hardware
+        from tools.appliance.token_metering import get_token_stats, sync_with_coordinator
 
-            owner_key = str(getattr(cfg_now, "owner_key", "") or "").strip() if cfg_now else ""
-            payout_address = str(getattr(cfg_now, "payout_address", "") or "").strip() if cfg_now else ""
+        if updated_cfg is not None:
+            cfg_now = updated_cfg
+        else:
+            try:
+                cfg_now = load_appliance_config()
+            except Exception:  # noqa: BLE001 - keep existing node ID if config is unavailable
+                logger.debug("Appliance configuration unavailable during mesh sync")
+                cfg_now = None
 
-            t_stats = get_token_stats()
-            toks_processed = int(t_stats.get("tokens_processed", 0) or 0)
-            earnings_cm = int(t_stats.get("earnings_cm", 0) or 0)
-            payout_usd = float(t_stats.get("earnings_usd", 0.0) or 0.0)
+        eff_name = str(getattr(cfg_now, "rig_name", "") or "").strip() if cfg_now else ""
+        if eff_name:
+            self.node_id = eff_name
+        node_id = self.node_id
+        owner_key = str(getattr(cfg_now, "owner_key", "") or "").strip() if cfg_now else ""
+        payout_address = str(getattr(cfg_now, "payout_address", "") or "").strip() if cfg_now else ""
 
-            inv = scan_rig_hardware()
-            tf = self._calculate_tflops(inv)
+        t_stats = get_token_stats()
+        toks_processed = int(t_stats.get("tokens_processed", 0) or 0)
+        earnings_cm = int(t_stats.get("earnings_cm", 0) or 0)
+        payout_usd = float(t_stats.get("earnings_usd", 0.0) or 0.0)
+
+        inv = scan_rig_hardware()
+        tf = self._calculate_tflops(inv)
         local_vram_gb = round(inv.total_vram_bytes / (1024**3), 1)
 
         # Query local multi-GPU model engine status
@@ -137,11 +139,11 @@ class CloudTunnelRelay:
         try:
             from services.appliance_dashboard.model_engine_service import ModelEngineService
             engine_status = ModelEngineService.get_instance().get_status()
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - optional engine status must not block heartbeat
+            logger.debug("Model engine status unavailable during mesh sync")
 
         local_payload = {
-            "node_id": self.node_id,
+            "node_id": node_id,
             "status": "online",
             "inventory": inv.to_dict(),
             "telemetry": {
@@ -168,20 +170,21 @@ class CloudTunnelRelay:
         dash_port = int(getattr(cfg_now, "dashboard_port", 8080) or 8080) if cfg_now else 8080
         try:
             from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
-            start_lan_discovery_responder(node_id=self.node_id, port=dash_port, gpu_summary="ComputeMesh Node")
-        except Exception:
-            pass
+            start_lan_discovery_responder(node_id=node_id, port=dash_port, gpu_summary="ComputeMesh Node")
+        except Exception:  # noqa: BLE001 - discovery is best-effort
+            logger.debug("LAN discovery responder update failed")
 
         try:
             from services.appliance_dashboard.network import get_network_interfaces
-            net_ifaces = get_network_interfaces(node_id=self.node_id, auth_token=self.auth_token, port=dash_port)
+            net_ifaces = get_network_interfaces(node_id=node_id, auth_token=self.auth_token, port=dash_port)
             lan_ips = [iface["ip"] for iface in net_ifaces if iface.get("interface") != "tunnel" and iface.get("ip")]
-        except Exception:
+        except Exception:  # noqa: BLE001 - network interface discovery is best-effort
+            logger.debug("Network interface discovery failed")
             net_ifaces = []
             lan_ips = []
 
         payload: dict[str, Any] = {
-            "node_id": self.node_id,
+            "node_id": node_id,
             "previous_node_id": previous_node_id or "",
             "auth_token": self.auth_token,
             "owner_key": owner_key,
@@ -269,19 +272,19 @@ class CloudTunnelRelay:
                                         owner_key=server_key,
                                     )
                                     save_system_config(up_cfg)
-                        except Exception:
-                            pass
-            except Exception as exc:
+                        except Exception:  # noqa: BLE001 - malformed coordinator data must not stop the relay
+                            logger.warning("Coordinator heartbeat metadata could not be applied")
+            except Exception as exc:  # noqa: BLE001 - report transport failures per endpoint
                 sync_results[hb_url] = {"error": str(exc)}
 
-        return {"node_id": self.node_id, "synced": True, "results": sync_results}
+        return {"node_id": node_id, "synced": True, "results": sync_results}
 
     def _worker(self) -> None:
         while self._running:
             try:
                 self.perform_sync()
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001 - keep retrying after a failed periodic sync
+                logger.warning("Periodic mesh sync failed")
             self._wake_event.wait(timeout=5.0)
             self._wake_event.clear()
 
@@ -298,14 +301,10 @@ def start_cloud_tunnel_relay(node_id: str | None = None, auth_token: str | None 
 
 def trigger_immediate_mesh_sync(updated_cfg: Any = None, previous_node_id: str | None = None) -> dict[str, Any]:
     """Expedites zero-delay mesh, LAN discovery, and coordinator synchronization."""
-    global CLOUD_TUNNEL_RELAY
     relay = CLOUD_TUNNEL_RELAY
     if relay is None:
         node_id = getattr(updated_cfg, "rig_name", "") if updated_cfg else None
         relay = start_cloud_tunnel_relay(node_id=node_id)
-    if updated_cfg and getattr(updated_cfg, "rig_name", "") and getattr(updated_cfg, "rig_name", "").strip():
-        relay.node_id = getattr(updated_cfg, "rig_name", "").strip()
-
     res = relay.perform_sync(updated_cfg=updated_cfg, previous_node_id=previous_node_id)
     relay.wake_now()
     return res

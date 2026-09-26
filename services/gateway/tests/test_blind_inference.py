@@ -63,7 +63,7 @@ def test_blinded_pipeline_engine_wrap_and_zeroize() -> None:
     buf, session_id = engine.secure_wrap_prompt(prompt)
     assert session_id
     with buf.open_plaintext() as pt:
-        assert pt.decode("utf-8") == prompt
+        assert bytes(pt).decode("utf-8") == prompt
 
     engine.sanitize_and_zeroize(buf)
     assert all(b == 0 for b in buf._ciphertext)

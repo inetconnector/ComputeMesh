@@ -1,6 +1,7 @@
 name: Agents Platform CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [AgentsPlatform]
   pull_request:

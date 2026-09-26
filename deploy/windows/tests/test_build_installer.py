@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from deploy.windows.build_installer import (
+    _pyinstaller_portal_data_options,
     _pyinstaller_tcl_tk_options,
     build_windows_standalone_bundle,
 )
@@ -32,6 +33,13 @@ class TestWindowsBuildInstaller(unittest.TestCase):
         self.assertIn("_tcl_data", options[1])
         self.assertIn("_tk_data", options[3])
         self.assertIn("_tkinter", options)
+
+    def test_pyinstaller_bundle_includes_webui(self) -> None:
+        options = _pyinstaller_portal_data_options()
+        self.assertIn("portal/assets", options[1])
+        self.assertIn("portal/webui", options[3])
+        source = Path(options[3].split(";", 1)[0])
+        self.assertTrue((source / "index.html").is_file())
 
 
 if __name__ == "__main__":
