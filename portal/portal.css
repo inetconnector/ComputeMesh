@@ -3719,3 +3719,50 @@ footer.site-footer {
   }
 }
 
+/* ==============================================================================
+   Professional Multi-Column Site Footer
+   ============================================================================== */
+footer.site-footer {
+  background: rgba(7, 10, 19, 0.95);
+  border-top: 1px solid var(--border-subtle);
+  padding: 4rem 1.5rem 2rem 1.5rem;
+  margin-top: 4rem;
+  width: 100%;
+}
+.site-footer .footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2.5rem;
+  margin-bottom: 3rem;
+}
+.site-footer h4 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+}
+.site-footer ul {
+  list-style: none;
+  font-size: 0.85rem;
+  line-height: 2;
+  padding: 0;
+  margin: 0;
+}
+.site-footer ul li a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.site-footer ul li a:hover {
+  color: var(--text-main);
+}
+.site-footer .footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 1.5rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+
