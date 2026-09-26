@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -8,7 +8,7 @@
   <meta name="keywords" content="AI Models, LLM Inferenz, DeepSeek R1, Qwen 2.5, Llama 3.3, OpenAI API Alternative, ComputeMesh">
   <link rel="canonical" href="https://mesh.inetconnector.com/models">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-  <link rel="stylesheet" href="portal.css?v=4.2">
+  <link rel="stylesheet" href="/portal.css?v=4.3">
 </head>
 <body>
   <!-- Top Navigation Header -->
@@ -278,41 +278,56 @@ for chunk in response:
     </div>
   </footer>
 
-  <!-- Modal -->
-  <div id="modal-backdrop" class="modal-backdrop" onclick="closeModal()"></div>
-  <div id="registration-modal" class="modal-dialog">
-    <div class="modal-header">
-      <h3 id="modal-title">🚀 ComputeMesh API-Zugang</h3>
-      <button class="modal-close-btn" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body">
+  <!-- Common Modals & Core Scripts -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 id="modal-title" style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_reg_title">🚀 ComputeMesh API-Zugang</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
       <form id="registration-form" onsubmit="compliantRegistration(event)">
         <input type="hidden" id="modal-role" value="consumer">
         <div class="form-group">
-          <label for="modal-email">E-Mail-Adresse (Geschäftlich):</label>
+          <label for="modal-email" data-i18n="modal_email_lbl">E-Mail-Adresse (Geschäftlich):</label>
           <input type="email" id="modal-email" class="form-control" required placeholder="name@company.com">
         </div>
-        <div class="form-group" style="margin-top: 1rem;">
-          <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Betriebsland der Hardware:</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="DE" selected>🇩🇪 Deutschland (DE)</option>
+              <option value="AT">🇦🇹 Österreich (AT)</option>
+              <option value="CH">🇨🇭 Schweiz (CH)</option>
+              <option value="FR">🇫🇷 Frankreich (FR)</option>
+              <option value="NL">🇳🇱 Niederlande (NL)</option>
+              <option value="OTHER">🌍 Anderes EU/EWR-Land</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="modal-wallet" data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Stripe Connect E-Mail oder Wallet:</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="payouts@yourdomain.com">
+          </div>
+        </div>
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display: flex; align-items: flex-start; gap: 0.55rem; cursor: pointer;">
             <input type="checkbox" id="business-user-confirm" required style="margin-top: 0.2rem;">
-            <span>Ich bestätige die geschäftliche B2B-Nutzung und akzeptiere die AGB &amp; Datenschutzbestimmungen.</span>
+            <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span>
           </label>
         </div>
-        <button type="submit" id="modal-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;">
+        <button type="submit" id="modal-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">
           🚀 API-Key generieren
         </button>
       </form>
-      <div id="modal-result-box" style="display: none; margin-top: 1.25rem;">
-        <label style="font-size: 0.85rem; color: var(--text-muted);">Dein API-Schlüssel:</label>
-        <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
-          <input type="text" id="generated-key-val" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem;">
-          <button class="btn btn-secondary btn-sm" onclick="copyGeneratedKey()">Kopieren</button>
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input type="text" id="generated-key-val" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan);">
+          <button class="btn btn-secondary btn-sm" onclick="copyKey()" data-i18n="modal_copy_btn">Kopieren</button>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="portal-core.js?v=4.2"></script>
-  <script src="portal.js?v=4.2"></script>
+  <script src="/portal-core.js?v=4.3"></script>
+  <script src="/portal.js?v=4.3"></script>
 </body>
 </html>
