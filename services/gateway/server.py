@@ -708,7 +708,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/qr", "/api/v1/qr"):
-            query_params = urllib.parse.parse_qs(parsed_path.query)
+            query_params = parse_qs(parsed_path.query)
             text = query_params.get("data", [""])[0].strip() or query_params.get("text", [""])[0].strip()
             if not text:
                 text = "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk"

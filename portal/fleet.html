@@ -715,9 +715,6 @@
         <button id="btn-cockpit-servers" class="cockpit-tab-btn active" onclick="switchCockpitView('servers')">
           <span data-i18n="fleet_nav_tab_servers">⚡ Verbundene Server</span>
         </button>
-        <button id="btn-cockpit-chatui" class="cockpit-tab-btn" onclick="openChatWindow()">
-          <span data-i18n="fleet_nav_tab_chatui">💬 AI-Chat</span>
-        </button>
         <button id="btn-cockpit-mcp" class="cockpit-tab-btn" onclick="switchCockpitView('mcp')">
           <span data-i18n="fleet_nav_tab_mcp">🔌 MCP &amp; Live-Tools</span>
         </button>
@@ -4125,6 +4122,10 @@ for chunk in stream:
       const qrImg = document.getElementById("fleet-pair-qr-img");
       if (qrImg && key && key !== "owner_..." && !key.includes("<")) {
         const pairPayload = `computemesh://pair?owner_key=${encodeURIComponent(key)}&gateway=https://mesh.inetconnector.com`;
+        qrImg.onerror = function() {
+          this.onerror = null;
+          this.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pairPayload)}`;
+        };
         qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
       }
     }
