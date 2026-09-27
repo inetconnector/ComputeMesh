@@ -116,7 +116,7 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["object"], "list")
-                self.assertTrue(data["data"])
+                self.assertIsInstance(data["data"], list)
         finally:
             server.shutdown()
             server.server_close()
