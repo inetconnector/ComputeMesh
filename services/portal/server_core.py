@@ -30,6 +30,7 @@ from services.gateway.dashboard import (
     render_node_remote_dashboard_html,
     save_node_telemetry_registry,
 )
+from services.gateway.model_inventory import sanitize_model_inventory
 from services.gateway.security import (
     GLOBAL_RATE_LIMITER,
     SECURITY_HEADERS,
@@ -191,7 +192,9 @@ class PortalHandler(BaseHTTPRequestHandler):
         if not self._check_rate_limit():
             return
 
-        clean_path = self.path.split("?")[0].rstrip("/")
+        parsed_url = urllib.parse.urlparse(self.path)
+        clean_path = parsed_url.path.rstrip("/")
+        query_params = urllib.parse.parse_qs(parsed_url.query)
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
 
         if clean_path in ("/api/v1/pricing", "/v1/pricing", "/pricing"):
@@ -289,7 +292,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     for m in models
                 ]
             except Exception:
-                models_data = [{"id": "qwen2.5:7b", "object": "model", "created": 0, "owned_by": "computemesh", "permission": [], "root": "qwen2.5:7b", "parent": None}]
+                models_data = []
             self._send_json({"object": "list", "data": models_data})
             return
 
@@ -731,7 +734,9 @@ class PortalHandler(BaseHTTPRequestHandler):
         if not self._check_rate_limit():
             return
 
-        clean_path = self.path.split("?")[0].rstrip("/")
+        parsed_url = urllib.parse.urlparse(self.path)
+        clean_path = parsed_url.path.rstrip("/")
+        query_params = urllib.parse.parse_qs(parsed_url.query)
         length = int(self.headers.get("Content-Length", 0))
         if length > 10 * 1024 * 1024:
             self._send_json({"error": "Payload too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
@@ -1113,6 +1118,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
+                "models": sanitize_model_inventory(body.get("models", [])),
                 "updated_at": now_iso,
             }
 
@@ -1153,6 +1159,14 @@ class PortalHandler(BaseHTTPRequestHandler):
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+            try:
+                from services.gateway.registry_inventory_sync import sync_model_inventory
+                sync_model_inventory(
+                    node_id=node_id,
+                    models=NODE_TELEMETRY_REGISTRY[node_id]["models"],
+                )
+            except Exception:
+                pass
             self._send_json({
                 "status": "ok",
                 "message": "heartbeat registered",

@@ -142,6 +142,13 @@ class CloudTunnelRelay:
         except Exception:  # noqa: BLE001 - optional engine status must not block heartbeat
             logger.debug("Model engine status unavailable during mesh sync")
 
+        model_inventory: list[dict[str, Any]] = []
+        try:
+            from tools.appliance.ollama_mesh_bridge import get_ollama_model_inventory
+            model_inventory = get_ollama_model_inventory()
+        except Exception:  # noqa: BLE001 - inventory failure must fail closed per model
+            logger.debug("Ollama model inventory unavailable during mesh sync")
+
         local_payload = {
             "node_id": node_id,
             "status": "online",
@@ -158,6 +165,7 @@ class CloudTunnelRelay:
             "active_model_id": engine_status.get("active_model_id"),
             "active_model_digest": engine_status.get("active_model_digest"),
             "engine_state": engine_status.get("state", "IDLE"),
+            "models": model_inventory,
         }
         gm = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
         if not gm.get("total_vram_gb") and local_vram_gb > 0:
@@ -208,6 +216,7 @@ class CloudTunnelRelay:
             "active_model_id": engine_status.get("active_model_id"),
             "active_model_digest": engine_status.get("active_model_digest"),
             "engine_state": engine_status.get("state", "IDLE"),
+            "models": model_inventory,
             "global_mesh": gm,
         }
 

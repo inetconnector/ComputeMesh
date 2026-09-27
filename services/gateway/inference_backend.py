@@ -7,15 +7,16 @@ nodes from a validated M1 scheduler placement decision.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import json
 import os
 import secrets
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
+from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.execution_attestation import (
     ExecutionAttestationError,
     VerificationKeyResolver,
@@ -25,7 +26,6 @@ from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
     verify_shared_execution_evidence,
 )
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.placement_selection import (
     PlacementSelection,
     PlacementSelectionError,
@@ -91,6 +91,7 @@ class SyntheticInferenceBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         **kwargs: Any,
     ) -> BackendResult:
         last_user_msg = ""
@@ -216,6 +217,7 @@ class OpenAICompatibleHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         response_format: dict[str, Any] | None = None,
         grammar: str | None = None,
         **kwargs: Any,
@@ -227,6 +229,8 @@ class OpenAICompatibleHTTPBackend:
             payload_data["max_tokens"] = max_tokens
         if tools:
             payload_data["tools"] = tools
+            if tool_choice is not None:
+                payload_data["tool_choice"] = tool_choice
         if response_format:
             payload_data["response_format"] = response_format
             if response_format.get("type") == "json_schema":
@@ -268,7 +272,7 @@ class OpenAICompatibleHTTPBackend:
                 ])
                 text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
             usage = body.get("usage", {})
-            prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(normalized)) // 4, 1))
+            prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(formatted_messages)) // 4, 1))
             completion_tokens = int(usage.get("completion_tokens") or max(len(text) // 4, 1))
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise InferenceBackendError("Inference runtime returned an invalid response") from exc
@@ -372,6 +376,7 @@ class OllamaHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         **kwargs: Any,
     ) -> BackendResult:
         normalized = self._normalise_messages(messages, self.system_prompt)
@@ -391,6 +396,8 @@ class OllamaHTTPBackend:
         }
         if tools:
             req_payload["tools"] = tools
+            if tool_choice is not None:
+                req_payload["tool_choice"] = tool_choice
 
         response_format = kwargs.get("response_format")
         if response_format and isinstance(response_format, dict):

@@ -40,6 +40,7 @@ os.environ.setdefault(
     "COMPUTEMESH_MODEL_STORAGE_DIR",
     str(_TEST_STATE_ROOT / "models"),
 )
+os.environ.setdefault("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", "1")
 
 CATEGORIES: dict[str, list[str]] = {
     "Protocol & Session Wire": [

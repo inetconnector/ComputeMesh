@@ -144,6 +144,8 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
         enable_mcp: bool = True,
+        client_tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         **kwargs: Any,
     ) -> tuple[str, str, int, int, int]:
         # Public free teaser remains deliberately outside durable owner economics.
@@ -157,6 +159,8 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                 is_provider_self_compute=False,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
+                client_tools=client_tools,
+                tool_choice=tool_choice,
             )
 
         owner_id = str(account_id or "").strip()
@@ -182,7 +186,19 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
             backend_result = None
-            if enable_mcp and getattr(self, "mcp_config", None) and self.mcp_config.enabled:
+            if client_tools:
+                with secure_buf.open_plaintext():
+                    backend_result = self.backend.complete(
+                        model_id=canonical_model_id,
+                        messages=normalized_messages,
+                        max_tokens=requested_max,
+                        tools=client_tools,
+                        tool_choice=tool_choice,
+                    )
+                completion_text = backend_result.text
+                tokens_prompt = backend_result.prompt_tokens
+                tokens_completion = backend_result.completion_tokens
+            elif enable_mcp and getattr(self, "mcp_config", None) and self.mcp_config.enabled:
                 disabled_tools: list[str] = []
                 if owner_id:
                     try:

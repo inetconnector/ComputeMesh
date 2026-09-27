@@ -23,6 +23,43 @@ def _looks_like_vision_model(model_name: str) -> bool:
     return any(token in lowered for token in ("-vl", ":vl", "vision", "llava", "moondream", "gemma3", "gemma4", "minicpm"))
 
 
+def _ollama_model_metadata(ollama_url: str, model_id: str) -> dict[str, Any]:
+    """Read Ollama's authoritative capabilities for one installed model."""
+    req = urllib.request.Request(
+        f"{ollama_url}/api/show",
+        data=json.dumps({"model": model_id}, separators=(",", ":")).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=3) as resp:
+        shown = json.loads(resp.read().decode("utf-8"))
+    capabilities = [str(value).strip().lower() for value in shown.get("capabilities", []) if str(value).strip()]
+    context_window = 0
+    model_info = shown.get("model_info", {})
+    if isinstance(model_info, dict):
+        for key, value in model_info.items():
+            if str(key).endswith(".context_length"):
+                try:
+                    context_window = max(0, int(value))
+                except (TypeError, ValueError):
+                    pass
+                break
+    details = shown.get("details", {}) if isinstance(shown.get("details"), dict) else {}
+    modalities = ["text"]
+    if "vision" in capabilities:
+        modalities.append("vision")
+    return {
+        "capabilities": capabilities,
+        "modalities": modalities,
+        "context_window": context_window,
+        "availability": "available_warm",
+        "available": True,
+        "family": str(details.get("family", "")),
+        "parameter_size": str(details.get("parameter_size", "")),
+        "quantization": str(details.get("quantization_level", "")),
+    }
+
+
 def _ollama_message(message: Any) -> dict[str, Any]:
     """Translate OpenAI multimodal content parts to Ollama's message shape."""
     if not isinstance(message, dict):
@@ -230,19 +267,28 @@ class InferenceRouter:
                     for item in ollama_items:
                         m_id = item.get("id") or item.get("name") or item.get("model")
                         if m_id and not any(m["id"] == m_id for m in models_list):
-                            models_list.append({"id": m_id, "object": "model", "owned_by": "ollama"})
+                            metadata = _ollama_model_metadata(ollama_url, str(m_id))
+                            models_list.append({
+                                "id": m_id,
+                                "object": "model",
+                                "owned_by": "ollama",
+                                "size_bytes": int(item.get("size", 0) or 0),
+                                **metadata,
+                            })
             except Exception:
                 pass
 
-            if not models_list:
-                models_list = [
-                    {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
-                    {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
-                    {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
-                ]
-
             if "/tags" in clean_path:
-                handler._send_json({"models": [{"name": m["id"], "model": m["id"]} for m in models_list]})
+                handler._send_json({"models": [
+                    {
+                        "name": m["id"],
+                        "model": m["id"],
+                        "size": int(m.get("size_bytes", 0) or 0),
+                        "capabilities": list(m.get("capabilities", [])),
+                        "availability": m.get("availability", "available_warm"),
+                    }
+                    for m in models_list
+                ]})
             else:
                 handler._send_json({"object": "list", "data": models_list})
             return True
@@ -727,18 +773,7 @@ class InferenceRouter:
                         for item in img_data["data"]:
                             if isinstance(item, dict) and "b64_json" in item and not item.get("url"):
                                 b64 = item["b64_json"]
-                                try:
-                                    import base64
-                                    import uuid
-                                    raw_bytes = base64.b64decode(b64)
-                                    img_id = uuid.uuid4().hex[:12]
-                                    fname = f"image_{img_id}.png"
-                                    gen_dir = REPO_ROOT / "portal" / "generated"
-                                    gen_dir.mkdir(parents=True, exist_ok=True)
-                                    (gen_dir / fname).write_bytes(raw_bytes)
-                                    item["url"] = f"/generated/{fname}"
-                                except Exception:
-                                    item["url"] = f"data:image/png;base64,{b64}"
+                                item["url"] = f"data:image/png;base64,{b64}"
                     handler._send_json(img_data)
                     return True
             except Exception:
