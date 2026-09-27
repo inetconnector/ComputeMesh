@@ -5,12 +5,47 @@ import time
 import unittest
 import urllib.request
 
-from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.inference_router import (
+    _extract_openai_tool_calls,
+    _ollama_message,
+)
+from services.appliance_dashboard.server import DashboardHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 
 class TestDashboardServer(unittest.TestCase):
+    def test_cline_json_tool_call_is_exposed_as_openai_tool_call(self) -> None:
+        tools = [{
+            "type": "function",
+            "function": {
+                "name": "list_files",
+                "parameters": {"type": "object"},
+            },
+        }]
+
+        calls = _extract_openai_tool_calls(
+            {"role": "assistant", "content": '{"name":"list_files","arguments":{"path":"."}}'},
+            tools,
+        )
+
+        self.assertEqual(calls[0]["function"]["name"], "list_files")
+        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"path": "."})
+
+    def test_cline_tool_history_is_preserved_for_ollama(self) -> None:
+        translated = _ollama_message({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "read_file", "arguments": '{"path":"README.md"}'},
+            }],
+        })
+
+        self.assertEqual(translated["tool_calls"][0]["function"]["name"], "read_file")
+        self.assertEqual(translated["tool_calls"][0]["function"]["arguments"], {"path": "README.md"})
+
     def test_dashboard_endpoints(self) -> None:
         mock_config = ApplianceConfig(
             rig_name="test-rig",
@@ -156,8 +191,8 @@ class TestDashboardServer(unittest.TestCase):
             pcie_riser_warning=False,
         )
 
-        from http.server import ThreadingHTTPServer
         import urllib.error
+        from http.server import ThreadingHTTPServer
         DashboardHandler.config = mock_config
         DashboardHandler.inventory = mock_inventory
         DashboardHandler.node_id = "win-test-node"
@@ -248,8 +283,8 @@ class TestDashboardServer(unittest.TestCase):
             server.server_close()
 
     def test_cors_options_preflight_and_private_network(self) -> None:
-        from http.server import ThreadingHTTPServer
         from http.client import HTTPConnection
+        from http.server import ThreadingHTTPServer
         server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
         th = threading.Thread(target=server.serve_forever, daemon=True)
         th.start()

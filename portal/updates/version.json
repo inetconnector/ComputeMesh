@@ -1,14 +1,14 @@
 {
   "version": "1.2.169",
-  "release_date": "2026-09-27T01:35:18.904014+00:00",
+  "release_date": "2026-09-27T08:41:19.370373+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
       "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "314742fe006f505f15de3fe54ad672e3bf9bd298dbc81ccb83a12e18015a193d",
-      "size_bytes": 120890268
+      "sha256": "d3fd954b01c10dc0992e227f656b31c4ce5172d51f71c30368e02b30e6c9ac74",
+      "size_bytes": 97514627
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
@@ -35,5 +35,5 @@
       "size_bytes": 6651
     }
   },
-  "signature": "2f4884cd38d6a607be418d9449d7cfcc12aff211328e733083fb5d0fde958f10e7bdda6f1d153f8ea71c2fcd932ca21f9fc8821686a0c01cb0ce4fa83ab1f00f"
+  "signature": "4df947528cc9a12972ef4c353df28516055ea77a07deb1f4a7f1b12f9ed29aef690cebcb2355125881faa0f20f57fe5976a9f9448d2f317372fe0a04314e7305"
 }

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -4826,7 +4826,7 @@ for chunk in stream:
       }
 
       // Check localStorage for saved key
-      const savedKey = localStorage.getItem("cm_fleet_owner_key");
+      const savedKey = localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("apiKey") || localStorage.getItem("cm_token");
       if (savedKey) {
         activeOwnerKey = savedKey;
         document.getElementById("input-owner-key").value = savedKey;
