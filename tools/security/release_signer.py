@@ -8,12 +8,12 @@ update manifests (version.json) that clients verify before applying any update.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -21,8 +21,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import CONFIG
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
+from tools.security.signing_keys import TRUSTED_RELEASE_PUBLIC_KEYS_HEX
 
 DISKSTATION_PATH = Path(r"\\diskstation\Dani\ComputeMesh")
 # Must never live inside a git working tree: a home-directory secrets folder
@@ -73,7 +75,7 @@ def get_or_create_keypair() -> tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519P
             ds_private_key_file.write_bytes(priv_raw)
             ds_public_key_file.write_text(pub_raw.hex() + "\n", encoding="utf-8")
             print(f"Saved master private key to {ds_private_key_file}")
-        except Exception as e:
+        except OSError as e:
             print(f"Warning: Could not write to DiskStation: {e}")
 
     # Save to local backup (outside the repo tree; see LOCAL_BACKUP_PATH).
@@ -129,9 +131,6 @@ def compute_sha256(file_path: Path) -> str:
     return h.hexdigest()
 
 
-from config import CONFIG
-
-
 def sign_manifest(
     version: str,
     downloads_dir: Path,
@@ -184,7 +183,7 @@ def sign_manifest(
 
     manifest_data = {
         "version": version,
-        "release_date": datetime.now(timezone.utc).isoformat(),
+        "release_date": datetime.now(UTC).isoformat(),
         "min_compatible_version": "1.0.0",
         "public_key": pub_raw.hex(),
         "platforms": artifacts,
@@ -217,13 +216,16 @@ def verify_manifest(manifest_path: Path) -> bool:
     pub_hex = data.get("public_key")
     if not pub_hex:
         return False
+    if pub_hex.lower() not in {key.lower() for key in TRUSTED_RELEASE_PUBLIC_KEYS_HEX}:
+        print("Signature verification failed: manifest key is not trusted")
+        return False
 
     try:
         pub_key = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
         canonical_bytes = json.dumps(data, sort_keys=True).encode("utf-8")
         pub_key.verify(bytes.fromhex(sig_hex), canonical_bytes)
         return True
-    except Exception as e:
+    except (InvalidSignature, ValueError) as e:
         print(f"Signature verification failed: {e}")
         return False
 

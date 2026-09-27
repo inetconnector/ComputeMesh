@@ -157,3 +157,109 @@ def mission_get_summary(mission_id: str, workspace_root: Optional[str] = None) -
         data = json.load(f)
 
     return {"success": True, "mission": data}
+
+
+def checkpoint_save(
+    checkpoint_id: str,
+    data: Optional[Dict[str, Any]] = None,
+    artifacts: Optional[List[str]] = None,
+    notes: str = "",
+    workspace_root: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Saves a named/numbered state checkpoint (e.g. 'CP01', 'CP19') to ensure zero-loss resumption."""
+    clean_id = str(checkpoint_id or "").strip()
+    if not clean_id:
+        clean_id = f"CP_{int(time.time())}"
+
+    root = os.path.abspath(workspace_root or ".")
+    cp_dir = os.path.join(root, ".computemesh", "checkpoints")
+    os.makedirs(cp_dir, exist_ok=True)
+
+    cp_file = os.path.join(cp_dir, f"{clean_id}.json")
+    record = {
+        "checkpoint_id": clean_id,
+        "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "timestamp": time.time(),
+        "notes": notes,
+        "artifacts": artifacts or [],
+        "data": data or {},
+    }
+
+    with open(cp_file, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=2, ensure_ascii=False)
+
+    return {
+        "success": True,
+        "checkpoint_id": clean_id,
+        "checkpoint_path": os.path.relpath(cp_file, root),
+        "saved_at": record["saved_at"],
+        "artifacts_count": len(record["artifacts"]),
+    }
+
+
+def checkpoint_resume(
+    checkpoint_id: Optional[str] = None,
+    workspace_root: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resumes work by loading the specified or most recent saved checkpoint."""
+    root = os.path.abspath(workspace_root or ".")
+    cp_dir = os.path.join(root, ".computemesh", "checkpoints")
+    if not os.path.exists(cp_dir):
+        return {"error": "Keine Checkpoints in diesem Workspace vorhanden.", "success": False}
+
+    files = [f for f in os.listdir(cp_dir) if f.endswith(".json")]
+    if not files:
+        return {"error": "Keine Checkpoint-Dateien gefunden.", "success": False}
+
+    target_file = None
+    if checkpoint_id:
+        clean_id = str(checkpoint_id).strip()
+        candidate = f"{clean_id}.json" if not clean_id.endswith(".json") else clean_id
+        if candidate in files:
+            target_file = candidate
+
+    if not target_file:
+        # Pick the most recently modified checkpoint
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(cp_dir, x)), reverse=True)
+        target_file = files[0]
+
+    full_path = os.path.join(cp_dir, target_file)
+    with open(full_path, "r", encoding="utf-8") as f:
+        record = json.load(f)
+
+    return {
+        "success": True,
+        "checkpoint": record,
+        "checkpoint_id": record.get("checkpoint_id", target_file[:-5]),
+        "total_available_checkpoints": len(files),
+    }
+
+
+def checkpoint_list(workspace_root: Optional[str] = None) -> Dict[str, Any]:
+    """Lists all available checkpoints in chronological order for review and resumption."""
+    root = os.path.abspath(workspace_root or ".")
+    cp_dir = os.path.join(root, ".computemesh", "checkpoints")
+    if not os.path.exists(cp_dir):
+        return {"success": True, "checkpoints": [], "count": 0}
+
+    files = [f for f in os.listdir(cp_dir) if f.endswith(".json")]
+    checkpoints = []
+    for f in sorted(files):
+        p = os.path.join(cp_dir, f)
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+                checkpoints.append({
+                    "checkpoint_id": data.get("checkpoint_id", f[:-5]),
+                    "saved_at": data.get("saved_at", ""),
+                    "notes": data.get("notes", ""),
+                    "artifacts": data.get("artifacts", []),
+                })
+        except Exception:
+            continue
+
+    return {
+        "success": True,
+        "checkpoints": checkpoints,
+        "count": len(checkpoints),
+    }

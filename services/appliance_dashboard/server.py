@@ -254,10 +254,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
                 return
-        # New endpoint for UI property exposure used by CORS tests
-        if req_path == "/webui/props":
-            # Return an empty JSON object; real implementation may provide UI config.
-            self._send_json({})
+        if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
             return
 
         if ModelsHandler.handle_get(self, req_path):

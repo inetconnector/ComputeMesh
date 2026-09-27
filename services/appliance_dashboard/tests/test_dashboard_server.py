@@ -76,6 +76,12 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(data["inventory"]["total_gpus"], 1)
                 self.assertIsNotNone(data["global_mesh"])
                 self.assertIn("total_nodes_online", data["global_mesh"])
+
+            with urllib.request.urlopen("http://127.0.0.1:18999/v1/models") as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data["object"], "list")
+                self.assertTrue(data["data"])
         finally:
             server.shutdown()
             server.server_close()

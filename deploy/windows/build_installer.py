@@ -120,6 +120,8 @@ def build_windows_standalone_bundle(
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
+        "--clean",
+        "--noconfirm",
         "--onefile",
         "--noconsole",
         "--name", output_exe_path.stem,

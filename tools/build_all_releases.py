@@ -7,23 +7,35 @@ updates SHA-256 checksums, and signs version.json with the Master Ed25519 key.
 from __future__ import annotations
 
 import hashlib
-import json
-import os
-from pathlib import Path
 import shutil
-import subprocess
 import sys
 import tarfile
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from config import CONFIG
+from deploy.windows.build_installer import build_windows_standalone_bundle
 
 VERSION = CONFIG.appliance_version
 DOWNLOADS_DIR = REPO_ROOT / "portal" / "downloads"
 UPDATES_DIR = REPO_ROOT / "portal" / "updates"
+
+
+def _exclude_linux_release_path(name: str) -> bool:
+    """Return whether a repository path is local/generated release input."""
+    parts = Path(name).parts
+    if any(part in {".git", ".gradle", ".pytest_cache", "__pycache__", "build", "dist"} for part in parts):
+        return True
+    if parts[:2] == ("portal", "downloads"):
+        return True
+    if parts[:2] == ("runtime", "sd_cpp_src"):
+        return True
+    if parts[:2] == ("runtime", "sd_cpp"):
+        return len(parts) > 2 and parts[2] != "image_engine_service.py"
+    return False
 
 
 def build_linux_tarball() -> Path:
@@ -53,11 +65,7 @@ def build_linux_tarball() -> Path:
     ]
 
     def _filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        name = tarinfo.name
-        # Skip temp and build caches
-        if "__pycache__" in name or ".pytest_cache" in name or ".git" in name:
-            return None
-        if "portal/downloads" in name or "dist" in name or "build" in name:
+        if _exclude_linux_release_path(tarinfo.name):
             return None
         return tarinfo
 
@@ -80,23 +88,11 @@ def build_linux_tarball() -> Path:
 def build_windows_exe() -> Path:
     """Build standalone Windows installer executable via PyInstaller."""
     print("\n[2/4] Building Windows Standalone Executable (ComputeMesh-Setup-x64.exe)...")
-    spec_file = REPO_ROOT / "ComputeMesh-Setup-x64.spec"
     dist_dir = REPO_ROOT / "dist"
-    build_dir = REPO_ROOT / "build"
-
-    cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--clean",
-        "--noconfirm",
-        "--distpath", str(dist_dir),
-        "--workpath", str(build_dir),
-        str(spec_file),
-    ]
-    subprocess.run(cmd, cwd=REPO_ROOT, check=True)
-
     built_exe = dist_dir / "ComputeMesh-Setup-x64.exe"
+    result = build_windows_standalone_bundle(built_exe, version=VERSION)
     target_exe = DOWNLOADS_DIR / "ComputeMesh-Setup-x64.exe"
-    shutil.copy2(built_exe, target_exe)
+    shutil.copy2(result.output_path, target_exe)
 
     size = target_exe.stat().st_size
     sha = hashlib.sha256(target_exe.read_bytes()).hexdigest()
@@ -122,7 +118,7 @@ def sign_and_verify_release() -> None:
     from tools.security.release_signer import sign_manifest, verify_manifest
 
     manifest_file = UPDATES_DIR / "version.json"
-    manifest = sign_manifest(
+    sign_manifest(
         version=VERSION,
         downloads_dir=DOWNLOADS_DIR,
         output_manifest=manifest_file,
@@ -134,9 +130,9 @@ def sign_and_verify_release() -> None:
 
 
 def main() -> int:
-    print(f"====================================================================")
+    print("====================================================================")
     print(f"         Building ComputeMesh Release v{VERSION} (Windows + Linux)  ")
-    print(f"====================================================================")
+    print("====================================================================")
     build_linux_tarball()
     build_windows_exe()
     copy_installer_script()
