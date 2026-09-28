@@ -2748,7 +2748,10 @@ function renderRealMarketplaceCards(nodes, isDe) {
 
   container.innerHTML = '';
 
-  if (!nodes || nodes.length === 0) {
+  // Filter to active compute nodes with dedicated VRAM/GPUs
+  const gpuNodes = nodes.filter(n => (n.vram_gb && Number(n.vram_gb) > 0) || (n.gpus && n.gpus.length > 0 && !n.node_id.startsWith("android-")));
+
+  if (!gpuNodes || gpuNodes.length === 0) {
     container.innerHTML = `
       <div class="market-card highlight" style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem; background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(56, 189, 248, 0.08)); border: 1px dashed rgba(56, 189, 248, 0.35);">
         <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🌐</div>
@@ -2765,8 +2768,8 @@ function renderRealMarketplaceCards(nodes, isDe) {
     return;
   }
 
-  // Render each REAL live node
-  nodes.forEach(node => {
+  // Render each REAL live GPU node
+  gpuNodes.forEach(node => {
     const gpusList = (node.gpus && node.gpus.length > 0) ? node.gpus : ['ComputeMesh Hardware Worker'];
     const gpusStr = gpusList.join(' • ');
     const isOnline = Boolean(node.is_online || node.status === 'online');
