@@ -84,18 +84,6 @@ from .builtin.workspace_quarantine import quarantine_stage_files, quarantine_val
 from .skill_execution import build_skill_engine
 from services.memory.user_memory import get_user_memory, update_user_memory, delete_user_memory
 
-# Administrative wrapper tools are callable through explicit MCP/API routes but should not
-# be advertised to small chat models. In particular, qwen2.5 1.5B can spuriously
-# select execute_custom_tool for ordinary conversational turns, which makes llama.cpp
-# WebUI render an internal function-call card instead of a user-facing answer.
-MODEL_HIDDEN_TOOL_NAMES = frozenset({
-    "save_dynamic_tool",
-    "list_saved_custom_tools",
-    "get_custom_tool_details",
-    "remove_dynamic_tool",
-    "execute_custom_tool",
-})
-
 DEFAULT_TOOL_TTL: Dict[str, float] = {
     "list_deployed_webapps": 5.0,
     "run_doctor_diagnostics": 10.0,
@@ -598,18 +586,7 @@ class ToolRegistry:
         return [tool for tool in self._tools.values() if not tool.owner_only]
 
     def get_openai_tools(self, is_owner: bool = True) -> List[Dict[str, Any]]:
-        """Return tools safe to advertise directly to a chat model.
-
-        Administrative custom-tool wrappers remain available in the registry and via
-        explicit MCP/API calls. Hiding them prevents small local models from confusing
-        execute_custom_tool with a normal conversational response. Persisted custom
-        tools themselves are still advertised individually.
-        """
-        return [
-            tool.to_openai_dict()
-            for tool in self.list_tools(is_owner=is_owner)
-            if tool.name not in MODEL_HIDDEN_TOOL_NAMES
-        ]
+        return [tool.to_openai_dict() for tool in self.list_tools(is_owner=is_owner)]
 
     def execute_tool(self, name: str, arguments: Dict[str, Any], is_owner: bool = True, owner_id: str | None = None) -> Any:
         resolved = self._resolve_tool_name(name)
