@@ -50,8 +50,15 @@ Governs the OpenAI-compatible HTTP server (`/v1/chat/completions`, `/v1/models`)
 | `COMPUTEMESH_GATEWAY_HOST` | String | `127.0.0.1` | Network interface address the gateway binds to. |
 | `COMPUTEMESH_GATEWAY_PORT` | Integer | `18000` | HTTP port for the OpenAI-compatible gateway. |
 | `COMPUTEMESH_INFERENCE_BACKEND` | String | `auto` | Backend adapter (`llama_cpp`, `ollama`, `vllm`, `mock`). |
+| `COMPUTEMESH_INFERENCE_URL` | URL | backend-specific | Runtime API base URL. Ollama model discovery uses its `/api/tags` and `/api/show` endpoints. |
+| `COMPUTEMESH_INFERENCE_MODEL` | String | `""` | Exact runtime model override. When set, only this installed model is advertised; a missing model fails closed. |
 | `COMPUTEMESH_DEFAULT_MODEL` | String | `qwen/qwen2.5-7b-instruct` | Fallback model ID when none is specified in client request. |
 | `COMPUTEMESH_MODEL_REGISTRY_URL` | URL | `""` | Remote URL endpoint for dynamic model catalogue synchronisation. |
+| `COMPUTEMESH_MODEL_REGISTRY_TOKEN` | Secret | `""` | Optional Bearer token for the public catalogue view of the private registry. |
+| `COMPUTEMESH_RUNTIME_CATALOG_CACHE_SECONDS` | Number | `10` | Bounded cache duration for live runtime model discovery. |
+| `COMPUTEMESH_PRIVATE_REGISTRY_RECONCILE_URL` | URL | `""` | Optional private authenticated endpoint that receives the node's minimized model inventory. |
+| `COMPUTEMESH_INTERNAL_SERVICE_TOKEN` | Secret | `""` | Bearer credential used for private internal service calls, including inventory reconciliation. |
+| `COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG` | Boolean | `false` | Development/test-only opt-in for the legacy static catalogue when no authoritative live source exists. |
 | `COMPUTEMESH_PROVIDER_SHARES` | String | `""` | JSON or comma-separated mapping of provider node IDs to revenue shares. |
 | `COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID` | String | `node_test_settle_02` | Default provider node credited during live testmode settlements. |
 

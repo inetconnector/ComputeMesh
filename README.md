@@ -42,20 +42,27 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
 - public live capacity counters based only on fresh authenticated node heartbeats;
+- serialized appliance heartbeats: a node rename keeps one consistent node ID from the immediate sync request through its posted payload and returned result, even while the periodic worker runs;
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
+- a live model catalogue: Ollama-backed gateways derive `/v1/models` from installed runtime models and `/api/show` metadata, advertise capabilities/modalities/context, and reject unavailable explicit model IDs instead of silently substituting another model. Static catalogue fallback requires an explicit development/test opt-in;
 - OpenAI-compatible native function tool calls whose JSON arguments are
   normalized once for both llama.cpp and Ollama runtimes;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
+- **Automated Model Selection**: The system automatically selects the optimal model for each node based on VRAM capacity, layer count, and benchmark performance.
+- **Optional Cline integration on Windows**: the provider app exposes a separate `Cline (VS Code)` checkbox. After explicit confirmation it installs the official per-user Visual Studio Code build when needed, installs the official `saoudrizwan.claude-dev` Marketplace extension through VS Code's `bin\code.cmd` CLI, and configures Cline's canonical `openai`/`openai-compatible` provider path for the local node at `http://127.0.0.1:8080/v1`. It prefers an installed coding model and falls back to `auto`. Cline tool schemas and tool-result history pass through to Ollama as OpenAI-compatible `tool_calls`, while ordinary dashboard requests retain the internal ComputeMesh MCP loop. A small local bridge reopens the Cline view after VS Code reloads for a project change. `Code.exe` is used only to launch the visible editor; unrelated Cline providers and credentials are preserved.
+- minimized model inventory in node heartbeats: model IDs, availability and public runtime capabilities can be reconciled into the authenticated private registry without exposing private placement, pricing or reputation inputs;
+- an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
+- an Android 1.2.164 APK published on the project download site and as the `android-latest` GitHub release, signed with the production key. Earlier 1.2.163 website APKs used a different debug certificate: existing installations must be uninstalled before installing 1.2.164, which can remove local app data. This is a signing-key migration, not an in-place update;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.40` is live at `https://computemesh.inetconnector.com/updates/version.json`.
+Current signed client/update channel: `v1.2.170` is live at `https://computemesh.inetconnector.com/updates/version.json`.
 
 ## What Is Not Promised Yet
 
@@ -69,6 +76,12 @@ Clone/download the repository and use the launcher for your OS:
 
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
+
+The Windows standalone bundle built by `deploy/windows/build_installer.py` includes the embedded dashboard's `portal/webui` files as well as `portal/assets`; omitting the WebUI tree makes `/webui` and `/chat` return 404 in a frozen app. On Linux, model files default to `/var/lib/computemesh/models`; set `COMPUTEMESH_MODEL_STORAGE_DIR` to an explicit writable path for an alternate deployment. `python run_all_tests.py` isolates this model path and test databases in a temporary directory. The appliance-configuration tests also redirect home/boot writes to temporary files and must never alter a real provider config.
+
+The master release builder reuses that same Windows packaging path and excludes local Gradle caches, downloaded Stable Diffusion sources, and compiler outputs from the Linux source archive. It signs one manifest for the Windows, Linux, NodeOS, and installer-script artifacts; build-time verification accepts only keys embedded in the client release trust list.
+
+On Windows, enabling `Cline (VS Code)` is the installation consent boundary. No VS Code or Cline download occurs while the option is disabled. The setup uses Microsoft's official stable user-installer URL and the Visual Studio Marketplace extension ID, then persists the choice in `~/.computemesh/provider_config.json`. On later node starts the app verifies Cline and the ComputeMesh workspace bridge, refreshes the local model choice, and launches VS Code automatically. Disabling the option stops automatic launch and workspace refocusing; it does not uninstall VS Code, Cline, or delete Cline settings.
 
 The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 

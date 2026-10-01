@@ -214,19 +214,13 @@
     }
   };
 
-  const core = document.createElement('script');
-  core.src = 'portal-core.js?v=4.1';
-  core.async = false;
-  core.onload = setupModalHooks;
-  core.onerror = function () {
-    const fallback = document.createElement('script');
-    fallback.src = '/portal-core.js?v=4.1';
-    fallback.async = false;
-    fallback.onload = setupModalHooks;
-    fallback.onerror = function () {
-      console.error('ComputeMesh portal core failed to load');
-    };
-    document.head.appendChild(fallback);
-  };
-  document.head.appendChild(core);
+  if (window.openModal || typeof window.translations === 'object') {
+    setupModalHooks();
+  } else {
+    const core = document.createElement('script');
+    core.src = '/portal-core.js?v=4.3';
+    core.async = false;
+    core.onload = setupModalHooks;
+    document.head.appendChild(core);
+  }
 })();

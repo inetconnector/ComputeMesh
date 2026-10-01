@@ -1,0 +1,47 @@
+/* Base Reset and Design Tokens */
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: var(--font-main, 'Inter', sans-serif);
+  background-color: var(--bg-base, #0a0e17);
+  color: var(--text-main, #f3f4f6);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Design Tokens */
+:root {
+  --bg-base: #0a0e17;
+  --bg-surface: #111827;
+  --bg-card: rgba(19, 27, 46, 0.75);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-cyan: #00f0ff;
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --text-main: #f3f4f6;
+  --text-dim: #9ca3af;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.6rem;
+  --shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+
+[data-theme="light"] {
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --border-color: rgba(0,0,0,0.08);
+  --text-main: #111827;
+  --text-dim: #4b5563;
+}

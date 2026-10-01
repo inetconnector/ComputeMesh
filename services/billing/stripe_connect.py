@@ -441,6 +441,11 @@ class SettlementExecutor:
                 f"provider balance {balance} below minimum payout threshold {MINIMUM_PAYOUT_MICRO_UNITS}"
             )
 
+        if not provider.stripe_connected_account_id or not provider.stripe_connected_account_id.strip().startswith("acct_"):
+            raise BillingError(
+                f"Provider '{provider_node_id}' has no valid Stripe Connected Account (acct_...) configured for payouts. Connect a Stripe account via /fleet first."
+            )
+
         settlement_currency = os.environ.get("COMPUTEMESH_STRIPE_SETTLEMENT_CURRENCY", "usd").strip().lower() or "usd"
         settlement_id = f"settle_provider_{provider_node_id}_{balance}"
         now = utc_now()
@@ -452,7 +457,7 @@ class SettlementExecutor:
             amount_usd=round(balance / MICRO_UNIT_SCALE, 4),
             currency=settlement_currency,
             stripe_connected_account_id=provider.stripe_connected_account_id,
-            destination=provider.payout_wallet_address or provider.stripe_connected_account_id,
+            destination=provider.stripe_connected_account_id,
             status="pending",
             created_at=now,
             updated_at=now,
@@ -481,7 +486,7 @@ class SettlementExecutor:
             ledger_tx_id=tx.tx_id,
             stripe_transfer_id=transfer_id,
             stripe_connected_account_id=provider.stripe_connected_account_id,
-            destination=provider.payout_wallet_address or provider.stripe_connected_account_id,
+            destination=provider.stripe_connected_account_id,
             status="completed",
             created_at=pending.created_at,
             updated_at=utc_now(),

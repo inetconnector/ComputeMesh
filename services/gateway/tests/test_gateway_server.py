@@ -104,6 +104,8 @@ class TestGatewayServer(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         cls.fake_stripe = FakeStripeClient()
+        cls.previous_static_catalog = os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG")
+        os.environ["COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG"] = "1"
         os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
         GatewayHandler.ledger = Ledger()
         GatewayHandler.account_store = AccountingStore(Path(cls.tempdir.name) / "accounting.sqlite")
@@ -150,6 +152,10 @@ class TestGatewayServer(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.tempdir.cleanup()
+        if cls.previous_static_catalog is None:
+            os.environ.pop("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", None)
+        else:
+            os.environ["COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG"] = cls.previous_static_catalog
 
     def register_customer_key(self, key: str, account_id: str | None = None) -> str:
         account = account_id or f"cust_{key.removeprefix('cm_live_')}"
@@ -269,6 +275,58 @@ class TestGatewayServer(unittest.TestCase):
             self.assertEqual(data["choices"][0]["finish_reason"], "stop")
             self.assertIn("usage", data)
             self.assertGreater(data["usage"]["total_tokens"], 0)
+
+    def test_chat_completions_preserves_client_tool_contract(self) -> None:
+        payload = {
+            "model": "qwen/qwen2.5-7b-instruct",
+            "messages": [{"role": "user", "content": "What is the weather in Berlin?"}],
+            "stream": False,
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "get_current_weather",
+                    "description": "Get current weather",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"location": {"type": "string"}},
+                        "required": ["location"],
+                    },
+                },
+            }],
+            "tool_choice": "auto",
+        }
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer cm_live_test_key_002",
+            },
+        )
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        choice = data["choices"][0]
+        self.assertEqual(choice["finish_reason"], "tool_calls")
+        self.assertEqual(choice["message"]["tool_calls"][0]["function"]["name"], "get_current_weather")
+        self.assertIsNone(choice["message"]["content"])
+
+    def test_explicit_unknown_model_fails_instead_of_substituting(self) -> None:
+        req = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/chat/completions",
+            data=json.dumps({
+                "model": "missing/model",
+                "messages": [{"role": "user", "content": "Hello"}],
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer cm_live_test_key_002",
+            },
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req)
+        self.assertEqual(ctx.exception.code, 400)
+        body = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertEqual(body["error"]["type"], "model_not_available")
 
     def test_ollama_chat_non_streaming(self) -> None:
         payload = {

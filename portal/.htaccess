@@ -17,6 +17,10 @@ RewriteRule ^downloads/computemesh-nodeos-x86_64\.(iso|img\.xz)$ https://github.
 RewriteRule ^datenschutz/?$ privacy.html [L,QSA]
 RewriteRule ^kontakt/?$ contact.html [L,QSA]
 
+# Explicit routing for pages that share a name with a directory
+RewriteRule ^downloads/?$ downloads.html [L,QSA]
+RewriteRule ^models/?$ models.html [L,QSA]
+
 # Force clean URLs without .html extension
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

@@ -2,19 +2,21 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from services.appliance_dashboard.server import ApplianceConfig, DashboardHandler
+from services.appliance_dashboard.server import ApplianceConfig
 from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay, trigger_immediate_mesh_sync
-from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
+from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 from services.gateway.server import OWNER_ACCOUNT_STORE, _build_fleet_payload, owner_id_for_key
 from services.portal.server_core import PortalHandler
 
@@ -46,7 +48,7 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
         """Verify trigger_immediate_mesh_sync formats payload with previous_node_id and payout_address."""
         mock_resp = MagicMock()
         mock_resp.status = 200
-        mock_resp.read.return_value = json.dumps({"status": "ok", "owner_key": "k_123"}).encode("utf-8")
+        mock_resp.read.return_value = json.dumps({"status": "ok"}).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_resp
 
         updated_cfg = ApplianceConfig(
@@ -56,7 +58,10 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
             dashboard_port=8080,
         )
 
-        res = trigger_immediate_mesh_sync(updated_cfg=updated_cfg, previous_node_id="old-rig-name")
+        with patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"):
+            relay = CloudTunnelRelay(node_id="old-rig-name", autostart=False)
+        with patch("services.appliance_dashboard.tunnel_relay.CLOUD_TUNNEL_RELAY", relay):
+            res = trigger_immediate_mesh_sync(updated_cfg=updated_cfg, previous_node_id="old-rig-name")
         self.assertTrue(res.get("synced"))
         self.assertEqual(res.get("node_id"), "new-rig-name")
 
@@ -68,6 +73,63 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
         self.assertEqual(posted_data["previous_node_id"], "old-rig-name")
         self.assertEqual(posted_data["payout_address"], "0x1234567890abcdef1234567890abcdef12345678")
         self.assertEqual(posted_data["owner_key"], "inet-test-owner-key-123")
+
+    @patch("urllib.request.urlopen")
+    def test_parallel_sync_keeps_node_identity_until_heartbeat_finishes(self, mock_urlopen) -> None:
+        """A periodic sync must not overwrite a concurrent rename's heartbeat or result."""
+        old_cfg = ApplianceConfig(rig_name="old-rig-name")
+        updated_cfg = ApplianceConfig(rig_name="new-rig-name")
+        with patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"):
+            relay = CloudTunnelRelay(node_id="old-rig-name", autostart=False)
+        heartbeat_started = threading.Event()
+        release_heartbeat = threading.Event()
+
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"status":"ok"}'
+        mock_resp.__enter__.return_value = mock_resp
+
+        def post_heartbeat(request, timeout):
+            if not heartbeat_started.is_set():
+                heartbeat_started.set()
+                if not release_heartbeat.wait(5):
+                    raise TimeoutError("heartbeat test was not released")
+            return mock_resp
+
+        mock_urlopen.side_effect = post_heartbeat
+
+        inventory = MagicMock()
+        inventory.gpus = []
+        inventory.total_vram_bytes = 0
+        inventory.to_dict.return_value = {}
+        with (
+            patch("tools.appliance.appliance_config.load_appliance_config", return_value=old_cfg),
+            patch("tools.appliance.hardware_detector.scan_rig_hardware", return_value=inventory),
+            patch("tools.appliance.token_metering.get_token_stats", return_value={}),
+            patch("services.appliance_dashboard.mesh_aggregator.GLOBAL_MESH_AGGREGATOR.get_mesh_stats", return_value={}),
+            patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
+            patch("services.appliance_dashboard.network.get_network_interfaces", return_value=[]),
+            ThreadPoolExecutor(max_workers=2) as executor,
+        ):
+            periodic = executor.submit(relay.perform_sync)
+            try:
+                self.assertTrue(heartbeat_started.wait(5), "periodic heartbeat did not start")
+                # The lock must cover the network send, not just payload preparation.
+                acquired = relay._sync_lock.acquire(blocking=False)
+                if acquired:
+                    relay._sync_lock.release()
+                self.assertFalse(acquired)
+                renamed = executor.submit(relay.perform_sync, updated_cfg)
+            finally:
+                release_heartbeat.set()
+
+            periodic_result = periodic.result(timeout=10)
+            renamed_result = renamed.result(timeout=10)
+
+        self.assertEqual(periodic_result["node_id"], "old-rig-name")
+        self.assertEqual(renamed_result["node_id"], "new-rig-name")
+        sent_ids = [json.loads(call.args[0].data.decode("utf-8"))["node_id"] for call in mock_urlopen.call_args_list]
+        self.assertEqual(sent_ids, ["old-rig-name", "new-rig-name"])
 
     def test_coordinator_heartbeat_unlinks_previous_node_id_and_stores_payout(self) -> None:
         """Verify PortalHandler unlinks previous_node_id immediately upon receiving heartbeat."""
@@ -117,14 +179,12 @@ class TestImmediateConfigSyncAndButtonLabel(unittest.TestCase):
 
         with patch.object(PortalHandler, "_check_rate_limit", return_value=True):
             # Emulate POST /api/v1/node/heartbeat
-            clean_path = "/api/v1/node/heartbeat"
             body = heartbeat_body
             # Execute logic as in server_core.py
             # Call PortalHandler logic directly or via mocked do_POST
             node_id = str(body.get("node_id", "")).strip()
             auth_token = str(body.get("auth_token", "")).strip()
 
-            from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
             from services.portal.server_core import NODE_AUTH_TOKEN_REGEX, NODE_ID_REGEX
             self.assertTrue(NODE_ID_REGEX.match(node_id))
             self.assertTrue(NODE_AUTH_TOKEN_REGEX.match(auth_token))

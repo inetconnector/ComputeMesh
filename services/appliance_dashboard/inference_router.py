@@ -1,25 +1,72 @@
 """Inference, Model Discovery, and MCP Agent Routing for ComputeMesh Appliance."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import json
 import logging
 import os
-from pathlib import Path
+import re
 import subprocess
 import sys
 import time
-from typing import Any, Callable, Dict, List, Optional
 import urllib.parse
 import urllib.request
+from http import HTTPStatus
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("computemesh.appliance.inference")
+
+
+def _send_backend_error(handler: Any, *, message: str, log_message: str, exc: Exception) -> None:
+    """Log diagnostic details locally while returning a stable client contract."""
+    log.error("%s: %s", log_message, exc)
+    handler._send_json(
+        {"error": {"message": message, "code": 502, "type": "backend_unavailable"}},
+        HTTPStatus.BAD_GATEWAY,
+    )
 
 
 def _looks_like_vision_model(model_name: str) -> bool:
     """Return whether an Ollama model name conventionally accepts images."""
     lowered = str(model_name or "").lower()
     return any(token in lowered for token in ("-vl", ":vl", "vision", "llava", "moondream", "gemma3", "gemma4", "minicpm"))
+
+
+def _ollama_model_metadata(ollama_url: str, model_id: str) -> dict[str, Any]:
+    """Read Ollama's authoritative capabilities for one installed model."""
+    req = urllib.request.Request(
+        f"{ollama_url}/api/show",
+        data=json.dumps({"model": model_id}, separators=(",", ":")).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=3) as resp:
+        shown = json.loads(resp.read().decode("utf-8"))
+    capabilities = [str(value).strip().lower() for value in shown.get("capabilities", []) if str(value).strip()]
+    context_window = 0
+    model_info = shown.get("model_info", {})
+    if isinstance(model_info, dict):
+        for key, value in model_info.items():
+            if str(key).endswith(".context_length"):
+                try:
+                    context_window = max(0, int(value))
+                except (TypeError, ValueError):
+                    pass
+                break
+    details = shown.get("details", {}) if isinstance(shown.get("details"), dict) else {}
+    modalities = ["text"]
+    if "vision" in capabilities:
+        modalities.append("vision")
+    return {
+        "capabilities": capabilities,
+        "modalities": modalities,
+        "context_window": context_window,
+        "availability": "available_warm",
+        "available": True,
+        "family": str(details.get("family", "")),
+        "parameter_size": str(details.get("parameter_size", "")),
+        "quantization": str(details.get("quantization_level", "")),
+    }
 
 
 def _ollama_message(message: Any) -> dict[str, Any]:
@@ -30,7 +77,28 @@ def _ollama_message(message: Any) -> dict[str, Any]:
     role = str(message.get("role", "user")).strip() or "user"
     content = message.get("content")
     if not isinstance(content, list):
-        return {"role": role, "content": str(content or "")}
+        normalized = {"role": role, "content": str(content or "")}
+        if role == "assistant" and isinstance(message.get("tool_calls"), list):
+            tool_calls: list[dict[str, Any]] = []
+            for call in message["tool_calls"]:
+                function = call.get("function", {}) if isinstance(call, dict) else {}
+                arguments = function.get("arguments", {}) if isinstance(function, dict) else {}
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {}
+                tool_calls.append({
+                    "function": {
+                        "name": str(function.get("name", "")),
+                        "arguments": arguments if isinstance(arguments, dict) else {},
+                    }
+                })
+            if tool_calls:
+                normalized["tool_calls"] = tool_calls
+        if role == "tool" and message.get("name"):
+            normalized["tool_name"] = str(message["name"])
+        return normalized
 
     text_parts: list[str] = []
     images: list[str] = []
@@ -59,6 +127,73 @@ def _ollama_message(message: Any) -> dict[str, Any]:
     if images:
         normalized["images"] = images
     return normalized
+
+
+def _extract_openai_tool_calls(message: Any, tools: Any) -> list[dict[str, Any]]:
+    """Convert Ollama-native or strict JSON tool output into OpenAI tool calls."""
+    if not isinstance(message, dict) or not isinstance(tools, list):
+        return []
+    allowed_names = {
+        str(tool.get("function", {}).get("name", ""))
+        for tool in tools
+        if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
+    }
+    calls: list[dict[str, Any]] = []
+    native_calls = message.get("tool_calls")
+    if isinstance(native_calls, list):
+        for index, call in enumerate(native_calls):
+            function = call.get("function", {}) if isinstance(call, dict) else {}
+            name = str(function.get("name", "")) if isinstance(function, dict) else ""
+            if not name or name not in allowed_names:
+                continue
+            arguments = function.get("arguments", {})
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    arguments = {}
+            calls.append({
+                "id": str(call.get("id") or f"call_computemesh_{index + 1}"),
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "arguments": json.dumps(arguments if isinstance(arguments, dict) else {}, ensure_ascii=False),
+                },
+            })
+    if calls:
+        return calls
+
+    content = str(message.get("content") or "").strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", content, flags=re.DOTALL | re.IGNORECASE)
+    if fenced:
+        content = fenced.group(1).strip()
+    try:
+        decoded = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    candidates = decoded if isinstance(decoded, list) else [decoded]
+    for index, candidate in enumerate(candidates):
+        if not isinstance(candidate, dict):
+            continue
+        function = candidate.get("function") if isinstance(candidate.get("function"), dict) else candidate
+        name = str(function.get("name") or candidate.get("name") or "")
+        if not name or name not in allowed_names:
+            continue
+        arguments = function.get("arguments", candidate.get("arguments", {}))
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        calls.append({
+            "id": f"call_computemesh_{index + 1}",
+            "type": "function",
+            "function": {
+                "name": name,
+                "arguments": json.dumps(arguments if isinstance(arguments, dict) else {}, ensure_ascii=False),
+            },
+        })
+    return calls
 
 
 def _ensure_image_engine_running(timeout: float = 3.0) -> bool:
@@ -111,7 +246,10 @@ class InferenceRouter:
 
             # Check local ModelEngineService
             try:
-                from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                from services.appliance_dashboard.model_engine_service import (
+                    EngineState,
+                    ModelEngineService,
+                )
                 engine = ModelEngineService.get_instance()
                 if engine.state == EngineState.READY and engine.active_model_id:
                     models_list.append({"id": engine.active_model_id, "object": "model", "owned_by": "nodeos-multi-gpu", "active": True})
@@ -138,19 +276,28 @@ class InferenceRouter:
                     for item in ollama_items:
                         m_id = item.get("id") or item.get("name") or item.get("model")
                         if m_id and not any(m["id"] == m_id for m in models_list):
-                            models_list.append({"id": m_id, "object": "model", "owned_by": "ollama"})
+                            metadata = _ollama_model_metadata(ollama_url, str(m_id))
+                            models_list.append({
+                                "id": m_id,
+                                "object": "model",
+                                "owned_by": "ollama",
+                                "size_bytes": int(item.get("size", 0) or 0),
+                                **metadata,
+                            })
             except Exception:
                 pass
 
-            if not models_list:
-                models_list = [
-                    {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
-                    {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
-                    {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
-                ]
-
             if "/tags" in clean_path:
-                handler._send_json({"models": [{"name": m["id"], "model": m["id"]} for m in models_list]})
+                handler._send_json({"models": [
+                    {
+                        "name": m["id"],
+                        "model": m["id"],
+                        "size": int(m.get("size_bytes", 0) or 0),
+                        "capabilities": list(m.get("capabilities", [])),
+                        "availability": m.get("availability", "available_warm"),
+                    }
+                    for m in models_list
+                ]})
             else:
                 handler._send_json({"object": "list", "data": models_list})
             return True
@@ -223,7 +370,10 @@ class InferenceRouter:
 
             # Check local ModelEngineService
             try:
-                from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                from services.appliance_dashboard.model_engine_service import (
+                    EngineState,
+                    ModelEngineService,
+                )
                 engine = ModelEngineService.get_instance()
                 if engine.state == EngineState.READY and engine.active_model_id:
                     available_models.append(engine.active_model_id)
@@ -276,7 +426,10 @@ class InferenceRouter:
                     else:
                         target_model = available_models[0]
                 elif requested_model not in available_models and not any(requested_model.lower() in m.lower() for m in available_models):
-                    from services.mcp.intent.intent_router import detect_direct_tool_intent, is_compound_multi_step_query
+                    from services.mcp.intent.intent_router import (
+                        detect_direct_tool_intent,
+                        is_compound_multi_step_query,
+                    )
                     if not (detect_direct_tool_intent(all_text) or is_compound_multi_step_query(all_text)):
                         # An explicit model request is a contract when not handled by autonomous live tools.
                         handler._send_json(
@@ -312,16 +465,102 @@ class InferenceRouter:
 
             is_stream = payload.get("stream", True)
 
+            # IDE agents such as Cline own their tool execution loop. Forward
+            # their schemas to Ollama instead of substituting ComputeMesh MCP.
+            client_tools = payload.get("tools")
+            if isinstance(client_tools, list) and client_tools:
+                try:
+                    ollama_req: dict[str, Any] = {
+                        "model": target_model,
+                        "messages": [_ollama_message(message) for message in messages],
+                        "tools": client_tools,
+                        "stream": False,
+                        "options": {
+                            "temperature": float(payload.get("temperature", 0.2) or 0.2),
+                            "num_predict": min(4096, int(payload.get("max_tokens", 2048) or 2048)),
+                        },
+                    }
+                    req = urllib.request.Request(
+                        f"{ollama_url}/api/chat",
+                        data=json.dumps(ollama_req).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        ollama_data = json.loads(resp.read().decode("utf-8"))
+                    ollama_message = ollama_data.get("message", {})
+                    tool_calls = _extract_openai_tool_calls(ollama_message, client_tools)
+                    content = str(ollama_message.get("content") or "")
+                    if tool_calls and content.strip().startswith(("{", "[", "```")):
+                        content = ""
+                    finish_reason = "tool_calls" if tool_calls else "stop"
+                    usage = {
+                        "prompt_tokens": int(ollama_data.get("prompt_eval_count", 0) or 0),
+                        "completion_tokens": int(ollama_data.get("eval_count", 0) or 0),
+                    }
+                    usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
+                    if is_stream:
+                        handler.send_response(HTTPStatus.OK)
+                        handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                        handler.send_header("Cache-Control", "no-cache")
+                        handler.send_header("Connection", "close")
+                        handler._send_cors_headers()
+                        handler.end_headers()
+                        delta: dict[str, Any] = {"role": "assistant"}
+                        if content:
+                            delta["content"] = content
+                        if tool_calls:
+                            delta["tool_calls"] = [dict(call, index=index) for index, call in enumerate(tool_calls)]
+                        chunk = {
+                            "id": "chatcmpl-node-tools",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": target_model,
+                            "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+                        }
+                        handler.wfile.write(
+                            f"data: {json.dumps(chunk, ensure_ascii=False)}\n\ndata: [DONE]\n\n".encode("utf-8")
+                        )
+                        handler.wfile.flush()
+                    else:
+                        response_message: dict[str, Any] = {"role": "assistant", "content": content or None}
+                        if tool_calls:
+                            response_message["tool_calls"] = tool_calls
+                        handler._send_json({
+                            "id": "chatcmpl-node-tools",
+                            "object": "chat.completion",
+                            "created": int(time.time()),
+                            "model": target_model,
+                            "choices": [{
+                                "index": 0,
+                                "message": response_message,
+                                "finish_reason": finish_reason,
+                            }],
+                            "usage": usage,
+                        })
+                    return True
+                except Exception as exc:
+                    _send_backend_error(
+                        handler,
+                        message="Tool inference backend unavailable",
+                        log_message="Cline-compatible tool inference failed",
+                        exc=exc,
+                    )
+                    return True
+
             from services.mcp.agent_loop import AgentLoop
-            from services.mcp.tool_registry import ToolRegistry
             from services.mcp.config import get_mcp_config
+            from services.mcp.tool_registry import ToolRegistry
 
             agent_loop = AgentLoop(registry=ToolRegistry(get_mcp_config()))
 
             def node_llm_caller(msg_list: list[dict[str, Any]], tools_list: list[dict[str, Any]]) -> dict[str, Any]:
                 # 1. Check if llama-server ModelEngineService is running with matching model
                 try:
-                    from services.appliance_dashboard.model_engine_service import ModelEngineService, EngineState
+                    from services.appliance_dashboard.model_engine_service import (
+                        EngineState,
+                        ModelEngineService,
+                    )
                     engine = ModelEngineService.get_instance()
                     active_id = engine.active_model_id or ""
                     active_fname = Path(engine.active_model_path or "").name
@@ -461,8 +700,7 @@ class InferenceRouter:
                     handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
                     handler.send_header("Cache-Control", "no-cache")
                     handler.send_header("Connection", "close")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
-                    handler.send_header("Access-Control-Allow-Private-Network", "true")
+                    handler._send_cors_headers()
                     handler.end_headers()
 
                     chunk_obj = {
@@ -502,9 +740,12 @@ class InferenceRouter:
                     handler._send_json(openai_resp)
                 return True
             except Exception as e:
-                err_msg = f"Inference backend unavailable: {str(e)}"
-                log.error(err_msg)
-                handler._send_json({"error": {"message": err_msg, "code": 502, "type": "backend_unavailable"}}, HTTPStatus.BAD_GATEWAY)
+                _send_backend_error(
+                    handler,
+                    message="Inference backend unavailable",
+                    log_message="Inference backend failed",
+                    exc=e,
+                )
                 return True
 
         # 2. Image Generation Route (/v1/images/generations)
@@ -543,18 +784,7 @@ class InferenceRouter:
                         for item in img_data["data"]:
                             if isinstance(item, dict) and "b64_json" in item and not item.get("url"):
                                 b64 = item["b64_json"]
-                                try:
-                                    import base64
-                                    import uuid
-                                    raw_bytes = base64.b64decode(b64)
-                                    img_id = uuid.uuid4().hex[:12]
-                                    fname = f"image_{img_id}.png"
-                                    gen_dir = REPO_ROOT / "portal" / "generated"
-                                    gen_dir.mkdir(parents=True, exist_ok=True)
-                                    (gen_dir / fname).write_bytes(raw_bytes)
-                                    item["url"] = f"/generated/{fname}"
-                                except Exception:
-                                    item["url"] = f"data:image/png;base64,{b64}"
+                                item["url"] = f"data:image/png;base64,{b64}"
                     handler._send_json(img_data)
                     return True
             except Exception:
@@ -571,7 +801,11 @@ class InferenceRouter:
                 })
                 return True
             except Exception as exc:
-                handler._send_json({"error": {"message": f"Image generation error: {exc}", "type": "server_error"}}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                log.error("Image generation failed: %s", exc)
+                handler._send_json(
+                    {"error": {"message": "Image generation backend unavailable", "type": "server_error"}},
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
                 return True
 
         return False

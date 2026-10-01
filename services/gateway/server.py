@@ -26,9 +26,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore
-from services.billing.ledger import Ledger
+from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
+from services.gateway.model_inventory import sanitize_model_inventory
+from services.gateway.inference_backend import InferenceBackendError
 from services.portal.passkey_routes import FLEET_ACCOUNT_STORE, PasskeyAuthHandler, session_account_from_headers
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
@@ -62,6 +64,30 @@ def owner_id_for_key(owner_key: str) -> str | None:
     if not cleaned:
         return None
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
+
+
+def _validate_client_tools(value: Any) -> list[dict[str, Any]] | None:
+    if value is None or value == []:
+        return None
+    if not isinstance(value, list) or len(value) > 128:
+        raise ValueError("tools must be an array with at most 128 entries")
+    result: list[dict[str, Any]] = []
+    names: set[str] = set()
+    for tool in value:
+        if not isinstance(tool, dict) or tool.get("type") != "function":
+            raise ValueError("only function tools are supported")
+        function = tool.get("function")
+        if not isinstance(function, dict):
+            raise ValueError("tool function must be an object")
+        name = str(function.get("name", "")).strip()
+        if not name or len(name) > 128 or name in names:
+            raise ValueError("tool names must be non-empty, unique, and at most 128 characters")
+        parameters = function.get("parameters", {})
+        if not isinstance(parameters, dict):
+            raise ValueError("tool parameters must be a JSON schema object")
+        names.add(name)
+        result.append(tool)
+    return result
 
 
 def _extract_discrete_hardware_fingerprint(n: dict[str, Any]) -> tuple[Any, ...]:
@@ -294,7 +320,13 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import current_models, model_modalities, model_modality_flags, resolve_model_id
+from services.gateway.catalog import (
+    current_models,
+    model_capabilities,
+    model_modalities,
+    model_modality_flags,
+    resolve_model_id,
+)
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     _extract_candidate_local_urls,
@@ -546,6 +578,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
+        query = parse_qs(parsed_path.query)
         if clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/"):
             from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
             t_name = clean_path.split("/")[-1]
@@ -708,7 +741,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/qr", "/api/v1/qr"):
-            query_params = urllib.parse.parse_qs(parsed_path.query)
+            query_params = parse_qs(parsed_path.query)
             text = query_params.get("data", [""])[0].strip() or query_params.get("text", [""])[0].strip()
             if not text:
                 text = "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk"
@@ -1127,6 +1160,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
+        query = parse_qs(parsed_path.query)
 
         content_length_hdr = self.headers.get("Content-Length")
         if not content_length_hdr:
@@ -1355,6 +1389,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
+                "models": sanitize_model_inventory(body.get("models", [])),
                 "updated_at": now_iso,
             }
 
@@ -1395,6 +1430,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+            try:
+                from services.gateway.registry_inventory_sync import sync_model_inventory
+                sync_model_inventory(
+                    node_id=node_id,
+                    models=NODE_TELEMETRY_REGISTRY[node_id]["models"],
+                )
+            except Exception:
+                pass
             resp = {
                 "status": "ok",
                 "message": "heartbeat registered",
@@ -1951,8 +1994,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def _handle_props(self) -> None:
-        models = current_models()
-        default_model = models[0].id if models else "qwen2.5:7b"
+        models = [model for model in current_models() if getattr(model, "available", True)]
+        default_model = models[0].id if models else ""
         props = {
             "default_generation_settings": {
                 "n_ctx": 32768,
@@ -1983,8 +2026,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_json(props)
 
     def _handle_slots(self) -> None:
-        models = current_models()
-        default_model = models[0].id if models else "qwen2.5:7b"
+        models = [model for model in current_models() if getattr(model, "available", True)]
+        if not models:
+            self._send_json([])
+            return
+        default_model = models[0].id
         slots = [
             {
                 "id": 0,
@@ -1997,7 +2043,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_json(slots)
 
     def _handle_models(self) -> None:
-        models = current_models()
+        models = [model for model in current_models() if getattr(model, "available", True)]
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
@@ -2012,16 +2058,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "root": m.id,
                 "parent": None,
                 "modalities": list(model_modalities(m)) if openai_model_list else model_modality_flags(m),
-                "capabilities": list(model_modalities(m)),
+                "capabilities": list(model_capabilities(m)),
                 "availability": getattr(m, "availability", "catalogued"),
                 "available": getattr(m, "available", True),
+                "context_window": int(getattr(m, "context_length", getattr(m, "context_window", 0)) or 0),
             }
             for m in models
         ]
         self._send_json({"object": "list", "data": models_data})
 
     def _handle_ollama_tags(self) -> None:
-        models = current_models()
+        models = [model for model in current_models() if getattr(model, "available", True)]
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
@@ -2048,7 +2095,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
     def _handle_ollama_show(self, body: dict[str, Any]) -> None:
         requested = str(body.get("name", "") or body.get("model", "")).strip()
-        model_id = resolve_model_id(requested)
+        try:
+            model_id = resolve_model_id(requested)
+        except ValueError as exc:
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
+            return
         is_vision = "vl" in model_id.lower() or "vision" in model_id.lower() or "llava" in model_id.lower()
         family = "qwen2_vl" if "vl" in model_id.lower() else ("llama" if "llama" in model_id.lower() else ("llava" if "llava" in model_id.lower() else "qwen2"))
         self._send_json({
@@ -2076,8 +2127,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
-        model_id = resolve_model_id(model_req)
+        model_req = str(body.get("model", ""))
+        try:
+            model_id = resolve_model_id(model_req)
+        except ValueError as exc:
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
+            return
         messages = body.get("messages", [])
         if not messages and "prompt" in body:
             prompt_val = body.get("prompt")
@@ -2086,11 +2141,29 @@ class GatewayHandler(BaseHTTPRequestHandler):
             elif isinstance(prompt_val, list):
                 messages = [{"role": "user", "content": " ".join(str(p) for p in prompt_val)}]
         stream = bool(body.get("stream", False))
+        try:
+            client_tools = _validate_client_tools(body.get("tools"))
+        except ValueError as exc:
+            self._send_error_response(str(exc), "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+        tool_choice = body.get("tool_choice")
+        if tool_choice is not None:
+            valid_choice = tool_choice in {"auto", "none", "required"} if isinstance(tool_choice, str) else (
+                isinstance(tool_choice, dict)
+                and tool_choice.get("type") == "function"
+                and isinstance(tool_choice.get("function"), dict)
+                and str(tool_choice["function"].get("name", ""))
+                in {str(tool["function"]["name"]) for tool in (client_tools or [])}
+            )
+            if not valid_choice:
+                self._send_error_response("tool_choice is invalid", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
         if "enable_mcp" in body:
             enable_mcp = bool(body.get("enable_mcp"))
-        elif "tools" in body:
-            tools_val = body.get("tools")
-            enable_mcp = bool(tools_val) if isinstance(tools_val, list) else True
+        elif client_tools:
+            # Client-owned OpenAI tools must pass through untouched. They are
+            # not ComputeMesh MCP tools and must never be executed by our loop.
+            enable_mcp = False
         else:
             enable_mcp = True
         max_tokens_val = body.get("max_tokens") or body.get("max_completion_tokens")
@@ -2115,6 +2188,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
+                client_tools=client_tools,
+                tool_choice=tool_choice,
             )
             if err:
                 self._send_error_response(err, "inference_error", status)
@@ -2134,6 +2209,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
+                client_tools=client_tools,
+                tool_choice=tool_choice,
             )
             first_chunk = next(stream_gen, None)
         except InsufficientBalanceError as exc:
@@ -2167,8 +2244,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
-        model_id = resolve_model_id(model_req)
+        model_req = str(body.get("model", ""))
+        try:
+            model_id = resolve_model_id(model_req)
+        except ValueError as exc:
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
+            return
         messages = body.get("messages", [])
         stream = bool(body.get("stream", True))
         opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
@@ -2219,8 +2300,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
-        model_id = resolve_model_id(model_req)
+        model_req = str(body.get("model", ""))
+        try:
+            model_id = resolve_model_id(model_req)
+        except ValueError as exc:
+            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
+            return
         prompt = body.get("prompt", "")
         images = body.get("images") if isinstance(body.get("images"), list) else None
         stream = bool(body.get("stream", True))

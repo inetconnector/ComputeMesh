@@ -8,17 +8,17 @@ Enables 1-click Ollama launch configured for ComputeMesh pooling:
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import time
-from typing import Any
-import urllib.request
 import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
 
 DEFAULT_OLLAMA_PORT = 11434
 DEFAULT_OLLAMA_URL = f"http://127.0.0.1:{DEFAULT_OLLAMA_PORT}"
@@ -112,6 +112,45 @@ def get_installed_ollama_models(endpoint_url: str = DEFAULT_OLLAMA_URL) -> list[
     except Exception:
         pass
     return []
+
+
+def get_ollama_model_inventory(endpoint_url: str = DEFAULT_OLLAMA_URL) -> list[dict[str, Any]]:
+    """Return the safe live model inventory advertised in authenticated heartbeats."""
+    inventory: list[dict[str, Any]] = []
+    for model in get_installed_ollama_models(endpoint_url):
+        entry = model.to_dict()
+        entry.update({
+            "model_id": model.name,
+            "capabilities": [],
+            "context_window": 0,
+            "availability": "available_warm",
+        })
+        try:
+            req = urllib.request.Request(
+                f"{endpoint_url.rstrip('/')}/api/show",
+                data=json.dumps({"model": model.name}, separators=(",", ":")).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "ComputeMesh-Ollama-Bridge/1.2"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                shown = json.loads(resp.read().decode("utf-8"))
+            entry["capabilities"] = [
+                str(value).strip().lower()
+                for value in shown.get("capabilities", [])
+                if str(value).strip()
+            ]
+            model_info = shown.get("model_info", {})
+            if isinstance(model_info, dict):
+                for key, value in model_info.items():
+                    if str(key).endswith(".context_length"):
+                        entry["context_window"] = max(0, int(value))
+                        break
+        except Exception:
+            # A model whose capability probe fails is not safe to advertise as
+            # executable to capability-sensitive clients.
+            entry["availability"] = "unavailable"
+        inventory.append(entry)
+    return inventory
 
 
 def get_ollama_bridge_status(endpoint_url: str = DEFAULT_OLLAMA_URL) -> OllamaBridgeStatus:

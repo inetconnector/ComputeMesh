@@ -44,6 +44,12 @@ def _pyinstaller_tcl_tk_options() -> list[str]:
     ]
 
 
+def _pyinstaller_portal_data_options() -> list[str]:
+    """Bundle the portal assets and WebUI used by the embedded dashboard."""
+    return [
+        "--add-data", f"{REPO_ROOT / 'portal' / 'assets'};portal/assets",
+        "--add-data", f"{REPO_ROOT / 'portal' / 'webui'};portal/webui",
+    ]
 
 @dataclass(frozen=True)
 class WindowsInstallerPackageResult:
@@ -114,6 +120,8 @@ def build_windows_standalone_bundle(
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
+        "--clean",
+        "--noconfirm",
         "--onefile",
         "--noconsole",
         "--name", output_exe_path.stem,
@@ -125,7 +133,7 @@ def build_windows_standalone_bundle(
         "--add-data", f"{REPO_ROOT / 'services'};services",
         "--add-data", f"{REPO_ROOT / 'tools' / 'appliance'};tools/appliance",
         "--add-data", f"{REPO_ROOT / 'tools' / 'security'};tools/security",
-        "--add-data", f"{REPO_ROOT / 'portal' / 'assets'};portal/assets",
+        *_pyinstaller_portal_data_options(),
         *_pyinstaller_tcl_tk_options(),
         *hidden_import_args,
         "--runtime-hook", str(REPO_ROOT / "deploy" / "windows" / "pyi_rth_tkinter.py"),

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preise & Ersparnis-Rechner — ComputeMesh</title>
+  <meta name="description" content="Transparente Inferenz-Preise ab $0.09 pro 1 Million Tokens und GPU-Stundensätze. Bis zu 80% günstiger als Hyperscaler. Interaktiver Kostenrechner.">
+  <meta name="keywords" content="ComputeMesh Preise, Inferenz Kosten, GPU Stundensätze, LLM Token Preise, GPU Mining Ertrag, ROI Rechner">
+  <link rel="canonical" href="https://mesh.inetconnector.com/pricing">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/portal.css?v=4.3">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> LIVE MESH</span>
+      </a>
+
+      <div class="nav-actions">
+        <button id="lang-toggle-btn" class="lang-toggle" onclick="toggleLanguage()">🇩🇪 Deutsch</button>
+        <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="btn btn-secondary btn-sm nav-github-btn" title="GitHub Open Source Repositories">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="btn btn-secondary btn-sm" onclick="openDepositModal()" data-i18n="nav_topup">💳 Guthaben</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('consumer')" data-i18n="nav_register">API-Key holen</button>
+        <a href="/fleet" class="btn btn-secondary btn-sm fleet-login-btn" id="auth-nav-btn" onclick="handleAuthNavClick()">
+          <span id="auth-nav-btn-icon">🔑</span> <span id="auth-nav-btn-text" data-i18n="fleet_btn_login_nav">Flotte / Login</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 2: Navigation Links -->
+    <nav class="nav-sub-row">
+      <div class="container nav-sub-container">
+        <ul class="nav-links">
+          <li><a href="/" data-i18n="nav_home">Home</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" class="active" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Pricing Content -->
+  <main class="container" style="padding: 3rem 1.5rem 5rem 1.5rem;">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="calc_tag">TRANSPARENTE PREISE &amp; RECHNER</span>
+      <h1 data-i18n="calc_title">Faire Preise für Entwickler • Lukrative Erträge für Provider</h1>
+      <p data-i18n="calc_sub" style="max-width: 800px; margin: 0.5rem auto 0 auto;">
+        Spare bis zu 80% gegenüber Hyperscalern wie AWS, Google Cloud oder Azure. Keine Mindestvertragslaufzeiten, sekundengenaue Abrechnung.
+      </p>
+    </div>
+
+    <!-- Interactive Calculator -->
+    <div class="calc-box" style="margin-bottom: 4rem;">
+      <div class="calc-tabs">
+        <button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')" data-i18n="tab_developer">
+          👨‍💻 Entwickler: Kostenersparnis berechnen
+        </button>
+        <button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')" data-i18n="tab_provider">
+          ⚡ Provider / Miner: Einnahmen berechnen
+        </button>
+      </div>
+
+      <!-- Developer Savings Pane -->
+      <div id="pane-dev" class="calc-content calc-pane">
+        <div>
+          <div class="slider-group">
+            <div class="slider-labels">
+              <span data-i18n="lbl_monthly_tokens">Monatliches Inferenzvolumen (Millionen Tokens)</span>
+              <span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">50 M</span>
+            </div>
+            <input type="range" id="slider-tokens" min="1" max="500" value="50" step="5" oninput="updateCalculators()">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-labels">
+              <span data-i18n="lbl_model_tier">Modellgröße / Klasse</span>
+            </div>
+            <select id="select-model" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
+              <option value="2b">2B-Klasse (z.B. Phi-3 Mini, Qwen 2.5 1.5B) — $0.09 / 1M</option>
+              <option value="8b" selected>8B-Klasse (z.B. Llama 3.1 8B, Qwen 2.5 7B) — $0.15 / 1M</option>
+              <option value="14b">14B-Klasse (z.B. Qwen 2.5 14B, Mistral NeMo) — $0.20 / 1M</option>
+              <option value="32b">32B-Klasse (z.B. Qwen 2.5 Coder 32B, DeepSeek-R1) — $0.25 / 1M</option>
+              <option value="70b">70B-Klasse (z.B. Llama 3.3 70B Distributed) — $0.45 / 1M</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="calc-result-card">
+          <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_computemesh_cost">Geschätzte ComputeMesh-Kosten</div>
+          <div id="calc-cm-cost" class="calc-big-num">$7.50</div>
+          <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem;">
+            <span data-i18n="lbl_cloud_cost">Traditionelle Hyperscaler-Kosten:</span>
+            <span id="calc-cloud-cost" style="text-decoration: line-through; color: #f87171;">$37.50</span>
+          </div>
+          <div class="savings-pill" id="calc-savings-badge">
+            💰 Ersparnis: $30.00 / Monat (80%)
+          </div>
+        </div>
+      </div>
+
+      <!-- Provider Earnings Pane -->
+      <div id="pane-prov" class="calc-content calc-pane" style="display: none;">
+        <div>
+          <div class="slider-group">
+            <div class="slider-labels">
+              <span data-i18n="lbl_gpu_setup">Hardware-Konfiguration / GPU-Klasse</span>
+            </div>
+            <select id="select-rig" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
+              <option value="rtx4090" selected>1x NVIDIA GeForce RTX 4090 (24GB VRAM, 82.6 TFLOPS)</option>
+              <option value="rtx3090">1x NVIDIA RTX 3080 / 3090 (24GB VRAM, 35.6 TFLOPS)</option>
+              <option value="5x8gb">5x 8GB GPU Mining Rig (40GB VRAM, 122.8 TFLOPS)</option>
+              <option value="8x3070">8x 8GB GPU Mining Rig (64GB VRAM, 196.0 TFLOPS)</option>
+              <option value="rx7900">1x AMD Radeon RX 7900 XTX (24GB VRAM, 61.4 TFLOPS)</option>
+              <option value="apple_m">1x Apple Silicon M3 Max (128GB Unified Memory)</option>
+            </select>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-labels">
+              <span data-i18n="lbl_hours_online">Tägliche Online-Zeit</span>
+              <span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">24 h/Tag</span>
+            </div>
+            <input type="range" id="slider-hours" min="1" max="24" value="24" step="1" oninput="updateCalculators()">
+          </div>
+        </div>
+
+        <div class="calc-result-card">
+          <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Geschätzte monatliche Netto-Einnahmen</div>
+          <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$158.40</div>
+          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-top: 0.5rem;" data-i18n="lbl_payout_note">
+            75% aller Job-Gebühren wandern direkt in dein Provider-Ledger. Automatische SEPA-/Stripe-Connect-Auszahlung ab $25.00.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing Comparison Matrix Table -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 3.5rem;">
+      <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem;">
+        <span>📊</span> <span>Modell-Inferenz Preisvergleich (pro 1 Million Tokens)</span>
+      </h2>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.92rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
+              <th style="padding: 0.85rem 1rem;">Modell / Anwendungsfall</th>
+              <th style="padding: 0.85rem 1rem;">ComputeMesh Preis</th>
+              <th style="padding: 0.85rem 1rem;">Hyperscaler / Closed API</th>
+              <th style="padding: 0.85rem 1rem;">Deine Ersparnis</th>
+            </tr>
+          </thead>
+          <tbody style="line-height: 1.8;">
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(16, 185, 129, 0.04);">
+              <td style="padding: 1rem; font-weight: 700;">DeepSeek-R1 (Distill 32B / 671B)</td>
+              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.35 / 1M</td>
+              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$2.50 / 1M (OpenAI o1)</td>
+              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">86% günstiger</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 1rem; font-weight: 700;">Qwen 2.5 Coder 32B</td>
+              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.25 / 1M</td>
+              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$1.25 / 1M (Claude 3.5)</td>
+              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">80% günstiger</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 1rem; font-weight: 700;">Llama 3.3 70B Instruct</td>
+              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.45 / 1M</td>
+              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$2.00 / 1M (AWS Bedrock)</td>
+              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">78% günstiger</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 1rem; font-weight: 700;">Mistral NeMo 12B / Llama 3.1 8B</td>
+              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.15 / 1M</td>
+              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$0.60 / 1M (GPT-4o mini)</td>
+              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">75% günstiger</td>
+            </tr>
+            <tr>
+              <td style="padding: 1rem; font-weight: 700;">Privates LAN-Mesh (Eigene Hardware)</td>
+              <td style="padding: 1rem; font-weight: 800; color: var(--accent-cyan);">0,00 € (Kostenlos)</td>
+              <td style="padding: 1rem; color: var(--text-dim);">—</td>
+              <td style="padding: 1rem; color: var(--accent-cyan); font-weight: 700;">100% Kostenfrei</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer" style="background: rgba(7, 10, 19, 0.95); border-top: 1px solid var(--border-subtle); padding: 4rem 1.5rem 2rem 1.5rem; margin-top: 4rem;">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem;">
+      <div>
+        <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+        </p>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
+          <li><a href="/models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
+          <li><a href="/pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
+          <li><a href="/status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
+          <li><a href="/security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none;">GitHub Repositories</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
+        <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
+          <li><a href="/impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
+          <li><a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
+          <li><a href="/terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
+          <li><a href="/contact" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
+      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+    </div>
+  </footer>
+
+  <!-- Common Modals & Core Scripts -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 id="modal-title" style="font-size: 1.5rem; margin-bottom: 0.4rem;" data-i18n="modal_reg_title">🚀 ComputeMesh API-Zugang</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;" data-i18n="modal_sub">Erstelle deinen API-Key in wenigen Sekunden für blitzschnelle KI-Inferenz.</p>
+      <form id="registration-form" onsubmit="compliantRegistration(event)">
+        <input type="hidden" id="modal-role" value="consumer">
+        <div class="form-group">
+          <label for="modal-email" data-i18n="modal_email_lbl">E-Mail-Adresse (Geschäftlich):</label>
+          <input type="email" id="modal-email" class="form-control" required placeholder="name@company.com">
+        </div>
+        <div id="provider-extra-fields" style="display: none; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem; padding: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cm-provider-country" style="font-size: 0.82rem; color: var(--text-muted);" data-i18n="modal_country_lbl">Betriebsland der Hardware:</label>
+            <select id="cm-provider-country" class="form-control" style="cursor: pointer;">
+              <option value="DE" selected>🇩🇪 Deutschland (DE)</option>
+              <option value="AT">🇦🇹 Österreich (AT)</option>
+              <option value="CH">🇨🇭 Schweiz (CH)</option>
+              <option value="FR">🇫🇷 Frankreich (FR)</option>
+              <option value="NL">🇳🇱 Niederlande (NL)</option>
+              <option value="OTHER">🌍 Anderes EU/EWR-Land</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="modal-wallet" data-i18n="modal_wallet_lbl" style="font-size: 0.82rem; color: var(--text-muted);">Stripe Connect E-Mail oder Wallet:</label>
+            <input type="text" id="modal-wallet" class="form-control" placeholder="payouts@yourdomain.com">
+          </div>
+        </div>
+        <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
+          <label style="display: flex; align-items: flex-start; gap: 0.55rem; cursor: pointer;">
+            <input type="checkbox" id="business-user-confirm" required style="margin-top: 0.2rem;">
+            <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> &amp; <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span>
+          </label>
+        </div>
+        <button type="submit" id="modal-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="modal_submit_btn">
+          🚀 API-Key generieren
+        </button>
+      </form>
+      <div id="modal-result-box" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+        <label style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="modal_key_result_lbl">Dein persönlicher API-Key:</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <input type="text" id="generated-key-val" class="form-control" readonly style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan);">
+          <button class="btn btn-secondary btn-sm" onclick="copyKey()" data-i18n="modal_copy_btn">Kopieren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/portal-core.js?v=4.3"></script>
+  <script src="/portal.js?v=4.3"></script>
+</body>
+</html>

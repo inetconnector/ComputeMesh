@@ -1,8 +1,10 @@
 """Unit tests for Appliance Configuration Loader."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from tools.appliance import appliance_config as config_module
 from tools.appliance.appliance_config import (
     ApplianceConfig,
     load_appliance_config,
@@ -77,8 +79,16 @@ class TestApplianceConfig(unittest.TestCase):
                 max_temp_c=85,
                 enable_kiosk=True,
             )
-            save_system_config(cfg, path=sys_file)
-            reloaded = load_appliance_config(boot_path=tmp_path / "none.env", system_path=sys_file)
+            # save_system_config also writes ~/.computemesh/provider_config.json.
+            # Redirect that path so this test cannot rename a real running node.
+            with (
+                patch.object(Path, "home", return_value=tmp_path),
+                patch.object(config_module, "DEFAULT_BOOT_CONFIG", tmp_path / "boot.env"),
+                patch.object(config_module, "DEFAULT_LIVE_BOOT_CONFIG", tmp_path / "live-boot.env"),
+            ):
+                save_system_config(cfg, path=sys_file)
+                reloaded = load_appliance_config(boot_path=tmp_path / "none.env", system_path=sys_file)
+            self.assertTrue((tmp_path / ".computemesh" / "provider_config.json").exists())
             self.assertEqual(reloaded.rig_name, "test-node-custom")
             self.assertEqual(reloaded.payout_address, "0xABCDEF1234567890ABCDEF1234567890ABCDEF12")
             self.assertEqual(reloaded.disabled_gpus, [0])

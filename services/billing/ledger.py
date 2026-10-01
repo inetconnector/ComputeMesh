@@ -137,6 +137,11 @@ class Ledger:
     ) -> None:
         self._lock = threading.RLock()
         self.storage_path = Path(storage_path) if storage_path else None
+        self.holds_storage_path = (
+            self.storage_path.with_name(self.storage_path.stem + ".holds.jsonl")
+            if self.storage_path
+            else None
+        )
         env_fee = os.environ.get("COMPUTEMESH_OPERATOR_FEE_BPS")
         self.network_fee_bps = (
             network_fee_bps
@@ -155,6 +160,53 @@ class Ledger:
         if self.storage_path and self.storage_path.exists():
             with self._lock:
                 self._load_from_disk()
+        if self.holds_storage_path and self.holds_storage_path.exists():
+            with self._lock:
+                self._load_holds_from_disk()
+
+    def _load_holds_from_disk(self) -> None:
+        if not self.holds_storage_path or not self.holds_storage_path.exists():
+            return
+        now_ts = time.time()
+        try:
+            with open(self.holds_storage_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    data = json.loads(line)
+                    hold = CreditHold(
+                        hold_id=data["hold_id"],
+                        account_id=data["account_id"],
+                        amount_micro_units=int(data["amount_micro_units"]),
+                        model_id=str(data.get("model_id", "")),
+                        created_at=str(data.get("created_at", "")),
+                        expires_at=float(data.get("expires_at", 0.0)),
+                        status=str(data.get("status", "active")),
+                    )
+                    # Startup recovery: auto-expire stale active holds
+                    if hold.status == "active" and hold.expires_at < now_ts:
+                        hold.status = "expired"
+                    self._holds[hold.hold_id] = hold
+        except Exception:
+            pass
+
+    def _persist_hold(self, hold: CreditHold) -> None:
+        if not self.holds_storage_path:
+            return
+        try:
+            self.holds_storage_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.holds_storage_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "hold_id": hold.hold_id,
+                    "account_id": hold.account_id,
+                    "amount_micro_units": hold.amount_micro_units,
+                    "model_id": hold.model_id,
+                    "created_at": hold.created_at,
+                    "expires_at": hold.expires_at,
+                    "status": hold.status,
+                }) + "\n")
+        except Exception:
+            pass
 
     def get_available_balance(self, account_id: str) -> int:
         """Returns the customer spendable balance after deducting unexpired active credit holds."""
@@ -193,10 +245,11 @@ class Ledger:
                 amount_micro_units=amount_micro_units,
                 model_id=model_id,
                 created_at=now_iso,
-                expires_at=time.time() + max(5.0, ttl_seconds),
+                expires_at=time.time() + max(0.01, ttl_seconds),
                 status="active",
             )
             self._holds[hid] = hold
+            self._persist_hold(hold)
             return hold
 
     def renew_hold(self, hold_id: str, additional_seconds: float = 300.0) -> bool:
@@ -205,6 +258,7 @@ class Ledger:
             hold = self._holds.get(hold_id)
             if hold and hold.status == "active":
                 hold.expires_at = max(hold.expires_at, time.time()) + additional_seconds
+                self._persist_hold(hold)
                 return True
             return False
 
@@ -214,6 +268,7 @@ class Ledger:
             hold = self._holds.get(hold_id)
             if hold and hold.status == "active":
                 hold.status = "released"
+                self._persist_hold(hold)
                 return True
             return False
 
@@ -271,10 +326,12 @@ class Ledger:
                     network_fee_bps=network_fee_bps,
                 )
                 hold.status = "captured"
+                self._persist_hold(hold)
                 return tx
             finally:
                 if hold.status == "active":
                     hold.status = "released"
+                    self._persist_hold(hold)
 
     def deposit_customer_credits(
         self,

@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import http.server
+import os
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from services.appliance_dashboard.model_manager import POPULAR_GGUF_MODELS, ModelManager
 
@@ -48,6 +50,13 @@ class TestModelManager(unittest.TestCase):
         self.assertIn("free_bytes", stats)
         self.assertIn("total_bytes", stats)
         self.assertGreater(stats["total_bytes"], 0)
+
+    def test_default_storage_honors_environment_override(self) -> None:
+        configured = Path(self.temp_storage.name) / "isolated-models"
+        with patch.dict(os.environ, {"COMPUTEMESH_MODEL_STORAGE_DIR": str(configured)}):
+            manager = ModelManager()
+        self.assertEqual(manager.storage_dir, configured.resolve())
+        self.assertTrue(configured.is_dir())
 
     def test_popular_models_list(self) -> None:
         results = self.manager.search_huggingface("")

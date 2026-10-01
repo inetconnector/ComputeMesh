@@ -75,6 +75,12 @@ from services.appliance_dashboard.server import create_dashboard_server, run_das
 from services.updater.auto_updater import AutoUpdater, UpdateInfo
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
+from tools.appliance.windows_cline_integration import (
+    ClineIntegrationError,
+    ensure_cline_integration,
+    find_vscode_executable,
+    launch_cline_in_vscode,
+)
 
 REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 REG_APP_NAME = "ComputeMesh"
@@ -250,10 +256,10 @@ class ComputeMeshProviderApp:
         self.autostart_var = tk.BooleanVar(value=is_windows_autostart_enabled())
         self.autoupdate_var = tk.BooleanVar(value=self._load_autoupdate_setting())
         self.localcode_var = tk.BooleanVar(value=self._load_localcode_setting())
+        self.cline_var = tk.BooleanVar(value=self._load_cline_setting())
 
         self._apply_styles()
         self._build_ui()
-
         # Intercept window close button and minimize event to keep running in System Tray
         self.root.protocol("WM_DELETE_WINDOW", self._hide_to_tray)
         self.root.bind("<Unmap>", self._on_window_unmap)
@@ -296,6 +302,8 @@ class ComputeMeshProviderApp:
         # Auto-launch LocalCode in tray if enabled
         if self.localcode_var.get():
             threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()
+        if self.cline_var.get():
+            threading.Thread(target=self._ensure_and_launch_cline, daemon=True).start()
 
         # Initialize System Tray Icon & Keepalive Watchdog
         self.tray_icon = None
@@ -339,6 +347,7 @@ class ComputeMeshProviderApp:
                 pystray.MenuItem("🖥️ ComputeMesh öffnen", self._show_from_tray, default=True),
                 pystray.MenuItem(lambda item: f"🌐 Web Dashboard (:{self.dashboard_port})", self._open_web_dashboard),
                 pystray.MenuItem("💻 LocalCode im Tray starten", lambda item: threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()),
+                pystray.MenuItem("🧩 Cline in VS Code starten", lambda item: self.root.after(0, self._request_cline_enable)),
                 pystray.MenuItem("🎨 Bildgenerator starten (Port 8085)", self._launch_image_engine),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
@@ -543,6 +552,69 @@ class ComputeMeshProviderApp:
         if enable:
             threading.Thread(target=self._ensure_and_launch_localcode, kwargs={"tray_mode": True}, daemon=True).start()
 
+    def _load_cline_setting(self) -> bool:
+        try:
+            cfg = self._get_config_path()
+            if cfg.exists():
+                return json.loads(cfg.read_text(encoding="utf-8")).get("cline_vscode", False)
+        except Exception:
+            pass
+        return False
+
+    def _save_cline_setting(self, enable: bool) -> None:
+        cfg_file = self._get_config_path()
+        try:
+            cfg_data = json.loads(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
+            cfg_data["cline_vscode"] = enable
+            cfg_file.write_text(json.dumps(cfg_data, indent=2), encoding="utf-8")
+        except Exception as exc:
+            _log_crash(f"[Cline] Could not persist integration setting: {exc}")
+
+    def _request_cline_enable(self) -> None:
+        if self.cline_var.get():
+            threading.Thread(
+                target=self._ensure_and_launch_cline,
+                kwargs={"show_status": True},
+                daemon=True,
+            ).start()
+            return
+        self.cline_var.set(True)
+        self._on_cline_toggle()
+
+    def _on_cline_toggle(self) -> None:
+        enable = self.cline_var.get()
+        if not enable:
+            self._save_cline_setting(False)
+            return
+
+        needs_vscode = find_vscode_executable() is None
+        dependency_text = (
+            "Visual Studio Code ist nicht installiert und wird zuerst als offizieller "
+            "Microsoft User-Installer eingerichtet.\n\n"
+            if needs_vscode
+            else "Das vorhandene Visual Studio Code wird verwendet.\n\n"
+        )
+        confirmed = messagebox.askyesno(
+            "Cline für ComputeMesh einrichten",
+            dependency_text
+            + "Danach installiert ComputeMesh die offizielle Cline-Erweiterung aus dem "
+            "Visual Studio Marketplace und legt einen eigenen Anbieter 'ComputeMesh Local Node' "
+            "für http://127.0.0.1:8080/v1 an. Andere Cline-Anbieter bleiben erhalten.\n\n"
+            "Jetzt einrichten und Cline starten?",
+            parent=self.root,
+        )
+        if not confirmed:
+            self.cline_var.set(False)
+            self._save_cline_setting(False)
+            return
+
+        self._save_cline_setting(True)
+        threading.Thread(
+            target=self._ensure_and_launch_cline,
+            kwargs={"show_status": True},
+            daemon=True,
+        ).start()
+
     def _get_localcode_exe(self) -> Path | None:
         candidates = [
             Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "LocalCode" / "LocalCode.exe",
@@ -557,6 +629,54 @@ class ComputeMeshProviderApp:
             if p and p.exists() and p.is_file():
                 return p
         return None
+    def _ensure_and_launch_cline(self, show_status: bool = False) -> None:
+        """Install missing Cline dependencies, configure ComputeMesh, and launch VS Code."""
+        try:
+            result = ensure_cline_integration(allow_vscode_install=True)
+            launch_cline_in_vscode(result.vscode_executable)
+            _log_crash(
+                "[Cline] Integration ready: "
+                f"VS Code installed={result.vscode_installed}, "
+                f"extension installed={result.extension_installed}, "
+                f"workspace bridge installed={result.bridge_installed}, "
+                f"config={result.configuration_directory}"
+            )
+            if show_status:
+                self.root.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Cline bereit",
+                        "Cline wurde in Visual Studio Code gestartet und verwendet den lokalen "
+                        "ComputeMesh-Endpunkt. Öffne links das Cline-Symbol und beginne eine Aufgabe.",
+                        parent=self.root,
+                    ),
+                )
+        except ClineIntegrationError as exc:
+            _log_crash(f"[Cline] Integration failed: {exc}")
+            self.root.after(0, lambda: self.cline_var.set(False))
+            self._save_cline_setting(False)
+            if show_status:
+                self.root.after(
+                    0,
+                    lambda error=str(exc): messagebox.showerror(
+                        "Cline-Einrichtung fehlgeschlagen",
+                        error,
+                        parent=self.root,
+                    ),
+                )
+        except Exception as exc:
+            _log_crash(f"[Cline] Unexpected integration error: {exc}\n{traceback.format_exc()}")
+            self.root.after(0, lambda: self.cline_var.set(False))
+            self._save_cline_setting(False)
+            if show_status:
+                self.root.after(
+                    0,
+                    lambda error=str(exc): messagebox.showerror(
+                        "Cline-Einrichtung fehlgeschlagen",
+                        f"Unerwarteter Fehler: {error}",
+                        parent=self.root,
+                    ),
+                )
 
     def _ensure_and_launch_localcode(self, tray_mode: bool = True) -> None:
         """Ensure latest LocalCode is present and launch it with /tray."""
@@ -815,7 +935,7 @@ class ComputeMeshProviderApp:
 
         # Controls Row
         ctrl_frame = ttk.Frame(self.root)
-        ctrl_frame.pack(fill="x", padx=20, pady=(5, 15))
+        ctrl_frame.pack(fill="x", padx=20, pady=(5, 4))
 
         self.btn_toggle = tk.Button(
             ctrl_frame,
@@ -906,8 +1026,18 @@ class ComputeMeshProviderApp:
         )
         self.chk_autoupdate.pack(side="right", padx=10)
 
+        integration_frame = ttk.Frame(self.root)
+        integration_frame.pack(fill="x", padx=20, pady=(0, 10))
+        ttk.Label(
+            integration_frame,
+            text="Developer-Clients:",
+            font=("Inter", 9, "bold"),
+            foreground="#9ca3af",
+            background="#0b0f19",
+        ).pack(side="left")
+
         self.chk_localcode = tk.Checkbutton(
-            ctrl_frame,
+            integration_frame,
             text="LocalCode (Tray)",
             variable=self.localcode_var,
             command=self._on_localcode_toggle,
@@ -918,7 +1048,21 @@ class ComputeMeshProviderApp:
             activeforeground="#00f2fe",
             font=("Inter", 9),
         )
-        self.chk_localcode.pack(side="right", padx=(0, 10))
+        self.chk_localcode.pack(side="left", padx=(12, 6))
+
+        self.chk_cline = tk.Checkbutton(
+            integration_frame,
+            text="Cline (VS Code)",
+            variable=self.cline_var,
+            command=self._on_cline_toggle,
+            bg="#0b0f19",
+            fg="#f3f4f6",
+            selectcolor="#111827",
+            activebackground="#0b0f19",
+            activeforeground="#00f2fe",
+            font=("Inter", 9),
+        )
+        self.chk_cline.pack(side="left", padx=6)
 
         # Remote LAN Access Info Row
         import socket

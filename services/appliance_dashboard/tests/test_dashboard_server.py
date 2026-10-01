@@ -1,16 +1,53 @@
 """Unit tests for Embedded Appliance Web Dashboard."""
 import json
+import os
 import threading
 import time
 import unittest
 import urllib.request
+from unittest.mock import patch
 
-from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.inference_router import (
+    _extract_openai_tool_calls,
+    _ollama_message,
+)
+from services.appliance_dashboard.server import DashboardHandler
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 
 class TestDashboardServer(unittest.TestCase):
+    def test_cline_json_tool_call_is_exposed_as_openai_tool_call(self) -> None:
+        tools = [{
+            "type": "function",
+            "function": {
+                "name": "list_files",
+                "parameters": {"type": "object"},
+            },
+        }]
+
+        calls = _extract_openai_tool_calls(
+            {"role": "assistant", "content": '{"name":"list_files","arguments":{"path":"."}}'},
+            tools,
+        )
+
+        self.assertEqual(calls[0]["function"]["name"], "list_files")
+        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"path": "."})
+
+    def test_cline_tool_history_is_preserved_for_ollama(self) -> None:
+        translated = _ollama_message({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "read_file", "arguments": '{"path":"README.md"}'},
+            }],
+        })
+
+        self.assertEqual(translated["tool_calls"][0]["function"]["name"], "read_file")
+        self.assertEqual(translated["tool_calls"][0]["function"]["arguments"], {"path": "README.md"})
+
     def test_dashboard_endpoints(self) -> None:
         mock_config = ApplianceConfig(
             rig_name="test-rig",
@@ -76,6 +113,12 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(data["inventory"]["total_gpus"], 1)
                 self.assertIsNotNone(data["global_mesh"])
                 self.assertIn("total_nodes_online", data["global_mesh"])
+
+            with urllib.request.urlopen("http://127.0.0.1:18999/v1/models") as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(data["object"], "list")
+                self.assertIsInstance(data["data"], list)
         finally:
             server.shutdown()
             server.server_close()
@@ -150,8 +193,8 @@ class TestDashboardServer(unittest.TestCase):
             pcie_riser_warning=False,
         )
 
-        from http.server import ThreadingHTTPServer
         import urllib.error
+        from http.server import ThreadingHTTPServer
         DashboardHandler.config = mock_config
         DashboardHandler.inventory = mock_inventory
         DashboardHandler.node_id = "win-test-node"
@@ -242,34 +285,42 @@ class TestDashboardServer(unittest.TestCase):
             server.server_close()
 
     def test_cors_options_preflight_and_private_network(self) -> None:
-        from http.server import ThreadingHTTPServer
         from http.client import HTTPConnection
-        server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
-        th = threading.Thread(target=server.serve_forever, daemon=True)
-        th.start()
-        time.sleep(0.1)
+        from http.server import ThreadingHTTPServer
+        with patch.dict(os.environ, {"COMPUTEMESH_DASHBOARD_ALLOWED_ORIGINS": "https://ai.inetconnector.com"}):
+            server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
+            th = threading.Thread(target=server.serve_forever, daemon=True)
+            th.start()
+            time.sleep(0.1)
 
-        try:
-            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-            conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
-            resp = conn.getresponse()
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
-            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
-            self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
-            conn.close()
+            try:
+                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+                conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
+                resp = conn.getresponse()
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
+                self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
+                conn.close()
 
-            # Test GET /props also returns Access-Control-Allow-Private-Network
-            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-            conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
-            resp = conn.getresponse()
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
-            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
-            conn.close()
-        finally:
-            server.shutdown()
-            server.server_close()
+                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+                conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
+                resp = conn.getresponse()
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
+                conn.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_remote_query_token_is_not_an_action_authorization(self) -> None:
+        handler = DashboardHandler.__new__(DashboardHandler)
+        handler.headers = {"Authorization": "", "X-Node-Auth-Token": ""}
+        handler.path = "/api/action/reboot?auth=secret"
+        handler.client_address = ("192.0.2.10", 0)
+        with patch("services.appliance_dashboard.server.NODE_AUTH_TOKEN", "secret"):
+            self.assertFalse(handler._verify_action_auth())
 
 
 if __name__ == "__main__":

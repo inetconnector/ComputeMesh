@@ -5,11 +5,12 @@ and multi-format streaming generation.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+import re
 import secrets
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator
 
@@ -38,9 +39,72 @@ from services.gateway.inference_backend import (
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import sanitize_error_message
 from services.gateway.teaser import TeaserQuotaManager
+from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
-from services.mcp.agent_loop import AgentLoop
+
+_TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+
+
+def _extract_client_tool_calls(
+    completion_text: str,
+    client_tools: list[dict[str, Any]] | None,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Convert backend tool-call markers into the OpenAI response contract."""
+    if not client_tools:
+        return completion_text, []
+    allowed = {
+        str(tool.get("function", {}).get("name", ""))
+        for tool in client_tools
+        if isinstance(tool, dict) and isinstance(tool.get("function"), dict)
+    }
+    calls: list[dict[str, Any]] = []
+    decoded_values: list[dict[str, Any]] = []
+    matches = list(_TOOL_CALL_PATTERN.finditer(completion_text))
+    for match in matches:
+        try:
+            value = json.loads(match.group(1))
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(value, dict):
+            decoded_values.append(value)
+    if not decoded_values:
+        raw = completion_text.strip()
+        fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", raw, flags=re.DOTALL | re.IGNORECASE)
+        if fenced:
+            raw = fenced.group(1).strip()
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            decoded = None
+        if isinstance(decoded, dict):
+            decoded_values = [decoded]
+        elif isinstance(decoded, list):
+            decoded_values = [value for value in decoded if isinstance(value, dict)]
+
+    for index, value in enumerate(decoded_values):
+        function = value.get("function", value) if isinstance(value, dict) else {}
+        name = str(function.get("name", "")) if isinstance(function, dict) else ""
+        if not name or name not in allowed:
+            continue
+        arguments = function.get("arguments", {})
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        calls.append({
+            "id": str(value.get("id") or f"call_computemesh_{index + 1}"),
+            "type": "function",
+            "function": {
+                "name": name,
+                "arguments": json.dumps(arguments if isinstance(arguments, dict) else {}, ensure_ascii=False),
+            },
+        })
+    content = _TOOL_CALL_PATTERN.sub("", completion_text).strip() if matches else completion_text
+    if calls and not matches and decoded_values:
+        content = ""
+    return content, calls
 
 
 class InferenceEngine:
@@ -74,6 +138,8 @@ class InferenceEngine:
         is_provider_self_compute: bool = False,
         max_tokens: int | None = None,
         enable_mcp: bool = True,
+        client_tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         response_format: dict[str, Any] | None = None,
         on_progress: Any = None,
     ) -> tuple[str, str, int, int, int]:
@@ -86,7 +152,7 @@ class InferenceEngine:
 
         # Positive Authorization, Emergency Kill Switch & Permanent Ban Check (Global & Fleet-Scoped)
         try:
-            from runtime.safety.dead_mans_switch import get_lease_guard, EmergencyKillTrippedError
+            from runtime.safety.dead_mans_switch import EmergencyKillTrippedError, get_lease_guard
             guard = get_lease_guard()
             if guard.is_tripped:
                 raise EmergencyKillTrippedError(
@@ -134,7 +200,20 @@ class InferenceEngine:
         secure_buf = SecureMemoryBuffer(prompt_raw)
         try:
             backend_result = None
-            if enable_mcp and self.mcp_config.enabled:
+            if client_tools:
+                with secure_buf.open_plaintext():
+                    backend_result = self.backend.complete(
+                        model_id=canonical_model_id,
+                        messages=normalized_messages,
+                        max_tokens=requested_max,
+                        tools=client_tools,
+                        tool_choice=tool_choice,
+                        response_format=response_format,
+                    )
+                completion_text = backend_result.text
+                tokens_prompt = backend_result.prompt_tokens
+                tokens_completion = backend_result.completion_tokens
+            elif enable_mcp and self.mcp_config.enabled:
                 owner_id = None
                 if account_id:
                     cleaned_k = str(account_id).strip()
@@ -176,36 +255,6 @@ class InferenceEngine:
                                 model_id=canonical_model_id,
                                 messages=msg_list,
                             )
-                    except Exception as e:
-                        # Resilient fallback if backend is offline/unreachable
-                        tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                        if tool_msg:
-                            from services.mcp.agent_loop import format_tool_content_if_json
-                            formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                            return {
-                                "choices": [{
-                                    "message": {
-                                        "role": "assistant",
-                                        "content": formatted,
-                                    }
-                                }],
-                                "usage": {
-                                    "prompt_tokens": 15,
-                                    "completion_tokens": 25,
-                                },
-                            }
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": "ComputeMesh AI: Inferenz-Cluster ist bereit.",
-                                }
-                            }],
-                            "usage": {
-                                "prompt_tokens": 5,
-                                "completion_tokens": 10,
-                            },
-                        }
                     backend_result = res
                     return {
                         "choices": [{
@@ -398,8 +447,15 @@ class InferenceEngine:
         created_timestamp: int,
         tokens_prompt: int,
         tokens_completion: int,
+        tool_calls: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Formats standard OpenAI chat completion JSON response."""
+        message: dict[str, Any] = {
+            "role": "assistant",
+            "content": completion_text or None,
+        }
+        if tool_calls:
+            message["tool_calls"] = tool_calls
         return {
             "id": chat_id,
             "object": "chat.completion",
@@ -408,11 +464,8 @@ class InferenceEngine:
             "choices": [
                 {
                     "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": completion_text,
-                    },
-                    "finish_reason": "stop",
+                    "message": message,
+                    "finish_reason": "tool_calls" if tool_calls else "stop",
                 }
             ],
             "usage": {
@@ -429,8 +482,28 @@ class InferenceEngine:
         model_id: str,
         completion_text: str,
         created_timestamp: int,
+        tool_calls: list[dict[str, Any]] | None = None,
     ) -> Generator[bytes, None, None]:
         """Yields Server-Sent Events (SSE) stream chunks for OpenAI clients."""
+        if tool_calls:
+            chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": created_timestamp,
+                "model": model_id,
+                "choices": [{
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": completion_text or None,
+                        "tool_calls": [dict(call, index=index) for index, call in enumerate(tool_calls)],
+                    },
+                    "finish_reason": "tool_calls",
+                }],
+            }
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+            yield b"data: [DONE]\n\n"
+            return
         words = completion_text.split(" ")
         for i, word in enumerate(words):
             token_str = word + (" " if i < len(words) - 1 else "")
@@ -582,6 +655,8 @@ class InferenceEngine:
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
         enable_mcp: bool = True,
+        client_tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
     ) -> tuple[dict[str, Any] | None, str | None, int]:
         try:
             chat_id, completion_text, created_ts, tok_p, tok_c = self.create_metered_completion(
@@ -593,7 +668,10 @@ class InferenceEngine:
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
+                client_tools=client_tools,
+                tool_choice=tool_choice,
             )
+            completion_text, tool_calls = _extract_client_tool_calls(completion_text, client_tools)
             res = self.format_openai_response(
                 chat_id=chat_id,
                 model_id=model_id,
@@ -601,6 +679,7 @@ class InferenceEngine:
                 created_timestamp=created_ts,
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
+                tool_calls=tool_calls,
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
@@ -621,6 +700,8 @@ class InferenceEngine:
         client_ip: str = "127.0.0.1",
         max_tokens: int | None = None,
         enable_mcp: bool = True,
+        client_tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
     ) -> Generator[bytes, None, None]:
         chat_id, completion_text, created_ts, _, _ = self.create_metered_completion(
             account_id=account_id,
@@ -631,12 +712,16 @@ class InferenceEngine:
             client_ip=client_ip,
             max_tokens=max_tokens,
             enable_mcp=enable_mcp,
+            client_tools=client_tools,
+            tool_choice=tool_choice,
         )
+        completion_text, tool_calls = _extract_client_tool_calls(completion_text, client_tools)
         yield from self.stream_openai_sse(
             chat_id=chat_id,
             model_id=model_id,
             completion_text=completion_text,
             created_timestamp=created_ts,
+            tool_calls=tool_calls,
         )
 
     def execute_ollama_chat(
