@@ -116,7 +116,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
@@ -126,7 +126,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(err_resp)))
                 handler.end_headers()
                 handler.wfile.write(err_resp)
@@ -140,7 +140,7 @@ class SystemActionsHandler:
             handler.send_header("Content-Type", "application/json")
             for h_name, h_val in SECURITY_HEADERS.items():
                 handler.send_header(h_name, h_val)
-            handler.send_header("Access-Control-Allow-Origin", "*")
+            handler._send_cors_headers()
             handler.send_header("Content-Length", str(len(resp)))
             handler.end_headers()
             handler.wfile.write(resp)
@@ -153,7 +153,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(err_resp)))
                 handler.end_headers()
                 handler.wfile.write(err_resp)
@@ -165,7 +165,7 @@ class SystemActionsHandler:
             handler.send_header("Content-Type", "application/json")
             for h_name, h_val in SECURITY_HEADERS.items():
                 handler.send_header(h_name, h_val)
-            handler.send_header("Access-Control-Allow-Origin", "*")
+            handler._send_cors_headers()
             handler.send_header("Content-Length", str(len(resp)))
             handler.end_headers()
             handler.wfile.write(resp)
@@ -201,7 +201,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(err_resp)))
                 handler.end_headers()
                 handler.wfile.write(err_resp)
@@ -214,7 +214,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
@@ -224,7 +224,7 @@ class SystemActionsHandler:
                 handler.send_header("Content-Type", "application/json")
                 for h_name, h_val in SECURITY_HEADERS.items():
                     handler.send_header(h_name, h_val)
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(err_resp)))
                 handler.end_headers()
                 handler.wfile.write(err_resp)
@@ -250,7 +250,7 @@ class SystemActionsHandler:
                     resp = json.dumps({"status": "ok", "message": "Already up to date"}).encode("utf-8")
                 handler.send_response(HTTPStatus.OK)
                 handler.send_header("Content-Type", "application/json")
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(resp)))
                 handler.end_headers()
                 handler.wfile.write(resp)
@@ -258,7 +258,7 @@ class SystemActionsHandler:
                 err_resp = json.dumps({"status": "error", "message": str(e)}).encode("utf-8")
                 handler.send_response(HTTPStatus.BAD_REQUEST)
                 handler.send_header("Content-Type", "application/json")
-                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler._send_cors_headers()
                 handler.send_header("Content-Length", str(len(err_resp)))
                 handler.end_headers()
                 handler.wfile.write(err_resp)

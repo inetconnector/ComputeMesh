@@ -104,7 +104,7 @@ class WebAppsHandler:
             handler.send_header("Content-Security-Policy", CSP_HEADER)
             handler.send_header("X-Content-Type-Options", "nosniff")
             handler.send_header("X-Frame-Options", "SAMEORIGIN")
-            handler.send_header("Access-Control-Allow-Origin", "*")
+            handler._send_cors_headers()
             handler.send_header("Cache-Control", "no-cache, must-revalidate")
             handler.end_headers()
             handler.wfile.write(file_data)
