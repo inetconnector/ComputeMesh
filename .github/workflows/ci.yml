@@ -16,6 +16,7 @@ jobs:
     env:
       COMPUTEMESH_INFERENCE_BACKEND: synthetic
       COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: "1"
+      COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v5
