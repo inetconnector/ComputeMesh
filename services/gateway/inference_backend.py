@@ -44,6 +44,27 @@ class InferenceBackendError(RuntimeError):
     """Raised when a configured inference backend cannot produce a valid result."""
 
 
+def _normalise_native_tool_call(tool_call: Any) -> dict[str, Any]:
+    """Return one native tool call with its arguments represented as an object."""
+    if not isinstance(tool_call, dict):
+        return {}
+    function = tool_call.get("function", tool_call)
+    if not isinstance(function, dict):
+        return {}
+
+    normalized = dict(function)
+    arguments = normalized.get("arguments", {})
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            arguments = {}
+    if not isinstance(arguments, dict):
+        arguments = {}
+    normalized["arguments"] = arguments
+    return normalized
+
+
 @dataclass(frozen=True)
 class BackendResult:
     text: str
@@ -267,7 +288,7 @@ class OpenAICompatibleHTTPBackend:
             tool_calls = msg.get("tool_calls", [])
             if tool_calls:
                 tool_calls_text = "\n".join([
-                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    f"<tool_call>{json.dumps(_normalise_native_tool_call(tc), ensure_ascii=False)}</tool_call>"
                     for tc in tool_calls
                 ])
                 text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
@@ -438,7 +459,7 @@ class OllamaHTTPBackend:
             tool_calls = msg.get("tool_calls", [])
             if tool_calls:
                 tool_calls_text = "\n".join([
-                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    f"<tool_call>{json.dumps(_normalise_native_tool_call(tc), ensure_ascii=False)}</tool_call>"
                     for tc in tool_calls
                 ])
                 text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text

@@ -1,6 +1,21 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-27
+## Native tool-call normalization and CI isolation - 2026-10-01
+
+- OpenAI-compatible and Ollama backends now decode native
+  `function.arguments` JSON strings exactly once before converting tool calls
+  to the legacy `<tool_call>` format. Structured arguments remain objects and
+  malformed/non-object values fail closed to an empty object.
+- Regression coverage models the llama.cpp/Qwen conversation
+  `Hallo -> Guten Tag! ... -> Geht die Antwort auch schneller`; backend tests
+  cover both HTTP runtimes.
+- The unified test runner and `ModelManager` use a temporary model directory,
+  and synthetic CI jobs explicitly enable the static catalog so tests never
+  write to `/var/lib/computemesh`.
+- Verification: **778/778 tests passed**, targeted gateway tests **9/9**, the
+  exact llama.cpp regression passed, and changed Python files compiled.
+
+**Last updated:** 2026-10-01
 **Release Version:** `v1.2.170`
 **Active local branch for this work:** `codex/mesh-sync-webui-followthrough`; `main` has not been updated. The WebUI attachment fix and Android 1.2.164 artifacts have been selectively deployed to the production website; this is not a full gateway/node rollout.
 **Active Mission / Last Prompt:** Make public model discovery match the models actually installed in Ollama, preserve OpenAI-compatible client tool use, synchronize minimized inventory with the private registry, and complete local/production rollout verification.
