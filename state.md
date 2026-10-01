@@ -1,5 +1,20 @@
 # ComputeMesh State
 
+## Native tool-call normalization and CI isolation - 2026-10-01
+
+- OpenAI-compatible and Ollama backends now decode native
+  `function.arguments` JSON strings exactly once before converting tool calls
+  to the legacy `<tool_call>` format. Structured arguments remain objects and
+  malformed/non-object values fail closed to an empty object.
+- Regression coverage models the llama.cpp/Qwen conversation
+  `Hallo -> Guten Tag! ... -> Geht die Antwort auch schneller`; backend tests
+  cover both HTTP runtimes.
+- The unified test runner and `ModelManager` use a temporary model directory,
+  and synthetic CI jobs explicitly enable the static catalog so tests never
+  write to `/var/lib/computemesh`.
+- Verification: **778/778 tests passed**, targeted gateway tests **9/9**, the
+  exact llama.cpp regression passed, and changed Python files compiled.
+
 **Last updated:** 2026-09-16
 **Release Version:** `v1.2.170`
 **Active Mission / Last Prompt:** "ein aufgenommenes bild wird riesig im chat angezeigt. ich denke das muss verkleinert angezeigt werden und evtl auch verkleinert losgeschickt" -> Implementierung von `ImageUploadOptimizer.kt` zur intelligenten Vorab-Komprimierung & EXIF-Korrektur von Kamera-/Upload-Fotos auf max. 1024px vor dem Versand, Behebung der 100%-Breite-Erzwingung im Chat-CSS durch kompakte Thumbnail-Vorschau mit Tap-to-Lightbox (Vollbildansicht) sowie 100% Testpass-Rate (`216/216 Tests passed`).

@@ -36,6 +36,10 @@ os.environ.setdefault(
     "COMPUTEMESH_ACCOUNTING_DB_PATH",
     str(_TEST_STATE_ROOT / "accounting.db"),
 )
+os.environ.setdefault(
+    "COMPUTEMESH_MODEL_STORAGE_DIR",
+    str(_TEST_STATE_ROOT / "models"),
+)
 
 CATEGORIES: dict[str, list[str]] = {
     "Protocol & Session Wire": [

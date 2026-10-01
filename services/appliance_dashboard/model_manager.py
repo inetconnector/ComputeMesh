@@ -119,9 +119,12 @@ class ModelManager:
         if storage_dir is not None:
             self.storage_dir = Path(storage_dir).resolve()
         else:
+            configured_storage = os.environ.get("COMPUTEMESH_MODEL_STORAGE_DIR")
             # Check standard NodeOS path
             nodeos_path = Path("/var/lib/computemesh/models")
-            if nodeos_path.exists() or os.name != "nt":
+            if configured_storage:
+                self.storage_dir = Path(configured_storage).expanduser().resolve()
+            elif nodeos_path.exists() or os.name != "nt":
                 self.storage_dir = nodeos_path
             else:
                 repo_root = Path(__file__).resolve().parents[2]
