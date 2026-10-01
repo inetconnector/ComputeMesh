@@ -11,6 +11,7 @@ import ipaddress
 import hmac
 import json
 import logging
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -50,6 +51,29 @@ from services.appliance_dashboard.webapp_handler import WebAppsHandler
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
+
+
+def _cors_origin(handler: Any) -> str | None:
+    """Return an explicitly trusted browser origin, never a wildcard."""
+    origin = str(handler.headers.get("Origin", "")).strip()
+    if not origin:
+        return None
+    parsed = urllib.parse.urlparse(origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    configured = {
+        item.strip().rstrip("/")
+        for item in str(os.environ.get("COMPUTEMESH_DASHBOARD_ALLOWED_ORIGINS", "")).split(",")
+        if item.strip()
+    }
+    if origin.rstrip("/") in configured:
+        return origin
+    host = str(handler.headers.get("Host", "")).strip().rstrip("/")
+    if host and parsed.netloc == host:
+        return origin
+    if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+        return origin
+    return None
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
@@ -96,6 +120,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _send_cors_headers(self) -> bool:
+        origin = _cors_origin(self)
+        if not origin:
+            return False
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Vary", "Origin")
+        return True
+
     def _verify_action_auth(self) -> bool:
         supplied_token = ""
         auth_header = self.headers.get("Authorization", "")
@@ -121,11 +153,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return False
 
     def do_OPTIONS(self) -> None:
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = _cors_origin(self)
+        self.send_response(HTTPStatus.OK if origin or not self.headers.get("Origin") else HTTPStatus.FORBIDDEN)
+        if origin:
+            self._send_cors_headers()
+        if not origin and self.headers.get("Origin"):
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, Accept, X-Requested-With")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -134,15 +171,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         resp = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self._send_cors_headers()
         self.send_header("Content-Length", str(len(resp)))
         self.end_headers()
         self.wfile.write(resp)
 
     def _send_unauthorized(self) -> None:
         self._send_json(
-            {"error": {"message": "Unauthorized: Valid X-Node-Auth-Token or ?auth= query token required for remote access", "code": 401}},
+            {"error": {"message": "Unauthorized: a valid node authentication header is required for remote access", "code": 401}},
             HTTPStatus.UNAUTHORIZED,
         )
 
@@ -163,7 +199,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
@@ -179,7 +215,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = index_target.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -206,7 +242,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -233,7 +269,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -248,7 +284,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()

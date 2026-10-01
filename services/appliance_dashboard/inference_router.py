@@ -17,6 +17,15 @@ from typing import Any
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _send_backend_error(handler: Any, *, message: str, log_message: str, exc: Exception) -> None:
+    """Log diagnostic details locally while returning a stable client contract."""
+    log.error("%s: %s", log_message, exc)
+    handler._send_json(
+        {"error": {"message": message, "code": 502, "type": "backend_unavailable"}},
+        HTTPStatus.BAD_GATEWAY,
+    )
+
+
 def _looks_like_vision_model(model_name: str) -> bool:
     """Return whether an Ollama model name conventionally accepts images."""
     lowered = str(model_name or "").lower()
@@ -495,8 +504,7 @@ class InferenceRouter:
                         handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
                         handler.send_header("Cache-Control", "no-cache")
                         handler.send_header("Connection", "close")
-                        handler.send_header("Access-Control-Allow-Origin", "*")
-                        handler.send_header("Access-Control-Allow-Private-Network", "true")
+                        handler._send_cors_headers()
                         handler.end_headers()
                         delta: dict[str, Any] = {"role": "assistant"}
                         if content:
@@ -532,10 +540,11 @@ class InferenceRouter:
                         })
                     return True
                 except Exception as exc:
-                    log.error("Cline-compatible tool inference failed: %s", exc)
-                    handler._send_json(
-                        {"error": {"message": f"Tool inference backend unavailable: {exc}", "code": 502, "type": "backend_unavailable"}},
-                        HTTPStatus.BAD_GATEWAY,
+                    _send_backend_error(
+                        handler,
+                        message="Tool inference backend unavailable",
+                        log_message="Cline-compatible tool inference failed",
+                        exc=exc,
                     )
                     return True
 
@@ -691,8 +700,7 @@ class InferenceRouter:
                     handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
                     handler.send_header("Cache-Control", "no-cache")
                     handler.send_header("Connection", "close")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
-                    handler.send_header("Access-Control-Allow-Private-Network", "true")
+                    handler._send_cors_headers()
                     handler.end_headers()
 
                     chunk_obj = {
@@ -732,9 +740,12 @@ class InferenceRouter:
                     handler._send_json(openai_resp)
                 return True
             except Exception as e:
-                err_msg = f"Inference backend unavailable: {str(e)}"
-                log.error(err_msg)
-                handler._send_json({"error": {"message": err_msg, "code": 502, "type": "backend_unavailable"}}, HTTPStatus.BAD_GATEWAY)
+                _send_backend_error(
+                    handler,
+                    message="Inference backend unavailable",
+                    log_message="Inference backend failed",
+                    exc=e,
+                )
                 return True
 
         # 2. Image Generation Route (/v1/images/generations)
@@ -790,7 +801,11 @@ class InferenceRouter:
                 })
                 return True
             except Exception as exc:
-                handler._send_json({"error": {"message": f"Image generation error: {exc}", "type": "server_error"}}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                log.error("Image generation failed: %s", exc)
+                handler._send_json(
+                    {"error": {"message": "Image generation backend unavailable", "type": "server_error"}},
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
                 return True
 
         return False

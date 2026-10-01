@@ -1,9 +1,11 @@
 """Unit tests for Embedded Appliance Web Dashboard."""
 import json
+import os
 import threading
 import time
 import unittest
 import urllib.request
+from unittest.mock import patch
 
 from services.appliance_dashboard.inference_router import (
     _extract_openai_tool_calls,
@@ -285,32 +287,40 @@ class TestDashboardServer(unittest.TestCase):
     def test_cors_options_preflight_and_private_network(self) -> None:
         from http.client import HTTPConnection
         from http.server import ThreadingHTTPServer
-        server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
-        th = threading.Thread(target=server.serve_forever, daemon=True)
-        th.start()
-        time.sleep(0.1)
+        with patch.dict(os.environ, {"COMPUTEMESH_DASHBOARD_ALLOWED_ORIGINS": "https://ai.inetconnector.com"}):
+            server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
+            th = threading.Thread(target=server.serve_forever, daemon=True)
+            th.start()
+            time.sleep(0.1)
 
-        try:
-            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-            conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
-            resp = conn.getresponse()
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
-            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
-            self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
-            conn.close()
+            try:
+                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+                conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
+                resp = conn.getresponse()
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
+                self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
+                conn.close()
 
-            # Test GET /props also returns Access-Control-Allow-Private-Network
-            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-            conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
-            resp = conn.getresponse()
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
-            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
-            conn.close()
-        finally:
-            server.shutdown()
-            server.server_close()
+                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+                conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
+                resp = conn.getresponse()
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
+                conn.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_remote_query_token_is_not_an_action_authorization(self) -> None:
+        handler = DashboardHandler.__new__(DashboardHandler)
+        handler.headers = {"Authorization": "", "X-Node-Auth-Token": ""}
+        handler.path = "/api/action/reboot?auth=secret"
+        handler.client_address = ("192.0.2.10", 0)
+        with patch("services.appliance_dashboard.server.NODE_AUTH_TOKEN", "secret"):
+            self.assertFalse(handler._verify_action_auth())
 
 
 if __name__ == "__main__":
