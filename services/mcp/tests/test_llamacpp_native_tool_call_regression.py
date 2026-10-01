@@ -1,8 +1,8 @@
 """Regression reproduction for llama.cpp native tool-call handling.
 
 This test intentionally models the screenshot conversation and the OpenAI-compatible
-shape emitted by llama.cpp/Qwen.  It documents the current double-encoding bug
-without changing production code.
+shape emitted by llama.cpp/Qwen.  It verifies that native tool arguments survive
+the gateway's compatibility conversion without double encoding.
 """
 
 import json
@@ -83,8 +83,7 @@ def test_screenshot_followup_preserves_llamacpp_tool_arguments_as_object():
             }],
         )
 
-    # The gateway currently converts native tool_calls to <tool_call> text.
-    # Exercise the exact fallback path used by AgentLoop.
+    # Exercise the exact fallback path used by AgentLoop after gateway conversion.
     registry = ToolRegistry()
     parsed_calls = _fallback_tool_calls(result.text, registry)
 
@@ -92,8 +91,6 @@ def test_screenshot_followup_preserves_llamacpp_tool_arguments_as_object():
     raw_args = parsed_calls[0]["function"]["arguments"]
     decoded_args = json.loads(raw_args)
 
-    # REQUIRED invariant: one JSON decode must recover the argument object expected
-    # by execute_tools_batch.  Current main fails here because decoded_args is a str
-    # (the native arguments JSON string was json.dumps()'d a second time).
+    # One JSON decode must recover the argument object expected by execute_tools_batch.
     assert isinstance(decoded_args, dict)
     assert decoded_args == arguments

@@ -73,6 +73,34 @@ class InferenceBackendTests(unittest.TestCase):
         self.assertEqual(result.prompt_tokens, 11)
         self.assertEqual(result.completion_tokens, 7)
 
+    def test_openai_compatible_backend_normalizes_native_tool_call_arguments(self) -> None:
+        backend = OpenAICompatibleHTTPBackend(base_url="http://127.0.0.1:8080")
+        arguments = {"name": "some_tool", "inputs": {"text": "hello"}}
+        response = _FakeResponse(
+            {
+                "choices": [{
+                    "message": {
+                        "content": None,
+                        "tool_calls": [{
+                            "type": "function",
+                            "function": {
+                                "name": "execute_custom_tool",
+                                "arguments": json.dumps(arguments),
+                            },
+                        }],
+                    },
+                }],
+            }
+        )
+
+        with patch("services.gateway.inference_backend.request.urlopen", return_value=response):
+            result = backend.complete(model_id="test-model", messages=[])
+
+        self.assertIn(
+            '<tool_call>{"name": "execute_custom_tool", "arguments": {"name": "some_tool", "inputs": {"text": "hello"}}}</tool_call>',
+            result.text,
+        )
+
     def test_invalid_runtime_response_is_rejected(self) -> None:
         backend = OpenAICompatibleHTTPBackend(base_url="http://127.0.0.1:8080")
         with patch(
@@ -122,6 +150,35 @@ class InferenceBackendTests(unittest.TestCase):
         self.assertEqual(result.text, "real ollama answer")
         self.assertEqual(result.prompt_tokens, 13)
         self.assertEqual(result.completion_tokens, 9)
+
+    def test_ollama_backend_normalizes_native_tool_call_arguments(self) -> None:
+        backend = OllamaHTTPBackend(base_url="http://127.0.0.1:11434")
+        arguments = {"name": "some_tool", "inputs": {"text": "hello"}}
+        response = _FakeResponse(
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "type": "function",
+                        "function": {
+                            "name": "execute_custom_tool",
+                            "arguments": json.dumps(arguments),
+                        },
+                    }],
+                },
+                "prompt_eval_count": 1,
+                "eval_count": 1,
+            }
+        )
+
+        with patch("services.gateway.inference_backend.request.urlopen", return_value=response):
+            result = backend.complete(model_id="test-model", messages=[])
+
+        self.assertIn(
+            '<tool_call>{"name": "execute_custom_tool", "arguments": {"name": "some_tool", "inputs": {"text": "hello"}}}</tool_call>',
+            result.text,
+        )
 
     def test_ollama_backend_can_be_selected_from_env(self) -> None:
         env = {
