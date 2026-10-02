@@ -55,6 +55,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - **Optional Cline integration on Windows**: the provider app exposes a separate `Cline (VS Code)` checkbox. After explicit confirmation it installs the official per-user Visual Studio Code build when needed, installs the official `saoudrizwan.claude-dev` Marketplace extension through VS Code's `bin\code.cmd` CLI, and configures Cline's canonical `openai`/`openai-compatible` provider path for the local node at `http://127.0.0.1:8080/v1`. It prefers an installed coding model and falls back to `auto`. Cline tool schemas and tool-result history pass through to Ollama as OpenAI-compatible `tool_calls`, while ordinary dashboard requests retain the internal ComputeMesh MCP loop. A small local bridge reopens the Cline view after VS Code reloads for a project change. `Code.exe` is used only to launch the visible editor; unrelated Cline providers and credentials are preserved.
 - minimized model inventory in node heartbeats: model IDs, availability and public runtime capabilities can be reconciled into the authenticated private registry without exposing private placement, pricing or reputation inputs;
 - an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
+- an AI Studio WebUI whose service-worker precache is kept in sync with the shipped HTML, so variant utility tokens such as `disabled:pointer-events-none` cannot make ordinary controls physically unclickable;
 - an Android 1.2.164 APK published on the project download site and as the `android-latest` GitHub release, signed with the production key. Earlier 1.2.163 website APKs used a different debug certificate: existing installations must be uninstalled before installing 1.2.164, which can remove local app data. This is a signing-key migration, not an in-place update;
 - a provider app that lets a machine report available compute;
 - early real two-machine llama.cpp experiments;
@@ -62,7 +63,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.171` is the next release candidate for `https://computemesh.inetconnector.com/updates/version.json`; publish it only after the signed artifact and live hash gates pass.
+Current signed client/update channel: `v1.2.171` is published at `https://computemesh.inetconnector.com/updates/version.json`. A WebUI/service-worker correction is prepared on the current maintenance branch and must pass the normal release artifact and live hash gates before publication.
 
 ## What Is Not Promised Yet
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+import hashlib
 import http.client
 import json
 from pathlib import Path
@@ -18,6 +19,34 @@ if str(REPO_ROOT) not in sys.path:
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
+
+
+class TestWebUIStaticAssets(unittest.TestCase):
+    def test_pointer_event_rules_and_service_worker_revision_match(self) -> None:
+        assets = (
+            REPO_ROOT / "portal" / "webui",
+            REPO_ROOT / "apps" / "android" / "app" / "src" / "main" / "assets" / "webui",
+        )
+        for webui_root in assets:
+            index = webui_root / "index.html"
+            service_worker = webui_root / "sw.js"
+            html = index.read_text(encoding="utf-8")
+            self.assertNotIn(
+                '[class*="pointer-events-none"]',
+                html,
+                f"variant utility tokens must not disable controls in {index}",
+            )
+            self.assertIn(
+                ".pointer-events-none:not(aside):not(aside *)",
+                html,
+                f"hidden trigger rule is missing from {index}",
+            )
+            revision = hashlib.md5(index.read_bytes()).hexdigest()
+            self.assertIn(
+                f'url:"./",revision:"{revision}"',
+                service_worker.read_text(encoding="utf-8"),
+                f"service-worker precache revision is stale for {index}",
+            )
 
 
 class TestApplianceWebUIIntegration(unittest.TestCase):

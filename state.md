@@ -1,5 +1,32 @@
 # ComputeMesh State
 
+## WebUI control and service-worker cache fix - 2026-10-02
+
+- Branch `codex/webui-service-worker-controls` is based on public `main` at
+  `84f82ec` (`v1.2.171`). It changes only the bundled WebUI assets, their
+  Android copy, the service-worker precache revision and one regression test.
+- The failure was reproducible in a stale browser page: a broad CSS selector
+  matched the literal substring in Tailwind variant tokens such as
+  `disabled:pointer-events-none`, applying `pointer-events: none` to normal
+  buttons. The shipped CSS now matches only the active `.pointer-events-none`
+  class, and the service worker's `./` revision is calculated from the actual
+  current `index.html` in both copies.
+- Browser route audit covered chat plus General, Display, Sampling, Penalties,
+  Agentic, Developer, MCP, Tools and Import/Export. All visible controls had
+  `pointer-events: auto`; a real Display checkbox toggled and restored, and
+  sidebar navigation reached Sampling. Attachment browser coverage passed 3/3.
+- Verification: `python -m unittest tests.test_appliance_webui -v` passed 6/6;
+  `COMPUTEMESH_BROWSER_E2E=1 python -m pytest tests/test_webui_attachment_browser.py -q`
+  passed 3/3; `git diff --check` passed. A startup warning about a missing
+  optional `ModelManager.POPULAR_GGUF_MODELS` attribute was emitted by the
+  existing test harness but did not fail the tests.
+- The currently installed Windows `v1.2.171` binary still embeds the old
+  service-worker manifest; this branch has not been built, installed, merged or
+  published yet. The visible stale Chrome tab can temporarily be tested with a
+  cache-busting WebUI URL; publication requires the normal rebuilt-artifact,
+  signature, CI and live-hash gates. No localStorage, chats or user settings
+  were cleared.
+
 ## Native tool-call normalization and CI isolation - 2026-10-01
 
 - OpenAI-compatible and Ollama backends now decode native
