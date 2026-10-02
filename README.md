@@ -62,7 +62,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.170` is live at `https://computemesh.inetconnector.com/updates/version.json`.
+Current signed client/update channel: `v1.2.171` is the next release candidate for `https://computemesh.inetconnector.com/updates/version.json`; publish it only after the signed artifact and live hash gates pass.
 
 ## What Is Not Promised Yet
 
