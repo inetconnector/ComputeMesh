@@ -4,7 +4,7 @@
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and fixing client-tool forwarding, unknown-model rejection, and URL-key test contracts. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. It is the source branch for PR #98; merge to public `main` is still pending CI. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Git Baseline:** local `main` and `origin/main` are aligned at merge commit `381ced6d10daef9fc664519de142ca0c292da7a4`, which merged PR #98 after the full GitHub Actions run `37160912965` passed. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
 ## 2026-10-04 Android production installation
 
@@ -38,9 +38,20 @@
 - The canonical suite passed `785/785` in 88.14 seconds after the timezone test
   fix. Concert research tests now derive dates from the configured application
   timezone instead of the CI host's system date, preventing the UTC/Berlin
-  midnight failure seen in the first PR #98 CI run. The remaining release gate
-  is the new PR/CI validation and merging into `main`; local attachment files
-  remain intentionally untracked.
+  midnight failure seen in the first PR #98 CI run. GitHub Actions run
+  `37160912965` then passed compile, concert, gateway, attestation, live
+  control-plane/recovery and full-suite checks in 1m28s. PR #98 is merged into
+  `main`; local attachment files remain intentionally untracked.
+
+## 2026-10-04 final main integration
+
+- PR #98 (`codex/nodeos-model-runtime` -> `main`) was merged after the
+  conflict resolution, local `785/785` verification and green CI run.
+- `git fetch --all --prune` confirmed that `origin/main` is the only remote
+  branch. Local `main` was fast-forwarded to the merge commit; no `develop`
+  branch is present.
+- The old local `codex/fan-safety-dashboard-fix` branch and the merged local
+  feature branch were removed only after the remote merge was confirmed.
 
 ## 2026-10-03 authenticated fleet-owner rebinding
 
