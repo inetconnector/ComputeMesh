@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.182` includes the AI-Chat URL-credential fix, both cache-busting loader corrections, and the localization correction for newly added Android, portal and dashboard messages. It is the next signed/live rollout. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.182` includes the AI-Chat URL-credential fix, both cache-busting loader corrections, and the localization correction for newly added Android, portal and dashboard messages. It is selectively live on the public webroots and gateway. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.182 localization fix and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
@@ -19,6 +19,31 @@
 - Project rule: user-visible text must use the existing i18n/resource layer;
   never add a language-specific string directly to a UI call, error toast,
   prompt or rendered HTML path.
+
+## 2026-10-03 v1.2.182 release and live verification
+
+- The release builder produced and cryptographically verified the v1.2.182
+  manifest. Windows installer SHA-256 is
+  `7de7e687f9c932a1f081e84f7a173bc9189976484d1e55eccb3b47c8962a07aa`,
+  Linux tarball SHA-256 is
+  `ff943d34e53f9ba82865c43e933effaccbb410612a80eb6dcdf89485d61c7f75`,
+  and installer-script SHA-256 remains
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+- Selective deployment completed with backup at
+  `/root/computemesh-backups/v1.2.182-before-selective-deploy-20261003-200335`.
+  The two Plesk webroots and `/opt/computemesh` now serve v1.2.182; the
+  gateway restart, remote `py_compile`, public manifest/version/health checks,
+  and wrong-credential 401 checks passed.
+- Browser verification after cache refresh confirmed the Fleet AI link is
+  `https://ai.inetconnector.com/` without a query credential, and the AI
+  Studio page has no active update toast. No destructive fleet action was
+  triggered.
+- Android source compiles and `assembleDebug` succeeds. No ADB device is
+  connected (`adb devices` returned no devices), so phone installation and
+  handset runtime verification remain open. The current localized debug APK
+  was copied and hash-verified at
+  `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.164-localized-debug.apk`.
+  It is a development artifact, not a production-signed public update.
 
 ## 2026-10-03 v1.2.178 autonomous security and control fix tranche
 
