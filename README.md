@@ -63,7 +63,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update release candidate: `v1.2.173` includes the NodeOS model-catalog startup fix. Publication follows the signed-artifact, CI and live hash gates; `https://computemesh.inetconnector.com/updates/version.json` remains on the last published release until then.
+Current signed client/update channel: `v1.2.173` is published at `https://computemesh.inetconnector.com/updates/version.json` and includes the NodeOS model-catalog startup fix. The signed artifact, CI and live hash gates have passed.
 
 ## What Is Not Promised Yet
 
