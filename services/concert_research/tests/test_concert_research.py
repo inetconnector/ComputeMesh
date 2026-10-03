@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import datetime
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from services.concert_research.config import ConcertResearchConfig
+from services.concert_research.config import ConcertResearchConfig, resolve_timezone
 from services.concert_research.engine import ConcertResearchEngine
 from services.concert_research.extractors import extract_ics, extract_jsonld
 from services.concert_research.mcp_server import MCPApplication, PROTOCOL_VERSION
@@ -23,6 +23,9 @@ class ConcertResearchTests(unittest.TestCase):
         self.store=ConcertStore(self.config.db_path); self.engine=ConcertResearchEngine(self.config,self.store)
 
     def tearDown(self): self.tmp.cleanup()
+
+    def _today(self) -> str:
+        return datetime.now(resolve_timezone(self.config.timezone)).date().isoformat()
 
     def test_jsonld_event(self):
         block=json.dumps({"@context":"https://schema.org","@type":"MusicEvent","name":"Example Band","startDate":"2026-09-08T20:30:00+02:00","endDate":"2026-09-08T23:00:00+02:00","location":{"@type":"Place","name":"Club X","address":{"addressLocality":"Würzburg"},"geo":{"latitude":49.79,"longitude":9.94}},"offers":{"price":"18","priceCurrency":"EUR"},"url":"/events/example"})
@@ -49,7 +52,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertEqual(id1,id2); self.assertFalse(created)
 
     def test_public_contract_exact_fields(self):
-        sid,_=self.store.upsert_source(SourceRecord("Venue","https://venue.example/events",tier="primary",city="Würzburg")); today=date.today().isoformat()
+        sid,_=self.store.upsert_source(SourceRecord("Venue","https://venue.example/events",tier="primary",city="Würzburg")); today=self._today()
         self.store.upsert_event(EventObservation("Band","Club",today,"https://venue.example/events","Venue","https://venue.example/1",start_time="20:00"),city="Würzburg",source_id=sid)
         payload=self.engine.research(ResearchRequest(city="Würzburg",date_from=today,date_to=today))
         self.assertEqual(set(payload),{"city","requestedCity","notes","today","tomorrow","sources"})
@@ -92,7 +95,7 @@ class ConcertResearchTests(unittest.TestCase):
 
         # 2. Insert sources and events in different cities:
         # Würzburg (0 km), Schweinfurt (~36 km -> inside 100km), München (~220 km -> outside 100km)
-        today = date.today().isoformat()
+        today = self._today()
         s_wue, _ = self.store.upsert_source(SourceRecord("WueClub", "https://wue.example/events", tier="primary", city="Würzburg"))
         s_sw, _ = self.store.upsert_source(SourceRecord("SWClub", "https://sw.example/events", tier="primary", city="Schweinfurt"))
         s_muc, _ = self.store.upsert_source(SourceRecord("MUCClub", "https://muc.example/events", tier="primary", city="München"))
@@ -141,7 +144,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertNotIn("München Arena Concert", titles2)
 
     def test_mcp_research_concerts_with_city_and_radius(self):
-        today = date.today().isoformat()
+        today = self._today()
         sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
         self.store.upsert_event(EventObservation("Jazz Night", "Cairo Würzburg", today, "https://venue.example/events", "Venue", "https://venue.example/jazz", start_time="20:00", venue_latitude=49.7939, venue_longitude=9.9512), city="Würzburg", source_id=sid)
 
@@ -280,7 +283,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertFalse(cls_pol.is_live_music)
 
     def test_research_concerts_filters_out_parties_and_fitness(self):
-        today = date.today().isoformat()
+        today = self._today()
         sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
 
         # 1. Insert Yoga
@@ -313,7 +316,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertIn("SPORT & FITNESS", rubrics)
 
     def test_reclassify_events_tool_and_engine(self):
-        today = date.today().isoformat()
+        today = self._today()
         sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
         self.store.upsert_event(EventObservation("Thirsty Thursday Club Party", "Das Boot", today, "https://v.example/boot", "Venue", "https://v.example/boot"), city="Würzburg", source_id=sid)
 
@@ -332,7 +335,7 @@ class ConcertResearchTests(unittest.TestCase):
         self.assertIn("reclassified", call_reclass["result"]["structuredContent"])
 
     def test_mcp_new_tools_registration_and_calls(self):
-        today = date.today().isoformat()
+        today = self._today()
         sid, _ = self.store.upsert_source(SourceRecord("Venue", "https://venue.example/events", tier="primary", city="Würzburg"))
         self.store.upsert_event(EventObservation("Indie Rock Night Live", "Cairo", today, "https://v.example/cairo", "Venue", "https://v.example/cairo", genre="indie"), city="Würzburg", source_id=sid)
         self.store.upsert_event(EventObservation("Students Night", "Beerhouse", today, "https://v.example/beer", "Venue", "https://v.example/beer"), city="Würzburg", source_id=sid)

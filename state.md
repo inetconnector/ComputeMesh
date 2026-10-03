@@ -4,7 +4,7 @@
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and fixing client-tool forwarding, unknown-model rejection, and URL-key test contracts. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. It is the source branch for PR #98; merge to public `main` is still pending CI. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
 ## 2026-10-04 Android production installation
 
@@ -26,7 +26,7 @@
 
 - `origin/main` was merged into the v1.2.184 branch while retaining the newer
   release/runtime state and all non-conflicting main features. The merge was
-  resolved locally and is ready for PR #98 after the final branch push.
+  resolved locally in commit `158155f` and pushed as PR #98.
 - OpenAI-compatible client-owned `tools` and `tool_choice` are validated and
   forwarded to the inference backend; they are kept separate from the
   ComputeMesh MCP loop and preserve native `tool_calls` responses.
@@ -35,9 +35,12 @@
 - Owner keys are explicitly rejected in query-string URLs. Fleet and generated
   Ollama scripts use the authenticated header/session path instead. The merged
   portal tests cover both rejection and the supported header path.
-- The merged canonical suite passed `785/785` in 87.21 seconds. The remaining
-  release gate is PR/CI validation and merging into `main`; local attachment
-  files remain intentionally untracked.
+- The canonical suite passed `785/785` in 88.14 seconds after the timezone test
+  fix. Concert research tests now derive dates from the configured application
+  timezone instead of the CI host's system date, preventing the UTC/Berlin
+  midnight failure seen in the first PR #98 CI run. The remaining release gate
+  is the new PR/CI validation and merging into `main`; local attachment files
+  remain intentionally untracked.
 
 ## 2026-10-03 authenticated fleet-owner rebinding
 
