@@ -8,7 +8,11 @@ import time
 import unittest
 from unittest.mock import patch
 
-from services.appliance_dashboard.model_manager import ModelManager, ModelManagerError
+from services.appliance_dashboard.model_manager import (
+    MODEL_SAFETY_RESERVE_BYTES,
+    ModelManager,
+    ModelManagerError,
+)
 
 
 class FakeHeaders(dict):
@@ -115,6 +119,34 @@ class TestModelManager(unittest.TestCase):
                     quantization="Q4_K_M",
                     license_id="apache-2.0",
                 )
+
+    def test_status_warns_when_storage_cannot_fit_recommended_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manager = ModelManager(Path(tmp), engine=FakeEngine())
+            usage = type("Usage", (), {"total": 10 * 1024**3, "used": 9 * 1024**3, "free": 1 * 1024**3})()
+            with patch("services.appliance_dashboard.model_manager.shutil.disk_usage", return_value=usage):
+                storage = manager.status()["storage"]
+            self.assertTrue(storage["warning"])
+            self.assertFalse(storage["sufficient_for_recommended_model"])
+            self.assertEqual(storage["safety_reserve_bytes"], MODEL_SAFETY_RESERVE_BYTES)
+
+    def test_download_error_reports_available_and_required_storage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manager = ModelManager(Path(tmp), engine=FakeEngine())
+            usage = type("Usage", (), {"total": 10 * 1024**3, "used": 9 * 1024**3, "free": 2 * 1024**3})()
+            with patch("services.appliance_dashboard.model_manager.shutil.disk_usage", return_value=usage):
+                with self.assertRaisesRegex(ModelManagerError, "available.*required"):
+                    manager.install_from_hugging_face(
+                        model_id="org/model-q4",
+                        repo_id="org/model-gguf",
+                        filename="model-q4.gguf",
+                        revision="a" * 40,
+                        sha256="0" * 64,
+                        size_bytes=2 * 1024**3,
+                        layer_count=32,
+                        quantization="Q4_K_M",
+                        license_id="apache-2.0",
+                    )
 
     def test_partial_download_resumes_with_range_and_is_verified(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

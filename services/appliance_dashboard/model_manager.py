@@ -24,6 +24,10 @@ from services.appliance_dashboard.model_engine_service import (
 
 MAX_MODEL_BYTES = 1024 * 1024 * 1024 * 1024
 MAX_SEARCH_RESULTS = 25
+MODEL_SAFETY_RESERVE_BYTES = 1024 * 1024 * 1024
+# A node with less space than this cannot practically host the standard local
+# GGUF catalogue. Smaller models remain possible when their manifest fits.
+RECOMMENDED_MIN_MODEL_BYTES = 3 * 1024 * 1024 * 1024
 MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
@@ -52,6 +56,42 @@ def _atomic_json(path: Path, value: Any) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(temp, path)
+
+
+def _mount_diagnostics(path: Path) -> dict[str, Any]:
+    """Return the Linux mount carrying *path* without shelling out to findmnt."""
+    if os.name == "nt":
+        return {}
+    mountinfo = Path("/proc/self/mountinfo")
+    if not mountinfo.is_file():
+        return {}
+    target = str(path.resolve())
+    best: tuple[int, dict[str, Any]] | None = None
+    try:
+        for line in mountinfo.read_text(encoding="utf-8").splitlines():
+            before, separator, after = line.partition(" - ")
+            if not separator:
+                continue
+            fields = before.split()
+            if len(fields) < 6:
+                continue
+            mount_point = fields[4].replace("\\040", " ").replace("\\011", "\t")
+            if target != mount_point and not target.startswith(mount_point.rstrip("/") + "/"):
+                continue
+            after_fields = after.split()
+            if not after_fields:
+                continue
+            details = {
+                "mount_point": mount_point,
+                "filesystem_type": after_fields[0],
+                "mount_source": after_fields[1] if len(after_fields) > 1 else "",
+            }
+            candidate = (len(mount_point), details)
+            if best is None or candidate[0] > best[0]:
+                best = candidate
+    except (OSError, UnicodeError):
+        return {}
+    return best[1] if best else {}
 
 
 class ModelManager:
@@ -114,10 +154,25 @@ class ModelManager:
 
     def status(self) -> dict[str, Any]:
         usage = shutil.disk_usage(self.model_root)
+        recommended_required = RECOMMENDED_MIN_MODEL_BYTES + MODEL_SAFETY_RESERVE_BYTES
+        mount = _mount_diagnostics(self.model_root)
+        warning = usage.free < recommended_required
+        overlay = mount.get("filesystem_type") == "overlay"
         with self._lock:
             return {
                 "model_root": str(self.model_root),
-                "storage": {"total_bytes": usage.total, "free_bytes": usage.free},
+                "storage": {
+                    "total_bytes": usage.total,
+                    "free_bytes": usage.free,
+                    "safety_reserve_bytes": MODEL_SAFETY_RESERVE_BYTES,
+                    "recommended_minimum_model_bytes": RECOMMENDED_MIN_MODEL_BYTES,
+                    "recommended_required_bytes": recommended_required,
+                    "sufficient_for_recommended_model": usage.free >= recommended_required,
+                    "warning": warning or overlay,
+                    "warning_reason": "overlay" if overlay else ("low_space" if warning else ""),
+                    "persistence_volume_detected": not overlay if mount else None,
+                    **mount,
+                },
                 "models": self.list_models(),
                 "downloads": list(self._downloads.values()),
                 "engine": self.engine.status(),
@@ -185,8 +240,13 @@ class ModelManager:
             raise ModelManagerError("quantization and license_id are required")
 
         free_bytes = shutil.disk_usage(self.model_root).free
-        if free_bytes < int(size_bytes) + 1024 * 1024 * 1024:
-            raise ModelManagerError("insufficient free storage for the model and safety reserve")
+        required_bytes = int(size_bytes) + MODEL_SAFETY_RESERVE_BYTES
+        if free_bytes < required_bytes:
+            raise ModelManagerError(
+                "insufficient free storage: "
+                f"{free_bytes} bytes available, {required_bytes} bytes required "
+                f"(model plus {MODEL_SAFETY_RESERVE_BYTES} byte safety reserve)"
+            )
         target = self.model_root / filename
         partial = target.with_suffix(target.suffix + ".part")
         download_id = hashlib.sha256(f"{repo_id}\0{revision}\0{filename}".encode()).hexdigest()[:24]

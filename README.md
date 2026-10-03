@@ -69,7 +69,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.182` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, and keeps newly added UI text in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
+Current signed client/update channel: `v1.2.183` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, and warns when model storage is too small or not persistent. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
 
 ## What Is Not Promised Yet
 
@@ -107,6 +107,13 @@ file type, exact size, GGUF magic and SHA-256 before starting `llama-server` on
 uses that managed llama.cpp endpoint when it is healthy; otherwise it can use a
 separately installed Ollama runtime. If neither runtime is healthy, model and
 chat endpoints fail with `503` and do not invent answers or token usage.
+
+The dashboard warns when the configured model filesystem is too small for the
+recommended local catalogue or when NodeOS is running on a temporary overlay
+filesystem. The download API also reports the exact available and required
+bytes, including its safety reserve. On a NodeOS image, ensure the persistent
+data partition is mounted; for another disk set `COMPUTEMESH_MODEL_DIR` to a
+writable directory on that disk before downloading models.
 
 The NodeOS image builder pins upstream llama.cpp `v0.4.1` at commit
 `29aaf1c27faa48292357cea2120d94114a545006`, builds the Vulkan server, includes

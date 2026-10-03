@@ -55,6 +55,18 @@ Das Menü kann den Rechner prüfen, die Netzwerkverbindung messen, lokale Modell
 
 Die genaue Zwei-Rechner-Anleitung für Entwickler steht in [setup/README.de.md](setup/README.de.md). Der aktuelle öffentliche Status steht in [docs/CURRENT_STATUS.de.md](docs/CURRENT_STATUS.de.md). `state.md` ist das ausführliche technische Projektlog.
 
+## Lokale GGUF-Modelle auf NodeOS
+
+Der NodeOS-Dashboard-Tab **Modelle** verwaltet verifizierte GGUF-Dateien im
+`COMPUTEMESH_MODEL_DIR` (Standard auf NodeOS:
+`/var/lib/computemesh/models`). Vor dem Download prüft die Anwendung die
+exakte Dateigröße plus Sicherheitsreserve und meldet die tatsächlich freien
+und benötigten Bytes. Sie warnt außerdem, wenn der Modellpfad auf einem
+temporären Overlay-Dateisystem liegt. In diesem Fall muss zuerst das
+persistent eingerichtete NodeOS-Datenvolume eingehängt oder
+`COMPUTEMESH_MODEL_DIR` auf einen beschreibbaren größeren Datenträger gesetzt
+werden.
+
 ## Technischer Überblick
 
 Für Entwickler heißt das konkret:

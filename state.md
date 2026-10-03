@@ -1,10 +1,29 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.182` includes the AI-Chat URL-credential fix, both cache-busting loader corrections, and the localization correction for newly added Android, portal and dashboard messages. It is selectively live on the public webroots and gateway. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The release is prepared locally and is not live until the signed artifacts and node update are verified. The six-GPU LAN node `.27` was observed on `v1.2.182` with about 1.55 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine. The NVIDIA node `.94` has no safe manual fan-control backend.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.182 localization fix and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.183 diagnostics work and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+
+## 2026-10-03 v1.2.183 fan and model-storage diagnostics
+
+- AMD telemetry now reports `pwm1` as a duty/setpoint and `fan1_input` as
+  measured RPM. The dashboard no longer presents a PWM value as proof that a
+  physical rotor is turning. A regression test covers the distinction.
+- The model manager now returns filesystem/mount diagnostics, detects a
+  temporary Linux overlay, warns when the configured filesystem has less than
+  a recommended 3 GiB model plus 1 GiB safety reserve, and reports exact free
+  and required bytes on download rejection. Dashboard warnings use the
+  existing language lookup for English/German text.
+- Targeted verification: 15 hardware/model/fan tests passed, Python compile
+  checks passed, and `git diff --check` passed with only the repository's
+  existing LF/CRLF warning.
+- Live evidence before rollout: `.27` has six AMD Polaris GPUs and 48 GB VRAM,
+  but `model_runtime.engine` is stopped with no model installed and the model
+  filesystem has about 1.55 GB free. `.94` is an NVIDIA node whose driver
+  exposes no safe manual fan-control API. Neither fact is treated as solved by
+  a cosmetic dashboard value.
 
 ## 2026-10-03 v1.2.182 localization correction
 

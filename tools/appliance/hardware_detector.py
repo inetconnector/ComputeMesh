@@ -67,6 +67,7 @@ class GpuThermalMetrics:
     temperature_celsius: int | None
     fan_speed_percent: int | None
     power_watts: int | None
+    fan_speed_rpm: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -558,6 +559,7 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
 
             temp_c = None
             fan_pct = None
+            fan_rpm = None
             power_w = None
 
             # Scan hwmon directory for temp, fan, power
@@ -579,6 +581,17 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                     except Exception:
                         pass
 
+                # pwm1 is the requested duty cycle, not proof that the fan
+                # rotor is moving. Read the tachometer separately when the
+                # driver exposes it so the dashboard can distinguish command
+                # from measured rotation.
+                rpm_input = Path(hw) / "fan1_input"
+                if rpm_input.exists():
+                    try:
+                        fan_rpm = max(0, int(rpm_input.read_text().strip()))
+                    except Exception:
+                        pass
+
                 power_input = Path(hw) / "power1_average"
                 if power_input.exists():
                     try:
@@ -593,6 +606,7 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                     temperature_celsius=temp_c,
                     fan_speed_percent=fan_pct,
                     power_watts=power_w,
+                    fan_speed_rpm=fan_rpm,
                 )
             )
             current_index += 1

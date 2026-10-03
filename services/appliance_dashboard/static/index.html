@@ -179,6 +179,16 @@
       gap: 0.5rem;
     }
     .model-list { display: flex; flex-direction: column; gap: 0.65rem; }
+    .model-storage-warning {
+      display: none;
+      margin: 0 0 1rem;
+      padding: 0.8rem 1rem;
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      border-radius: 8px;
+      background: rgba(245, 158, 11, 0.12);
+      color: #fde68a;
+      line-height: 1.45;
+    }
     .model-row {
       display: grid;
       grid-template-columns: minmax(180px, 1.4fr) minmax(110px, 0.6fr) auto;
@@ -857,6 +867,8 @@
           <div class="stat-card"><div class="stat-label">Modellspeicher frei</div><div class="stat-value" id="model-storage-free" style="font-size:1.1rem;">--</div></div>
           <div class="stat-card"><div class="stat-label">Aktives Modell</div><div class="stat-value" id="model-active-id" style="font-size:1rem; word-break:break-word;">Keines</div></div>
         </div>
+        <div id="model-storage-warning" class="model-storage-warning" role="status"></div>
+        <div id="model-runtime-error" class="form-desc" style="display:none; margin-bottom:1rem;"></div>
         <div id="model-list" class="model-list"><div class="form-desc">Modelle werden geladen...</div></div>
       </div>
 
@@ -1134,9 +1146,19 @@
     const dashboardTranslations = {
       en: {
         nodeAuthPrompt: 'Node authentication required. Enter the node token:',
+        fanDutyLabel: 'Fan setpoint',
+        fanMeasuredLabel: 'Fan ({duty}% PWM)',
+        modelStorageWarning: 'Only {free} is free in the model storage. A standard local model needs at least {required}. Attach or select a larger data volume before downloading.',
+        modelStorageOverlayWarning: 'The model directory is on a temporary overlay filesystem and has only {free} free. The persistent data volume is not mounted; attach the NodeOS persistence volume or configure COMPUTEMESH_MODEL_DIR before downloading.',
+        modelRuntimeError: 'Runtime error: {error}',
       },
       de: {
         nodeAuthPrompt: 'Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:',
+        fanDutyLabel: 'Lüfter-Sollwert',
+        fanMeasuredLabel: 'Lüfter ({duty}% PWM)',
+        modelStorageWarning: 'Im Modellspeicher sind nur {free} frei. Ein übliches lokales Modell benötigt mindestens {required}. Vor dem Download ein größeres Datenvolume anschließen oder auswählen.',
+        modelStorageOverlayWarning: 'Der Modellspeicher liegt auf einem temporären Overlay-Dateisystem und hat nur {free} frei. Das persistente Datenvolume ist nicht eingehängt. NodeOS-Persistenzvolume anschließen oder vor dem Download COMPUTEMESH_MODEL_DIR konfigurieren.',
+        modelRuntimeError: 'Runtime-Fehler: {error}',
       },
     };
 
@@ -1264,7 +1286,27 @@
         const engine = data.engine || {};
         document.getElementById('model-runtime-state').textContent = engine.state || 'unavailable';
         document.getElementById('model-active-id').textContent = engine.model_id || 'Keines';
-        document.getElementById('model-storage-free').textContent = formatBytes(data.storage && data.storage.free_bytes);
+        const storage = data.storage || {};
+        document.getElementById('model-storage-free').textContent = formatBytes(storage.free_bytes);
+        const warning = document.getElementById('model-storage-warning');
+        if (storage.warning) {
+          const warningKey = storage.warning_reason === 'overlay' ? 'modelStorageOverlayWarning' : 'modelStorageWarning';
+          warning.textContent = dashboardText(warningKey)
+            .replace('{free}', formatBytes(storage.free_bytes))
+            .replace('{required}', formatBytes(storage.recommended_required_bytes));
+          warning.style.display = 'block';
+        } else {
+          warning.textContent = '';
+          warning.style.display = 'none';
+        }
+        const runtimeError = document.getElementById('model-runtime-error');
+        if (engine.last_error) {
+          runtimeError.textContent = dashboardText('modelRuntimeError').replace('{error}', engine.last_error);
+          runtimeError.style.display = 'block';
+        } else {
+          runtimeError.textContent = '';
+          runtimeError.style.display = 'none';
+        }
         list.replaceChildren();
         const models = Array.isArray(data.models) ? data.models : [];
         const downloads = Array.isArray(data.downloads) ? data.downloads : [];
@@ -1597,7 +1639,8 @@
             const usableGb = Math.max(0.1, (gpu.vram_bytes / (1024*1024*1024)) - (reserveMb / 1024)).toFixed(1);
             const therm = (data.telemetry && data.telemetry.gpu_thermals && data.telemetry.gpu_thermals[idx]) || {};
             const temp = therm.temp ?? '—';
-            const fan = therm.fan ?? '—';
+            const fanDuty = therm.fan_duty_percent ?? therm.fan ?? '—';
+            const fanRpm = therm.fan_rpm;
             const power = therm.power_watts ?? '—';
             const tflops = therm.tflops ?? '—';
 
@@ -1628,8 +1671,8 @@
                   <div class="metric-lbl">Temperatur</div>
                 </div>
                 <div>
-                  <div class="metric-val">${fan}%</div>
-                  <div class="metric-lbl">Lüfter</div>
+                  <div class="metric-val">${fanRpm == null ? `${fanDuty}%` : `${fanRpm} RPM`}</div>
+                  <div class="metric-lbl">${fanRpm == null ? dashboardText('fanDutyLabel') : dashboardText('fanMeasuredLabel').replace('{duty}', fanDuty)}</div>
                 </div>
                 <div>
                   <div class="metric-val">${power}W</div>

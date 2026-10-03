@@ -92,6 +92,8 @@ class TelemetryHandler:
                     "gpu_index": g.index,
                     "temp": measured.temperature_celsius if measured else None,
                     "fan": measured.fan_speed_percent if measured else None,
+                    "fan_duty_percent": measured.fan_speed_percent if measured else None,
+                    "fan_rpm": measured.fan_speed_rpm if measured else None,
                     "power_watts": measured.power_watts if measured else None,
                     "tflops": None,
                 })

@@ -598,7 +598,34 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         if any(op in expr for op in ("+", "-", "*", "/", "^", "%")):
             return ("calculate_math", {"expression": expr})
 
-    # 10. News Feed, Headlines & Direct Site Inspection (taz, Spiegel, Tagesschau, Heise, Zeit, etc.)
+    # Current TV schedules must be grounded in a live source. Small local
+    # models otherwise tend to invent plausible programme names.
+    tv_channels = (
+        "ard", "zdf", "rtl", "sat1", "sat 1", "pro7", "pro 7", "vox",
+        "kabel eins", "kabel1", "3sat", "arte", "phoenix", "zdfinfo",
+        "zdf neo", "zdfneo", "kika", "orf", "servus tv", "ntv", "n-tv",
+    )
+    has_tv_schedule_language = bool(re.search(
+        r"(?:fernseh(?:en|er|programm)?|tv(?:-?programm)?|sendungen?|"
+        r"was\s+(?:kommt|läuft|laeuft|ist)\s+(?:heute\s+)?(?:auf|im)|"
+        r"what(?:'s| is)\s+on|television\s+schedule)",
+        cleaned,
+        re.IGNORECASE,
+    ))
+    channel = next(
+        (name for name in tv_channels if re.search(rf"\b{re.escape(name)}\b", cleaned, re.IGNORECASE)),
+        "",
+    )
+    if has_tv_schedule_language and (
+        channel or re.search(r"\b(?:heute|morgen|jetzt|heuteabend|heute\s+abend|tonight)\b", cleaned, re.IGNORECASE)
+    ):
+        time_scope = "heute" if re.search(
+            r"\b(?:heute|heuteabend|heute\s+abend|tonight)\b", cleaned, re.IGNORECASE
+        ) else "jetzt"
+        query = f"TV-Programm {channel} {time_scope} {cleaned}".strip()
+        return ("search_web", {"query": query, "max_results": 8})
+
+    # 11. News Feed, Headlines & Direct Site Inspection (taz, Spiegel, Tagesschau, Heise, Zeit, etc.)
     KNOWN_NEWS_PORTALS = ("spiegel", "tagesschau", "heise", "taz", "zeit", "faz", "welt", "focus", "sueddeutsche", "golem", "stern", "n-tv", "ntv", "krypto", "crypto", "tech", "wirtschaft")
 
     # Direct site lookup / portal inspection (e.g. "schau auf der taz seite was da die headline ist", "schau auf taz.de was die headlines sind", "was steht heute auf spiegel.de")
