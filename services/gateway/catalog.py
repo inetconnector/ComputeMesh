@@ -3,15 +3,16 @@
 Defines available open-weight models, pricing per million tokens,
 model alias resolution for OpenAI and Ollama formats, and provider share distribution.
 """
-
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
 import json
 import os
+import re
 import threading
 import time
-from dataclasses import dataclass
-from urllib import error, request
+import urllib.parse
+import urllib.request
 
 from services.common.pricing import (
     DEFAULT_NETWORK_FEE_BPS,
@@ -22,12 +23,7 @@ from services.common.pricing import (
     calculate_token_charge_micro,
     get_price_tier,
 )
-from services.gateway.registry_client import (
-    ModelRegistryClient,
-    RegistryClientError,
-    RegistryModel,
-    build_registry_client_from_env,
-)
+from services.gateway.registry_client import ModelRegistryClient, RegistryClientError, RegistryModel, build_registry_client_from_env
 
 PriceTier = ModelPriceTier
 
@@ -35,17 +31,15 @@ PriceTier = ModelPriceTier
 @dataclass(frozen=True)
 class ModelSpec:
     """Model specification with capabilities and resource requirements."""
-
     id: str
     owned_by: str = "computemesh"
     context_window: int = 32768
     created: int = 1700000000
     price_tier: ModelPriceTier = DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"]
     modalities: tuple[str, ...] = ("text",)
-    capabilities: tuple[str, ...] = ("completion",)
     availability: str = "catalogued"
-    available: bool = True
-    display_name: str = ""
+    available: bool = False
+    artifact_digest: str = ""
     artifact_size_bytes: int = 0
     quantization: str = ""
 
@@ -123,131 +117,90 @@ AVAILABLE_MODELS: list[ModelSpec] = [
 ]
 
 LIVE_MODEL_REGISTRY = build_registry_client_from_env()
-_RUNTIME_CACHE_LOCK = threading.RLock()
-_RUNTIME_CACHE: tuple[float, tuple[ModelSpec, ...]] | None = None
+_RUNTIME_CACHE_LOCK = threading.Lock()
+_RUNTIME_CACHE_AT = 0.0
+_RUNTIME_CACHE: tuple[ModelSpec, ...] = ()
 
 
-def _runtime_catalog_ttl() -> float:
-    try:
-        return max(0.0, float(os.environ.get("COMPUTEMESH_RUNTIME_CATALOG_CACHE_SECONDS", "10")))
-    except ValueError:
-        return 10.0
-
-
-def _ollama_runtime_models() -> list[ModelSpec] | None:
-    """Discover models that the configured Ollama backend can execute now.
-
-    ``None`` means that Ollama is not the configured backend.  An empty list
-    means that it is configured but unavailable or internally inconsistent;
-    callers must fail closed instead of falling back to synthetic metadata.
-    """
-    backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "disabled").strip().lower()
-    if backend not in {"ollama", "ollama-http", "ollama_http"}:
+def _runtime_models_from_env() -> list[ModelSpec] | None:
+    """Return an authoritative local-runtime view, or None when none is configured."""
+    backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "").strip().lower()
+    if backend == "synthetic":
+        if os.environ.get("COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE", "").strip() != "1":
+            return []
+        return [replace(model, availability="available_warm", available=True) for model in AVAILABLE_MODELS]
+    if backend != "ollama":
         return None
+
     base_url = os.environ.get("COMPUTEMESH_INFERENCE_URL", "").strip().rstrip("/")
     if not base_url:
         return []
+    parsed = urllib.parse.urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return []
 
+    global _RUNTIME_CACHE_AT, _RUNTIME_CACHE
     now = time.monotonic()
-    ttl = _runtime_catalog_ttl()
-    global _RUNTIME_CACHE
     with _RUNTIME_CACHE_LOCK:
-        if _RUNTIME_CACHE is not None and now - _RUNTIME_CACHE[0] < ttl:
-            return list(_RUNTIME_CACHE[1])
-
+        if now - _RUNTIME_CACHE_AT < 2.0:
+            return list(_RUNTIME_CACHE)
+    request = urllib.request.Request(
+        f"{base_url}/api/tags",
+        headers={"Accept": "application/json", "User-Agent": "ComputeMesh-Gateway/1"},
+    )
     try:
-        with request.urlopen(
-            request.Request(f"{base_url}/api/tags", headers={"Accept": "application/json"}),
-            timeout=2.0,
-        ) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (OSError, error.URLError, TimeoutError, UnicodeError, json.JSONDecodeError):
-        return []
-
-    raw_models = payload.get("models", []) if isinstance(payload, dict) else []
-    if not isinstance(raw_models, list):
-        return []
-    override = os.environ.get("COMPUTEMESH_INFERENCE_MODEL", "").strip()
-    discovered: list[ModelSpec] = []
-    for raw in raw_models:
-        if not isinstance(raw, dict):
-            continue
-        model_id = str(raw.get("name") or raw.get("model") or "").strip()
-        if not model_id or (override and model_id != override):
-            continue
-        try:
-            show_request = request.Request(
-                f"{base_url}/api/show",
-                data=json.dumps({"model": model_id}, separators=(",", ":")).encode("utf-8"),
-                headers={"Content-Type": "application/json", "Accept": "application/json"},
-                method="POST",
-            )
-            with request.urlopen(show_request, timeout=3.0) as response:
-                shown = json.loads(response.read().decode("utf-8"))
-        except (OSError, error.URLError, TimeoutError, UnicodeError, json.JSONDecodeError):
-            continue
-        capabilities = tuple(
-            str(value).strip().lower().replace("-", "_")
-            for value in shown.get("capabilities", [])
-            if str(value).strip()
-        )
-        model_info = shown.get("model_info", {})
-        context_window = int(
-            os.environ.get("COMPUTEMESH_INFERENCE_CONTEXT_TOKENS", "32768") or 32768
-        )
-        if isinstance(model_info, dict):
-            for key, value in model_info.items():
-                if str(key).endswith(".context_length"):
-                    try:
-                        context_window = max(1, int(value))
-                    except (TypeError, ValueError):
-                        pass
-                    break
-        details = shown.get("details", {}) if isinstance(shown.get("details"), dict) else {}
-        modalities = ["text"]
-        if "vision" in capabilities:
-            modalities.append("vision")
-        discovered.append(
-            ModelSpec(
+        with urllib.request.urlopen(request, timeout=1.0) as response:
+            payload = json.loads(response.read(2 * 1024 * 1024 + 1).decode("utf-8"))
+        raw_models = payload.get("models") if isinstance(payload, dict) else None
+        if not isinstance(raw_models, list):
+            raise ValueError("invalid Ollama model list")
+        discovered: list[ModelSpec] = []
+        for raw in raw_models:
+            if not isinstance(raw, dict):
+                continue
+            model_id = str(raw.get("name") or raw.get("model") or "").strip()
+            if not model_id or len(model_id) > 256:
+                continue
+            details = raw.get("details") if isinstance(raw.get("details"), dict) else {}
+            digest = str(raw.get("digest", "")).lower().removeprefix("sha256:")
+            if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                digest = ""
+            size = int(raw.get("size", 0) or 0)
+            if size < 0:
+                size = 0
+            lower_id = model_id.lower()
+            modalities = ("text", "vision") if any(part in lower_id for part in ("-vl", "vision", "llava")) else ("text",)
+            discovered.append(ModelSpec(
                 id=model_id,
-                context_window=context_window,
-                created=0,
-                price_tier=get_price_tier(model_id),
-                modalities=tuple(modalities),
-                capabilities=capabilities or ("completion",),
+                created=int(time.time()),
+                modalities=modalities,
                 availability="available_warm",
                 available=True,
-                display_name=model_id,
-                artifact_size_bytes=int(raw.get("size", 0) or 0),
+                artifact_digest=f"sha256:{digest}" if digest else "",
+                artifact_size_bytes=size,
                 quantization=str(details.get("quantization_level", "")),
-            )
-        )
-
-    # A configured override is an execution contract.  If Ollama does not
-    # report that exact model, advertise nothing instead of substituting one.
-    if override and not discovered:
-        return []
-    result = tuple(discovered)
+            ))
+    except (OSError, TimeoutError, UnicodeError, ValueError, json.JSONDecodeError):
+        discovered = []
     with _RUNTIME_CACHE_LOCK:
-        _RUNTIME_CACHE = (now, result)
-    return list(result)
+        _RUNTIME_CACHE = tuple(discovered)
+        _RUNTIME_CACHE_AT = now
+    return discovered
 
 
 def current_models() -> list[ModelSpec | RegistryModel]:
-    """Return live public models when configured, otherwise dev catalogue models."""
-    if LIVE_MODEL_REGISTRY is not None:
-        try:
-            return list(LIVE_MODEL_REGISTRY.models())
-        except RegistryClientError:
-            # An explicitly configured registry is authoritative; never advertise
-            # stale static or synthetic models after it becomes unavailable.
-            return []
-    runtime_models = _ollama_runtime_models()
-    if runtime_models is not None:
-        return runtime_models
-    if os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", "").strip() == "1":
+    """Return authoritative registry/runtime models, else the unavailable catalogue."""
+    if LIVE_MODEL_REGISTRY is None:
+        runtime_models = _runtime_models_from_env()
+        if runtime_models is not None:
+            return runtime_models
         return list(AVAILABLE_MODELS)
-    return []
+    try:
+        return list(LIVE_MODEL_REGISTRY.models())
+    except RegistryClientError:
+        # An explicitly configured registry is authoritative; never advertise
+        # stale static or synthetic models after it becomes unavailable.
+        return []
 
 
 def model_modalities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:
@@ -262,19 +215,7 @@ def model_modalities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:
         modalities.add("audio")
     if "video" in capabilities or "video_input" in capabilities:
         modalities.add("video")
-    return tuple(
-        modality for modality in ("text", "vision", "audio", "video") if modality in modalities
-    )
-
-
-def model_capabilities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:
-    """Return the complete normalized runtime capability set."""
-    values = (*getattr(model, "capabilities", ()), *model_modalities(model))
-    return tuple(
-        dict.fromkeys(
-            str(value).strip().lower().replace("-", "_") for value in values if str(value).strip()
-        )
-    )
+    return tuple(modality for modality in ("text", "vision", "audio", "video") if modality in modalities)
 
 
 def model_modality_flags(model: ModelSpec | RegistryModel) -> dict[str, bool]:
@@ -286,22 +227,19 @@ def model_modality_flags(model: ModelSpec | RegistryModel) -> dict[str, bool]:
 def resolve_model_id(raw_model: str) -> str:
     """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, qwen2.5-vl:7b, llama3.1:8b), or alias to canonical model ID."""
     models = current_models()
-    live_catalog = LIVE_MODEL_REGISTRY is not None or _ollama_runtime_models() is not None
-    resolvable_models = [m for m in models if not isinstance(m, RegistryModel) or m.available]
+    live_registry = LIVE_MODEL_REGISTRY is not None
+    resolvable_models = [m for m in models if bool(getattr(m, "available", False))]
     if not raw_model:
-        if live_catalog and not resolvable_models:
-            raise ValueError("model registry unavailable")
-        if os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", "").strip() == "1":
-            return AVAILABLE_MODELS[2].id
-        if resolvable_models:
-            return resolvable_models[0].id
-        raise ValueError("no executable model is available")
+        if not resolvable_models:
+            raise ValueError("no inference model is currently available")
+        preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
+        return preferred.id if preferred else resolvable_models[0].id
 
     model_clean = raw_model.strip().lower()
 
     # 1. Exact match on full model ID
-    if live_catalog and not resolvable_models:
-        raise ValueError("model registry unavailable")
+    if not resolvable_models:
+        raise ValueError("no inference model is currently available")
     for m in resolvable_models:
         if model_clean == m.id.lower():
             return m.id
@@ -310,24 +248,11 @@ def resolve_model_id(raw_model: str) -> str:
         return s.replace(".", "").replace("-", "").replace("_", "").lower()
 
     # 2. Vision model specific aliases (e.g. "qwen2.5-vl:7b", "qwen2.5-vl", "vision", "vision-default", "llava:7b")
-    if model_clean in {
-        "vision",
-        "vision-default",
-        "qwen-vl",
-        "qwen2.5-vl",
-        "qwen2.5-vl:7b",
-        "qwen2-vl:7b",
-        "qwen2-vl",
-    }:
+    if model_clean in {"vision", "vision-default", "qwen-vl", "qwen2.5-vl", "qwen2.5-vl:7b", "qwen2-vl:7b", "qwen2-vl"}:
         for m in resolvable_models:
             if "vl" in m.id.lower() and "qwen" in m.id.lower():
                 return m.id
-    if model_clean in {
-        "llama-vision",
-        "llama3.2-vision",
-        "llama3.2-vision:11b",
-        "llama-3.2-vision",
-    }:
+    if model_clean in {"llama-vision", "llama3.2-vision", "llama3.2-vision:11b", "llama-3.2-vision"}:
         for m in resolvable_models:
             if "vision" in m.id.lower() and "llama" in m.id.lower():
                 return m.id
@@ -335,16 +260,7 @@ def resolve_model_id(raw_model: str) -> str:
         for m in resolvable_models:
             if "llava" in m.id.lower():
                 return m.id
-    if model_clean in {
-        "minicpm",
-        "minicpm5",
-        "minicpm5-2b",
-        "minicpm-2b",
-        "minicpm5:2b",
-        "minicpm:2b",
-        "openbmb/minicpm5-2b",
-        "openbmb/minicpm-2b",
-    }:
+    if model_clean in {"minicpm", "minicpm5", "minicpm5-2b", "minicpm-2b", "minicpm5:2b", "minicpm:2b", "openbmb/minicpm5-2b", "openbmb/minicpm-2b"}:
         for m in resolvable_models:
             if "minicpm" in m.id.lower():
                 return m.id
@@ -363,6 +279,8 @@ def resolve_model_id(raw_model: str) -> str:
         if norm(model_clean) in norm(short_name):
             return m.id
 
+    if live_registry:
+        raise ValueError(f"model is not present in the live registry: {raw_model}")
     raise ValueError(f"model is not available: {raw_model}")
 
 
@@ -370,9 +288,7 @@ def provider_shares_from_env() -> list[tuple[str, float]]:
     """Parses COMPUTEMESH_PROVIDER_SHARES env var or returns default provider node."""
     configured = os.environ.get("COMPUTEMESH_PROVIDER_SHARES", "").strip()
     if not configured:
-        provider_id = os.environ.get(
-            "COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID", "lab-mesh-default-rig"
-        ).strip()
+        provider_id = os.environ.get("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID", "lab-mesh-default-rig").strip()
         if not provider_id:
             raise ValueError("COMPUTEMESH_DEFAULT_PROVIDER_NODE_ID must not be empty")
         return [(provider_id, 1.0)]

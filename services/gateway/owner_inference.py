@@ -371,14 +371,12 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                     if p_node and p_node in NODE_TELEMETRY_REGISTRY:
                         tel = NODE_TELEMETRY_REGISTRY[p_node].setdefault("telemetry", {})
                         tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
-                        tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
                         nodes_updated = True
                 if not nodes_updated:
                     for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
                         if not n_data.get("is_peer_relay", False) and n_data.get("updated_at"):
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
-                            tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             except Exception:
                 pass

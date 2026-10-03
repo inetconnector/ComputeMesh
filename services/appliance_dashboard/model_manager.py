@@ -1,520 +1,432 @@
-"""ComputeMesh Local Model Manager & HuggingFace Hub Client.
-
-Handles:
-- Persistent model storage in /var/lib/computemesh/models
-- Pre-flight disk space check (model_size * 1.15 reserve)
-- Resumable chunked downloads via HTTP Range headers
-- Atomic .part file downloads with SHA-256 checksum verification
-- Local GGUF model inventory and Hugging Face repository search
-"""
+"""Verified local GGUF catalogue and Hugging Face download management."""
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
 import hashlib
 import json
-import logging
 import os
+from pathlib import Path
+import re
 import shutil
 import threading
 import time
-import urllib.error
+from typing import Any
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
 
-log = logging.getLogger("computemesh.appliance.model_manager")
-
-# Default curated high-performance GGUF models for instant provider setup
-POPULAR_GGUF_MODELS = [
-    {
-        "id": "bartowski/Qwen2.5-32B-Instruct-GGUF",
-        "name": "Qwen 2.5 32B Instruct (Q4_K_M)",
-        "filename": "Qwen2.5-32B-Instruct-Q4_K_M.gguf",
-        "size_bytes": 19851336576,
-        "context_length": 32768,
-        "layers": 64,
-        "recommended_vram_gb": 24,
-        "license": "Apache 2.0",
-        "url": "https://huggingface.co/bartowski/Qwen2.5-32B-Instruct-GGUF/resolve/main/Qwen2.5-32B-Instruct-Q4_K_M.gguf",
-    },
-    {
-        "id": "bartowski/Qwen2.5-7B-Instruct-GGUF",
-        "name": "Qwen 2.5 7B Instruct (Q4_K_M)",
-        "filename": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-        "size_bytes": 4683074240,
-        "context_length": 32768,
-        "layers": 28,
-        "recommended_vram_gb": 8,
-        "license": "Apache 2.0",
-        "url": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-    },
-    {
-        "id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        "name": "Meta Llama 3.1 8B Instruct (Q4_K_M)",
-        "filename": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        "size_bytes": 4920000000,
-        "context_length": 131072,
-        "layers": 32,
-        "recommended_vram_gb": 8,
-        "license": "Llama 3.1 Community",
-        "url": "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-    },
-    {
-        "id": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",
-        "name": "DeepSeek Coder V2 Lite Instruct (Q4_K_M)",
-        "filename": "DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
-        "size_bytes": 9500000000,
-        "context_length": 65536,
-        "layers": 27,
-        "recommended_vram_gb": 12,
-        "license": "DeepSeek License",
-        "url": "https://huggingface.co/bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF/resolve/main/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
-    },
-]
+from services.appliance_dashboard.model_engine_service import (
+    EngineModel,
+    ModelEngineError,
+    ModelEngineService,
+    get_model_engine_service,
+)
 
 
-@dataclass
-class DownloadProgress:
-    download_id: str
-    repo_id: str
+MAX_MODEL_BYTES = 1024 * 1024 * 1024 * 1024
+MAX_SEARCH_RESULTS = 25
+MODEL_SAFETY_RESERVE_BYTES = 1024 * 1024 * 1024
+# A node with less space than this cannot practically host the standard local
+# GGUF catalogue. Smaller models remain possible when their manifest fits.
+RECOMMENDED_MIN_MODEL_BYTES = 3 * 1024 * 1024 * 1024
+MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$")
+REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
+SHA256_RE = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
+
+
+class ModelManagerError(RuntimeError):
+    """Raised when model state or artifact input is invalid."""
+
+
+@dataclass(frozen=True)
+class InstalledModel:
+    model_id: str
     filename: str
-    total_bytes: int
-    downloaded_bytes: int
-    speed_bytes_per_sec: float
-    percent: float
-    status: str  # PENDING, DOWNLOADING, VERIFYING, COMPLETED, FAILED, CANCELLED
-    error_message: str | None = None
-    started_at: float = field(default_factory=time.time)
-    completed_at: float | None = None
-
-
-@dataclass
-class LocalModelInfo:
-    filename: str
-    path: str
+    sha256: str
     size_bytes: int
-    sha256_digest: str | None
-    modified_at: str
-    is_active: bool = False
-    context_length: int = 8192
-    layers: int = 32
+    layer_count: int
+    quantization: str
+    license_id: str
+    source_repo: str
+    source_revision: str
+    installed_at: str
+
+
+def _atomic_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temp, path)
+
+
+def _mount_diagnostics(path: Path) -> dict[str, Any]:
+    """Return the Linux mount carrying *path* without shelling out to findmnt."""
+    if os.name == "nt":
+        return {}
+    mountinfo = Path("/proc/self/mountinfo")
+    if not mountinfo.is_file():
+        return {}
+    target = str(path.resolve())
+    best: tuple[int, dict[str, Any]] | None = None
+    try:
+        for line in mountinfo.read_text(encoding="utf-8").splitlines():
+            before, separator, after = line.partition(" - ")
+            if not separator:
+                continue
+            fields = before.split()
+            if len(fields) < 6:
+                continue
+            mount_point = fields[4].replace("\\040", " ").replace("\\011", "\t")
+            if target != mount_point and not target.startswith(mount_point.rstrip("/") + "/"):
+                continue
+            after_fields = after.split()
+            if not after_fields:
+                continue
+            details = {
+                "mount_point": mount_point,
+                "filesystem_type": after_fields[0],
+                "mount_source": after_fields[1] if len(after_fields) > 1 else "",
+            }
+            candidate = (len(mount_point), details)
+            if best is None or candidate[0] > best[0]:
+                best = candidate
+    except (OSError, UnicodeError):
+        return {}
+    return best[1] if best else {}
 
 
 class ModelManager:
-    """Manages local storage and Hugging Face downloads for GGUF model files."""
+    """Persist verified model metadata and coordinate the local engine."""
 
-    _instance: ModelManager | None = None
-    _lock = threading.RLock()
-
-    @classmethod
-    def get_instance(cls, storage_dir: Path | None = None) -> ModelManager:
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls(storage_dir)
-            return cls._instance
-
-    def __init__(self, storage_dir: Path | None = None) -> None:
-        if storage_dir is not None:
-            self.storage_dir = Path(storage_dir).resolve()
-        else:
-            configured_storage = os.environ.get("COMPUTEMESH_MODEL_STORAGE_DIR")
-            # Check standard NodeOS path
-            nodeos_path = Path("/var/lib/computemesh/models")
-            if configured_storage:
-                self.storage_dir = Path(configured_storage).expanduser().resolve()
-            elif os.name != "nt":
-                self.storage_dir = nodeos_path
-            else:
-                self.storage_dir = Path.home() / "AppData" / "Local" / "ComputeMesh" / "models"
-
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        self.active_downloads: dict[str, DownloadProgress] = {}
-        self._cancel_flags: dict[str, threading.Event] = {}
+    def __init__(self, model_root: Path, engine: ModelEngineService | None = None) -> None:
+        self.model_root = model_root.resolve()
+        self.model_root.mkdir(parents=True, exist_ok=True)
+        self.index_path = self.model_root / "catalog.json"
+        self.engine = engine or get_model_engine_service(model_root=self.model_root)
         self._lock = threading.RLock()
+        self._downloads: dict[str, dict[str, Any]] = {}
 
-    def get_storage_stats(self) -> dict[str, Any]:
-        """Return total, used, and free disk space for the model storage partition."""
+    @staticmethod
+    def _validate_identity(model_id: str, repo_id: str, filename: str, revision: str) -> None:
+        if not MODEL_ID_RE.fullmatch(model_id):
+            raise ModelManagerError("invalid model_id")
+        if not MODEL_ID_RE.fullmatch(repo_id) or repo_id.count("/") != 1:
+            raise ModelManagerError("invalid Hugging Face repo_id")
+        if Path(filename).name != filename or not filename.lower().endswith(".gguf"):
+            raise ModelManagerError("filename must be one local GGUF basename")
+        if not REVISION_RE.fullmatch(revision):
+            raise ModelManagerError("source_revision must be a full 40-character commit SHA")
+
+    def _load(self) -> dict[str, InstalledModel]:
+        if not self.index_path.exists():
+            return {}
         try:
-            total, used, free = shutil.disk_usage(self.storage_dir)
-            return {
-                "storage_dir": str(self.storage_dir),
-                "total_bytes": total,
-                "used_bytes": used,
-                "free_bytes": free,
-                "free_gb": round(free / (1024**3), 2),
-                "total_gb": round(total / (1024**3), 2),
-            }
-        except OSError as exc:
-            log.warning(f"Error checking disk usage for {self.storage_dir}: {exc}")
-            return {
-                "storage_dir": str(self.storage_dir),
-                "total_bytes": 0,
-                "used_bytes": 0,
-                "free_bytes": 0,
-                "free_gb": 0.0,
-                "total_gb": 0.0,
-            }
+            raw = json.loads(self.index_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict) or raw.get("schema_version") != 1 or not isinstance(raw.get("models"), list):
+                raise ValueError
+            result: dict[str, InstalledModel] = {}
+            for item in raw["models"]:
+                model = InstalledModel(**item)
+                result[model.model_id] = model
+            return result
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise ModelManagerError("local model catalogue is corrupt") from exc
 
-    def list_local_models(self) -> list[LocalModelInfo]:
-        """Scans storage directory for all available .gguf files."""
-        from services.appliance_dashboard.model_engine_service import ModelEngineService
-        engine = ModelEngineService.get_instance()
-        active_path = engine.active_model_path
-
-        models: list[LocalModelInfo] = []
-        if not self.storage_dir.exists():
-            return models
-
-        for file in sorted(self.storage_dir.glob("*.gguf")):
-            if file.is_file():
-                try:
-                    st = file.stat()
-                    mod_time = datetime.fromtimestamp(st.st_mtime, tz=UTC).isoformat().replace("+00:00", "Z")
-                    is_active = (active_path is not None and Path(active_path).resolve() == file.resolve())
-
-                    # Heuristics for layers and context
-                    fname_lower = file.name.lower()
-                    layers = 32
-                    ctx = 8192
-                    if "32b" in fname_lower or "33b" in fname_lower:
-                        layers = 64
-                        ctx = 32768
-                    elif "70b" in fname_lower or "72b" in fname_lower:
-                        layers = 80
-                        ctx = 32768
-                    elif "14b" in fname_lower or "13b" in fname_lower:
-                        layers = 40
-                    elif "7b" in fname_lower or "8b" in fname_lower:
-                        layers = 32
-                    elif "3b" in fname_lower or "4b" in fname_lower:
-                        layers = 24
-
-                    models.append(
-                        LocalModelInfo(
-                            filename=file.name,
-                            path=str(file.resolve()),
-                            size_bytes=st.st_size,
-                            sha256_digest=None,  # Computed on demand to avoid blocking I/O
-                            modified_at=mod_time,
-                            is_active=is_active,
-                            context_length=ctx,
-                            layers=layers,
-                        )
-                    )
-                except (OSError, ValueError, OverflowError) as exc:
-                    log.warning(f"Error inspecting model file {file}: {exc}")
-
-        return models
-
-    def compute_sha256(self, filepath: Path, progress_callback: Any | None = None) -> str:
-        """Computes SHA-256 hash in streaming 4MB blocks."""
-        sha = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            while chunk := f.read(4 * 1024 * 1024):
-                sha.update(chunk)
-                if progress_callback:
-                    progress_callback(len(chunk))
-        return sha.hexdigest()
-
-    def search_huggingface(self, query: str = "") -> list[dict[str, Any]]:
-        """Search Hugging Face API or return popular curated list."""
-        query_clean = query.strip().lower()
-        if not query_clean:
-            return POPULAR_GGUF_MODELS
-
-        # Match in popular list first
-        matches = [
-            m for m in POPULAR_GGUF_MODELS
-            if query_clean in m["id"].lower() or query_clean in m["name"].lower() or query_clean in m["filename"].lower()
-        ]
-        if matches:
-            return matches
-
-        # Query Hugging Face Hub API
-        try:
-            encoded_q = urllib.parse.quote(f"{query} gguf")
-            url = f"https://huggingface.co/api/models?search={encoded_q}&limit=10&full=true"
-            req = urllib.request.Request(url, headers={"User-Agent": "ComputeMesh-NodeOS/1.0", "Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                results: list[dict[str, Any]] = []
-                for item in data:
-                    repo_id = item.get("id", "")
-                    results.append({
-                        "id": repo_id,
-                        "name": repo_id.split("/")[-1],
-                        "filename": f"{repo_id.split('/')[-1]}.gguf",
-                        "size_bytes": 0,
-                        "context_length": 8192,
-                        "layers": 32,
-                        "recommended_vram_gb": 16,
-                        "license": item.get("cardData", {}).get("license", "unknown"),
-                        "url": f"https://huggingface.co/{repo_id}",
-                    })
-                return results
-        except (OSError, ValueError, TypeError, AttributeError) as exc:
-            log.warning(f"HuggingFace search error: {exc}")
-            return [m for m in POPULAR_GGUF_MODELS if query_clean in m["id"].lower() or query_clean in m["name"].lower()]
-
-    def _sanitize_filename(self, filename: str) -> str:
-        """Sanitizes filename and validates that it remains strictly inside storage_dir."""
-        clean_name = os.path.basename(filename).strip()
-        if not clean_name or clean_name != filename:
-            raise ValueError(f"Invalid model filename: {filename}")
-        if not clean_name.lower().endswith(".gguf"):
-            raise ValueError("Only .gguf model files are permitted.")
-        if ".." in clean_name or "/" in clean_name or "\\" in clean_name:
-            raise ValueError(f"Directory traversal prohibited: {filename}")
-        for char in clean_name:
-            if not (char.isalnum() or char in ("-", "_", ".")):
-                raise ValueError(f"Disallowed character in filename: {char}")
-
-        target_path = (self.storage_dir / clean_name).resolve()
-        storage_root = self.storage_dir.resolve()
-        try:
-            target_path.relative_to(storage_root)
-        except ValueError as exc:
-            raise ValueError(f"Path traversal outside storage directory: {target_path}") from exc
-
-        return clean_name
-
-    def _validate_download_url(self, url: str) -> str:
-        """Validates that download URL uses secure HTTPS or local test endpoint."""
-        parsed = urllib.parse.urlparse(url.strip())
-        if parsed.scheme == "https":
-            return url.strip()
-        if parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost", "::1"):
-            return url.strip()
-        raise ValueError(f"Insecure or invalid download URL: {url}. Must use https:// or loopback test URL.")
-
-    def _verify_gguf_magic(self, filepath: Path) -> bool:
-        """Verifies GGUF binary magic bytes (0x46554747 = 'GGUF') at file start."""
-        try:
-            if not filepath.exists() or filepath.stat().st_size < 4:
-                return False
-            with open(filepath, "rb") as f:
-                magic = f.read(4)
-                return magic == b"GGUF"
-        except OSError as exc:
-            log.warning(f"Error checking GGUF magic header for {filepath}: {exc}")
-            return False
-
-    def fetch_huggingface_metadata(self, repo_id: str, filename: str) -> dict[str, Any] | None:
-        """Fetches file SHA-256 and size from Hugging Face Model API."""
-        clean_repo = repo_id.strip()
-        clean_file = self._sanitize_filename(filename)
-        if not clean_repo:
-            return None
-        try:
-            url = f"https://huggingface.co/api/models/{clean_repo}"
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "ComputeMesh-NodeOS/1.0", "Accept": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    siblings = data.get("siblings", [])
-                    for s in siblings:
-                        if s.get("rfilename") == clean_file:
-                            lfs = s.get("lfs", {})
-                            return {
-                                "filename": clean_file,
-                                "sha256": lfs.get("oid") or lfs.get("sha256"),
-                                "size_bytes": lfs.get("size", 0),
-                            }
-        except (OSError, ValueError, TypeError, AttributeError) as exc:
-            log.debug(f"Could not fetch HF metadata for {clean_repo}/{clean_file}: {exc}")
-        return None
-
-    def start_download(
-        self,
-        url: str,
-        filename: str,
-        repo_id: str = "",
-        expected_size_bytes: int = 0,
-        expected_sha256: str | None = None,
-    ) -> str:
-        """Starts a background resumable atomic download with strict path & URL verification."""
-        clean_name = self._sanitize_filename(filename)
-        valid_url = self._validate_download_url(url)
-
-        # Auto-fetch expected sha256 & size from HF if repo_id provided and sha not given
-        if repo_id and not expected_sha256:
-            meta = self.fetch_huggingface_metadata(repo_id, clean_name)
-            if meta:
-                if meta.get("sha256"):
-                    expected_sha256 = meta["sha256"]
-                if meta.get("size_bytes") and expected_size_bytes == 0:
-                    expected_size_bytes = meta["size_bytes"]
-
-        download_id = f"dl_{int(time.time())}_{clean_name}"
-        with self._lock:
-            # Pre-flight disk space check: require 15% safety reserve
-            stats = self.get_storage_stats()
-            required_space = int(expected_size_bytes * 1.15) if expected_size_bytes > 0 else (1024**3)
-            if stats["free_bytes"] > 0 and stats["free_bytes"] < required_space:
-                raise ValueError(
-                    f"Insufficient disk space. Free: {stats['free_gb']} GB, Required: {round(required_space / (1024**3), 2)} GB"
-                )
-
-            prog = DownloadProgress(
-                download_id=download_id,
-                repo_id=repo_id or valid_url,
-                filename=clean_name,
-                total_bytes=expected_size_bytes,
-                downloaded_bytes=0,
-                speed_bytes_per_sec=0.0,
-                percent=0.0,
-                status="PENDING",
-            )
-            self.active_downloads[download_id] = prog
-            cancel_event = threading.Event()
-            self._cancel_flags[download_id] = cancel_event
-
-        # Spawn download thread
-        th = threading.Thread(
-            target=self._download_worker,
-            args=(download_id, valid_url, clean_name, expected_size_bytes, expected_sha256, cancel_event),
-            daemon=True,
+    def _save(self, models: dict[str, InstalledModel]) -> None:
+        _atomic_json(
+            self.index_path,
+            {"schema_version": 1, "models": [asdict(models[key]) for key in sorted(models)]},
         )
-        th.start()
-        return download_id
 
-    def cancel_download(self, download_id: str) -> bool:
-        """Signals cancellation for an active download."""
+    def list_models(self) -> list[dict[str, Any]]:
         with self._lock:
-            if download_id in self._cancel_flags:
-                self._cancel_flags[download_id].set()
-                if download_id in self.active_downloads:
-                    self.active_downloads[download_id].status = "CANCELLED"
-                return True
-        return False
+            models = self._load()
+            engine_status = self.engine.status()
+            result = []
+            for model in models.values():
+                artifact = self.model_root / model.filename
+                present = artifact.is_file() and not artifact.is_symlink() and artifact.stat().st_size == model.size_bytes
+                result.append({
+                    **asdict(model),
+                    "present": present,
+                    "active": bool(engine_status["ready"] and engine_status["model_id"] == model.model_id),
+                })
+            return sorted(result, key=lambda item: item["model_id"])
 
-    def delete_model(self, filename: str) -> bool:
-        """Deletes a local model file if not currently loaded with strict path traversal containment."""
-        clean_name = self._sanitize_filename(filename)
-        from services.appliance_dashboard.model_engine_service import ModelEngineService
-        engine = ModelEngineService.get_instance()
-        target_path = (self.storage_dir / clean_name).resolve()
+    def status(self) -> dict[str, Any]:
+        usage = shutil.disk_usage(self.model_root)
+        recommended_required = RECOMMENDED_MIN_MODEL_BYTES + MODEL_SAFETY_RESERVE_BYTES
+        mount = _mount_diagnostics(self.model_root)
+        warning = usage.free < recommended_required
+        overlay = mount.get("filesystem_type") == "overlay"
+        with self._lock:
+            return {
+                "model_root": str(self.model_root),
+                "storage": {
+                    "total_bytes": usage.total,
+                    "free_bytes": usage.free,
+                    "safety_reserve_bytes": MODEL_SAFETY_RESERVE_BYTES,
+                    "recommended_minimum_model_bytes": RECOMMENDED_MIN_MODEL_BYTES,
+                    "recommended_required_bytes": recommended_required,
+                    "sufficient_for_recommended_model": usage.free >= recommended_required,
+                    "warning": warning or overlay,
+                    "warning_reason": "overlay" if overlay else ("low_space" if warning else ""),
+                    "persistence_volume_detected": not overlay if mount else None,
+                    **mount,
+                },
+                "models": self.list_models(),
+                "downloads": list(self._downloads.values()),
+                "engine": self.engine.status(),
+            }
 
-        if engine.active_model_path and Path(engine.active_model_path).resolve() == target_path:
-            raise ValueError(f"Cannot delete actively loaded model '{clean_name}'. Deactivate it first.")
-
-        if target_path.exists() and target_path.is_file():
-            target_path.unlink()
-            log.info(f"Model file {clean_name} deleted.")
-            return True
-        return False
-
-    def _download_worker(
-        self,
-        download_id: str,
-        url: str,
-        filename: str,
-        expected_size: int,
-        expected_sha256: str | None,
-        cancel_event: threading.Event,
-    ) -> None:
-        clean_name = self._sanitize_filename(filename)
-        target_file = (self.storage_dir / clean_name).resolve()
-        part_file = (self.storage_dir / f"{clean_name}.part").resolve()
-
-        prog = self.active_downloads[download_id]
-        prog.status = "DOWNLOADING"
-
-        existing_bytes = 0
-        if part_file.exists():
-            existing_bytes = part_file.stat().st_size
-            prog.downloaded_bytes = existing_bytes
-
-        headers: dict[str, str] = {
-            "User-Agent": "ComputeMesh-NodeOS/1.0",
-        }
-        if existing_bytes > 0:
-            headers["Range"] = f"bytes={existing_bytes}-"
-            log.info(f"Resuming download of {clean_name} from byte {existing_bytes}")
-
+    def search_hugging_face(self, query: str) -> list[dict[str, Any]]:
+        query = query.strip()
+        if not 2 <= len(query) <= 128:
+            raise ModelManagerError("search query must contain 2..128 characters")
+        url = "https://huggingface.co/api/models?" + urllib.parse.urlencode({
+            "search": query,
+            "filter": "gguf",
+            "limit": MAX_SEARCH_RESULTS,
+            "full": "false",
+        })
+        request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "ComputeMesh-NodeOS/1"})
         try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                status_code = getattr(resp, "status", 200)
-                total_len = resp.headers.get("Content-Length")
-                if total_len:
-                    if status_code == 206:  # Partial Content
-                        prog.total_bytes = existing_bytes + int(total_len)
-                    else:
-                        prog.total_bytes = int(total_len)
-                        existing_bytes = 0
+            with urllib.request.urlopen(request, timeout=10) as response:
+                raw = response.read(2 * 1024 * 1024 + 1)
+        except Exception as exc:
+            raise ModelManagerError("Hugging Face search is unavailable") from exc
+        if len(raw) > 2 * 1024 * 1024:
+            raise ModelManagerError("Hugging Face search response exceeded the size limit")
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ModelManagerError("Hugging Face returned an invalid search response") from exc
+        if not isinstance(payload, list):
+            raise ModelManagerError("Hugging Face returned an invalid search response")
+        return [
+            {
+                "repo_id": str(item.get("id", "")),
+                "downloads": int(item.get("downloads", 0) or 0),
+                "likes": int(item.get("likes", 0) or 0),
+                "private": bool(item.get("private", False)),
+            }
+            for item in payload[:MAX_SEARCH_RESULTS]
+            if isinstance(item, dict) and MODEL_ID_RE.fullmatch(str(item.get("id", "")))
+        ]
 
-                mode = "ab" if (existing_bytes > 0 and status_code == 206) else "wb"
-                bytes_downloaded = existing_bytes
-                last_time = time.time()
-                bytes_since_last = 0
+    def install_from_hugging_face(
+        self,
+        *,
+        model_id: str,
+        repo_id: str,
+        filename: str,
+        revision: str,
+        sha256: str,
+        size_bytes: int,
+        layer_count: int,
+        quantization: str,
+        license_id: str,
+        _allow_queued: bool = False,
+    ) -> dict[str, Any]:
+        self._validate_identity(model_id, repo_id, filename, revision)
+        match = SHA256_RE.fullmatch(str(sha256).lower())
+        if not match:
+            raise ModelManagerError("sha256 must be a lowercase SHA-256 digest")
+        expected_sha = match.group(1)
+        if not 1 <= int(size_bytes) <= MAX_MODEL_BYTES:
+            raise ModelManagerError("size_bytes is outside the supported range")
+        if not 2 <= int(layer_count) <= 100_000:
+            raise ModelManagerError("layer_count is outside the supported range")
+        if not quantization or len(quantization) > 64 or not license_id or len(license_id) > 256:
+            raise ModelManagerError("quantization and license_id are required")
 
-                with open(part_file, mode) as f:
-                    while not cancel_event.is_set():
-                        chunk = resp.read(1024 * 1024)  # 1MB buffer
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        chunk_len = len(chunk)
-                        bytes_downloaded += chunk_len
-                        bytes_since_last += chunk_len
-                        prog.downloaded_bytes = bytes_downloaded
+        free_bytes = shutil.disk_usage(self.model_root).free
+        required_bytes = int(size_bytes) + MODEL_SAFETY_RESERVE_BYTES
+        if free_bytes < required_bytes:
+            raise ModelManagerError(
+                "insufficient free storage: "
+                f"{free_bytes} bytes available, {required_bytes} bytes required "
+                f"(model plus {MODEL_SAFETY_RESERVE_BYTES} byte safety reserve)"
+            )
+        target = self.model_root / filename
+        partial = target.with_suffix(target.suffix + ".part")
+        download_id = hashlib.sha256(f"{repo_id}\0{revision}\0{filename}".encode()).hexdigest()[:24]
+        with self._lock:
+            if model_id in self._load():
+                raise ModelManagerError("model_id is already installed")
+            existing_state = self._downloads.get(download_id, {})
+            if existing_state.get("state") == "downloading":
+                raise ModelManagerError("model download is already running")
+            if existing_state.get("state") == "queued" and not _allow_queued:
+                raise ModelManagerError("model download is already queued")
+        if target.exists():
+            raise ModelManagerError("model artifact already exists outside the catalogue")
+        existing_bytes = partial.stat().st_size if partial.exists() else 0
+        if existing_bytes > int(size_bytes):
+            partial.unlink(missing_ok=True)
+            raise ModelManagerError("partial download exceeds the declared artifact size")
 
-                        if prog.total_bytes > 0:
-                            prog.percent = round((bytes_downloaded / prog.total_bytes) * 100.0, 2)
+        quoted_repo = "/".join(urllib.parse.quote(part, safe="") for part in repo_id.split("/"))
+        url = f"https://huggingface.co/{quoted_repo}/resolve/{revision}/{urllib.parse.quote(filename, safe='')}"
+        state = {
+            "download_id": download_id,
+            "model_id": model_id,
+            "state": "downloading",
+            "bytes_total": int(size_bytes),
+            "bytes_downloaded": existing_bytes,
+            "error": "",
+        }
+        with self._lock:
+            self._downloads[download_id] = state
 
-                        now = time.time()
-                        elapsed = now - last_time
-                        if elapsed >= 1.0:
-                            prog.speed_bytes_per_sec = bytes_since_last / elapsed
-                            bytes_since_last = 0
-                            last_time = now
+        headers = {"Accept": "application/octet-stream", "User-Agent": "ComputeMesh-NodeOS/1"}
+        if existing_bytes:
+            headers["Range"] = f"bytes={existing_bytes}-"
+        request = urllib.request.Request(url, headers=headers)
+        discard_partial = False
+        try:
+            digest = hashlib.sha256()
+            if existing_bytes:
+                with partial.open("rb") as existing:
+                    for chunk in iter(lambda: existing.read(8 * 1024 * 1024), b""):
+                        digest.update(chunk)
+            with urllib.request.urlopen(request, timeout=60) as response, partial.open("ab" if existing_bytes else "xb") as output:
+                if existing_bytes and getattr(response, "status", response.getcode()) != 206:
+                    raise ModelManagerError("remote server did not honor the resume range")
+                content_length = response.headers.get("Content-Length")
+                if content_length and int(content_length) != int(size_bytes) - existing_bytes:
+                    raise ModelManagerError("remote Content-Length does not match the declared artifact size")
+                written = existing_bytes
+                while True:
+                    chunk = response.read(8 * 1024 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > int(size_bytes):
+                        discard_partial = True
+                        raise ModelManagerError("download exceeded its declared size")
+                    output.write(chunk)
+                    digest.update(chunk)
+                    state["bytes_downloaded"] = written
+                if written != int(size_bytes):
+                    raise ModelManagerError("download size does not match the declared artifact size")
+                if digest.hexdigest() != expected_sha:
+                    discard_partial = True
+                    raise ModelManagerError("download SHA-256 does not match the declared digest")
+                output.flush()
+                os.fsync(output.fileno())
+            with partial.open("rb") as handle:
+                if handle.read(4) != b"GGUF":
+                    discard_partial = True
+                    raise ModelManagerError("downloaded artifact is not a GGUF file")
+            os.replace(partial, target)
+            model = InstalledModel(
+                model_id=model_id,
+                filename=filename,
+                sha256=expected_sha,
+                size_bytes=int(size_bytes),
+                layer_count=int(layer_count),
+                quantization=quantization,
+                license_id=license_id,
+                source_repo=repo_id,
+                source_revision=revision,
+                installed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            )
+            with self._lock:
+                models = self._load()
+                if model_id in models:
+                    raise ModelManagerError("model_id is already installed")
+                models[model_id] = model
+                self._save(models)
+            state["state"] = "complete"
+            return {**asdict(model), "download_id": download_id}
+        except Exception as exc:
+            if discard_partial:
+                partial.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+            state["state"] = "failed"
+            state["error"] = str(exc)
+            if isinstance(exc, ModelManagerError):
+                raise
+            raise ModelManagerError("model download failed") from exc
 
-                if cancel_event.is_set():
-                    log.info(f"Download {download_id} cancelled by user.")
-                    prog.status = "CANCELLED"
-                    return
+    def start_download(self, **kwargs: Any) -> dict[str, Any]:
+        """Queue a verified download without blocking the dashboard request thread."""
+        model_id = str(kwargs.get("model_id", ""))
+        repo_id = str(kwargs.get("repo_id", ""))
+        filename = str(kwargs.get("filename", ""))
+        revision = str(kwargs.get("revision", ""))
+        self._validate_identity(model_id, repo_id, filename, revision)
+        download_id = hashlib.sha256(f"{repo_id}\0{revision}\0{filename}".encode()).hexdigest()[:24]
+        with self._lock:
+            prior = self._downloads.get(download_id, {})
+            if prior.get("state") in {"queued", "downloading"}:
+                raise ModelManagerError("model download is already queued or running")
+            self._downloads[download_id] = {
+                "download_id": download_id,
+                "model_id": model_id,
+                "state": "queued",
+                "bytes_total": int(kwargs.get("size_bytes", 0)),
+                "bytes_downloaded": 0,
+                "error": "",
+            }
 
-            # Verification phase
-            prog.status = "VERIFYING"
-            prog.percent = 100.0
+        def worker() -> None:
+            try:
+                self.install_from_hugging_face(**kwargs, _allow_queued=True)
+            except ModelManagerError:
+                pass
 
-            # 1. Verify GGUF magic bytes
-            if not self._verify_gguf_magic(part_file):
-                prog.status = "FAILED"
-                prog.error_message = f"Downloaded file {clean_name} is not a valid GGUF binary (invalid magic header)."
-                log.error(prog.error_message)
-                if part_file.exists():
-                    part_file.unlink()
-                return
+        threading.Thread(target=worker, name=f"model-download-{download_id}", daemon=True).start()
+        return {"accepted": True, "download_id": download_id, "model_id": model_id, "state": "queued"}
 
-            # 2. Verify SHA-256 Checksum
-            if expected_sha256:
-                log.info(f"Verifying SHA-256 for {part_file.name}...")
-                actual_sha = self.compute_sha256(part_file)
-                if actual_sha.lower() != expected_sha256.lower().replace("sha256:", ""):
-                    prog.status = "FAILED"
-                    prog.error_message = f"Checksum mismatch: expected {expected_sha256}, got {actual_sha}"
-                    log.error(prog.error_message)
-                    if part_file.exists():
-                        part_file.unlink()
-                    return
+    def activate(self, model_id: str, *, context_size: int = 4096) -> dict[str, Any]:
+        with self._lock:
+            model = self._load().get(model_id)
+        if model is None:
+            raise ModelManagerError("model is not installed")
+        try:
+            return self.engine.start(
+                EngineModel(model.model_id, self.model_root / model.filename, model.sha256, model.size_bytes, model.layer_count),
+                context_size=context_size,
+            )
+        except ModelEngineError as exc:
+            raise ModelManagerError(str(exc)) from exc
 
-            # Atomic rename
-            if target_file.exists():
-                target_file.unlink()
-            part_file.rename(target_file)
+    def deactivate(self, model_id: str) -> dict[str, Any]:
+        status = self.engine.status()
+        if status["model_id"] and status["model_id"] != model_id:
+            raise ModelManagerError("requested model is not the active model")
+        return self.engine.stop()
 
-            prog.status = "COMPLETED"
-            prog.completed_at = time.time()
-            log.info(f"Download completed successfully: {target_file}")
+    def delete(self, model_id: str) -> dict[str, Any]:
+        if self.engine.status()["model_id"] == model_id:
+            raise ModelManagerError("active model must be stopped before deletion")
+        with self._lock:
+            models = self._load()
+            model = models.pop(model_id, None)
+            if model is None:
+                raise ModelManagerError("model is not installed")
+            artifact = (self.model_root / model.filename).resolve()
+            try:
+                artifact.relative_to(self.model_root)
+            except ValueError as exc:
+                raise ModelManagerError("registered model path escapes the model root") from exc
+            artifact.unlink(missing_ok=True)
+            self._save(models)
+        return {"deleted": True, "model_id": model_id}
 
-        except Exception as exc:  # noqa: BLE001 - background worker must record every failure.
-            log.error(f"Download failed for {url}: {exc}")
-            prog.status = "FAILED"
-            prog.error_message = str(exc)
+
+_MANAGER: ModelManager | None = None
+_MANAGER_LOCK = threading.Lock()
+
+
+def get_model_manager() -> ModelManager:
+    global _MANAGER
+    with _MANAGER_LOCK:
+        if _MANAGER is None:
+            configured = os.environ.get("COMPUTEMESH_MODEL_DIR", "").strip()
+            root = Path(configured) if configured else (
+                Path.home() / ".computemesh" / "models" if os.name == "nt" else Path("/var/lib/computemesh/models")
+            )
+            _MANAGER = ModelManager(root)
+        return _MANAGER

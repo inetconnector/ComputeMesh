@@ -25,6 +25,8 @@ class TestDebianLiveBuilder(unittest.TestCase):
         self.assertEqual(manifest["binary_format"], "img.xz")
         self.assertIn("mesa-vulkan-drivers", manifest["packages"])
         self.assertIn("firmware-amd-graphics", manifest["packages"])
+        self.assertIn("nvidia-driver", manifest["packages"])
+        self.assertIn("libvulkan-dev", manifest["packages"])
         self.assertIn("computemesh-appliance.service", manifest["systemd_services"])
 
     def test_create_build_tree(self) -> None:

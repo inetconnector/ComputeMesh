@@ -154,6 +154,14 @@ def session_account_from_headers(headers: Any):
                 acct = FLEET_ACCOUNT_STORE.get_session_account(morsel.value)
                 if acct is not None:
                     return acct
+                # Direct Owner-Key login stores the key in this same cookie for
+                # the fleet UI. Resolve it here so token-free node navigation
+                # can still establish a short-lived node session.
+                owner_cookie = str(morsel.value).strip()
+                if owner_cookie.startswith(("ok_", "owner_", "cm_owner_", "inet-", "owk_")):
+                    acct = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_cookie)
+                    if acct is not None:
+                        return acct
         except Exception:
             pass
 

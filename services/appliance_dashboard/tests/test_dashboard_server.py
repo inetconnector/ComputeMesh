@@ -1,67 +1,19 @@
 """Unit tests for Embedded Appliance Web Dashboard."""
 import json
-import os
 import threading
 import time
 import unittest
 import urllib.request
+from urllib.error import HTTPError
 from unittest.mock import patch
 
-from services.appliance_dashboard.inference_router import (
-    _extract_openai_tool_calls,
-    _ollama_message,
-    _execution_metadata,
-)
-from services.appliance_dashboard.server import DashboardHandler
+from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 
 class TestDashboardServer(unittest.TestCase):
-    def test_execution_metadata_contains_only_node_and_model_identity(self) -> None:
-        class _Handler:
-            @staticmethod
-            def _current_node_id() -> str:
-                return "node-local-1"
-
-        metadata = _execution_metadata(_Handler(), "qwen2.5-32b-instruct-q4")
-        self.assertEqual(metadata["provider_node_ids"], ["node-local-1"])
-        self.assertEqual(metadata["model_id"], "qwen2.5-32b-instruct-q4")
-        self.assertEqual(metadata["mode"], "node-local")
-        self.assertNotIn("prompt", metadata)
-        self.assertNotIn("placement_score", metadata)
-
-    def test_cline_json_tool_call_is_exposed_as_openai_tool_call(self) -> None:
-        tools = [{
-            "type": "function",
-            "function": {
-                "name": "list_files",
-                "parameters": {"type": "object"},
-            },
-        }]
-
-        calls = _extract_openai_tool_calls(
-            {"role": "assistant", "content": '{"name":"list_files","arguments":{"path":"."}}'},
-            tools,
-        )
-
-        self.assertEqual(calls[0]["function"]["name"], "list_files")
-        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"path": "."})
-
-    def test_cline_tool_history_is_preserved_for_ollama(self) -> None:
-        translated = _ollama_message({
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [{
-                "id": "call_1",
-                "type": "function",
-                "function": {"name": "read_file", "arguments": '{"path":"README.md"}'},
-            }],
-        })
-
-        self.assertEqual(translated["tool_calls"][0]["function"]["name"], "read_file")
-        self.assertEqual(translated["tool_calls"][0]["function"]["arguments"], {"path": "README.md"})
-
     def test_dashboard_endpoints(self) -> None:
         mock_config = ApplianceConfig(
             rig_name="test-rig",
@@ -114,11 +66,24 @@ class TestDashboardServer(unittest.TestCase):
             # Test HTML endpoint
             with urllib.request.urlopen("http://127.0.0.1:18999/") as resp:
                 self.assertEqual(resp.status, 200)
+                self.assertIsNone(resp.headers.get("Set-Cookie"))
                 html = resp.read().decode("utf-8")
                 self.assertIn("ComputeMesh NodeOS", html)
 
             # Test JSON Status endpoint
             with urllib.request.urlopen("http://127.0.0.1:18999/api/status") as resp:
+                self.fail("unauthenticated status request unexpectedly succeeded")
+        except HTTPError as exc:
+            self.assertEqual(exc.code, 401)
+        finally:
+            pass
+
+        try:
+            request = urllib.request.Request(
+                "http://127.0.0.1:18999/api/status",
+                headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN},
+            )
+            with urllib.request.urlopen(request) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["node_id"], "test-rig")
@@ -127,12 +92,6 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(data["inventory"]["total_gpus"], 1)
                 self.assertIsNotNone(data["global_mesh"])
                 self.assertIn("total_nodes_online", data["global_mesh"])
-
-            with urllib.request.urlopen("http://127.0.0.1:18999/v1/models") as resp:
-                self.assertEqual(resp.status, 200)
-                data = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(data["object"], "list")
-                self.assertIsInstance(data["data"], list)
         finally:
             server.shutdown()
             server.server_close()
@@ -173,11 +132,12 @@ class TestDashboardServer(unittest.TestCase):
         time.sleep(0.1)
 
         try:
-            with urllib.request.urlopen("http://127.0.0.1:18998/api/status") as resp:
+            status_req = urllib.request.Request("http://127.0.0.1:18998/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+            with urllib.request.urlopen(status_req) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["node_id"], "supersrv-trixie")
-                self.assertTrue(data["network"]["interfaces"][0]["url"].startswith("https://mesh.inetconnector.com/node/supersrv-trixie?auth="))
+                self.assertEqual(data["network"]["interfaces"][0]["url"], "https://mesh.inetconnector.com/node/supersrv-trixie")
         finally:
             server.shutdown()
             server.server_close()
@@ -207,8 +167,8 @@ class TestDashboardServer(unittest.TestCase):
             pcie_riser_warning=False,
         )
 
-        import urllib.error
         from http.server import ThreadingHTTPServer
+        import urllib.error
         DashboardHandler.config = mock_config
         DashboardHandler.inventory = mock_inventory
         DashboardHandler.node_id = "win-test-node"
@@ -220,7 +180,8 @@ class TestDashboardServer(unittest.TestCase):
 
         try:
             # 1. Verify status has OS fields
-            with urllib.request.urlopen("http://127.0.0.1:18997/api/status") as resp:
+            status_req = urllib.request.Request("http://127.0.0.1:18997/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+            with urllib.request.urlopen(status_req) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertIn("os", data)
@@ -230,13 +191,13 @@ class TestDashboardServer(unittest.TestCase):
             # 2. Verify reboot is rejected on Windows
             import sys
             if sys.platform == "win32":
-                req = urllib.request.Request("http://127.0.0.1:18997/api/action/reboot", data=b"{}", method="POST")
+                req = urllib.request.Request("http://127.0.0.1:18997/api/action/reboot", data=b"{}", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(req)
                 self.assertEqual(ctx.exception.code, 400)
 
                 # 3. Verify OS upgrade is rejected on Windows
-                req_up = urllib.request.Request("http://127.0.0.1:18997/api/action/os_upgrade", data=b"{}", method="POST")
+                req_up = urllib.request.Request("http://127.0.0.1:18997/api/action/os_upgrade", data=b"{}", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(req_up)
                 self.assertEqual(ctx.exception.code, 400)
@@ -244,7 +205,7 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
-    def test_node_chat_completions_mcp_weather(self) -> None:
+    def test_node_chat_refuses_to_fake_weather_without_model_runtime(self) -> None:
         from http.server import ThreadingHTTPServer
         mock_config = ApplianceConfig(
             rig_name="node-mcp-test",
@@ -284,57 +245,48 @@ class TestDashboardServer(unittest.TestCase):
                 "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
                 "stream": False,
             }).encode("utf-8")
-            req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                self.assertEqual(resp.status, 200)
-                data = json.loads(resp.read().decode("utf-8"))
-                self.assertIn("choices", data)
-                content = data["choices"][0]["message"]["content"]
-                self.assertTrue(
-                    "Veitshöchheim" in content or "Wetter" in content or "Live-Wetter" in content or "°C" in content,
-                    f"Expected live tool synthesized answer, got: {content}"
-                )
+            req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json", "X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
+            before = DashboardHandler.tokens_served
+            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}):
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req, timeout=25)
+            self.assertEqual(ctx.exception.code, 503)
+            data = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertEqual(data["error"]["code"], "model_catalog_unavailable")
+            self.assertEqual(DashboardHandler.tokens_served, before)
         finally:
             server.shutdown()
             server.server_close()
 
     def test_cors_options_preflight_and_private_network(self) -> None:
-        from http.client import HTTPConnection
         from http.server import ThreadingHTTPServer
-        with patch.dict(os.environ, {"COMPUTEMESH_DASHBOARD_ALLOWED_ORIGINS": "https://ai.inetconnector.com"}):
-            server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
-            th = threading.Thread(target=server.serve_forever, daemon=True)
-            th.start()
-            time.sleep(0.1)
+        from http.client import HTTPConnection
+        server = ThreadingHTTPServer(("127.0.0.1", 18995), DashboardHandler)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        time.sleep(0.1)
 
-            try:
-                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-                conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
-                resp = conn.getresponse()
-                self.assertEqual(resp.status, 200)
-                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
-                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
-                self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
-                conn.close()
+        try:
+            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+            conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
+            self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
+            conn.close()
 
-                conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
-                conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
-                resp = conn.getresponse()
-                self.assertEqual(resp.status, 200)
-                self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
-                self.assertIsNone(resp.getheader("Access-Control-Allow-Private-Network"))
-                conn.close()
-            finally:
-                server.shutdown()
-                server.server_close()
-
-    def test_remote_query_token_is_not_an_action_authorization(self) -> None:
-        handler = DashboardHandler.__new__(DashboardHandler)
-        handler.headers = {"Authorization": "", "X-Node-Auth-Token": ""}
-        handler.path = "/api/action/reboot?auth=secret"
-        handler.client_address = ("192.0.2.10", 0)
-        with patch("services.appliance_dashboard.server.NODE_AUTH_TOKEN", "secret"):
-            self.assertFalse(handler._verify_action_auth())
+            # Test GET /props also returns Access-Control-Allow-Private-Network
+            conn = HTTPConnection("127.0.0.1", 18995, timeout=5)
+            conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
+            conn.close()
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

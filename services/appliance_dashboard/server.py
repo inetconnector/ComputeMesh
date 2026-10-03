@@ -11,8 +11,8 @@ import ipaddress
 import hmac
 import json
 import logging
-import os
 from pathlib import Path
+import secrets
 import sys
 from typing import Any
 import urllib.parse
@@ -42,7 +42,8 @@ from services.appliance_dashboard.tunnel_relay import (
     CLOUD_TUNNEL_RELAY,
 )
 from services.appliance_dashboard.inference_router import InferenceRouter
-from services.appliance_dashboard.models_handler import ModelsHandler
+from services.appliance_dashboard.fan_control_handler import FanControlHandler
+from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
 from services.appliance_dashboard.system_actions import SystemActionsHandler
 from services.appliance_dashboard.killswitch_actions import KillswitchHandler
 from services.appliance_dashboard.telemetry_handler import TelemetryHandler
@@ -51,29 +52,19 @@ from services.appliance_dashboard.webapp_handler import WebAppsHandler
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
-
-
-def _cors_origin(handler: Any) -> str | None:
-    """Return an explicitly trusted browser origin, never a wildcard."""
-    origin = str(handler.headers.get("Origin", "")).strip()
-    if not origin:
-        return None
-    parsed = urllib.parse.urlparse(origin)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return None
-    configured = {
-        item.strip().rstrip("/")
-        for item in str(os.environ.get("COMPUTEMESH_DASHBOARD_ALLOWED_ORIGINS", "")).split(",")
-        if item.strip()
-    }
-    if origin.rstrip("/") in configured:
-        return origin
-    host = str(handler.headers.get("Host", "")).strip().rstrip("/")
-    if host and parsed.netloc == host:
-        return origin
-    if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
-        return origin
-    return None
+DASHBOARD_SESSION_COOKIE = "cm_dashboard_session"
+# Kept for explicit legacy/operator sessions supplied in a header or cookie.
+# The dashboard never mints this process-wide value for anonymous visitors.
+DASHBOARD_SESSION_TOKEN = secrets.token_urlsafe(32)
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
+ALLOWED_CORS_ORIGINS = {
+    "https://mesh.inetconnector.com",
+    "https://ai.inetconnector.com",
+    "https://inetconnector.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
+FAN_SAFETY_CONTROLLER: Any = None
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
@@ -120,47 +111,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
-    def _send_cors_headers(self) -> bool:
-        origin = _cors_origin(self)
-        if not origin:
-            return False
-        self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header("Vary", "Origin")
-        return True
-
-    def _verify_action_auth(self) -> bool:
-        supplied_token = ""
-        auth_header = self.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            supplied_token = auth_header.removeprefix("Bearer ").strip()
+    def _verify_admin_auth(self) -> bool:
+        supplied_token = self.headers.get("X-Node-Auth-Token", "")
+        authorization = self.headers.get("Authorization", "")
+        if not supplied_token and authorization.startswith("Bearer "):
+            supplied_token = authorization.removeprefix("Bearer ")
         if not supplied_token:
-            supplied_token = self.headers.get("X-Node-Auth-Token", "").strip()
+            for item in str(self.headers.get("Cookie", "")).split(";"):
+                name, sep, value = item.strip().partition("=")
+                if sep and name == DASHBOARD_SESSION_COOKIE:
+                    supplied_token = value.strip()
+                    break
 
-        if supplied_token and hmac.compare_digest(supplied_token, NODE_AUTH_TOKEN.strip()):
+        if supplied_token and (
+            hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip())
+            or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
+        ):
             return True
-
-        client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0]).strip()
-        # Only strict local loopback (same machine) is permitted without explicit auth token.
-        # Remote LAN IPs must supply NODE_AUTH_TOKEN for any mutating or admin actions.
-        try:
-            ip_obj = ipaddress.ip_address(client_ip)
-            if ip_obj.is_loopback:
-                return True
-        except Exception:
-            if client_ip in ("127.0.0.1", "::1", "localhost"):
-                return True
-
         return False
 
+    def _send_cors_headers(self) -> None:
+        """Allow only the known portal origins to call authenticated APIs."""
+        origin = str(self.headers.get("Origin", "")).strip()
+        if origin in ALLOWED_CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def _verify_action_auth(self) -> bool:
+        return self._verify_admin_auth()
+
     def do_OPTIONS(self) -> None:
-        origin = _cors_origin(self)
-        self.send_response(HTTPStatus.OK if origin or not self.headers.get("Origin") else HTTPStatus.FORBIDDEN)
-        if origin:
-            self._send_cors_headers()
-        if not origin and self.headers.get("Origin"):
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-            return
+        self.send_response(HTTPStatus.OK)
+        self._send_cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, Accept, X-Requested-With")
         self.send_header("Access-Control-Max-Age", "86400")
@@ -178,7 +161,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_unauthorized(self) -> None:
         self._send_json(
-            {"error": {"message": "Unauthorized: a valid node authentication header is required for remote access", "code": 401}},
+            {"error": {"message": "Unauthorized: open the dashboard first or provide a valid node authentication header", "code": 401}},
             HTTPStatus.UNAUTHORIZED,
         )
 
@@ -186,14 +169,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
 
-        if req_path == "/api/debug/model-selection":
-            try:
-                from services.appliance_dashboard.model_engine_service import ModelEngineService
-                info = ModelEngineService.get_instance().get_status()
-            except Exception as exc:
-                info = {"error": str(exc)}
-            self._send_json(info)
-            return True
+        if ModelManagerHandler.handle_get(self, req_path, parsed_url.query):
+            return
+
+        if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
+            return
+
+        if FanControlHandler.handle_get(self, req_path):
+            return
 
         if req_path in ("", "/", "/index.html"):
             html = get_dashboard_html()
@@ -290,11 +273,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
                 return
-        if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
-            return
-
-        if ModelsHandler.handle_get(self, req_path):
-            return
 
         if KillswitchHandler.handle_get(self, req_path):
             return
@@ -313,17 +291,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
-        content_len = int(self.headers.get("Content-Length", 0))
+        try:
+            content_len = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send_json({"error": {"message": "Invalid Content-Length", "code": "invalid_request_error"}}, HTTPStatus.BAD_REQUEST)
+            return
+        if content_len < 0:
+            self._send_json({"error": {"message": "Invalid Content-Length", "code": "invalid_request_error"}}, HTTPStatus.BAD_REQUEST)
+            return
+        if content_len > MAX_REQUEST_BODY_BYTES:
+            self._send_json({"error": {"message": "Request body is too large", "code": "request_too_large"}}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+
+        # All POST routes, including inference and model management, require
+        # an explicit node authorization token. Anonymous LAN callers must
+        # never reach the agent loop or a privileged handler.
+        if not self._verify_action_auth():
+            self._send_unauthorized()
+            return
+
+        if ModelManagerHandler.handle_post(self, req_path, post_body):
+            return
 
         if InferenceRouter.handle_post(self, req_path, post_body):
             return
 
-        if ModelsHandler.handle_post(self, req_path, post_body):
-            return
-
-        if not self._verify_action_auth():
-            self._send_unauthorized()
+        if FanControlHandler.handle_post(self, req_path, post_body):
             return
 
         if KillswitchHandler.handle_post(self, req_path, post_body):
@@ -357,6 +351,16 @@ def create_dashboard_server(
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = effective_node_id
 
+    # NodeOS must not rely on zero-RPM driver defaults. The controller is
+    # capability-aware and is a no-op on Windows drivers without fan access.
+    global FAN_SAFETY_CONTROLLER
+    try:
+        from tools.appliance.fan_control import FanSafetyController
+        FAN_SAFETY_CONTROLLER = FanSafetyController(inventory, config)
+        FAN_SAFETY_CONTROLLER.start()
+    except Exception as exc:
+        log.warning("Fan safety controller unavailable: %s", exc)
+
     try:
         from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
         start_cloud_tunnel_relay(node_id=effective_node_id)
@@ -376,13 +380,6 @@ def create_dashboard_server(
     if server_inst is None:
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
-
-    # Ensure the best local model is selected and started before serving requests
-    try:
-        from services.appliance_dashboard.model_engine_service import ModelEngineService
-        ModelEngineService.get_instance().ensure_best_model()
-    except Exception as e:
-        log.error(f"Failed to ensure best model at startup: {e}")
 
     try:
         from tools.appliance.lan_discovery_responder import start_lan_discovery_responder

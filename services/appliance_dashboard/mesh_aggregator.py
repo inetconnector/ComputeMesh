@@ -125,7 +125,10 @@ class MeshRegistryAggregator:
                     fleet_url = f"{CONFIG.endpoints.base_url}/api/v1/mesh/fleet"
                     req = urllib.request.Request(
                         fleet_url,
-                        headers={"User-Agent": "ComputeMesh-Aggregator/1.2", "X-Owner-Key": owner_key},
+                        headers={
+                            "User-Agent": "ComputeMesh-Aggregator/1.2",
+                            "X-Owner-Key": owner_key,
+                        },
                     )
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         if resp.status == 200:
@@ -262,25 +265,7 @@ class MeshRegistryAggregator:
             total_gpus += len(healthy_gpus)
             total_vram_bytes += node_vram_bytes
 
-            # Calculate accurate TFLOPS per discrete GPU
-            tf = 0.0
-            for g in healthy_gpus:
-                m_lower = str(g.get("model_name", "")).lower()
-                if "4090" in m_lower:
-                    tf += 82.6
-                elif "3080" in m_lower or "3090" in m_lower:
-                    tf += 24.0
-                elif "mi25" in m_lower or "vega" in m_lower:
-                    tf += 24.6
-                elif "6800" in m_lower or "6900" in m_lower or "7900" in m_lower:
-                    tf += 32.0
-                elif "intel" in m_lower:
-                    tf += 1.0
-                else:
-                    tf += round(max(1.0, (g.get("vram_bytes", 0) / (1024**3)) * 1.5), 1)
-
-            if tf == 0.0:
-                tf = tel.get("local_compute_tflops", 0.0) or (len(healthy_gpus) * 12.5)
+            tf = float(tel.get("local_compute_tflops", 0.0) or 0.0)
 
             total_tflops += tf
             total_tokens += int(tel.get("tokens_processed", 0) or 0)

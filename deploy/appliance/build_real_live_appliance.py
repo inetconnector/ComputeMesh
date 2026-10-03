@@ -22,6 +22,9 @@ CHROOT_DIR = BUILD_DIR / "chroot"
 ISO_DIR = BUILD_DIR / "iso_root"
 DEBIAN_MIRROR = "http://debian.anexia.at/debian"
 OUTPUT_DIR = Path("/var/www/vhosts/inetconnector.com/site2/downloads")
+LLAMA_CPP_VERSION = "v0.4.1"
+LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
+DEFAULT_PERSISTENCE_SIZE_MIB = 65536
 
 
 def run(cmd: list[str], check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -57,7 +60,7 @@ def build_appliance() -> int:
         "debootstrap",
         "--arch=amd64",
         "--variant=minbase",
-        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr",
+        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc",
         "trixie",
         str(CHROOT_DIR),
         DEBIAN_MIRROR,
@@ -88,25 +91,47 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         chroot_exec(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "
             "linux-image-amd64 live-boot live-config systemd-timesyncd systemd-resolved openssh-server firmware-amd-graphics firmware-misc-nonfree "
+            "nvidia-driver "
             "fdisk gdisk parted efibootmgr dosfstools "
             "xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-libinput xserver-xorg-input-evdev "
             "x11-xserver-utils xinit openbox unclutter chromium"
         )
 
-        # Security hardening: Disable password login and lock root password.
-        # SSH access is exclusively permitted via authorized_keys or Passkey web portal.
-        chroot_exec("passwd -d root && passwd -l root")
+        # NodeOS ships without a shared password. Operators provision SSH keys
+        # explicitly; unattended password login is disabled.
+        chroot_exec("passwd -l root")
         ssh_config = CHROOT_DIR / "etc" / "ssh" / "sshd_config.d" / "live.conf"
         ssh_config.parent.mkdir(parents=True, exist_ok=True)
-        ssh_config.write_text("PermitRootLogin prohibit-password\nPasswordAuthentication no\nPubkeyAuthentication yes\n", encoding="utf-8")
+        ssh_config.write_text(
+            "PermitRootLogin prohibit-password\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n",
+            encoding="utf-8",
+        )
 
-        # Create persistent model storage directory
-        (CHROOT_DIR / "var" / "lib" / "computemesh" / "models").mkdir(parents=True, exist_ok=True)
+        # Build the production model runtime from one immutable upstream commit.
+        # Vulkan is the common backend for supported AMD and NVIDIA NodeOS GPUs.
+        chroot_exec("git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp")
+        chroot_exec(f"git -C /tmp/llama.cpp checkout --detach {LLAMA_CPP_COMMIT}")
+        chroot_exec(
+            "cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -G Ninja "
+            "-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DLLAMA_CURL=OFF "
+            "-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
+        )
+        chroot_exec("cmake --build /tmp/llama.cpp/build --target llama-server -j2")
+        chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server")
+        (CHROOT_DIR / "usr" / "share" / "computemesh").mkdir(parents=True, exist_ok=True)
+        (CHROOT_DIR / "usr" / "share" / "computemesh" / "llama-cpp-build.txt").write_text(
+            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\n",
+            encoding="ascii",
+        )
+        chroot_exec("rm -rf /tmp/llama.cpp")
 
         # 3. Embed ComputeMesh Codebase into /opt/computemesh
         print("\n[Step 3/6] Embedding ComputeMesh NodeOS daemon and dashboard...")
         cm_target = CHROOT_DIR / "opt" / "computemesh"
         cm_target.mkdir(parents=True, exist_ok=True)
+        model_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "models"
+        model_dir.mkdir(parents=True, exist_ok=True)
+        model_dir.chmod(0o700)
 
         repo_src = Path("/root/ComputeMesh")
         if not repo_src.exists():
@@ -181,6 +206,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+Environment=COMPUTEMESH_LLAMA_SERVER=/usr/local/bin/llama-server
+Environment=COMPUTEMESH_MODEL_DIR=/var/lib/computemesh/models
 ExecStart=/opt/computemesh/bin/computemesh-node --port 8080
 Restart=always
 RestartSec=5
@@ -461,7 +488,9 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     mib = 1024 * 1024
     iso_size = out_iso.stat().st_size
     iso_size_aligned = -(-iso_size // mib) * mib  # round up to a MiB boundary
-    persistence_size_mib = 8192  # 8 GiB: OS upgrades + app updates over time
+    persistence_size_mib = int(os.environ.get("COMPUTEMESH_PERSISTENCE_SIZE_MIB", str(DEFAULT_PERSISTENCE_SIZE_MIB)))
+    if not 16384 <= persistence_size_mib <= 262144:
+        raise RuntimeError("COMPUTEMESH_PERSISTENCE_SIZE_MIB must be between 16384 and 262144")
     total_size = iso_size_aligned + persistence_size_mib * mib
 
     shutil.copyfile(out_iso, out_img)

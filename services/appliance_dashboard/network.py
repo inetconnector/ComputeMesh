@@ -14,8 +14,7 @@ def get_network_interfaces(node_id: str = "cm-laptop-node", auth_token: str = ""
     interfaces: list[dict[str, str]] = []
     seen_ips = set()
 
-    token = auth_token or NODE_AUTH_TOKEN
-    tunnel_url = CONFIG.endpoints.get_node_tunnel_url(node_id=node_id, auth_token=token)
+    tunnel_url = CONFIG.endpoints.get_node_tunnel_url(node_id=node_id)
 
     # 0. Official Web Portal Encrypted Cloud Tunnel (Reachable on every phone / browser worldwide)
     interfaces.append({

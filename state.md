@@ -1,316 +1,359 @@
 # ComputeMesh State
 
-## Release v1.2.175 live rollout - 2026-10-03
+**Last updated:** 2026-10-04
+**Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
+**Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and fixing client-tool forwarding, unknown-model rejection, and URL-key test contracts. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. It is the source branch for PR #98; merge to public `main` is still pending CI. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
-- Public security PR #95 was merged as main commit `1703d50` after green CI.
-  It removes owner credentials from URL query parameters, requires header/session
-  authentication for owner-scoped routes, and fails closed for unauthenticated
-  fleet reads.
-- The release branch `codex/release-v1.2.175` changed the configured client
-  version from `1.2.174` to `1.2.175`. PR #96 merged with green CI as
-  `d078b2e`; tag `v1.2.175` and the signed GitHub release are published.
-- Local release build completed successfully: Windows
-  `118444245` bytes, SHA-256
-  `7bfbbbc1100d3ad040c663bdb34551333d614beed9cde7f4a708ebcfee4e4f63`; Linux
-  `6928623` bytes, SHA-256
-  `c11fbe169a31c9c3c8db968477a0a11d2e1f5c16852c89a234e4217ef9749a40`; and
-  `install.sh` SHA-256
+## 2026-10-04 Android production installation
+
+- The connected Samsung `SM-S931B` was checked through ADB. The previous
+  `com.inetconnector.compumesh` installation was uninstalled before installing
+  the fresh production APK; no debug package was left installed.
+- The Android release was built as `release` with the `production` signing
+  configuration, using the canonical DiskStation keystore and alias `key0`.
+  The password and private key material remain outside Git and are not recorded
+  here.
+- APK verification passed with APK Signature Scheme v3. The installed package
+  reports `versionCode=165`, `versionName=1.2.165`, and launched successfully.
+- The production APK was copied to
+  `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.165-production.apk`.
+- Verification commands completed: Gradle `:app:signingReport`, ADB uninstall,
+  ADB install, package/version inspection, app launch, and `apksigner verify`.
+
+## 2026-10-04 main integration and contract fixes
+
+- `origin/main` was merged into the v1.2.184 branch while retaining the newer
+  release/runtime state and all non-conflicting main features. The merge was
+  resolved locally in commit `158155f` and pushed as PR #98.
+- OpenAI-compatible client-owned `tools` and `tool_choice` are validated and
+  forwarded to the inference backend; they are kept separate from the
+  ComputeMesh MCP loop and preserve native `tool_calls` responses.
+- Explicitly unknown models now fail closed with `model_not_available` instead
+  of silently falling back to Qwen in synthetic mode.
+- Owner keys are explicitly rejected in query-string URLs. Fleet and generated
+  Ollama scripts use the authenticated header/session path instead. The merged
+  portal tests cover both rejection and the supported header path.
+- The canonical suite passed `785/785` in 88.14 seconds after the timezone test
+  fix. Concert research tests now derive dates from the configured application
+  timezone instead of the CI host's system date, preventing the UTC/Berlin
+  midnight failure seen in the first PR #98 CI run. The remaining release gate
+  is the new PR/CI validation and merging into `main`; local attachment files
+  remain intentionally untracked.
+
+## 2026-10-03 authenticated fleet-owner rebinding
+
+- `OwnerAccountStore.rebind_provider_node()` now atomically moves a node to the
+  owner represented by its authenticated heartbeat key and clears stale unbound
+  markers. It never derives ownership from IP address or LAN discovery.
+- Gateway and portal heartbeats keep the existing node-token check, perform the
+  explicit rebind only after that check, and return `owner_rebound` for operator
+  visibility. Failed rebinding remains fail-safe and preserves the previous
+  durable owner binding.
+- The live gateway was backed up at
+  `/root/computemesh-backups/owner-rebind-before-20261003-232700`, patched with
+  guarded replacements so unrelated dirty live changes were preserved, compiled,
+  and restarted successfully.
+- `.27` already carried the current owner key. `.94` was online but had an empty
+  owner key; its authenticated dashboard config was updated from `.27`, after
+  which both nodes heartbeated under `acct_37d8e2ecdc6a8727b0f99273` and the live
+  fleet endpoint returned exactly `cm-inference-node-01` and `test-node-custom`.
+- The full canonical suite passed `780/780` before the release version bump.
+
+## 2026-10-03 v1.2.184 release and node rollout
+
+- The version fallback in `ComputeMeshConfig.from_env()` was corrected so the
+  release builder cannot silently produce an older version than the dataclass
+  default. `tools/build_all_releases.py` then built and signed `v1.2.184`.
+- Canonical verification after the build passed `780/780` tests, with zero
+  failures or errors. `git diff --check` passed; the expected PowerShell CRLF
+  normalization warning for `portal/updates/version.json` is non-functional.
+- Artifact hashes are recorded in the signed manifest. Both
+  `/var/www/vhosts/inetconnector.com/site2` and
+  `/var/www/vhosts/inetconnector.com/httpdocs` now contain the same release
+  files under `downloads/` and `updates/version.json`; public HTTP checks for
+  both domains returned `200` and version `1.2.184`.
+- `.27` updated successfully to `1.2.184`. `.94` required a longer update
+  window, rebooted during the operation, and then reported `1.2.184`; its Owner
+  Key was restored through the authenticated dashboard config endpoint after
+  reboot. The live fleet endpoint again returned both LAN nodes.
+
+## 2026-10-03 v1.2.183 fan and model-storage diagnostics
+
+- AMD telemetry now reports `pwm1` as a duty/setpoint and `fan1_input` as
+  measured RPM. The dashboard no longer presents a PWM value as proof that a
+  physical rotor is turning. A regression test covers the distinction.
+- The model manager now returns filesystem/mount diagnostics, detects a
+  temporary Linux overlay, warns when the configured filesystem has less than
+  a recommended 3 GiB model plus 1 GiB safety reserve, and reports exact free
+  and required bytes on download rejection. Dashboard warnings use the
+  existing language lookup for English/German text.
+- Targeted verification: 15 hardware/model/fan tests passed, Python compile
+  checks passed, and `git diff --check` passed with only the repository's
+  existing LF/CRLF warning.
+- Live evidence before rollout: `.27` has six AMD Polaris GPUs and 48 GB VRAM,
+  but `model_runtime.engine` is stopped with no model installed and the model
+  filesystem has about 1.55 GB free. `.94` is an NVIDIA node whose driver
+  exposes no safe manual fan-control API. Neither fact is treated as solved by
+  a cosmetic dashboard value.
+
+## 2026-10-03 v1.2.183 artifact publication and cleanup
+
+- `tools/build_all_releases.py` produced and verified the signed v1.2.183
+  Windows installer, Linux tarball and installer script. The complete
+  canonical suite passed `780/780` after the manifest was regenerated.
+- Before publication, live artifact files were backed up at
+  `/root/computemesh-backups/v1.2.183-before-artifact-deploy-20261003-230705`.
+  Only the four release files in each Plesk webroot were replaced; the dirty
+  live `/opt/computemesh` checkout and all other live-only files were left
+  untouched. Direct SHA-256 checks on both webroots and public HTTP 200 checks
+  matched the locally signed manifest.
+- The server's old generated `/tmp` release/update staging files filled its
+  tmpfs. The uniquely named ComputeMesh/Ancesora staging artifacts created by
+  the earlier release work were removed; `/tmp` returned to about 1% usage.
+
+## 2026-10-03 v1.2.183 LAN rollout verification
+
+- Authenticated update checks showed `1.2.183` available on both `.27` and
+  `.94`; both nodes were updated and subsequently reported `1.2.183`.
+- `.27` now reports six measured AMD fan speeds between 1,093 and 1,174 RPM,
+  separately from the 24% PWM duty value. This proves the fans are physically
+  rotating even though the duty value is not 60%. Its model storage reports an
+  `overlay` filesystem, `persistence_volume_detected = false`, about 1.54 GB
+  free and `warning = true`; no model was downloaded or activated.
+- `.94` reports `fan_control = false` with only `safe_auto`/`auto` supported,
+  so the installed NVIDIA driver exposes no safe software fan API. Its
+  software-controlled mode remains `safe_auto`; physical RPM cannot be
+  truthfully claimed from this driver. It reports about 281 GB free storage.
+
+## 2026-10-03 v1.2.182 localization correction
+
+- Newly introduced visible text from secure QR enrollment, Android update
+  validation, portal download errors and the dashboard token prompt now
+  resolves through Android resources, the portal `translations` table or the
+  dashboard language lookup. German is provided through `values-de`; English
+  is the fallback for other locales.
+- The regression test `test_new_ui_messages_use_localization_resources`
+  prevents these newly added messages from returning as direct German UI
+  literals.
+- Project rule: user-visible text must use the existing i18n/resource layer;
+  never add a language-specific string directly to a UI call, error toast,
+  prompt or rendered HTML path.
+
+## 2026-10-03 v1.2.182 release and live verification
+
+- The release builder produced and cryptographically verified the v1.2.182
+  manifest. Windows installer SHA-256 is
+  `7de7e687f9c932a1f081e84f7a173bc9189976484d1e55eccb3b47c8962a07aa`,
+  Linux tarball SHA-256 is
+  `ff943d34e53f9ba82865c43e933effaccbb410612a80eb6dcdf89485d61c7f75`,
+  and installer-script SHA-256 remains
   `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
-  The Ed25519 manifest signature validated locally. Existing NodeOS ISO/IMG
-  hashes were retained because no NodeOS image source changed.
-- Release verification: `python run_all_tests.py` passed **785/785** in
-  `80.85s`; the security/fleet-focused subset had already passed **40/40**.
-- Post-fix Codex Security scan on the exact security-fix commit `13465ad` found
-  **0 reportable findings** in the reviewed authentication, URL, pairing,
-  download and safety-ordering surfaces. Coverage is explicitly partial because
-  delegated workers were unavailable; the report is retained at the local scan
-  artifact path recorded in the handoff.
-- Before rollout, the live source checkout was recorded at `7c9d6fba` with
-  many existing Android/deployment/CSS/systemd modifications and four stashes.
-  Those live-only changes were preserved; no general pull or rsync was run.
-  The backup is `/root/computemesh-backups/v1.2.175-before-deploy-20261003/`.
-- Only the security/release backend files, portal files, signed manifest and
-  Windows/Linux/installer artifacts were copied. Both Plesk webroots now have
-  identical v1.2.175 hashes. All four public manifest endpoints report
-  `1.2.175`; gateway health and `/v1/models` are healthy, and a query-only fleet
-  request is rejected with `401` on the primary gateway domain.
-- `computemesh-gateway.service`, `computemesh-autoupdate.service` and
-  `computemesh-node.service` are active with no new error/exception entries.
-  NodeOS port `8081` returned HTTP 200 for status, engine status, downloads and
-  `/v1/models`; it reports zero GPUs, `IDLE`, no last error and no model
-  download, which is the expected hardware-dependent state on this host.
-- The live source tree remains intentionally different from public `main` in
-  the preserved live-only areas. The deployed source files are selective copies
-  of the merged release, so this is not represented as a clean git checkout.
+- Selective deployment completed with backup at
+  `/root/computemesh-backups/v1.2.182-before-selective-deploy-20261003-200335`.
+  The two Plesk webroots and `/opt/computemesh` now serve v1.2.182; the
+  gateway restart, remote `py_compile`, public manifest/version/health checks,
+  and wrong-credential 401 checks passed.
+- Browser verification after cache refresh confirmed the Fleet AI link is
+  `https://ai.inetconnector.com/` without a query credential, and the AI
+  Studio page has no active update toast. No destructive fleet action was
+  triggered.
+- Android source compiles and `assembleDebug` succeeds. The paired Samsung
+  `SM-S931B` accepted the current localized debug APK as
+  `com.inetconnector.compumesh.debug` version `1.2.164`; `MainActivity` is
+  foreground, the process is alive, and logcat shows the local WebUI,
+  `/tools`, `/props` and `/v1/models` requests without a crash. The existing
+  production package `com.inetconnector.compumesh` remains untouched because
+  its production signature differs. The APK was also copied and hash-verified at
+  `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.164-localized-debug.apk`.
+  It is a development artifact, not a production-signed public update.
 
-## Security hardening after v1.2.174 - 2026-10-03
+## 2026-10-03 v1.2.178 autonomous security and control fix tranche
 
-- The repository security scan identified a medium CWE-598 credential-exposure
-  finding: owner credentials were accepted in fleet, payout, provider-identity,
-  MCP-settings and download URLs. The fix is being prepared on branch
-  `codex/fix-query-credential-exposure`; it is merged in PR #95 and live in
-  v1.2.175.
-- Productive portal and gateway handlers now require `X-Owner-Key` or an
-  authenticated session for owner-scoped reads and actions. Query-string `key` and
-  `owner_key` fallbacks were removed. The gateway fleet endpoint also fails closed
-  with `401` when no owner credential is supplied, rather than returning an
-  unscoped fleet payload.
-- Fleet UI fetches and generated download commands use headers. Pairing links keep
-  the owner key in the URI fragment, and Android LAN discovery no longer generates
-  credential-bearing fleet URLs. The legacy QR input parser remains compatible with
-  old links, but no new query-credential links are produced.
-- The gateway ban/kill-switch check now runs before model-catalog resolution, so a
-  banned fleet receives the safety denial even when its requested model is absent.
-- Verification on the branch: focused security/fleet coverage **40 passed**;
-  complete public harness **785/785 passed**; `compileall`, `git diff --check`
-  and the relevant Node syntax checks passed. The original scan report remains
-  recorded in the local Codex Security scan directory; a post-fix scan is still
-  required before release.
-- The post-fix scan and v1.2.175 rollout are complete. The scan report still
-  records partial repository coverage because delegated workers were unavailable;
-  remaining follow-up is broader security coverage and review of the preserved
-  live-only changes, not a pending rollback or failed deployment.
-
-## Release v1.2.174 live rollout - 2026-10-03
-
-- Release PR #93 was merged as public main commit `7c9d6fb`; tag `v1.2.174`
-  and the signed GitHub release are published.
-- The live source checkout `/opt/computemesh` is at `7c9d6fb`. Both Plesk
-  webroots have manifest version `1.2.174`, and the signed manifest verifies.
-- Live artifact hashes are: Windows
-  `64a3cc7afe5ff003b4ffa58ebbb7d1c85317784e4c4b706887e18fe5efb492dc`, Linux
-  `7e37810513df2fdd29e7882bef3d4b961f9474669e19a65f9c15922146ac636e`,
-  `install.sh`
-  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`, and
-  WebUI `model-selector.js`
-  `bfcff247426df7c7adf324574e5b3660e6cf79fd69ed741dc9da6cf289ddad17`.
-- The pre-deployment live snapshot is preserved at
-  `/root/computemesh-backups/v1.2.174-before-deploy-20261003/`. Existing
-  Android/NodeOS image assets and the four live-only feature stashes were
-  compared and preserved rather than overwritten.
-- `computemesh-gateway.service`, `computemesh-autoupdate.service` and
-  `computemesh-node.service` are active; gateway health, public HTTPS
-  manifests/downloads, NodeOS `/api/status`, engine status and `/v1/models`
-  checks returned successfully. The checked host currently reports zero GPUs,
-  so its engine remains idle with no suitable model; no current startup
-  exception was observed.
-
-## Execution provenance and non-blocking NodeOS model setup - 2026-10-03
-
-- Public branch `codex/execution-provenance` adds a minimized
-  `compute_mesh_execution` response extension for OpenAI JSON/SSE and Ollama
-  JSON/NDJSON responses. It carries only the model ID, opaque execution ID,
-  bounded provider Node IDs and a runtime/orchestrated mode. Prompts, prices,
-  placement scores, policy inputs, fraud data and private traces are excluded.
-- Direct NodeOS inference responses now emit the same bounded provenance. The
-  bundled AI Studio model selector observes JSON and SSE responses and shows
-  the last model/Node in its model information panel.
-- NodeOS model startup no longer blocks the dashboard while a curated GGUF is
-  downloading or while a broken source fails. Automatic setup is now a daemon
-  worker with download progress available through the existing model APIs;
-  failed downloads leave the UI reachable and record an actionable engine
-  error. Windows defaults to `%LOCALAPPDATA%\\ComputeMesh\\models`; Linux
-  keeps `/var/lib/computemesh/models`.
-- The Qwen 2.5 32B/7B catalog entries now point to the verified Bartowski
-  Hugging Face GGUF files and use their current byte sizes. This is the path
-  required for a six-GPU/eight-GB-per-GPU node: about 43 GB usable VRAM after
-  the 10% reserve, so the 24 GB recommended 32B entry is selected first.
-- Verification: Python compilation, `git diff --check`, focused
-  gateway/appliance/model-engine/WebUI tests **28 passed**, the complete
-  public harness **785/785 passed**, and the opt-in Playwright WebUI suite
-  **3/3 passed** including the visible execution-status assertion. Ruff was
-  not available in the local Python environment (`No module named ruff`) and
-  therefore is not claimed as passed. The branch still requires CI review and
-  a new signed release before any production rollout.
-
-## Release v1.2.173 live rollout - 2026-10-03
-
-- PR #89 merged the NodeOS catalog fix as `8dda5a5`; release PR #90 merged as
-  `a35b754`. Tag `v1.2.173` and the GitHub release are published at
-  `https://github.com/inetconnector/ComputeMesh/releases/tag/v1.2.173`.
-- Signed artifacts: Windows SHA-256
-  `7c5ad0c7ba39e92c2d30fca026b4b1ce70cb90572dd6a48f7f3a757bffcf00ae`
-  (`117728634` bytes), Linux SHA-256
-  `0e1c6318b565b654012e94fec29b17f16232e86dc6197e9e5b856f6967c918ba`
-  (`6926179` bytes), `install.sh` SHA-256
+- NodeOS dashboard actions now require an explicit node token or an already
+  authenticated session. Anonymous root visits no longer mint a process-wide
+  admin cookie; inference is authenticated before dispatch and uses the
+  non-owner MCP capability set.
+- Dashboard POST bodies are bounded before reading, CORS is restricted to the
+  known portal origins, and signed updates refuse non-newer artifacts.
+- Gateway and portal fleet inventory, node tunnel, heartbeat, sync-key and
+  unbind paths now require the matching owner/node binding. Empty node tokens
+  fail closed. Owner keys are sent in headers; Android and portal QR pairing
+  use one-time enrollment tokens instead of owner keys in URLs.
+- Mixed NVIDIA/AMD fan mapping now derives the AMD hwmon ordinal from the
+  inventory instead of using a global GPU index. Windows NVIDIA drivers without
+  a fan API remain explicitly unsupported.
+- The completed Security report for the immutable v1.2.177 snapshot recorded
+  8 source findings (5 high, 3 medium) with partial repository coverage and
+  follow-up on signed Android manifests, release-key revocation and unknown-
+  node signed enrollment. Later fixes were validated separately.
+- Verification after the fix tranche: `python run_all_tests.py` passed
+  `777/777`, Android `:app:compileDebugKotlin` passed, `compileall` and
+  `git diff --check` passed. No physical eight-GPU fan actuation was claimed.
+- Signed release build completed successfully: Windows installer SHA-256
+  `319274a7d5ab5b03fcb2120db456f6fef35d99baf7df2b8aad6cfd4f71fe65a6`, Linux
+  tarball SHA-256 `342335cee2a9bbfd9f3f2a272a353ba627e8c618acc9838318d748124bfadff5`,
+  and installer-script SHA-256
   `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
-  The Ed25519 manifest signature and local artifact hashes verify.
-- The complete public suite passed **783/783** after the final release build;
-  the model-engine regression passed **6/6**. The Windows client is installed
-  locally at `1.2.173` with the signed Windows hash; the previous binary is
-  preserved in `backups/20261003-v1.2.172-before-v1.2.173.exe`.
-- Live `/opt/computemesh` is at `a35b754546de64ca501d9a6ae0e7c842f82a3808`.
-  Gateway, autoupdater and NodeOS are active; gateway health is healthy and
-  `/v1/models` reports `qwen2.5:1.5b-instruct`. Restarting NodeOS after the
-  rollout removed the `POPULAR_GGUF_MODELS` AttributeError; its current
-  hardware result is the expected `No suitable model found for this node's
-  hardware.` message.
-- Both Plesk webroots and all four public hostnames serve manifest `1.2.173`,
-  the signed Windows size, and the current WebUI service-worker revision.
-  Pre-deploy backups are retained at
-  `/root/computemesh-backups/v1.2.173-before-deploy-20261003/`.
-- The server retains four older Git stashes containing historical or
-  unreviewed feature work. They are not part of the running tree and were not
-  deleted or merged: WebUI/live drift (`stash@{0}`), Android LAN Mesh
-  (`stash@{1}`), contact-mail dispatch (`stash@{2}`), and Stripe settlement
-  work (`stash@{3}`). Their patch inventory is preserved for a separate
-  review.
+  `portal/updates/version.json` signature verification returned valid.
+- Live selective deployment completed on 2026-10-03. Backup:
+  `/root/computemesh-backups/v1.2.178-before-selective-deploy-20261003-212711/`.
+  Both `/var/www/vhosts/inetconnector.com/httpdocs` and `site2` now serve
+  `v1.2.178`; `computemesh-gateway.service` and
+  `computemesh-autoupdate.service` are active. External checks returned 200
+  for the three manifest domains, gateway health/version endpoints, and the
+  AI WebUI/Fleet pages; unauthenticated fleet and wrong-token node requests
+  returned 401. No LAN node update or physical fan actuation was triggered.
 
-## NodeOS model-catalog startup fix - 2026-10-03
+## 2026-10-03 v1.2.177 dashboard/security fix tranche
 
-- The live NodeOS daemon exposed a real startup defect after the v1.2.172
-  rollout: `ModelEngineService` referenced `ModelManager.POPULAR_GGUF_MODELS`,
-  but the catalog is a module-level `POPULAR_GGUF_MODELS` constant. The daemon
-  stayed up, but model selection/download initialization logged an
-  `AttributeError` and could not complete normally.
-- The fix imports the module-level catalog in both selection paths and adds a
-  regression test that exercises local model selection with a manifest, GPU
-  capacity and a patched model manager. It does not expose private policy or
-  fleet data.
-- Focused verification passed **6/6** model-engine tests, Python compilation
-  and `git diff --check`. The complete public suite passed **783/783** after
-  rebuilding the signed v1.2.173 manifest. The fix is included in the
-  published release and was verified by restarting the live NodeOS service.
+- Removed node auth tokens from tunnel URLs and remote fleet payloads. Protected
+  gateway/portal node views now require an owner session or a short-lived,
+  HttpOnly node session; the legacy `?auth=` URL is not accepted. The direct
+  `/node/<id>/api/status` sibling path is covered by the same authorization.
+- Fixed local management-link selection so a phone does not open its own
+  `localhost:8080`. Concrete advertised LAN addresses are preferred; loopback
+  is only a last-resort probe when no node address exists. The fleet page now
+  disables the local-management action when no safe LAN route is available.
+- Added authenticated, bounded LAN discovery to NodeOS (`/api/lan/nodes` and
+  `/api/lan/scan`). The current read-only scan found `.18:8080` (`1.2.21`,
+  update available), `.27:8080` (`1.2.175`, update available), and `.94:8080`
+  (`1.2.176`, current). Discovery does not enroll or transfer owner secrets.
+- Release builder completed signed `v1.2.177`: Windows SHA-256
+  `9a4b87c9a58dd710c56e1f4d9587be37922f858ffd0b616df4ba7a19604c6184`, Linux
+  SHA-256 `46c4e1d5c6f19b90ce894b532c16ed4670cfe694fdd61fdd73f6a780b619e7c3`,
+  installer SHA-256 unchanged at `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+- Verification: canonical public suite `777/777`, focused portal/gateway
+  session tests `31/31` plus gateway tests `39/39`, compileall and
+  `git diff --check` passed. Browser checks reproduced the old `.27`
+  `localhost` defect and confirmed `.94`, `.27`, and `.18` settings/update
+  controls load; destructive update/restart actions were not triggered.
+- Remaining live gates: deploy and verify `v1.2.177` on both Plesk roots and
+  the authenticated runtime, then update reachable NodeOS instances through
+  their verified admin channel. The eight-GPU machine is still not identified
+  or hardware-authenticated; `.18` is not evidence of eight GPUs.
 
-## Release v1.2.172 preflight - 2026-10-03
+## 2026-10-03 v1.2.176 portal and LAN rollout
 
-- Public WebUI fix PR #86 was merged as `3b3d8ce` after green CI. Release
-  branch `codex/release-v1.2.172` is based on that commit and changes the
-  appliance version to `1.2.172`.
-- The signed release builder completed successfully. Windows SHA-256 is
-  `07eb023d41243ad542af209f8273f0197b4bf54570817e76d416e3369ad8ec20`
-  (`117723347` bytes); Linux SHA-256 is
-  `260634eb9c206b73a6991bc5b141d5afed5b7b8d1e880df5e808224993631ab7`
-  (`6925763` bytes); `install.sh` remains
-  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
-  The Ed25519 manifest reports `1.2.172` and verifies locally.
-- The complete public suite passed **783/783** after the version bump. The
-  local Windows patch binary is already running, but the signed `v1.2.172`
-  release is merged, tagged and uploaded to both live Plesk webroots.
-  NodeOS and Android artifacts remain unchanged and retain their prior signed
-  manifest entries; no Android release was built for this WebUI-only fix.
+- The portal was built from the reviewed working tree and deployed selectively to
+  both Plesk roots `/var/www/vhosts/inetconnector.com/httpdocs` and
+  `/var/www/vhosts/inetconnector.com/site2`. Existing live-only files were not
+  deleted; the five previously live-only pages (`downloads.html`,
+  `marketplace.html`, `models.html`, `models/index.html`, `pricing.html`) are
+  now tracked in this repository.
+- Deployment backup: `/root/computemesh-backups/web-v1.2.176-before-20261003-181007/`.
+  Both roots report manifest SHA-256
+  `2718aaff341159cd0972a5d64118919bc514ac4badae53e639a6d278d73dfbf5`,
+  version `1.2.176`, and identical Windows/Linux/install hashes. Public
+  manifest URLs return HTTP 200 with `v1.2.176`; portal pages tested also
+  return HTTP 200.
+- Node `192.168.1.94:8080` was updated through its HttpOnly session and signed
+  updater. `/api/action/check_update` now reports `current_version=1.2.176` and
+  `update_available=false`. Its inventory is one NVIDIA RTX 3080 Laptop GPU
+  with 16 GiB; `/api/fan/status` correctly reports `control_available=false`
+  because this Windows driver exposes no safe manual fan backend.
+- Node `192.168.1.27:8080` remains on `v1.2.175`. It returns HTTP 200 for the
+  dashboard but no session cookie, so the protected update action returns 401.
+  It must be updated locally or through a verified administrative channel; do
+  not bypass the changed SSH host key without operator verification.
+- Release artifact hashes: Windows EXE
+  `210a1b9399e75fec4af050b6311f93726185795a9f4aefe436f7f4d1d13a470e`, Linux
+  tar `6b38afef48b542401d41b2761bbd4d74fb51287833815d6d2219e23125be5133`,
+  install script `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
 
-## WebUI control and service-worker cache fix - 2026-10-02
+## 2026-10-03 Dashboard, WebUI, Android, and fan-safety handoff
 
-- Branch `codex/webui-service-worker-controls` is based on public `main` at
-  `84f82ec` (`v1.2.171`). It changes only the bundled WebUI assets, their
-  Android copy, the service-worker precache revision and one regression test.
-- The failure was reproducible in a stale browser page: a broad CSS selector
-  matched the literal substring in Tailwind variant tokens such as
-  `disabled:pointer-events-none`, applying `pointer-events: none` to normal
-  buttons. The shipped CSS now matches only the active `.pointer-events-none`
-  class, and the service worker's `./` revision is calculated from the actual
-  current `index.html` in both copies.
-- Browser route audit covered chat plus General, Display, Sampling, Penalties,
-  Agentic, Developer, MCP, Tools and Import/Export. All visible controls had
-  `pointer-events: auto`; a real Display checkbox toggled and restored, and
-  sidebar navigation reached Sampling. Attachment browser coverage passed 3/3.
-- Verification: `python -m unittest tests.test_appliance_webui -v` passed 6/6;
-  `COMPUTEMESH_BROWSER_E2E=1 python -m pytest tests/test_webui_attachment_browser.py -q`
-  passed 3/3; `git diff --check` passed. A startup warning about a missing
-  optional `ModelManager.POPULAR_GGUF_MODELS` attribute was emitted by the
-  existing test harness but did not fail the tests.
-- The currently installed Windows `v1.2.171` binary still embeds the old
-  service-worker manifest; this branch has not been built, installed, merged or
-  published yet. The visible stale Chrome tab can temporarily be tested with a
-  cache-busting WebUI URL; publication requires the normal rebuilt-artifact,
-  signature, CI and live-hash gates. No localStorage, chats or user settings
-  were cleared.
+- LAN dashboards at `192.168.1.94:8080` and `192.168.1.27:8080` were inspected.
+  Node `.94` is now on v1.2.176 and issues an HttpOnly same-origin session
+  cookie. Node `.27` is still v1.2.175 and issues no cookie, so its protected
+  update action remains unavailable remotely.
+- `safe_auto` fan control is capability-aware: supported Linux PWM/NVIDIA
+  backends use a temperature curve with a 25% minimum; unsupported drivers
+  return an explicit limitation and never fake a fan percentage. The physical
+  eight-GPU NodeOS machine still needs an installed-build and sensor/fan check.
+- The WebUI update toast/settings clickability fix is present in both
+  `portal/webui/` and `apps/android/app/src/main/assets/webui/`; service-worker
+  revisions were updated. Android `:app:assembleDebug` succeeded locally, but
+  no production-signed APK was built or installed.
+- The public working tree retains unrelated user changes by design. The
+  reviewed/releasable subset is committed on `codex/nodeos-model-runtime` and
+  the portal v1.2.176 is live; the branch is not merged to public `main`.
+  Secure automatic LAN pairing with explicit owner approval is not complete;
+  discovery currently announces nodes but does not safely transfer an owner
+  secret.
+- Coordinator fleet polling now sends the owner key in `X-Owner-Key` instead
+  of appending it to the fleet URL. Remote dashboard tunnel links still use
+  the existing node-access flow and need a short-lived/session exchange before
+  the next security release.
+- The requested source checkout was not found on the DiskStation paths checked;
+  `\\diskstation\\Dani\\ComputeMesh` is an operator-secret directory. No
+  credentials were read or copied.
 
-## Native tool-call normalization and CI isolation - 2026-10-01
+## 2026-09-29 NodeOS verified model runtime (working branch)
 
-- OpenAI-compatible and Ollama backends now decode native
-  `function.arguments` JSON strings exactly once before converting tool calls
-  to the legacy `<tool_call>` format. Structured arguments remain objects and
-  malformed/non-object values fail closed to an empty object.
-- Regression coverage models the llama.cpp/Qwen conversation
-  `Hallo -> Guten Tag! ... -> Geht die Antwort auch schneller`; backend tests
-  cover both HTTP runtimes.
-- The unified test runner and `ModelManager` use a temporary model directory,
-  and synthetic CI jobs explicitly enable the static catalog so tests never
-  write to `/var/lib/computemesh`.
-- Verification: **778/778 tests passed**, targeted gateway tests **9/9**, the
-  exact llama.cpp regression passed, and changed Python files compiled.
+Implemented in this working tree:
 
-**Last updated:** 2026-10-01
-**Release Version:** `v1.2.170`
-**Active local branch for this work:** `codex/mesh-sync-webui-followthrough`; `main` has not been updated. The WebUI attachment fix and Android 1.2.164 artifacts have been selectively deployed to the production website; this is not a full gateway/node rollout.
-**Active Mission / Last Prompt:** Make public model discovery match the models actually installed in Ollama, preserve OpenAI-compatible client tool use, synchronize minimized inventory with the private registry, and complete local/production rollout verification.
-**Test Suite Status:** unified public suite `780/780 PASSED`, 4 expected skips; focused model/tool tests and compile checks passed. See the latest section for production and local runtime evidence.
-**Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
+- `model_manager.py` persists a fail-closed local GGUF catalogue. Hugging Face
+  downloads require an immutable source commit, exact size and SHA-256; they
+  run asynchronously, resume `.part` files with Range requests, validate GGUF
+  magic and use atomic rename/catalogue updates.
+- `model_engine_service.py` revalidates every artifact before activation,
+  checks aggregate healthy-GPU VRAM with a per-GPU reserve, requests a
+  proportional llama.cpp layer split and supervises one `llama-server` bound
+  only to `127.0.0.1:8081`. Device names are auto-discovered by llama.cpp unless
+  the operator supplies a verified `COMPUTEMESH_LLAMA_DEVICE_NAMES` override.
+- Authenticated model-management HTTP routes and a dashboard **Models** tab
+  provide status, install, start, stop and delete operations. Remote LAN access
+  no longer receives implicit admin trust; the dashboard propagates its node
+  auth token to protected API calls.
+- The appliance chat router prefers the healthy managed llama.cpp endpoint and
+  can fall back to a real Ollama installation. No-runtime and runtime-failure
+  paths no longer synthesize responses or usage counters.
+- Static gateway catalogue entries are marked `catalogued`/unavailable. A
+  configured private registry remains authoritative; an Ollama-backed gateway
+  discovers real local tags. Ollama-compatible metadata no longer invents
+  artifact sizes, random digests, parameter counts or quantization.
+- Thermal values are `null` when sensors are unavailable. Product-name TFLOPS
+  lookup tables and generic per-GPU estimates were removed from dashboard,
+  tray and mesh aggregation. The UI says `Nicht gemessen` until a real
+  benchmark contract supplies a value.
+- Local token accounting records only usage returned by a successful runtime.
+  Token count no longer creates provider earnings. Legacy local earnings files
+  without `earnings_confirmed` are migrated to zero payout; coordinator values
+  derive from the real provider ledger balance.
+- NodeOS builder pins llama.cpp `v0.4.1` commit
+  `29aaf1c27faa48292357cea2120d94114a545006`, builds the Vulkan server, includes
+  AMD/NVIDIA packages, creates the model root, defaults persistence to 64 GiB,
+  locks root and disables password SSH. No shared `computemesh` root password
+  remains in the builder.
 
-## 2026-09-27 live model inventory and OpenAI tool contract
+Verification actually run:
 
-- The gateway no longer presents the eleven-entry static catalogue as live capacity by default. For Ollama it discovers `/api/tags`, enriches each installed model through `/api/show`, caches results for a bounded interval and exposes capabilities, modalities, context and availability. If `COMPUTEMESH_INFERENCE_MODEL` is configured, only that exact installed model is advertised. Explicit unavailable model IDs return `400 model_not_available`; static data requires `COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG=1` for development/tests.
-- Requests with client `tools` are validated, kept out of the internal MCP loop and forwarded with `tool_choice` through owner billing, cancellation and Ollama/OpenAI-compatible adapters. Native calls and strict JSON tool output normalize to OpenAI `message.tool_calls` and `finish_reason=tool_calls` for ordinary and SSE responses. The backend fallback also now uses the defined formatted-message value instead of an undefined variable.
-- Appliance `/v1/models` now derives capabilities from Ollama `/api/show` and returns no fabricated fallback model when Ollama has none. Heartbeats include a sanitized, bounded inventory; portal/gateway receivers store it and can optionally send it to the authenticated private reconcile URL. New shared inventory sanitization prevents private or uncontrolled runtime data from crossing the public/private boundary.
-- Production deployment backups: `/root/computemesh-backups/model-contract-20260927-212830` for the initial file set and `/root/computemesh-backups/model-contract-final-20260927-2141` for the final server follow-up. The restarted gateway is active with zero restarts. `https://mesh.inetconnector.com/v1/models` now reports exactly `qwen2.5:1.5b-instruct` with tools/text capability and 32,768 context tokens. A real public request produced a structured `get_weather` call, `/v1/health` returned healthy and no post-deploy journal errors were found.
-- Signed release 1.2.170 was built, installed locally and published to both Plesk webroots. Windows is 97,577,204 bytes with SHA-256 `e438b6e4735a581eba7bae21d7ef25cbb032803ef3f928bf3409bf66b21078d5`; Linux is 7,584,484 bytes with SHA-256 `dd0cff6849ff250ff5d165645f56f39f5cc4a05563f62eaf1f45229e5c31e877`. The Ed25519-signed manifest verifies against the embedded release trust list. Local rollback is `C:\Users\frede\AppData\Local\Programs\ComputeMesh\backups\20260927-220012`; production rollback is `/root/computemesh-backups/v1.2.170-20260927-2202` and staging is `/root/computemesh-upload-20260927-v1.2.170`. `/api/status` reports 1.2.170, `/webui` and `/v1/models` return HTTP 200, all four installed Ollama models have runtime-derived capabilities, and `qwen2.5-coder:14b` produced a structured tool call. Both manifest paths on all public domains report 1.2.170; Windows range requests report 97,577,204 bytes and complete canonical Windows/Linux downloads matched the signed hashes.
-- Verification: unified public suite 780/780 passed with four expected skips; focused gateway runs passed 44 and 48 tests plus subtests; compile checks, diff checks and the targeted critical Ruff rules passed. A broad Ruff run still reports legacy findings in large pre-existing gateway/portal modules and older test import ordering.
+- `python run_all_tests.py`: **776/776 passed** in 87.75 s.
+- Focused model manager/engine/admin auth/multi-GPU/gateway/portal/image-builder
+  suites: **70/70 passed** before the final managed-runtime/UI wiring; targeted
+  managed-runtime tests passed **4/4** afterward.
+- Changed Python files passed `py_compile`; dashboard inline JavaScript parsed
+  with Node; `git diff --check` passed. Ruff is not installed in either the
+  system Python or `.venv`, so lint remains unverified.
+- The unscoped `python -m pytest -q` fails during collection on duplicate test
+  modules embedded in `artifacts/linux_release_staging_*` and other release
+  snapshots; it did not reach source tests.
 
-## 2026-09-27 Cline workspace reload and provider repair
+Not yet complete or claimed:
 
-- Fixed the remaining execution failure where Cline was connected but behaved like a text-only chatbot and refused filesystem work. Requests carrying client `tools` now use a dedicated pass-through path: schemas and assistant/tool history are forwarded to Ollama, native or strict-JSON model calls are normalized into OpenAI `tool_calls`, and both non-streaming and SSE responses preserve `finish_reason=tool_calls`. Cline remains responsible for approval and execution; the existing internal MCP agent loop remains unchanged for requests without client tools.
-- Real source and installed-binary verification completed a two-turn cycle: `qwen2.5-coder:14b` requested `list_files`, accepted the supplied tool result, and produced a grounded final answer. Dashboard tests passed 20/20, Cline integration tests passed 11/11, the changed router/test files passed the selected Ruff import/error checks, and Python compilation passed.
-- Reproduced the project-switch symptom and inspected VS Code extension-host logs. Official Cline 4.1.21 activated successfully after every folder reload; only its view was no longer focused. The Windows integration now installs `computemesh.cline-workspace-bridge` 1.0.2, a dependency-free local VS Code extension activated by `onStartupFinished`. When `cline_vscode` is still enabled, it waits for `cline.focusChatInput`, restores the Cline view, and writes `~/.computemesh/cline_bridge_status.json` for runtime diagnosis. An isolated Extension Development Host smoke test reported `status=ready` after opening `ClineTest`.
-- The first custom provider ID `computemesh` was visible in Cline but failed at execution with `Unknown or disabled provider`. Cline's supported storage/runtime path is now used: provider settings ID `openai`, canonical model provider ID `openai-compatible`, and base URL `http://127.0.0.1:8080/v1`. Only the obsolete integration-owned `computemesh` records are removed; unrelated records remain. The setup queries `/v1/models`, prefers an installed model whose ID contains `coder`, and falls back to `auto` when the node is unavailable. On this node it selected `qwen2.5-coder:14b`; an actual non-streaming gateway completion returned `OK`. The previous `auto` route selected oversized `gemma4:26b` and returned HTTP 502.
-- The current locally installed Windows 1.2.169 executable is 97,514,627 bytes with SHA-256 `d3fd954b01c10dc0992e227f656b31c4ce5172d51f71c30368e02b30e6c9ac74`; local rollback is `C:\Users\frede\AppData\Local\Programs\ComputeMesh\backups\20260927-102753`. The installed `/api/status` returned HTTP 200 and a real tool request returned `list_files` with valid JSON arguments.
-- Published the same executable and trusted signed v1.2.169 manifest (1,766 bytes, SHA-256 `89ed7bdaacf8af7b2869cabf5aa67306e03a847c071bba0c3176811897d86e63`) to both Plesk webroots and both manifest URL forms. Server rollback is `/root/computemesh-backups/20260927-cline-tools`; staging is `/root/computemesh-upload-20260927-cline-tools`. Both webroots match local hashes. Installer range requests on `mesh.inetconnector.com`, `computemesh.inetconnector.com`, `inetconnector.com`, and `ai.inetconnector.com` returned HTTP 206 with total size 97,514,627; all manifest requests returned HTTP 200 and the local signature verification returned `True`.
-
-## 2026-09-27 Cline installation CLI repair and rollout
-
-- Reproduced the user-visible `VS Code completed the install command, but Cline is not registered` failure. VS Code 1.139.1 was present, but `Code.exe --install-extension` returned success without registering an extension. The bundled `bin\code.cmd` installed official Marketplace extension `saoudrizwan.claude-dev` 4.1.21 correctly. `windows_cline_integration.py` now keeps `Code.exe` for launching the GUI while resolving `bin\code.cmd` for extension install/list commands; a regression test covers that path split.
-- The live integration rerun initially created a custom `computemesh` provider targeting `http://127.0.0.1:8080/v1`; the later provider repair above replaced that unsupported runtime ID with Cline's canonical OpenAI-compatible path. The local `/v1/models` endpoint returned four models, VS Code launched, `cline_vscode` is enabled, and the installed ComputeMesh log records `Integration ready`.
-- Relevant appliance/Windows packaging tests passed 37/37; the focused Cline module has 7 passing tests and the changed Cline/build files pass Ruff. The repaired Windows 1.2.158 bundle is installed locally (97,424,662 bytes, SHA-256 `7110454fc24ed9e80e0e42ae693e47c74c70780525c9dc6379d8681d138cdeb5`), with rollback under `C:\Users\frede\AppData\Local\Programs\ComputeMesh\backups\20260927-004220`. Live `/api/status`, `/v1/models`, and `/webui` returned HTTP 200.
-- Published that Windows bundle and trusted signed manifest (SHA-256 `445d9d01bc31175230e1de85e567a63acfed7ab391e09bce7a464d7fe58d7903`) atomically to both Plesk webroots and both manifest URL variants. Server rollback is `/root/computemesh-backups/cline-cli-fix-20260927`. Full canonical HTTPS downloads matched local hashes; Windows/manifest URLs on `mesh.inetconnector.com`, `inetconnector.com`, and `ai.inetconnector.com` returned HTTP 200. The private staging directory `/root/computemesh-upload-20260927-cline-cli-fix` remains non-public.
-
-## 2026-09-26 optional Windows Cline and VS Code integration
-
-- Replaced the invalid unconditional `Cline.exe` download path in `tools/appliance/windows_tray_app.py`. Cline is treated as the official Visual Studio Code extension `saoudrizwan.claude-dev`; the provider app no longer downloads an unsigned/nonexistent ComputeMesh-hosted Cline executable or writes an ineffective adjacent `settings.json`.
-- Added `tools/appliance/windows_cline_integration.py`. When the user enables the new `Cline (VS Code)` checkbox and confirms, it discovers an existing VS Code install or downloads Microsoft's official stable per-user installer, installs the official Marketplace extension through the VS Code CLI, configures the local OpenAI-compatible endpoint, and launches VS Code. The initial custom provider-ID implementation was superseded by the canonical provider repair above. The option defaults off and is persisted as `cline_vscode` in `~/.computemesh/provider_config.json`; an enabled setting also launches Cline on later node starts. A tray command exposes the same flow.
-- The Cline provider targets `http://127.0.0.1:8080/v1`, discovers models from `/v1/models`, and declares OpenAI Chat Completions streaming/tool capability. The current implementation prefers an installed coding model and otherwise uses `auto`. Configuration is merged atomically into Cline's version-1 `providers.json`, `models.json`, and `globalState.json`. Unrelated provider records and credentials remain untouched; malformed existing JSON fails closed instead of being overwritten. Disabling the checkbox stops automatic launch but intentionally does not uninstall user software or erase settings.
-- Added six focused tests for VS Code discovery, non-destructive Cline configuration, fail-closed malformed JSON handling, dependency installation orchestration, post-install extension verification, and the official extension identifier. Verification: the complete appliance test directory passed 33/33; the focused integration and bundle-contract selection passed 8/8; `python -m py_compile tools/appliance/windows_cline_integration.py tools/appliance/windows_tray_app.py deploy/windows/build_installer.py` passed; the two new files pass Ruff using the private umbrella venv. The real `test_build_standalone_bundle` PyInstaller run also completed successfully and built the one-file Windows EXE in its temporary test directory. The legacy tray module still has pre-existing repository lint findings outside this change. No live VS Code/Cline install was performed.
-
-## 2026-09-26 Windows install and signed download rollout
-
-- Built and installed the final Windows 1.2.158 bundle at `C:\Users\frede\AppData\Local\Programs\ComputeMesh\ComputeMesh.exe` (97,420,643 bytes, SHA-256 `461044d3a3125524fd2463eed1818389c71f71cd546ff7e8e0c07a2bdefb1939`). The previous local binaries are under `backups\20260926-195042`. The live app returned HTTP 200 for `/api/status`, `/v1/models`, and `/webui`; the model catalogue contained four entries. VS Code and Cline remain uninstalled by this rollout because the new option is an explicit opt-in consent boundary.
-- Fixed the missing `InferenceRouter.handle_get` dispatch that made the first candidate build return 404 for `/v1/models`, and added a dashboard regression assertion. The combined dashboard, appliance, and Windows packaging selection passed 41 tests.
-- Unified `tools/build_all_releases.py` with the tested `build_windows_standalone_bundle` path. This prevents the legacy spec from recursively embedding `portal/downloads` in the Windows EXE. The Linux packager now excludes ignored Gradle caches, `sd_cpp_src`, and local `runtime/sd_cpp` compiler/runtime outputs while retaining `image_engine_service.py`; its focused filter tests pass. Final Linux release: 7,568,605 bytes, SHA-256 `3e5ddc768473846b167798402aa45928e56084eb6a00fff9a1528871f285aa7c`.
-- Hardened release verification so a manifest key must be in `TRUSTED_RELEASE_PUBLIC_KEYS_HEX`; a self-declared arbitrary key is rejected. The production manifest is signed by the trusted rotated key `0f559b...`, is 1,766 bytes, and has SHA-256 `22441fc1805ea2746590c7389c4e39ddae42b3348c22afecc7c2fe659ecd7f91`. Five focused release/updater tests pass, and the changed release/Cline files pass Ruff.
-- Deployed Windows, Linux, and the signed manifest atomically to both `/var/www/vhosts/inetconnector.com/{site2,httpdocs}` webroots on `supersrv-trixie`; prior files are backed up under `/root/computemesh-backups/cline-release-20260926-195106`. Both `/updates/version.json` and the legacy `/downloads/version.json` now match. Android, LocalCode, NodeOS, `install.sh`, and landing-page artifacts were hash-checked and preserved. All download/manifest HEAD requests on `mesh.inetconnector.com`, `inetconnector.com`, and `ai.inetconnector.com` returned HTTP 200 with the expected Windows/Linux sizes; full canonical Windows/Linux/manifest downloads matched the hashes above and the manifest signature verified against the client trust list. The non-public staging directory `/root/computemesh-upload-20260926-195106` remains because the local execution policy rejected the cleanup command; it contains only the published release files and can be removed deliberately later.
-
-## 2026-09-22 production Android signing migration and selective rollout
-
-- The previous public Android 1.2.163 APK in both Plesk webroots was debug-signed (certificate SHA-256 `cd90e375a2c69f09e39c9f31e09e69ed1f6fd16513ca1843fd7f3caa4e81b2cc`). The owner explicitly approved publication of the DiskStation-key-signed 1.2.164 despite the resulting need to uninstall/reinstall existing installations. Never document or print the signing password or its filename. The new APK has package `com.inetconnector.compumesh`, versionCode 164, versionName 1.2.164, production certificate SHA-256 `649a7ec870a7d18e5af0af12f0ac63b27f15db864e28feca9da5fcf94ab8ec0f`, and APK SHA-256 `4a83eaf03eafc087127f8455ddaaa0be64704d547d81a794ecd773fc0944d4cb`. The embedded WebUI index SHA-256 is `a41742e86336746d3c1babd0e69386bc4f75e8d90add8e46cfe1b433d11ef678`.
-- `deploy/android/build_apk.py` built the signed APK and AAB successfully. `apksigner` verified the APK and `jarsigner` verified the AAB (self-signed certificate and JarInputStream warnings were reported but did not fail the build); generated metadata matches both artifact hashes and sizes. The AAB SHA-256 is `bfc3ef7425e13ede09f0eb0753ec96485f179f8aec001d695b3a0579ce1fb3be`. The release was built from public commit `90d2bd7` on the feature branch, not from public `main`.
-- On `supersrv-trixie`, old APK/AAB/JSON from `/var/www/vhosts/inetconnector.com/{site2,httpdocs}/downloads` and both old landing-page indices were copied byte-identically to `/root/computemesh-backups/android-20260922-signing-migration/{site2,httpdocs}/` before replacement. The new APK/AAB/JSON were staged, hash-verified, installed with original owner/mode and atomically switched with metadata last. Both webroots now have matching artifacts and `production_signed=true` metadata for 1.2.164. The landing-page APK label and reinstall warning were updated in both webroots, with the prior HTML backed up. `https://mesh.inetconnector.com/`, `https://inetconnector.com/`, and `https://ai.inetconnector.com/` display the corrected version/warning. Both HTTPS metadata URLs return 1.2.164, both APK/AAB URLs return HTTP 200 with the expected sizes, and a full download from the canonical mesh URL matched the release SHA-256 and signer.
-- Published the same three verified assets at `https://github.com/inetconnector/ComputeMesh/releases/tag/android-latest`; GitHub-reported asset digests match the production webroots. This is the canonical release consumed by `deploy/deploy_production.sh`, but the GitHub Actions release secrets remain absent; future automated rebuilds still need signing-secret provisioning. No Android device was connected, so no handset installation or runtime smoke test was performed. Existing debug-signed installations cannot update in place and must be uninstalled before installing the new APK; local app data may be lost. No gateway/VPS node service was upgraded or enabled by this Android rollout.
-
-## 2026-09-22 Windows rollout and CI isolation follow-through
-
-- Linux public PR CI exposed `ModelManager`'s hard-coded `/var/lib/computemesh/models` directory in the unified test runner. The manager now accepts `COMPUTEMESH_MODEL_STORAGE_DIR`, and `run_all_tests.py` supplies a temporary path. The isolated manager override has a focused test.
-- `tools/appliance/tests/test_appliance_config.py` previously called `save_system_config` while the real home path was in scope, overwriting a developer provider config with test identity/payout/coordinator and an empty owner key. The test now redirects home and both boot paths to its temporary directory. On the local Windows node, the damaged config was backed up and restored through the running dashboard's own loopback config API from its in-memory values. The key was never printed. A full unified run passed 776/776 afterward, and the on-disk identity/key remained intact.
-- The first locally installed relay-fix EXE served `/` and `/v1/models`, but `/webui` returned 404. The one-file `build_installer.py` bundled `portal/assets` but not `portal/webui`; the build recipe and a focused packaging test now include/check that tree. A corrected EXE was built and installed locally (SHA-256 `68E0CCF86512B4BBA51A1D410929BC07B45C3CF0ECDD118693528080D5F532B1`). Live `/api/status`, `/webui`, `/webui/index.html`, `/v1/models` and a referenced `/_app` JavaScript bundle all returned HTTP 200; the served WebUI SHA-256 matched the repository source. The prior binaries were retained locally for rollback. This was a local Windows installation, not a public release.
-- Public and private branches remain draft PRs, not merged into `main`; production Plesk webroots and Android release have not been changed. The private Agents Platform CI still has an exact older public gitlink pin and requires a separate validation/pin decision, not an automatic pin bypass.
-- Public Agents Platform CI now accepts manual dispatch as well as its existing PR/path triggers, allowing a candidate public runtime SHA to be validated before updating the private exact pin. This adds no production runtime behavior and does not itself declare the new SHA validated.
-
-## 2026-09-22 Relay lint and WebUI follow-through
-
-- `services/appliance_dashboard/tunnel_relay.py` and `tests/test_immediate_config_sync.py` now pass Ruff after cleaning legacy imports, unused test items and best-effort exception handling. The public browser attachment test mocks cloud-relay startup so running UI tests cannot send a real node heartbeat.
-- Verification: browser-enabled `tests/` 115 passed; unified `run_all_tests.py` 776/776 passed; the browser test and relay/test files pass Ruff and Python compilation. An Android offline debug build passed with non-fatal SDK XML-version warnings. A Windows PyInstaller binary was built locally for preflight, not installed or released. Android Gradle still declares version `1.2.164`; pushing the asset change to `main` would trigger the signed release workflow with that version, so this work remains on a feature branch. Live-node/deployment checks remain separate; no production rollout is claimed.
-
-## 2026-09-22 Immediate mesh-sync node-ID race
-
-- `services/appliance_dashboard/tunnel_relay.py` now serializes an entire sync (config, telemetry, heartbeat send, return) under the relay lock and uses a per-run node-ID snapshot. `trigger_immediate_mesh_sync()` no longer sets the shared ID outside the lock. A concurrent periodic worker therefore cannot change the identity of an in-flight immediate rename heartbeat.
-- `tests/test_immediate_config_sync.py` isolates the existing test from the process-global worker and adds a paused-heartbeat concurrency regression. Its mocked coordinator response cannot write a replacement owner key to local developer configuration.
-- Initial verification in this umbrella checkout: public `tests/` 112 passed, 3 skipped; immediate-sync module 4 passed in each of ten repetitions; unified `run_all_tests.py` 776/776 passed when run without an added private-root `PYTHONPATH`; private `tests/` 219 passed, 3 subtests passed; Python compile and `git diff --check` passed. An initial unified-harness attempt with private-root `PYTHONPATH` failed six imports because private and public packages both use `tests`; the corrected rerun passed. At this intermediate point Ruff reported 28 pre-existing findings (31 at HEAD); the follow-through section above records their cleanup. No live-node, release, or deployment validation was run. Preserve unrelated uncommitted WebUI/Android HTML and browser-test changes in this working tree.
-
-## 2026-09-22 WebUI attachment-menu browser regression
-
-- Removed the global capture-phase file-click workaround introduced at `5aa9920` from `portal/webui/index.html` and `apps/android/app/src/main/assets/webui/index.html`; it opened a file picker on the desktop submenu trigger before the native Svelte handler and could duplicate leaf actions. The bundled frontend's two existing file inputs and callbacks remain unchanged. The private portal snapshot was synchronized separately in ControlPlane.
-- Restored bounded vertical scrolling for ordinary open dropdowns and submenus, while preserving visible overflow on main menus with nested submenus; otherwise the visible image action was clipped and could not be clicked over the composer. Added `tests/test_webui_attachment_browser.py` with opt-in Playwright/Chrome-or-Edge coverage. The real desktop browser confirms the submenu opens without a picker, one text leaf click opens one picker, the selected file appears, and its content enters the chat request. A mobile-emulated browser confirms the sheet category toggles without a picker and a PDF file attaches. A fake vision catalogue enables the image action; a selected PNG thumbnail appears and its Base64 reaches a request with the selected vision model. All paths check uncaught JavaScript errors.
-- Verification on the private umbrella checkout: focused WebUI/gateway suite 20 passed, including 3 browser tests with `COMPUTEMESH_BROWSER_E2E=1`. A broader public `tests/` run without browser opt-in had 110 passed, 1 failed, 2 skipped: the unrelated immediate-config-sync test saw `test-node-custom` instead of `new-rig-name`; that module passed alone (3/3), and no cause/fix is claimed. Rerunning with browser tests enabled and this one case deselected yielded 113 passed, 1 deselected. The private `tests/` suite passed 219 tests and 3 subtests. Ruff, inline-script parsing and both repositories' `git diff --check` passed. This is not a claim that the unmodified full public suite passed.
-- Android `:app:assembleDebug --offline --no-daemon` succeeded; the packaged `assets/webui/index.html` SHA-256 matches source (`A41742E86336746D3C1BABD0E69386BC4F75E8D90ADD8E46CFE1B433D11EF678`). Gradle emitted non-fatal SDK XML-version warnings. No device installation, production release signing/deployment, or full browser feature-matrix validation was run. Next: investigate the test-order-dependent config sync failure and perform device/live smoke tests before distributing this WebUI.
+- no new NodeOS ISO/IMG, Windows/Linux installer, Android client, signed update
+  manifest, tag, GitHub release or production deployment was produced;
+- no physical six-GPU startup, large-model load, restart persistence, measured
+  throughput, OOM/thermal recovery or end-to-end provider billing run was done;
+- the private ControlPlane checkout contains unrelated in-progress changes and
+  was inspected only. It was not modified. Production reconciliation of the
+  minimized heartbeat `model_runtime` into its canonical model registry still
+  needs an isolated private-repo change and tests;
+- requested layer allocation is not yet cryptographic proof that every GPU
+  executed every intended layer; execution evidence/attestation must bind that
+  fact before billing or marketing claims.
 
 ## Universal Skill Execution MCP — 2026-09-17
 

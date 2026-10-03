@@ -133,9 +133,9 @@ class TestFleetHttp(unittest.TestCase):
         self.assertEqual(fleet["total_nodes_bound"], 1)
         self.assertEqual(fleet["total_nodes_online"], 1)
         self.assertEqual(fleet["nodes"][0]["node_id"], "rig-01")
-        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-01?auth=cm_tunnel_abc123")
+        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-01")
 
-    def test_portal_fleet_requires_header_authentication(self) -> None:
+    def test_portal_fleet_rejects_url_key_and_accepts_header(self) -> None:
         owner_key = "cm_owner_direct_test_key_123"
         owner_id = gateway_server_module.owner_id_for_key(owner_key)
         self.owner_store.ensure_owner(owner_id)
@@ -148,17 +148,19 @@ class TestFleetHttp(unittest.TestCase):
             "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
 
+        # Owner keys must never be accepted in URLs.
+        req = urllib.request.Request(f"{BASE}/api/portal/fleet?owner_key={owner_key}")
+        with self.assertRaises(urllib.error.HTTPError) as query_error:
+            urllib.request.urlopen(req)
+        self.assertEqual(query_error.exception.code, HTTPStatus.UNAUTHORIZED)
+
+        # Direct API access uses the dedicated header instead.
         req_hdr = urllib.request.Request(f"{BASE}/api/portal/fleet", headers={"X-Owner-Key": owner_key})
         resp_hdr = urllib.request.urlopen(req_hdr)
         self.assertEqual(resp_hdr.status, HTTPStatus.OK)
         data_hdr = json.loads(resp_hdr.read().decode("utf-8"))
         self.assertEqual(data_hdr["total_nodes_bound"], 1)
         self.assertEqual(data_hdr["nodes"][0]["node_id"], "node-direct-01")
-
-        query_req = urllib.request.Request(f"{BASE}/api/portal/fleet?owner_key={owner_key}")
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            urllib.request.urlopen(query_req)
-        self.assertEqual(ctx.exception.code, HTTPStatus.UNAUTHORIZED)
 
     def test_invalid_session_cookie_rejected(self) -> None:
         status, resp = self._get("/api/auth/me", cookie=f"{passkey_routes.SESSION_COOKIE_NAME}=garbage-token")
@@ -258,7 +260,10 @@ class TestFleetHttp(unittest.TestCase):
     def test_download_ollama_starter_and_reset_endpoints(self) -> None:
         owner_key = "cm_owner_download_test_key_xyz"
         # 1. Download Windows Starter
-        req = urllib.request.Request(f"{BASE}/api/portal/download/ollama-starter?os=windows", headers={"X-Owner-Key": owner_key})
+        req = urllib.request.Request(
+            f"{BASE}/api/portal/download/ollama-starter?os=windows",
+            headers={"X-Owner-Key": owner_key},
+        )
         resp = urllib.request.urlopen(req)
         self.assertEqual(resp.status, HTTPStatus.OK)
         self.assertIn("attachment", resp.headers.get("Content-Disposition", ""))
@@ -268,7 +273,10 @@ class TestFleetHttp(unittest.TestCase):
         self.assertIn("OLLAMA_HOST=0.0.0.0:11434", content)
 
         # 2. Download Linux Starter
-        req_sh = urllib.request.Request(f"{BASE}/api/portal/download/ollama-starter?os=linux", headers={"X-Owner-Key": owner_key})
+        req_sh = urllib.request.Request(
+            f"{BASE}/api/portal/download/ollama-starter?os=linux",
+            headers={"X-Owner-Key": owner_key},
+        )
         resp_sh = urllib.request.urlopen(req_sh)
         self.assertEqual(resp_sh.status, HTTPStatus.OK)
         self.assertIn("ollama-mesh-start.sh", resp_sh.headers.get("Content-Disposition", ""))

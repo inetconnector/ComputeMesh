@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.inetconnector.compumesh.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -41,13 +42,17 @@ object AndroidUpdateChecker {
             val url = json.optString("url").trim()
             val sha256 = json.optString("apk_sha256", json.optString("sha256")).trim().lowercase()
             if (latest.isBlank() || url.isBlank() || !sha256.matches(Regex("[0-9a-f]{64}"))) return@runCatching null
+            val parsedDownload = URL(url)
+            if (parsedDownload.protocol != "https" || parsedDownload.host != "mesh.inetconnector.com") return@runCatching null
+            val sizeBytes = json.optLong("apk_size", json.optLong("size", 0L))
+            if (sizeBytes <= 0L || sizeBytes > 1024L * 1024L * 1024L) return@runCatching null
             if (compareVersions(latest, currentVersion) <= 0) return@runCatching null
 
             AndroidUpdateInfo(
                 version = latest,
                 downloadUrl = url,
                 expectedSha256 = sha256,
-                sizeBytes = json.optLong("apk_size", json.optLong("size", 0L)),
+                sizeBytes = sizeBytes,
             )
         }.getOrNull()
     }
@@ -62,6 +67,14 @@ object AndroidUpdateChecker {
         connection.requestMethod = "GET"
         connection.connect()
         if (connection.responseCode !in 200..299) error("Server antwortete mit HTTP ${connection.responseCode}")
+        val parsedDownload = URL(update.downloadUrl)
+        if (parsedDownload.protocol != "https" || parsedDownload.host != "mesh.inetconnector.com") {
+            error(context.getString(R.string.update_source_untrusted))
+        }
+        val contentLength = connection.contentLengthLong
+        if (contentLength > 0L && contentLength != update.sizeBytes) {
+            error(context.getString(R.string.update_size_mismatch))
+        }
 
         val digest = MessageDigest.getInstance("SHA-256")
         connection.inputStream.use { input ->

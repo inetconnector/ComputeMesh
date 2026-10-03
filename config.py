@@ -47,10 +47,9 @@ class MeshEndpoints:
         return f"{self.base_url}/api/v1/node/heartbeat"
 
     def get_node_tunnel_url(self, node_id: str, auth_token: str = "") -> str:
-        url = f"{self.base_url}/node/{node_id}"
-        if auth_token:
-            url += f"?auth={auth_token}"
-        return url
+        # Node credentials must never enter URLs, browser history or referrers.
+        # The remote view establishes a short-lived HttpOnly session instead.
+        return f"{self.base_url}/node/{node_id}"
 
     def get_download_url(self, filename: str) -> str:
         return f"{self.base_url}/downloads/{filename}"
@@ -84,7 +83,7 @@ class ComputeMeshConfig:
     endpoints: MeshEndpoints = field(default_factory=MeshEndpoints)
     ports: PortConfig = field(default_factory=PortConfig)
     teaser: TeaserConfig = field(default_factory=TeaserConfig)
-    appliance_version: str = "1.2.175"
+    appliance_version: str = "1.2.184"
     mcp_enabled: bool = True
     default_dashboard_port: int = 8080
     default_gateway_port: int = 8000
@@ -98,7 +97,7 @@ class ComputeMeshConfig:
             endpoints=MeshEndpoints(),
             ports=PortConfig(),
             teaser=TeaserConfig(),
-            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.175"),
+            appliance_version=os.environ.get("COMPUTEMESH_VERSION", "1.2.184"),
             mcp_enabled=os.environ.get("COMPUTEMESH_MCP_ENABLED", "true").lower() in ("1", "true", "yes", "on"),
             default_dashboard_port=int(os.environ.get("COMPUTEMESH_DASHBOARD_PORT", "8080")),
             default_gateway_port=int(os.environ.get("COMPUTEMESH_GATEWAY_PORT", "8000")),

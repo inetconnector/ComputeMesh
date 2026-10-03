@@ -37,7 +37,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.40` ist live unter `https://computemesh.inetconnector.com/updates/version.json`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.184` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, und ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen. Der Live-Stand steht in `state.md`.
 
 ## Was noch nicht versprochen wird
 
@@ -55,6 +55,18 @@ Repository klonen/herunterladen und den Starter für das Betriebssystem verwende
 Das Menü kann den Rechner prüfen, die Netzwerkverbindung messen, lokale Modellgeschwindigkeit testen und die Tests starten. Modellgewichte werden niemals automatisch heruntergeladen.
 
 Die genaue Zwei-Rechner-Anleitung für Entwickler steht in [setup/README.de.md](setup/README.de.md). Der aktuelle öffentliche Status steht in [docs/CURRENT_STATUS.de.md](docs/CURRENT_STATUS.de.md). `state.md` ist das ausführliche technische Projektlog.
+
+## Lokale GGUF-Modelle auf NodeOS
+
+Der NodeOS-Dashboard-Tab **Modelle** verwaltet verifizierte GGUF-Dateien im
+`COMPUTEMESH_MODEL_DIR` (Standard auf NodeOS:
+`/var/lib/computemesh/models`). Vor dem Download prüft die Anwendung die
+exakte Dateigröße plus Sicherheitsreserve und meldet die tatsächlich freien
+und benötigten Bytes. Sie warnt außerdem, wenn der Modellpfad auf einem
+temporären Overlay-Dateisystem liegt. In diesem Fall muss zuerst das
+persistent eingerichtete NodeOS-Datenvolume eingehängt oder
+`COMPUTEMESH_MODEL_DIR` auf einen beschreibbaren größeren Datenträger gesetzt
+werden.
 
 ## Technischer Überblick
 

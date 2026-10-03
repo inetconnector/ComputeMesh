@@ -1,5 +1,6 @@
 """Unit and Integration Tests for ComputeMesh Fleet AI-Chat, llama.cpp WebUI, and MCP Live-Tools."""
 from http.client import HTTPConnection
+from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -13,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import services.gateway.server as gateway_server_module
+import services.gateway.catalog as catalog_module
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
@@ -24,6 +26,12 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.orig_engine = GatewayHandler.inference_engine
+        cls.orig_registry = catalog_module.LIVE_MODEL_REGISTRY
+        cls.orig_models = catalog_module.AVAILABLE_MODELS
+        # This suite uses the deterministic synthetic backend. Keep it
+        # independent of an unavailable external model registry.
+        catalog_module.LIVE_MODEL_REGISTRY = None
+        catalog_module.AVAILABLE_MODELS = [replace(model, available=True) for model in cls.orig_models]
         GatewayHandler.inference_engine = InferenceEngine(
             ledger=GatewayHandler.ledger,
             metrics=GatewayHandler.metrics,
@@ -34,9 +42,16 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         GatewayHandler.inference_engine = cls.orig_engine
+        catalog_module.LIVE_MODEL_REGISTRY = cls.orig_registry
+        catalog_module.AVAILABLE_MODELS = cls.orig_models
 
     def setUp(self) -> None:
         self.tmp_dir = tempfile.TemporaryDirectory()
+        gateway_server_module.NODE_TELEMETRY_REGISTRY["cm-inference-node-01"] = {
+            "node_id": "cm-inference-node-01",
+            "auth_token": "test-node-auth-token",
+            "owner_id": "",
+        }
         self.server, self.port = create_gateway_server("127.0.0.1", 0)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -45,6 +60,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
     def tearDown(self) -> None:
         self.server.shutdown()
         self.server.server_close()
+        gateway_server_module.NODE_TELEMETRY_REGISTRY.pop("cm-inference-node-01", None)
         self.tmp_dir.cleanup()
 
     def _get(self, path: str, headers: dict = None):
@@ -119,6 +135,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
                 "messages": [{"role": "user", "content": "Wie ist das Wetter in Berlin?"}],
                 "stream": False,
             },
+            headers={"X-Node-Auth-Token": "test-node-auth-token"},
         )
         self.assertEqual(status, 200)
         self.assertIn("choices", data)
@@ -183,6 +200,7 @@ class TestFleetAIChatAndMCP(unittest.TestCase):
                 "messages": [{"role": "user", "content": "Wie ist das Wetter in Berlin?"}],
                 "stream": False,
             },
+            headers={"X-Node-Auth-Token": "test-node-auth-token"},
         )
         self.assertEqual(status, 200)
         self.assertIn("choices", data)

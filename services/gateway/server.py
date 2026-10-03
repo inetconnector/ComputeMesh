@@ -26,11 +26,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
-from services.gateway.model_inventory import sanitize_model_inventory
-from services.gateway.inference_backend import InferenceBackendError
 from services.portal.passkey_routes import FLEET_ACCOUNT_STORE, PasskeyAuthHandler, session_account_from_headers
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
@@ -67,6 +65,7 @@ def owner_id_for_key(owner_key: str) -> str | None:
 
 
 def _validate_client_tools(value: Any) -> list[dict[str, Any]] | None:
+    """Validate client-owned OpenAI function tools before forwarding them."""
     if value is None or value == []:
         return None
     if not isinstance(value, list) or len(value) > 128:
@@ -146,7 +145,7 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
 
     bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
-    if not bound_node_ids:
+    if not bound_node_ids and owner_id is None:
         # Fallback to direct online nodes in telemetry registry
         bound_node_ids = [nid for nid, nd in NODE_TELEMETRY_REGISTRY.items() if not nd.get("is_peer_relay", False)]
 
@@ -261,8 +260,9 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
         if include_remote_urls and n:
-            auth_token = str(n.get("auth_token", "")).strip()
-            node_entry["remote_url"] = f"/node/{node_id}?auth={auth_token}" if auth_token else None
+            # Authorization is established by the owner session at navigation
+            # time; never expose the node credential in a URL or API payload.
+            node_entry["remote_url"] = f"/node/{node_id}"
         nodes_out.append(node_entry)
 
     # Sort nodes so online nodes appear first
@@ -320,13 +320,7 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import (
-    current_models,
-    model_capabilities,
-    model_modalities,
-    model_modality_flags,
-    resolve_model_id,
-)
+from services.gateway.catalog import current_models, model_modalities, model_modality_flags, resolve_model_id
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     _extract_candidate_local_urls,
@@ -578,7 +572,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
-        query = parse_qs(parsed_path.query)
         if clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/"):
             from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
             t_name = clean_path.split("/")[-1]
@@ -649,7 +642,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             parts = node_rel.split("/", 1)
             node_id = parts[0].strip()
             sub_path = "/" + parts[1] if len(parts) > 1 else ""
-            auth_token = query.get("auth", [""])[0].strip()
+            auth_token = ""
 
             if sub_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
                 self._handle_props()
@@ -663,11 +656,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if sub_path in ("/api/version", "/version"):
                 self._send_json({"version": "1.2.156", "node_id": node_id})
                 return
-            if sub_path in ("/api/status", "/status"):
-                node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
-                self._send_json(node_data)
-                return
-
             if not node_id or node_id not in NODE_TELEMETRY_REGISTRY:
                 self._send_error_response(f"Node '{node_id}' not found in cluster telemetry registry.", "not_found", HTTPStatus.NOT_FOUND)
                 return
@@ -675,16 +663,40 @@ class GatewayHandler(BaseHTTPRequestHandler):
             node_data = NODE_TELEMETRY_REGISTRY[node_id]
             expected_auth_token = str(node_data.get("auth_token", "")).strip()
 
-            # Enforce authentication if node telemetry is protected with an auth token
-            if expected_auth_token:
-                if not auth_token or not hmac.compare_digest(auth_token, expected_auth_token):
-                    self._send_error_response("Unauthorized: Valid auth token required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
-                    return
+            from services.common.node_access import get_node_session, issue_node_session, node_session_cookie
+            from_owner_session = session_account_from_headers(self.headers)
+            session_owner_id = None
+            if from_owner_session is not None:
+                session_owner_id = owner_id_for_key(from_owner_session.owner_key)
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            node_session = get_node_session(self.headers, node_id)
+            authorized_by_owner = bool(session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
+            authorized_by_session = bool(node_session and node_session.owner_id == bound_owner_id)
 
-            html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
+            # Enforce authentication if node telemetry is protected with an auth token
+            if not expected_auth_token:
+                self._send_error_response("Node has no configured authentication token.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            if not (authorized_by_owner or authorized_by_session):
+                self._send_error_response("Unauthorized: Valid node session required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
+            if sub_path in ("/api/status", "/status"):
+                self._send_json(node_data)
+                return
+
+            html = render_node_remote_dashboard_html(node_id, "", node_data)
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            if authorized_by_owner and not authorized_by_session:
+                self.send_header(
+                    "Set-Cookie",
+                    node_session_cookie(
+                        issue_node_session(node_id, session_owner_id),
+                        secure=str(getattr(CONFIG.endpoints, "scheme", "https")) == "https",
+                    ),
+                )
             for h_name, h_val in SECURITY_HEADERS.items():
                 self.send_header(h_name, h_val)
             self.send_header("Content-Length", str(len(body)))
@@ -728,10 +740,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
-        if clean_path in ("/models/load", "/webui/models/load", "/models/unload", "/webui/models/unload"):
-            self._send_json({"status": "ok", "message": "model ready"})
-            return
-
         if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             self._handle_models()
             return
@@ -741,7 +749,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/qr", "/api/v1/qr"):
-            query_params = parse_qs(parsed_path.query)
+            query_params = urllib.parse.parse_qs(parsed_path.query)
             text = query_params.get("data", [""])[0].strip() or query_params.get("text", [""])[0].strip()
             if not text:
                 text = "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk"
@@ -823,7 +831,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
-            owner_key = self.headers.get("X-Owner-Key", "").strip()
+            owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+            account = session_account_from_headers(self.headers)
+            if not owner_key and account is not None:
+                owner_key = account.owner_key
             if not owner_key:
                 auth_hdr = self.headers.get("Authorization", "").strip()
                 if auth_hdr.startswith("Bearer "):
@@ -831,9 +842,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if candidate.startswith("inet-") or candidate.startswith("ok_") or candidate.startswith("owner_") or candidate.startswith("cm_owner_") or candidate.startswith("owk_"):
                         owner_key = candidate
             if not owner_key:
-                self._send_json({"error": "owner_key header is required"}, HTTPStatus.UNAUTHORIZED)
+                self._send_error_response("Owner authentication is required.", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key) if owner_key else None
+            owner_id = owner_id_for_key(owner_key)
             self._send_json(_build_fleet_payload(owner_id, include_remote_urls=True))
             return
 
@@ -932,7 +943,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -967,7 +978,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -991,7 +1002,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -1041,7 +1052,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = self.headers.get("X-Owner-Key", "").strip()
+                owner_key = query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -1069,7 +1080,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 owner_key = account.owner_key
             else:
                 owner_key = (
-                    self.headers.get("X-Owner-Key", "").strip()
+                    query.get("key", [""])[0].strip()
+                    or query.get("owner_key", [""])[0].strip()
+                    or self.headers.get("X-Owner-Key", "").strip()
                 )
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
@@ -1161,7 +1174,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
-        query = parse_qs(parsed_path.query)
 
         content_length_hdr = self.headers.get("Content-Length")
         if not content_length_hdr:
@@ -1200,11 +1212,35 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         self._is_node_tunnel = False
         if clean_path.startswith("/node/"):
-            self._is_node_tunnel = True
             node_rel = clean_path.removeprefix("/node/").strip("/")
             parts = node_rel.split("/", 1)
-            if len(parts) > 1:
-                clean_path = "/" + parts[1]
+            node_id = parts[0].strip() if parts else ""
+            node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+            expected_token = str(node_data.get("auth_token", "")).strip() if node_data else ""
+            from services.common.node_access import get_node_session
+            account = session_account_from_headers(self.headers)
+            session_owner_id = owner_id_for_key(account.owner_key) if account is not None else None
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() if node_data else ""
+            if node_data and not bound_owner_id:
+                bound_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            node_session = get_node_session(self.headers, node_id) if node_data else None
+            supplied_token = self.headers.get("X-Node-Auth-Token", "").strip()
+            authorization = self.headers.get("Authorization", "").strip()
+            if not supplied_token and authorization.startswith("Bearer "):
+                supplied_token = authorization.removeprefix("Bearer ").strip()
+            authorized = bool(
+                node_data
+                and expected_token
+                and supplied_token
+                and hmac.compare_digest(supplied_token, expected_token)
+            )
+            authorized = authorized or bool(node_session and node_session.owner_id == bound_owner_id)
+            authorized = authorized or bool(session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
+            if len(parts) <= 1 or not authorized:
+                self._send_error_response("Unauthorized node tunnel request.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            self._is_node_tunnel = True
+            clean_path = "/" + parts[1]
 
         if clean_path == "/api/auth/register/begin":
             data, status, cookie = self.passkey_handler.register_begin(body, self.headers, self.client_address)
@@ -1251,6 +1287,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
+        if clean_path in ("/api/portal/fleet/enrollment/consume", "/api/v1/mesh/fleet/enrollment/consume"):
+            enrollment_token = str(body.get("enrollment_token", "")).strip()
+            owner_key = FLEET_ACCOUNT_STORE.verify_and_consume_enrollment_token(enrollment_token)
+            if not owner_key:
+                self._send_error_response("Enrollment token is invalid or expired.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            self._send_json({"status": "ok", "owner_key": owner_key})
+            return
+
         if clean_path in ("/api/auth/owner_key/rotate", "/api/portal/owner_key/rotate"):
             data, status, cookie = self.passkey_handler.rotate_owner_key(self.headers, body, self.client_address)
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
@@ -1267,7 +1312,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = str(body.get("owner_key", "")).strip() or query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -1334,12 +1379,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if sender_owner and (not existing_owner or existing_owner == sender_owner):
                         owner_authorized = True
 
-                is_dummy_override = (
-                    existing_node.get("is_peer_relay", False)
-                    or (int(existing_node.get("inventory", {}).get("total_gpus", 0) or 0) == 0 and int(body.get("inventory", {}).get("total_gpus", 0) or 0) > 0)
-                )
-
-                if expected_token and not is_stale and not owner_authorized and not is_dummy_override and not hmac.compare_digest(auth_token, expected_token):
+                if not expected_token or not hmac.compare_digest(auth_token, expected_token):
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
@@ -1349,17 +1389,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
 
             owner_binding_error: str | None = None
+            owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
             if owner_id:
                 try:
                     OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
                     OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
-                except OwnerAccountStoreError as exc:
-                    # Do not fail the heartbeat over a fleet-binding conflict
-                    # (e.g. this node_id already belongs to a different
-                    # owner_key) -- telemetry/pricing must keep working.
-                    owner_binding_error = str(exc)
-                    owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+                except OwnerAccountStoreError:
+                    try:
+                        previous_owner = OWNER_ACCOUNT_STORE.rebind_provider_node(owner_id, node_id)
+                        owner_rebound = previous_owner is not None and previous_owner != owner_id
+                    except OwnerAccountStoreError as rebind_exc:
+                        # Do not fail the heartbeat over a fleet-binding
+                        # conflict -- telemetry/pricing must keep working.
+                        owner_binding_error = str(rebind_exc)
+                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
             # If the same physical client (same auth_token) renamed its node_id, retire the previous alias
             for old_id, old_node in list(NODE_TELEMETRY_REGISTRY.items()):
@@ -1372,10 +1416,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
+            provider_payable_micro = max(0, int(self.ledger.get_balance(f"provider:{node_id}")))
 
             telemetry_data = body.get("telemetry", {})
             telemetry_data["tokens_processed"] = final_tokens
-            telemetry_data["earnings_cm"] = final_tokens
+            telemetry_data["provider_payable_micro_units"] = provider_payable_micro
+            telemetry_data["earnings_cm"] = provider_payable_micro
 
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             NODE_TELEMETRY_REGISTRY[node_id] = {
@@ -1390,7 +1436,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
-                "models": sanitize_model_inventory(body.get("models", [])),
                 "updated_at": now_iso,
             }
 
@@ -1408,7 +1453,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if p_id not in NODE_TELEMETRY_REGISTRY:
                         NODE_TELEMETRY_REGISTRY[p_id] = {
                             "node_id": p_id,
-                            "auth_token": "",
+                            # Relayed records are still protected from direct
+                            # node views; never persist an empty token.
+                            "auth_token": f"peer_relayed_{p_id}",
                             "is_peer_relay": True,
                             "inventory": {
                                 "total_vram_bytes": p_vram_bytes,
@@ -1431,23 +1478,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         }
 
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            try:
-                from services.gateway.registry_inventory_sync import sync_model_inventory
-                sync_model_inventory(
-                    node_id=node_id,
-                    models=NODE_TELEMETRY_REGISTRY[node_id]["models"],
-                )
-            except Exception:
-                pass
             resp = {
                 "status": "ok",
                 "message": "heartbeat registered",
                 "node_id": node_id,
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
+                "owner_rebound": owner_rebound,
                 "tokens_processed": final_tokens,
-                "earnings_cm": final_tokens,
-                "earnings_usd": round(final_tokens * (0.75 / 1_000_000.0), 6),
+                "earnings_cm": provider_payable_micro,
+                "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
             }
             if owner_binding_error:
                 resp["owner_binding_error"] = owner_binding_error
@@ -1465,8 +1505,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 self._send_error_response("auth_token is required", "unauthorized", HTTPStatus.UNAUTHORIZED)
                 return
 
+            node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+            expected_token = str(node_data.get("auth_token", "")).strip() if node_data else ""
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() if node_data else ""
+            if node_data and not bound_owner_id:
+                bound_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
             active_key = resolved or sent_owner_key
+            supplied_owner_id = owner_id_for_key(active_key) if active_key else ""
+            if not node_data or not expected_token or not hmac.compare_digest(auth_token, expected_token) or not bound_owner_id or supplied_owner_id != bound_owner_id:
+                self._send_error_response("Authenticated node and owner binding are required.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
             key_rotated = bool(resolved and resolved != sent_owner_key)
             self._send_json({
                 "status": "ok",
@@ -1489,10 +1538,18 @@ class GatewayHandler(BaseHTTPRequestHandler):
             elif owner_key:
                 owner_id = owner_id_for_key(owner_key)
             else:
-                owner_id = owner_id_for_key("")
+                owner_id = owner_id_for_key(owner_key) if owner_key else ""
+
+            stored_owner_id = ""
+            node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if node_data:
+                stored_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            if not owner_id or not stored_owner_id or not hmac.compare_digest(owner_id, stored_owner_id):
+                self._send_error_response("Owner authorization is required for this node.", "forbidden", HTTPStatus.FORBIDDEN)
+                return
 
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
-            if node_id in NODE_TELEMETRY_REGISTRY:
+            if unbound and node_id in NODE_TELEMETRY_REGISTRY:
                 NODE_TELEMETRY_REGISTRY.pop(node_id, None)
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
 
@@ -1850,17 +1907,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in (
-            "/models/load",
-            "/webui/models/load",
-            "/models/unload",
-            "/webui/models/unload",
-            "/v1/models/load",
-            "/v1/models/unload",
-        ):
-            self._send_json({"status": "ok", "message": "model ready"})
-            return
-
-        if clean_path in (
             "/v1/chat/completions",
             "/chat/completions",
             "/completion",
@@ -1995,8 +2041,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_error_response("Not Found", "invalid_request_error", HTTPStatus.NOT_FOUND)
 
     def _handle_props(self) -> None:
-        models = [model for model in current_models() if getattr(model, "available", True)]
-        default_model = models[0].id if models else ""
+        models = current_models()
+        default_model = models[0].id if models else "qwen2.5:7b"
         props = {
             "default_generation_settings": {
                 "n_ctx": 32768,
@@ -2027,11 +2073,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_json(props)
 
     def _handle_slots(self) -> None:
-        models = [model for model in current_models() if getattr(model, "available", True)]
-        if not models:
-            self._send_json([])
-            return
-        default_model = models[0].id
+        models = current_models()
+        default_model = models[0].id if models else "qwen2.5:7b"
         slots = [
             {
                 "id": 0,
@@ -2044,7 +2087,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_json(slots)
 
     def _handle_models(self) -> None:
-        models = [model for model in current_models() if getattr(model, "available", True)]
+        models = current_models()
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
@@ -2059,17 +2102,16 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "root": m.id,
                 "parent": None,
                 "modalities": list(model_modalities(m)) if openai_model_list else model_modality_flags(m),
-                "capabilities": list(model_capabilities(m)),
+                "capabilities": list(model_modalities(m)),
                 "availability": getattr(m, "availability", "catalogued"),
                 "available": getattr(m, "available", True),
-                "context_window": int(getattr(m, "context_length", getattr(m, "context_window", 0)) or 0),
             }
             for m in models
         ]
         self._send_json({"object": "list", "data": models_data})
 
     def _handle_ollama_tags(self) -> None:
-        models = [model for model in current_models() if getattr(model, "available", True)]
+        models = [model for model in current_models() if bool(getattr(model, "available", False))]
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
@@ -2078,15 +2120,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "name": m.id,
                 "model": m.id,
                 "modified_at": datetime.now(timezone.utc).isoformat(),
-                "size": getattr(m, "artifact_size_bytes", 0) or (4350000000 if "7b" in m.id or "8b" in m.id else 41000000000),
-                "digest": getattr(m, "artifact_digest", "") or f"sha256:{secrets.token_hex(32)}",
+                "size": getattr(m, "artifact_size_bytes", 0),
+                "digest": getattr(m, "artifact_digest", ""),
                 "details": {
                     "parent_model": "",
                     "format": "computemesh-gateway",
                     "family": "qwen2_vl" if "vl" in m.id else ("llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else ("llava" if "llava" in m.id else "deepseek"))),
                     "families": ["qwen2_vl", "clip"] if "vl" in m.id else (["llama", "clip"] if "vision" in m.id else (["llava", "clip"] if "llava" in m.id else ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")])),
-                    "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else ("11.0B" if "11b" in m.id else "70.6B"),
-                    "quantization_level": getattr(m, "quantization", "") or "Q4_K_M",
+                    "parameter_size": "",
+                    "quantization_level": getattr(m, "quantization", ""),
                     "availability": getattr(m, "availability", "available_warm"),
                 },
             }
@@ -2096,11 +2138,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
     def _handle_ollama_show(self, body: dict[str, Any]) -> None:
         requested = str(body.get("name", "") or body.get("model", "")).strip()
-        try:
-            model_id = resolve_model_id(requested)
-        except ValueError as exc:
-            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
-            return
+        model_id = resolve_model_id(requested)
         is_vision = "vl" in model_id.lower() or "vision" in model_id.lower() or "llava" in model_id.lower()
         family = "qwen2_vl" if "vl" in model_id.lower() else ("llama" if "llama" in model_id.lower() else ("llava" if "llava" in model_id.lower() else "qwen2"))
         self._send_json({
@@ -2112,14 +2150,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "format": "gguf",
                 "family": family,
                 "families": [family, "clip"] if is_vision else [family],
-                "parameter_size": "7.6B" if "7b" in model_id else ("11.0B" if "11b" in model_id else "70.6B"),
-                "quantization_level": "Q4_K_M",
+                "parameter_size": "",
+                "quantization_level": next((getattr(model, "quantization", "") for model in current_models() if model.id == model_id), ""),
             },
-            "model_info": {
-                "general.architecture": family,
-                "general.file_type": 15,
-                "general.parameter_count": 7615616512,
-            },
+            "model_info": {"general.architecture": family},
         })
 
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:
@@ -2128,7 +2162,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", ""))
+        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
         try:
             model_id = resolve_model_id(model_req)
         except ValueError as exc:
@@ -2162,8 +2196,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
         if "enable_mcp" in body:
             enable_mcp = bool(body.get("enable_mcp"))
         elif client_tools:
-            # Client-owned OpenAI tools must pass through untouched. They are
-            # not ComputeMesh MCP tools and must never be executed by our loop.
             enable_mcp = False
         else:
             enable_mcp = True
@@ -2245,12 +2277,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", ""))
-        try:
-            model_id = resolve_model_id(model_req)
-        except ValueError as exc:
-            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
-            return
+        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
+        model_id = resolve_model_id(model_req)
         messages = body.get("messages", [])
         stream = bool(body.get("stream", True))
         opt_predict = body.get("options", {}).get("num_predict") if isinstance(body.get("options"), dict) else None
@@ -2301,12 +2329,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response(auth.error_message or "Unauthorized", "authentication_error", auth.status_code)
             return
 
-        model_req = str(body.get("model", ""))
-        try:
-            model_id = resolve_model_id(model_req)
-        except ValueError as exc:
-            self._send_error_response(str(exc), "model_not_available", HTTPStatus.BAD_REQUEST)
-            return
+        model_req = str(body.get("model", "qwen/qwen2.5-7b-instruct"))
+        model_id = resolve_model_id(model_req)
         prompt = body.get("prompt", "")
         images = body.get("images") if isinstance(body.get("images"), list) else None
         stream = bool(body.get("stream", True))

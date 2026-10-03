@@ -4,6 +4,15 @@
 
 ## In Plain Words
 
+The current NodeOS dashboard also exposes real hardware telemetry, a
+capability-aware safe fan profile, and authenticated model/runtime controls.
+The safe fan profile can enforce a temperature-based minimum only when the
+installed GPU driver exposes a writable control backend; unsupported Windows
+drivers are reported as unsupported rather than showing fabricated values.
+The bundled Android WebUI asset is maintained alongside `portal/webui/`. A
+production Android APK is built through the separate signing/release process;
+the current release artifact is published with the Android download assets.
+
 ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 
 The idea is simple:
@@ -42,28 +51,29 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
 - public live capacity counters based only on fresh authenticated node heartbeats;
-- serialized appliance heartbeats: a node rename keeps one consistent node ID from the immediate sync request through its posted payload and returned result, even while the periodic worker runs;
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
-- a live model catalogue: Ollama-backed gateways derive `/v1/models` from installed runtime models and `/api/show` metadata, advertise capabilities/modalities/context, and reject unavailable explicit model IDs instead of silently substituting another model. Static catalogue fallback requires an explicit development/test opt-in;
-- OpenAI-compatible native function tool calls whose JSON arguments are
-  normalized once for both llama.cpp and Ollama runtimes;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
-- **Automated Model Selection**: The system automatically selects the optimal model for each node based on VRAM capacity, layer count, and benchmark performance.
-- **Optional Cline integration on Windows**: the provider app exposes a separate `Cline (VS Code)` checkbox. After explicit confirmation it installs the official per-user Visual Studio Code build when needed, installs the official `saoudrizwan.claude-dev` Marketplace extension through VS Code's `bin\code.cmd` CLI, and configures Cline's canonical `openai`/`openai-compatible` provider path for the local node at `http://127.0.0.1:8080/v1`. It prefers an installed coding model and falls back to `auto`. Cline tool schemas and tool-result history pass through to Ollama as OpenAI-compatible `tool_calls`, while ordinary dashboard requests retain the internal ComputeMesh MCP loop. A small local bridge reopens the Cline view after VS Code reloads for a project change. `Code.exe` is used only to launch the visible editor; unrelated Cline providers and credentials are preserved.
-- minimized model inventory in node heartbeats: model IDs, availability and public runtime capabilities can be reconciled into the authenticated private registry without exposing private placement, pricing or reputation inputs;
-- an AI Studio attachment menu that delegates desktop submenu and mobile sheet clicks to the bundled frontend's own handlers; opt-in browser tests verify text/PDF/image selection and that text/image content reaches chat requests with the selected model;
-- an AI Studio WebUI whose service-worker precache is kept in sync with the shipped HTML, so variant utility tokens such as `disabled:pointer-events-none` cannot make ordinary controls physically unclickable;
-- an Android 1.2.164 APK published on the project download site and as the `android-latest` GitHub release, signed with the production key. Earlier 1.2.163 website APKs used a different debug certificate: existing installations must be uninstalled before installing 1.2.164, which can remove local app data. This is a signing-key migration, not an in-place update;
 - a provider app that lets a machine report available compute;
+- an optional Windows Cline integration that uses the local OpenAI-compatible
+  endpoint and keeps client-owned tool schemas separate from ComputeMesh MCP
+  tools;
+- a verified local GGUF model manager for NodeOS/desktop providers: pinned
+  Hugging Face downloads, resumable partial files, exact size/SHA-256/GGUF
+  validation, one supervised loopback-only llama.cpp runtime and a dashboard
+  tab for start/stop/delete/status operations;
+- proportional multi-GPU llama.cpp layer-split requests based on the healthy
+  discrete GPU inventory and aggregate VRAM budget. The runtime reports the
+  requested allocation separately; exact physical execution remains a future
+  attestation gate rather than a claim;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.175` contains the execution-provenance, non-blocking NodeOS model-startup and owner-credential URL hardening changes. The signed Windows/Linux artifacts and manifest are live-verified on all four public hostnames. The live NodeOS host is healthy but currently reports zero GPUs, so its local engine remains idle until suitable hardware is present.
+Current signed client/update channel: `v1.2.184` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, warns when model storage is too small or not persistent, and lets an authenticated node follow the fleet owner key after a stale binding. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
 
 ## What Is Not Promised Yet
 
@@ -78,23 +88,44 @@ Clone/download the repository and use the launcher for your OS:
 **Windows:** double-click `SETUP.cmd`  
 **Linux:** run `./setup.sh` (or `bash setup.sh` if the executable bit was lost).
 
-The Windows standalone bundle built by `deploy/windows/build_installer.py` includes the embedded dashboard's `portal/webui` files as well as `portal/assets`; omitting the WebUI tree makes `/webui` and `/chat` return 404 in a frozen app. On Linux, model files default to `/var/lib/computemesh/models`; set `COMPUTEMESH_MODEL_STORAGE_DIR` to an explicit writable path for an alternate deployment. `python run_all_tests.py` isolates this model path and test databases in a temporary directory. The appliance-configuration tests also redirect home/boot writes to temporary files and must never alter a real provider config.
-
-The master release builder reuses that same Windows packaging path and excludes local Gradle caches, downloaded Stable Diffusion sources, and compiler outputs from the Linux source archive. It signs one manifest for the Windows, Linux, NodeOS, and installer-script artifacts; build-time verification accepts only keys embedded in the client release trust list.
-
-On Windows, enabling `Cline (VS Code)` is the installation consent boundary. No VS Code or Cline download occurs while the option is disabled. The setup uses Microsoft's official stable user-installer URL and the Visual Studio Marketplace extension ID, then persists the choice in `~/.computemesh/provider_config.json`. On later node starts the app verifies Cline and the ComputeMesh workspace bridge, refreshes the local model choice, and launches VS Code automatically. Disabling the option stops automatic launch and workspace refocusing; it does not uninstall VS Code, Cline, or delete Cline settings.
-
-The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. NodeOS automatically starts a background download only for a curated model that fits the detected VRAM and disk preflight; the dashboard stays responsive and exposes the download progress. Manual model activation remains available in the Models & HuggingFace view.
-
-Completed chat responses include a minimized `compute_mesh_execution` block. It contains the selected model, an opaque execution ID and the provider Node IDs that actually reported the run. The AI Studio model panel mirrors this as the last execution status. It deliberately omits prompts, provider pricing, placement scores, private policy traces and other control-plane data.
-
-Owner credentials for fleet, payout, provider-identity, MCP-settings and generated
-bootstrap-script requests are sent in the `X-Owner-Key` header (or an authenticated
-session), never as URL query parameters. Pairing links keep the owner key in the URI
-fragment so it is not sent in ordinary HTTP request logs. The public gateway and portal
-reject unauthenticated fleet reads instead of returning an unscoped fleet view.
+The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 
 The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.
+
+## NodeOS local models
+
+The provider dashboard's **Models** tab manages GGUF artifacts stored in
+`COMPUTEMESH_MODEL_DIR` (NodeOS default:
+`/var/lib/computemesh/models`; Windows default:
+`%USERPROFILE%/.computemesh/models`). A Hugging Face installation requires:
+
+- a repository ID and GGUF basename;
+- a full 40-character source commit SHA;
+- the exact expected byte size and SHA-256 digest;
+- the model layer count, quantization and license identifier.
+
+Downloads run in the background and resume through HTTP Range requests. A
+partial file is never catalogued. Activation rechecks path containment, regular
+file type, exact size, GGUF magic and SHA-256 before starting `llama-server` on
+`127.0.0.1:8081`. Only one model can be active at a time. The local chat router
+uses that managed llama.cpp endpoint when it is healthy; otherwise it can use a
+separately installed Ollama runtime. If neither runtime is healthy, model and
+chat endpoints fail with `503` and do not invent answers or token usage.
+
+The dashboard warns when the configured model filesystem is too small for the
+recommended local catalogue or when NodeOS is running on a temporary overlay
+filesystem. The download API also reports the exact available and required
+bytes, including its safety reserve. On a NodeOS image, ensure the persistent
+data partition is mounted; for another disk set `COMPUTEMESH_MODEL_DIR` to a
+writable directory on that disk before downloading models.
+
+The NodeOS image builder pins upstream llama.cpp `v0.4.1` at commit
+`29aaf1c27faa48292357cea2120d94114a545006`, builds the Vulkan server, includes
+AMD and NVIDIA runtime packages, locks the root account, disables password SSH
+and creates a 64 GiB persistence area by default. Override image persistence
+with `COMPUTEMESH_PERSISTENCE_SIZE_MIB` (16-256 GiB). A real image build and
+physical six-GPU acceptance run are required before this branch can be tagged
+or released.
 
 ## Technical Overview
 

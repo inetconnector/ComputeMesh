@@ -40,7 +40,7 @@ class LocalChatServer(
                     JSONObject()
                         .put("ok", true)
                         .put("server", "ComputeMesh")
-                        .put("version", "1.2.143")
+                        .put("version", appVersion())
                         .put("model", "qwen2.5:7b")
                 )
 
@@ -94,8 +94,8 @@ class LocalChatServer(
 
                 uri in listOf("/version", "/api/version", "/v1/version") -> jsonResponse(
                     JSONObject().apply {
-                        put("version", "1.2.143")
-                        put("commit", "7371d49")
+                        put("version", appVersion())
+                        put("version_code", appVersionCode())
                     }
                 )
 
@@ -142,6 +142,14 @@ class LocalChatServer(
             )
         }
     }
+
+    private fun appVersion(): String = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+    }.getOrDefault("unknown")
+
+    private fun appVersionCode(): Long = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+    }.getOrDefault(0L)
 
     private fun handleModelsProxy(session: IHTTPSession, isTags: Boolean): Response {
         val rawGateway = MeshNodeService.gatewayUrl.trim()

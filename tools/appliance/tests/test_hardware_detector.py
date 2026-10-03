@@ -1,7 +1,9 @@
 """Unit tests for ComputeMesh mining rig hardware detection."""
 import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.appliance.hardware_detector import (
     GpuDevice,
@@ -10,6 +12,7 @@ from tools.appliance.hardware_detector import (
     is_integrated_display_adapter,
     is_provider_compute_gpu,
     parse_size_to_bytes,
+    read_amd_thermals,
     scan_rig_hardware,
 )
 
@@ -111,6 +114,32 @@ class TestHardwareDetector(unittest.TestCase):
         self.assertEqual(parse_size_to_bytes("8G"), 8 * 1024 * 1024 * 1024)
         self.assertEqual(parse_size_to_bytes("256M"), 256 * 1024 * 1024)
         self.assertIsNone(parse_size_to_bytes("unknown"))
+
+    def test_amd_thermal_read_distinguishes_pwm_from_measured_rpm(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            device = Path(tmp) / "card0" / "device"
+            hwmon = device / "hwmon" / "hwmon0"
+            hwmon.mkdir(parents=True)
+            (device / "vendor").write_text("0x1002\n", encoding="ascii")
+            (hwmon / "temp1_input").write_text("65000\n", encoding="ascii")
+            (hwmon / "pwm1").write_text("153\n", encoding="ascii")
+            (hwmon / "fan1_input").write_text("1180\n", encoding="ascii")
+            (hwmon / "power1_average").write_text("125000000\n", encoding="ascii")
+
+            def fake_glob(pattern: str) -> list[str]:
+                if pattern == "/sys/class/drm/card[0-9]*/device":
+                    return [str(device)]
+                if pattern == f"{device}/hwmon/hwmon*":
+                    return [str(hwmon)]
+                return []
+
+            with patch("tools.appliance.hardware_detector.glob.glob", side_effect=fake_glob):
+                result = read_amd_thermals()
+
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0].fan_speed_percent, 60)
+            self.assertEqual(result[0].fan_speed_rpm, 1180)
+            self.assertEqual(result[0].temperature_celsius, 65)
 
 
 if __name__ == "__main__":

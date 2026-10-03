@@ -1,150 +1,87 @@
-"""Tests for Multi-GPU ModelEngineService."""
-from __future__ import annotations
-
-import json
+from pathlib import Path
+import hashlib
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
-from services.appliance_dashboard.model_engine_service import (
-    EngineState,
-    GpuDeviceStatus,
-    ModelEngineConfig,
-    ModelEngineService,
-)
-from services.appliance_dashboard.model_manager import LocalModelInfo, ModelManager, POPULAR_GGUF_MODELS
+from services.appliance_dashboard.model_engine_service import EngineModel, ModelEngineError, ModelEngineService
+from tools.appliance.hardware_detector import GpuDevice, RigInventory
+
+
+class FakeProcess:
+    def __init__(self, command, **kwargs):
+        self.command = command
+        self.pid = 321
+        self.returncode = None
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.returncode = 0
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def kill(self):
+        self.returncode = -9
+
+
+def inventory() -> RigInventory:
+    gpus = [
+        GpuDevice(i, f"0000:0{i + 1}:00.0", "nvidia", "RTX Test 8GB", 8 * 1024**3, 3, 1, "cuda", True, True)
+        for i in range(6)
+    ]
+    return RigInventory(1, "2026-09-29T00:00:00Z", "linux", 6, 48 * 1024**3, gpus, True)
 
 
 class TestModelEngineService(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.dummy_model = Path(self.temp_dir.name) / "test_model.gguf"
-        self.dummy_model.write_bytes(b"GGUF" + b"_TEST_HEADER_DATA_1234567890")
+    def test_starts_verified_model_on_loopback_with_all_six_gpus(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "model.gguf"
+            artifact.write_bytes(b"GGUF" + b"x" * 64)
+            digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            process = FakeProcess([])
 
-        self.mock_config = ModelEngineConfig(
-            host="127.0.0.1",
-            port=18081,
-            executable_path="nonexistent-mock-llama-server",
-            startup_max_wait_seconds=1.0,
-            smoketest_timeout_seconds=1.0,
-            drain_timeout_seconds=0.5,
-            allow_mock=True,
-        )
-        self.prod_config = ModelEngineConfig(
-            host="127.0.0.1",
-            port=18081,
-            executable_path="nonexistent-prod-llama-server",
-            startup_max_wait_seconds=1.0,
-            smoketest_timeout_seconds=1.0,
-            drain_timeout_seconds=0.5,
-            allow_mock=False,
-        )
-        self.service = ModelEngineService(self.mock_config)
+            def factory(command, **kwargs):
+                process.command = command
+                return process
 
-    def tearDown(self) -> None:
-        self.service.stop_model(drain_timeout=0.2)
-        self.temp_dir.cleanup()
+            service = ModelEngineService(
+                model_root=root,
+                inventory_provider=inventory,
+                executable=str(root / "llama-server"),
+                process_factory=factory,
+                startup_timeout_seconds=0.2,
+            )
+            (root / "llama-server").write_bytes(b"binary")
+            with patch.object(service, "_health", return_value=True):
+                status = service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
 
-    def test_production_mode_fails_without_binary(self) -> None:
-        prod_svc = ModelEngineService(self.prod_config)
-        ok = prod_svc.start_model(
-            model_path=str(self.dummy_model),
-            model_id="qwen2.5-32b-instruct",
-        )
-        self.assertFalse(ok)
-        self.assertEqual(prod_svc.state, EngineState.ERROR)
-        self.assertIn("not found in system PATH", prod_svc.last_error or "")
+            self.assertTrue(status["ready"])
+            self.assertEqual(status["allocation"]["total_gpus"], 6)
+            self.assertEqual(process.command[process.command.index("--host") + 1], "127.0.0.1")
+            self.assertNotIn("--device", process.command)
+            self.assertEqual(len(process.command[process.command.index("--tensor-split") + 1].split(",")), 6)
 
-    def test_compute_model_digest(self) -> None:
-        digest = self.service.compute_model_digest(self.dummy_model)
-        self.assertTrue(digest.startswith("sha256:"))
-        self.assertEqual(len(digest), 71)
+    def test_rejects_digest_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "model.gguf"
+            artifact.write_bytes(b"GGUFpayload")
+            service = ModelEngineService(model_root=root, inventory_provider=inventory)
+            with self.assertRaisesRegex(ModelEngineError, "SHA-256"):
+                service.start(EngineModel("test/model", artifact, "0" * 64, artifact.stat().st_size, 32))
 
-    def test_kv_cache_calculation(self) -> None:
-        # Context 8192, 32 layers, 32 heads, 128 d_head, 2 bytes/elem
-        kv_bytes = self.service.compute_kv_cache_bytes(context_size=8192, n_layers=32, n_heads=32, d_head=128)
-        expected = 2 * 32 * 32 * 128 * 8192 * 2
-        self.assertEqual(kv_bytes, expected)
-        self.assertGreater(kv_bytes, 1024 * 1024 * 500)  # > 500MB
-
-    def test_model_selection_uses_module_catalog(self) -> None:
-        manifest = self.dummy_model.with_suffix(".computemesh-model-manifest.json")
-        manifest.write_text(
-            json.dumps({"model_id": "qwen2.5-7b-instruct-q4_k_m.gguf", "recommended_vram_gb": 1, "layers": 32}),
-            encoding="utf-8",
-        )
-        local_model = LocalModelInfo(
-            filename="qwen2.5-7b-instruct-q4_k_m.gguf",
-            path=str(self.dummy_model),
-            size_bytes=self.dummy_model.stat().st_size,
-            sha256_digest=None,
-            modified_at="2026-10-03T00:00:00Z",
-            layers=32,
-        )
-        self.service._gpu_statuses = [GpuDeviceStatus(index=0, name="test", vram_total_bytes=8 * 1024**3)]
-        manager = ModelManager(Path(self.temp_dir.name))
-        with patch.object(manager, "list_local_models", return_value=[local_model]), patch.object(
-            ModelManager, "get_instance", return_value=manager
-        ):
-            selection = self.service._select_best_model()
-        self.assertEqual(selection, (str(self.dummy_model), "qwen2.5-7b-instruct-q4_k_m.gguf"))
-
-    def test_six_eight_gb_gpus_start_auto_download_without_blocking(self) -> None:
-        manager = ModelManager(Path(self.temp_dir.name))
-        gpus = [GpuDeviceStatus(index=i, name="test", vram_total_bytes=8 * 1024**3) for i in range(6)]
-        with patch.object(self.service, "discover_gpus", return_value=gpus), patch.object(
-            self.service, "query_nvml_vram"
-        ), patch.object(self.service, "_select_best_model", return_value=None), patch.object(
-            ModelManager, "get_instance", return_value=manager
-        ), patch.object(self.service, "_start_background_model_download") as start_download:
-            self.assertFalse(self.service.ensure_best_model())
-        start_download.assert_called_once()
-        self.assertEqual(start_download.call_args.args[1]["recommended_vram_gb"], 24)
-
-    def test_curated_qwen_sources_are_reachable_huggingface_files(self) -> None:
-        qwen_entries = [entry for entry in POPULAR_GGUF_MODELS if "Qwen2.5" in entry["id"]]
-        self.assertEqual(len(qwen_entries), 2)
-        for entry in qwen_entries:
-            self.assertIn("bartowski/", entry["url"])
-            self.assertNotIn("/Qwen/", entry["url"])
-
-    def test_start_and_stop_lifecycle_mock_mode(self) -> None:
-        # Starting with dummy model file
-        ok = self.service.start_model(
-            model_path=str(self.dummy_model),
-            model_id="qwen2.5-32b-instruct",
-            context_size=8192,
-            total_layers=64,
-        )
-        self.assertTrue(ok)
-        self.assertEqual(self.service.state, EngineState.READY)
-        self.assertEqual(self.service.active_model_id, "qwen2.5-32b-instruct")
-
-        status = self.service.get_status()
-        self.assertEqual(status["state"], "READY")
-        self.assertEqual(status["active_model_id"], "qwen2.5-32b-instruct")
-        self.assertTrue(status["active_model_digest"].startswith("sha256:"))
-
-        # Stream lease acquisition and release
-        self.assertTrue(self.service.acquire_stream())
-        self.assertEqual(self.service.active_streams, 1)
-        self.service.release_stream()
-        self.assertEqual(self.service.active_streams, 0)
-
-        # Graceful stop
-        self.service.stop_model(drain_timeout=0.2)
-        self.assertEqual(self.service.state, EngineState.STOPPED)
-        self.assertIsNone(self.service.active_model_id)
-
-    def test_start_nonexistent_model_returns_error(self) -> None:
-        ok = self.service.start_model(
-            model_path="/path/does/not/exist/model.gguf",
-            model_id="missing-model",
-        )
-        self.assertFalse(ok)
-        self.assertEqual(self.service.state, EngineState.ERROR)
-        self.assertIn("not found", self.service.last_error or "")
+    def test_rejects_artifact_outside_model_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as other:
+            artifact = Path(other) / "model.gguf"
+            artifact.write_bytes(b"GGUFpayload")
+            digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            service = ModelEngineService(model_root=Path(tmp), inventory_provider=inventory)
+            with self.assertRaisesRegex(ModelEngineError, "beneath"):
+                service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 32))
 
 
 if __name__ == "__main__":

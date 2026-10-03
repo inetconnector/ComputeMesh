@@ -1,0 +1,12 @@
+<resources>
+    <string name="enrollment_failed_http">Enrollment fehlgeschlagen: HTTP %1$d</string>
+    <string name="owner_key_missing">Die Enrollment-Antwort enthält keinen Owner-Key.</string>
+    <string name="pairing_succeeded">✓ Sicher mit ComputeMesh gekoppelt</string>
+    <string name="pairing_failed">Kopplung fehlgeschlagen: %1$s</string>
+    <string name="unknown_error">Unbekannter Fehler</string>
+    <string name="pairing_link_placeholder">computemesh://pair?enrollment_token=... oder inet-...</string>
+    <string name="pairing_starting">🎉 Kopplung wird hergestellt: %1$s</string>
+    <string name="pairing_one_time_token">Einmal-Token</string>
+    <string name="update_source_untrusted">Die Update-Quelle ist nicht vertrauenswürdig.</string>
+    <string name="update_size_mismatch">Die APK-Größe stimmt nicht mit dem signierten Manifest überein.</string>
+</resources>

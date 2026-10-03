@@ -3,7 +3,7 @@
 Verifies remediation of critical and high-priority vulnerabilities:
 1. True mTLS peer certificate authentication and allowed_client_nodes enforcement.
 2. Node heartbeat token validation preventing unauthorized telemetry tampering.
-3. Remote node dashboard authentication gating (/node/<id>?auth=...).
+3. Remote node dashboard authentication gating without URL credentials.
 4. Stored-XSS escaping in HTML dashboard output.
 5. Rate-limiter authentication gating (unverified Bearer tokens remain in unauthenticated tier).
 6. Trusted-proxy client IP resolution preventing X-Forwarded-For spoofing.
@@ -67,6 +67,7 @@ from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import RateLimiter
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.teaser import TeaserQuotaManager
+from services.common.node_access import issue_node_session, node_session_cookie
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
@@ -84,6 +85,47 @@ class TestSecurityAuditFixes(unittest.TestCase):
             teaser_manager=self.teaser_manager,
             api_keys={"cm_live_valid_key_12345": "cust_valid_account_01"},
         )
+
+    def test_ai_chat_links_never_forward_credentials_in_urls(self) -> None:
+        portal_core = (Path(__file__).resolve().parents[1] / "portal" / "portal-core.js").read_text(encoding="utf-8")
+        portal_js = (Path(__file__).resolve().parents[1] / "portal" / "portal.js").read_text(encoding="utf-8")
+        webui = (Path(__file__).resolve().parents[1] / "portal" / "webui" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("ai.inetconnector.com/webui/?key=", portal_core)
+        self.assertNotIn("/webui/?key=", portal_core)
+        self.assertNotIn("portal-core.js?v=4.1", portal_js)
+        self.assertIn("portal-core.js?v=4.4", portal_js)
+        self.assertIn("cm_session=", webui)
+
+    def test_new_ui_messages_use_localization_resources(self) -> None:
+        android_root = Path(__file__).resolve().parents[1] / "apps" / "android"
+        main_activity = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/MainActivity.kt").read_text(encoding="utf-8")
+        qr_scanner = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/QrScannerView.kt").read_text(encoding="utf-8")
+        setup_tab = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/tabs/SetupTab.kt").read_text(encoding="utf-8")
+        update_checker = (android_root / "app/src/main/java/com/inetconnector/compumesh/update/AndroidUpdateChecker.kt").read_text(encoding="utf-8")
+        dashboard = (Path(__file__).resolve().parents[1] / "services/appliance_dashboard/static/index.html").read_text(encoding="utf-8")
+        portal_core = (Path(__file__).resolve().parents[1] / "portal/portal-core.js").read_text(encoding="utf-8")
+        android_strings = (android_root / "app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+        german_strings = (android_root / "app/src/main/res/values-de/strings.xml").read_text(encoding="utf-8")
+
+        for source, forbidden in (
+            (main_activity, ("Enrollment fehlgeschlagen", "Kein Owner-Key", "Kopplung fehlgeschlagen")),
+            (qr_scanner, ("computemesh://pair?enrollment_token=... oder inet-...",)),
+            (setup_tab, ("Kopplung wird hergestellt", "Einmal-Token")),
+            (update_checker, ("Update-Quelle ist nicht vertrauenswürdig", "APK-Größe stimmt")),
+            (dashboard, ("window.prompt('Node-Authentifizierung erforderlich",)),
+        ):
+            for literal in forbidden:
+                self.assertNotIn(literal, source)
+
+        for key in (
+            "enrollment_failed_http", "owner_key_missing", "pairing_succeeded", "pairing_failed",
+            "unknown_error", "pairing_link_placeholder", "pairing_starting", "pairing_one_time_token",
+            "update_source_untrusted", "update_size_mismatch",
+        ):
+            self.assertIn(f'name="{key}"', android_strings)
+            self.assertIn(f'name="{key}"', german_strings)
+        self.assertIn('fleet_download_error: "Download failed ({status})"', portal_core)
+        self.assertIn('fleet_download_error: "Download fehlgeschlagen ({status})"', portal_core)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -220,6 +262,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         NODE_TELEMETRY_REGISTRY["protected_node_01"] = {
             "node_id": "protected_node_01",
             "auth_token": "correct_dash_token_999",
+            "owner_id": "owner-test",
             "inventory": {"gpus": [{"model_name": "RTX 4090", "vram_bytes": 24 * 1024**3}]},
         }
 
@@ -249,8 +292,9 @@ class TestSecurityAuditFixes(unittest.TestCase):
             self.assertEqual(res.status, HTTPStatus.NOT_FOUND)
             res.read()
 
-            # D. Accessing with correct auth parameter -> 200 OK
-            conn.request("GET", "/node/protected_node_01?auth=correct_dash_token_999")
+            # D. A node session issued after owner authorization -> 200 OK.
+            session = issue_node_session("protected_node_01", "owner-test")
+            conn.request("GET", "/node/protected_node_01", headers={"Cookie": node_session_cookie(session, secure=False)})
             res = conn.getresponse()
             self.assertEqual(res.status, HTTPStatus.OK)
             html_body = res.read().decode("utf-8")
@@ -373,19 +417,11 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
             def fleet(owner_key: str) -> dict:
                 conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-                conn.request("GET", "/api/v1/mesh/fleet", headers={"X-Owner-Key": owner_key})
-                res = conn.getresponse()
-                data = json.loads(res.read().decode("utf-8"))
-                conn.close()
-                return data
-
-            def fleet_query_only(owner_key: str) -> tuple[int, dict]:
-                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
                 conn.request("GET", f"/api/v1/mesh/fleet?owner_key={owner_key}")
                 res = conn.getresponse()
                 data = json.loads(res.read().decode("utf-8"))
                 conn.close()
-                return res.status, data
+                return data
 
             try:
                 # Two nodes share "my-fleet-secret"; a third uses a different key.
@@ -401,15 +437,15 @@ class TestSecurityAuditFixes(unittest.TestCase):
                 self.assertEqual(theirs["total_nodes_bound"], 1)
                 self.assertEqual({n["node_id"] for n in theirs["nodes"]}, {"strangers-node"})
 
-                query_status, _ = fleet_query_only("my-fleet-secret")
-                self.assertEqual(query_status, HTTPStatus.UNAUTHORIZED)
-
-                # A node already bound to one owner_key cannot be silently
-                # re-bound to a different owner_key by a later heartbeat.
+                # An authenticated node can explicitly follow the owner key
+                # it presents on heartbeat, so a stale durable binding does
+                # not strand it in the wrong fleet.
                 status = heartbeat("laptop-01", "tok_laptop", "someone-elses-secret")
                 self.assertEqual(status, HTTPStatus.OK)  # heartbeat itself still succeeds
                 mine_after = fleet("my-fleet-secret")
-                self.assertIn("laptop-01", {n["node_id"] for n in mine_after["nodes"]})
+                self.assertNotIn("laptop-01", {n["node_id"] for n in mine_after["nodes"]})
+                theirs_after = fleet("someone-elses-secret")
+                self.assertIn("laptop-01", {n["node_id"] for n in theirs_after["nodes"]})
             finally:
                 server.shutdown()
                 server.server_close()
@@ -505,13 +541,15 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         try:
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-            conn.request("GET", "/api/status")
+            from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
+            conn.request("GET", "/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
             res = conn.getresponse()
             self.assertEqual(res.status, HTTPStatus.OK)
             data = json.loads(res.read().decode("utf-8"))
             self.assertNotIn("auth_token", data)
             interfaces = data.get("network", {}).get("interfaces", [])
-            self.assertTrue(any("?auth=" in iface.get("url", "") for iface in interfaces))
+            self.assertTrue(interfaces)
+            self.assertTrue(all("?auth=" not in iface.get("url", "") for iface in interfaces))
             conn.close()
         finally:
             dash_server.shutdown()

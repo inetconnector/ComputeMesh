@@ -299,11 +299,11 @@ class InferenceEngine:
                 if not has_tool_system:
                     tool_prompt = (
                         "Du bist ComputeMesh AI mit integrierten Live-Werkzeugen (Model Context Protocol / MCP) und vollem Funktionsumfang (Code Interpreter, Vektorsuche/RAG, Langzeitgedächtnis, Bildgenerierung, Websuche & Live-APIs).\n"
-                        "Wenn eine Frage Berechnungen, Python-Code, Datenanalyse, Tabellen, Diagramme, Wissensabfragen, Benutzerpräferenzen, aktuelle Daten, Websuche, Konzerte, Events, Wetter, Kurse oder Nachrichten erfordert, "
+                        "Wenn eine Frage Berechnungen, Python-Code, Datenanalyse, Tabellen, Diagramme, Wissensabfragen, Benutzerpräferenzen, aktuelle Daten, Websuche, TV-Programme, Konzerte, Events, Wetter, Kurse oder Nachrichten erfordert, "
                         "rufe direkt das passende Tool auf (`execute_python_code`, `search_knowledge_base`, `get_user_memory`, `update_user_memory`, `generate_ai_image`, `check_url_safety`, `search_events`, `search_web`, `get_current_weather`, `get_live_news`, `get_market_quote`, `get_wikipedia_summary`, `calculate_math`, `get_time_and_calendar`, `generate_office_document`, `convert_data_to_markdown_table`, `list_available_tools`).\n\n"
                         "[VERBINDLICHE REGELN FÜR DIE ANTWORT]:\n"
                         "1. Sprache: Antworte IMMER in derselben Sprache wie die Frage (z.B. deutschsprachige Anfragen IMMER auf Deutsch beantworten).\n"
-                        "2. KI-Synthese & Aufbereitung: Wenn Werkzeuge Live-Daten zurückliefern (z.B. Finanzkurse, Krypto, Marktdaten, Wetter, Websuche, Wikipedia), präsentiere die Daten niemals als unkommentierten oder unzusammenhängenden API-Dump. Formuliere eine flüssige, intelligente und kontextbezogene KI-Antwort. Gehe auf alle Aspekte der Benutzerfrage ein (z.B. aktueller Stand, 24h-Trend, Kursentwicklung, Einordnung und Vergleich) in verständlicher Sprache.\n"
+                        "2. KI-Synthese & Aufbereitung: Wenn Werkzeuge Live-Daten zurückliefern (z.B. TV-Programme, Finanzkurse, Krypto, Marktdaten, Wetter, Websuche, Wikipedia), präsentiere die Daten niemals als unkommentierten oder unzusammenhängenden API-Dump. Formuliere eine flüssige, intelligente und kontextbezogene KI-Antwort. Nenne keine Sendung, Zeit oder Tatsache, die nicht aus dem aktuellen Tool-Ergebnis hervorgeht.\n"
                         "3. Tabellen & Struktur: Wenn der Nutzer nach einer Tabelle, Übersicht oder einem Vergleich fragt, MUSS das Ergebnis als formatierte Markdown-Tabelle (`| Spalte 1 | Spalte 2 | ... |`) aufbereitet werden."
                     )
                     try:
@@ -455,14 +455,12 @@ class InferenceEngine:
                     if p_node and p_node in NODE_TELEMETRY_REGISTRY:
                         tel = NODE_TELEMETRY_REGISTRY[p_node].setdefault("telemetry", {})
                         tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
-                        tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
                         nodes_updated = True
                 if not nodes_updated:
                     for n_id, n_data in NODE_TELEMETRY_REGISTRY.items():
                         if not n_data.get("is_peer_relay", False) and n_data.get("updated_at"):
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
-                            tel["earnings_cm"] = int(tel.get("earnings_cm", 0) or 0) + total_job_toks
                             nodes_updated = True
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
             except Exception:

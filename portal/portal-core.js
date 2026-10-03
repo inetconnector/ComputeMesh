@@ -22,6 +22,7 @@ var translations = window.translations || {
     fleet_node_delete_success: "Node removed successfully.",
     fleet_node_delete_error: "Error deleting node",
     fleet_node_delete_net_error: "Network error deleting node",
+    fleet_download_error: "Download failed ({status})",
     fleet_node_id_stream: "Node-ID · Live Stream",
     fleet_cluster_active: "🟢 Active",
     fleet_cluster_standby: "🟡 Standby",
@@ -547,6 +548,7 @@ var translations = window.translations || {
     fleet_node_delete_success: "Knoten erfolgreich entfernt.",
     fleet_node_delete_error: "Fehler beim Löschen des Knotens",
     fleet_node_delete_net_error: "Netzwerkfehler beim Löschen des Knotens",
+    fleet_download_error: "Download fehlgeschlagen ({status})",
     fleet_node_id_stream: "Knoten-ID · Live Stream",
     fleet_cluster_active: "🟢 Aktiv",
     fleet_cluster_standby: "🟡 Standby",
@@ -1155,7 +1157,7 @@ function hasActiveSession() {
 function handleAiSubdomainRouting() {
   try {
     if (window.location.hostname === 'ai.inetconnector.com') {
-      var urlParams = new URLSearchParams(window.location.hash.slice(1));
+      var urlParams = new URLSearchParams(window.location.search);
       var rawQKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
       if (rawQKey) {
         var qKey = String(rawQKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
@@ -1190,7 +1192,9 @@ function handleAiSubdomainRouting() {
             document.cookie = cookieStr;
           } catch(e) {}
 
-          window.location.replace('/webui/#key=' + encodeURIComponent(qKey));
+          // Accept legacy links once, but never forward the credential in the URL.
+          window.history.replaceState({}, document.title, '/webui/');
+          window.location.replace('/webui/');
           return;
         }
       }
@@ -1198,9 +1202,7 @@ function handleAiSubdomainRouting() {
       const isRoot = pathname === '/' || pathname === '/index.html' || pathname === '';
       if (isRoot) {
         if (hasActiveSession()) {
-          const key = getActiveComputeMeshApiKey();
-          const target = key ? `/webui/#key=${encodeURIComponent(key)}` : '/webui/';
-          window.location.replace(target);
+          window.location.replace('/webui/');
         } else {
           window.location.replace('/ai-auth.html');
         }
@@ -1216,8 +1218,7 @@ handleAiSubdomainRouting();
 
 function openWebUI(event) {
   if (event && event.preventDefault) event.preventDefault();
-  const key = getActiveComputeMeshApiKey();
-  const targetUrl = key ? `https://ai.inetconnector.com/webui/#key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const targetUrl = 'https://ai.inetconnector.com/';
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
@@ -1225,8 +1226,7 @@ function updateAuthStateUI() {
   const lang = window.getLang ? window.getLang() : (window.currentLang || 'de');
   const t = (translations && translations[lang]) ? translations[lang] : {};
   const isAuth = hasActiveSession();
-  const key = getActiveComputeMeshApiKey();
-  const aiChatUrl = key ? `https://ai.inetconnector.com/webui/#key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const aiChatUrl = 'https://ai.inetconnector.com/';
 
   // 1. Auth button in top navbar
   const btn = document.getElementById('auth-nav-btn');
@@ -2748,10 +2748,7 @@ function renderRealMarketplaceCards(nodes, isDe) {
 
   container.innerHTML = '';
 
-  // Filter to active compute nodes with dedicated VRAM/GPUs
-  const gpuNodes = nodes.filter(n => (n.vram_gb && Number(n.vram_gb) > 0) || (n.gpus && n.gpus.length > 0 && !n.node_id.startsWith("android-")));
-
-  if (!gpuNodes || gpuNodes.length === 0) {
+  if (!nodes || nodes.length === 0) {
     container.innerHTML = `
       <div class="market-card highlight" style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem; background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(56, 189, 248, 0.08)); border: 1px dashed rgba(56, 189, 248, 0.35);">
         <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🌐</div>
@@ -2768,8 +2765,8 @@ function renderRealMarketplaceCards(nodes, isDe) {
     return;
   }
 
-  // Render each REAL live GPU node
-  gpuNodes.forEach(node => {
+  // Render each REAL live node
+  nodes.forEach(node => {
     const gpusList = (node.gpus && node.gpus.length > 0) ? node.gpus : ['ComputeMesh Hardware Worker'];
     const gpusStr = gpusList.join(' • ');
     const isOnline = Boolean(node.is_online || node.status === 'online');

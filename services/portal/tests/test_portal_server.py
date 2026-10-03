@@ -152,13 +152,14 @@ class TestPortalServer(unittest.TestCase):
         finally:
             NODE_TELEMETRY_REGISTRY.clear()
 
-    def test_node_heartbeat_and_status_require_node_token(self) -> None:
+    def test_node_status_rejects_url_token_and_accepts_short_lived_session(self) -> None:
         NODE_TELEMETRY_REGISTRY.clear()
         heartbeat = urllib.request.Request(
             "http://127.0.0.1:13000/api/v1/node/heartbeat",
             data=json.dumps({
                 "node_id": "node-secure-01",
                 "auth_token": "cm_tunnel_0123456789abcdef0123456789abcdef",
+                "owner_id": "owner-test",
                 "inventory": {},
                 "telemetry": {},
             }).encode("utf-8"),
@@ -166,12 +167,23 @@ class TestPortalServer(unittest.TestCase):
         )
         with urllib.request.urlopen(heartbeat) as resp:
             self.assertEqual(resp.status, 200)
+        NODE_TELEMETRY_REGISTRY["node-secure-01"]["owner_id"] = "owner-test"
         with self.assertRaises(urllib.error.HTTPError) as missing_ctx:
             urllib.request.urlopen("http://127.0.0.1:13000/api/v1/node/node-secure-01/status")
         self.assertEqual(missing_ctx.exception.code, 401)
-        with urllib.request.urlopen(
-            "http://127.0.0.1:13000/api/v1/node/node-secure-01/status?auth=cm_tunnel_0123456789abcdef0123456789abcdef"
-        ) as resp:
+        with self.assertRaises(urllib.error.HTTPError) as url_token:
+            urllib.request.urlopen(
+                "http://127.0.0.1:13000/api/v1/node/node-secure-01/status?auth=cm_tunnel_0123456789abcdef0123456789abcdef"
+            )
+        self.assertEqual(url_token.exception.code, 401)
+
+        from services.common.node_access import issue_node_session, node_session_cookie
+        session = issue_node_session("node-secure-01", "owner-test")
+        req = urllib.request.Request(
+            "http://127.0.0.1:13000/api/v1/node/node-secure-01/status",
+            headers={"Cookie": node_session_cookie(session, secure=False)},
+        )
+        with urllib.request.urlopen(req) as resp:
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["node_id"], "node-secure-01")

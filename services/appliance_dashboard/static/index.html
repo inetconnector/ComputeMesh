@@ -178,6 +178,32 @@
       align-items: center;
       gap: 0.5rem;
     }
+    .model-list { display: flex; flex-direction: column; gap: 0.65rem; }
+    .model-storage-warning {
+      display: none;
+      margin: 0 0 1rem;
+      padding: 0.8rem 1rem;
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      border-radius: 8px;
+      background: rgba(245, 158, 11, 0.12);
+      color: #fde68a;
+      line-height: 1.45;
+    }
+    .model-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.4fr) minmax(110px, 0.6fr) auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.8rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.24);
+    }
+    .model-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end; }
+    @media (max-width: 720px) {
+      .model-row { grid-template-columns: 1fr; }
+      .model-actions { justify-content: flex-start; }
+    }
     .gpu-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -652,47 +678,6 @@
         grid-template-columns: 1fr;
         gap: 1rem;
       }
-      .header-top-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-      }
-      .nav-tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        width: 100%;
-        padding: 0.25rem;
-      }
-      .nav-tab {
-        text-align: center;
-        padding: 0.65rem 0.35rem;
-        font-size: 0.82rem;
-        white-space: nowrap;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-      }
-      .stat-card {
-        padding: 0.85rem;
-      }
-      .stat-value {
-        font-size: 1.35rem;
-      }
-      .stat-label {
-        font-size: 0.75rem;
-      }
-      .gpu-grid {
-        grid-template-columns: 1fr;
-      }
-      .config-card {
-        padding: 1.25rem;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
       .btn-row {
         flex-direction: column;
         width: 100%;
@@ -718,11 +703,11 @@
         <span id="header-status">ONLINE</span>
       </div>
     </div>
-
+    
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="switchTab('overview', this)">📊 Live Overview</button>
-      <button class="nav-tab" onclick="switchTab('models', this)">🧠 Modelle & HuggingFace</button>
-      <button class="nav-tab" onclick="switchTab('config', this)">⚙️ Settings & Update</button>
+      <button id="nav-overview" class="nav-tab active" onclick="switchTab('overview', this)">📊 Live Overview</button>
+      <button id="nav-models" class="nav-tab" onclick="switchTab('models', this); refreshModels()">Modelle</button>
+      <button id="nav-config" class="nav-tab" onclick="switchTab('config', this)">⚙️ Settings & Update</button>
       <a class="nav-tab" href="/webui/" style="text-decoration: none; color: #00f0ff; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: inline-flex; align-items: center;">💬 AI Chat Studio</a>
     </div>
   </header>
@@ -767,6 +752,7 @@
 
     <!-- TAB 1: OVERVIEW -->
     <div id="tab-overview" class="tab-content active">
+      <!-- 0. AI CHAT & IMAGE GENERATION QUICK ACCESS -->
       <div style="background: linear-gradient(135deg, rgba(16, 24, 48, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(0, 240, 255, 0.4); box-shadow: 0 0 20px rgba(0, 240, 255, 0.1); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.5rem;">
         <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 260px;">
           <div style="font-weight: 700; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
@@ -789,8 +775,8 @@
       <div class="stats-grid">
         <div class="stat-card" style="background: linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(0, 240, 255, 0.4); box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);">
           <div class="stat-label" style="color: var(--accent-cyan); font-weight: 700;">Dedizierter GPU-VRAM (Lokal)</div>
-          <div class="stat-value" id="total-vram" style="color: #00f0ff; font-size: 1.55rem;">16.0 GB VRAM</div>
-          <div class="stat-sub" id="total-gpus" style="color: var(--accent-emerald); font-weight: 600;">1 GPU • 24.0 TFLOPS (CUDA)</div>
+          <div class="stat-value" id="total-vram" style="color: #00f0ff; font-size: 1.55rem;">-- GB VRAM</div>
+          <div class="stat-sub" id="total-gpus" style="color: var(--accent-emerald); font-weight: 600;">Hardware wird ermittelt</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Lokale Tokens Berechnet</div>
@@ -800,7 +786,7 @@
         <div class="stat-card">
           <div class="stat-label">Vergütete Credits & Netto-Auszahlung</div>
           <div class="stat-value" id="earnings" style="color: var(--accent-emerald);">0 CM ($0.0000)</div>
-          <div class="stat-sub">Kurs: 1M CM = $0.75 Netto (75% der bezahlten Kundeneinnahmen)</div>
+          <div class="stat-sub">Nur ledger-bestätigte Providervergütung</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Node Status & Backend</div>
@@ -861,6 +847,46 @@
             <div style="color: var(--text-dim); padding: 0.35rem 0.5rem;">Ermittle aktive Cluster-Teilnehmer...</div>
           </div>
         </div>
+
+        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">🔎 Automatisch gefundene LAN-Nodes</div>
+            <button class="btn btn-secondary" type="button" id="lan-scan-button" onclick="scanLanNodes(true)" style="padding: 0.45rem 0.75rem;">LAN erneut scannen</button>
+          </div>
+          <div id="lan-scan-status" class="form-desc">Lokales Netz wird automatisch geprüft...</div>
+          <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;" id="lan-nodes-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-models" class="tab-content">
+      <div class="config-card">
+        <div class="section-title">Lokale GGUF-Modelle</div>
+        <div class="stats-grid" style="margin-bottom: 1rem;">
+          <div class="stat-card"><div class="stat-label">Runtime</div><div class="stat-value" id="model-runtime-state" style="font-size:1.1rem;">--</div></div>
+          <div class="stat-card"><div class="stat-label">Modellspeicher frei</div><div class="stat-value" id="model-storage-free" style="font-size:1.1rem;">--</div></div>
+          <div class="stat-card"><div class="stat-label">Aktives Modell</div><div class="stat-value" id="model-active-id" style="font-size:1rem; word-break:break-word;">Keines</div></div>
+        </div>
+        <div id="model-storage-warning" class="model-storage-warning" role="status"></div>
+        <div id="model-runtime-error" class="form-desc" style="display:none; margin-bottom:1rem;"></div>
+        <div id="model-list" class="model-list"><div class="form-desc">Modelle werden geladen...</div></div>
+      </div>
+
+      <div class="config-card">
+        <div class="section-title">GGUF von Hugging Face installieren</div>
+        <span class="form-desc">Verwende einen unveränderlichen 40-stelligen Commit und die veröffentlichte SHA-256/Dateigröße. Das Modell wird erst nach vollständiger Prüfung aktiviert.</span>
+        <div class="form-grid" style="margin-top:1rem;">
+          <div class="form-group"><label class="form-label">Öffentliche Modell-ID</label><input id="model-id" class="form-input" placeholder="org/model-q4"></div>
+          <div class="form-group"><label class="form-label">Hugging-Face-Repository</label><input id="model-repo" class="form-input" placeholder="org/model-GGUF"></div>
+          <div class="form-group"><label class="form-label">GGUF-Dateiname</label><input id="model-filename" class="form-input" placeholder="model-Q4_K_M.gguf"></div>
+          <div class="form-group"><label class="form-label">Commit SHA</label><input id="model-revision" class="form-input" maxlength="40" placeholder="40 hex characters"></div>
+          <div class="form-group" style="grid-column:1/-1"><label class="form-label">SHA-256</label><input id="model-sha256" class="form-input" maxlength="71" placeholder="64 hex characters"></div>
+          <div class="form-group"><label class="form-label">Exakte Größe in Bytes</label><input id="model-size" class="form-input" type="number" min="1"></div>
+          <div class="form-group"><label class="form-label">Transformer-Layer</label><input id="model-layers" class="form-input" type="number" min="2" value="32"></div>
+          <div class="form-group"><label class="form-label">Quantisierung</label><input id="model-quant" class="form-input" value="Q4_K_M"></div>
+          <div class="form-group"><label class="form-label">Lizenz-ID</label><input id="model-license" class="form-input" placeholder="apache-2.0"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-primary" onclick="installModel()">Download prüfen & starten</button><button class="btn btn-secondary" onclick="refreshModels()">Aktualisieren</button></div>
       </div>
     </div>
 
@@ -938,6 +964,26 @@
               <option value="balanced" selected>Balanced Mode (85% TDP — Recommended)</option>
               <option value="max">Maximum Performance (100% TDP)</option>
             </select>
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">GPU-Lüftersteuerung</label>
+            <div class="form-grid">
+              <div class="form-group">
+                <select id="cfg-fan-mode" class="form-select">
+                  <option value="safe_auto">Sicherer Mindestlauf (mindestens 25 %, temperaturgeführt)</option>
+                  <option value="manual">Manuell / Zielwert</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <input type="number" id="cfg-fan-target" class="form-input" value="60" min="20" max="100" step="1">
+                <span class="form-desc">Zielwert in Prozent, nur bei erkannter PWM-/Treiberunterstützung.</span>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top: 0.5rem;">
+              <button type="button" class="btn btn-secondary" onclick="applyFanProfile()">🌀 Lüfterprofil anwenden</button>
+            </div>
+            <span class="form-desc" id="fan-control-status">Lüftersteuerung wird geprüft...</span>
           </div>
 
           <div class="form-group linux-only" id="group-kiosk">
@@ -1033,82 +1079,6 @@
         </div>
       </div>
     </div>
-
-    <!-- TAB 2: MODELS & HUGGINGFACE LIFECYCLE -->
-    <div id="tab-models" class="tab-content">
-      <!-- Active Model Engine Status -->
-      <div class="config-card" style="border: 1.5px solid rgba(0, 240, 255, 0.35); background: linear-gradient(135deg, rgba(16, 24, 48, 0.95), rgba(15, 23, 42, 0.95));">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
-          <div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.6rem;">
-              <span>⚡ Multi-GPU Model Execution Engine</span>
-              <span id="engine-status-badge" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-emerald); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 800;">IDLE</span>
-            </div>
-            <div style="color: var(--text-dim); font-size: 0.88rem; margin-top: 0.3rem;" id="engine-status-desc">
-              Bereit zum Laden von Modellen über 6x GPUs (Layer-Pipelining & VRAM Pooling).
-            </div>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn" id="btn-engine-deactivate" onclick="deactivateModel()" style="display:none; background: rgba(244, 63, 94, 0.2); border: 1px solid rgba(244, 63, 94, 0.4); color: var(--accent-rose); font-weight: 700; padding: 0.55rem 1.1rem; border-radius: 6px; cursor: pointer;">
-              🛑 Modell entladen (Draining)
-            </button>
-            <button class="btn btn-primary" onclick="loadModelsTab(true)" style="padding: 0.55rem 1.1rem; font-size: 0.88rem;">
-              🔄 Aktualisieren
-            </button>
-          </div>
-        </div>
-
-        <!-- GPU Layer Distribution Bar Visualizer -->
-        <div id="engine-gpu-breakdown" style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 1rem;">
-          <div style="font-size: 0.85rem; color: var(--text-dim); font-weight: 600;">Multi-GPU VRAM-Verteilung & Layer-Offloading:</div>
-          <div id="engine-gpu-bars" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Local GGUF Model Storage -->
-      <div class="config-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
-          <div>
-            <div class="section-title" style="margin-bottom: 0.2rem;">💾 Lokale Modelle (/var/lib/computemesh/models)</div>
-            <div style="font-size: 0.85rem; color: var(--text-dim);" id="storage-space-label">Freier Speicher: Berechne...</div>
-          </div>
-        </div>
-        <div id="local-models-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <div style="color: var(--text-dim); font-size: 0.9rem;">Lade lokale Modelle...</div>
-        </div>
-      </div>
-
-      <!-- HuggingFace Hub Search & Quick Download -->
-      <div class="config-card">
-        <div class="section-title" style="margin-bottom: 0.5rem;">🤗 Hugging Face Hub — GGUF Download & Verifikation</div>
-        <div style="color: var(--text-dim); font-size: 0.88rem; margin-bottom: 1rem;">
-          Lade Modelle direkt von Hugging Face herunter. Der Download erfolgt atomar mit SHA-256 Checksummen-Validierung und automatischem Resuming.
-        </div>
-
-        <!-- Search Bar -->
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
-          <input type="text" id="hf-search-input" class="form-input" placeholder="z. B. Qwen2.5-32B-Instruct-GGUF, Llama-3.1, DeepSeek..." onkeydown="if(event.key==='Enter') searchHuggingFace()">
-          <button class="btn btn-primary" onclick="searchHuggingFace()" style="padding: 0 1.5rem; font-weight: 700;">
-            🔍 Suchen
-          </button>
-        </div>
-
-        <!-- Active Downloads Progress -->
-        <div id="active-downloads-section" style="display:none; margin-bottom: 1.5rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 1rem;">
-          <div style="font-weight: 700; color: var(--accent-cyan); font-size: 0.95rem; margin-bottom: 0.75rem;">Aktive Downloads:</div>
-          <div id="active-downloads-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
-        </div>
-
-        <!-- Curated / Search Results -->
-        <div style="font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 0.75rem;">Empfohlene Multi-GPU Modelle:</div>
-        <div id="hf-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-          <!-- Rendered dynamically -->
-        </div>
-      </div>
-    </div>
-
   </main>
 
   <footer>
@@ -1170,20 +1140,62 @@
       }
     } catch (e) {}
 
+    // Credentials stay in sessionStorage only; never put node tokens in URLs.
+    let dashboardAuthToken = sessionStorage.getItem('computemesh.nodeAuthToken') || '';
+    let authPromptShown = false;
+    const dashboardTranslations = {
+      en: {
+        nodeAuthPrompt: 'Node authentication required. Enter the node token:',
+        fanDutyLabel: 'Fan setpoint',
+        fanMeasuredLabel: 'Fan ({duty}% PWM)',
+        modelStorageWarning: 'Only {free} is free in the model storage. A standard local model needs at least {required}. Attach or select a larger data volume before downloading.',
+        modelStorageOverlayWarning: 'The model directory is on a temporary overlay filesystem and has only {free} free. The persistent data volume is not mounted; attach the NodeOS persistence volume or configure COMPUTEMESH_MODEL_DIR before downloading.',
+        modelRuntimeError: 'Runtime error: {error}',
+      },
+      de: {
+        nodeAuthPrompt: 'Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:',
+        fanDutyLabel: 'Lüfter-Sollwert',
+        fanMeasuredLabel: 'Lüfter ({duty}% PWM)',
+        modelStorageWarning: 'Im Modellspeicher sind nur {free} frei. Ein übliches lokales Modell benötigt mindestens {required}. Vor dem Download ein größeres Datenvolume anschließen oder auswählen.',
+        modelStorageOverlayWarning: 'Der Modellspeicher liegt auf einem temporären Overlay-Dateisystem und hat nur {free} frei. Das persistente Datenvolume ist nicht eingehängt. NodeOS-Persistenzvolume anschließen oder vor dem Download COMPUTEMESH_MODEL_DIR konfigurieren.',
+        modelRuntimeError: 'Runtime-Fehler: {error}',
+      },
+    };
+
+    function dashboardText(key) {
+      const language = ((document.documentElement.lang || navigator.language || 'en').toLowerCase().startsWith('de')) ? 'de' : 'en';
+      return dashboardTranslations[language]?.[key] || dashboardTranslations.en[key] || key;
+    }
+
+    function apiFetch(path, options = {}) {
+      const url = new URL(path, window.location.origin);
+      const headers = new Headers(options.headers || {});
+      if (dashboardAuthToken) headers.set('X-Node-Auth-Token', dashboardAuthToken);
+      return fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' }).then(async response => {
+        if (response.status !== 401 || dashboardAuthToken || authPromptShown) return response;
+        authPromptShown = true;
+        const entered = window.prompt(dashboardText('nodeAuthPrompt'));
+        if (!entered) return response;
+        dashboardAuthToken = entered.trim();
+        sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+        const retryHeaders = new Headers(options.headers || {});
+        retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
+        return fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
+      });
+    }
+
     function switchTab(tabId, btnEl) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-
+      
       const targetTab = document.getElementById('tab-' + tabId);
       if (targetTab) targetTab.classList.add('active');
-      if (tabId === 'models') loadModelsTab();
 
-      const allBtns = document.querySelectorAll('.nav-tab');
       if (btnEl && btnEl.classList) {
         btnEl.classList.add('active');
-      } else if (allBtns.length >= 2) {
-        if (tabId === 'overview' && allBtns[0]) allBtns[0].classList.add('active');
-        if (tabId === 'config' && allBtns[1]) allBtns[1].classList.add('active');
+      } else {
+        const navButton = document.getElementById('nav-' + tabId);
+        if (navButton) navButton.classList.add('active');
       }
       try {
         if (window.location.hash !== '#' + tabId) {
@@ -1231,12 +1243,141 @@
       } catch (err) {
         console.log('Clipboard access:', err);
       }
-
+      
       const manual = prompt('Bitte deine Ethereum / Polygon Wallet-Adresse (0x...) hier einfügen:');
       if (manual && manual.trim()) {
         const el = document.getElementById('cfg-wallet');
         if (el) el.value = manual.trim();
         showToast('✓ Wallet-Adresse eingefügt — Klicke auf "💾 Save", um zu speichern.');
+      }
+    }
+
+    function formatBytes(bytes) {
+      const value = Number(bytes || 0);
+      if (!Number.isFinite(value) || value <= 0) return '0 B';
+      const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+      const index = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+      return `${(value / Math.pow(1024, index)).toFixed(index > 2 ? 1 : 0)} ${units[index]}`;
+    }
+
+    async function modelAction(action, modelId) {
+      try {
+        const res = await apiFetch(`/api/models/action/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_id: modelId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data.error && data.error.message) || 'Modellaktion fehlgeschlagen');
+        showToast(`Modellaktion ${action} erfolgreich.`);
+        await refreshModels();
+      } catch (error) {
+        showToast(String(error.message || error), false);
+      }
+    }
+
+    async function refreshModels() {
+      const list = document.getElementById('model-list');
+      if (!list) return;
+      try {
+        const res = await apiFetch('/api/models/manage', { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data.error && data.error.message) || 'Modellstatus nicht verfügbar');
+        const engine = data.engine || {};
+        document.getElementById('model-runtime-state').textContent = engine.state || 'unavailable';
+        document.getElementById('model-active-id').textContent = engine.model_id || 'Keines';
+        const storage = data.storage || {};
+        document.getElementById('model-storage-free').textContent = formatBytes(storage.free_bytes);
+        const warning = document.getElementById('model-storage-warning');
+        if (storage.warning) {
+          const warningKey = storage.warning_reason === 'overlay' ? 'modelStorageOverlayWarning' : 'modelStorageWarning';
+          warning.textContent = dashboardText(warningKey)
+            .replace('{free}', formatBytes(storage.free_bytes))
+            .replace('{required}', formatBytes(storage.recommended_required_bytes));
+          warning.style.display = 'block';
+        } else {
+          warning.textContent = '';
+          warning.style.display = 'none';
+        }
+        const runtimeError = document.getElementById('model-runtime-error');
+        if (engine.last_error) {
+          runtimeError.textContent = dashboardText('modelRuntimeError').replace('{error}', engine.last_error);
+          runtimeError.style.display = 'block';
+        } else {
+          runtimeError.textContent = '';
+          runtimeError.style.display = 'none';
+        }
+        list.replaceChildren();
+        const models = Array.isArray(data.models) ? data.models : [];
+        const downloads = Array.isArray(data.downloads) ? data.downloads : [];
+        downloads.filter(item => item.state !== 'complete').forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'model-row';
+          const progress = item.bytes_total ? Math.floor((item.bytes_downloaded || 0) * 100 / item.bytes_total) : 0;
+          row.textContent = `${item.model_id}: ${item.state} (${progress}%)${item.error ? ' - ' + item.error : ''}`;
+          list.appendChild(row);
+        });
+        models.forEach(model => {
+          const row = document.createElement('div');
+          row.className = 'model-row';
+          const info = document.createElement('div');
+          const title = document.createElement('strong');
+          title.textContent = model.model_id;
+          const meta = document.createElement('div');
+          meta.className = 'form-desc';
+          meta.textContent = `${model.quantization} | ${formatBytes(model.size_bytes)} | ${model.layer_count} Layer | ${model.present ? 'geprüft vorhanden' : 'Artefakt fehlt'}`;
+          info.append(title, meta);
+          const state = document.createElement('div');
+          state.textContent = model.active ? 'AKTIV' : 'Gestoppt';
+          state.style.color = model.active ? 'var(--accent-emerald)' : 'var(--text-dim)';
+          const actions = document.createElement('div');
+          actions.className = 'model-actions';
+          const primary = document.createElement('button');
+          primary.className = 'btn ' + (model.active ? 'btn-secondary' : 'btn-primary');
+          primary.textContent = model.active ? 'Stop' : 'Start';
+          primary.addEventListener('click', () => modelAction(model.active ? 'stop' : 'start', model.model_id));
+          actions.appendChild(primary);
+          if (!model.active) {
+            const remove = document.createElement('button');
+            remove.className = 'btn btn-danger';
+            remove.textContent = 'Löschen';
+            remove.addEventListener('click', () => {
+              if (confirm(`Modell ${model.model_id} dauerhaft löschen?`)) modelAction('delete', model.model_id);
+            });
+            actions.appendChild(remove);
+          }
+          row.append(info, state, actions);
+          list.appendChild(row);
+        });
+        if (!models.length && !downloads.length) {
+          const empty = document.createElement('div');
+          empty.className = 'form-desc';
+          empty.textContent = 'Noch kein verifiziertes GGUF-Modell installiert.';
+          list.appendChild(empty);
+        }
+      } catch (error) {
+        list.textContent = String(error.message || error);
+      }
+    }
+
+    async function installModel() {
+      const value = id => document.getElementById(id).value.trim();
+      const payload = {
+        model_id: value('model-id'), repo_id: value('model-repo'), filename: value('model-filename'),
+        revision: value('model-revision'), sha256: value('model-sha256'),
+        size_bytes: Number(value('model-size')), layer_count: Number(value('model-layers')),
+        quantization: value('model-quant'), license_id: value('model-license'),
+      };
+      try {
+        const res = await apiFetch('/api/models/hf/download', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data.error && data.error.message) || 'Download konnte nicht gestartet werden');
+        showToast('Verifizierter Download wurde gestartet.');
+        await refreshModels();
+      } catch (error) {
+        showToast(String(error.message || error), false);
       }
     }
 
@@ -1346,8 +1487,12 @@
 
     async function updateDashboard() {
       try {
-        const res = await fetch('/api/status', { cache: 'no-store' });
-        if (!res.ok) return;
+        const res = await apiFetch('/api/status', { cache: 'no-store' });
+        if (!res.ok) {
+          nodeState = null;
+          if (res.status === 401) showToast('Dashboard-Sitzung abgelaufen. Bitte die Seite neu laden.', false);
+          return;
+        }
         const data = await res.json();
         nodeState = data;
 
@@ -1357,19 +1502,18 @@
         const totalVramBytes = (data.inventory && data.inventory.total_vram_bytes) || 0;
         const totalVramGb = (totalVramBytes / (1024*1024*1024)).toFixed(1);
         const totalUsableVramGb = Math.max(0.1, (totalVramBytes / (1024*1024*1024)) - ((reserveMb * healthyGpus.length) / 1024)).toFixed(1);
-        const localTflops = (data.telemetry && data.telemetry.local_compute_tflops != null) ? data.telemetry.local_compute_tflops : (healthyGpus.length * 12.5).toFixed(1);
+        const localTflops = Number(data.telemetry && data.telemetry.local_compute_tflops || 0);
 
         const elVram = document.getElementById('total-vram');
         if (elVram) elVram.textContent = `${totalVramGb} GB Dedicated VRAM`;
         const elGpus = document.getElementById('total-gpus');
-        if (elGpus) elGpus.textContent = `${healthyGpus.length} GPU (${healthyGpus[0] ? healthyGpus[0].model_name : 'RTX 3080'}) • ${localTflops} TFLOPS`;
+        if (elGpus) elGpus.textContent = `${healthyGpus.length} GPU${healthyGpus.length === 1 ? '' : 's'}${healthyGpus[0] ? ' (' + healthyGpus[0].model_name + ')' : ''} | ${localTflops > 0 ? localTflops + ' TFLOPS gemessen' : 'Durchsatz nicht gemessen'}`;
         const elTokens = document.getElementById('tokens-served');
         if (elTokens) elTokens.textContent = (data.telemetry && data.telemetry.tokens_processed != null) ? data.telemetry.tokens_processed.toLocaleString() : '0';
         const elEarnings = document.getElementById('earnings');
         if (elEarnings) {
           const rawCredits = (data.telemetry && data.telemetry.earnings_cm != null) ? Number(data.telemetry.earnings_cm) : 0;
-          const payoutUsd = rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : rawCredits * 0.75;
-          elEarnings.textContent = `${rawCredits >= 1000 ? rawCredits.toLocaleString() : rawCredits.toFixed(2)} CM ($${(rawCredits * 0.00000075 > 0.00001 ? rawCredits * 0.00000075 : (rawCredits * 0.75)).toFixed(4)})`;
+          elEarnings.textContent = `${rawCredits.toLocaleString()} micro-USD ($${(rawCredits / 1000000).toFixed(4)})`;
         }
         const isWindows = Boolean(data.is_windows || data.os === 'windows' || (data.inventory && data.inventory.host_architecture === 'win32'));
         applyPlatformView(isWindows, data.platform_name || (isWindows ? 'Windows' : 'NodeOS'));
@@ -1391,7 +1535,8 @@
           }
           const elMeshTflops = document.getElementById('mesh-tflops');
           if (elMeshTflops) {
-            elMeshTflops.textContent = Number(data.global_mesh.total_compute_tflops || 0).toLocaleString() + ' TFLOPS';
+            const measuredTflops = Number(data.global_mesh.total_compute_tflops || 0);
+            elMeshTflops.textContent = measuredTflops > 0 ? measuredTflops.toLocaleString() + ' TFLOPS' : 'Nicht gemessen';
             elMeshTflops.style.color = 'var(--accent-cyan)';
           }
           const elMeshVram = document.getElementById('mesh-vram');
@@ -1430,7 +1575,7 @@
                   <span style="color: var(--text-dim); margin-left: 0.35rem;">• ${desc}</span>
                 </div>
                 <div style="color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap;">
-                  ${n.tflops} TFLOPS
+                  ${Number(n.tflops || 0) > 0 ? n.tflops + ' TFLOPS' : 'Nicht gemessen'}
                 </div>
               `;
               elNodesList.appendChild(row);
@@ -1493,10 +1638,11 @@
             const totalGb = (gpu.vram_bytes / (1024*1024*1024)).toFixed(1);
             const usableGb = Math.max(0.1, (gpu.vram_bytes / (1024*1024*1024)) - (reserveMb / 1024)).toFixed(1);
             const therm = (data.telemetry && data.telemetry.gpu_thermals && data.telemetry.gpu_thermals[idx]) || {};
-            const temp = therm.temp || 56;
-            const fan = therm.fan || 62;
-            const power = therm.power_watts || 110;
-            const tflops = therm.tflops || (gpu.model_name.includes('3080') ? 24.0 : (gpu.model_name.includes('MI25') ? 24.6 : 14.0));
+            const temp = therm.temp ?? '—';
+            const fanDuty = therm.fan_duty_percent ?? therm.fan ?? '—';
+            const fanRpm = therm.fan_rpm;
+            const power = therm.power_watts ?? '—';
+            const tflops = therm.tflops ?? '—';
 
             const card = document.createElement('div');
             card.className = 'gpu-card' + (isDisabled ? ' disabled' : '');
@@ -1525,8 +1671,8 @@
                   <div class="metric-lbl">Temperatur</div>
                 </div>
                 <div>
-                  <div class="metric-val">${fan}%</div>
-                  <div class="metric-lbl">Lüfter</div>
+                  <div class="metric-val">${fanRpm == null ? `${fanDuty}%` : `${fanRpm} RPM`}</div>
+                  <div class="metric-lbl">${fanRpm == null ? dashboardText('fanDutyLabel') : dashboardText('fanMeasuredLabel').replace('{duty}', fanDuty)}</div>
                 </div>
                 <div>
                   <div class="metric-val">${power}W</div>
@@ -1555,6 +1701,10 @@
           if (tempInput) tempInput.value = data.config.max_temp_c || 80;
           const pwrInput = document.getElementById('cfg-power-mode');
           if (pwrInput) pwrInput.value = data.config.power_mode || 'balanced';
+          const fanModeInput = document.getElementById('cfg-fan-mode');
+          if (fanModeInput) fanModeInput.value = data.config.fan_control_mode || 'safe_auto';
+          const fanTargetInput = document.getElementById('cfg-fan-target');
+          if (fanTargetInput) fanTargetInput.value = data.config.fan_target_percent || 60;
           const kioskInput = document.getElementById('cfg-kiosk');
           if (kioskInput) kioskInput.value = String(data.config.enable_kiosk ?? true);
           const autoUpInput = document.getElementById('cfg-auto-update');
@@ -1585,8 +1735,61 @@
           }
           configFormInitialized = true;
         }
+        const fanStatus = (data.telemetry && data.telemetry.fan_control) || {};
+        const fanStatusEl = document.getElementById('fan-control-status');
+        if (fanStatusEl) {
+          fanStatusEl.textContent = fanStatus.message || 'Lüfterstatus nicht verfügbar.';
+          fanStatusEl.style.color = fanStatus.control_available ? 'var(--accent-emerald)' : 'var(--accent-amber)';
+        }
+        await scanLanNodes(false);
       } catch (err) {
         console.error('Telemetry refresh error:', err);
+      }
+    }
+
+    let lanScanInFlight = false;
+    async function scanLanNodes(force) {
+      if (lanScanInFlight) return;
+      lanScanInFlight = true;
+      const statusEl = document.getElementById('lan-scan-status');
+      const listEl = document.getElementById('lan-nodes-list');
+      const buttonEl = document.getElementById('lan-scan-button');
+      if (buttonEl) buttonEl.disabled = true;
+      try {
+        const endpoint = force ? '/api/lan/scan' : '/api/lan/nodes';
+        const res = await apiFetch(endpoint, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`LAN scan failed (${res.status})`);
+        const payload = await res.json();
+        const nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+        if (statusEl) statusEl.textContent = nodes.length ? `${nodes.length} ComputeMesh-Node(s) im lokalen Netz gefunden.` : 'Keine weiteren ComputeMesh-Nodes im lokalen Netz gefunden.';
+        if (listEl) {
+          listEl.innerHTML = '';
+          if (!nodes.length) {
+            listEl.innerHTML = '<div style="color: var(--text-dim); padding: 0.35rem 0.5rem;">Keine passenden NodeOS-Dashboards antworten.</div>';
+          } else {
+            nodes.forEach(node => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.45rem 0.65rem; border:1px solid rgba(255,255,255,0.06); border-radius:6px;';
+              const version = node.current_version ? `v${node.current_version}${node.update_available ? ' • Update verfügbar' : ''}` : 'Version nicht lesbar';
+              const link = document.createElement('a');
+              link.href = node.url || '#';
+              link.target = '_blank';
+              link.rel = 'noopener';
+              link.style.cssText = 'color:var(--accent-cyan); font-family:var(--font-mono);';
+              link.textContent = `${node.ip}:${node.port}`;
+              const details = document.createElement('span');
+              details.style.color = 'var(--text-dim)';
+              details.textContent = `${node.title || node.product || 'ComputeMesh NodeOS'} • ${version}`;
+              row.append(link, details);
+              listEl.appendChild(row);
+            });
+          }
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `LAN-Scan nicht verfügbar: ${err.message}`;
+      } finally {
+        lanScanInFlight = false;
+        if (buttonEl) buttonEl.disabled = false;
       }
     }
 
@@ -1599,6 +1802,8 @@
       const vramReserve = parseInt(document.getElementById('cfg-vram-reserve').value, 10) || 512;
       const maxTemp = parseInt(document.getElementById('cfg-max-temp').value, 10) || 80;
       const powerMode = document.getElementById('cfg-power-mode').value;
+      const fanMode = document.getElementById('cfg-fan-mode') ? document.getElementById('cfg-fan-mode').value : 'safe_auto';
+      const fanTarget = parseInt(document.getElementById('cfg-fan-target')?.value, 10) || 60;
       const enableKiosk = document.getElementById('cfg-kiosk') ? document.getElementById('cfg-kiosk').value === 'true' : false;
       const autoUpdate = document.getElementById('cfg-auto-update') ? document.getElementById('cfg-auto-update').value === 'true' : true;
       const autoSystemUpgrade = document.getElementById('cfg-auto-system-upgrade') ? document.getElementById('cfg-auto-system-upgrade').value === 'true' : false;
@@ -1619,6 +1824,8 @@
         vram_reserve_mb: vramReserve,
         max_temp_c: maxTemp,
         power_mode: powerMode,
+        fan_control_mode: fanMode,
+        fan_target_percent: fanTarget,
         enable_kiosk: enableKiosk,
         auto_update: autoUpdate,
         auto_system_upgrade: autoSystemUpgrade,
@@ -1626,7 +1833,7 @@
       };
 
       try {
-        const res = await fetch('/api/config', {
+        const res = await apiFetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1643,11 +1850,29 @@
       }
     }
 
+    async function applyFanProfile() {
+      const mode = document.getElementById('cfg-fan-mode')?.value || 'safe_auto';
+      const target = parseInt(document.getElementById('cfg-fan-target')?.value, 10) || 60;
+      try {
+        const res = await apiFetch('/api/fan/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode, target_percent: target }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.status || 'Der GPU-Treiber unterstützt diesen Modus nicht.');
+        showToast('✓ Lüfterprofil angewendet.');
+        updateDashboard();
+      } catch (error) {
+        showToast('Lüfterprofil nicht angewendet: ' + (error.message || error), false);
+      }
+    }
+
     async function runOSUpgrade() {
       if (!confirm('Möchtest du das Betriebssystem (Debian Kernel, Treiber & Sicherheitspakete) jetzt im Hintergrund aktualisieren?')) return;
       showToast('OS-Upgrade wird im Hintergrund ausgeführt (apt-get update & upgrade)...');
       try {
-        const res = await fetch('/api/action/os_upgrade', { method: 'POST' });
+        const res = await apiFetch('/api/action/os_upgrade', { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
           showToast('✓ OS-Upgrade erfolgreich gestartet: ' + data.message);
@@ -1662,7 +1887,7 @@
     async function restartDaemon() {
       if (!confirm('Restart the ComputeMesh AI Daemon?')) return;
       try {
-        await fetch('/api/action/restart_daemon', { method: 'POST' });
+        await apiFetch('/api/action/restart_daemon', { method: 'POST' });
         showToast('Inference daemon restarting...');
       } catch (e) {
         showToast('Action failed: ' + e, false);
@@ -1672,7 +1897,7 @@
     async function rebootNode() {
       if (!confirm('Are you sure you want to reboot the entire Node appliance?')) return;
       try {
-        await fetch('/api/action/reboot', { method: 'POST' });
+        await apiFetch('/api/action/reboot', { method: 'POST' });
         showToast('Node is rebooting now...');
       } catch (e) {
         showToast('Reboot command sent.', true);
@@ -1689,7 +1914,7 @@
       const section = document.getElementById('usb-clone-section');
       if (!section) return;
       try {
-        const res = await fetch('/api/action/boot_source');
+        const res = await apiFetch('/api/action/boot_source');
         const data = await res.json();
         if (!data.booted_from_usb || !data.targets || data.targets.length === 0) {
           section.style.display = 'none';
@@ -1721,7 +1946,7 @@
         ` werden UNWIDERRUFLICH gelöscht und durch das USB-Bootmedium ersetzt.\n\nDies kann nicht rückgängig gemacht werden.`
       )) return;
       try {
-        const res = await fetch('/api/action/clone_to_ssd', {
+        const res = await apiFetch('/api/action/clone_to_ssd', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ target_device: target, confirm: confirmText, block_size_mb: blockSize }),
@@ -1760,7 +1985,7 @@
 
     async function pollUsbCloneProgress() {
       try {
-        const res = await fetch('/api/action/clone_status');
+        const res = await apiFetch('/api/action/clone_status');
         const s = await res.json();
         const formBody = document.getElementById('usb-clone-form-body');
         const progressEl = document.getElementById('usb-clone-progress');
@@ -1820,13 +2045,13 @@
     async function checkAndApplyOTAUpdate() {
       showToast('Prüfe auf kryptografisch signierte Updates via Ed25519...');
       try {
-        const res = await fetch('/api/action/check_update');
+        const res = await apiFetch('/api/action/check_update');
         const data = await res.json();
         updateReleaseStatus(data);
         if (data.update_available) {
           if (confirm(`Neues signiertes Release v${data.version} verfügbar!\n\nEd25519-Signatur: GÜLTIG ✓\nSHA-256: Verifiziert\n\nMöchtest du das Over-the-Air (OTA) Update jetzt sicher installieren?`)) {
             showToast('Lade Update herunter und installiere...');
-            const applyRes = await fetch('/api/action/apply_update', { method: 'POST' });
+            const applyRes = await apiFetch('/api/action/apply_update', { method: 'POST' });
             const applyData = await applyRes.json();
             if (applyRes.ok) {
               showToast('✓ Update erfolgreich installiert! Daemon wird neu gestartet...');
@@ -1870,7 +2095,7 @@
 
     async function refreshReleaseStatus() {
       try {
-        const res = await fetch('/api/action/check_update', { cache: 'no-store' });
+        const res = await apiFetch('/api/action/check_update', { cache: 'no-store' });
         if (!res.ok) return;
         updateReleaseStatus(await res.json());
       } catch (e) {
@@ -1885,7 +2110,10 @@
     function handleInitialRouting() {
       const hash = window.location.hash;
       const search = window.location.search;
-      if (hash === '#config' || hash === '#metamask' || search.includes('metamask') || search.includes('config')) {
+      if (hash === '#models') {
+        switchTab('models');
+        refreshModels();
+      } else if (hash === '#config' || hash === '#metamask' || search.includes('metamask') || search.includes('config')) {
         switchTab('config');
         if (hash === '#metamask' || search.includes('metamask')) {
           setTimeout(() => {
@@ -1914,410 +2142,11 @@
     window.addEventListener('hashchange', handleInitialRouting);
     window.addEventListener('popstate', handleInitialRouting);
 
-
-    // --- MODELS & HUGGINGFACE TAB LOGIC ---
-    let modelsTabPolling = null;
-
-    async function loadModelsTab(showNotification = false) {
-      try {
-        // 1. Fetch Engine Status
-        const engineRes = await fetch('/api/models/engine/status');
-        if (engineRes.ok) {
-          const engine = await engineRes.json();
-          renderEngineStatus(engine);
-        }
-
-        // 2. Fetch Local Models & Storage
-        const localRes = await fetch('/api/models/local');
-        if (localRes.ok) {
-          const localData = await localRes.json();
-          renderLocalModels(localData);
-        }
-
-        // 3. Fetch Active Downloads
-        const dlRes = await fetch('/api/models/downloads');
-        if (dlRes.ok) {
-          const dlData = await dlRes.json();
-          renderDownloads(dlData.downloads || []);
-        }
-
-        // 4. Default Curated Models if empty
-        const resultsEl = document.getElementById('hf-results-grid');
-        if (resultsEl && !resultsEl.hasChildNodes()) {
-          searchHuggingFace('');
-        }
-
-        if (showNotification) showToast('✓ Modelldaten aktualisiert.');
-      } catch (e) {
-        console.error('Error loading models tab:', e);
-      }
-    }
-
-    function renderEngineStatus(engine) {
-      const badge = document.getElementById('engine-status-badge');
-      const desc = document.getElementById('engine-status-desc');
-      const btnDeact = document.getElementById('btn-engine-deactivate');
-      const gpuBars = document.getElementById('engine-gpu-bars');
-
-      if (!badge) return;
-
-      badge.textContent = engine.state || 'IDLE';
-      if (engine.state === 'READY') {
-        badge.style.background = 'rgba(16, 185, 129, 0.2)';
-        badge.style.color = 'var(--accent-emerald)';
-        badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-        desc.textContent = `Aktiv: ${engine.active_model_id || 'Modell'} • Uptime: ${engine.uptime_seconds}s • Aktive Streams: ${engine.active_streams}`;
-        if (btnDeact) btnDeact.style.display = 'inline-block';
-      } else if (engine.state === 'STARTING' || engine.state === 'SMOKETEST') {
-        badge.style.background = 'rgba(245, 158, 11, 0.2)';
-        badge.style.color = 'var(--accent-amber)';
-        badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-        desc.textContent = `Starte Modell und führe 1-Token Smoketest auf GPUs durch...`;
-        if (btnDeact) btnDeact.style.display = 'none';
-      } else if (engine.state === 'DRAINING') {
-        badge.style.background = 'rgba(244, 63, 94, 0.2)';
-        badge.style.color = 'var(--accent-rose)';
-        badge.style.borderColor = 'rgba(244, 63, 94, 0.4)';
-        desc.textContent = `Draining: Warte auf Beendigung aktiver Inferenz-Streams...`;
-        if (btnDeact) btnDeact.style.display = 'none';
-      } else {
-        badge.style.background = 'rgba(255, 255, 255, 0.1)';
-        badge.style.color = 'var(--text-dim)';
-        badge.style.borderColor = 'var(--border-color)';
-        desc.textContent = 'Kein Modell aktiv geladen. Wähle unten ein Modell zum Starten auf den GPUs.';
-        if (btnDeact) btnDeact.style.display = 'none';
-      }
-
-      if (gpuBars && Array.isArray(engine.gpus)) {
-        gpuBars.innerHTML = '';
-        engine.gpus.forEach(g => {
-          const usedMb = Math.round(g.vram_used_bytes / (1024*1024));
-          const totalMb = Math.round(g.vram_total_bytes / (1024*1024));
-          const pct = totalMb > 0 ? Math.round((usedMb / totalMb) * 100) : 0;
-          const card = document.createElement('div');
-          card.style.cssText = 'background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem;';
-          card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #fff;">
-              <span>GPU ${g.index}: ${g.name}</span>
-              <span style="color: var(--accent-cyan);">${g.allocated_layers} Layers</span>
-            </div>
-            <div style="font-size: 0.72rem; color: var(--text-dim); margin: 0.2rem 0;">Split: ${(g.split_fraction * 100).toFixed(1)}% • ${usedMb} MB / ${totalMb} MB</div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 3px; height: 6px; overflow: hidden;">
-              <div style="background: var(--accent-cyan); height: 100%; width: ${pct}%;"></div>
-            </div>
-          `;
-          gpuBars.appendChild(card);
-        });
-      }
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    function renderLocalModels(data) {
-      const spaceEl = document.getElementById('storage-space-label');
-      const listEl = document.getElementById('local-models-list');
-
-      if (spaceEl && data.storage) {
-        spaceEl.textContent = `Freier Speicher auf NVMe/SSD: ${data.storage.free_gb} GB von ${data.storage.total_gb} GB frei (${data.storage.storage_dir})`;
-      }
-
-      if (listEl) {
-        if (!data.models || data.models.length === 0) {
-          listEl.innerHTML = '<div style="color: var(--text-dim); font-size: 0.88rem; padding: 1rem; text-align: center;">Noch keine lokalen GGUF-Modelle heruntergeladen. Nutze die Suche unten.</div>';
-          return;
-        }
-
-        listEl.innerHTML = '';
-        data.models.forEach(m => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.85rem 1.1rem; flex-wrap: wrap; gap: 0.75rem;';
-
-          const infoDiv = document.createElement('div');
-          const titleDiv = document.createElement('div');
-          titleDiv.style.cssText = 'font-weight: 700; color: #fff; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;';
-          const nameSpan = document.createElement('span');
-          nameSpan.textContent = m.filename;
-          titleDiv.appendChild(nameSpan);
-
-          if (m.is_active) {
-            const activeBadge = document.createElement('span');
-            activeBadge.style.cssText = 'background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700;';
-            activeBadge.textContent = 'AKTIV';
-            titleDiv.appendChild(activeBadge);
-          }
-          infoDiv.appendChild(titleDiv);
-
-          const metaDiv = document.createElement('div');
-          metaDiv.style.cssText = 'font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;';
-          metaDiv.textContent = `Größe: ${m.size_gb} GB • Kontext: ${m.context_length} • Layers: ${m.layers} • Geändert: ${(m.modified_at || '').slice(0, 16).replace('T', ' ')}`;
-          infoDiv.appendChild(metaDiv);
-          row.appendChild(infoDiv);
-
-          const actionsDiv = document.createElement('div');
-          actionsDiv.style.cssText = 'display: flex; gap: 0.5rem; align-items: center;';
-
-          if (m.is_active) {
-            const stopBtn = document.createElement('button');
-            stopBtn.className = 'btn';
-            stopBtn.style.cssText = 'background: rgba(244, 63, 94, 0.2); border: 1px solid rgba(244, 63, 94, 0.4); color: var(--accent-rose); font-weight: 700; padding: 0.45rem 0.9rem; font-size: 0.85rem;';
-            stopBtn.textContent = 'Stoppen';
-            stopBtn.onclick = () => deactivateModel();
-            actionsDiv.appendChild(stopBtn);
-          } else {
-            const startBtn = document.createElement('button');
-            startBtn.className = 'btn btn-primary';
-            startBtn.style.cssText = 'padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 700;';
-            startBtn.textContent = '🚀 Starten auf Multi-GPU';
-            startBtn.onclick = () => activateModel(m.filename, m.layers, m.context_length);
-            actionsDiv.appendChild(startBtn);
-          }
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'btn';
-          delBtn.style.cssText = 'background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--border-color); padding: 0.45rem 0.75rem; font-size: 0.85rem;';
-          delBtn.textContent = '🗑️';
-          delBtn.title = 'Modell löschen';
-          delBtn.onclick = () => deleteModel(m.filename);
-          actionsDiv.appendChild(delBtn);
-
-          row.appendChild(actionsDiv);
-          listEl.appendChild(row);
-        });
-      }
-    }
-
-    function renderDownloads(downloads) {
-      const section = document.getElementById('active-downloads-section');
-      const list = document.getElementById('active-downloads-list');
-
-      const activeList = downloads.filter(d => d.status === 'DOWNLOADING' || d.status === 'VERIFYING' || d.status === 'PENDING');
-      if (!section || !list) return;
-
-      if (activeList.length === 0) {
-        section.style.display = 'none';
-        return;
-      }
-
-      section.style.display = 'block';
-      list.innerHTML = '';
-      activeList.forEach(d => {
-        const item = document.createElement('div');
-        item.style.cssText = 'background: rgba(0,0,0,0.4); border-radius: 6px; padding: 0.65rem; border: 1px solid rgba(0, 240, 255, 0.2);';
-
-        const topRow = document.createElement('div');
-        topRow.style.cssText = 'display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;';
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = `${d.filename} (${d.status})`;
-        const statSpan = document.createElement('span');
-        statSpan.style.color = 'var(--accent-cyan)';
-        statSpan.textContent = `${d.percent}% • ${d.speed_mb_s} MB/s`;
-        topRow.appendChild(nameSpan);
-        topRow.appendChild(statSpan);
-        item.appendChild(topRow);
-
-        const barBg = document.createElement('div');
-        barBg.style.cssText = 'background: rgba(255,255,255,0.1); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 0.35rem;';
-        const barFill = document.createElement('div');
-        barFill.style.cssText = `background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); height: 100%; width: ${d.percent}%;`;
-        barBg.appendChild(barFill);
-        item.appendChild(barBg);
-
-        const botRow = document.createElement('div');
-        botRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
-        const sizeSpan = document.createElement('span');
-        sizeSpan.style.cssText = 'font-size: 0.75rem; color: var(--text-dim);';
-        sizeSpan.textContent = `${(d.downloaded_bytes / (1024**3)).toFixed(2)} GB / ${(d.total_bytes / (1024**3)).toFixed(2)} GB`;
-        botRow.appendChild(sizeSpan);
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.style.cssText = 'background: transparent; border: none; color: var(--accent-rose); cursor: pointer; font-size: 0.75rem; font-weight: 700;';
-        cancelBtn.textContent = 'Abbrechen';
-        cancelBtn.onclick = () => cancelDownload(d.download_id);
-        botRow.appendChild(cancelBtn);
-
-        item.appendChild(botRow);
-        list.appendChild(item);
-      });
-    }
-
-    async function searchHuggingFace(query = null) {
-      const q = (query !== null) ? query : (document.getElementById('hf-search-input').value || '');
-      const resultsGrid = document.getElementById('hf-results-grid');
-      if (!resultsGrid) return;
-
-      resultsGrid.innerHTML = '<div style="color: var(--text-dim); font-size: 0.88rem;">Suche auf Hugging Face...</div>';
-
-      try {
-        const res = await fetch(`/api/models/huggingface/search?q=${encodeURIComponent(q)}`);
-        if (!res.ok) throw new Error('Search failed');
-        const data = await res.json();
-        resultsGrid.innerHTML = '';
-
-        if (!data.results || data.results.length === 0) {
-          resultsGrid.innerHTML = '<div style="color: var(--text-dim); font-size: 0.88rem;">Keine passenden GGUF-Modelle gefunden.</div>';
-          return;
-        }
-
-        data.results.forEach(m => {
-          const card = document.createElement('div');
-          card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;';
-          const sizeGb = m.size_bytes > 0 ? (m.size_bytes / (1024**3)).toFixed(1) + ' GB' : 'Variabel';
-
-          const infoBlock = document.createElement('div');
-          const title = document.createElement('div');
-          title.style.cssText = 'font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 0.25rem;';
-          title.textContent = m.name;
-          infoBlock.appendChild(title);
-
-          const idEl = document.createElement('div');
-          idEl.style.cssText = 'font-size: 0.78rem; color: var(--text-dim); font-family: var(--font-mono); word-break: break-all; margin-bottom: 0.5rem;';
-          idEl.textContent = m.id;
-          infoBlock.appendChild(idEl);
-
-          const badges = document.createElement('div');
-          badges.style.cssText = 'display: flex; gap: 0.4rem; flex-wrap: wrap;';
-          badges.innerHTML = `
-            <span style="background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: var(--accent-cyan); font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600;">${escapeHtml(sizeGb)}</span>
-            <span style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--accent-blue); font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600;">Min. ${escapeHtml(m.recommended_vram_gb || 16)} GB VRAM</span>
-            <span style="background: rgba(255,255,255,0.05); color: var(--text-dim); font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px;">${escapeHtml(m.license || 'Open')}</span>
-          `;
-          infoBlock.appendChild(badges);
-          card.appendChild(infoBlock);
-
-          const dlBtn = document.createElement('button');
-          dlBtn.className = 'btn btn-primary';
-          dlBtn.style.cssText = 'width: 100%; justify-content: center; font-size: 0.85rem; font-weight: 700; padding: 0.6rem;';
-          dlBtn.textContent = '⬇️ Download & Verifizieren';
-          dlBtn.onclick = () => startHfDownload(m.url, m.filename, m.id, m.size_bytes);
-          card.appendChild(dlBtn);
-
-          resultsGrid.appendChild(card);
-        });
-      } catch (e) {
-        resultsGrid.innerHTML = `<div style="color: var(--accent-rose); font-size: 0.88rem;">Fehler bei der Suche: ${escapeHtml(e.message)}</div>`;
-      }
-    }
-
-    async function startHfDownload(url, filename, repoId, sizeBytes) {
-      if (!confirm(`Möchtest du das Modell "${filename}" (${(sizeBytes / (1024**3)).toFixed(1)} GB) herunterladen?
-
-Der Download wird atomar auf die NVMe-Partition gespeichert.`)) return;
-      showToast('Download wird gestartet...');
-      try {
-        const res = await fetch('/api/models/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: url,
-            filename: filename,
-            repo_id: repoId,
-            expected_size_bytes: sizeBytes,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          showToast('✓ Download erfolgreich gestartet!');
-          loadModelsTab();
-        } else {
-          showToast('Fehler: ' + (data.error ? data.error.message : 'Download fehlgeschlagen'), false);
-        }
-      } catch (e) {
-        showToast('Fehler beim Starten des Downloads: ' + e, false);
-      }
-    }
-
-    async function cancelDownload(dlId) {
-      if (!confirm('Download wirklich abbrechen?')) return;
-      try {
-        await fetch('/api/models/download/cancel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ download_id: dlId }),
-        });
-        showToast('Download abgebrochen.');
-        loadModelsTab();
-      } catch (e) {
-        showToast('Fehler beim Abbrechen: ' + e, false);
-      }
-    }
-
-    async function activateModel(filename, layers, context) {
-      if (!confirm(`Modell "${filename}" auf allen verfügbaren GPUs starten?
-
-Der NodeOS Supervisor führt eine Layer-Aufteilung und einen 1-Token Smoketest durch.`)) return;
-      showToast('Starte Modell auf Multi-GPU Engine...');
-      try {
-        const res = await fetch('/api/models/activate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: filename,
-            model_id: filename.replace('.gguf', ''),
-            layers: layers || 32,
-            context_size: context || 8192,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          showToast('✓ Modell erfolgreich auf Multi-GPU Engine gestartet und verifiziert!');
-          loadModelsTab();
-        } else {
-          showToast('Start fehlgeschlagen: ' + (data.error ? data.error.message : 'Fehler'), false);
-          loadModelsTab();
-        }
-      } catch (e) {
-        showToast('Fehler beim Starten: ' + e, false);
-      }
-    }
-
-    async function deactivateModel() {
-      if (!confirm('Laufendes Modell stoppen und GPU-VRAM freigeben?')) return;
-      showToast('Modell wird im Draining-Modus entladen...');
-      try {
-        const res = await fetch('/api/models/deactivate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ drain_timeout: 10.0 }),
-        });
-        if (res.ok) {
-          showToast('✓ Modell entladen.');
-          loadModelsTab();
-        }
-      } catch (e) {
-        showToast('Fehler beim Entladen: ' + e, false);
-      }
-    }
-
-    async function deleteModel(filename) {
-      if (!confirm(`Möchtest du das Modell "${filename}" wirklich unwiderruflich von der Festplatte löschen?`)) return;
-      try {
-        const res = await fetch('/api/models/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: filename }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          showToast('✓ Modell gelöscht.');
-          loadModelsTab();
-        } else {
-          showToast('Fehler: ' + (data.error ? data.error.message : 'Löschen fehlgeschlagen'), false);
-        }
-      } catch (e) {
-        showToast('Fehler beim Löschen: ' + e, false);
-      }
-    }
-
     setInterval(updateDashboard, 3000);
-    setInterval(() => { const t = document.getElementById("tab-models"); if (t && t.classList.contains("active")) loadModelsTab(); }, 3000);
+    setInterval(() => {
+      const modelsTab = document.getElementById('tab-models');
+      if (modelsTab && modelsTab.classList.contains('active')) refreshModels();
+    }, 3000);
     setInterval(refreshReleaseStatus, 300000);
   </script>
 </body>

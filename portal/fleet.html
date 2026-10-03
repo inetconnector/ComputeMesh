@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
-  <link rel="stylesheet" href="/portal.css?v=4.3">
+  <link rel="stylesheet" href="/portal.css?v=4.0">
   <style>
     :root {
       --fleet-bg: #090d16;
@@ -84,7 +84,7 @@
     .auth-tabs {
       display: flex;
       gap: 0.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 1.5rem;
       padding-bottom: 0.5rem;
       flex-wrap: wrap;
@@ -92,70 +92,57 @@
 
     .auth-tab-btn {
       background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-muted);
-      padding: 0.4rem 0.85rem;
-      font-size: 0.85rem;
-      font-weight: 500;
-      border-radius: var(--radius-sm, 6px);
+      border: none;
+      color: #94a3b8;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
+      transition: all 0.2s;
     }
 
     .auth-tab-btn:hover {
       color: #f8fafc;
       background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(56, 189, 248, 0.2);
     }
 
     .auth-tab-btn.active {
       color: var(--accent-cyan);
       background: rgba(56, 189, 248, 0.12);
-      border-color: rgba(56, 189, 248, 0.35);
-      font-weight: 600;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
     }
 
     .cockpit-tabs {
       display: flex;
-      gap: 0.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 1.5rem;
-      padding-bottom: 0.6rem;
+      gap: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1.75rem;
+      padding-bottom: 0.75rem;
       flex-wrap: wrap;
     }
 
     .cockpit-tab-btn {
       background: rgba(15, 23, 42, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      color: var(--text-muted);
-      padding: 0.4rem 0.85rem;
-      font-size: 0.85rem;
-      font-weight: 500;
-      border-radius: var(--radius-sm, 6px);
+      color: #94a3b8;
+      padding: 0.65rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      white-space: nowrap;
+      transition: all 0.2s;
     }
 
     .cockpit-tab-btn:hover {
       color: #f8fafc;
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(56, 189, 248, 0.25);
+      border-color: rgba(56, 189, 248, 0.3);
     }
 
     .cockpit-tab-btn.active {
-      color: var(--accent-cyan);
-      background: rgba(56, 189, 248, 0.12);
-      border-color: rgba(56, 189, 248, 0.35);
-      font-weight: 600;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+      color: #ffffff;
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
     }
 
     .btn-local-manage-fleet {
@@ -553,7 +540,10 @@
 <body>
 
   <!-- Top Navigation Header -->
+  <!-- Top Navigation Header (2-Row Layout) -->
+  <!-- Top Navigation Header (2-Row Layout) -->
   <header class="site-header">
+    <!-- Row 1: Brand & Actions -->
     <div class="container nav-top-row">
       <a href="/" class="brand">
         <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
@@ -576,20 +566,99 @@
       </div>
     </div>
 
-    <!-- Row 2: Navigation Links -->
+    <!-- Row 2: Sub-Row Navigation Links & Dropdowns -->
     <nav class="nav-sub-row">
       <div class="container nav-sub-container">
         <ul class="nav-links">
-          <li><a href="/" data-i18n="nav_home">Home</a></li>
-          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
-          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
-          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          <li class="nav-item has-dropdown">
+            <a href="/#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/#playground" class="dropdown-item">
+                <span class="item-icon">⚡</span>
+                <div>
+                  <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
+                  <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
+                </div>
+              </a>
+              <a href="/#marketplace" class="dropdown-item">
+                <span class="item-icon">🖥️</span>
+                <div>
+                  <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
+                  <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
+                </div>
+              </a>
+              <a href="/#models" class="dropdown-item">
+                <span class="item-icon">📚</span>
+                <div>
+                  <strong data-i18n="nav_prod_models">Model Library</strong>
+                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
+                </div>
+              </a>
+              <a href="/#lan-mesh" class="dropdown-item">
+                <span class="item-icon">🏠</span>
+                <div>
+                  <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
+                  <p data-i18n="nav_prod_lan_sub">Zero-Config &amp; 100% kostenlose lokale Inferenz</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li class="nav-item has-dropdown">
+            <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <div class="dropdown-menu">
+              <a href="/#downloads" class="dropdown-item">
+                <span class="item-icon">🤖</span>
+                <div>
+                  <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
+                  <p data-i18n="nav_app_localcode_sub">Download &amp; Autonome IDE-Übersicht</p>
+                </div>
+              </a>
+              <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🛡️</span>
+                <div>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Security</strong>
+                  <p data-i18n="nav_app_aegis_sub">Zero-Knowledge Prompt-Firewall &amp; Datenschutz</p>
+                </div>
+              </a>
+              <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">🌳</span>
+                <div>
+                  <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogie &amp; historische Dokumenten-KI</p>
+                </div>
+              </a>
+              <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📅</span>
+                <div>
+                  <strong data-i18n="nav_app_today">Today Assistant</strong>
+                  <p data-i18n="nav_app_today_sub">Tagesbriefing, smarte Aufgaben &amp; Kalender-Agent</p>
+                </div>
+              </a>
+              <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📱</span>
+                <div>
+                  <strong data-i18n="nav_app_hub">Google Play Store</strong>
+                  <p data-i18n="nav_app_hub_sub">Offizielle Android-Apps von InetConnector</p>
+                </div>
+              </a>
+              <a href="https://github.com/inetconnector" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">💻</span>
+                <div>
+                  <strong data-i18n="nav_app_github">GitHub Ecosystem</strong>
+                  <p data-i18n="nav_app_github_sub">Open Source, Python SDK, ControlPlane &amp; Tools</p>
+                </div>
+              </a>
+            </div>
+          </li>
+          <li><a href="/#marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/#models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
           <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
-          <li><a href="/fleet" class="active" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
-          <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
+          <li><a href="/fleet" data-i18n="nav_fleet">⚡ Flotte verwalten</a></li>
         </ul>
       </div>
     </nav>
@@ -727,6 +796,9 @@
       <div class="cockpit-tabs">
         <button id="btn-cockpit-servers" class="cockpit-tab-btn active" onclick="switchCockpitView('servers')">
           <span data-i18n="fleet_nav_tab_servers">⚡ Verbundene Server</span>
+        </button>
+        <button id="btn-cockpit-chatui" class="cockpit-tab-btn" onclick="openChatWindow()">
+          <span data-i18n="fleet_nav_tab_chatui">💬 AI-Chat</span>
         </button>
         <button id="btn-cockpit-mcp" class="cockpit-tab-btn" onclick="switchCockpitView('mcp')">
           <span data-i18n="fleet_nav_tab_mcp">🔌 MCP &amp; Live-Tools</span>
@@ -1422,14 +1494,14 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Linux / macOS (Terminal):</span>
                 <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
-                  <code id="curl-quick-cmd">curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=" | bash</code>
+                  <code id="curl-quick-cmd">curl -sSL -H "X-Owner-Key: &lt;OWNER_KEY&gt;" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash</code>
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('curl-quick-cmd')">📋 Kopieren</button>
                 </div>
 </div>
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Windows (PowerShell):</span>
                 <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
-                  <code id="ps-quick-cmd">irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=" -OutFile OLLAMA-START.bat; .\OLLAMA-START.bat</code>
+                  <code id="ps-quick-cmd">irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="&lt;OWNER_KEY&gt;"} -OutFile OLLAMA-START.bat; .\OLLAMA-START.bat</code>
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('ps-quick-cmd')">📋 Kopieren</button>
                 </div>
               </div>
@@ -2222,50 +2294,21 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
   <div id="deposit-modal" class="modal-backdrop"><div class="modal-box"><button class="modal-close" onclick="closeDepositModal()">&times;</button><h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;" data-i18n="topup_modal_title">💳 Rechenguthaben aufladen</h3><p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;" data-i18n="topup_modal_sub">Lade dein Inferenzguthaben sicher über Stripe Checkout auf. Guthaben verfällt nie und wird nur bei erfolgreicher Token-Generierung abgerechnet.</p><form onsubmit="handleDepositSubmit(event)"><div class="form-group"><label data-i18n="topup_key_lbl">Dein API-Schlüssel:</label><input id="deposit-key-input" type="text" class="form-control" required placeholder="cm_live_..." style="font-family: var(--font-mono);"></div><div class="form-group"><label data-i18n="topup_select_amount_lbl">Aufladebetrag auswählen:</label><select id="deposit-amount-select" class="form-control" style="cursor: pointer;"><option value="10">$10.00 USD (Starter)</option><option value="25" selected>$25.00 USD (Pro)</option><option value="50">$50.00 USD (Scale)</option><option value="100">$100.00 USD (Enterprise Light)</option><option value="500">$500.00 USD (High-Volume)</option></select></div><button id="deposit-submit-btn" type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" data-i18n="btn_topup_proceed">Weiter zum sicheren Checkout →</button></form><div id="deposit-msg-box" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;"></div></div></div>
 
   <!-- Footer -->
-    <!-- Site Footer -->
   <footer class="site-footer">
-    <div class="container footer-grid">
-      <div>
-        <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
-        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
-          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
-        </p>
-      </div>
-      <div>
-        <h4>Produkte</h4>
-        <ul>
-          <li><a href="/marketplace">GPU Marketplace</a></li>
-          <li><a href="/models">Model Library</a></li>
-          <li><a href="/pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads">Downloads</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Entwickler</h4>
-        <ul>
-          <li><a href="/docs">API Dokumentation</a></li>
-          <li><a href="/status">Systemstatus</a></li>
-          <li><a href="/security">Sicherheit &amp; DSGVO</a></li>
-          <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener">GitHub Repositories</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Rechtliches</h4>
-        <ul>
-          <li><a href="/impressum">Impressum</a></li>
-          <li><a href="/privacy">Datenschutz</a></li>
-          <li><a href="/terms">AGB</a></li>
-          <li><a href="/contact">Kontakt</a></li>
-        </ul>
-      </div>
-    </div>
     <div class="container footer-bottom">
-      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+      <div>&copy; 2026 ComputeMesh · InetConnector.com · <span data-i18n="footer_rights">Alle Rechte vorbehalten.</span></div>
+      <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+        <a href="/" data-i18n="nav_home">Startseite</a>
+        <a href="/security" style="color: var(--accent-emerald);" data-i18n="nav_security">Sicherheit & DSGVO</a>
+        <a href="/privacy" data-i18n="nav_privacy">Datenschutz</a>
+        <a href="/terms" data-i18n="nav_terms">AGB</a>
+        <a href="/impressum" data-i18n="nav_impressum">Impressum</a>
+      </div>
     </div>
   </footer>
 
-  <script src="/portal.js?v=2.7"></script>
-  <script src="/portal-core.js?v=2.7"></script>
+  <script src="/portal.js?v=2.8"></script>
+  <script src="/portal-core.js?v=2.8"></script>
   <script>
     let isLoggedIn = false;
     let activeOwnerKey = "";
@@ -3626,12 +3669,12 @@ for chunk in stream:
       const currentKey = (data && data.owner_key) || activeOwnerKey || localStorage.getItem("cm_fleet_owner_key") || "";
 
       if (redirectUrl) {
-        const sep = redirectUrl.includes("?") ? "&" : "?";
-        window.location.href = currentKey ? `${redirectUrl}${sep}key=${encodeURIComponent(currentKey)}` : redirectUrl;
+        // Authentication is carried by the session cookie/header, never by URL.
+        window.location.href = redirectUrl;
         return;
       }
       if (window.location.hostname === "ai.inetconnector.com" || source === "ai_studio") {
-        window.location.href = currentKey ? `/webui/#key=${encodeURIComponent(currentKey)}` : "/webui/";
+        window.location.href = "/webui/";
         return;
       }
 
@@ -3649,7 +3692,7 @@ for chunk in stream:
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm -Headers @{"X-Owner-Key"="${data.owner_key}"} "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${data.owner_key}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(data.owner_key);
         updateFleetPairQr();
@@ -3664,14 +3707,18 @@ for chunk in stream:
 
     async function downloadOllamaScript(type, os) {
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
-      const response = await fetch(`/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}`, {
-        headers: { "X-Owner-Key": key }
-      });
-      if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status})`);
+      const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}`;
+      const response = await fetch(url, { headers: { "X-Owner-Key": key } });
+      if (!response.ok) {
+        const lang = typeof getLang === "function" ? getLang() : "en";
+        const messages = window.portalTranslations || {};
+        const template = messages[lang]?.fleet_download_error || messages.en?.fleet_download_error || "Download failed ({status})";
+        throw new Error(template.replace("{status}", String(response.status)));
+      }
       const blob = await response.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = os === "linux" ? "ollama-mesh-start.sh" : "OLLAMA-MESH-START.bat";
+      a.download = type === "reset" ? `OLLAMA-RESET-DEFAULT.${os === "windows" ? "bat" : "sh"}` : `OLLAMA-MESH-START.${os === "windows" ? "bat" : "sh"}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -3692,7 +3739,6 @@ for chunk in stream:
         const headers = {};
         if (activeOwnerKey) {
           headers["X-Owner-Key"] = activeOwnerKey;
-          url = "/api/portal/fleet";
         }
 
         const res = await fetch(url, { headers });
@@ -3785,7 +3831,7 @@ for chunk in stream:
 
             const dPort = n.dashboard_port || 8080;
             const defaultLocalUrl = (n.candidate_local_urls && n.candidate_local_urls[0])
-              || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : `http://localhost:${dPort}`);
+              || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : '');
 
             card.innerHTML = `
               <div>
@@ -3825,7 +3871,7 @@ for chunk in stream:
                     </svg>
                   </button>
                 </div>
-                ${isOnline ? `
+                ${isOnline && defaultLocalUrl ? `
                   <a id="btn-fleet-local-${escapeHtml(n.node_id)}" href="${defaultLocalUrl}" target="_blank" rel="noopener noreferrer" class="btn-local-manage-fleet" title="${getLang() === 'de' ? 'Lokales Node-Management im Browser öffnen' : 'Open local node dashboard in browser'}">
                     <span style="display:inline-block;width:7px;height:7px;background:#34d399;border-radius:50%;margin-right:6px;box-shadow:0 0 6px #34d399;"></span>
                     ${getLang() === 'de' ? '⚙️ Node verwalten (Lokal) →' : '⚙️ Manage Node (Local) →'}
@@ -3843,8 +3889,6 @@ for chunk in stream:
             // Probe LAN reachability for online node cards
             if (isOnline) {
               const candidateUrls = Array.isArray(n.candidate_local_urls) ? [...n.candidate_local_urls] : [];
-              if (!candidateUrls.includes(`http://localhost:${dPort}`)) candidateUrls.push(`http://localhost:${dPort}`);
-              if (!candidateUrls.includes(`http://127.0.0.1:${dPort}`)) candidateUrls.push(`http://127.0.0.1:${dPort}`);
               if (n.network && Array.isArray(n.network.lan_ips)) {
                 n.network.lan_ips.forEach(ip => {
                   if (ip && !ip.startsWith('127.')) {
@@ -3852,6 +3896,13 @@ for chunk in stream:
                     if (!candidateUrls.includes(u)) candidateUrls.push(u);
                   }
                 });
+              }
+              // A loopback address belongs to the device displaying this page,
+              // not to the provider node. Use it only when no concrete LAN
+              // address was advertised, and let the button remain disabled if
+              // there is no safe management route at all.
+              if (!candidateUrls.length && !defaultLocalUrl) {
+                candidateUrls.push(`http://localhost:${dPort}`, `http://127.0.0.1:${dPort}`);
               }
               probeFleetNode(n.node_id, candidateUrls);
             }
@@ -4135,16 +4186,23 @@ for chunk in stream:
       });
     }
 
-    function updateFleetPairQr() {
+    async function updateFleetPairQr() {
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "");
       const qrImg = document.getElementById("fleet-pair-qr-img");
       if (qrImg && key && key !== "owner_..." && !key.includes("<")) {
-        const pairPayload = `computemesh://pair?gateway=https://mesh.inetconnector.com#owner_key=${encodeURIComponent(key)}`;
-        qrImg.onerror = function() {
-          this.onerror = null;
-          this.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pairPayload)}`;
-        };
-        qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
+        try {
+          const response = await fetch("/api/portal/fleet/enrollment_token", {
+            method: "POST",
+            headers: { "X-Owner-Key": key, "Content-Type": "application/json" },
+            body: "{}",
+          });
+          const data = await response.json();
+          if (!response.ok || !data.enrollment_token) return;
+          const pairPayload = `computemesh://pair?enrollment_token=${encodeURIComponent(data.enrollment_token)}&gateway=https://mesh.inetconnector.com`;
+          qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
+        } catch (error) {
+          console.warn("Enrollment QR could not be refreshed", error);
+        }
       }
     }
 
@@ -4279,11 +4337,11 @@ for chunk in stream:
 
         const curlEl = document.getElementById("curl-quick-cmd");
         if (curlEl) {
-          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${newKey}" | bash`;
+          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${newKey}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${newKey}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${newKey}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(newKey);
 
@@ -4424,6 +4482,7 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/mcp_settings";
+
         const res = await fetch(url, { headers });
         if (res.ok) {
           const data = await res.json();
@@ -4558,6 +4617,7 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
+
         const res = await fetch(url, { headers });
         if (!res.ok) {
           if (res.status === 401 && badge) {
@@ -4764,6 +4824,7 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
+
         const res = await fetch(url, {
           method: "POST",
           headers: headers,
@@ -4799,6 +4860,7 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity/declaration";
+
         const res = await fetch(url, {
           method: "POST",
           headers: headers,
@@ -4837,7 +4899,7 @@ for chunk in stream:
       }
 
       // Check localStorage for saved key
-      const savedKey = localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("apiKey") || localStorage.getItem("cm_token");
+      const savedKey = localStorage.getItem("cm_fleet_owner_key");
       if (savedKey) {
         activeOwnerKey = savedKey;
         document.getElementById("input-owner-key").value = savedKey;

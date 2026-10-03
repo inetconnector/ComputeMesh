@@ -15,7 +15,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
+import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.server.LocalChatServer
 import com.inetconnector.compumesh.service.MeshNodeService
@@ -91,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     onStartNode = { startNodeService() },
                     onStopNode = { stopNodeService() },
                     onSaveFleetConfig = { key, gateway ->
-                        saveFleetConfig(key, gateway)
+                        if (key.startsWith("cmenroll_")) resolveEnrollmentToken(key, gateway) else saveFleetConfig(key, gateway)
                     }
                 )
                 if (pendingUpdate != null) {
@@ -176,12 +182,46 @@ class MainActivity : ComponentActivity() {
         val uri: Uri? = intent?.data
         if (uri != null) {
             val ownerKey = uri.getQueryParameter("owner_key") ?: uri.getQueryParameter("key") ?: ""
+            val enrollmentToken = uri.getQueryParameter("enrollment_token") ?: ""
             val gateway = uri.getQueryParameter("gateway") ?: "https://mesh.inetconnector.com"
 
-            if (ownerKey.isNotBlank()) {
+            if (enrollmentToken.isNotBlank()) {
+                resolveEnrollmentToken(enrollmentToken, gateway)
+            } else if (ownerKey.isNotBlank()) {
                 saveFleetConfig(ownerKey, gateway)
                 Toast.makeText(this, "✓ Erfolgreich mit ComputeMesh Flotte gekoppelt!", Toast.LENGTH_LONG).show()
                 startNodeService()
+            }
+        }
+    }
+
+    private fun resolveEnrollmentToken(token: String, gateway: String) {
+        lifecycleScope.launch {
+            try {
+                val ownerKey = withContext(Dispatchers.IO) {
+                    val endpoint = URL("${gateway.trimEnd('/')}/api/portal/fleet/enrollment/consume")
+                    val connection = endpoint.openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json")
+                    connection.connectTimeout = 6000
+                    connection.readTimeout = 6000
+                    connection.outputStream.use { it.write(JSONObject().put("enrollment_token", token).toString().toByteArray()) }
+                    if (connection.responseCode !in 200..299) {
+                        error(getString(R.string.enrollment_failed_http, connection.responseCode))
+                    }
+                    JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).optString("owner_key")
+                }
+                if (ownerKey.isBlank()) error(getString(R.string.owner_key_missing))
+                saveFleetConfig(ownerKey, gateway)
+                Toast.makeText(this@MainActivity, getString(R.string.pairing_succeeded), Toast.LENGTH_LONG).show()
+                startNodeService()
+            } catch (error: Throwable) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.pairing_failed, error.message ?: getString(R.string.unknown_error)),
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
     }
