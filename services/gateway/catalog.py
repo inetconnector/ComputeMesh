@@ -281,11 +281,7 @@ def resolve_model_id(raw_model: str) -> str:
 
     if live_registry:
         raise ValueError(f"model is not present in the live registry: {raw_model}")
-    if os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "").strip().lower() == "synthetic":
-        preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
-        if preferred:
-            return preferred.id
-    raise ValueError(f"model is not present in the active runtime: {raw_model}")
+    raise ValueError(f"model is not available: {raw_model}")
 
 
 def provider_shares_from_env() -> list[tuple[str, float]]:
