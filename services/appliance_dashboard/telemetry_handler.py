@@ -183,4 +183,16 @@ class TelemetryHandler:
             handler.wfile.write(body)
             return True
 
+        if req_path in ("/api/lan/nodes", "/api/lan/scan"):
+            if not handler._verify_action_auth():
+                handler._send_unauthorized()
+                return True
+            try:
+                from tools.appliance.lan_discovery_scanner import discover_lan_nodes
+                payload = {"nodes": discover_lan_nodes(force=req_path.endswith("/scan")), "scan_scope": "local_private_lan"}
+                handler._send_json(payload)
+            except Exception as exc:
+                handler._send_json({"error": str(exc), "nodes": []}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return True
+
         return False

@@ -1,10 +1,38 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.176` portal live; LAN node `.94` updated, node `.27` remains on `v1.2.175`
+**Release Version:** `v1.2.177` built and signed; live Plesk/NodeOS deployment is pending verification in this handoff. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime`; release commits `58fdef0` and `c9b6b91` are committed, tagged `v1.2.176`, and pushed to the public remote. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+
+## 2026-10-03 v1.2.177 dashboard/security fix tranche
+
+- Removed node auth tokens from tunnel URLs and remote fleet payloads. Protected
+  gateway/portal node views now require an owner session or a short-lived,
+  HttpOnly node session; the legacy `?auth=` URL is not accepted. The direct
+  `/node/<id>/api/status` sibling path is covered by the same authorization.
+- Fixed local management-link selection so a phone does not open its own
+  `localhost:8080`. Concrete advertised LAN addresses are preferred; loopback
+  is only a last-resort probe when no node address exists. The fleet page now
+  disables the local-management action when no safe LAN route is available.
+- Added authenticated, bounded LAN discovery to NodeOS (`/api/lan/nodes` and
+  `/api/lan/scan`). The current read-only scan found `.18:8080` (`1.2.21`,
+  update available), `.27:8080` (`1.2.175`, update available), and `.94:8080`
+  (`1.2.176`, current). Discovery does not enroll or transfer owner secrets.
+- Release builder completed signed `v1.2.177`: Windows SHA-256
+  `9a4b87c9a58dd710c56e1f4d9587be37922f858ffd0b616df4ba7a19604c6184`, Linux
+  SHA-256 `46c4e1d5c6f19b90ce894b532c16ed4670cfe694fdd61fdd73f6a780b619e7c3`,
+  installer SHA-256 unchanged at `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+- Verification: canonical public suite `777/777`, focused portal/gateway
+  session tests `31/31` plus gateway tests `39/39`, compileall and
+  `git diff --check` passed. Browser checks reproduced the old `.27`
+  `localhost` defect and confirmed `.94`, `.27`, and `.18` settings/update
+  controls load; destructive update/restart actions were not triggered.
+- Remaining live gates: deploy and verify `v1.2.177` on both Plesk roots and
+  the authenticated runtime, then update reachable NodeOS instances through
+  their verified admin channel. The eight-GPU machine is still not identified
+  or hardware-authenticated; `.18` is not evidence of eight GPUs.
 
 ## 2026-10-03 v1.2.176 portal and LAN rollout
 

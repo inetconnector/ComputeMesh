@@ -235,8 +235,9 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
         if include_remote_urls and n:
-            auth_token = str(n.get("auth_token", "")).strip()
-            node_entry["remote_url"] = f"/node/{node_id}?auth={auth_token}" if auth_token else None
+            # Authorization is established by the owner session at navigation
+            # time; never expose the node credential in a URL or API payload.
+            node_entry["remote_url"] = f"/node/{node_id}"
         nodes_out.append(node_entry)
 
     # Sort nodes so online nodes appear first
@@ -616,7 +617,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             parts = node_rel.split("/", 1)
             node_id = parts[0].strip()
             sub_path = "/" + parts[1] if len(parts) > 1 else ""
-            auth_token = query.get("auth", [""])[0].strip()
+            auth_token = ""
 
             if sub_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
                 self._handle_props()
@@ -630,11 +631,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if sub_path in ("/api/version", "/version"):
                 self._send_json({"version": "1.2.156", "node_id": node_id})
                 return
-            if sub_path in ("/api/status", "/status"):
-                node_data = NODE_TELEMETRY_REGISTRY.get(node_id, {})
-                self._send_json(node_data)
-                return
-
             if not node_id or node_id not in NODE_TELEMETRY_REGISTRY:
                 self._send_error_response(f"Node '{node_id}' not found in cluster telemetry registry.", "not_found", HTTPStatus.NOT_FOUND)
                 return
@@ -642,16 +638,37 @@ class GatewayHandler(BaseHTTPRequestHandler):
             node_data = NODE_TELEMETRY_REGISTRY[node_id]
             expected_auth_token = str(node_data.get("auth_token", "")).strip()
 
-            # Enforce authentication if node telemetry is protected with an auth token
-            if expected_auth_token:
-                if not auth_token or not hmac.compare_digest(auth_token, expected_auth_token):
-                    self._send_error_response("Unauthorized: Valid auth token required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
-                    return
+            from services.common.node_access import get_node_session, issue_node_session, node_session_cookie
+            from_owner_session = session_account_from_headers(self.headers)
+            session_owner_id = None
+            if from_owner_session is not None:
+                session_owner_id = owner_id_for_key(from_owner_session.owner_key)
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            node_session = get_node_session(self.headers, node_id)
+            authorized_by_owner = bool(session_owner_id and bound_owner_id and session_owner_id == bound_owner_id)
+            authorized_by_session = bool(node_session and node_session.owner_id == bound_owner_id)
 
-            html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
+            # Enforce authentication if node telemetry is protected with an auth token
+            if expected_auth_token and not (authorized_by_owner or authorized_by_session):
+                self._send_error_response("Unauthorized: Valid node session required to view this node's telemetry.", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+
+            if sub_path in ("/api/status", "/status"):
+                self._send_json(node_data)
+                return
+
+            html = render_node_remote_dashboard_html(node_id, "", node_data)
             body = html.encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            if authorized_by_owner and not authorized_by_session:
+                self.send_header(
+                    "Set-Cookie",
+                    node_session_cookie(
+                        issue_node_session(node_id, session_owner_id),
+                        secure=str(getattr(CONFIG.endpoints, "scheme", "https")) == "https",
+                    ),
+                )
             for h_name, h_val in SECURITY_HEADERS.items():
                 self.send_header(h_name, h_val)
             self.send_header("Content-Length", str(len(body)))

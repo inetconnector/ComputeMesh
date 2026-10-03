@@ -837,6 +837,15 @@
             <div style="color: var(--text-dim); padding: 0.35rem 0.5rem;">Ermittle aktive Cluster-Teilnehmer...</div>
           </div>
         </div>
+
+        <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 240, 255, 0.18); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">🔎 Automatisch gefundene LAN-Nodes</div>
+            <button class="btn btn-secondary" type="button" id="lan-scan-button" onclick="scanLanNodes(true)" style="padding: 0.45rem 0.75rem;">LAN erneut scannen</button>
+          </div>
+          <div id="lan-scan-status" class="form-desc">Lokales Netz wird automatisch geprüft...</div>
+          <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;" id="lan-nodes-list"></div>
+        </div>
       </div>
     </div>
 
@@ -1666,8 +1675,55 @@
           fanStatusEl.textContent = fanStatus.message || 'Lüfterstatus nicht verfügbar.';
           fanStatusEl.style.color = fanStatus.control_available ? 'var(--accent-emerald)' : 'var(--accent-amber)';
         }
+        await scanLanNodes(false);
       } catch (err) {
         console.error('Telemetry refresh error:', err);
+      }
+    }
+
+    let lanScanInFlight = false;
+    async function scanLanNodes(force) {
+      if (lanScanInFlight) return;
+      lanScanInFlight = true;
+      const statusEl = document.getElementById('lan-scan-status');
+      const listEl = document.getElementById('lan-nodes-list');
+      const buttonEl = document.getElementById('lan-scan-button');
+      if (buttonEl) buttonEl.disabled = true;
+      try {
+        const endpoint = force ? '/api/lan/scan' : '/api/lan/nodes';
+        const res = await apiFetch(endpoint, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`LAN scan failed (${res.status})`);
+        const payload = await res.json();
+        const nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+        if (statusEl) statusEl.textContent = nodes.length ? `${nodes.length} ComputeMesh-Node(s) im lokalen Netz gefunden.` : 'Keine weiteren ComputeMesh-Nodes im lokalen Netz gefunden.';
+        if (listEl) {
+          listEl.innerHTML = '';
+          if (!nodes.length) {
+            listEl.innerHTML = '<div style="color: var(--text-dim); padding: 0.35rem 0.5rem;">Keine passenden NodeOS-Dashboards antworten.</div>';
+          } else {
+            nodes.forEach(node => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap; padding:0.45rem 0.65rem; border:1px solid rgba(255,255,255,0.06); border-radius:6px;';
+              const version = node.current_version ? `v${node.current_version}${node.update_available ? ' • Update verfügbar' : ''}` : 'Version nicht lesbar';
+              const link = document.createElement('a');
+              link.href = node.url || '#';
+              link.target = '_blank';
+              link.rel = 'noopener';
+              link.style.cssText = 'color:var(--accent-cyan); font-family:var(--font-mono);';
+              link.textContent = `${node.ip}:${node.port}`;
+              const details = document.createElement('span');
+              details.style.color = 'var(--text-dim)';
+              details.textContent = `${node.title || node.product || 'ComputeMesh NodeOS'} • ${version}`;
+              row.append(link, details);
+              listEl.appendChild(row);
+            });
+          }
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `LAN-Scan nicht verfügbar: ${err.message}`;
+      } finally {
+        lanScanInFlight = false;
+        if (buttonEl) buttonEl.disabled = false;
       }
     }
 

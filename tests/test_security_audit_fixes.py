@@ -3,7 +3,7 @@
 Verifies remediation of critical and high-priority vulnerabilities:
 1. True mTLS peer certificate authentication and allowed_client_nodes enforcement.
 2. Node heartbeat token validation preventing unauthorized telemetry tampering.
-3. Remote node dashboard authentication gating (/node/<id>?auth=...).
+3. Remote node dashboard authentication gating without URL credentials.
 4. Stored-XSS escaping in HTML dashboard output.
 5. Rate-limiter authentication gating (unverified Bearer tokens remain in unauthenticated tier).
 6. Trusted-proxy client IP resolution preventing X-Forwarded-For spoofing.
@@ -67,6 +67,7 @@ from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.security import RateLimiter
 from services.gateway.server import GatewayHandler, create_gateway_server
 from services.gateway.teaser import TeaserQuotaManager
+from services.common.node_access import issue_node_session, node_session_cookie
 from services.portal.routes_quotes import PortalQuotesHandler
 from services.portal.server import PortalHandler
 from tools.appliance.appliance_config import ApplianceConfig
@@ -220,6 +221,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         NODE_TELEMETRY_REGISTRY["protected_node_01"] = {
             "node_id": "protected_node_01",
             "auth_token": "correct_dash_token_999",
+            "owner_id": "owner-test",
             "inventory": {"gpus": [{"model_name": "RTX 4090", "vram_bytes": 24 * 1024**3}]},
         }
 
@@ -249,8 +251,9 @@ class TestSecurityAuditFixes(unittest.TestCase):
             self.assertEqual(res.status, HTTPStatus.NOT_FOUND)
             res.read()
 
-            # D. Accessing with correct auth parameter -> 200 OK
-            conn.request("GET", "/node/protected_node_01?auth=correct_dash_token_999")
+            # D. A node session issued after owner authorization -> 200 OK.
+            session = issue_node_session("protected_node_01", "owner-test")
+            conn.request("GET", "/node/protected_node_01", headers={"Cookie": node_session_cookie(session, secure=False)})
             res = conn.getresponse()
             self.assertEqual(res.status, HTTPStatus.OK)
             html_body = res.read().decode("utf-8")
@@ -500,7 +503,8 @@ class TestSecurityAuditFixes(unittest.TestCase):
             data = json.loads(res.read().decode("utf-8"))
             self.assertNotIn("auth_token", data)
             interfaces = data.get("network", {}).get("interfaces", [])
-            self.assertTrue(any("?auth=" in iface.get("url", "") for iface in interfaces))
+            self.assertTrue(interfaces)
+            self.assertTrue(all("?auth=" not in iface.get("url", "") for iface in interfaces))
             conn.close()
         finally:
             dash_server.shutdown()

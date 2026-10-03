@@ -88,11 +88,11 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
         or node_data.get("network", {}).get("dashboard_port")
         or 8080
     )
-    urls: list[str] = [
-        f"http://localhost:{port}",
-        f"http://127.0.0.1:{port}",
-    ]
-    seen = set(urls)
+    # Prefer concrete LAN addresses. A localhost fallback is only useful on
+    # the node itself and sends phones to their own device, which produces an
+    # ERR_CONNECTION_REFUSED page instead of opening the provider node.
+    urls: list[str] = []
+    seen: set[str] = set()
 
     # Check network interfaces and LAN IPs
     net = node_data.get("network", {})
@@ -138,6 +138,9 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
                     urls.append(u)
         except Exception:
             pass
+
+    if not urls:
+        urls.extend([f"http://localhost:{port}", f"http://127.0.0.1:{port}"])
 
     return urls
 

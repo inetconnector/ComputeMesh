@@ -110,7 +110,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.OK)
         self.assertEqual(fleet["total_nodes_bound"], 1)
         self.assertEqual(fleet["total_nodes_online"], 1)
-        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-live?auth=cm_tunnel_deadbeef")
+        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-live")
 
     def test_logout_clears_cookie_session(self) -> None:
         account = self.fleet_store.create_account("owner2@example.com")

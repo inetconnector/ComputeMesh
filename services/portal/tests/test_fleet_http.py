@@ -133,7 +133,7 @@ class TestFleetHttp(unittest.TestCase):
         self.assertEqual(fleet["total_nodes_bound"], 1)
         self.assertEqual(fleet["total_nodes_online"], 1)
         self.assertEqual(fleet["nodes"][0]["node_id"], "rig-01")
-        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-01?auth=cm_tunnel_abc123")
+        self.assertEqual(fleet["nodes"][0]["remote_url"], "/node/rig-01")
 
     def test_portal_fleet_with_direct_owner_key_header_and_query(self) -> None:
         owner_key = "cm_owner_direct_test_key_123"
@@ -155,7 +155,7 @@ class TestFleetHttp(unittest.TestCase):
         data = json.loads(resp.read().decode("utf-8"))
         self.assertEqual(data["total_nodes_bound"], 1)
         self.assertEqual(data["nodes"][0]["node_id"], "node-direct-01")
-        self.assertEqual(data["nodes"][0]["remote_url"], "/node/node-direct-01?auth=cm_tunnel_direct_456")
+        self.assertEqual(data["nodes"][0]["remote_url"], "/node/node-direct-01")
 
         # 2. Via X-Owner-Key Header
         req_hdr = urllib.request.Request(f"{BASE}/api/portal/fleet", headers={"X-Owner-Key": owner_key})

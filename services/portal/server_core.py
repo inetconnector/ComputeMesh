@@ -126,10 +126,18 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
         self.close_connection = True
 
-    def _send_bytes(self, data: bytes, content_type: str, status: int = HTTPStatus.OK) -> None:
+    def _send_bytes(
+        self,
+        data: bytes,
+        content_type: str,
+        status: int = HTTPStatus.OK,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         for h_name, h_val in SECURITY_HEADERS.items():
+            self.send_header(h_name, h_val)
+        for h_name, h_val in (extra_headers or {}).items():
             self.send_header(h_name, h_val)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Connection", "close")
@@ -165,16 +173,30 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         self.close_connection = True
 
-    def _authorize_node_view(self, node_id: str, supplied_token: str) -> tuple[dict[str, Any] | None, HTTPStatus | None]:
+    def _authorize_node_view(self, node_id: str, supplied_token: str) -> tuple[dict[str, Any] | None, HTTPStatus | None, str | None]:
         if not NODE_ID_REGEX.match(node_id):
-            return (None, HTTPStatus.BAD_REQUEST)
+            return (None, HTTPStatus.BAD_REQUEST, None)
         node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
         if not node_data:
-            return (None, HTTPStatus.NOT_FOUND)
+            return (None, HTTPStatus.NOT_FOUND, None)
         expected = str(node_data.get("auth_token", "")).strip()
-        if not expected or not supplied_token or not hmac.compare_digest(supplied_token, expected):
-            return (None, HTTPStatus.UNAUTHORIZED)
-        return (node_data, None)
+        from services.common.node_access import get_node_session, issue_node_session
+        node_session = get_node_session(self.headers, node_id)
+        account = session_account_from_headers(self.headers)
+        session_owner_id = None
+        if account is not None:
+            from services.gateway.server import owner_id_for_key, OWNER_ACCOUNT_STORE
+            session_owner_id = owner_id_for_key(account.owner_key)
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+        else:
+            bound_owner_id = str(node_data.get("owner_id", "")).strip()
+        if not expected:
+            return (node_data, None, None)
+        if node_session and node_session.owner_id == bound_owner_id:
+            return (node_data, None, None)
+        if session_owner_id and bound_owner_id and session_owner_id == bound_owner_id:
+            return (node_data, None, issue_node_session(node_id, session_owner_id))
+        return (None, HTTPStatus.UNAUTHORIZED, None)
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
@@ -340,13 +362,16 @@ class PortalHandler(BaseHTTPRequestHandler):
         # Authenticated Node Remote Dashboard Viewer
         if clean_path.startswith("/node/"):
             node_id = clean_path.removeprefix("/node/").strip()
-            auth_token = query_params.get("auth", [""])[0].strip()
-            node_data, auth_status = self._authorize_node_view(node_id, auth_token)
+            node_data, auth_status, node_session_token = self._authorize_node_view(node_id, "")
             if auth_status is not None:
                 self._send_json({"error": "Node dashboard unavailable or unauthorized"}, auth_status)
                 return
-            html = render_node_remote_dashboard_html(node_id, auth_token, node_data)
-            self._send_bytes(html.encode("utf-8"), "text/html; charset=utf-8")
+            html = render_node_remote_dashboard_html(node_id, "", node_data)
+            extra_headers = {}
+            if node_session_token:
+                from services.common.node_access import node_session_cookie
+                extra_headers["Set-Cookie"] = node_session_cookie(node_session_token, secure=CONFIG.endpoints.scheme == "https")
+            self._send_bytes(html.encode("utf-8"), "text/html; charset=utf-8", extra_headers=extra_headers)
             return
 
         # Authenticated Node Status API for remote dashboard live polling
@@ -354,10 +379,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             parts = clean_path.split("/")
             if len(parts) >= 5:
                 node_id = parts[4]
-                auth_token = query_params.get("auth", [""])[0].strip()
-                if not auth_token:
-                    auth_token = self.headers.get("X-Node-Auth-Token", "").strip()
-                node_data, auth_status = self._authorize_node_view(node_id, auth_token)
+                node_data, auth_status, _ = self._authorize_node_view(node_id, "")
                 if auth_status is not None:
                     self._send_json({"error": "Node status unavailable or unauthorized"}, auth_status)
                     return

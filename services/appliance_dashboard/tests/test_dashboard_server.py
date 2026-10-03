@@ -121,7 +121,7 @@ class TestDashboardServer(unittest.TestCase):
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["node_id"], "supersrv-trixie")
-                self.assertTrue(data["network"]["interfaces"][0]["url"].startswith("https://mesh.inetconnector.com/node/supersrv-trixie?auth="))
+                self.assertEqual(data["network"]["interfaces"][0]["url"], "https://mesh.inetconnector.com/node/supersrv-trixie")
         finally:
             server.shutdown()
             server.server_close()

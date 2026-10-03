@@ -36,7 +36,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.40` ist live unter `https://computemesh.inetconnector.com/updates/version.json`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.177` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions und das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen. Der Live-Stand steht in `state.md`.
 
 ## Was noch nicht versprochen wird
 

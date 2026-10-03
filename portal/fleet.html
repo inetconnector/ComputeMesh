@@ -3823,7 +3823,7 @@ for chunk in stream:
 
             const dPort = n.dashboard_port || 8080;
             const defaultLocalUrl = (n.candidate_local_urls && n.candidate_local_urls[0])
-              || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : `http://localhost:${dPort}`);
+              || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : '');
 
             card.innerHTML = `
               <div>
@@ -3863,7 +3863,7 @@ for chunk in stream:
                     </svg>
                   </button>
                 </div>
-                ${isOnline ? `
+                ${isOnline && defaultLocalUrl ? `
                   <a id="btn-fleet-local-${escapeHtml(n.node_id)}" href="${defaultLocalUrl}" target="_blank" rel="noopener noreferrer" class="btn-local-manage-fleet" title="${getLang() === 'de' ? 'Lokales Node-Management im Browser öffnen' : 'Open local node dashboard in browser'}">
                     <span style="display:inline-block;width:7px;height:7px;background:#34d399;border-radius:50%;margin-right:6px;box-shadow:0 0 6px #34d399;"></span>
                     ${getLang() === 'de' ? '⚙️ Node verwalten (Lokal) →' : '⚙️ Manage Node (Local) →'}
@@ -3881,8 +3881,6 @@ for chunk in stream:
             // Probe LAN reachability for online node cards
             if (isOnline) {
               const candidateUrls = Array.isArray(n.candidate_local_urls) ? [...n.candidate_local_urls] : [];
-              if (!candidateUrls.includes(`http://localhost:${dPort}`)) candidateUrls.push(`http://localhost:${dPort}`);
-              if (!candidateUrls.includes(`http://127.0.0.1:${dPort}`)) candidateUrls.push(`http://127.0.0.1:${dPort}`);
               if (n.network && Array.isArray(n.network.lan_ips)) {
                 n.network.lan_ips.forEach(ip => {
                   if (ip && !ip.startsWith('127.')) {
@@ -3890,6 +3888,13 @@ for chunk in stream:
                     if (!candidateUrls.includes(u)) candidateUrls.push(u);
                   }
                 });
+              }
+              // A loopback address belongs to the device displaying this page,
+              // not to the provider node. Use it only when no concrete LAN
+              // address was advertised, and let the button remain disabled if
+              // there is no safe management route at all.
+              if (!candidateUrls.length && !defaultLocalUrl) {
+                candidateUrls.push(`http://localhost:${dPort}`, `http://127.0.0.1:${dPort}`);
               }
               probeFleetNode(n.node_id, candidateUrls);
             }
