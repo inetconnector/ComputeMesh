@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.180` includes the AI-Chat URL-credential fix plus the cache-busting correction for `portal-core.js`; it is the next signed/live rollout. v1.2.179 is the currently deployed functional baseline. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.181` includes the AI-Chat URL-credential fix and both cache-busting loader corrections; it is the next signed/live rollout. v1.2.180 is the currently deployed functional baseline. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime` at `d5ebb7e`, pushed to `origin/codex/nodeos-model-runtime`, tag `v1.2.178` pushed. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.

@@ -88,9 +88,12 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
     def test_ai_chat_links_never_forward_credentials_in_urls(self) -> None:
         portal_core = (Path(__file__).resolve().parents[1] / "portal" / "portal-core.js").read_text(encoding="utf-8")
+        portal_js = (Path(__file__).resolve().parents[1] / "portal" / "portal.js").read_text(encoding="utf-8")
         webui = (Path(__file__).resolve().parents[1] / "portal" / "webui" / "index.html").read_text(encoding="utf-8")
         self.assertNotIn("ai.inetconnector.com/webui/?key=", portal_core)
         self.assertNotIn("/webui/?key=", portal_core)
+        self.assertNotIn("portal-core.js?v=4.1", portal_js)
+        self.assertIn("portal-core.js?v=4.4", portal_js)
         self.assertIn("cm_session=", webui)
 
     def tearDown(self) -> None:
