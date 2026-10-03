@@ -1,5 +1,34 @@
 # ComputeMesh State
 
+## Release v1.2.175 preparation - 2026-10-03
+
+- Public security PR #95 was merged as main commit `1703d50` after green CI.
+  It removes owner credentials from URL query parameters, requires header/session
+  authentication for owner-scoped routes, and fails closed for unauthenticated
+  fleet reads.
+- The release branch `codex/release-v1.2.175` changes the configured client
+  version from `1.2.174` to `1.2.175`. Build, manifest-signature verification,
+  CI, live-only drift comparison and a pre-deploy backup must complete before
+  production rollout.
+- Local release build completed successfully: Windows
+  `118444245` bytes, SHA-256
+  `7bfbbbc1100d3ad040c663bdb34551333d614beed9cde7f4a708ebcfee4e4f63`; Linux
+  `6928623` bytes, SHA-256
+  `c11fbe169a31c9c3c8db968477a0a11d2e1f5c16852c89a234e4217ef9749a40`; and
+  `install.sh` SHA-256
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+  The Ed25519 manifest signature validated locally. Existing NodeOS ISO/IMG
+  hashes were retained because no NodeOS image source changed.
+- Release verification: `python run_all_tests.py` passed **785/785** in
+  `80.85s`; the security/fleet-focused subset had already passed **40/40**.
+- Post-fix Codex Security scan on the exact security-fix commit `13465ad` found
+  **0 reportable findings** in the reviewed authentication, URL, pairing,
+  download and safety-ordering surfaces. Coverage is explicitly partial because
+  delegated workers were unavailable; the report is retained at the local scan
+  artifact path recorded in the handoff.
+- Live remains v1.2.174 until the signed v1.2.175 artifacts and all endpoint
+  checks are verified.
+
 ## Security hardening after v1.2.174 - 2026-10-03
 
 - The repository security scan identified a medium CWE-598 credential-exposure
