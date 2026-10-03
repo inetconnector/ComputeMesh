@@ -1,10 +1,26 @@
 # ComputeMesh State
 
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-04
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `780/780`; the targeted owner/heartbeat tests and full suite pass after the fleet rebinding changes. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+
+## 2026-10-04 Android production installation
+
+- The connected Samsung `SM-S931B` was checked through ADB. The previous
+  `com.inetconnector.compumesh` installation was uninstalled before installing
+  the fresh production APK; no debug package was left installed.
+- The Android release was built as `release` with the `production` signing
+  configuration, using the canonical DiskStation keystore and alias `key0`.
+  The password and private key material remain outside Git and are not recorded
+  here.
+- APK verification passed with APK Signature Scheme v3. The installed package
+  reports `versionCode=165`, `versionName=1.2.165`, and launched successfully.
+- The production APK was copied to
+  `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.165-production.apk`.
+- Verification commands completed: Gradle `:app:signingReport`, ADB uninstall,
+  ADB install, package/version inspection, app launch, and `apksigner verify`.
 
 ## 2026-10-03 authenticated fleet-owner rebinding
 

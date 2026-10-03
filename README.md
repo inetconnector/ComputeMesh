@@ -9,8 +9,9 @@ capability-aware safe fan profile, and authenticated model/runtime controls.
 The safe fan profile can enforce a temperature-based minimum only when the
 installed GPU driver exposes a writable control backend; unsupported Windows
 drivers are reported as unsupported rather than showing fabricated values.
-The bundled Android WebUI asset is maintained alongside `portal/webui/`, but a
-production Android APK still requires the separate signing/release process.
+The bundled Android WebUI asset is maintained alongside `portal/webui/`. A
+production Android APK is built through the separate signing/release process;
+the current release artifact is published with the Android download assets.
 
 ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 
