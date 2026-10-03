@@ -1364,17 +1364,21 @@ class GatewayHandler(BaseHTTPRequestHandler):
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
 
             owner_binding_error: str | None = None
+            owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
             if owner_id:
                 try:
                     OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
                     OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
-                except OwnerAccountStoreError as exc:
-                    # Do not fail the heartbeat over a fleet-binding conflict
-                    # (e.g. this node_id already belongs to a different
-                    # owner_key) -- telemetry/pricing must keep working.
-                    owner_binding_error = str(exc)
-                    owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+                except OwnerAccountStoreError:
+                    try:
+                        previous_owner = OWNER_ACCOUNT_STORE.rebind_provider_node(owner_id, node_id)
+                        owner_rebound = previous_owner is not None and previous_owner != owner_id
+                    except OwnerAccountStoreError as rebind_exc:
+                        # Do not fail the heartbeat over a fleet-binding
+                        # conflict -- telemetry/pricing must keep working.
+                        owner_binding_error = str(rebind_exc)
+                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
             # If the same physical client (same auth_token) renamed its node_id, retire the previous alias
             for old_id, old_node in list(NODE_TELEMETRY_REGISTRY.items()):
@@ -1455,6 +1459,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "node_id": node_id,
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
+                "owner_rebound": owner_rebound,
                 "tokens_processed": final_tokens,
                 "earnings_cm": provider_payable_micro,
                 "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),

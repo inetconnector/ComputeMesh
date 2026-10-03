@@ -1082,6 +1082,8 @@ class PortalHandler(BaseHTTPRequestHandler):
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
 
             from services.gateway.server import GatewayHandler, OWNER_ACCOUNT_STORE, owner_id_for_key, OwnerAccountStoreError
+            owner_binding_error: str | None = None
+            owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
             if owner_id:
                 if not OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
@@ -1089,7 +1091,12 @@ class PortalHandler(BaseHTTPRequestHandler):
                         OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
                         OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
                     except OwnerAccountStoreError:
-                        owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+                        try:
+                            previous_owner = OWNER_ACCOUNT_STORE.rebind_provider_node(owner_id, node_id)
+                            owner_rebound = previous_owner is not None and previous_owner != owner_id
+                        except OwnerAccountStoreError as rebind_exc:
+                            owner_binding_error = str(rebind_exc)
+                            owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
             # If previous_node_id was explicitly provided (e.g. from an immediate config save rename), unbind and purge it immediately
             previous_node_id = str(body.get("previous_node_id", "")).strip()
@@ -1178,9 +1185,11 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "node_id": node_id,
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
+                "owner_rebound": owner_rebound,
                 "tokens_processed": final_tokens,
                 "earnings_cm": provider_payable_micro,
                 "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
+                **({"owner_binding_error": owner_binding_error} if owner_binding_error else {}),
             }, HTTPStatus.OK)
             return
 

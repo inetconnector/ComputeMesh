@@ -47,6 +47,29 @@ class TestOwnerAccountStore(unittest.TestCase):
         with self.assertRaises(OwnerAccountStoreError):
             self.store.bind_provider_node("bob", "rig-01")
 
+    def test_authenticated_rebind_moves_node_and_clears_unbound_markers(self) -> None:
+        self.store.ensure_owner("alice")
+        self.store.ensure_owner("bob")
+        self.store.bind_provider_node("alice", "rig-01")
+        self.assertTrue(self.store.unbind_provider_node("alice", "rig-01"))
+
+        previous = self.store.rebind_provider_node("bob", "rig-01")
+
+        self.assertEqual(previous, None)
+        self.assertEqual(self.store.owner_for_provider_node("rig-01"), "bob")
+        self.assertFalse(self.store.is_node_unbound("alice", "rig-01"))
+        self.assertFalse(self.store.is_node_unbound("bob", "rig-01"))
+
+    def test_authenticated_rebind_returns_previous_owner(self) -> None:
+        self.store.ensure_owner("alice")
+        self.store.ensure_owner("bob")
+        self.store.bind_provider_node("alice", "rig-01")
+
+        previous = self.store.rebind_provider_node("bob", "rig-01")
+
+        self.assertEqual(previous, "alice")
+        self.assertEqual(self.store.owner_for_provider_node("rig-01"), "bob")
+
     def test_device_claim_is_owner_bound_but_assurance_can_update(self) -> None:
         self.store.ensure_owner("alice")
         self.store.bind_device("alice", "cmhw-abc", assurance_tier="UNVERIFIED")

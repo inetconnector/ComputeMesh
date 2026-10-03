@@ -1,10 +1,47 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots, and both LAN nodes now report `1.2.183`. The six-GPU LAN node `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. The NVIDIA node `.94` has no safe manual fan-control backend but has about 281 GB free storage.
+**Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.183 diagnostics work and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `780/780`; the targeted owner/heartbeat tests and full suite pass after the fleet rebinding changes. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.184 release and fleet-binding work and is tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+
+## 2026-10-03 authenticated fleet-owner rebinding
+
+- `OwnerAccountStore.rebind_provider_node()` now atomically moves a node to the
+  owner represented by its authenticated heartbeat key and clears stale unbound
+  markers. It never derives ownership from IP address or LAN discovery.
+- Gateway and portal heartbeats keep the existing node-token check, perform the
+  explicit rebind only after that check, and return `owner_rebound` for operator
+  visibility. Failed rebinding remains fail-safe and preserves the previous
+  durable owner binding.
+- The live gateway was backed up at
+  `/root/computemesh-backups/owner-rebind-before-20261003-232700`, patched with
+  guarded replacements so unrelated dirty live changes were preserved, compiled,
+  and restarted successfully.
+- `.27` already carried the current owner key. `.94` was online but had an empty
+  owner key; its authenticated dashboard config was updated from `.27`, after
+  which both nodes heartbeated under `acct_37d8e2ecdc6a8727b0f99273` and the live
+  fleet endpoint returned exactly `cm-inference-node-01` and `test-node-custom`.
+- The full canonical suite passed `780/780` before the release version bump.
+
+## 2026-10-03 v1.2.184 release and node rollout
+
+- The version fallback in `ComputeMeshConfig.from_env()` was corrected so the
+  release builder cannot silently produce an older version than the dataclass
+  default. `tools/build_all_releases.py` then built and signed `v1.2.184`.
+- Canonical verification after the build passed `780/780` tests, with zero
+  failures or errors. `git diff --check` passed; the expected PowerShell CRLF
+  normalization warning for `portal/updates/version.json` is non-functional.
+- Artifact hashes are recorded in the signed manifest. Both
+  `/var/www/vhosts/inetconnector.com/site2` and
+  `/var/www/vhosts/inetconnector.com/httpdocs` now contain the same release
+  files under `downloads/` and `updates/version.json`; public HTTP checks for
+  both domains returned `200` and version `1.2.184`.
+- `.27` updated successfully to `1.2.184`. `.94` required a longer update
+  window, rebooted during the operation, and then reported `1.2.184`; its Owner
+  Key was restored through the authenticated dashboard config endpoint after
+  reboot. The live fleet endpoint again returned both LAN nodes.
 
 ## 2026-10-03 v1.2.183 fan and model-storage diagnostics
 

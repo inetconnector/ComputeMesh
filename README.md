@@ -69,7 +69,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.183` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, and warns when model storage is too small or not persistent. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
+Current signed client/update channel: `v1.2.184` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, warns when model storage is too small or not persistent, and lets an authenticated node follow the fleet owner key after a stale binding. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
 
 ## What Is Not Promised Yet
 

@@ -71,9 +71,10 @@ class OwnerAccountStore:
     - one onboarding claim class can be granted only once per owner;
     - one physical claim id cannot fund the same promo class for multiple owners.
 
-    Rebinding is a separate audited workflow and is not implemented as an implicit
-    upsert because silently moving hardware between owners would create accounting
-    and promo-abuse risk.
+    Rebinding is explicit and must be requested by an already authenticated
+    provider-node workflow. It is not exposed as an unauthenticated implicit
+    upsert because silently moving hardware between owners would create
+    accounting and promo-abuse risk.
     """
 
     def __init__(self, storage_path: Path) -> None:
@@ -263,6 +264,38 @@ class OwnerAccountStore:
             key=provider_node_id,
             owner_id=owner_id,
         )
+
+    def rebind_provider_node(self, owner_id: str, provider_node_id: str) -> str | None:
+        """Move one node to an authenticated owner's fleet atomically.
+
+        Callers must authenticate the provider node before invoking this
+        method. The store only changes the durable owner mapping and clears
+        stale unbound markers; it does not infer ownership from network data.
+        Returns the previous owner id, or ``None`` when the node was unbound.
+        """
+        oid = _clean_identifier(owner_id, field="owner_id")
+        nid = _clean_identifier(provider_node_id, field="provider_node_id", max_len=512)
+        if self.get_owner(oid) is None:
+            raise OwnerAccountStoreError(f"unknown owner {oid}")
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT owner_id FROM owner_provider_nodes WHERE provider_node_id = ?",
+                (nid,),
+            ).fetchone()
+            previous_owner = str(row["owner_id"]) if row is not None else None
+            conn.execute(
+                """
+                INSERT INTO owner_provider_nodes(provider_node_id, owner_id, created_at)
+                VALUES(?, ?, ?)
+                ON CONFLICT(provider_node_id) DO UPDATE SET owner_id = excluded.owner_id
+                """,
+                (nid, oid, utc_now()),
+            )
+            conn.execute(
+                "DELETE FROM owner_unbound_nodes WHERE provider_node_id = ?",
+                (nid,),
+            )
+        return previous_owner
 
     def unbind_provider_node(self, owner_id: str, provider_node_id: str) -> bool:
         oid = _clean_identifier(owner_id, field="owner_id")

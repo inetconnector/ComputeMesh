@@ -437,12 +437,15 @@ class TestSecurityAuditFixes(unittest.TestCase):
                 self.assertEqual(theirs["total_nodes_bound"], 1)
                 self.assertEqual({n["node_id"] for n in theirs["nodes"]}, {"strangers-node"})
 
-                # A node already bound to one owner_key cannot be silently
-                # re-bound to a different owner_key by a later heartbeat.
+                # An authenticated node can explicitly follow the owner key
+                # it presents on heartbeat, so a stale durable binding does
+                # not strand it in the wrong fleet.
                 status = heartbeat("laptop-01", "tok_laptop", "someone-elses-secret")
                 self.assertEqual(status, HTTPStatus.OK)  # heartbeat itself still succeeds
                 mine_after = fleet("my-fleet-secret")
-                self.assertIn("laptop-01", {n["node_id"] for n in mine_after["nodes"]})
+                self.assertNotIn("laptop-01", {n["node_id"] for n in mine_after["nodes"]})
+                theirs_after = fleet("someone-elses-secret")
+                self.assertIn("laptop-01", {n["node_id"] for n in theirs_after["nodes"]})
             finally:
                 server.shutdown()
                 server.server_close()
