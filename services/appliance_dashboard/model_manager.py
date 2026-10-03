@@ -29,26 +29,26 @@ log = logging.getLogger("computemesh.appliance.model_manager")
 # Default curated high-performance GGUF models for instant provider setup
 POPULAR_GGUF_MODELS = [
     {
-        "id": "Qwen/Qwen2.5-32B-Instruct-GGUF",
+        "id": "bartowski/Qwen2.5-32B-Instruct-GGUF",
         "name": "Qwen 2.5 32B Instruct (Q4_K_M)",
-        "filename": "qwen2.5-32b-instruct-q4_k_m.gguf",
-        "size_bytes": 19850000000,
+        "filename": "Qwen2.5-32B-Instruct-Q4_K_M.gguf",
+        "size_bytes": 19851336576,
         "context_length": 32768,
         "layers": 64,
         "recommended_vram_gb": 24,
         "license": "Apache 2.0",
-        "url": "https://huggingface.co/Qwen/Qwen2.5-32B-Instruct-GGUF/resolve/main/qwen2.5-32b-instruct-q4_k_m.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-32B-Instruct-GGUF/resolve/main/Qwen2.5-32B-Instruct-Q4_K_M.gguf",
     },
     {
-        "id": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+        "id": "bartowski/Qwen2.5-7B-Instruct-GGUF",
         "name": "Qwen 2.5 7B Instruct (Q4_K_M)",
-        "filename": "qwen2.5-7b-instruct-q4_k_m.gguf",
-        "size_bytes": 4680000000,
+        "filename": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        "size_bytes": 4683074240,
         "context_length": 32768,
         "layers": 28,
         "recommended_vram_gb": 8,
         "license": "Apache 2.0",
-        "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
     },
     {
         "id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
@@ -124,11 +124,10 @@ class ModelManager:
             nodeos_path = Path("/var/lib/computemesh/models")
             if configured_storage:
                 self.storage_dir = Path(configured_storage).expanduser().resolve()
-            elif nodeos_path.exists() or os.name != "nt":
+            elif os.name != "nt":
                 self.storage_dir = nodeos_path
             else:
-                repo_root = Path(__file__).resolve().parents[2]
-                self.storage_dir = (repo_root / "data" / "models").resolve()
+                self.storage_dir = Path.home() / "AppData" / "Local" / "ComputeMesh" / "models"
 
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.active_downloads: dict[str, DownloadProgress] = {}

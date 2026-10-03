@@ -10,6 +10,7 @@
 	var localNodeEndpoint = null;
 	var localNodeChecked = false;
 	var localNodeCheckingPromise = null;
+	var lastExecution = null;
 
 	// Image bytes become base64 in the chat JSON; keep their combined binary size
 	// near 5 MiB to leave room for base64 expansion and the rest of the request.
@@ -106,6 +107,48 @@
 		} catch (_) {
 			return false;
 		}
+	}
+
+	function updateExecutionStatus(metadata) {
+		if (!metadata || typeof metadata !== 'object') return;
+		lastExecution = metadata;
+		var status = document.getElementById('cm-execution-status');
+		if (!status && document.body) {
+			status = document.createElement('div');
+			status.id = 'cm-execution-status';
+			status.setAttribute('aria-live', 'polite');
+			status.style.cssText = 'position: fixed; right: 16px; bottom: 16px; z-index: 40; max-width: min(420px, calc(100vw - 32px)); padding: 6px 10px; border: 1px solid rgba(161, 161, 170, 0.24); border-radius: 6px; background: rgba(24, 24, 27, 0.94); color: #a1a1aa; font-size: 11px; overflow-wrap: anywhere;';
+			document.body.append(status);
+		}
+		if (!status) return;
+		var model = String(metadata.model_id || metadata.model || '').trim();
+		var nodeIds = Array.isArray(metadata.provider_node_ids) ? metadata.provider_node_ids.filter(Boolean) : [];
+		var nodeLabel = nodeIds.length ? nodeIds.join(', ') : 'nicht angegeben';
+		status.textContent = 'Letzte Ausfuhrung: ' + (model || 'unbekannt') + ' · Node: ' + nodeLabel;
+		status.title = metadata.execution_id ? 'Ausfuehrungs-ID: ' + metadata.execution_id : 'Ausfuehrungsnachweis des letzten Laufs';
+		status.hidden = false;
+	}
+
+	function observeExecutionPayload(payload) {
+		if (payload && typeof payload === 'object' && payload.compute_mesh_execution) {
+			updateExecutionStatus(payload.compute_mesh_execution);
+		}
+	}
+
+	function observeExecutionResponse(response) {
+		try {
+			var contentType = response.headers.get('content-type') || '';
+			if (contentType.includes('application/json')) {
+				response.clone().json().then(observeExecutionPayload).catch(function () {});
+			} else if (contentType.includes('text/event-stream')) {
+				response.clone().text().then(function (text) {
+					text.split(/\r?\n/).forEach(function (line) {
+						if (!line.startsWith('data: ') || line === 'data: [DONE]') return;
+						try { observeExecutionPayload(JSON.parse(line.slice(6))); } catch (_) {}
+					});
+				}).catch(function () {});
+			}
+		} catch (_) {}
 	}
 
 	function findImageDataUrls(value, found) {
@@ -237,6 +280,7 @@
 
 		try {
 			var response = await originalFetch(targetUrl, fetchOptions);
+			observeExecutionResponse(response);
 
 			if (isCrossRouting && response.ok) {
 				var contentType = response.headers.get('content-type') || '';
@@ -246,6 +290,7 @@
 					var rewrittenJson = stringified.replace(/(\/generated\/image_[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp))/g, localNodeEndpoint + '$1');
 					var outHeaders = new Headers(response.headers);
 					outHeaders.delete('content-length');
+					observeExecutionPayload(rawJson);
 					return new Response(rewrittenJson, {
 						status: response.status,
 						statusText: response.statusText,
@@ -455,7 +500,7 @@
 				badge.style.color = '#10b981';
 				badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
 				badge.innerHTML = '<span>🟢</span> <span>Lokale GPU-Node aktiv (P2P · Zero-Config)</span>';
-				badge.title = 'Inferenz & Bildgenerierung laufen direkt über deine lokale RTX 3080 ohne Router-Konfiguration.';
+				badge.title = 'Inferenz und Bildgenerierung laufen direkt ueber deine lokale GPU-Node ohne Router-Konfiguration.';
 			} else {
 				badge.style.background = 'rgba(99, 102, 241, 0.12)';
 				badge.style.color = '#818cf8';
@@ -464,7 +509,13 @@
 				badge.title = 'Verbindung zum dezentralen ComputeMesh Netzwerk.';
 			}
 			picker.append(badge);
+			var executionStatus = document.getElementById('cm-execution-status') || document.createElement('div');
+			executionStatus.id = 'cm-execution-status';
+			executionStatus.hidden = true;
+			executionStatus.style.cssText = 'margin-top: 5px; font-size: 11px; color: #a1a1aa; max-width: 320px; overflow-wrap: anywhere;';
+			picker.append(executionStatus);
 		}
+		updateExecutionStatus(lastExecution);
 		if (picker.parentElement === valueCell) return;
 		valueCell.replaceChildren(picker);
 		var select = picker.querySelector('select');

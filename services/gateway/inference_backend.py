@@ -73,6 +73,9 @@ class BackendResult:
     execution_job_id: str | None = None
     provider_shares: tuple[tuple[str, float], ...] | None = None
     evidence_id: str | None = None
+    # Minimized runtime provenance. This contains only opaque provider IDs,
+    # never placement scores, policy inputs, pricing or private traces.
+    execution_node_ids: tuple[str, ...] = ()
 
 
 class InferenceBackend(Protocol):
@@ -295,11 +298,23 @@ class OpenAICompatibleHTTPBackend:
             usage = body.get("usage", {})
             prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(formatted_messages)) // 4, 1))
             completion_tokens = int(usage.get("completion_tokens") or max(len(text) // 4, 1))
+            execution = body.get("compute_mesh_execution")
+            raw_node_ids = execution.get("provider_node_ids", []) if isinstance(execution, dict) else []
+            execution_node_ids = tuple(
+                node_id.strip()
+                for node_id in raw_node_ids
+                if isinstance(node_id, str) and 0 < len(node_id.strip()) <= 128
+            ) if isinstance(raw_node_ids, list) else ()
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise InferenceBackendError("Inference runtime returned an invalid response") from exc
         if not isinstance(text, str) or prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Inference runtime returned invalid content or usage")
-        return BackendResult(text, prompt_tokens, completion_tokens)
+        return BackendResult(
+            text,
+            prompt_tokens,
+            completion_tokens,
+            execution_node_ids=execution_node_ids,
+        )
 
 
 class OllamaHTTPBackend:
@@ -471,7 +486,19 @@ class OllamaHTTPBackend:
         completion_tokens = int(body.get("eval_count") or max(len(text) // 4, 1))
         if prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Ollama inference runtime returned invalid token usage")
-        return BackendResult(text.strip(), prompt_tokens, completion_tokens)
+        execution = body.get("compute_mesh_execution")
+        raw_node_ids = execution.get("provider_node_ids", []) if isinstance(execution, dict) else []
+        execution_node_ids = tuple(
+            node_id.strip()
+            for node_id in raw_node_ids
+            if isinstance(node_id, str) and 0 < len(node_id.strip()) <= 128
+        ) if isinstance(raw_node_ids, list) else ()
+        return BackendResult(
+            text.strip(),
+            prompt_tokens,
+            completion_tokens,
+            execution_node_ids=execution_node_ids,
+        )
 
 
 class OrchestratedInferenceBackend:
@@ -648,6 +675,9 @@ class OrchestratedInferenceBackend:
                 result.prompt_tokens,
                 result.completion_tokens,
                 execution_job_id=job_id,
+                provider_shares=result.provider_shares,
+                evidence_id=result.evidence_id,
+                execution_node_ids=result.execution_node_ids,
             )
         assert self.execution_evidence_path is not None
         assert self.execution_attestation_path is not None
@@ -685,6 +715,7 @@ class OrchestratedInferenceBackend:
             execution_job_id=job_id,
             provider_shares=verified.provider_shares,
             evidence_id=verified.evidence_id,
+            execution_node_ids=verified.execution_node_ids or tuple(self.provider_node_ids),
         )
 
     def complete(

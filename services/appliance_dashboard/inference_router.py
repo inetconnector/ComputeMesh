@@ -17,6 +17,21 @@ from typing import Any
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _execution_metadata(handler: Any, model_id: str) -> dict[str, Any]:
+    """Return the bounded provenance a client needs to identify this node."""
+    node_id = ""
+    try:
+        node_id = str(handler._current_node_id() or "").strip()
+    except Exception:
+        node_id = ""
+    metadata: dict[str, Any] = {
+        "model_id": str(model_id)[:128],
+        "mode": "node-local",
+        "provider_node_ids": [node_id[:128]] if node_id else [],
+    }
+    return metadata
+
+
 def _send_backend_error(handler: Any, *, message: str, log_message: str, exc: Exception) -> None:
     """Log diagnostic details locally while returning a stable client contract."""
     log.error("%s: %s", log_message, exc)
@@ -517,6 +532,7 @@ class InferenceRouter:
                             "created": int(time.time()),
                             "model": target_model,
                             "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+                            "compute_mesh_execution": _execution_metadata(handler, target_model),
                         }
                         handler.wfile.write(
                             f"data: {json.dumps(chunk, ensure_ascii=False)}\n\ndata: [DONE]\n\n".encode("utf-8")
@@ -537,6 +553,7 @@ class InferenceRouter:
                                 "finish_reason": finish_reason,
                             }],
                             "usage": usage,
+                            "compute_mesh_execution": _execution_metadata(handler, target_model),
                         })
                     return True
                 except Exception as exc:
@@ -713,6 +730,7 @@ class InferenceRouter:
                             "delta": {"content": exec_res.final_content},
                             "finish_reason": "stop",
                         }],
+                        "compute_mesh_execution": _execution_metadata(handler, target_model),
                     }
                     sse_out = f"data: {json.dumps(chunk_obj, ensure_ascii=False)}\n\ndata: [DONE]\n\n"
                     handler.wfile.write(sse_out.encode("utf-8"))
@@ -736,6 +754,7 @@ class InferenceRouter:
                             "completion_tokens": exec_res.completion_tokens,
                             "total_tokens": exec_res.total_tokens,
                         },
+                        "compute_mesh_execution": _execution_metadata(handler, target_model),
                     }
                     handler._send_json(openai_resp)
                 return True

@@ -84,7 +84,9 @@ The master release builder reuses that same Windows packaging path and excludes 
 
 On Windows, enabling `Cline (VS Code)` is the installation consent boundary. No VS Code or Cline download occurs while the option is disabled. The setup uses Microsoft's official stable user-installer URL and the Visual Studio Marketplace extension ID, then persists the choice in `~/.computemesh/provider_config.json`. On later node starts the app verifies Cline and the ComputeMesh workspace bridge, refreshes the local model choice, and launches VS Code automatically. Disabling the option stops automatic launch and workspace refocusing; it does not uninstall VS Code, Cline, or delete Cline settings.
 
-The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
+The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. NodeOS automatically starts a background download only for a curated model that fits the detected VRAM and disk preflight; the dashboard stays responsive and exposes the download progress. Manual model activation remains available in the Models & HuggingFace view.
+
+Completed chat responses include a minimized `compute_mesh_execution` block. It contains the selected model, an opaque execution ID and the provider Node IDs that actually reported the run. The AI Studio model panel mirrors this as the last execution status. It deliberately omits prompts, provider pricing, placement scores, private policy traces and other control-plane data.
 
 The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.
 

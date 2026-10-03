@@ -13,7 +13,7 @@ from services.appliance_dashboard.model_engine_service import (
     ModelEngineConfig,
     ModelEngineService,
 )
-from services.appliance_dashboard.model_manager import LocalModelInfo, ModelManager
+from services.appliance_dashboard.model_manager import LocalModelInfo, ModelManager, POPULAR_GGUF_MODELS
 
 
 class TestModelEngineService(unittest.TestCase):
@@ -89,6 +89,25 @@ class TestModelEngineService(unittest.TestCase):
         ):
             selection = self.service._select_best_model()
         self.assertEqual(selection, (str(self.dummy_model), "qwen2.5-7b-instruct-q4_k_m.gguf"))
+
+    def test_six_eight_gb_gpus_start_auto_download_without_blocking(self) -> None:
+        manager = ModelManager(Path(self.temp_dir.name))
+        gpus = [GpuDeviceStatus(index=i, name="test", vram_total_bytes=8 * 1024**3) for i in range(6)]
+        with patch.object(self.service, "discover_gpus", return_value=gpus), patch.object(
+            self.service, "query_nvml_vram"
+        ), patch.object(self.service, "_select_best_model", return_value=None), patch.object(
+            ModelManager, "get_instance", return_value=manager
+        ), patch.object(self.service, "_start_background_model_download") as start_download:
+            self.assertFalse(self.service.ensure_best_model())
+        start_download.assert_called_once()
+        self.assertEqual(start_download.call_args.args[1]["recommended_vram_gb"], 24)
+
+    def test_curated_qwen_sources_are_reachable_huggingface_files(self) -> None:
+        qwen_entries = [entry for entry in POPULAR_GGUF_MODELS if "Qwen2.5" in entry["id"]]
+        self.assertEqual(len(qwen_entries), 2)
+        for entry in qwen_entries:
+            self.assertIn("bartowski/", entry["url"])
+            self.assertNotIn("/Qwen/", entry["url"])
 
     def test_start_and_stop_lifecycle_mock_mode(self) -> None:
         # Starting with dummy model file

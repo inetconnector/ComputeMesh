@@ -36,7 +36,11 @@ from services.gateway.catalog import (
     provider_shares_from_env,
     resolve_model_id,
 )
-from services.gateway.inference import InferenceEngine
+from services.gateway.inference import (
+    InferenceEngine,
+    _EXECUTION_CONTEXT,
+    _clean_execution_node_ids,
+)
 from services.gateway.inference_backend import InferenceBackend
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
@@ -306,6 +310,18 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
             )
             resolved_shares = self._resolve_provider_owners(provider_shares)
             billing_job_id = backend_result.execution_job_id or chat_id
+            backend_node_ids = list(getattr(backend_result, "execution_node_ids", ()) or ())
+            provider_node_ids = backend_node_ids or [
+                str(share[0])
+                for share in provider_shares
+                if isinstance(share, (list, tuple)) and share
+            ]
+            _EXECUTION_CONTEXT.set({
+                "execution_id": str(billing_job_id),
+                "model_id": canonical_model_id,
+                "provider_node_ids": _clean_execution_node_ids(provider_node_ids),
+                "mode": "orchestrated" if backend_result.execution_job_id else "runtime",
+            })
             gross_cost_micro = calculate_token_charge_micro(
                 model_id=canonical_model_id,
                 prompt_tokens=tokens_prompt,

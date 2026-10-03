@@ -10,6 +10,7 @@ import re
 import secrets
 import sys
 import time
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator
@@ -44,6 +45,29 @@ from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+_EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
+    "computemesh_execution_context",
+    default=None,
+)
+
+
+def _clean_execution_node_ids(values: Any) -> list[str]:
+    """Keep only bounded opaque node identifiers for the public response."""
+    if not isinstance(values, (list, tuple)):
+        return []
+    result: list[str] = []
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        node_id = value.strip()
+        if node_id and len(node_id) <= 128 and node_id not in result:
+            result.append(node_id)
+    return result
+
+
+def _execution_context_for_response() -> dict[str, Any] | None:
+    value = _EXECUTION_CONTEXT.get()
+    return dict(value) if isinstance(value, dict) else None
 
 
 def _extract_client_tool_calls(
@@ -147,6 +171,7 @@ class InferenceEngine:
 
         Returns: (chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion)
         """
+        _EXECUTION_CONTEXT.set(None)
         canonical_model_id = resolve_model_id(model_id)
         requested_max = max_tokens or 512
 
@@ -350,6 +375,23 @@ class InferenceEngine:
                 else provider_shares_from_env()
             )
             billing_job_id = (backend_result.execution_job_id if backend_result else None) or chat_id
+            backend_node_ids = (
+                list(getattr(backend_result, "execution_node_ids", ()) or ())
+                if backend_result
+                else []
+            )
+            provider_node_ids = backend_node_ids or [
+                str(share[0])
+                for share in provider_shares
+                if isinstance(share, (list, tuple)) and share
+            ]
+            provider_node_ids = _clean_execution_node_ids(provider_node_ids)
+            _EXECUTION_CONTEXT.set({
+                "execution_id": str(billing_job_id),
+                "model_id": canonical_model_id,
+                "provider_node_ids": provider_node_ids,
+                "mode": "orchestrated" if backend_result and backend_result.execution_job_id else "runtime",
+            })
             fee_bps = 0 if is_provider_self_compute else None
 
             if not is_teaser and not is_provider_self_compute:
@@ -448,6 +490,7 @@ class InferenceEngine:
         tokens_prompt: int,
         tokens_completion: int,
         tool_calls: list[dict[str, Any]] | None = None,
+        execution: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Formats standard OpenAI chat completion JSON response."""
         message: dict[str, Any] = {
@@ -456,7 +499,7 @@ class InferenceEngine:
         }
         if tool_calls:
             message["tool_calls"] = tool_calls
-        return {
+        response = {
             "id": chat_id,
             "object": "chat.completion",
             "created": created_timestamp,
@@ -474,6 +517,9 @@ class InferenceEngine:
                 "total_tokens": tokens_prompt + tokens_completion,
             },
         }
+        if execution:
+            response["compute_mesh_execution"] = execution
+        return response
 
     @staticmethod
     def stream_openai_sse(
@@ -483,6 +529,7 @@ class InferenceEngine:
         completion_text: str,
         created_timestamp: int,
         tool_calls: list[dict[str, Any]] | None = None,
+        execution: dict[str, Any] | None = None,
     ) -> Generator[bytes, None, None]:
         """Yields Server-Sent Events (SSE) stream chunks for OpenAI clients."""
         if tool_calls:
@@ -501,6 +548,8 @@ class InferenceEngine:
                     "finish_reason": "tool_calls",
                 }],
             }
+            if execution:
+                chunk["compute_mesh_execution"] = execution
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
             yield b"data: [DONE]\n\n"
             return
@@ -520,6 +569,8 @@ class InferenceEngine:
                     }
                 ],
             }
+            if execution and i == 0:
+                chunk["compute_mesh_execution"] = execution
             yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
             time.sleep(0.01)
 
@@ -546,9 +597,10 @@ class InferenceEngine:
         completion_text: str,
         tokens_prompt: int,
         tokens_completion: int,
+        execution: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Formats non-streaming response for Ollama /api/chat."""
-        return {
+        response = {
             "model": model_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "message": {
@@ -560,6 +612,9 @@ class InferenceEngine:
             "prompt_eval_count": tokens_prompt,
             "eval_count": tokens_completion,
         }
+        if execution:
+            response["compute_mesh_execution"] = execution
+        return response
 
     @staticmethod
     def stream_ollama_chat_ndjson(
@@ -568,6 +623,7 @@ class InferenceEngine:
         completion_text: str,
         tokens_prompt: int,
         tokens_completion: int,
+        execution: dict[str, Any] | None = None,
     ) -> Generator[bytes, None, None]:
         """Yields newline-delimited JSON stream chunks for Ollama /api/chat."""
         words = completion_text.split(" ")
@@ -579,6 +635,8 @@ class InferenceEngine:
                 "message": {"role": "assistant", "content": token_str},
                 "done": False,
             }
+            if execution and i == 0:
+                chunk["compute_mesh_execution"] = execution
             yield (json.dumps(chunk, ensure_ascii=False) + "\n").encode("utf-8")
             time.sleep(0.01)
 
@@ -600,9 +658,10 @@ class InferenceEngine:
         completion_text: str,
         tokens_prompt: int,
         tokens_completion: int,
+        execution: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Formats non-streaming response for Ollama /api/generate."""
-        return {
+        response = {
             "model": model_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "response": completion_text,
@@ -611,6 +670,9 @@ class InferenceEngine:
             "prompt_eval_count": tokens_prompt,
             "eval_count": tokens_completion,
         }
+        if execution:
+            response["compute_mesh_execution"] = execution
+        return response
 
     @staticmethod
     def stream_ollama_generate_ndjson(
@@ -619,6 +681,7 @@ class InferenceEngine:
         completion_text: str,
         tokens_prompt: int,
         tokens_completion: int,
+        execution: dict[str, Any] | None = None,
     ) -> Generator[bytes, None, None]:
         """Yields newline-delimited JSON stream chunks for Ollama /api/generate."""
         words = completion_text.split(" ")
@@ -630,6 +693,8 @@ class InferenceEngine:
                 "response": token_str,
                 "done": False,
             }
+            if execution and i == 0:
+                chunk["compute_mesh_execution"] = execution
             yield (json.dumps(chunk, ensure_ascii=False) + "\n").encode("utf-8")
             time.sleep(0.01)
 
@@ -680,6 +745,7 @@ class InferenceEngine:
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
                 tool_calls=tool_calls,
+                execution=_execution_context_for_response(),
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
@@ -722,6 +788,7 @@ class InferenceEngine:
             completion_text=completion_text,
             created_timestamp=created_ts,
             tool_calls=tool_calls,
+            execution=_execution_context_for_response(),
         )
 
     def execute_ollama_chat(
@@ -751,6 +818,7 @@ class InferenceEngine:
                 completion_text=completion_text,
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
+                execution=_execution_context_for_response(),
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
@@ -786,6 +854,7 @@ class InferenceEngine:
             completion_text=completion_text,
             tokens_prompt=tok_p,
             tokens_completion=tok_c,
+            execution=_execution_context_for_response(),
         )
 
     def execute_ollama_generate(
@@ -820,6 +889,7 @@ class InferenceEngine:
                 completion_text=completion_text,
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
+                execution=_execution_context_for_response(),
             )
             return (res, None, 200)
         except InsufficientBalanceError as exc:
@@ -860,4 +930,5 @@ class InferenceEngine:
             completion_text=completion_text,
             tokens_prompt=tok_p,
             tokens_completion=tok_c,
+            execution=_execution_context_for_response(),
         )

@@ -1,5 +1,33 @@
 # ComputeMesh State
 
+## Execution provenance and non-blocking NodeOS model setup - 2026-10-03
+
+- Public branch `codex/execution-provenance` adds a minimized
+  `compute_mesh_execution` response extension for OpenAI JSON/SSE and Ollama
+  JSON/NDJSON responses. It carries only the model ID, opaque execution ID,
+  bounded provider Node IDs and a runtime/orchestrated mode. Prompts, prices,
+  placement scores, policy inputs, fraud data and private traces are excluded.
+- Direct NodeOS inference responses now emit the same bounded provenance. The
+  bundled AI Studio model selector observes JSON and SSE responses and shows
+  the last model/Node in its model information panel.
+- NodeOS model startup no longer blocks the dashboard while a curated GGUF is
+  downloading or while a broken source fails. Automatic setup is now a daemon
+  worker with download progress available through the existing model APIs;
+  failed downloads leave the UI reachable and record an actionable engine
+  error. Windows defaults to `%LOCALAPPDATA%\\ComputeMesh\\models`; Linux
+  keeps `/var/lib/computemesh/models`.
+- The Qwen 2.5 32B/7B catalog entries now point to the verified Bartowski
+  Hugging Face GGUF files and use their current byte sizes. This is the path
+  required for a six-GPU/eight-GB-per-GPU node: about 43 GB usable VRAM after
+  the 10% reserve, so the 24 GB recommended 32B entry is selected first.
+- Verification: Python compilation, `git diff --check`, focused
+  gateway/appliance/model-engine/WebUI tests **28 passed**, the complete
+  public harness **785/785 passed**, and the opt-in Playwright WebUI suite
+  **3/3 passed** including the visible execution-status assertion. Ruff was
+  not available in the local Python environment (`No module named ruff`) and
+  therefore is not claimed as passed. The branch still requires CI review and
+  a new signed release before any production rollout.
+
 ## Release v1.2.173 live rollout - 2026-10-03
 
 - PR #89 merged the NodeOS catalog fix as `8dda5a5`; release PR #90 merged as
