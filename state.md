@@ -1,5 +1,38 @@
 # ComputeMesh State
 
+## Release v1.2.173 live rollout - 2026-10-03
+
+- PR #89 merged the NodeOS catalog fix as `8dda5a5`; release PR #90 merged as
+  `a35b754`. Tag `v1.2.173` and the GitHub release are published at
+  `https://github.com/inetconnector/ComputeMesh/releases/tag/v1.2.173`.
+- Signed artifacts: Windows SHA-256
+  `7c5ad0c7ba39e92c2d30fca026b4b1ce70cb90572dd6a48f7f3a757bffcf00ae`
+  (`117728634` bytes), Linux SHA-256
+  `0e1c6318b565b654012e94fec29b17f16232e86dc6197e9e5b856f6967c918ba`
+  (`6926179` bytes), `install.sh` SHA-256
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+  The Ed25519 manifest signature and local artifact hashes verify.
+- The complete public suite passed **783/783** after the final release build;
+  the model-engine regression passed **6/6**. The Windows client is installed
+  locally at `1.2.173` with the signed Windows hash; the previous binary is
+  preserved in `backups/20261003-v1.2.172-before-v1.2.173.exe`.
+- Live `/opt/computemesh` is at `a35b754546de64ca501d9a6ae0e7c842f82a3808`.
+  Gateway, autoupdater and NodeOS are active; gateway health is healthy and
+  `/v1/models` reports `qwen2.5:1.5b-instruct`. Restarting NodeOS after the
+  rollout removed the `POPULAR_GGUF_MODELS` AttributeError; its current
+  hardware result is the expected `No suitable model found for this node's
+  hardware.` message.
+- Both Plesk webroots and all four public hostnames serve manifest `1.2.173`,
+  the signed Windows size, and the current WebUI service-worker revision.
+  Pre-deploy backups are retained at
+  `/root/computemesh-backups/v1.2.173-before-deploy-20261003/`.
+- The server retains four older Git stashes containing historical or
+  unreviewed feature work. They are not part of the running tree and were not
+  deleted or merged: WebUI/live drift (`stash@{0}`), Android LAN Mesh
+  (`stash@{1}`), contact-mail dispatch (`stash@{2}`), and Stripe settlement
+  work (`stash@{3}`). Their patch inventory is preserved for a separate
+  review.
+
 ## NodeOS model-catalog startup fix - 2026-10-03
 
 - The live NodeOS daemon exposed a real startup defect after the v1.2.172
@@ -13,9 +46,8 @@
   fleet data.
 - Focused verification passed **6/6** model-engine tests, Python compilation
   and `git diff --check`. The complete public suite passed **783/783** after
-  rebuilding the signed v1.2.173 manifest. The release branch and live rollout
-  are still pending; v1.2.172 remains the published channel until those gates
-  complete.
+  rebuilding the signed v1.2.173 manifest. The fix is included in the
+  published release and was verified by restarting the live NodeOS service.
 
 ## Release v1.2.172 preflight - 2026-10-03
 
