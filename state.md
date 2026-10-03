@@ -1,17 +1,45 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** local LAN target `v1.2.176`; current working tree is unreleased
+**Release Version:** `v1.2.176` portal live; LAN node `.94` updated, node `.27` remains on `v1.2.175`
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime`; local changes are not committed, pushed, tagged, built into a production release or deployed. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+**Git Baseline:** working branch `codex/nodeos-model-runtime`; release commits `58fdef0` and `c9b6b91` are committed locally. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+
+## 2026-10-03 v1.2.176 portal and LAN rollout
+
+- The portal was built from the reviewed working tree and deployed selectively to
+  both Plesk roots `/var/www/vhosts/inetconnector.com/httpdocs` and
+  `/var/www/vhosts/inetconnector.com/site2`. Existing live-only files were not
+  deleted; the five previously live-only pages (`downloads.html`,
+  `marketplace.html`, `models.html`, `models/index.html`, `pricing.html`) are
+  now tracked in this repository.
+- Deployment backup: `/root/computemesh-backups/web-v1.2.176-before-20261003-181007/`.
+  Both roots report manifest SHA-256
+  `2718aaff341159cd0972a5d64118919bc514ac4badae53e639a6d278d73dfbf5`,
+  version `1.2.176`, and identical Windows/Linux/install hashes. Public
+  manifest URLs return HTTP 200 with `v1.2.176`; portal pages tested also
+  return HTTP 200.
+- Node `192.168.1.94:8080` was updated through its HttpOnly session and signed
+  updater. `/api/action/check_update` now reports `current_version=1.2.176` and
+  `update_available=false`. Its inventory is one NVIDIA RTX 3080 Laptop GPU
+  with 16 GiB; `/api/fan/status` correctly reports `control_available=false`
+  because this Windows driver exposes no safe manual fan backend.
+- Node `192.168.1.27:8080` remains on `v1.2.175`. It returns HTTP 200 for the
+  dashboard but no session cookie, so the protected update action returns 401.
+  It must be updated locally or through a verified administrative channel; do
+  not bypass the changed SSH host key without operator verification.
+- Release artifact hashes: Windows EXE
+  `210a1b9399e75fec4af050b6311f93726185795a9f4aefe436f7f4d1d13a470e`, Linux
+  tar `6b38afef48b542401d41b2761bbd4d74fb51287833815d6d2219e23125be5133`,
+  install script `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
 
 ## 2026-10-03 Dashboard, WebUI, Android, and fan-safety handoff
 
 - LAN dashboards at `192.168.1.94:8080` and `192.168.1.27:8080` were inspected.
-  Direct API requests returned `401` until the dashboard was opened; the
-  dashboard now issues an HttpOnly same-origin session cookie, so settings,
-  model controls, telemetry, and fan endpoints can authenticate from the UI.
+  Node `.94` is now on v1.2.176 and issues an HttpOnly same-origin session
+  cookie. Node `.27` is still v1.2.175 and issues no cookie, so its protected
+  update action remains unavailable remotely.
 - `safe_auto` fan control is capability-aware: supported Linux PWM/NVIDIA
   backends use a temperature curve with a 25% minimum; unsupported drivers
   return an explicit limitation and never fake a fan percentage. The physical
@@ -20,8 +48,9 @@
   `portal/webui/` and `apps/android/app/src/main/assets/webui/`; service-worker
   revisions were updated. Android `:app:assembleDebug` succeeded locally, but
   no production-signed APK was built or installed.
-- The public working tree is intentionally dirty with unrelated user changes.
-  It must be ported selectively into a clean release branch before deployment.
+- The public working tree retains unrelated user changes by design. The
+  reviewed/releasable subset is committed on `codex/nodeos-model-runtime` and
+  the portal v1.2.176 is live; the branch is not merged to public `main`.
   Secure automatic LAN pairing with explicit owner approval is not complete;
   discovery currently announces nodes but does not safely transfer an owner
   secret.
