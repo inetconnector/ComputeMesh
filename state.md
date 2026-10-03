@@ -4,7 +4,7 @@
 **Release Version:** `v1.2.176` portal live; LAN node `.94` updated, node `.27` remains on `v1.2.175`
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime`; release commits `58fdef0` and `c9b6b91` are committed locally. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+**Git Baseline:** working branch `codex/nodeos-model-runtime`; release commits `58fdef0` and `c9b6b91` are committed, tagged `v1.2.176`, and pushed to the public remote. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
 
 ## 2026-10-03 v1.2.176 portal and LAN rollout
 
