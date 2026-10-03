@@ -53,6 +53,22 @@
 - The old local `codex/fan-safety-dashboard-fix` branch and the merged local
   feature branch were removed only after the remote merge was confirmed.
 
+## 2026-10-04 Android AI live test
+
+- The connected Android device was tested through the installed production
+  app (`com.inetconnector.compumesh` 1.2.165) with the question
+  `Was kommt im Fernsehen?`.
+- The request reached the app, but the answer was an unsupported generic
+  refusal instead of live TV data. ADB logs show the primary Mesh Gateway
+  returned HTTP 502 for `/v1/chat/completions`; the node tunnel returned HTTP
+  401 because no node-tunnel credential was supplied; the app then fell back
+  to `apps.inetconnector.com/klartext`, whose route has no MCP/web-search
+  execution.
+- The public gateway health and model-list endpoints were HTTP 200, so the
+  remaining production issue is inference-backend availability/routing, not
+  Android installation or model discovery. This is an open live-deployment
+  issue and must be fixed before claiming TV/web tools work on the phone.
+
 ## 2026-10-03 authenticated fleet-owner rebinding
 
 - `OwnerAccountStore.rebind_provider_node()` now atomically moves a node to the
