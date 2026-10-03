@@ -63,7 +63,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.175` contains the execution-provenance, non-blocking NodeOS model-startup and owner-credential URL hardening changes. The release is prepared from the merged public `main`; live rollout is recorded in `state.md` only after artifact, CI, drift and health verification.
+Current signed client/update channel: `v1.2.175` contains the execution-provenance, non-blocking NodeOS model-startup and owner-credential URL hardening changes. The signed Windows/Linux artifacts and manifest are live-verified on all four public hostnames. The live NodeOS host is healthy but currently reports zero GPUs, so its local engine remains idle until suitable hardware is present.
 
 ## What Is Not Promised Yet
 

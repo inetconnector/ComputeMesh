@@ -1,15 +1,14 @@
 # ComputeMesh State
 
-## Release v1.2.175 preparation - 2026-10-03
+## Release v1.2.175 live rollout - 2026-10-03
 
 - Public security PR #95 was merged as main commit `1703d50` after green CI.
   It removes owner credentials from URL query parameters, requires header/session
   authentication for owner-scoped routes, and fails closed for unauthenticated
   fleet reads.
-- The release branch `codex/release-v1.2.175` changes the configured client
-  version from `1.2.174` to `1.2.175`. Build, manifest-signature verification,
-  CI, live-only drift comparison and a pre-deploy backup must complete before
-  production rollout.
+- The release branch `codex/release-v1.2.175` changed the configured client
+  version from `1.2.174` to `1.2.175`. PR #96 merged with green CI as
+  `d078b2e`; tag `v1.2.175` and the signed GitHub release are published.
 - Local release build completed successfully: Windows
   `118444245` bytes, SHA-256
   `7bfbbbc1100d3ad040c663bdb34551333d614beed9cde7f4a708ebcfee4e4f63`; Linux
@@ -26,15 +25,31 @@
   download and safety-ordering surfaces. Coverage is explicitly partial because
   delegated workers were unavailable; the report is retained at the local scan
   artifact path recorded in the handoff.
-- Live remains v1.2.174 until the signed v1.2.175 artifacts and all endpoint
-  checks are verified.
+- Before rollout, the live source checkout was recorded at `7c9d6fba` with
+  many existing Android/deployment/CSS/systemd modifications and four stashes.
+  Those live-only changes were preserved; no general pull or rsync was run.
+  The backup is `/root/computemesh-backups/v1.2.175-before-deploy-20261003/`.
+- Only the security/release backend files, portal files, signed manifest and
+  Windows/Linux/installer artifacts were copied. Both Plesk webroots now have
+  identical v1.2.175 hashes. All four public manifest endpoints report
+  `1.2.175`; gateway health and `/v1/models` are healthy, and a query-only fleet
+  request is rejected with `401` on the primary gateway domain.
+- `computemesh-gateway.service`, `computemesh-autoupdate.service` and
+  `computemesh-node.service` are active with no new error/exception entries.
+  NodeOS port `8081` returned HTTP 200 for status, engine status, downloads and
+  `/v1/models`; it reports zero GPUs, `IDLE`, no last error and no model
+  download, which is the expected hardware-dependent state on this host.
+- The live source tree remains intentionally different from public `main` in
+  the preserved live-only areas. The deployed source files are selective copies
+  of the merged release, so this is not represented as a clean git checkout.
 
 ## Security hardening after v1.2.174 - 2026-10-03
 
 - The repository security scan identified a medium CWE-598 credential-exposure
   finding: owner credentials were accepted in fleet, payout, provider-identity,
   MCP-settings and download URLs. The fix is being prepared on branch
-  `codex/fix-query-credential-exposure`; it is not part of live v1.2.174 yet.
+  `codex/fix-query-credential-exposure`; it is merged in PR #95 and live in
+  v1.2.175.
 - Productive portal and gateway handlers now require `X-Owner-Key` or an
   authenticated session for owner-scoped reads and actions. Query-string `key` and
   `owner_key` fallbacks were removed. The gateway fleet endpoint also fails closed
@@ -51,9 +66,10 @@
   and the relevant Node syntax checks passed. The original scan report remains
   recorded in the local Codex Security scan directory; a post-fix scan is still
   required before release.
-- Next release steps are CI review, post-fix security scan, a new signed release,
-  live drift comparison/backup, deployment, and health verification. Until those
-  steps finish, the live release remains v1.2.174.
+- The post-fix scan and v1.2.175 rollout are complete. The scan report still
+  records partial repository coverage because delegated workers were unavailable;
+  remaining follow-up is broader security coverage and review of the preserved
+  live-only changes, not a pending rollback or failed deployment.
 
 ## Release v1.2.174 live rollout - 2026-10-03
 
