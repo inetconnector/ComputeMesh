@@ -160,7 +160,7 @@ class ModelEngineService:
         3. Prefer higher‑popularity models as defined in ``ModelManager.POPULAR_GGUF_MODELS``.
         Returns a tuple ``(model_path, model_id)`` or ``None`` if no suitable model is present.
         """
-        from services.appliance_dashboard.model_manager import ModelManager
+        from services.appliance_dashboard.model_manager import ModelManager, POPULAR_GGUF_MODELS
         mm = ModelManager.get_instance()
         total_vram = sum(g.vram_total_bytes for g in self._gpu_statuses)
         usable_vram = int(total_vram * 0.9)
@@ -183,7 +183,7 @@ class ModelEngineService:
             log.debug("No suitable local model candidates found.")
             return None
 
-        popular_ids = [m['id'] for m in ModelManager.POPULAR_GGUF_MODELS]
+        popular_ids = [m['id'] for m in POPULAR_GGUF_MODELS]
         def popularity_score(item):
             lm, _ = item
             try:
@@ -233,12 +233,12 @@ class ModelEngineService:
             return self.start_model(model_path=model_path, model_id=model_id)
 
         # No fitting local model – attempt to download the best that fits
-        from services.appliance_dashboard.model_manager import ModelManager
+        from services.appliance_dashboard.model_manager import ModelManager, POPULAR_GGUF_MODELS
         mm = ModelManager.get_instance()
         total_vram = sum(g.vram_total_bytes for g in self._gpu_statuses)
         usable_vram_gb = int(total_vram * 0.9 / (1024**3))
 
-        for entry in ModelManager.POPULAR_GGUF_MODELS:
+        for entry in POPULAR_GGUF_MODELS:
             if entry.get('recommended_vram_gb', 0) <= usable_vram_gb:
                 download_id = mm.start_download(
                     url=entry['url'],

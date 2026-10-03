@@ -1,15 +1,19 @@
 """Tests for Multi-GPU ModelEngineService."""
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from services.appliance_dashboard.model_engine_service import (
     EngineState,
+    GpuDeviceStatus,
     ModelEngineConfig,
     ModelEngineService,
 )
+from services.appliance_dashboard.model_manager import LocalModelInfo, ModelManager
 
 
 class TestModelEngineService(unittest.TestCase):
@@ -63,6 +67,28 @@ class TestModelEngineService(unittest.TestCase):
         expected = 2 * 32 * 32 * 128 * 8192 * 2
         self.assertEqual(kv_bytes, expected)
         self.assertGreater(kv_bytes, 1024 * 1024 * 500)  # > 500MB
+
+    def test_model_selection_uses_module_catalog(self) -> None:
+        manifest = self.dummy_model.with_suffix(".computemesh-model-manifest.json")
+        manifest.write_text(
+            json.dumps({"model_id": "qwen2.5-7b-instruct-q4_k_m.gguf", "recommended_vram_gb": 1, "layers": 32}),
+            encoding="utf-8",
+        )
+        local_model = LocalModelInfo(
+            filename="qwen2.5-7b-instruct-q4_k_m.gguf",
+            path=str(self.dummy_model),
+            size_bytes=self.dummy_model.stat().st_size,
+            sha256_digest=None,
+            modified_at="2026-10-03T00:00:00Z",
+            layers=32,
+        )
+        self.service._gpu_statuses = [GpuDeviceStatus(index=0, name="test", vram_total_bytes=8 * 1024**3)]
+        manager = ModelManager(Path(self.temp_dir.name))
+        with patch.object(manager, "list_local_models", return_value=[local_model]), patch.object(
+            ModelManager, "get_instance", return_value=manager
+        ):
+            selection = self.service._select_best_model()
+        self.assertEqual(selection, (str(self.dummy_model), "qwen2.5-7b-instruct-q4_k_m.gguf"))
 
     def test_start_and_stop_lifecycle_mock_mode(self) -> None:
         # Starting with dummy model file
