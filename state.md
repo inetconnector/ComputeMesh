@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The release is prepared locally and is not live until the signed artifacts and node update are verified. The six-GPU LAN node `.27` was observed on `v1.2.182` with about 1.55 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine. The NVIDIA node `.94` has no safe manual fan-control backend.
+**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots; the LAN nodes still require their authenticated update action/auto-updater to install the new code. The six-GPU LAN node `.27` was observed on `v1.2.182` with about 1.55 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine. The NVIDIA node `.94` has no safe manual fan-control backend.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.183 diagnostics work and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
@@ -24,6 +24,21 @@
   filesystem has about 1.55 GB free. `.94` is an NVIDIA node whose driver
   exposes no safe manual fan-control API. Neither fact is treated as solved by
   a cosmetic dashboard value.
+
+## 2026-10-03 v1.2.183 artifact publication and cleanup
+
+- `tools/build_all_releases.py` produced and verified the signed v1.2.183
+  Windows installer, Linux tarball and installer script. The complete
+  canonical suite passed `780/780` after the manifest was regenerated.
+- Before publication, live artifact files were backed up at
+  `/root/computemesh-backups/v1.2.183-before-artifact-deploy-20261003-230705`.
+  Only the four release files in each Plesk webroot were replaced; the dirty
+  live `/opt/computemesh` checkout and all other live-only files were left
+  untouched. Direct SHA-256 checks on both webroots and public HTTP 200 checks
+  matched the locally signed manifest.
+- The server's old generated `/tmp` release/update staging files filled its
+  tmpfs. The uniquely named ComputeMesh/Ancesora staging artifacts created by
+  the earlier release work were removed; `/tmp` returned to about 1% usage.
 
 ## 2026-10-03 v1.2.182 localization correction
 
