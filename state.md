@@ -14,7 +14,7 @@
   The Ed25519 manifest reports `1.2.172` and verifies locally.
 - The complete public suite passed **783/783** after the version bump. The
   local Windows patch binary is already running, but the signed `v1.2.172`
-  release has not yet been merged, tagged or uploaded to the live webroots.
+  release is merged, tagged and uploaded to both live Plesk webroots.
   NodeOS and Android artifacts remain unchanged and retain their prior signed
   manifest entries; no Android release was built for this WebUI-only fix.
 
