@@ -10,6 +10,7 @@ from unittest.mock import patch
 from services.appliance_dashboard.inference_router import (
     _extract_openai_tool_calls,
     _ollama_message,
+    _execution_metadata,
 )
 from services.appliance_dashboard.server import DashboardHandler
 from tools.appliance.appliance_config import ApplianceConfig
@@ -17,6 +18,19 @@ from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
 
 class TestDashboardServer(unittest.TestCase):
+    def test_execution_metadata_contains_only_node_and_model_identity(self) -> None:
+        class _Handler:
+            @staticmethod
+            def _current_node_id() -> str:
+                return "node-local-1"
+
+        metadata = _execution_metadata(_Handler(), "qwen2.5-32b-instruct-q4")
+        self.assertEqual(metadata["provider_node_ids"], ["node-local-1"])
+        self.assertEqual(metadata["model_id"], "qwen2.5-32b-instruct-q4")
+        self.assertEqual(metadata["mode"], "node-local")
+        self.assertNotIn("prompt", metadata)
+        self.assertNotIn("placement_score", metadata)
+
     def test_cline_json_tool_call_is_exposed_as_openai_tool_call(self) -> None:
         tools = [{
             "type": "function",

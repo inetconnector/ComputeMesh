@@ -29,6 +29,21 @@ class _FakeBackend:
         )
 
 
+class _ProvenanceBackend:
+    def __init__(self):
+        self.calls = 0
+
+    def complete(self, *, model_id, messages):
+        self.calls += 1
+        return BackendResult(
+            text="provenance response",
+            prompt_tokens=3,
+            completion_tokens=2,
+            execution_job_id=f"inf-job-visible-{self.calls}",
+            provider_shares=(("node-a", 0.4), ("node-b", 0.6)),
+        )
+
+
 class TestInferenceEngine(unittest.TestCase):
     def setUp(self) -> None:
         self.ledger = Ledger()
@@ -70,6 +85,35 @@ class TestInferenceEngine(unittest.TestCase):
         self.assertIsNotNone(err)
         self.assertEqual(status, 402)
         self.assertIsNone(res)
+
+    def test_execution_provenance_is_minimized_in_json_and_sse(self) -> None:
+        engine = InferenceEngine(
+            ledger=self.ledger,
+            metrics=self.metrics,
+            teaser_manager=self.teaser_manager,
+            backend=_ProvenanceBackend(),
+        )
+        result, err, status = engine.execute_chat_completion(
+            account_id="cust_test_infer",
+            model_id="qwen/qwen2.5-7b-instruct",
+            messages=[{"role": "user", "content": "Where did this run?"}],
+        )
+        self.assertIsNone(err)
+        self.assertEqual(status, 200)
+        assert result is not None
+        execution = result["compute_mesh_execution"]
+        self.assertEqual(execution["execution_id"], "inf-job-visible-1")
+        self.assertEqual(execution["provider_node_ids"], ["node-a", "node-b"])
+        self.assertEqual(execution["model_id"], "qwen/qwen2.5-7b-instruct")
+        self.assertNotIn("placement_score", execution)
+        chunks = list(engine.stream_chat_completions(
+            account_id="cust_test_infer",
+            model_id="qwen/qwen2.5-7b-instruct",
+            messages=[{"role": "user", "content": "Stream provenance"}],
+        ))
+        stream_text = b"".join(chunks).decode("utf-8")
+        self.assertIn('"execution_id": "inf-job-visible-2"', stream_text)
+        self.assertIn('"provider_node_ids": ["node-a", "node-b"]', stream_text)
 
     def test_stream_chat_completions_sse(self) -> None:
         chunks = list(self.engine.stream_chat_completions(

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -84,6 +85,8 @@ class ModelEngineService:
         self._state_lock = threading.RLock()
         self._drain_event = threading.Event()
         self._drain_event.set()
+        self._auto_download_lock = threading.Lock()
+        self._auto_download_thread: threading.Thread | None = None
 
     def compute_model_digest(self, filepath: Path) -> str:
         """Computes real SHA-256 digest of the model weights on disk."""
@@ -220,8 +223,8 @@ class ModelEngineService:
 
         * If a suitable model is already active, returns ``True``.
         * Otherwise it tries to start the best local model.
-        * If none fits, it downloads the highest‑rated model that fits the hardware,
-          generates its manifest, and starts it.
+        * If none fits, it starts a background download for the highest-rated model
+          that fits the hardware. The dashboard remains available while this runs.
         """
         # Refresh GPU information
         self._gpu_statuses = self.discover_gpus()
@@ -232,7 +235,11 @@ class ModelEngineService:
             model_path, model_id = selection
             return self.start_model(model_path=model_path, model_id=model_id)
 
-        # No fitting local model – attempt to download the best that fits
+        # No fitting local model – attempt to download the best that fits. Downloads
+        # must never block the dashboard's HTTP listener during startup.
+        if os.environ.get("COMPUTEMESH_DISABLE_AUTO_MODEL_DOWNLOAD", "").strip() == "1":
+            log.info("Automatic model download is disabled by configuration.")
+            return False
         from services.appliance_dashboard.model_manager import ModelManager, POPULAR_GGUF_MODELS
         mm = ModelManager.get_instance()
         total_vram = sum(g.vram_total_bytes for g in self._gpu_statuses)
@@ -240,32 +247,65 @@ class ModelEngineService:
 
         for entry in POPULAR_GGUF_MODELS:
             if entry.get('recommended_vram_gb', 0) <= usable_vram_gb:
-                download_id = mm.start_download(
-                    url=entry['url'],
-                    filename=entry['filename'],
-                    repo_id=entry['id'],
-                    expected_size_bytes=entry['size_bytes'],
-                )
-                log.info(f"Started download {download_id} for model {entry['id']}")
-                # Simple poll until download finishes (synchronous for demo)
-                while download_id in mm.active_downloads and mm.active_downloads[download_id].status not in ('COMPLETED', 'FAILED'):
-                    time.sleep(1)
-                model_path = mm.storage_dir / entry['filename']
-                manifest_path = model_path.with_suffix('.computemesh-model-manifest.json')
-                if not manifest_path.exists():
-                    import subprocess
-                    subprocess.run([
-                        "python",
-                        "-m",
-                        "tools.benchmark.gguf_manifest",
-                        "build",
-                        f"--gguf={model_path}",
-                        "--partitioning",
-                        "contiguous_layers",
-                    ], check=False)
-                return self.start_model(model_path=str(model_path), model_id=entry['id'])
+                self._start_background_model_download(mm, entry)
+                return False
         log.warning("No suitable model found for this node's hardware.")
         return False
+
+    def _start_background_model_download(self, model_manager: Any, entry: dict[str, Any]) -> None:
+        """Start at most one automatic download and activate it after validation."""
+        with self._auto_download_lock:
+            if self._auto_download_thread and self._auto_download_thread.is_alive():
+                return
+            thread = threading.Thread(
+                target=self._download_and_activate_model,
+                args=(model_manager, dict(entry)),
+                name="computemesh-model-autoload",
+                daemon=True,
+            )
+            self._auto_download_thread = thread
+            thread.start()
+
+    def _download_and_activate_model(self, model_manager: Any, entry: dict[str, Any]) -> None:
+        """Download, inspect and start a curated model without blocking HTTP startup."""
+        try:
+            download_id = model_manager.start_download(
+                url=entry["url"],
+                filename=entry["filename"],
+                repo_id=entry["id"],
+                expected_size_bytes=entry["size_bytes"],
+            )
+            log.info("Started background model download %s for %s", download_id, entry["id"])
+            while True:
+                progress = model_manager.active_downloads.get(download_id)
+                if progress is None or progress.status in {"COMPLETED", "FAILED", "CANCELLED"}:
+                    break
+                time.sleep(1)
+            if progress is None or progress.status != "COMPLETED":
+                self.last_error = getattr(progress, "error_message", None) or "Automatic model download failed"
+                log.warning("Automatic model download failed for %s: %s", entry["id"], self.last_error)
+                return
+
+            model_path = model_manager.storage_dir / entry["filename"]
+            manifest_path = model_path.with_suffix(".computemesh-model-manifest.json")
+            if not manifest_path.exists():
+                subprocess.run([
+                    "python",
+                    "-m",
+                    "tools.benchmark.gguf_manifest",
+                    "build",
+                    f"--gguf={model_path}",
+                    "--partitioning",
+                    "contiguous_layers",
+                ], check=False, timeout=300)
+            if not manifest_path.exists():
+                self.last_error = "Downloaded model manifest could not be created"
+                log.warning("Refusing to activate %s without a validated manifest", entry["id"])
+                return
+            self.start_model(model_path=str(model_path), model_id=entry["id"])
+        except Exception as exc:
+            self.last_error = str(exc)
+            log.warning("Automatic model setup failed for %s: %s", entry.get("id", "unknown"), exc)
 
     def query_nvml_vram(self) -> None:
         """Query actual GPU memory used per card via nvidia-smi."""

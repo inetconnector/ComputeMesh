@@ -86,7 +86,7 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                 lambda route: route.fulfill(
                     status=200,
                     content_type="application/json",
-                    body='{"id":"browser-check","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"OK"},"finish_reason":"stop"}]}',
+                    body='{"id":"browser-check","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"OK"},"finish_reason":"stop"}],"compute_mesh_execution":{"execution_id":"browser-execution","model_id":"qwen2.5-vl","provider_node_ids":["browser-node"]}}',
                 ),
             )
             with page.expect_request(lambda request: request.method == "POST" and "chat/completions" in request.url, timeout=10000) as pending_request:
@@ -95,6 +95,7 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
             request_body = pending_request.value.post_data or ""
             self.assertIn("Browser attachment check", request_body)
             self.assertIn("Lies den Anhang", request_body)
+            page.locator("#cm-execution-status").filter(has_text="browser-node").wait_for(timeout=5000)
             self.assertEqual(page_errors, [], "desktop WebUI must not raise JavaScript errors")
         finally:
             context.close()
