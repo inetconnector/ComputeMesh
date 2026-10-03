@@ -1,5 +1,23 @@
 # ComputeMesh State
 
+## Release v1.2.172 preflight - 2026-10-03
+
+- Public WebUI fix PR #86 was merged as `3b3d8ce` after green CI. Release
+  branch `codex/release-v1.2.172` is based on that commit and changes the
+  appliance version to `1.2.172`.
+- The signed release builder completed successfully. Windows SHA-256 is
+  `07eb023d41243ad542af209f8273f0197b4bf54570817e76d416e3369ad8ec20`
+  (`117723347` bytes); Linux SHA-256 is
+  `260634eb9c206b73a6991bc5b141d5afed5b7b8d1e880df5e808224993631ab7`
+  (`6925763` bytes); `install.sh` remains
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+  The Ed25519 manifest reports `1.2.172` and verifies locally.
+- The complete public suite passed **783/783** after the version bump. The
+  local Windows patch binary is already running, but the signed `v1.2.172`
+  release has not yet been merged, tagged or uploaded to the live webroots.
+  NodeOS and Android artifacts remain unchanged and retain their prior signed
+  manifest entries; no Android release was built for this WebUI-only fix.
+
 ## WebUI control and service-worker cache fix - 2026-10-02
 
 - Branch `codex/webui-service-worker-controls` is based on public `main` at
