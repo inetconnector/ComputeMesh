@@ -247,7 +247,11 @@ class TestPortalServer(unittest.TestCase):
             "updated_at": now.isoformat().replace("+00:00", "Z"),
         }
 
-        with urllib.request.urlopen(f"http://127.0.0.1:13000/api/v1/mesh/fleet?owner_key={owner_key}") as resp:
+        req = urllib.request.Request(
+            "http://127.0.0.1:13000/api/v1/mesh/fleet",
+            headers={"X-Owner-Key": owner_key},
+        )
+        with urllib.request.urlopen(req) as resp:
             self.assertEqual(resp.status, 200)
             data = json.loads(resp.read().decode("utf-8"))
             self.assertEqual(data["owner_id"], owner_id)

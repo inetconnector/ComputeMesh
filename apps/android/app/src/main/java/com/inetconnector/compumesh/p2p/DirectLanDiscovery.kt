@@ -55,10 +55,6 @@ class DirectLanDiscovery(private val context: Context) {
 
         val endpoints = mutableListOf<String>()
         for (gw in gateways) {
-            if (ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
-                endpoints.add("$gw/api/v1/mesh/fleet?owner_key=${java.net.URLEncoder.encode(ownerKey, "UTF-8")}")
-                endpoints.add("$gw/api/portal/fleet?owner_key=${java.net.URLEncoder.encode(ownerKey, "UTF-8")}")
-            }
             endpoints.add("$gw/api/v1/mesh/fleet")
             endpoints.add("$gw/api/portal/fleet")
         }

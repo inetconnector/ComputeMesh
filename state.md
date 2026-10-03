@@ -1,5 +1,31 @@
 # ComputeMesh State
 
+## Security hardening after v1.2.174 - 2026-10-03
+
+- The repository security scan identified a medium CWE-598 credential-exposure
+  finding: owner credentials were accepted in fleet, payout, provider-identity,
+  MCP-settings and download URLs. The fix is being prepared on branch
+  `codex/fix-query-credential-exposure`; it is not part of live v1.2.174 yet.
+- Productive portal and gateway handlers now require `X-Owner-Key` or an
+  authenticated session for owner-scoped reads and actions. Query-string `key` and
+  `owner_key` fallbacks were removed. The gateway fleet endpoint also fails closed
+  with `401` when no owner credential is supplied, rather than returning an
+  unscoped fleet payload.
+- Fleet UI fetches and generated download commands use headers. Pairing links keep
+  the owner key in the URI fragment, and Android LAN discovery no longer generates
+  credential-bearing fleet URLs. The legacy QR input parser remains compatible with
+  old links, but no new query-credential links are produced.
+- The gateway ban/kill-switch check now runs before model-catalog resolution, so a
+  banned fleet receives the safety denial even when its requested model is absent.
+- Verification on the branch: focused security/fleet coverage **40 passed**;
+  complete public harness **785/785 passed**; `compileall`, `git diff --check`
+  and the relevant Node syntax checks passed. The original scan report remains
+  recorded in the local Codex Security scan directory; a post-fix scan is still
+  required before release.
+- Next release steps are CI review, post-fix security scan, a new signed release,
+  live drift comparison/backup, deployment, and health verification. Until those
+  steps finish, the live release remains v1.2.174.
+
 ## Release v1.2.174 live rollout - 2026-10-03
 
 - Release PR #93 was merged as public main commit `7c9d6fb`; tag `v1.2.174`

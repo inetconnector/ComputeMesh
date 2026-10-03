@@ -373,11 +373,19 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
             def fleet(owner_key: str) -> dict:
                 conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-                conn.request("GET", f"/api/v1/mesh/fleet?owner_key={owner_key}")
+                conn.request("GET", "/api/v1/mesh/fleet", headers={"X-Owner-Key": owner_key})
                 res = conn.getresponse()
                 data = json.loads(res.read().decode("utf-8"))
                 conn.close()
                 return data
+
+            def fleet_query_only(owner_key: str) -> tuple[int, dict]:
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                conn.request("GET", f"/api/v1/mesh/fleet?owner_key={owner_key}")
+                res = conn.getresponse()
+                data = json.loads(res.read().decode("utf-8"))
+                conn.close()
+                return res.status, data
 
             try:
                 # Two nodes share "my-fleet-secret"; a third uses a different key.
@@ -392,6 +400,9 @@ class TestSecurityAuditFixes(unittest.TestCase):
                 theirs = fleet("someone-elses-secret")
                 self.assertEqual(theirs["total_nodes_bound"], 1)
                 self.assertEqual({n["node_id"] for n in theirs["nodes"]}, {"strangers-node"})
+
+                query_status, _ = fleet_query_only("my-fleet-secret")
+                self.assertEqual(query_status, HTTPStatus.UNAUTHORIZED)
 
                 # A node already bound to one owner_key cannot be silently
                 # re-bound to a different owner_key by a later heartbeat.

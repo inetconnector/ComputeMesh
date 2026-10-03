@@ -205,13 +205,17 @@ class TestFleetAdminBans(unittest.TestCase):
         self.assertTrue(any(b["owner_id"] == self.account_a.account_id for b in body.get("banned_fleets", [])))
 
         # Fleet A queries /api/portal/fleet -> shows is_suspended
-        status, fleet_payload = self._get(f"/api/portal/fleet?owner_key={self.account_a.owner_key}")
+        status, fleet_payload = self._get(
+            "/api/portal/fleet", headers={"X-Owner-Key": self.account_a.owner_key}
+        )
         self.assertEqual(status, HTTPStatus.OK)
         self.assertTrue(fleet_payload.get("is_suspended"))
         self.assertEqual(fleet_payload.get("suspension_reason"), "Suspicious Activity")
 
         # Fleet B queries /api/portal/fleet -> is NOT suspended
-        status, b_payload = self._get(f"/api/portal/fleet?owner_key={self.account_b.owner_key}")
+        status, b_payload = self._get(
+            "/api/portal/fleet", headers={"X-Owner-Key": self.account_b.owner_key}
+        )
         self.assertEqual(status, HTTPStatus.OK)
         self.assertFalse(b_payload.get("is_suspended", False))
 

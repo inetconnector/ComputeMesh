@@ -1155,7 +1155,7 @@ function hasActiveSession() {
 function handleAiSubdomainRouting() {
   try {
     if (window.location.hostname === 'ai.inetconnector.com') {
-      var urlParams = new URLSearchParams(window.location.search);
+      var urlParams = new URLSearchParams(window.location.hash.slice(1));
       var rawQKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
       if (rawQKey) {
         var qKey = String(rawQKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
@@ -1190,7 +1190,7 @@ function handleAiSubdomainRouting() {
             document.cookie = cookieStr;
           } catch(e) {}
 
-          window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+          window.location.replace('/webui/#key=' + encodeURIComponent(qKey));
           return;
         }
       }
@@ -1199,7 +1199,7 @@ function handleAiSubdomainRouting() {
       if (isRoot) {
         if (hasActiveSession()) {
           const key = getActiveComputeMeshApiKey();
-          const target = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
+          const target = key ? `/webui/#key=${encodeURIComponent(key)}` : '/webui/';
           window.location.replace(target);
         } else {
           window.location.replace('/ai-auth.html');
@@ -1217,7 +1217,7 @@ handleAiSubdomainRouting();
 function openWebUI(event) {
   if (event && event.preventDefault) event.preventDefault();
   const key = getActiveComputeMeshApiKey();
-  const targetUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const targetUrl = key ? `https://ai.inetconnector.com/webui/#key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
@@ -1226,7 +1226,7 @@ function updateAuthStateUI() {
   const t = (translations && translations[lang]) ? translations[lang] : {};
   const isAuth = hasActiveSession();
   const key = getActiveComputeMeshApiKey();
-  const aiChatUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const aiChatUrl = key ? `https://ai.inetconnector.com/webui/#key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
 
   // 1. Auth button in top navbar
   const btn = document.getElementById('auth-nav-btn');

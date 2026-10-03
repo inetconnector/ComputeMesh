@@ -172,8 +172,6 @@ class InferenceEngine:
         Returns: (chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion)
         """
         _EXECUTION_CONTEXT.set(None)
-        canonical_model_id = resolve_model_id(model_id)
-        requested_max = max_tokens or 512
 
         # Positive Authorization, Emergency Kill Switch & Permanent Ban Check (Global & Fleet-Scoped)
         try:
@@ -203,6 +201,8 @@ class InferenceEngine:
             if "EmergencyKillTrippedError" in type(_ks_err).__name__:
                 raise
 
+        canonical_model_id = resolve_model_id(model_id)
+        requested_max = max_tokens or 512
         normalized_messages, est_prompt_tokens = self.vision_preprocessor.normalize_multimodal_messages(messages)
 
         hold = None

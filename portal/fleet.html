@@ -3215,7 +3215,7 @@ for chunk in stream:
       if (key) headers["X-Owner-Key"] = key;
 
       try {
-        const res = await fetch(`/api/portal/fleet/payouts?owner_key=${encodeURIComponent(key)}`, { headers });
+        const res = await fetch("/api/portal/fleet/payouts", { headers });
         if (!res.ok) {
           const errData = await res.json();
           if (msgBox) msgBox.textContent = "Fehler: " + getErrorMessage(errData, "Konnte Auszahlungsdaten nicht laden");
@@ -3631,7 +3631,7 @@ for chunk in stream:
         return;
       }
       if (window.location.hostname === "ai.inetconnector.com" || source === "ai_studio") {
-        window.location.href = currentKey ? `/webui/?key=${encodeURIComponent(currentKey)}` : "/webui/";
+        window.location.href = currentKey ? `/webui/#key=${encodeURIComponent(currentKey)}` : "/webui/";
         return;
       }
 
@@ -3645,11 +3645,11 @@ for chunk in stream:
 
         const curlEl = document.getElementById("curl-quick-cmd");
         if (curlEl) {
-          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${data.owner_key}" | bash`;
+          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${data.owner_key}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${data.owner_key}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm -Headers @{"X-Owner-Key"="${data.owner_key}"} "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(data.owner_key);
         updateFleetPairQr();
@@ -3662,15 +3662,20 @@ for chunk in stream:
       refreshInterval = setInterval(() => loadFleet(false), 5000);
     }
 
-    function downloadOllamaScript(type, os) {
+    async function downloadOllamaScript(type, os) {
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
-      const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}&key=${encodeURIComponent(key)}`;
+      const response = await fetch(`/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}`, {
+        headers: { "X-Owner-Key": key }
+      });
+      if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status})`);
+      const blob = await response.blob();
       const a = document.createElement("a");
-      a.href = url;
-      a.download = "";
+      a.href = URL.createObjectURL(blob);
+      a.download = os === "linux" ? "ollama-mesh-start.sh" : "OLLAMA-MESH-START.bat";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
+      URL.revokeObjectURL(a.href);
     }
 
     function copyCmd(elemId) {
@@ -3687,7 +3692,7 @@ for chunk in stream:
         const headers = {};
         if (activeOwnerKey) {
           headers["X-Owner-Key"] = activeOwnerKey;
-          url = `/api/portal/fleet?owner_key=${encodeURIComponent(activeOwnerKey)}`;
+          url = "/api/portal/fleet";
         }
 
         const res = await fetch(url, { headers });
@@ -4134,7 +4139,7 @@ for chunk in stream:
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "");
       const qrImg = document.getElementById("fleet-pair-qr-img");
       if (qrImg && key && key !== "owner_..." && !key.includes("<")) {
-        const pairPayload = `computemesh://pair?owner_key=${encodeURIComponent(key)}&gateway=https://mesh.inetconnector.com`;
+        const pairPayload = `computemesh://pair?gateway=https://mesh.inetconnector.com#owner_key=${encodeURIComponent(key)}`;
         qrImg.onerror = function() {
           this.onerror = null;
           this.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pairPayload)}`;
@@ -4419,8 +4424,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/mcp_settings";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
-
         const res = await fetch(url, { headers });
         if (res.ok) {
           const data = await res.json();
@@ -4555,8 +4558,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
-
         const res = await fetch(url, { headers });
         if (!res.ok) {
           if (res.status === 401 && badge) {
@@ -4763,8 +4764,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
-
         const res = await fetch(url, {
           method: "POST",
           headers: headers,
@@ -4800,8 +4799,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity/declaration";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
-
         const res = await fetch(url, {
           method: "POST",
           headers: headers,
