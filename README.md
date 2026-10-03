@@ -57,6 +57,9 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
 - a provider app that lets a machine report available compute;
+- an optional Windows Cline integration that uses the local OpenAI-compatible
+  endpoint and keeps client-owned tool schemas separate from ComputeMesh MCP
+  tools;
 - a verified local GGUF model manager for NodeOS/desktop providers: pinned
   Hugging Face downloads, resumable partial files, exact size/SHA-256/GGUF
   validation, one supervised loopback-only llama.cpp runtime and a dashboard

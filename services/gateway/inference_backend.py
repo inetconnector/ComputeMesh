@@ -7,15 +7,16 @@ nodes from a validated M1 scheduler placement decision.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import json
 import os
 import secrets
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Protocol
 from urllib import error, request
 from urllib.parse import urlparse
 
+from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.execution_attestation import (
     ExecutionAttestationError,
     VerificationKeyResolver,
@@ -25,7 +26,6 @@ from services.gateway.execution_evidence import (
     ExecutionEvidenceError,
     verify_shared_execution_evidence,
 )
-from services.common.secure_memory import SecureMemoryBuffer, secure_zero_memory
 from services.gateway.placement_selection import (
     PlacementSelection,
     PlacementSelectionError,
@@ -44,6 +44,27 @@ class InferenceBackendError(RuntimeError):
     """Raised when a configured inference backend cannot produce a valid result."""
 
 
+def _normalise_native_tool_call(tool_call: Any) -> dict[str, Any]:
+    """Return one native tool call with its arguments represented as an object."""
+    if not isinstance(tool_call, dict):
+        return {}
+    function = tool_call.get("function", tool_call)
+    if not isinstance(function, dict):
+        return {}
+
+    normalized = dict(function)
+    arguments = normalized.get("arguments", {})
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            arguments = {}
+    if not isinstance(arguments, dict):
+        arguments = {}
+    normalized["arguments"] = arguments
+    return normalized
+
+
 @dataclass(frozen=True)
 class BackendResult:
     text: str
@@ -52,6 +73,9 @@ class BackendResult:
     execution_job_id: str | None = None
     provider_shares: tuple[tuple[str, float], ...] | None = None
     evidence_id: str | None = None
+    # Minimized runtime provenance. This contains only opaque provider IDs,
+    # never placement scores, policy inputs, pricing or private traces.
+    execution_node_ids: tuple[str, ...] = ()
 
 
 class InferenceBackend(Protocol):
@@ -91,6 +115,7 @@ class SyntheticInferenceBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         **kwargs: Any,
     ) -> BackendResult:
         last_user_msg = ""
@@ -216,6 +241,7 @@ class OpenAICompatibleHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         response_format: dict[str, Any] | None = None,
         grammar: str | None = None,
         **kwargs: Any,
@@ -227,6 +253,8 @@ class OpenAICompatibleHTTPBackend:
             payload_data["max_tokens"] = max_tokens
         if tools:
             payload_data["tools"] = tools
+            if tool_choice is not None:
+                payload_data["tool_choice"] = tool_choice
         if response_format:
             payload_data["response_format"] = response_format
             if response_format.get("type") == "json_schema":
@@ -263,18 +291,30 @@ class OpenAICompatibleHTTPBackend:
             tool_calls = msg.get("tool_calls", [])
             if tool_calls:
                 tool_calls_text = "\n".join([
-                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    f"<tool_call>{json.dumps(_normalise_native_tool_call(tc), ensure_ascii=False)}</tool_call>"
                     for tc in tool_calls
                 ])
                 text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
             usage = body.get("usage", {})
-            prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(normalized)) // 4, 1))
+            prompt_tokens = int(usage.get("prompt_tokens") or max(len(json.dumps(formatted_messages)) // 4, 1))
             completion_tokens = int(usage.get("completion_tokens") or max(len(text) // 4, 1))
+            execution = body.get("compute_mesh_execution")
+            raw_node_ids = execution.get("provider_node_ids", []) if isinstance(execution, dict) else []
+            execution_node_ids = tuple(
+                node_id.strip()
+                for node_id in raw_node_ids
+                if isinstance(node_id, str) and 0 < len(node_id.strip()) <= 128
+            ) if isinstance(raw_node_ids, list) else ()
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise InferenceBackendError("Inference runtime returned an invalid response") from exc
         if not isinstance(text, str) or prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Inference runtime returned invalid content or usage")
-        return BackendResult(text, prompt_tokens, completion_tokens)
+        return BackendResult(
+            text,
+            prompt_tokens,
+            completion_tokens,
+            execution_node_ids=execution_node_ids,
+        )
 
 
 class OllamaHTTPBackend:
@@ -372,6 +412,7 @@ class OllamaHTTPBackend:
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: Any = None,
         **kwargs: Any,
     ) -> BackendResult:
         normalized = self._normalise_messages(messages, self.system_prompt)
@@ -391,6 +432,8 @@ class OllamaHTTPBackend:
         }
         if tools:
             req_payload["tools"] = tools
+            if tool_choice is not None:
+                req_payload["tool_choice"] = tool_choice
 
         response_format = kwargs.get("response_format")
         if response_format and isinstance(response_format, dict):
@@ -431,7 +474,7 @@ class OllamaHTTPBackend:
             tool_calls = msg.get("tool_calls", [])
             if tool_calls:
                 tool_calls_text = "\n".join([
-                    f"<tool_call>{json.dumps(tc.get('function', tc))}</tool_call>"
+                    f"<tool_call>{json.dumps(_normalise_native_tool_call(tc), ensure_ascii=False)}</tool_call>"
                     for tc in tool_calls
                 ])
                 text = f"{text.strip()}\n{tool_calls_text}".strip() if text.strip() else tool_calls_text
@@ -443,7 +486,19 @@ class OllamaHTTPBackend:
         completion_tokens = int(body.get("eval_count") or max(len(text) // 4, 1))
         if prompt_tokens < 0 or completion_tokens < 0:
             raise InferenceBackendError("Ollama inference runtime returned invalid token usage")
-        return BackendResult(text.strip(), prompt_tokens, completion_tokens)
+        execution = body.get("compute_mesh_execution")
+        raw_node_ids = execution.get("provider_node_ids", []) if isinstance(execution, dict) else []
+        execution_node_ids = tuple(
+            node_id.strip()
+            for node_id in raw_node_ids
+            if isinstance(node_id, str) and 0 < len(node_id.strip()) <= 128
+        ) if isinstance(raw_node_ids, list) else ()
+        return BackendResult(
+            text.strip(),
+            prompt_tokens,
+            completion_tokens,
+            execution_node_ids=execution_node_ids,
+        )
 
 
 class OrchestratedInferenceBackend:
@@ -620,6 +675,9 @@ class OrchestratedInferenceBackend:
                 result.prompt_tokens,
                 result.completion_tokens,
                 execution_job_id=job_id,
+                provider_shares=result.provider_shares,
+                evidence_id=result.evidence_id,
+                execution_node_ids=result.execution_node_ids,
             )
         assert self.execution_evidence_path is not None
         assert self.execution_attestation_path is not None
@@ -657,6 +715,7 @@ class OrchestratedInferenceBackend:
             execution_job_id=job_id,
             provider_shares=verified.provider_shares,
             evidence_id=verified.evidence_id,
+            execution_node_ids=verified.execution_node_ids or tuple(self.provider_node_ids),
         )
 
     def complete(

@@ -4,6 +4,7 @@ scratch/
 exports/
 *.log
 *.tmp
+portal/generated/
 
 # Python
 __pycache__/

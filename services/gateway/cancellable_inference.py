@@ -1,8 +1,8 @@
 """Request-context wrapper that makes live backend cancellation owner-addressable."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 import threading
+from contextlib import contextmanager
 from typing import Any, Iterator
 
 from services.billing.ledger import DEFAULT_NETWORK_FEE_BPS, DEFAULT_PRICE_TIERS
@@ -32,6 +32,7 @@ class RequestContextBackend:
         model_id: str,
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> BackendResult:
         request_id = getattr(self.local, "request_id", None)
         complete_for_request = getattr(self.delegate, "complete_for_request", None)
@@ -42,6 +43,7 @@ class RequestContextBackend:
                     model_id=model_id,
                     messages=messages,
                     max_tokens=max_tokens,
+                    **kwargs,
                 )
             except TypeError:
                 result = complete_for_request(
@@ -51,7 +53,12 @@ class RequestContextBackend:
                 )
         else:
             try:
-                result = self.delegate.complete(model_id=model_id, messages=messages, max_tokens=max_tokens)
+                result = self.delegate.complete(
+                    model_id=model_id,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    **kwargs,
+                )
             except TypeError:
                 result = self.delegate.complete(model_id=model_id, messages=messages)
 

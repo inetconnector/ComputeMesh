@@ -50,9 +50,19 @@ from .builtin.github_ci_tools import github_list_releases, github_get_latest_rel
 from .builtin.github_issue_tools import github_list_issues, github_get_issue, github_create_issue, github_add_issue_comment
 from .builtin.github_pr_tools import github_list_pull_requests, github_get_pull_request, github_get_pull_request_diff, github_get_pull_request_files
 from .builtin.github_repo_tools import github_get_repo, github_search_repositories, github_get_file_contents, github_list_repo_tree, github_search_code
+from .builtin.archive_and_data_transform import unpack_archive, create_archive, convert_structured_data
 from .builtin.http_api_client import execute_http_request
+from .builtin.image_enhancer_tools import enhance_and_crop_image, create_contact_sheet
 from .builtin.knowledge_fusion import cross_source_knowledge_search
-from .builtin.mission_journal import mission_start, mission_log_step, mission_verify_postconditions, mission_get_summary
+from .builtin.mission_journal import (
+    mission_start,
+    mission_log_step,
+    mission_verify_postconditions,
+    mission_get_summary,
+    checkpoint_save,
+    checkpoint_resume,
+    checkpoint_list,
+)
 from .builtin.multilingual_wiki import fetch_multilingual_wikipedia
 from .builtin.network_tools import lookup_network_host
 from .builtin.news_feed import execute_get_news, get_live_news
@@ -443,6 +453,26 @@ TOOL_ALIASES: Dict[str, str] = {
     "pacman": "launch_deployed_webapp",
     "start_pacman": "launch_deployed_webapp",
     "spiele_pacman": "launch_deployed_webapp",
+    "unpack_zip": "unpack_archive",
+    "unzip": "unpack_archive",
+    "extract_archive": "unpack_archive",
+    "entpacken": "unpack_archive",
+    "zip": "create_archive",
+    "create_zip": "create_archive",
+    "archiv_erstellen": "create_archive",
+    "crop_image": "enhance_and_crop_image",
+    "rotate_image": "enhance_and_crop_image",
+    "enhance_image": "enhance_and_crop_image",
+    "bild_bearbeiten": "enhance_and_crop_image",
+    "bild_zuschneiden": "enhance_and_crop_image",
+    "contact_sheet": "create_contact_sheet",
+    "save_checkpoint": "checkpoint_save",
+    "checkpoint": "checkpoint_save",
+    "resume_checkpoint": "checkpoint_resume",
+    "list_checkpoints": "checkpoint_list",
+    "checkpoints": "checkpoint_list",
+    "convert_data": "convert_structured_data",
+    "daten_konvertieren": "convert_structured_data",
 }
 
 
@@ -2113,7 +2143,119 @@ class ToolRegistry:
             source="builtin_custom_tools",
         )
 
+        # -------------------------------------------------------------
+        # Generic Archive & Structured Data Transformation Tools
+        # -------------------------------------------------------------
+        self.register_tool(
+            "unpack_archive",
+            "Entpackt ZIP-, TAR-, TAR.GZ-, TAR.BZ2- oder GEDZIP-Dateien in den Arbeitsbereich und liefert eine strukturierte Dateiübersicht.",
+            schema({
+                "archive_path": {"type": "string", "description": "Relativer oder absoluter Pfad zur Archivdatei."},
+                "extract_to": {"type": "string", "description": "Zielverzeichnis für die entpackten Dateien (optional)."},
+                "list_only": {"type": "boolean", "description": "Wenn true, wird nur der Inhalt aufgelistet ohne zu entpacken.", "default": False},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["archive_path"]),
+            unpack_archive,
+            source="builtin_archive_transform",
+        )
 
+        self.register_tool(
+            "create_archive",
+            "Packt angegebene Dateien oder Verzeichnisse in ein ZIP-, GEDZIP- oder TAR.GZ-Archiv.",
+            schema({
+                "output_path": {"type": "string", "description": "Pfad des zu erstellenden Archivs (z.B. export.zip, daten.gedzip)."},
+                "input_paths": {"type": "array", "items": {"type": "string"}, "description": "Liste von Datei- oder Verzeichnispfaden zum Einpacken."},
+                "archive_type": {"type": "string", "enum": ["zip", "gedzip", "tar", "tar.gz", "tgz"], "default": "zip"},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["output_path", "input_paths"]),
+            create_archive,
+            source="builtin_archive_transform",
+        )
 
+        self.register_tool(
+            "convert_structured_data",
+            "Konvertiert tabellarische oder strukturierte Daten universell zwischen CSV, TSV, JSON und Markdown-Tabellen.",
+            schema({
+                "source_path": {"type": "string", "description": "Pfad zur Quelldatei."},
+                "target_format": {"type": "string", "enum": ["json", "csv", "tsv", "markdown", "md"], "default": "json"},
+                "output_path": {"type": "string", "description": "Optionaler Zielpfad zum Speichern des Ergebnisses."},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["source_path"]),
+            convert_structured_data,
+            source="builtin_archive_transform",
+        )
 
+        # -------------------------------------------------------------
+        # Image Enhancement, Cropping & Visual Inspection Tools
+        # -------------------------------------------------------------
+        self.register_tool(
+            "enhance_and_crop_image",
+            "Schneidet Bildbereiche zu (Crop), dreht Bilder, optimiert Kontrast/Schärfe oder konvertiert Scans und Handschriften für OCR & Bildanalyse.",
+            schema({
+                "image_path": {"type": "string", "description": "Pfad zur Original-Bilddatei."},
+                "output_path": {"type": "string", "description": "Optionaler Ausgabepfad."},
+                "crop_box": {"type": "array", "items": {"type": "integer"}, "description": "Ausschnitt als [left, upper, right, lower] Koordinaten."},
+                "rotate_degrees": {"type": "number", "description": "Drehwinkel in Grad (z.B. 90, 180, 270)."},
+                "contrast_factor": {"type": "number", "description": "Kontrastverstärkung (z.B. 1.5 oder 2.0)."},
+                "brightness_factor": {"type": "number", "description": "Helligkeitsanpassung."},
+                "sharpness_factor": {"type": "number", "description": "Schärfeverstärkung (z.B. 2.0)."},
+                "grayscale": {"type": "boolean", "description": "In Graustufen konvertieren.", "default": False},
+                "auto_contrast": {"type": "boolean", "description": "Automatischen Kontrastausgleich anwenden.", "default": False},
+                "max_dimension": {"type": "integer", "description": "Maximale Kantenlänge zur Skalierung."},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["image_path"]),
+            enhance_and_crop_image,
+            source="builtin_image_enhancer",
+        )
 
+        self.register_tool(
+            "create_contact_sheet",
+            "Fügt mehrere Dokumentbilder/Scans in ein übersichtliches Kontaktabzug-Raster (Contact Sheet) zusammen.",
+            schema({
+                "image_paths": {"type": "array", "items": {"type": "string"}, "description": "Liste von Bildpfaden."},
+                "output_path": {"type": "string", "description": "Ausgabepfad (z.B. contact_sheet.png).", "default": "contact_sheet.png"},
+                "columns": {"type": "integer", "description": "Anzahl der Spalten im Raster.", "default": 3},
+                "thumb_size": {"type": "integer", "description": "Kantenlänge der Thumbnails in Pixeln.", "default": 400},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["image_paths"]),
+            create_contact_sheet,
+            source="builtin_image_enhancer",
+        )
+
+        # -------------------------------------------------------------
+        # Checkpoint Lifecycle & Mission Resumption Tools
+        # -------------------------------------------------------------
+        self.register_tool(
+            "checkpoint_save",
+            "Speichert einen nummerierten Zwischenstand (z.B. CP01, CP19) mit Daten, Artefakten und Notizen für verlustfreies Wiederaufsetzen.",
+            schema({
+                "checkpoint_id": {"type": "string", "description": "Eindeutige ID des Checkpoints (z.B. 'CP01', 'CP19')."},
+                "data": {"type": "object", "description": "Strukturierte Status- und Ergebnisdaten des Checkpoints."},
+                "artifacts": {"type": "array", "items": {"type": "string"}, "description": "Liste der erstellten/geänderten Dateien."},
+                "notes": {"type": "string", "description": "Zusammenfassung der erreichten Änderungen."},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }, ["checkpoint_id"]),
+            checkpoint_save,
+            source="builtin_mission_journal",
+        )
+
+        self.register_tool(
+            "checkpoint_resume",
+            "Lädt den angegebenen oder zuletzt gespeicherten Zwischenstand zur nahtlosen Fortsetzung nach Timeouts oder Unterbrechungen.",
+            schema({
+                "checkpoint_id": {"type": "string", "description": "Optionale Checkpoint-ID (wenn leer, wird der neueste Stand geladen)."},
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }),
+            checkpoint_resume,
+            source="builtin_mission_journal",
+        )
+
+        self.register_tool(
+            "checkpoint_list",
+            "Listet alle im Workspace gespeicherten Checkpoints chronologisch mit Notizen und Artefaktübersicht auf.",
+            schema({
+                "workspace_root": {"type": "string", "description": "Optionaler Workspace-Stammpfad."},
+            }),
+            checkpoint_list,
+            source="builtin_mission_journal",
+        )

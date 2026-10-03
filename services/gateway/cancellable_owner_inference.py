@@ -1,8 +1,8 @@
 """Cancellation/request-id support without regressing unified-owner economics."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 import threading
+from contextlib import contextmanager
 from typing import Any, Iterator
 
 from services.gateway.inference_backend import BackendResult, InferenceBackend
@@ -23,6 +23,7 @@ class _OwnerRequestContextBackend:
         model_id: str,
         messages: list[dict[str, Any]],
         max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> BackendResult:
         request_id = getattr(self.local, "request_id", None)
         complete_for_request = getattr(self.delegate, "complete_for_request", None)
@@ -33,6 +34,7 @@ class _OwnerRequestContextBackend:
                     model_id=model_id,
                     messages=messages,
                     max_tokens=max_tokens,
+                    **kwargs,
                 )
             except TypeError:
                 result = complete_for_request(
@@ -46,6 +48,7 @@ class _OwnerRequestContextBackend:
                     model_id=model_id,
                     messages=messages,
                     max_tokens=max_tokens,
+                    **kwargs,
                 )
             except TypeError:
                 result = self.delegate.complete(model_id=model_id, messages=messages)

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ComputeMesh Admin Dashboard</title>
+  <style>
+    body {font-family: 'Inter', sans-serif; background: #111; color: #eee; margin:0; padding:2rem;}
+    h1 {color:#0ff;}
+    .card {background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:1rem;}
+    button {background:#0ff; color:#111; border:none; padding:0.5rem 1rem; border-radius:4px; cursor:pointer;}
+    button:hover {background:#0cc;}
+    pre {background:#222; padding:1rem; border-radius:4px; overflow:auto;}
+  </style>
+</head>
+<body>
+  <h1>ComputeMesh Admin Dashboard</h1>
+  <div class="card" id="modelInfo">
+    <h2>Current Model Selection</h2>
+    <pre id="modelStatus">Loading...</pre>
+  </div>
+  <script>
+    async function loadModelInfo() {
+      try {
+        const resp = await fetch('/api/debug/model-selection');
+        const data = await resp.json();
+        document.getElementById('modelStatus').textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        document.getElementById('modelStatus').textContent = 'Error: ' + e;
+      }
+    }
+    loadModelInfo();
+    setInterval(loadModelInfo, 30000);
+  </script>
+</body>
+</html>

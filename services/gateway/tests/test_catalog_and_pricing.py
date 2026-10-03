@@ -22,6 +22,16 @@ from services.gateway.registry_client import RegistryModel
 
 
 class TestCatalogAndPricing(unittest.TestCase):
+    def setUp(self) -> None:
+        self.previous_static = os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG")
+        os.environ["COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG"] = "1"
+
+    def tearDown(self) -> None:
+        if self.previous_static is None:
+            os.environ.pop("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", None)
+        else:
+            os.environ["COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG"] = self.previous_static
+
     def test_available_models_catalog_integrity(self) -> None:
         self.assertGreaterEqual(len(AVAILABLE_MODELS), 5)
         model_ids = {m.id for m in AVAILABLE_MODELS}
@@ -70,9 +80,10 @@ class TestCatalogAndPricing(unittest.TestCase):
         self.assertEqual(resolve_model_id("minicpm5-2b"), "openbmb/minicpm5-2b")
         self.assertEqual(resolve_model_id("minicpm:2b"), "openbmb/minicpm5-2b")
 
-        # Fallback to default
+        # Empty requests select the current default; explicit unknown IDs fail.
         self.assertEqual(resolve_model_id(""), "qwen/qwen2.5-7b-instruct")
-        self.assertEqual(resolve_model_id("unknown_future_model"), "qwen/qwen2.5-7b-instruct")
+        with self.assertRaisesRegex(ValueError, "not available"):
+            resolve_model_id("unknown_future_model")
 
     def test_provider_shares_from_env_default(self) -> None:
         old_env = os.environ.pop("COMPUTEMESH_PROVIDER_SHARES", None)

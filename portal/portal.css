@@ -69,21 +69,21 @@ section[id], div[id], [id] {
    ============================================================================== */
 
 :root {
-  --bg-primary: #07090e;
-  --bg-secondary: #0d121d;
-  --bg-surface: #131b2a;
-  --bg-card: rgba(19, 27, 42, 0.75);
-  --bg-card-hover: rgba(28, 40, 62, 0.9);
+  --bg-primary: #090d16;
+  --bg-secondary: #0f172a;
+  --bg-surface: #151f32;
+  --bg-card: rgba(17, 24, 39, 0.75);
+  --bg-card-hover: rgba(30, 41, 59, 0.88);
   
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(0, 240, 255, 0.3);
-  --border-emerald: rgba(16, 185, 129, 0.3);
+  --border-bright: rgba(59, 130, 246, 0.35);
+  --border-emerald: rgba(16, 185, 129, 0.28);
   
-  --accent-cyan: #00f0ff;
+  --accent-cyan: #38bdf8;
   --accent-blue: #3b82f6;
   --accent-indigo: #6366f1;
   --accent-emerald: #10b981;
-  --accent-purple: #a855f7;
+  --accent-purple: #8b5cf6;
   --accent-amber: #f59e0b;
   
   --text-main: #f8fafc;
@@ -99,8 +99,8 @@ section[id], div[id], [id] {
   --radius-lg: 20px;
   --radius-full: 9999px;
   
-  --shadow-glow-cyan: 0 0 30px rgba(0, 240, 255, 0.15);
-  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.15);
+  --shadow-glow-cyan: 0 4px 20px rgba(56, 189, 248, 0.12);
+  --shadow-glow-emerald: 0 4px 20px rgba(16, 185, 129, 0.12);
 }
 
 * {
@@ -116,9 +116,9 @@ body {
   line-height: 1.6;
   overflow-x: hidden;
   background-image: 
-    radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.06) 0%, transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(99, 102, 241, 0.06) 0%, transparent 45%),
-    radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+    radial-gradient(circle at 20% 15%, rgba(59, 130, 246, 0.07) 0%, transparent 40%),
+    radial-gradient(circle at 80% 25%, rgba(99, 102, 241, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -133,26 +133,18 @@ body {
 h1, h2, h3, h4, .brand-logo {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 /* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-indigo));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-
-/* Gradient Text */
-.gradient-text {
-  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-indigo));
+  background: linear-gradient(135deg, #60a5fa, #3b82f6, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .gradient-emerald {
-  background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
+  background: linear-gradient(135deg, #34d399, #38bdf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -3726,4 +3718,106 @@ footer.site-footer {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==============================================================================
+   Professional Multi-Column Site Footer
+   ============================================================================== */
+footer.site-footer {
+  background: rgba(7, 10, 19, 0.95);
+  border-top: 1px solid var(--border-subtle);
+  padding: 4rem 1.5rem 2rem 1.5rem;
+  margin-top: 4rem;
+  width: 100%;
+}
+.site-footer .footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2.5rem;
+  margin-bottom: 3rem;
+}
+.site-footer h4 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+}
+.site-footer ul {
+  list-style: none;
+  font-size: 0.85rem;
+  line-height: 2;
+  padding: 0;
+  margin: 0;
+}
+.site-footer ul li a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.site-footer ul li a:hover {
+  color: var(--text-main);
+}
+.site-footer .footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 1.5rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+/* ==============================================================================
+   Modal Dialogs & Registration Backdrop
+   ============================================================================== */
+.modal-backdrop {
+  display: none !important;
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.modal-backdrop.active {
+  display: flex !important;
+}
+.modal-box,
+.modal-dialog {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 2.25rem;
+  max-width: 520px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-main);
+}
+.modal-close,
+.modal-close-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem;
+  transition: color 0.15s ease;
+}
+.modal-close:hover,
+.modal-close-btn:hover {
+  color: #ffffff;
+}
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+
 
