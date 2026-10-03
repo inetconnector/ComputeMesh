@@ -1,16 +1,28 @@
 # ComputeMesh State
 
-## Release v1.2.174 preparation - 2026-10-03
+## Release v1.2.174 live rollout - 2026-10-03
 
-- Release branch `codex/release-v1.2.174` is based on merged public main
-  `73b9da2` and bumps the runtime version to `1.2.174`.
-- This release contains execution provenance in gateway/NodeOS responses, the
-  AI Studio status display, corrected curated Qwen GGUF sources and
-  non-blocking NodeOS model startup. It is not live yet.
-- The signed manifest and Windows/Linux artifacts must be rebuilt from this
-  branch, verified against the release trust list, and compared with the
-  existing live NodeOS/Android assets before deployment. Existing live-only
-  artifacts remain preserved until that comparison is complete.
+- Release PR #93 was merged as public main commit `7c9d6fb`; tag `v1.2.174`
+  and the signed GitHub release are published.
+- The live source checkout `/opt/computemesh` is at `7c9d6fb`. Both Plesk
+  webroots have manifest version `1.2.174`, and the signed manifest verifies.
+- Live artifact hashes are: Windows
+  `64a3cc7afe5ff003b4ffa58ebbb7d1c85317784e4c4b706887e18fe5efb492dc`, Linux
+  `7e37810513df2fdd29e7882bef3d4b961f9474669e19a65f9c15922146ac636e`,
+  `install.sh`
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`, and
+  WebUI `model-selector.js`
+  `bfcff247426df7c7adf324574e5b3660e6cf79fd69ed741dc9da6cf289ddad17`.
+- The pre-deployment live snapshot is preserved at
+  `/root/computemesh-backups/v1.2.174-before-deploy-20261003/`. Existing
+  Android/NodeOS image assets and the four live-only feature stashes were
+  compared and preserved rather than overwritten.
+- `computemesh-gateway.service`, `computemesh-autoupdate.service` and
+  `computemesh-node.service` are active; gateway health, public HTTPS
+  manifests/downloads, NodeOS `/api/status`, engine status and `/v1/models`
+  checks returned successfully. The checked host currently reports zero GPUs,
+  so its engine remains idle with no suitable model; no current startup
+  exception was observed.
 
 ## Execution provenance and non-blocking NodeOS model setup - 2026-10-03
 

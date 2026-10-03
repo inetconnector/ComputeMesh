@@ -63,7 +63,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.174` is the release candidate for the execution-provenance and non-blocking NodeOS model-startup changes. It must be signed, CI-verified and live-hash-checked before publication.
+Current signed client/update channel: `v1.2.174` is published and live-verified for the execution-provenance and non-blocking NodeOS model-startup changes. The signed manifest, Windows/Linux artifacts and WebUI model-selector hashes match the deployed release.
 
 ## What Is Not Promised Yet
 
