@@ -20,7 +20,7 @@
 				localStorage.setItem("has_seen_mcp_modal", "true");
 
 				// Auto-authenticate with ComputeMesh credentials
-				var urlParams = new URLSearchParams(window.location.search);
+				var urlParams = new URLSearchParams(window.location.hash.slice(1));
 				var keyFromUrl = urlParams.get("key") || urlParams.get("api_key") || urlParams.get("token");
 				var rawKey = keyFromUrl || localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey");
 
@@ -32,6 +32,7 @@
 						localStorage.setItem("cm_owner_key", cmKey);
 						localStorage.setItem("cm_api_key", cmKey);
 						localStorage.setItem("cm_token", cmKey);
+						history.replaceState(null, document.title, window.location.pathname + window.location.search);
 
 						var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
 						configKeys.forEach(function(k) {

@@ -246,7 +246,7 @@ class TestFleetPayoutsHttpEndpoints(unittest.TestCase):
     def test_payouts_overview_via_http(self) -> None:
         owner_key = "owk_http_test_key_abc"
         req = urllib.request.Request(
-            f"{self.BASE}/api/portal/fleet/payouts?owner_key={owner_key}",
+            f"{self.BASE}/api/portal/fleet/payouts",
             headers={"X-Owner-Key": owner_key},
         )
         resp = urllib.request.urlopen(req)

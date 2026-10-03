@@ -88,6 +88,12 @@ The menu can inspect the machine, measure the network connection, test local mod
 
 Completed chat responses include a minimized `compute_mesh_execution` block. It contains the selected model, an opaque execution ID and the provider Node IDs that actually reported the run. The AI Studio model panel mirrors this as the last execution status. It deliberately omits prompts, provider pricing, placement scores, private policy traces and other control-plane data.
 
+Owner credentials for fleet, payout, provider-identity, MCP-settings and generated
+bootstrap-script requests are sent in the `X-Owner-Key` header (or an authenticated
+session), never as URL query parameters. Pairing links keep the owner key in the URI
+fragment so it is not sent in ordinary HTTP request logs. The public gateway and portal
+reject unauthenticated fleet reads instead of returning an unscoped fleet view.
+
 The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.
 
 ## Technical Overview

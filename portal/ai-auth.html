@@ -674,7 +674,7 @@
       }
 
       setTimeout(function() {
-        window.location.replace('/webui/?key=' + encodeURIComponent(key));
+        window.location.replace('/webui/#key=' + encodeURIComponent(key));
       }, 200);
     }
 
@@ -909,7 +909,7 @@
     // On Load: check if key in URL or session exists
     (function init() {
       try {
-        var urlParams = new URLSearchParams(window.location.search);
+        var urlParams = new URLSearchParams(window.location.hash.slice(1));
         var qKey = urlParams.get('key') || urlParams.get('api_key') || urlParams.get('token');
         if (qKey) {
           storeKeyAndLaunch(qKey);
@@ -918,7 +918,7 @@
         var key = localStorage.getItem('cm_fleet_owner_key') || localStorage.getItem('cm_owner_key') || localStorage.getItem('cm_api_key') || localStorage.getItem('cm_token') || localStorage.getItem('apiKey');
         var isSession = document.cookie && document.cookie.includes('cm_session=');
         if (key || isSession) {
-          window.location.replace(key ? '/webui/?key=' + encodeURIComponent(cleanApiKey(key)) : '/webui/');
+          window.location.replace(key ? '/webui/#key=' + encodeURIComponent(cleanApiKey(key)) : '/webui/');
           return;
         }
       } catch(e) {}

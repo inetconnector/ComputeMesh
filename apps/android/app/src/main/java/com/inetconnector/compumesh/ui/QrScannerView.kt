@@ -78,7 +78,11 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
     try {
         if (trimmed.startsWith("computemesh://") || trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
             val uri = Uri.parse(trimmed)
-            val key = uri.getQueryParameter("owner_key")
+            val fragmentParams = uri.fragment?.let { fragment ->
+                android.net.Uri.parse("https://local.invalid/?$fragment")
+            }
+            val key = fragmentParams?.getQueryParameter("owner_key")
+                ?: uri.getQueryParameter("owner_key")
                 ?: uri.getQueryParameter("key")
                 ?: uri.getQueryParameter("secret")
                 ?: ""

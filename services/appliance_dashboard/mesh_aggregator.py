@@ -122,8 +122,11 @@ class MeshRegistryAggregator:
                 cfg = load_appliance_config()
                 owner_key = getattr(cfg, "owner_key", "")
                 if owner_key:
-                    fleet_url = f"{CONFIG.endpoints.base_url}/api/v1/mesh/fleet?owner_key={owner_key}"
-                    req = urllib.request.Request(fleet_url, headers={"User-Agent": "ComputeMesh-Aggregator/1.2"})
+                    fleet_url = f"{CONFIG.endpoints.base_url}/api/v1/mesh/fleet"
+                    req = urllib.request.Request(
+                        fleet_url,
+                        headers={"User-Agent": "ComputeMesh-Aggregator/1.2", "X-Owner-Key": owner_key},
+                    )
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         if resp.status == 200:
                             fleet_data = json.loads(resp.read().decode("utf-8"))

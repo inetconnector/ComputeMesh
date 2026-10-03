@@ -310,11 +310,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = (
-                    query_params.get("key", [""])[0].strip()
-                    or query_params.get("owner_key", [""])[0].strip()
-                    or self.headers.get("X-Owner-Key", "").strip()
-                )
+                owner_key = self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -550,7 +546,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -585,14 +581,14 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path in ("/api/v1/mesh/fleet", "/mesh/fleet"):
             from services.gateway.server import _build_fleet_payload, owner_id_for_key
 
-            owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+            owner_key = self.headers.get("X-Owner-Key", "").strip()
             if not owner_key:
                 auth_hdr = self.headers.get("Authorization", "").strip()
                 if auth_hdr.startswith("Bearer "):
                     owner_key = auth_hdr[7:].strip()
 
             if not owner_key:
-                self._send_json({"error": "owner_key query parameter is required"}, HTTPStatus.BAD_REQUEST)
+                self._send_json({"error": "owner_key header is required"}, HTTPStatus.BAD_REQUEST)
                 return
 
             facc = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
@@ -640,7 +636,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -665,7 +661,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -700,7 +696,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -1286,7 +1282,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = str(body.get("owner_key", "")).strip() or query_params.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = str(body.get("owner_key", "")).strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
