@@ -96,6 +96,37 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertIn("portal-core.js?v=4.4", portal_js)
         self.assertIn("cm_session=", webui)
 
+    def test_new_ui_messages_use_localization_resources(self) -> None:
+        android_root = Path(__file__).resolve().parents[1] / "apps" / "android"
+        main_activity = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/MainActivity.kt").read_text(encoding="utf-8")
+        qr_scanner = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/QrScannerView.kt").read_text(encoding="utf-8")
+        setup_tab = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/tabs/SetupTab.kt").read_text(encoding="utf-8")
+        update_checker = (android_root / "app/src/main/java/com/inetconnector/compumesh/update/AndroidUpdateChecker.kt").read_text(encoding="utf-8")
+        dashboard = (Path(__file__).resolve().parents[1] / "services/appliance_dashboard/static/index.html").read_text(encoding="utf-8")
+        portal_core = (Path(__file__).resolve().parents[1] / "portal/portal-core.js").read_text(encoding="utf-8")
+        android_strings = (android_root / "app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+        german_strings = (android_root / "app/src/main/res/values-de/strings.xml").read_text(encoding="utf-8")
+
+        for source, forbidden in (
+            (main_activity, ("Enrollment fehlgeschlagen", "Kein Owner-Key", "Kopplung fehlgeschlagen")),
+            (qr_scanner, ("computemesh://pair?enrollment_token=... oder inet-...",)),
+            (setup_tab, ("Kopplung wird hergestellt", "Einmal-Token")),
+            (update_checker, ("Update-Quelle ist nicht vertrauenswürdig", "APK-Größe stimmt")),
+            (dashboard, ("window.prompt('Node-Authentifizierung erforderlich",)),
+        ):
+            for literal in forbidden:
+                self.assertNotIn(literal, source)
+
+        for key in (
+            "enrollment_failed_http", "owner_key_missing", "pairing_succeeded", "pairing_failed",
+            "unknown_error", "pairing_link_placeholder", "pairing_starting", "pairing_one_time_token",
+            "update_source_untrusted", "update_size_mismatch",
+        ):
+            self.assertIn(f'name="{key}"', android_strings)
+            self.assertIn(f'name="{key}"', german_strings)
+        self.assertIn('fleet_download_error: "Download failed ({status})"', portal_core)
+        self.assertIn('fleet_download_error: "Download fehlgeschlagen ({status})"', portal_core)
+
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 

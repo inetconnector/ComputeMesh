@@ -21,6 +21,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import com.inetconnector.compumesh.guard.BatteryPolicyGuard
+import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.server.LocalChatServer
 import com.inetconnector.compumesh.service.MeshNodeService
@@ -206,15 +207,21 @@ class MainActivity : ComponentActivity() {
                     connection.connectTimeout = 6000
                     connection.readTimeout = 6000
                     connection.outputStream.use { it.write(JSONObject().put("enrollment_token", token).toString().toByteArray()) }
-                    if (connection.responseCode !in 200..299) error("Enrollment fehlgeschlagen: HTTP ${connection.responseCode}")
+                    if (connection.responseCode !in 200..299) {
+                        error(getString(R.string.enrollment_failed_http, connection.responseCode))
+                    }
                     JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).optString("owner_key")
                 }
-                if (ownerKey.isBlank()) error("Kein Owner-Key zurückgegeben")
+                if (ownerKey.isBlank()) error(getString(R.string.owner_key_missing))
                 saveFleetConfig(ownerKey, gateway)
-                Toast.makeText(this@MainActivity, "✓ Sicher mit ComputeMesh gekoppelt", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, getString(R.string.pairing_succeeded), Toast.LENGTH_LONG).show()
                 startNodeService()
             } catch (error: Throwable) {
-                Toast.makeText(this@MainActivity, "Kopplung fehlgeschlagen: ${error.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.pairing_failed, error.message ?: getString(R.string.unknown_error)),
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
     }

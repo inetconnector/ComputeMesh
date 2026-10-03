@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.inetconnector.compumesh.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -503,7 +505,7 @@ fun ManualPairingDialog(
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
-                        placeholder = { Text("computemesh://pair?enrollment_token=... oder inet-...", color = TextMuted, fontSize = 12.sp) },
+                        placeholder = { Text(stringResource(R.string.pairing_link_placeholder), color = TextMuted, fontSize = 12.sp) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary,

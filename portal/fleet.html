@@ -3709,7 +3709,12 @@ for chunk in stream:
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
       const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}`;
       const response = await fetch(url, { headers: { "X-Owner-Key": key } });
-      if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status})`);
+      if (!response.ok) {
+        const lang = typeof getLang === "function" ? getLang() : "en";
+        const messages = window.portalTranslations || {};
+        const template = messages[lang]?.fleet_download_error || messages.en?.fleet_download_error || "Download failed ({status})";
+        throw new Error(template.replace("{status}", String(response.status)));
+      }
       const blob = await response.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);

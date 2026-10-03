@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.ui.QrCameraScannerDialog
 import com.inetconnector.compumesh.ui.parseQrPayload
 import com.inetconnector.compumesh.ui.theme.*
@@ -254,7 +255,14 @@ fun SetupTab(
                 onSaveFleetConfig(pairingKey, result.gatewayUrl)
                 Toast.makeText(
                     context,
-                    "🎉 Kopplung wird hergestellt: ${if (result.enrollmentToken.isNotBlank()) "Einmal-Token" else result.gatewayUrl}",
+                    context.getString(
+                        R.string.pairing_starting,
+                        if (result.enrollmentToken.isNotBlank()) {
+                            context.getString(R.string.pairing_one_time_token)
+                        } else {
+                            result.gatewayUrl
+                        },
+                    ),
                     Toast.LENGTH_LONG
                 ).show()
             },

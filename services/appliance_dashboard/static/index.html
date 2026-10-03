@@ -1131,6 +1131,19 @@
     // Credentials stay in sessionStorage only; never put node tokens in URLs.
     let dashboardAuthToken = sessionStorage.getItem('computemesh.nodeAuthToken') || '';
     let authPromptShown = false;
+    const dashboardTranslations = {
+      en: {
+        nodeAuthPrompt: 'Node authentication required. Enter the node token:',
+      },
+      de: {
+        nodeAuthPrompt: 'Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:',
+      },
+    };
+
+    function dashboardText(key) {
+      const language = ((document.documentElement.lang || navigator.language || 'en').toLowerCase().startsWith('de')) ? 'de' : 'en';
+      return dashboardTranslations[language]?.[key] || dashboardTranslations.en[key] || key;
+    }
 
     function apiFetch(path, options = {}) {
       const url = new URL(path, window.location.origin);
@@ -1139,7 +1152,7 @@
       return fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' }).then(async response => {
         if (response.status !== 401 || dashboardAuthToken || authPromptShown) return response;
         authPromptShown = true;
-        const entered = window.prompt('Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:');
+        const entered = window.prompt(dashboardText('nodeAuthPrompt'));
         if (!entered) return response;
         dashboardAuthToken = entered.trim();
         sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);

@@ -19,4 +19,16 @@
     
     <string name="privacy_badge">100% Private - On-Device / LAN Only</string>
     <string name="privacy_subtext">Kein LLM-Traffic wird an zentrale Server übertragen. Modellgewichte werden direkt vom HuggingFace CDN bezogen.</string>
+
+    <!-- Localized strings introduced by the secure pairing/update flows. -->
+    <string name="enrollment_failed_http">Enrollment failed: HTTP %1$d</string>
+    <string name="owner_key_missing">The enrollment response did not contain an owner key.</string>
+    <string name="pairing_succeeded">✓ ComputeMesh pairing completed securely</string>
+    <string name="pairing_failed">Pairing failed: %1$s</string>
+    <string name="unknown_error">Unknown error</string>
+    <string name="pairing_link_placeholder">computemesh://pair?enrollment_token=... or inet-...</string>
+    <string name="pairing_starting">🎉 Starting pairing: %1$s</string>
+    <string name="pairing_one_time_token">one-time token</string>
+    <string name="update_source_untrusted">The update source is not trusted.</string>
+    <string name="update_size_mismatch">The APK size does not match the signed manifest.</string>
 </resources>

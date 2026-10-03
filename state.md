@@ -1,10 +1,24 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.181` includes the AI-Chat URL-credential fix and both cache-busting loader corrections; it is the next signed/live rollout. v1.2.180 is the currently deployed functional baseline. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.182` includes the AI-Chat URL-credential fix, both cache-busting loader corrections, and the localization correction for newly added Android, portal and dashboard messages. It is the next signed/live rollout. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime` at `d5ebb7e`, pushed to `origin/codex/nodeos-model-runtime`, tag `v1.2.178` pushed. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.182 localization fix and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+
+## 2026-10-03 v1.2.182 localization correction
+
+- Newly introduced visible text from secure QR enrollment, Android update
+  validation, portal download errors and the dashboard token prompt now
+  resolves through Android resources, the portal `translations` table or the
+  dashboard language lookup. German is provided through `values-de`; English
+  is the fallback for other locales.
+- The regression test `test_new_ui_messages_use_localization_resources`
+  prevents these newly added messages from returning as direct German UI
+  literals.
+- Project rule: user-visible text must use the existing i18n/resource layer;
+  never add a language-specific string directly to a UI call, error toast,
+  prompt or rendered HTML path.
 
 ## 2026-10-03 v1.2.178 autonomous security and control fix tranche
 
