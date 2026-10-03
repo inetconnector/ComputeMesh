@@ -1,5 +1,22 @@
 # ComputeMesh State
 
+## NodeOS model-catalog startup fix - 2026-10-03
+
+- The live NodeOS daemon exposed a real startup defect after the v1.2.172
+  rollout: `ModelEngineService` referenced `ModelManager.POPULAR_GGUF_MODELS`,
+  but the catalog is a module-level `POPULAR_GGUF_MODELS` constant. The daemon
+  stayed up, but model selection/download initialization logged an
+  `AttributeError` and could not complete normally.
+- The fix imports the module-level catalog in both selection paths and adds a
+  regression test that exercises local model selection with a manifest, GPU
+  capacity and a patched model manager. It does not expose private policy or
+  fleet data.
+- Focused verification passed **6/6** model-engine tests, Python compilation
+  and `git diff --check`. The complete public suite passed **783/783** after
+  rebuilding the signed v1.2.173 manifest. The release branch and live rollout
+  are still pending; v1.2.172 remains the published channel until those gates
+  complete.
+
 ## Release v1.2.172 preflight - 2026-10-03
 
 - Public WebUI fix PR #86 was merged as `3b3d8ce` after green CI. Release
