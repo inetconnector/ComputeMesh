@@ -86,6 +86,13 @@ class TestSecurityAuditFixes(unittest.TestCase):
             api_keys={"cm_live_valid_key_12345": "cust_valid_account_01"},
         )
 
+    def test_ai_chat_links_never_forward_credentials_in_urls(self) -> None:
+        portal_core = (Path(__file__).resolve().parents[1] / "portal" / "portal-core.js").read_text(encoding="utf-8")
+        webui = (Path(__file__).resolve().parents[1] / "portal" / "webui" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("ai.inetconnector.com/webui/?key=", portal_core)
+        self.assertNotIn("/webui/?key=", portal_core)
+        self.assertIn("cm_session=", webui)
+
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 

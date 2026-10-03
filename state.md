@@ -1,10 +1,10 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.178` source fix tranche and signed release build are complete; selective live rollout and re-verification are next. The previously deployed public web/gateway baseline is `v1.2.177`. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.179` adds the final AI-Chat URL-credential fix and is the next signed/live rollout; `v1.2.178` remains the deployed baseline until this follow-up completes. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime`; the v1.2.178 fix/release commit is ready to commit and tag. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+**Git Baseline:** working branch `codex/nodeos-model-runtime` at `d5ebb7e`, pushed to `origin/codex/nodeos-model-runtime`, tag `v1.2.178` pushed. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
 ## 2026-10-03 v1.2.178 autonomous security and control fix tranche
 
@@ -34,6 +34,14 @@
   and installer-script SHA-256
   `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
   `portal/updates/version.json` signature verification returned valid.
+- Live selective deployment completed on 2026-10-03. Backup:
+  `/root/computemesh-backups/v1.2.178-before-selective-deploy-20261003-212711/`.
+  Both `/var/www/vhosts/inetconnector.com/httpdocs` and `site2` now serve
+  `v1.2.178`; `computemesh-gateway.service` and
+  `computemesh-autoupdate.service` are active. External checks returned 200
+  for the three manifest domains, gateway health/version endpoints, and the
+  AI WebUI/Fleet pages; unauthenticated fleet and wrong-token node requests
+  returned 401. No LAN node update or physical fan actuation was triggered.
 
 ## 2026-10-03 v1.2.177 dashboard/security fix tranche
 

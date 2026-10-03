@@ -1190,7 +1190,9 @@ function handleAiSubdomainRouting() {
             document.cookie = cookieStr;
           } catch(e) {}
 
-          window.location.replace('/webui/?key=' + encodeURIComponent(qKey));
+          // Accept legacy links once, but never forward the credential in the URL.
+          window.history.replaceState({}, document.title, '/webui/');
+          window.location.replace('/webui/');
           return;
         }
       }
@@ -1198,9 +1200,7 @@ function handleAiSubdomainRouting() {
       const isRoot = pathname === '/' || pathname === '/index.html' || pathname === '';
       if (isRoot) {
         if (hasActiveSession()) {
-          const key = getActiveComputeMeshApiKey();
-          const target = key ? `/webui/?key=${encodeURIComponent(key)}` : '/webui/';
-          window.location.replace(target);
+          window.location.replace('/webui/');
         } else {
           window.location.replace('/ai-auth.html');
         }
@@ -1216,8 +1216,7 @@ handleAiSubdomainRouting();
 
 function openWebUI(event) {
   if (event && event.preventDefault) event.preventDefault();
-  const key = getActiveComputeMeshApiKey();
-  const targetUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const targetUrl = 'https://ai.inetconnector.com/';
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
@@ -1225,8 +1224,7 @@ function updateAuthStateUI() {
   const lang = window.getLang ? window.getLang() : (window.currentLang || 'de');
   const t = (translations && translations[lang]) ? translations[lang] : {};
   const isAuth = hasActiveSession();
-  const key = getActiveComputeMeshApiKey();
-  const aiChatUrl = key ? `https://ai.inetconnector.com/webui/?key=${encodeURIComponent(key)}` : 'https://ai.inetconnector.com/';
+  const aiChatUrl = 'https://ai.inetconnector.com/';
 
   // 1. Auth button in top navbar
   const btn = document.getElementById('auth-nav-btn');

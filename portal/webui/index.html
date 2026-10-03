@@ -20,7 +20,8 @@
 				localStorage.setItem("has_seen_mcp_modal", "true");
 
 				// Auto-authenticate with ComputeMesh credentials
-				var rawKey = localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey");
+				var cookieMatch = document.cookie.match(/(?:^|;\s*)cm_session=([^;]+)/);
+				var rawKey = localStorage.getItem("cm_fleet_owner_key") || localStorage.getItem("cm_owner_key") || localStorage.getItem("cm_api_key") || localStorage.getItem("cm_token") || localStorage.getItem("apiKey") || (cookieMatch && decodeURIComponent(cookieMatch[1]));
 
 				if (rawKey) {
 					var cmKey = String(rawKey).trim().replace(/^["'`]|["'`]$/g, '').replace(/^Bearer\s+/i, '').split(/[\r\n]/)[0].trim();
