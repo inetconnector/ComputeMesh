@@ -1,5 +1,17 @@
 # ComputeMesh State
 
+## Release v1.2.174 preparation - 2026-10-03
+
+- Release branch `codex/release-v1.2.174` is based on merged public main
+  `73b9da2` and bumps the runtime version to `1.2.174`.
+- This release contains execution provenance in gateway/NodeOS responses, the
+  AI Studio status display, corrected curated Qwen GGUF sources and
+  non-blocking NodeOS model startup. It is not live yet.
+- The signed manifest and Windows/Linux artifacts must be rebuilt from this
+  branch, verified against the release trust list, and compared with the
+  existing live NodeOS/Android assets before deployment. Existing live-only
+  artifacts remain preserved until that comparison is complete.
+
 ## Execution provenance and non-blocking NodeOS model setup - 2026-10-03
 
 - Public branch `codex/execution-provenance` adds a minimized
