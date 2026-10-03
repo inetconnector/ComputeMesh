@@ -1,7 +1,7 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots; the LAN nodes still require their authenticated update action/auto-updater to install the new code. The six-GPU LAN node `.27` was observed on `v1.2.182` with about 1.55 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine. The NVIDIA node `.94` has no safe manual fan-control backend.
+**Release Version:** `v1.2.183` contains truthful fan telemetry and explicit model-storage diagnostics in addition to the v1.2.182 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots, and both LAN nodes now report `1.2.183`. The six-GPU LAN node `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. The NVIDIA node `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `779/779`; Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** working branch `codex/nodeos-model-runtime` contains the v1.2.183 diagnostics work and will be tagged/pushed after the release build. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
@@ -39,6 +39,20 @@
 - The server's old generated `/tmp` release/update staging files filled its
   tmpfs. The uniquely named ComputeMesh/Ancesora staging artifacts created by
   the earlier release work were removed; `/tmp` returned to about 1% usage.
+
+## 2026-10-03 v1.2.183 LAN rollout verification
+
+- Authenticated update checks showed `1.2.183` available on both `.27` and
+  `.94`; both nodes were updated and subsequently reported `1.2.183`.
+- `.27` now reports six measured AMD fan speeds between 1,093 and 1,174 RPM,
+  separately from the 24% PWM duty value. This proves the fans are physically
+  rotating even though the duty value is not 60%. Its model storage reports an
+  `overlay` filesystem, `persistence_volume_detected = false`, about 1.54 GB
+  free and `warning = true`; no model was downloaded or activated.
+- `.94` reports `fan_control = false` with only `safe_auto`/`auto` supported,
+  so the installed NVIDIA driver exposes no safe software fan API. Its
+  software-controlled mode remains `safe_auto`; physical RPM cannot be
+  truthfully claimed from this driver. It reports about 281 GB free storage.
 
 ## 2026-10-03 v1.2.182 localization correction
 
