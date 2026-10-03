@@ -191,7 +191,7 @@ class PortalHandler(BaseHTTPRequestHandler):
         else:
             bound_owner_id = str(node_data.get("owner_id", "")).strip()
         if not expected:
-            return (node_data, None, None)
+            return (None, HTTPStatus.UNAUTHORIZED, None)
         if node_session and node_session.owner_id == bound_owner_id:
             return (node_data, None, None)
         if session_owner_id and bound_owner_id and session_owner_id == bound_owner_id:
@@ -1072,7 +1072,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     if sender_owner and (not existing_owner or existing_owner == sender_owner):
                         owner_authorized = True
 
-                if expected_token and not is_stale and not owner_authorized and not hmac.compare_digest(auth_token, expected_token):
+                if not expected_token or not hmac.compare_digest(auth_token, expected_token):
                     self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
                     return
 
@@ -1195,8 +1195,18 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "auth_token is required"}, HTTPStatus.UNAUTHORIZED)
                 return
 
+            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key
+            node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+            expected_token = str(node_data.get("auth_token", "")).strip() if node_data else ""
+            bound_owner_id = str(node_data.get("owner_id", "")).strip() if node_data else ""
+            if node_data and not bound_owner_id:
+                bound_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             resolved = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
             active_key = resolved or sent_owner_key
+            supplied_owner_id = owner_id_for_key(active_key) if active_key else ""
+            if not node_data or not expected_token or not hmac.compare_digest(auth_token, expected_token) or not bound_owner_id or supplied_owner_id != bound_owner_id:
+                self._send_json({"error": "Authenticated node and owner binding are required"}, HTTPStatus.UNAUTHORIZED)
+                return
             key_rotated = bool(resolved and resolved != sent_owner_key)
             self._send_json({
                 "status": "ok",
@@ -1220,10 +1230,18 @@ class PortalHandler(BaseHTTPRequestHandler):
             elif owner_key:
                 owner_id = owner_id_for_key(owner_key)
             else:
-                owner_id = owner_id_for_key("")
+                owner_id = owner_id_for_key(owner_key) if owner_key else ""
+
+            node_data = NODE_TELEMETRY_REGISTRY.get(node_id)
+            stored_owner_id = ""
+            if node_data:
+                stored_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+            if not owner_id or not stored_owner_id or not hmac.compare_digest(owner_id, stored_owner_id):
+                self._send_json({"error": "Owner authorization is required for this node"}, HTTPStatus.FORBIDDEN)
+                return
 
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
-            if node_id in NODE_TELEMETRY_REGISTRY:
+            if unbound and node_id in NODE_TELEMETRY_REGISTRY:
                 NODE_TELEMETRY_REGISTRY.pop(node_id, None)
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
 
@@ -1273,6 +1291,15 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path in ("/api/portal/fleet/enrollment/consume", "/api/v1/mesh/fleet/enrollment/consume"):
+            enrollment_token = str(body.get("enrollment_token", "")).strip()
+            owner_key = FLEET_ACCOUNT_STORE.verify_and_consume_enrollment_token(enrollment_token)
+            if not owner_key:
+                self._send_json({"error": "Enrollment token is invalid or expired"}, HTTPStatus.UNAUTHORIZED)
+                return
+            self._send_json({"status": "ok", "owner_key": owner_key}, credentialed=True)
             return
 
         if clean_path in ("/api/auth/owner_key/rotate", "/api/portal/owner_key/rotate"):

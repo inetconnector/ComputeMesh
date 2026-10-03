@@ -1,10 +1,39 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-03
-**Release Version:** `v1.2.177` built, signed, and deployed to both Plesk webroots plus the verified public gateway runtime. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
+**Release Version:** `v1.2.178` source fix tranche and signed release build are complete; selective live rollout and re-verification are next. The previously deployed public web/gateway baseline is `v1.2.177`. LAN node `.94` is on `v1.2.176`, node `.27` remains on `v1.2.175`, and the older NodeOS at `.18` reports `1.2.21`.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** working branch `codex/nodeos-model-runtime`; release commits `58fdef0` and `c9b6b91` are committed, tagged `v1.2.176`, and pushed to the public remote. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+**Git Baseline:** working branch `codex/nodeos-model-runtime`; the v1.2.178 fix/release commit is ready to commit and tag. The branch is not merged to public `main`; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+
+## 2026-10-03 v1.2.178 autonomous security and control fix tranche
+
+- NodeOS dashboard actions now require an explicit node token or an already
+  authenticated session. Anonymous root visits no longer mint a process-wide
+  admin cookie; inference is authenticated before dispatch and uses the
+  non-owner MCP capability set.
+- Dashboard POST bodies are bounded before reading, CORS is restricted to the
+  known portal origins, and signed updates refuse non-newer artifacts.
+- Gateway and portal fleet inventory, node tunnel, heartbeat, sync-key and
+  unbind paths now require the matching owner/node binding. Empty node tokens
+  fail closed. Owner keys are sent in headers; Android and portal QR pairing
+  use one-time enrollment tokens instead of owner keys in URLs.
+- Mixed NVIDIA/AMD fan mapping now derives the AMD hwmon ordinal from the
+  inventory instead of using a global GPU index. Windows NVIDIA drivers without
+  a fan API remain explicitly unsupported.
+- The completed Security report for the immutable v1.2.177 snapshot recorded
+  8 source findings (5 high, 3 medium) with partial repository coverage and
+  follow-up on signed Android manifests, release-key revocation and unknown-
+  node signed enrollment. Later fixes were validated separately.
+- Verification after the fix tranche: `python run_all_tests.py` passed
+  `777/777`, Android `:app:compileDebugKotlin` passed, `compileall` and
+  `git diff --check` passed. No physical eight-GPU fan actuation was claimed.
+- Signed release build completed successfully: Windows installer SHA-256
+  `319274a7d5ab5b03fcb2120db456f6fef35d99baf7df2b8aad6cfd4f71fe65a6`, Linux
+  tarball SHA-256 `342335cee2a9bbfd9f3f2a272a353ba627e8c618acc9838318d748124bfadff5`,
+  and installer-script SHA-256
+  `721c003aa7ab7398abacd79af2327fe0c0eb2356ddf38915b41852e1bbbd0ef2`.
+  `portal/updates/version.json` signature verification returned valid.
 
 ## 2026-10-03 v1.2.177 dashboard/security fix tranche
 

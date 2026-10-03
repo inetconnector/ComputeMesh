@@ -142,7 +142,7 @@ class InferenceRouter:
                         data = resp.read()
                     handler.send_response(HTTPStatus.OK)
                     handler.send_header("Content-Type", "application/json; charset=utf-8")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
+                    handler._send_cors_headers()
                     handler.send_header("Content-Length", str(len(data)))
                     handler.end_headers()
                     handler.wfile.write(data)
@@ -156,7 +156,7 @@ class InferenceRouter:
                     data = resp.read()
                     handler.send_response(HTTPStatus.OK)
                     handler.send_header("Content-Type", "application/json; charset=utf-8")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
+                    handler._send_cors_headers()
                     handler.send_header("Content-Length", str(len(data)))
                     handler.end_headers()
                     handler.wfile.write(data)
@@ -428,6 +428,9 @@ class InferenceRouter:
                     messages=messages,
                     model=target_model,
                     llm_caller=node_llm_caller,
+                    # NodeOS requests are provider/runtime requests, not
+                    # verified owner sessions. Keep owner-only tools hidden.
+                    is_owner=False,
                     max_iterations=6,
                 )
 
@@ -447,8 +450,7 @@ class InferenceRouter:
                     handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
                     handler.send_header("Cache-Control", "no-cache")
                     handler.send_header("Connection", "close")
-                    handler.send_header("Access-Control-Allow-Origin", "*")
-                    handler.send_header("Access-Control-Allow-Private-Network", "true")
+                    handler._send_cors_headers()
                     handler.end_headers()
 
                     chunk_obj = {

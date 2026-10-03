@@ -4,9 +4,11 @@ import threading
 import time
 import unittest
 import urllib.request
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import GpuDevice, RigInventory
 
@@ -64,11 +66,24 @@ class TestDashboardServer(unittest.TestCase):
             # Test HTML endpoint
             with urllib.request.urlopen("http://127.0.0.1:18999/") as resp:
                 self.assertEqual(resp.status, 200)
+                self.assertIsNone(resp.headers.get("Set-Cookie"))
                 html = resp.read().decode("utf-8")
                 self.assertIn("ComputeMesh NodeOS", html)
 
             # Test JSON Status endpoint
             with urllib.request.urlopen("http://127.0.0.1:18999/api/status") as resp:
+                self.fail("unauthenticated status request unexpectedly succeeded")
+        except HTTPError as exc:
+            self.assertEqual(exc.code, 401)
+        finally:
+            pass
+
+        try:
+            request = urllib.request.Request(
+                "http://127.0.0.1:18999/api/status",
+                headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN},
+            )
+            with urllib.request.urlopen(request) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["node_id"], "test-rig")
@@ -117,7 +132,8 @@ class TestDashboardServer(unittest.TestCase):
         time.sleep(0.1)
 
         try:
-            with urllib.request.urlopen("http://127.0.0.1:18998/api/status") as resp:
+            status_req = urllib.request.Request("http://127.0.0.1:18998/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+            with urllib.request.urlopen(status_req) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(data["node_id"], "supersrv-trixie")
@@ -164,7 +180,8 @@ class TestDashboardServer(unittest.TestCase):
 
         try:
             # 1. Verify status has OS fields
-            with urllib.request.urlopen("http://127.0.0.1:18997/api/status") as resp:
+            status_req = urllib.request.Request("http://127.0.0.1:18997/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+            with urllib.request.urlopen(status_req) as resp:
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode("utf-8"))
                 self.assertIn("os", data)
@@ -174,13 +191,13 @@ class TestDashboardServer(unittest.TestCase):
             # 2. Verify reboot is rejected on Windows
             import sys
             if sys.platform == "win32":
-                req = urllib.request.Request("http://127.0.0.1:18997/api/action/reboot", data=b"{}", method="POST")
+                req = urllib.request.Request("http://127.0.0.1:18997/api/action/reboot", data=b"{}", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(req)
                 self.assertEqual(ctx.exception.code, 400)
 
                 # 3. Verify OS upgrade is rejected on Windows
-                req_up = urllib.request.Request("http://127.0.0.1:18997/api/action/os_upgrade", data=b"{}", method="POST")
+                req_up = urllib.request.Request("http://127.0.0.1:18997/api/action/os_upgrade", data=b"{}", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(req_up)
                 self.assertEqual(ctx.exception.code, 400)
@@ -228,7 +245,7 @@ class TestDashboardServer(unittest.TestCase):
                 "messages": [{"role": "user", "content": "wie ist das wetter in veitshöchheim"}],
                 "stream": False,
             }).encode("utf-8")
-            req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json"}, method="POST")
+            req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json", "X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
             before = DashboardHandler.tokens_served
             with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}):
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
@@ -254,7 +271,7 @@ class TestDashboardServer(unittest.TestCase):
             conn.request("OPTIONS", "/webui/props", headers={"Origin": "https://ai.inetconnector.com", "Access-Control-Request-Method": "POST"})
             resp = conn.getresponse()
             self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
             self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
             self.assertIn("OPTIONS", resp.getheader("Access-Control-Allow-Methods", ""))
             conn.close()
@@ -264,7 +281,7 @@ class TestDashboardServer(unittest.TestCase):
             conn.request("GET", "/webui/props", headers={"Origin": "https://ai.inetconnector.com"})
             resp = conn.getresponse()
             self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "*")
+            self.assertEqual(resp.getheader("Access-Control-Allow-Origin"), "https://ai.inetconnector.com")
             self.assertEqual(resp.getheader("Access-Control-Allow-Private-Network"), "true")
             conn.close()
         finally:

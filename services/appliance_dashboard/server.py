@@ -53,7 +53,17 @@ log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
 DASHBOARD_SESSION_COOKIE = "cm_dashboard_session"
+# Kept for explicit legacy/operator sessions supplied in a header or cookie.
+# The dashboard never mints this process-wide value for anonymous visitors.
 DASHBOARD_SESSION_TOKEN = secrets.token_urlsafe(32)
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
+ALLOWED_CORS_ORIGINS = {
+    "https://mesh.inetconnector.com",
+    "https://ai.inetconnector.com",
+    "https://inetconnector.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
 FAN_SAFETY_CONTROLLER: Any = None
 
 
@@ -102,15 +112,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pass
 
     def _verify_admin_auth(self) -> bool:
-        client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0])
-        try:
-            ip_obj = ipaddress.ip_address(client_ip.strip())
-            if ip_obj.is_loopback:
-                return True
-        except Exception:
-            if client_ip in ("127.0.0.1", "::1", "localhost"):
-                return True
-
         supplied_token = self.headers.get("X-Node-Auth-Token", "")
         authorization = self.headers.get("Authorization", "")
         if not supplied_token and authorization.startswith("Bearer "):
@@ -129,15 +130,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return True
         return False
 
+    def _send_cors_headers(self) -> None:
+        """Allow only the known portal origins to call authenticated APIs."""
+        origin = str(self.headers.get("Origin", "")).strip()
+        if origin in ALLOWED_CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
     def _verify_action_auth(self) -> bool:
         return self._verify_admin_auth()
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._send_cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, Accept, X-Requested-With")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -146,8 +154,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         resp = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self._send_cors_headers()
         self.send_header("Content-Length", str(len(resp)))
         self.end_headers()
         self.wfile.write(resp)
@@ -175,14 +182,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = get_dashboard_html()
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self._send_cors_headers()
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
-            self.send_header(
-                "Set-Cookie",
-                f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict",
-            )
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
             return
@@ -195,7 +198,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = index_target.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -222,7 +225,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -249,7 +252,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -264,7 +267,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 data = target_f.read_bytes()
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Access-Control-Allow-Origin", "*")
+                self._send_cors_headers()
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -288,17 +291,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
-        content_len = int(self.headers.get("Content-Length", 0))
+        try:
+            content_len = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send_json({"error": {"message": "Invalid Content-Length", "code": "invalid_request_error"}}, HTTPStatus.BAD_REQUEST)
+            return
+        if content_len < 0:
+            self._send_json({"error": {"message": "Invalid Content-Length", "code": "invalid_request_error"}}, HTTPStatus.BAD_REQUEST)
+            return
+        if content_len > MAX_REQUEST_BODY_BYTES:
+            self._send_json({"error": {"message": "Request body is too large", "code": "request_too_large"}}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+
+        # All POST routes, including inference and model management, require
+        # an explicit node authorization token. Anonymous LAN callers must
+        # never reach the agent loop or a privileged handler.
+        if not self._verify_action_auth():
+            self._send_unauthorized()
+            return
 
         if ModelManagerHandler.handle_post(self, req_path, post_body):
             return
 
         if InferenceRouter.handle_post(self, req_path, post_body):
-            return
-
-        if not self._verify_action_auth():
-            self._send_unauthorized()
             return
 
         if FanControlHandler.handle_post(self, req_path, post_body):

@@ -58,7 +58,8 @@ import java.util.concurrent.Executors
 
 data class QrPairResult(
     val ownerKey: String,
-    val gatewayUrl: String
+    val gatewayUrl: String,
+    val enrollmentToken: String = ""
 )
 
 /**
@@ -71,7 +72,8 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
             val json = JSONObject(trimmed)
             val key = json.optString("owner_key", json.optString("key", ""))
             val gateway = json.optString("gateway", json.optString("gateway_url", fallbackGateway))
-            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
+            val enrollment = json.optString("enrollment_token", "")
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
         }
     } catch (_: Throwable) {}
 
@@ -82,21 +84,14 @@ fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconn
                 ?: uri.getQueryParameter("key")
                 ?: uri.getQueryParameter("secret")
                 ?: ""
+            val enrollment = uri.getQueryParameter("enrollment_token") ?: ""
             val gateway = uri.getQueryParameter("gateway")
                 ?: uri.getQueryParameter("gateway_url")
                 ?: if ((trimmed.startsWith("http://") || trimmed.startsWith("https://")) && !trimmed.contains("?")) trimmed else fallbackGateway
 
-            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway })
+            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
         }
     } catch (_: Throwable) {}
-
-    if (trimmed.contains("owner_key=")) {
-        val parts = trimmed.split("owner_key=")
-        if (parts.size > 1) {
-            val keyVal = parts[1].split("&")[0].trim()
-            return QrPairResult(ownerKey = keyVal, gatewayUrl = fallbackGateway)
-        }
-    }
 
     // Direct URL or IP:Port string (e.g. http://192.168.1.94:8080/ or 192.168.1.94:8080)
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
@@ -508,7 +503,7 @@ fun ManualPairingDialog(
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
-                    placeholder = { Text("computemesh://pair?owner_key=... oder inet-...", color = TextMuted, fontSize = 12.sp) },
+                        placeholder = { Text("computemesh://pair?enrollment_token=... oder inet-...", color = TextMuted, fontSize = 12.sp) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary,

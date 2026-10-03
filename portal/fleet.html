@@ -1494,14 +1494,14 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Linux / macOS (Terminal):</span>
                 <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
-                  <code id="curl-quick-cmd">curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=" | bash</code>
+                  <code id="curl-quick-cmd">curl -sSL -H "X-Owner-Key: &lt;OWNER_KEY&gt;" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash</code>
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('curl-quick-cmd')">📋 Kopieren</button>
                 </div>
 </div>
               <div>
                 <span style="font-size:0.8rem;color:#94a3b8;display:block;margin-bottom:0.25rem;">Windows (PowerShell):</span>
                 <div style="background:#090d16;padding:0.75rem 1rem;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;overflow-x:auto;">
-                  <code id="ps-quick-cmd">irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=" -OutFile OLLAMA-START.bat; .\OLLAMA-START.bat</code>
+                  <code id="ps-quick-cmd">irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="&lt;OWNER_KEY&gt;"} -OutFile OLLAMA-START.bat; .\OLLAMA-START.bat</code>
                   <button class="copy-btn" style="margin-left:0.75rem;padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="copyCmd('ps-quick-cmd')">📋 Kopieren</button>
                 </div>
               </div>
@@ -3258,7 +3258,7 @@ for chunk in stream:
       if (key) headers["X-Owner-Key"] = key;
 
       try {
-        const res = await fetch(`/api/portal/fleet/payouts?owner_key=${encodeURIComponent(key)}`, { headers });
+        const res = await fetch("/api/portal/fleet/payouts", { headers });
         if (!res.ok) {
           const errData = await res.json();
           if (msgBox) msgBox.textContent = "Fehler: " + getErrorMessage(errData, "Konnte Auszahlungsdaten nicht laden");
@@ -3669,12 +3669,12 @@ for chunk in stream:
       const currentKey = (data && data.owner_key) || activeOwnerKey || localStorage.getItem("cm_fleet_owner_key") || "";
 
       if (redirectUrl) {
-        const sep = redirectUrl.includes("?") ? "&" : "?";
-        window.location.href = currentKey ? `${redirectUrl}${sep}key=${encodeURIComponent(currentKey)}` : redirectUrl;
+        // Authentication is carried by the session cookie/header, never by URL.
+        window.location.href = redirectUrl;
         return;
       }
       if (window.location.hostname === "ai.inetconnector.com" || source === "ai_studio") {
-        window.location.href = currentKey ? `/webui/?key=${encodeURIComponent(currentKey)}` : "/webui/";
+        window.location.href = "/webui/";
         return;
       }
 
@@ -3688,11 +3688,11 @@ for chunk in stream:
 
         const curlEl = document.getElementById("curl-quick-cmd");
         if (curlEl) {
-          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${data.owner_key}" | bash`;
+          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${data.owner_key}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${data.owner_key}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${data.owner_key}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(data.owner_key);
         updateFleetPairQr();
@@ -3705,15 +3705,19 @@ for chunk in stream:
       refreshInterval = setInterval(() => loadFleet(false), 5000);
     }
 
-    function downloadOllamaScript(type, os) {
+    async function downloadOllamaScript(type, os) {
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "") || localStorage.getItem("cm_fleet_owner_key") || "";
-      const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}&key=${encodeURIComponent(key)}`;
+      const url = `/api/portal/download/ollama-${type}?os=${encodeURIComponent(os)}`;
+      const response = await fetch(url, { headers: { "X-Owner-Key": key } });
+      if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status})`);
+      const blob = await response.blob();
       const a = document.createElement("a");
-      a.href = url;
-      a.download = "";
+      a.href = URL.createObjectURL(blob);
+      a.download = type === "reset" ? `OLLAMA-RESET-DEFAULT.${os === "windows" ? "bat" : "sh"}` : `OLLAMA-MESH-START.${os === "windows" ? "bat" : "sh"}`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
+      URL.revokeObjectURL(a.href);
     }
 
     function copyCmd(elemId) {
@@ -3730,7 +3734,6 @@ for chunk in stream:
         const headers = {};
         if (activeOwnerKey) {
           headers["X-Owner-Key"] = activeOwnerKey;
-          url = `/api/portal/fleet?owner_key=${encodeURIComponent(activeOwnerKey)}`;
         }
 
         const res = await fetch(url, { headers });
@@ -4178,12 +4181,23 @@ for chunk in stream:
       });
     }
 
-    function updateFleetPairQr() {
+    async function updateFleetPairQr() {
       const key = activeOwnerKey || (document.getElementById("owner-key-val") ? document.getElementById("owner-key-val").textContent.trim() : "");
       const qrImg = document.getElementById("fleet-pair-qr-img");
       if (qrImg && key && key !== "owner_..." && !key.includes("<")) {
-        const pairPayload = `computemesh://pair?owner_key=${encodeURIComponent(key)}&gateway=https://mesh.inetconnector.com`;
-        qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
+        try {
+          const response = await fetch("/api/portal/fleet/enrollment_token", {
+            method: "POST",
+            headers: { "X-Owner-Key": key, "Content-Type": "application/json" },
+            body: "{}",
+          });
+          const data = await response.json();
+          if (!response.ok || !data.enrollment_token) return;
+          const pairPayload = `computemesh://pair?enrollment_token=${encodeURIComponent(data.enrollment_token)}&gateway=https://mesh.inetconnector.com`;
+          qrImg.src = `/api/portal/qr?data=${encodeURIComponent(pairPayload)}`;
+        } catch (error) {
+          console.warn("Enrollment QR could not be refreshed", error);
+        }
       }
     }
 
@@ -4318,11 +4332,11 @@ for chunk in stream:
 
         const curlEl = document.getElementById("curl-quick-cmd");
         if (curlEl) {
-          curlEl.textContent = `curl -sSL "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux&key=${newKey}" | bash`;
+          curlEl.textContent = `curl -sSL -H "X-Owner-Key: ${newKey}" "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=linux" | bash`;
         }
         const psEl = document.getElementById("ps-quick-cmd");
         if (psEl) {
-          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows&key=${newKey}" -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
+          psEl.textContent = `irm "https://mesh.inetconnector.com/api/portal/download/ollama-starter?os=windows" -Headers @{"X-Owner-Key"="${newKey}"} -OutFile OLLAMA-START.bat; .\\OLLAMA-START.bat`;
         }
         updateDevApiSnippets(newKey);
 
@@ -4463,7 +4477,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/mcp_settings";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
 
         const res = await fetch(url, { headers });
         if (res.ok) {
@@ -4599,7 +4612,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
 
         const res = await fetch(url, { headers });
         if (!res.ok) {
@@ -4807,7 +4819,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
 
         const res = await fetch(url, {
           method: "POST",
@@ -4844,7 +4855,6 @@ for chunk in stream:
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
         let url = "/api/portal/fleet/provider-identity/declaration";
-        if (activeOwnerKey) url += `?owner_key=${encodeURIComponent(activeOwnerKey)}`;
 
         const res = await fetch(url, {
           method: "POST",

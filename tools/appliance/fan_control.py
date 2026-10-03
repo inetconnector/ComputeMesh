@@ -47,10 +47,18 @@ def _amd_hwmon_paths() -> list[Path]:
     return [Path(p) for p in sorted(glob.glob("/sys/class/drm/card[0-9]*/device/hwmon/hwmon*"))]
 
 
-def _amd_hwmon_for_index(gpu_index: int) -> Path | None:
+def _amd_hwmon_for_index(gpu_index: int, inventory: RigInventory | None = None) -> Path | None:
     paths = _amd_hwmon_paths()
-    if 0 <= gpu_index < len(paths):
-        return paths[gpu_index]
+    if inventory is not None:
+        amd_indexes = [gpu.index for gpu in inventory.gpus if str(gpu.vendor).lower() == "amd"]
+        try:
+            ordinal = amd_indexes.index(gpu_index)
+        except ValueError:
+            return None
+    else:
+        ordinal = gpu_index
+    if 0 <= ordinal < len(paths):
+        return paths[ordinal]
     return None
 
 
@@ -61,7 +69,7 @@ def get_fan_capabilities(inventory: RigInventory) -> list[FanGpuCapability]:
     capabilities: list[FanGpuCapability] = []
     for gpu in inventory.gpus:
         if gpu.vendor == "amd":
-            hw = _amd_hwmon_for_index(gpu.index)
+            hw = _amd_hwmon_for_index(gpu.index, inventory)
             pwm = hw / "pwm1" if hw else None
             if amd_sysfs and pwm and pwm.exists() and os.access(pwm, os.W_OK):
                 reason = "amdgpu PWM"
@@ -119,8 +127,8 @@ def _write_text(path: Path, value: str) -> None:
     path.write_text(value, encoding="ascii")
 
 
-def _apply_amd_sysfs(gpu_index: int, mode: str, target: int) -> tuple[bool, str]:
-    hw = _amd_hwmon_for_index(gpu_index)
+def _apply_amd_sysfs(gpu_index: int, mode: str, target: int, inventory: RigInventory | None = None) -> tuple[bool, str]:
+    hw = _amd_hwmon_for_index(gpu_index, inventory)
     if hw is None:
         return False, "AMD-PWM-Schnittstelle nicht gefunden"
     pwm = hw / "pwm1"
@@ -195,7 +203,7 @@ def apply_fan_policy(inventory: RigInventory, mode: str, target_percent: int) ->
         effective_target = _safe_curve_target(temperatures.get(gpu.index), target_percent) if mode == "safe_auto" else target
         effective_mode = "manual" if mode == "safe_auto" else mode
         if gpu.vendor == "amd":
-            applied, message = _apply_amd_sysfs(gpu.index, effective_mode, effective_target)
+            applied, message = _apply_amd_sysfs(gpu.index, effective_mode, effective_target, inventory)
         elif gpu.vendor == "nvidia":
             applied, message = _apply_nvidia_settings(gpu.index, effective_mode, effective_target)
         else:

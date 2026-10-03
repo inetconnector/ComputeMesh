@@ -1128,15 +1128,25 @@
       }
     } catch (e) {}
 
-    // The dashboard root issues an HttpOnly same-origin session cookie. Do not
-    // put node credentials into URLs; browsers, history and referrers retain them.
-    const dashboardAuthToken = '';
+    // Credentials stay in sessionStorage only; never put node tokens in URLs.
+    let dashboardAuthToken = sessionStorage.getItem('computemesh.nodeAuthToken') || '';
+    let authPromptShown = false;
 
     function apiFetch(path, options = {}) {
       const url = new URL(path, window.location.origin);
       const headers = new Headers(options.headers || {});
       if (dashboardAuthToken) headers.set('X-Node-Auth-Token', dashboardAuthToken);
-      return fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' });
+      return fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' }).then(async response => {
+        if (response.status !== 401 || dashboardAuthToken || authPromptShown) return response;
+        authPromptShown = true;
+        const entered = window.prompt('Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:');
+        if (!entered) return response;
+        dashboardAuthToken = entered.trim();
+        sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+        const retryHeaders = new Headers(options.headers || {});
+        retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
+        return fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
+      });
     }
 
     function switchTab(tabId, btnEl) {

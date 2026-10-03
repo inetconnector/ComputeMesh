@@ -14,8 +14,8 @@ class TestDashboardAdminAuth(unittest.TestCase):
             path=path,
         )
 
-    def test_loopback_is_allowed_without_token(self) -> None:
-        self.assertTrue(DashboardHandler._verify_admin_auth(self._request("127.0.0.1")))
+    def test_loopback_still_requires_explicit_token(self) -> None:
+        self.assertFalse(DashboardHandler._verify_admin_auth(self._request("127.0.0.1")))
 
     def test_private_lan_client_is_not_implicitly_trusted(self) -> None:
         self.assertFalse(DashboardHandler._verify_admin_auth(self._request("192.168.1.44")))

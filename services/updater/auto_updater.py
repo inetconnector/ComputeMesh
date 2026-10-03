@@ -145,6 +145,8 @@ class AutoUpdater:
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> Path:
         """Download binary update and verify SHA-256 checksum."""
+        if not update_info.is_newer:
+            raise ValueError("Refusing to apply a non-newer update without an explicit rollback authorization")
         temp_dir = Path(tempfile.mkdtemp(prefix="cm_update_"))
         target_path = temp_dir / update_info.filename
 

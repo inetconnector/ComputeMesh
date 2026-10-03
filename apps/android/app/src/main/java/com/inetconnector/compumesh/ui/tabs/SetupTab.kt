@@ -248,12 +248,13 @@ fun SetupTab(
             currentGateway = gatewayUrlInput,
             onCodeScanned = { result ->
                 showQrCameraScanner = false
-                ownerKeyInput = result.ownerKey
+                val pairingKey = result.enrollmentToken.ifBlank { result.ownerKey }
+                ownerKeyInput = pairingKey
                 gatewayUrlInput = result.gatewayUrl
-                onSaveFleetConfig(result.ownerKey, result.gatewayUrl)
+                onSaveFleetConfig(pairingKey, result.gatewayUrl)
                 Toast.makeText(
                     context,
-                    "🎉 Erfolgreich gekoppelt: ${if (result.ownerKey.isNotBlank()) result.ownerKey.take(12) + "..." else result.gatewayUrl}",
+                    "🎉 Kopplung wird hergestellt: ${if (result.enrollmentToken.isNotBlank()) "Einmal-Token" else result.gatewayUrl}",
                     Toast.LENGTH_LONG
                 ).show()
             },

@@ -497,7 +497,8 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         try:
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-            conn.request("GET", "/api/status")
+            from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
+            conn.request("GET", "/api/status", headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
             res = conn.getresponse()
             self.assertEqual(res.status, HTTPStatus.OK)
             data = json.loads(res.read().decode("utf-8"))
