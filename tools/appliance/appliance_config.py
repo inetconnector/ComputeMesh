@@ -48,6 +48,10 @@ class ApplianceConfig:
     auto_system_upgrade: bool = True
     enable_image_engine: bool = True
     image_engine_port: int = 8085
+    # ``auto`` delegates to the vendor driver; ``manual`` requires a detected
+    # writable fan-control backend.
+    fan_control_mode: str = "safe_auto"
+    fan_target_percent: int = 60
     # Shared secret pasted into every machine in one person's fleet. The
     # gateway binds each node's node_id to the same owner account under this
     # key, so nodes only "belong together" once every machine sets the exact
@@ -171,6 +175,18 @@ def load_appliance_config(
 
     enable_image = env_vars.get("ENABLE_IMAGE_ENGINE", "true").lower() in ("true", "1", "yes") if "ENABLE_IMAGE_ENGINE" in env_vars else system_data.get("enable_image_engine", True)
     image_port = int(env_vars.get("IMAGE_ENGINE_PORT") or system_data.get("image_engine_port") or 8085)
+    fan_mode = str(env_vars.get("FAN_CONTROL_MODE") or system_data.get("fan_control_mode") or "safe_auto").strip().lower()
+    if fan_mode not in {"auto", "safe_auto", "manual"}:
+        fan_mode = "safe_auto"
+    # A plain driver-auto profile may enter zero-RPM. Keep the user-facing
+    # default safe across upgrades; an operator may opt into zero-RPM only for
+    # a deliberate low-level diagnostic via an environment flag.
+    if fan_mode == "auto" and os.environ.get("COMPUTEMESH_ALLOW_ZERO_RPM", "") != "1":
+        fan_mode = "safe_auto"
+    try:
+        fan_target = max(20, min(100, int(env_vars.get("FAN_TARGET_PERCENT") or system_data.get("fan_target_percent") or 60)))
+    except (TypeError, ValueError):
+        fan_target = 60
 
     return ApplianceConfig(
         rig_name=rig_name,
@@ -194,6 +210,8 @@ def load_appliance_config(
         auto_system_upgrade=auto_sys_upgrade,
         enable_image_engine=enable_image,
         image_engine_port=image_port,
+        fan_control_mode=fan_mode,
+        fan_target_percent=fan_target,
         owner_key=owner_key,
     )
 
@@ -223,6 +241,8 @@ def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONF
         user_data["max_temp_c"] = config.max_temp_c
         user_data["disabled_gpus"] = config.disabled_gpus
         user_data["owner_key"] = config.owner_key
+        user_data["fan_control_mode"] = config.fan_control_mode
+        user_data["fan_target_percent"] = config.fan_target_percent
         user_data["updated_at"] = datetime.now(timezone.utc).isoformat() if "datetime" in globals() else ""
         user_cfg.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
     except Exception:
@@ -240,6 +260,8 @@ COORDINATOR_URL={config.coordinator_url}
 VRAM_RESERVE_MB={config.vram_reserve_mb}
 POWER_MODE={config.power_mode}
 MAX_TEMP_C={config.max_temp_c}
+FAN_CONTROL_MODE={config.fan_control_mode}
+FAN_TARGET_PERCENT={config.fan_target_percent}
 DISABLED_GPUS={','.join(str(g) for g in config.disabled_gpus)}
 ENABLE_WEB_DASHBOARD={'true' if config.enable_web_dashboard else 'false'}
 DASHBOARD_PORT={config.dashboard_port}

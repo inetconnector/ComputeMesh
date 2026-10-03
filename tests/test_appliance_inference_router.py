@@ -32,9 +32,14 @@ class _Response:
 class _Handler:
     def __init__(self) -> None:
         self.responses = []
+        self.tokens_served = 0
+        self.earnings_cm = 0
 
     def _send_json(self, payload, status=HTTPStatus.OK):
         self.responses.append((status, payload))
+
+    def _current_node_id(self):
+        return "test-node"
 
 
 class TestStrictLocalModelSelection(unittest.TestCase):
@@ -113,6 +118,49 @@ class TestStrictLocalModelSelection(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(payload["error"]["code"], "model_not_available")
         self.assertEqual(payload["error"]["available_models"], ["gemma4:26b"])
+
+    def test_active_managed_gguf_uses_llama_server_endpoint(self):
+        handler = _Handler()
+        requested_urls = []
+
+        def open_runtime(request, timeout=0):
+            requested_urls.append(request.full_url)
+            return _Response({
+                "choices": [{"message": {"role": "assistant", "content": "Echte Runtime-Antwort"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 7, "completion_tokens": 5, "total_tokens": 12},
+            })
+
+        managed = {
+            "engine": {
+                "ready": True,
+                "endpoint": "http://127.0.0.1:8081",
+                "model_id": "org/real-model-q4",
+            },
+            "models": [],
+        }
+        with patch("services.appliance_dashboard.inference_router._managed_runtime_status", return_value=managed), patch(
+            "services.appliance_dashboard.inference_router.urllib.request.urlopen",
+            side_effect=open_runtime,
+        ), patch("tools.appliance.token_metering.record_tokens") as meter:
+            meter.return_value.total_tokens_served = 12
+            meter.return_value.earnings_cm = 0
+            handled = InferenceRouter.handle_post(
+                handler,
+                "/v1/chat/completions",
+                json.dumps({
+                    "model": "org/real-model-q4",
+                    "messages": [{"role": "user", "content": "Hallo"}],
+                    "stream": False,
+                }).encode("utf-8"),
+            )
+
+        self.assertTrue(handled)
+        self.assertEqual(requested_urls, ["http://127.0.0.1:8081/v1/chat/completions"])
+        status, payload = handler.responses[-1]
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(payload["choices"][0]["message"]["content"], "Echte Runtime-Antwort")
+        self.assertEqual(payload["usage"]["total_tokens"], 12)
+        meter.assert_called_once_with(prompt_tokens=7, completion_tokens=5)
 
 
 if __name__ == "__main__":

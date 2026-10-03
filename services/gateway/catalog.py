@@ -5,9 +5,14 @@ model alias resolution for OpenAI and Ollama formats, and provider share distrib
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import json
 import os
+import re
+import threading
 import time
+import urllib.parse
+import urllib.request
 
 from services.common.pricing import (
     DEFAULT_NETWORK_FEE_BPS,
@@ -32,6 +37,11 @@ class ModelSpec:
     created: int = 1700000000
     price_tier: ModelPriceTier = DEFAULT_PRICE_TIERS["qwen/qwen2.5-7b-instruct"]
     modalities: tuple[str, ...] = ("text",)
+    availability: str = "catalogued"
+    available: bool = False
+    artifact_digest: str = ""
+    artifact_size_bytes: int = 0
+    quantization: str = ""
 
 
 AVAILABLE_MODELS: list[ModelSpec] = [
@@ -107,11 +117,83 @@ AVAILABLE_MODELS: list[ModelSpec] = [
 ]
 
 LIVE_MODEL_REGISTRY = build_registry_client_from_env()
+_RUNTIME_CACHE_LOCK = threading.Lock()
+_RUNTIME_CACHE_AT = 0.0
+_RUNTIME_CACHE: tuple[ModelSpec, ...] = ()
+
+
+def _runtime_models_from_env() -> list[ModelSpec] | None:
+    """Return an authoritative local-runtime view, or None when none is configured."""
+    backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "").strip().lower()
+    if backend == "synthetic":
+        if os.environ.get("COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE", "").strip() != "1":
+            return []
+        return [replace(model, availability="available_warm", available=True) for model in AVAILABLE_MODELS]
+    if backend != "ollama":
+        return None
+
+    base_url = os.environ.get("COMPUTEMESH_INFERENCE_URL", "").strip().rstrip("/")
+    if not base_url:
+        return []
+    parsed = urllib.parse.urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return []
+
+    global _RUNTIME_CACHE_AT, _RUNTIME_CACHE
+    now = time.monotonic()
+    with _RUNTIME_CACHE_LOCK:
+        if now - _RUNTIME_CACHE_AT < 2.0:
+            return list(_RUNTIME_CACHE)
+    request = urllib.request.Request(
+        f"{base_url}/api/tags",
+        headers={"Accept": "application/json", "User-Agent": "ComputeMesh-Gateway/1"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=1.0) as response:
+            payload = json.loads(response.read(2 * 1024 * 1024 + 1).decode("utf-8"))
+        raw_models = payload.get("models") if isinstance(payload, dict) else None
+        if not isinstance(raw_models, list):
+            raise ValueError("invalid Ollama model list")
+        discovered: list[ModelSpec] = []
+        for raw in raw_models:
+            if not isinstance(raw, dict):
+                continue
+            model_id = str(raw.get("name") or raw.get("model") or "").strip()
+            if not model_id or len(model_id) > 256:
+                continue
+            details = raw.get("details") if isinstance(raw.get("details"), dict) else {}
+            digest = str(raw.get("digest", "")).lower().removeprefix("sha256:")
+            if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                digest = ""
+            size = int(raw.get("size", 0) or 0)
+            if size < 0:
+                size = 0
+            lower_id = model_id.lower()
+            modalities = ("text", "vision") if any(part in lower_id for part in ("-vl", "vision", "llava")) else ("text",)
+            discovered.append(ModelSpec(
+                id=model_id,
+                created=int(time.time()),
+                modalities=modalities,
+                availability="available_warm",
+                available=True,
+                artifact_digest=f"sha256:{digest}" if digest else "",
+                artifact_size_bytes=size,
+                quantization=str(details.get("quantization_level", "")),
+            ))
+    except (OSError, TimeoutError, UnicodeError, ValueError, json.JSONDecodeError):
+        discovered = []
+    with _RUNTIME_CACHE_LOCK:
+        _RUNTIME_CACHE = tuple(discovered)
+        _RUNTIME_CACHE_AT = now
+    return discovered
 
 
 def current_models() -> list[ModelSpec | RegistryModel]:
-    """Return live public models when configured, otherwise dev catalogue models."""
+    """Return authoritative registry/runtime models, else the unavailable catalogue."""
     if LIVE_MODEL_REGISTRY is None:
+        runtime_models = _runtime_models_from_env()
+        if runtime_models is not None:
+            return runtime_models
         return list(AVAILABLE_MODELS)
     try:
         return list(LIVE_MODEL_REGISTRY.models())
@@ -146,17 +228,18 @@ def resolve_model_id(raw_model: str) -> str:
     """Maps raw model name, Ollama tag (e.g. qwen2.5:7b, qwen2.5-vl:7b, llama3.1:8b), or alias to canonical model ID."""
     models = current_models()
     live_registry = LIVE_MODEL_REGISTRY is not None
-    resolvable_models = [m for m in models if not isinstance(m, RegistryModel) or m.available]
+    resolvable_models = [m for m in models if bool(getattr(m, "available", False))]
     if not raw_model:
-        if live_registry and not resolvable_models:
-            raise ValueError("model registry unavailable")
-        return resolvable_models[0].id if live_registry else AVAILABLE_MODELS[2].id
+        if not resolvable_models:
+            raise ValueError("no inference model is currently available")
+        preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
+        return preferred.id if preferred else resolvable_models[0].id
 
     model_clean = raw_model.strip().lower()
 
     # 1. Exact match on full model ID
-    if live_registry and not resolvable_models:
-        raise ValueError("model registry unavailable")
+    if not resolvable_models:
+        raise ValueError("no inference model is currently available")
     for m in resolvable_models:
         if model_clean == m.id.lower():
             return m.id
@@ -198,7 +281,11 @@ def resolve_model_id(raw_model: str) -> str:
 
     if live_registry:
         raise ValueError(f"model is not present in the live registry: {raw_model}")
-    return AVAILABLE_MODELS[2].id
+    if os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "").strip().lower() == "synthetic":
+        preferred = next((m for m in resolvable_models if m.id == "qwen/qwen2.5-7b-instruct"), None)
+        if preferred:
+            return preferred.id
+    raise ValueError(f"model is not present in the active runtime: {raw_model}")
 
 
 def provider_shares_from_env() -> list[tuple[str, float]]:

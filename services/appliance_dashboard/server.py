@@ -12,6 +12,7 @@ import hmac
 import json
 import logging
 from pathlib import Path
+import secrets
 import sys
 from typing import Any
 import urllib.parse
@@ -41,6 +42,8 @@ from services.appliance_dashboard.tunnel_relay import (
     CLOUD_TUNNEL_RELAY,
 )
 from services.appliance_dashboard.inference_router import InferenceRouter
+from services.appliance_dashboard.fan_control_handler import FanControlHandler
+from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
 from services.appliance_dashboard.system_actions import SystemActionsHandler
 from services.appliance_dashboard.killswitch_actions import KillswitchHandler
 from services.appliance_dashboard.telemetry_handler import TelemetryHandler
@@ -49,6 +52,9 @@ from services.appliance_dashboard.webapp_handler import WebAppsHandler
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
 PORTAL_DIR = (REPO_ROOT / "portal").resolve()
+DASHBOARD_SESSION_COOKIE = "cm_dashboard_session"
+DASHBOARD_SESSION_TOKEN = secrets.token_urlsafe(32)
+FAN_SAFETY_CONTROLLER: Any = None
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
@@ -95,25 +101,36 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
-    def _verify_action_auth(self) -> bool:
+    def _verify_admin_auth(self) -> bool:
         client_ip = str(getattr(self, "client_address", ("127.0.0.1", 0))[0])
         try:
             ip_obj = ipaddress.ip_address(client_ip.strip())
-            if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local:
+            if ip_obj.is_loopback:
                 return True
         except Exception:
             if client_ip in ("127.0.0.1", "::1", "localhost"):
                 return True
 
         supplied_token = self.headers.get("X-Node-Auth-Token", "")
+        authorization = self.headers.get("Authorization", "")
+        if not supplied_token and authorization.startswith("Bearer "):
+            supplied_token = authorization.removeprefix("Bearer ")
         if not supplied_token:
-            parsed = urllib.parse.urlparse(self.path)
-            q = urllib.parse.parse_qs(parsed.query)
-            supplied_token = q.get("auth", [""])[0]
+            for item in str(self.headers.get("Cookie", "")).split(";"):
+                name, sep, value = item.strip().partition("=")
+                if sep and name == DASHBOARD_SESSION_COOKIE:
+                    supplied_token = value.strip()
+                    break
 
-        if supplied_token and hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip()):
+        if supplied_token and (
+            hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip())
+            or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
+        ):
             return True
         return False
+
+    def _verify_action_auth(self) -> bool:
+        return self._verify_admin_auth()
 
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
@@ -137,7 +154,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_unauthorized(self) -> None:
         self._send_json(
-            {"error": {"message": "Unauthorized: Valid X-Node-Auth-Token or ?auth= query token required for remote access", "code": 401}},
+            {"error": {"message": "Unauthorized: open the dashboard first or provide a valid node authentication header", "code": 401}},
             HTTPStatus.UNAUTHORIZED,
         )
 
@@ -145,7 +162,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
 
+        if ModelManagerHandler.handle_get(self, req_path, parsed_url.query):
+            return
+
         if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
+            return
+
+        if FanControlHandler.handle_get(self, req_path):
             return
 
         if req_path in ("", "/", "/index.html"):
@@ -156,6 +179,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
+            self.send_header(
+                "Set-Cookie",
+                f"{DASHBOARD_SESSION_COOKIE}={DASHBOARD_SESSION_TOKEN}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict",
+            )
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
             return
@@ -264,11 +291,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         content_len = int(self.headers.get("Content-Length", 0))
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
+        if ModelManagerHandler.handle_post(self, req_path, post_body):
+            return
+
         if InferenceRouter.handle_post(self, req_path, post_body):
             return
 
         if not self._verify_action_auth():
             self._send_unauthorized()
+            return
+
+        if FanControlHandler.handle_post(self, req_path, post_body):
             return
 
         if KillswitchHandler.handle_post(self, req_path, post_body):
@@ -301,6 +334,16 @@ def create_dashboard_server(
     DashboardHandler.config = config
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = effective_node_id
+
+    # NodeOS must not rely on zero-RPM driver defaults. The controller is
+    # capability-aware and is a no-op on Windows drivers without fan access.
+    global FAN_SAFETY_CONTROLLER
+    try:
+        from tools.appliance.fan_control import FanSafetyController
+        FAN_SAFETY_CONTROLLER = FanSafetyController(inventory, config)
+        FAN_SAFETY_CONTROLLER.start()
+    except Exception as exc:
+        log.warning("Fan safety controller unavailable: %s", exc)
 
     try:
         from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay

@@ -42,24 +42,27 @@ class TestTokenMetering(unittest.TestCase):
         self.assertEqual(stats.prompt_tokens, 0)
         self.assertEqual(stats.completion_tokens, 0)
 
-    def test_record_tokens_increments_and_computes_earnings(self) -> None:
+    def test_record_tokens_increments_without_manufacturing_earnings(self) -> None:
         st = record_tokens(prompt_tokens=150, completion_tokens=350)
         self.assertEqual(st.total_tokens_served, 500)
         self.assertEqual(st.prompt_tokens, 150)
         self.assertEqual(st.completion_tokens, 350)
-        expected_earn = round(500 * (PROVIDER_USD_PER_MILLION_TOKENS / 1_000_000.0), 6)
-        self.assertEqual(st.total_earnings_usd, expected_earn)
+        self.assertEqual(st.total_earnings_usd, 0.0)
+        self.assertEqual(st.earnings_cm, 0)
+        self.assertFalse(st.earnings_confirmed)
 
         # Check persistence
         loaded = load_token_stats()
         self.assertEqual(loaded.total_tokens_served, 500)
-        self.assertEqual(loaded.total_earnings_usd, expected_earn)
+        self.assertEqual(loaded.total_earnings_usd, 0.0)
 
     def test_sync_with_coordinator_takes_max(self) -> None:
         record_tokens(100, 100)  # total 200
         st = sync_with_coordinator(coordinator_tokens=1000, coordinator_earnings_usd=0.00075)
         self.assertEqual(st.total_tokens_served, 1000)
         self.assertEqual(st.total_earnings_usd, 0.00075)
+        self.assertEqual(st.earnings_cm, 750)
+        self.assertTrue(st.earnings_confirmed)
 
         # If coordinator sends lower, local is preserved
         st2 = sync_with_coordinator(coordinator_tokens=500, coordinator_earnings_usd=0.0001)
@@ -70,8 +73,22 @@ class TestTokenMetering(unittest.TestCase):
         record_tokens(50, 50)
         d = get_token_stats()
         self.assertEqual(d["tokens_processed"], 100)
-        self.assertEqual(d["earnings_cm"], 100)
-        self.assertGreater(d["earnings_usd"], 0.0)
+        self.assertEqual(d["earnings_cm"], 0)
+        self.assertEqual(d["earnings_usd"], 0.0)
+        self.assertFalse(d["earnings_confirmed"])
+
+    def test_legacy_unconfirmed_earnings_are_not_trusted(self) -> None:
+        self.storage_file.write_text(json.dumps({
+            "total_tokens_served": 2925,
+            "prompt_tokens": 1000,
+            "completion_tokens": 1925,
+            "total_earnings_usd": 0.002194,
+            "earnings_cm": 2925,
+        }), encoding="utf-8")
+        stats = load_token_stats()
+        self.assertEqual(stats.total_tokens_served, 2925)
+        self.assertEqual(stats.total_earnings_usd, 0.0)
+        self.assertEqual(stats.earnings_cm, 0)
 
 
 if __name__ == "__main__":

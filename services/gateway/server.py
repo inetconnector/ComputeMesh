@@ -695,10 +695,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self.close_connection = True
             return
 
-        if clean_path in ("/models/load", "/webui/models/load", "/models/unload", "/webui/models/unload"):
-            self._send_json({"status": "ok", "message": "model ready"})
-            return
-
         if clean_path in ("/v1/models", "/models", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
             self._handle_models()
             return
@@ -1299,12 +1295,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if sender_owner and (not existing_owner or existing_owner == sender_owner):
                         owner_authorized = True
 
-                is_dummy_override = (
-                    existing_node.get("is_peer_relay", False)
-                    or (int(existing_node.get("inventory", {}).get("total_gpus", 0) or 0) == 0 and int(body.get("inventory", {}).get("total_gpus", 0) or 0) > 0)
-                )
-
-                if expected_token and not is_stale and not owner_authorized and not is_dummy_override and not hmac.compare_digest(auth_token, expected_token):
+                if expected_token and not is_stale and not owner_authorized and not hmac.compare_digest(auth_token, expected_token):
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 
@@ -1337,10 +1328,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
+            provider_payable_micro = max(0, int(self.ledger.get_balance(f"provider:{node_id}")))
 
             telemetry_data = body.get("telemetry", {})
             telemetry_data["tokens_processed"] = final_tokens
-            telemetry_data["earnings_cm"] = final_tokens
+            telemetry_data["provider_payable_micro_units"] = provider_payable_micro
+            telemetry_data["earnings_cm"] = provider_payable_micro
 
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             NODE_TELEMETRY_REGISTRY[node_id] = {
@@ -1402,8 +1395,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
                 "tokens_processed": final_tokens,
-                "earnings_cm": final_tokens,
-                "earnings_usd": round(final_tokens * (0.75 / 1_000_000.0), 6),
+                "earnings_cm": provider_payable_micro,
+                "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
             }
             if owner_binding_error:
                 resp["owner_binding_error"] = owner_binding_error
@@ -1806,17 +1799,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in (
-            "/models/load",
-            "/webui/models/load",
-            "/models/unload",
-            "/webui/models/unload",
-            "/v1/models/load",
-            "/v1/models/unload",
-        ):
-            self._send_json({"status": "ok", "message": "model ready"})
-            return
-
-        if clean_path in (
             "/v1/chat/completions",
             "/chat/completions",
             "/completion",
@@ -2021,7 +2003,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._send_json({"object": "list", "data": models_data})
 
     def _handle_ollama_tags(self) -> None:
-        models = current_models()
+        models = [model for model in current_models() if bool(getattr(model, "available", False))]
         if not models and os.environ.get("COMPUTEMESH_MODEL_REGISTRY_URL", "").strip():
             self._send_error_response("Model registry unavailable", "service_unavailable", HTTPStatus.SERVICE_UNAVAILABLE)
             return
@@ -2030,15 +2012,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "name": m.id,
                 "model": m.id,
                 "modified_at": datetime.now(timezone.utc).isoformat(),
-                "size": getattr(m, "artifact_size_bytes", 0) or (4350000000 if "7b" in m.id or "8b" in m.id else 41000000000),
-                "digest": getattr(m, "artifact_digest", "") or f"sha256:{secrets.token_hex(32)}",
+                "size": getattr(m, "artifact_size_bytes", 0),
+                "digest": getattr(m, "artifact_digest", ""),
                 "details": {
                     "parent_model": "",
                     "format": "computemesh-gateway",
                     "family": "qwen2_vl" if "vl" in m.id else ("llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else ("llava" if "llava" in m.id else "deepseek"))),
                     "families": ["qwen2_vl", "clip"] if "vl" in m.id else (["llama", "clip"] if "vision" in m.id else (["llava", "clip"] if "llava" in m.id else ["llama" if "llama" in m.id else ("qwen2" if "qwen" in m.id else "deepseek")])),
-                    "parameter_size": "7.6B" if "7b" in m.id or "8b" in m.id else ("11.0B" if "11b" in m.id else "70.6B"),
-                    "quantization_level": getattr(m, "quantization", "") or "Q4_K_M",
+                    "parameter_size": "",
+                    "quantization_level": getattr(m, "quantization", ""),
                     "availability": getattr(m, "availability", "available_warm"),
                 },
             }
@@ -2060,14 +2042,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "format": "gguf",
                 "family": family,
                 "families": [family, "clip"] if is_vision else [family],
-                "parameter_size": "7.6B" if "7b" in model_id else ("11.0B" if "11b" in model_id else "70.6B"),
-                "quantization_level": "Q4_K_M",
+                "parameter_size": "",
+                "quantization_level": next((getattr(model, "quantization", "") for model in current_models() if model.id == model_id), ""),
             },
-            "model_info": {
-                "general.architecture": family,
-                "general.file_type": 15,
-                "general.parameter_count": 7615616512,
-            },
+            "model_info": {"general.architecture": family},
         })
 
     def _handle_chat_completions(self, body: dict[str, Any]) -> None:

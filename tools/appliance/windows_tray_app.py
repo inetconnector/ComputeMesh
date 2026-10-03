@@ -1073,41 +1073,13 @@ class ComputeMeshProviderApp:
             messagebox.showerror("Ollama Fehler", f"Fehler beim Starten von Ollama: {e}", parent=self.root)
 
     def _calculate_local_tflops(self) -> float:
-        total_tf = 0.0
-        for gpu in self.inventory.gpus:
-            m = gpu.model_name.lower()
-            if "4090" in m:
-                tf = 82.6
-            elif "3080" in m or "3090" in m:
-                tf = 24.0
-            elif "mi25" in m or "vega" in m:
-                tf = 24.6
-            elif "6800" in m or "6900" in m or "7900" in m:
-                tf = 32.0
-            elif "intel" in m:
-                tf = 1.0
-            else:
-                tf = round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)
-            total_tf += tf
-        return round(total_tf, 1)
+        return 0.0
 
     def _populate_hardware(self) -> None:
         self.gpu_tree.delete(*self.gpu_tree.get_children())
         for gpu in self.inventory.gpus:
             vram_gb = f"{gpu.vram_bytes / (1024**3):.1f} GB" if gpu.vram_bytes else "N/A"
-            m = gpu.model_name.lower()
-            if "4090" in m:
-                tflops_str = "82.6 TFLOPS"
-            elif "3080" in m or "3090" in m:
-                tflops_str = "24.0 TFLOPS"
-            elif "mi25" in m or "vega" in m:
-                tflops_str = "24.6 TFLOPS"
-            elif "6800" in m or "6900" in m or "7900" in m:
-                tflops_str = "32.0 TFLOPS"
-            elif "intel" in m:
-                tflops_str = "1.0 TFLOPS"
-            else:
-                tflops_str = f"{round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)} TFLOPS"
+            tflops_str = "Nicht gemessen"
 
             backend_str = f"{gpu.driver_backend.upper()}" if gpu.healthy else "Offline"
             self.gpu_tree.insert("", "end", values=(gpu.index, gpu.vendor.upper(), gpu.model_name, vram_gb, tflops_str, backend_str))
@@ -1205,7 +1177,7 @@ class ComputeMeshProviderApp:
                     "inventory": self.inventory.to_dict(),
                     "telemetry": {
                         "tokens_processed": self.total_tokens_served,
-                        "earnings_cm": self.total_tokens_served,
+                        "earnings_cm": int(round(self.total_earnings_usd * 1_000_000)),
                         "payout_usd": self.total_earnings_usd,
                         "local_compute_tflops": self._calculate_local_tflops(),
                     },

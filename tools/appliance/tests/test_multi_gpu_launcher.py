@@ -58,10 +58,20 @@ class TestMultiGpuLauncher(unittest.TestCase):
             port=8080,
             allow_non_loopback=True,
         )
-        self.assertIn("-ts", cmd)
+        self.assertIn("--tensor-split", cmd)
         self.assertIn("0.200,0.200,0.200,0.200,0.200", cmd)
-        self.assertIn("--devices", cmd)
-        self.assertIn("CUDA0,CUDA1,CUDA2,CUDA3,CUDA4", cmd)
+        self.assertNotIn("--device", cmd)
+        self.assertEqual(len(cmd[cmd.index("--tensor-split") + 1].split(",")), 5)
+        self.assertEqual(cmd[cmd.index("--split-mode") + 1], "layer")
+        self.assertEqual(cmd[cmd.index("--n-gpu-layers") + 1], "all")
+
+        explicit = build_llama_server_command(
+            executable="/opt/computemesh/llama-server",
+            model_path="/var/lib/computemesh/models/qwen2.5-7b.gguf",
+            plan=plan,
+            device_names="Vulkan0,Vulkan1,Vulkan2,Vulkan3,Vulkan4",
+        )
+        self.assertEqual(explicit[explicit.index("--device") + 1], "Vulkan0,Vulkan1,Vulkan2,Vulkan3,Vulkan4")
 
     def test_rpc_bind_is_loopback_only_by_default(self) -> None:
         plan = compute_multi_gpu_allocation(

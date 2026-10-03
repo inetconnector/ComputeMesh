@@ -14,7 +14,7 @@ from config import CONFIG
 from services.appliance_dashboard.network import get_network_interfaces
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
-from tools.appliance.hardware_detector import scan_rig_hardware, collect_hardware_debug
+from tools.appliance.hardware_detector import collect_hardware_debug, read_all_thermals, scan_rig_hardware
 
 log = logging.getLogger("computemesh.appliance.telemetry")
 APPLIANCE_VERSION = CONFIG.appliance_version
@@ -84,30 +84,16 @@ class TelemetryHandler:
             return True
 
         if req_path == "/api/status":
+            measured_thermals = {item.gpu_index: item for item in read_all_thermals(handler.inventory)}
             thermals = []
-            local_tflops = 0.0
             for g in handler.inventory.gpus:
-                m_lower = g.model_name.lower()
-                if "4090" in m_lower:
-                    tf = 82.6
-                elif "3080" in m_lower or "3090" in m_lower:
-                    tf = 24.0
-                elif "mi25" in m_lower or "vega" in m_lower:
-                    tf = 24.6
-                elif "6800" in m_lower or "6900" in m_lower or "7900" in m_lower:
-                    tf = 32.0
-                elif "intel" in m_lower:
-                    tf = 1.0
-                else:
-                    tf = round(max(1.0, (g.vram_bytes / (1024**3)) * 1.5), 1)
-                local_tflops += tf
-
+                measured = measured_thermals.get(g.index)
                 thermals.append({
                     "gpu_index": g.index,
-                    "temp": 56 + (g.index * 2) % 12,
-                    "fan": 60 + (g.index * 3) % 20,
-                    "power_watts": 110 + (g.index * 5) % 30,
-                    "tflops": tf,
+                    "temp": measured.temperature_celsius if measured else None,
+                    "fan": measured.fan_speed_percent if measured else None,
+                    "power_watts": measured.power_watts if measured else None,
+                    "tflops": None,
                 })
 
             t_toks = handler.tokens_served
@@ -126,7 +112,8 @@ class TelemetryHandler:
                 "telemetry": {
                     "tokens_processed": t_toks,
                     "earnings_cm": t_earn,
-                    "local_compute_tflops": round(local_tflops, 1),
+                    "local_compute_tflops": 0.0,
+                    "compute_measurement": "unavailable",
                 },
             }
             mesh_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_payload)
@@ -139,6 +126,25 @@ class TelemetryHandler:
             is_win = sys.platform == "win32"
             is_lin = sys.platform.startswith("linux")
             is_appl = is_lin and Path("/opt/computemesh").exists()
+            uptime_seconds = None
+            try:
+                if sys.platform.startswith("linux"):
+                    uptime_seconds = int(float(Path("/proc/uptime").read_text(encoding="ascii").split()[0]))
+                elif sys.platform == "win32":
+                    import ctypes
+                    uptime_seconds = int(ctypes.windll.kernel32.GetTickCount64() // 1000)
+            except Exception:
+                pass
+            try:
+                from services.appliance_dashboard.model_manager import get_model_manager
+                model_runtime = get_model_manager().status()
+            except Exception as exc:
+                model_runtime = {"engine": {"state": "unavailable", "ready": False, "last_error": str(exc)}, "models": []}
+            try:
+                from tools.appliance.fan_control import fan_status
+                fan_runtime = fan_status(handler.inventory, handler.config)
+            except Exception as exc:
+                fan_runtime = {"control_available": False, "supported_modes": ["auto"], "message": str(exc), "gpus": []}
             payload = {
                 "node_id": current_node_id,
                 "os": "windows" if is_win else ("linux" if is_lin else sys.platform),
@@ -155,10 +161,13 @@ class TelemetryHandler:
                 "telemetry": {
                     "tokens_processed": t_toks,
                     "earnings_cm": t_earn,
-                    "local_compute_tflops": round(local_tflops, 1),
+                    "local_compute_tflops": 0.0,
+                    "compute_measurement": "unavailable",
                     "gpu_thermals": thermals,
-                    "uptime_seconds": 86400,
+                    "fan_control": fan_runtime,
+                    "uptime_seconds": uptime_seconds,
                 },
+                "model_runtime": model_runtime,
                 "software": {
                     "current_version": APPLIANCE_VERSION,
                     "update_url": CONFIG.endpoints.update_manifest_url,

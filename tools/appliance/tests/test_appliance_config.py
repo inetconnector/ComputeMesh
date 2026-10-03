@@ -54,6 +54,14 @@ class TestApplianceConfig(unittest.TestCase):
             cfg = load_appliance_config(boot_path=boot_file, system_path=tmp_path / "none.json")
             self.assertEqual(cfg.coordinator_url, CONFIG.endpoints.base_url)
 
+    def test_legacy_zero_rpm_mode_migrates_to_safe_auto(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_file = tmp_path / "config.json"
+            config_file.write_text('{"fan_control_mode": "auto"}\n', encoding="utf-8")
+            cfg = load_appliance_config(boot_path=tmp_path / "none.env", system_path=config_file)
+            self.assertEqual(cfg.fan_control_mode, "safe_auto")
+
     def test_save_and_reload_system_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)

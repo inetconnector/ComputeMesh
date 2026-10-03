@@ -19,7 +19,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tools.appliance.hardware_detector import GpuDevice, RigInventory, scan_rig_hardware
+from tools.appliance.hardware_detector import (
+    GpuDevice,
+    RigInventory,
+    is_integrated_display_adapter,
+    scan_rig_hardware,
+)
 
 
 @dataclass(frozen=True)
@@ -69,7 +74,12 @@ def compute_multi_gpu_allocation(
     total_model_layers: int = 24,
 ) -> MultiGpuPlan:
     """Compute proportional VRAM split and layer allocation across all healthy GPUs."""
-    healthy_gpus = [g for g in inventory.gpus if g.healthy and g.vram_bytes > 0]
+    healthy_gpus = [
+        g for g in inventory.gpus
+        if g.healthy
+        and g.vram_bytes > 0
+        and not is_integrated_display_adapter(g.vendor, g.model_name)
+    ]
     if not healthy_gpus:
         raise ValueError("No healthy GPUs with VRAM detected on the rig.")
 
@@ -79,19 +89,23 @@ def compute_multi_gpu_allocation(
     fractions: list[float] = [g.vram_bytes / total_vram for g in healthy_gpus]
     split_str = ",".join(f"{f:.3f}" for f in fractions)
     
-    # Proportional layer assignment
-    layers_remaining = total_model_layers
+    # Largest-remainder allocation keeps the displayed layer count exact while
+    # preserving proportionality for heterogeneous cards.
+    raw_layers = [frac * total_model_layers for frac in fractions]
+    assigned_layers = [int(value) for value in raw_layers]
+    remainder = total_model_layers - sum(assigned_layers)
+    for index in sorted(range(len(raw_layers)), key=lambda item: raw_layers[item] - assigned_layers[item], reverse=True)[:remainder]:
+        assigned_layers[index] += 1
     device_names: list[str] = []
     
     for idx, (gpu, frac) in enumerate(zip(healthy_gpus, fractions)):
-        if idx == len(healthy_gpus) - 1:
-            assigned = layers_remaining
-        else:
-            assigned = int(round(frac * total_model_layers))
-            assigned = min(assigned, layers_remaining)
-            layers_remaining -= assigned
-        
-        backend_prefix = "CUDA" if gpu.driver_backend == "cuda" else "Vulkan"
+        assigned = assigned_layers[idx]
+        backend_prefix = {
+            "cuda": "CUDA",
+            "rocm": "ROCm",
+            "vulkan": "Vulkan",
+            "sycl": "SYCL",
+        }.get(gpu.driver_backend.lower(), "Vulkan")
         device_names.append(f"{backend_prefix}{gpu.index}")
         
         allocations.append(
@@ -125,6 +139,7 @@ def build_llama_server_command(
     context_size: int = 4096,
     extra_args: Sequence[str] = (),
     allow_non_loopback: bool = False,
+    device_names: str | None = None,
 ) -> list[str]:
     """Generate a llama-server command, keeping the upstream RPC loopback-only by default."""
     normalized_host = host.strip().lower()
@@ -141,15 +156,18 @@ def build_llama_server_command(
         )
     cmd = [
         executable,
-        "-m", model_path,
+        "--model", model_path,
         "--host", normalized_host,
         "--port", str(port),
-        "-c", str(context_size),
-        "-ngl", str(plan.total_model_layers),
-        "-ts", plan.tensor_split_arg,
-        "--devices", plan.devices_arg,
-        *extra_args,
+        "--ctx-size", str(context_size),
+        "--n-gpu-layers", "all",
+        "--split-mode", "layer",
+        "--tensor-split", plan.tensor_split_arg,
+        "--fit", "on",
     ]
+    if device_names:
+        cmd.extend(("--device", device_names))
+    cmd.extend(extra_args)
     return cmd
 
 

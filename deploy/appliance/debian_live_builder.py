@@ -45,6 +45,14 @@ REQUIRED_PACKAGES = [
     "python3-venv",
     "python3-pip",
     "sudo",
+    "git",
+    "cmake",
+    "ninja-build",
+    "build-essential",
+    "pkg-config",
+    "libvulkan-dev",
+    "glslc",
+    "nvidia-driver",
 ]
 
 

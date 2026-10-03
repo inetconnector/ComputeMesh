@@ -1,10 +1,102 @@
 # ComputeMesh State
 
-**Last updated:** 2026-09-16
-**Release Version:** `v1.2.170`
-**Active Mission / Last Prompt:** "ein aufgenommenes bild wird riesig im chat angezeigt. ich denke das muss verkleinert angezeigt werden und evtl auch verkleinert losgeschickt" -> Implementierung von `ImageUploadOptimizer.kt` zur intelligenten Vorab-Komprimierung & EXIF-Korrektur von Kamera-/Upload-Fotos auf max. 1024px vor dem Versand, Behebung der 100%-Breite-Erzwingung im Chat-CSS durch kompakte Thumbnail-Vorschau mit Tap-to-Lightbox (Vollbildansicht) sowie 100% Testpass-Rate (`216/216 Tests passed`).
-**Test Suite Status:** `216/216 PASSED (100%), 10 subtests PASSED` | Volle Testabdeckung über Gateway, MCP Agent Loop, Appliance Dashboard und Hardware-Erkennung
-**Git Baseline:** Branch `main` with Modular Server Architecture, Fast Image Optimization & Compact Lightbox Preview, Native OpenAI-Style Voice Mode, and Multi-Tab Navigation
+**Last updated:** 2026-10-03
+**Release Version:** local LAN target `v1.2.176`; current working tree is unreleased
+**Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `777/777`; focused dashboard/auth/fan/model tests passed `27/27`; WebUI tests passed `5/5`; Android protocol tests passed `5/5`; Android debug APK build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** working branch `codex/nodeos-model-runtime`; local changes are not committed, pushed, tagged, built into a production release or deployed. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes.
+
+## 2026-10-03 Dashboard, WebUI, Android, and fan-safety handoff
+
+- LAN dashboards at `192.168.1.94:8080` and `192.168.1.27:8080` were inspected.
+  Direct API requests returned `401` until the dashboard was opened; the
+  dashboard now issues an HttpOnly same-origin session cookie, so settings,
+  model controls, telemetry, and fan endpoints can authenticate from the UI.
+- `safe_auto` fan control is capability-aware: supported Linux PWM/NVIDIA
+  backends use a temperature curve with a 25% minimum; unsupported drivers
+  return an explicit limitation and never fake a fan percentage. The physical
+  eight-GPU NodeOS machine still needs an installed-build and sensor/fan check.
+- The WebUI update toast/settings clickability fix is present in both
+  `portal/webui/` and `apps/android/app/src/main/assets/webui/`; service-worker
+  revisions were updated. Android `:app:assembleDebug` succeeded locally, but
+  no production-signed APK was built or installed.
+- The public working tree is intentionally dirty with unrelated user changes.
+  It must be ported selectively into a clean release branch before deployment.
+  Secure automatic LAN pairing with explicit owner approval is not complete;
+  discovery currently announces nodes but does not safely transfer an owner
+  secret.
+- Coordinator fleet polling now sends the owner key in `X-Owner-Key` instead
+  of appending it to the fleet URL. Remote dashboard tunnel links still use
+  the existing node-access flow and need a short-lived/session exchange before
+  the next security release.
+- The requested source checkout was not found on the DiskStation paths checked;
+  `\\diskstation\\Dani\\ComputeMesh` is an operator-secret directory. No
+  credentials were read or copied.
+
+## 2026-09-29 NodeOS verified model runtime (working branch)
+
+Implemented in this working tree:
+
+- `model_manager.py` persists a fail-closed local GGUF catalogue. Hugging Face
+  downloads require an immutable source commit, exact size and SHA-256; they
+  run asynchronously, resume `.part` files with Range requests, validate GGUF
+  magic and use atomic rename/catalogue updates.
+- `model_engine_service.py` revalidates every artifact before activation,
+  checks aggregate healthy-GPU VRAM with a per-GPU reserve, requests a
+  proportional llama.cpp layer split and supervises one `llama-server` bound
+  only to `127.0.0.1:8081`. Device names are auto-discovered by llama.cpp unless
+  the operator supplies a verified `COMPUTEMESH_LLAMA_DEVICE_NAMES` override.
+- Authenticated model-management HTTP routes and a dashboard **Models** tab
+  provide status, install, start, stop and delete operations. Remote LAN access
+  no longer receives implicit admin trust; the dashboard propagates its node
+  auth token to protected API calls.
+- The appliance chat router prefers the healthy managed llama.cpp endpoint and
+  can fall back to a real Ollama installation. No-runtime and runtime-failure
+  paths no longer synthesize responses or usage counters.
+- Static gateway catalogue entries are marked `catalogued`/unavailable. A
+  configured private registry remains authoritative; an Ollama-backed gateway
+  discovers real local tags. Ollama-compatible metadata no longer invents
+  artifact sizes, random digests, parameter counts or quantization.
+- Thermal values are `null` when sensors are unavailable. Product-name TFLOPS
+  lookup tables and generic per-GPU estimates were removed from dashboard,
+  tray and mesh aggregation. The UI says `Nicht gemessen` until a real
+  benchmark contract supplies a value.
+- Local token accounting records only usage returned by a successful runtime.
+  Token count no longer creates provider earnings. Legacy local earnings files
+  without `earnings_confirmed` are migrated to zero payout; coordinator values
+  derive from the real provider ledger balance.
+- NodeOS builder pins llama.cpp `v0.4.1` commit
+  `29aaf1c27faa48292357cea2120d94114a545006`, builds the Vulkan server, includes
+  AMD/NVIDIA packages, creates the model root, defaults persistence to 64 GiB,
+  locks root and disables password SSH. No shared `computemesh` root password
+  remains in the builder.
+
+Verification actually run:
+
+- `python run_all_tests.py`: **776/776 passed** in 87.75 s.
+- Focused model manager/engine/admin auth/multi-GPU/gateway/portal/image-builder
+  suites: **70/70 passed** before the final managed-runtime/UI wiring; targeted
+  managed-runtime tests passed **4/4** afterward.
+- Changed Python files passed `py_compile`; dashboard inline JavaScript parsed
+  with Node; `git diff --check` passed. Ruff is not installed in either the
+  system Python or `.venv`, so lint remains unverified.
+- The unscoped `python -m pytest -q` fails during collection on duplicate test
+  modules embedded in `artifacts/linux_release_staging_*` and other release
+  snapshots; it did not reach source tests.
+
+Not yet complete or claimed:
+
+- no new NodeOS ISO/IMG, Windows/Linux installer, Android client, signed update
+  manifest, tag, GitHub release or production deployment was produced;
+- no physical six-GPU startup, large-model load, restart persistence, measured
+  throughput, OOM/thermal recovery or end-to-end provider billing run was done;
+- the private ControlPlane checkout contains unrelated in-progress changes and
+  was inspected only. It was not modified. Production reconciliation of the
+  minimized heartbeat `model_runtime` into its canonical model registry still
+  needs an isolated private-repo change and tests;
+- requested layer allocation is not yet cryptographic proof that every GPU
+  executed every intended layer; execution evidence/attestation must bind that
+  fact before billing or marketing claims.
 
 ## Universal Skill Execution MCP — 2026-09-17
 

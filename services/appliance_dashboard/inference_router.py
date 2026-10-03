@@ -16,6 +16,18 @@ import urllib.request
 log = logging.getLogger("computemesh.appliance.inference")
 
 
+def _managed_runtime_status() -> dict[str, Any] | None:
+    try:
+        from services.appliance_dashboard.model_manager import get_model_manager
+        status = get_model_manager().status()
+        engine = status.get("engine", {})
+        if engine.get("ready") and engine.get("endpoint") and engine.get("model_id"):
+            return status
+    except Exception:
+        pass
+    return None
+
+
 def _looks_like_vision_model(model_name: str) -> bool:
     """Return whether an Ollama model name conventionally accepts images."""
     lowered = str(model_name or "").lower()
@@ -104,9 +116,39 @@ class InferenceRouter:
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
         ollama_url = raw_ollama if (raw_ollama.startswith("http://") or raw_ollama.startswith("https://")) else f"http://{raw_ollama}"
         clean_path = req_path.rstrip("/")
+        managed = _managed_runtime_status()
 
         # 1. Models & Tags listing
         if clean_path in ("/v1/models", "/models", "/api/tags", "/tags", "/webui/models", "/webui/v1/models", "/api/models", "/api/v1/models"):
+            if managed is not None:
+                engine = managed["engine"]
+                if clean_path in ("/api/tags", "/tags"):
+                    installed = next((item for item in managed.get("models", []) if item.get("model_id") == engine["model_id"]), {})
+                    handler._send_json({"models": [{
+                        "name": engine["model_id"],
+                        "model": engine["model_id"],
+                        "size": int(installed.get("size_bytes", 0) or 0),
+                        "digest": f"sha256:{installed.get('sha256')}" if installed.get("sha256") else "",
+                        "details": {
+                            "format": "gguf",
+                            "quantization_level": installed.get("quantization", ""),
+                        },
+                    }]})
+                    return True
+                target = f"{engine['endpoint']}/v1/models"
+                try:
+                    req = urllib.request.Request(target, headers={"Accept": "application/json"})
+                    with urllib.request.urlopen(req, timeout=4) as resp:
+                        data = resp.read()
+                    handler.send_response(HTTPStatus.OK)
+                    handler.send_header("Content-Type", "application/json; charset=utf-8")
+                    handler.send_header("Access-Control-Allow-Origin", "*")
+                    handler.send_header("Content-Length", str(len(data)))
+                    handler.end_headers()
+                    handler.wfile.write(data)
+                    return True
+                except Exception:
+                    pass
             try:
                 target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
                 req = urllib.request.Request(target, headers={"Accept": "application/json"})
@@ -120,15 +162,16 @@ class InferenceRouter:
                     handler.wfile.write(data)
                     return True
             except Exception:
-                payload = {
-                    "object": "list",
-                    "data": [
-                        {"id": "gemma3:4b", "object": "model", "owned_by": "computemesh"},
-                        {"id": "qwen2.5-coder:14b", "object": "model", "owned_by": "computemesh"},
-                        {"id": "qwen2.5:7b", "object": "model", "owned_by": "computemesh"}
-                    ]
-                }
-                handler._send_json(payload)
+                handler._send_json(
+                    {
+                        "error": {
+                            "message": "No healthy local model runtime is available",
+                            "type": "service_unavailable",
+                            "code": "model_runtime_unavailable",
+                        }
+                    },
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
                 return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
@@ -164,6 +207,7 @@ class InferenceRouter:
         clean_path = req_path.rstrip("/")
         raw_ollama = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").strip().rstrip("/")
         ollama_url = raw_ollama if (raw_ollama.startswith("http://") or raw_ollama.startswith("https://")) else f"http://{raw_ollama}"
+        managed = _managed_runtime_status()
 
         # 1. Chat completions & Generation with autonomous MCP Tool Execution Loop
         if clean_path in (
@@ -195,14 +239,15 @@ class InferenceRouter:
             except Exception:
                 payload = {}
 
-            available_models = []
-            try:
-                tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
-                with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
-                    tags_data = json.loads(tags_resp.read().decode("utf-8"))
-                    available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
-            except Exception:
-                pass
+            available_models = [managed["engine"]["model_id"]] if managed is not None else []
+            if not available_models:
+                try:
+                    tags_req = urllib.request.Request(f"{ollama_url}/api/tags", headers={"Accept": "application/json"})
+                    with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
+                        tags_data = json.loads(tags_resp.read().decode("utf-8"))
+                        available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
+                except Exception:
+                    pass
 
             requested_model = str(payload.get("model", "")).strip()
             messages = payload.get("messages", [])
@@ -251,6 +296,18 @@ class InferenceRouter:
                             "message": "The node model catalogue is unavailable; explicit model selection is refused",
                             "type": "server_error",
                             "code": "model_catalog_unavailable",
+                        }
+                    },
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                )
+                return True
+            if not available_models:
+                handler._send_json(
+                    {
+                        "error": {
+                            "message": "No healthy local model runtime is available",
+                            "type": "service_unavailable",
+                            "code": "model_runtime_unavailable",
                         }
                     },
                     HTTPStatus.SERVICE_UNAVAILABLE,
@@ -307,32 +364,30 @@ class InferenceRouter:
                     else:
                         ollama_messages.append(_ollama_message(m))
 
-                if not available_models:
-                    tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                    if tool_msg:
-                        from services.mcp.agent_loop import format_tool_content_if_json
-                        formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": formatted,
-                                },
-                                "finish_reason": "stop",
-                            }],
-                            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-                        }
-                    user_msg = next((str(m.get("content", "")) for m in reversed(msg_list) if m.get("role") == "user"), "")
-                    return {
-                        "choices": [{
-                            "message": {
-                                "role": "assistant",
-                                "content": f"Antwort von {target_model}: {user_msg}",
-                            },
-                            "finish_reason": "stop",
-                        }],
-                        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+                if managed is not None:
+                    openai_req: dict[str, Any] = {
+                        "model": target_model,
+                        "messages": ollama_messages,
+                        "stream": False,
+                        "temperature": float(payload.get("temperature", 0.7) or 0.7),
+                        "max_tokens": min(512, int(payload.get("max_tokens", 512) or 512)),
                     }
+                    if tools_list:
+                        openai_req["tools"] = tools_list
+                    req = urllib.request.Request(
+                        f"{managed['engine']['endpoint']}/v1/chat/completions",
+                        data=json.dumps(openai_req).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    )
+                    try:
+                        with urllib.request.urlopen(req, timeout=120) as resp:
+                            result = json.loads(resp.read().decode("utf-8"))
+                        if not isinstance(result, dict) or not isinstance(result.get("choices"), list):
+                            raise ValueError("invalid llama-server response")
+                        return result
+                    except Exception as exc:
+                        log.warning("Managed llama-server inference unavailable: %s", exc)
+                        raise RuntimeError("managed model runtime became unavailable") from exc
 
                 ollama_req = {
                     "model": target_model,
@@ -365,32 +420,8 @@ class InferenceRouter:
                             "usage": {"prompt_tokens": p_tok, "completion_tokens": c_tok, "total_tokens": p_tok + c_tok},
                         }
                 except Exception as exc:
-                    log.warning(f"Ollama inference unavailable ({exc}), synthesizing fallback response")
-                    tool_msg = next((m for m in reversed(msg_list) if m.get("role") == "tool"), None)
-                    if tool_msg:
-                        from services.mcp.agent_loop import format_tool_content_if_json
-                        formatted = format_tool_content_if_json(str(tool_msg.get("content", "")))
-                        return {
-                            "choices": [{
-                                "message": {
-                                    "role": "assistant",
-                                    "content": formatted,
-                                },
-                                "finish_reason": "stop",
-                            }],
-                            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-                        }
-                    user_msg = next((str(m.get("content", "")) for m in reversed(msg_list) if m.get("role") == "user"), "")
-                    return {
-                        "choices": [{
-                            "message": {
-                                "role": "assistant",
-                                "content": f"Antwort von {target_model}: {user_msg}",
-                            },
-                            "finish_reason": "stop",
-                        }],
-                        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-                    }
+                    log.warning("Ollama inference unavailable: %s", exc)
+                    raise RuntimeError("local model runtime became unavailable") from exc
 
             try:
                 exec_res = agent_loop.run(
@@ -401,14 +432,13 @@ class InferenceRouter:
                 )
 
                 try:
-                    handler.tokens_served += int(exec_res.total_tokens)
-                    handler.earnings_cm += (exec_res.total_tokens * 0.0001)
-                    from tools.appliance.token_metering import record_inference_tokens
-                    record_inference_tokens(
+                    from tools.appliance.token_metering import record_tokens
+                    stats = record_tokens(
                         prompt_tokens=exec_res.prompt_tokens,
                         completion_tokens=exec_res.completion_tokens,
-                        model=target_model,
                     )
+                    handler.tokens_served = stats.total_tokens_served
+                    handler.earnings_cm = stats.earnings_cm
                 except Exception:
                     pass
 

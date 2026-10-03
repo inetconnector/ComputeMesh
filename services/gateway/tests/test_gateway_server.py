@@ -242,6 +242,10 @@ class TestGatewayServer(unittest.TestCase):
             self.assertIn("llama/llama-3.1-70b-instruct", model_ids)
             first = data["models"][0]
             self.assertEqual(first["details"]["format"], "computemesh-gateway")
+            self.assertEqual(first["size"], 0)
+            self.assertEqual(first["digest"], "")
+            self.assertEqual(first["details"]["parameter_size"], "")
+            self.assertEqual(first["details"]["quantization_level"], "")
 
     def test_chat_completions_non_streaming(self) -> None:
         payload = {

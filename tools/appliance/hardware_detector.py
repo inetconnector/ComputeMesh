@@ -590,9 +590,9 @@ def read_amd_thermals(start_index: int = 0) -> list[GpuThermalMetrics]:
                 GpuThermalMetrics(
                     gpu_index=current_index,
                     vendor="amd",
-                    temperature_celsius=temp_c or 55,
-                    fan_speed_percent=fan_pct or 60,
-                    power_watts=power_w or 120,
+                    temperature_celsius=temp_c,
+                    fan_speed_percent=fan_pct,
+                    power_watts=power_w,
                 )
             )
             current_index += 1
@@ -800,14 +800,13 @@ def read_all_thermals(inventory: RigInventory) -> list[GpuThermalMetrics]:
         elif gpu.vendor == "amd" and gpu.index in amd_thermals:
             results.append(amd_thermals[gpu.index])
         else:
-            # Safe default fallback
             results.append(
                 GpuThermalMetrics(
                     gpu_index=gpu.index,
                     vendor=gpu.vendor,
-                    temperature_celsius=58 + (gpu.index * 2) % 10,
-                    fan_speed_percent=65,
-                    power_watts=115 + (gpu.index * 5) % 20,
+                    temperature_celsius=None,
+                    fan_speed_percent=None,
+                    power_watts=None,
                 )
             )
     return results

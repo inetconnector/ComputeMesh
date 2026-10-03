@@ -4,6 +4,14 @@
 
 ## In Plain Words
 
+The current NodeOS dashboard also exposes real hardware telemetry, a
+capability-aware safe fan profile, and authenticated model/runtime controls.
+The safe fan profile can enforce a temperature-based minimum only when the
+installed GPU driver exposes a writable control backend; unsupported Windows
+drivers are reported as unsupported rather than showing fabricated values.
+The bundled Android WebUI asset is maintained alongside `portal/webui/`, but a
+production Android APK still requires the separate signing/release process.
+
 ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 
 The idea is simple:
@@ -48,12 +56,20 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - an owner-only Universal Skill Execution MCP tool with explicit skill metadata, intent matching, prerequisite checks, task planning, structured state, provenance/evidence tracking, tool-failure reporting and a final quality gate;
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
 - a provider app that lets a machine report available compute;
+- a verified local GGUF model manager for NodeOS/desktop providers: pinned
+  Hugging Face downloads, resumable partial files, exact size/SHA-256/GGUF
+  validation, one supervised loopback-only llama.cpp runtime and a dashboard
+  tab for start/stop/delete/status operations;
+- proportional multi-GPU llama.cpp layer-split requests based on the healthy
+  discrete GPU inventory and aggregate VRAM budget. The runtime reports the
+  requested allocation separately; exact physical execution remains a future
+  attestation gate rather than a claim;
 - early real two-machine llama.cpp experiments;
 - measurements for machine performance, network connection and execution;
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.40` is live at `https://computemesh.inetconnector.com/updates/version.json`.
+Current signed client/update channel: `v1.2.170` is live at `https://computemesh.inetconnector.com/updates/version.json`.
 
 ## What Is Not Promised Yet
 
@@ -71,6 +87,34 @@ Clone/download the repository and use the launcher for your OS:
 The menu can inspect the machine, measure the network connection, test local model speed and run the test suite. Model weights are never downloaded automatically.
 
 The detailed two-computer developer walkthrough is in [setup/README.md](setup/README.md). The current public status is in [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md). `state.md` is the detailed technical project log.
+
+## NodeOS local models
+
+The provider dashboard's **Models** tab manages GGUF artifacts stored in
+`COMPUTEMESH_MODEL_DIR` (NodeOS default:
+`/var/lib/computemesh/models`; Windows default:
+`%USERPROFILE%/.computemesh/models`). A Hugging Face installation requires:
+
+- a repository ID and GGUF basename;
+- a full 40-character source commit SHA;
+- the exact expected byte size and SHA-256 digest;
+- the model layer count, quantization and license identifier.
+
+Downloads run in the background and resume through HTTP Range requests. A
+partial file is never catalogued. Activation rechecks path containment, regular
+file type, exact size, GGUF magic and SHA-256 before starting `llama-server` on
+`127.0.0.1:8081`. Only one model can be active at a time. The local chat router
+uses that managed llama.cpp endpoint when it is healthy; otherwise it can use a
+separately installed Ollama runtime. If neither runtime is healthy, model and
+chat endpoints fail with `503` and do not invent answers or token usage.
+
+The NodeOS image builder pins upstream llama.cpp `v0.4.1` at commit
+`29aaf1c27faa48292357cea2120d94114a545006`, builds the Vulkan server, includes
+AMD and NVIDIA runtime packages, locks the root account, disables password SSH
+and creates a 64 GiB persistence area by default. Override image persistence
+with `COMPUTEMESH_PERSISTENCE_SIZE_MIB` (16-256 GiB). A real image build and
+physical six-GPU acceptance run are required before this branch can be tagged
+or released.
 
 ## Technical Overview
 

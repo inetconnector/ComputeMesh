@@ -15,7 +15,8 @@ import threading
 import time
 from typing import Any
 
-# Default provider rate: $0.75 Netto per 1,000,000 tokens (75% share pool)
+# Historical display constant. Settlement policy is coordinator-owned and this
+# value must never be used to manufacture local earnings.
 PROVIDER_USD_PER_MILLION_TOKENS = 0.75
 
 def _get_token_storage_path() -> Path:
@@ -36,6 +37,7 @@ class TokenStats:
     completion_tokens: int = 0
     total_earnings_usd: float = 0.0
     earnings_cm: int = 0
+    earnings_confirmed: bool = False
     last_updated_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,15 +56,16 @@ def load_token_stats() -> TokenStats:
                 toks = int(data.get("total_tokens_served", 0) or 0)
                 p_toks = int(data.get("prompt_tokens", 0) or 0)
                 c_toks = int(data.get("completion_tokens", 0) or 0)
-                earn = float(data.get("total_earnings_usd", 0.0) or 0.0)
-                if earn == 0.0 and toks > 0:
-                    earn = round(toks * (PROVIDER_USD_PER_MILLION_TOKENS / 1_000_000.0), 6)
+                confirmed = bool(data.get("earnings_confirmed", False))
+                earn = float(data.get("total_earnings_usd", 0.0) or 0.0) if confirmed else 0.0
+                earnings_cm = int(data.get("earnings_cm", 0) or 0) if confirmed else 0
                 st = TokenStats(
                     total_tokens_served=toks,
                     prompt_tokens=p_toks,
                     completion_tokens=c_toks,
                     total_earnings_usd=earn,
-                    earnings_cm=toks,
+                    earnings_cm=earnings_cm,
+                    earnings_confirmed=confirmed,
                     last_updated_at=str(data.get("last_updated_at", "")),
                 )
                 _CACHED_STATS = st
@@ -85,9 +88,6 @@ def flush_token_stats_to_disk(force: bool = False) -> None:
         stats = _CACHED_STATS
         p = _get_token_storage_path()
         stats.last_updated_at = datetime.now(timezone.utc).isoformat()
-        stats.earnings_cm = stats.total_tokens_served
-        if stats.total_earnings_usd == 0.0 and stats.total_tokens_served > 0:
-            stats.total_earnings_usd = round(stats.total_tokens_served * (PROVIDER_USD_PER_MILLION_TOKENS / 1_000_000.0), 6)
         try:
             data = stats.to_dict()
             tmp = p.with_suffix(".tmp")
@@ -118,8 +118,6 @@ def record_tokens(prompt_tokens: int = 0, completion_tokens: int = 0) -> TokenSt
         st.prompt_tokens += p_tok
         st.completion_tokens += c_tok
         st.total_tokens_served += added
-        st.total_earnings_usd = round(st.total_tokens_served * (PROVIDER_USD_PER_MILLION_TOKENS / 1_000_000.0), 6)
-        st.earnings_cm = st.total_tokens_served
         _DIRTY = True
     flush_token_stats_to_disk(force=False)
     return st
@@ -139,8 +137,9 @@ def sync_with_coordinator(coordinator_tokens: int, coordinator_earnings_usd: flo
             changed = True
         if c_earn > st.total_earnings_usd:
             st.total_earnings_usd = c_earn
+            st.earnings_cm = int(round(c_earn * 1_000_000))
+            st.earnings_confirmed = True
             changed = True
-        st.earnings_cm = st.total_tokens_served
     if changed:
         save_token_stats(st)
     return st
@@ -154,4 +153,5 @@ def get_token_stats() -> dict[str, Any]:
         "completion_tokens": st.completion_tokens,
         "earnings_usd": st.total_earnings_usd,
         "earnings_cm": st.earnings_cm,
+        "earnings_confirmed": st.earnings_confirmed,
     }

@@ -81,23 +81,8 @@ class CloudTunnelRelay:
         self._wake_event.set()
 
     def _calculate_tflops(self, inv: Any) -> float:
-        total_tf = 0.0
-        for gpu in getattr(inv, "gpus", []):
-            m = gpu.model_name.lower()
-            if "4090" in m:
-                tf = 82.6
-            elif "3080" in m or "3090" in m:
-                tf = 24.0
-            elif "mi25" in m or "vega" in m:
-                tf = 24.6
-            elif "6800" in m or "6900" in m or "7900" in m:
-                tf = 32.0
-            elif "intel" in m:
-                tf = 1.0
-            else:
-                tf = round(max(1.0, (gpu.vram_bytes / (1024**3)) * 1.5), 1)
-            total_tf += tf
-        return round(total_tf, 1)
+        # Peak values inferred from a product name are not measurements.
+        return 0.0
 
     def perform_sync(self, updated_cfg: Any = None, previous_node_id: str | None = None) -> dict[str, Any]:
         """Performs a synchronous heartbeat and mesh sync to the coordinator."""
@@ -130,6 +115,16 @@ class CloudTunnelRelay:
 
             inv = scan_rig_hardware()
             tf = self._calculate_tflops(inv)
+            try:
+                from tools.appliance.hardware_detector import read_all_thermals
+                gpu_thermals = [item.to_dict() for item in read_all_thermals(inv)]
+            except Exception:
+                gpu_thermals = []
+            try:
+                from services.appliance_dashboard.model_manager import get_model_manager
+                model_runtime = get_model_manager().status().get("engine", {})
+            except Exception as exc:
+                model_runtime = {"state": "unavailable", "ready": False, "last_error": str(exc)}
         local_vram_gb = round(inv.total_vram_bytes / (1024**3), 1)
         local_payload = {
             "node_id": self.node_id,
@@ -140,7 +135,9 @@ class CloudTunnelRelay:
                 "earnings_cm": earnings_cm,
                 "payout_usd": payout_usd,
                 "local_compute_tflops": tf,
-                "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
+                "compute_measurement": "unavailable",
+                "gpu_thermals": gpu_thermals,
+                "model_runtime": model_runtime,
                 "is_simulated": False,
             },
         }
@@ -185,7 +182,9 @@ class CloudTunnelRelay:
                 "earnings_cm": earnings_cm,
                 "payout_usd": payout_usd,
                 "local_compute_tflops": tf,
-                "gpu_thermals": [{"temp": 56, "fan": 60, "power_watts": 110}],
+                "compute_measurement": "unavailable",
+                "gpu_thermals": gpu_thermals,
+                "model_runtime": model_runtime,
                 "is_simulated": False,
             },
             "global_mesh": gm,

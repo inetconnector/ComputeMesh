@@ -93,11 +93,22 @@ class SystemActionsHandler:
                 for k, v in data.items():
                     if k in new_dict:
                         new_dict[k] = v
+                if (
+                    new_dict.get("fan_control_mode") == "auto"
+                    and os.environ.get("COMPUTEMESH_ALLOW_ZERO_RPM", "") != "1"
+                ):
+                    new_dict["fan_control_mode"] = "safe_auto"
 
                 from tools.appliance.appliance_config import ApplianceConfig, save_system_config
                 updated_cfg = ApplianceConfig(**new_dict)
                 save_system_config(updated_cfg)
                 handler.__class__.config = updated_cfg
+                try:
+                    from services.appliance_dashboard import server as dashboard_server
+                    if dashboard_server.FAN_SAFETY_CONTROLLER is not None:
+                        dashboard_server.FAN_SAFETY_CONTROLLER.config = updated_cfg
+                except Exception:
+                    pass
 
                 # Instantly synchronize across local mesh, lan discovery responder & coordinator webserver
                 try:

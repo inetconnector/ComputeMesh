@@ -4,6 +4,7 @@ import threading
 import time
 import unittest
 import urllib.request
+from unittest.mock import patch
 
 from services.appliance_dashboard.server import DashboardHandler, run_dashboard_server
 from tools.appliance.appliance_config import ApplianceConfig
@@ -187,7 +188,7 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
-    def test_node_chat_completions_mcp_weather(self) -> None:
+    def test_node_chat_refuses_to_fake_weather_without_model_runtime(self) -> None:
         from http.server import ThreadingHTTPServer
         mock_config = ApplianceConfig(
             rig_name="node-mcp-test",
@@ -228,15 +229,14 @@ class TestDashboardServer(unittest.TestCase):
                 "stream": False,
             }).encode("utf-8")
             req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                self.assertEqual(resp.status, 200)
-                data = json.loads(resp.read().decode("utf-8"))
-                self.assertIn("choices", data)
-                content = data["choices"][0]["message"]["content"]
-                self.assertTrue(
-                    "Veitshöchheim" in content or "Wetter" in content or "Live-Wetter" in content or "°C" in content,
-                    f"Expected live tool synthesized answer, got: {content}"
-                )
+            before = DashboardHandler.tokens_served
+            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}):
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req, timeout=25)
+            self.assertEqual(ctx.exception.code, 503)
+            data = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertEqual(data["error"]["code"], "model_catalog_unavailable")
+            self.assertEqual(DashboardHandler.tokens_served, before)
         finally:
             server.shutdown()
             server.server_close()

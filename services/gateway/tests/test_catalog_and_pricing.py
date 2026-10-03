@@ -36,6 +36,8 @@ class TestCatalogAndPricing(unittest.TestCase):
             self.assertIsInstance(m.price_tier, PriceTier)
             self.assertGreaterEqual(m.price_tier.prompt_micro_per_token, 0)
             self.assertGreater(m.price_tier.completion_micro_per_token, 0)
+            self.assertFalse(m.available)
+            self.assertEqual(m.availability, "catalogued")
 
         modalities_by_id = {m.id: model_modalities(m) for m in AVAILABLE_MODELS}
         self.assertEqual(modalities_by_id["deepseek-ai/deepseek-r1"], ("text",))

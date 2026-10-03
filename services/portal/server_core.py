@@ -1050,12 +1050,7 @@ class PortalHandler(BaseHTTPRequestHandler):
                     if sender_owner and (not existing_owner or existing_owner == sender_owner):
                         owner_authorized = True
 
-                is_dummy_override = (
-                    existing_node.get("is_peer_relay", False)
-                    or (int(existing_node.get("inventory", {}).get("total_gpus", 0) or 0) == 0 and int(body.get("inventory", {}).get("total_gpus", 0) or 0) > 0)
-                )
-
-                if expected_token and not is_stale and not owner_authorized and not is_dummy_override and not hmac.compare_digest(auth_token, expected_token):
+                if expected_token and not is_stale and not owner_authorized and not hmac.compare_digest(auth_token, expected_token):
                     self._send_json({"error": "Unauthorized node heartbeat: token mismatch"}, HTTPStatus.UNAUTHORIZED)
                     return
 
@@ -1064,7 +1059,7 @@ class PortalHandler(BaseHTTPRequestHandler):
             active_owner_key = resolved_owner_key or sent_owner_key
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
 
-            from services.gateway.server import OWNER_ACCOUNT_STORE, owner_id_for_key, OwnerAccountStoreError
+            from services.gateway.server import GatewayHandler, OWNER_ACCOUNT_STORE, owner_id_for_key, OwnerAccountStoreError
             owner_id = owner_id_for_key(active_owner_key)
             if owner_id:
                 if not OWNER_ACCOUNT_STORE.is_node_unbound(owner_id, node_id):
@@ -1092,10 +1087,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
             final_tokens = max(existing_tokens, incoming_tokens)
+            provider_payable_micro = max(0, int(GatewayHandler.ledger.get_balance(f"provider:{node_id}")))
 
             telemetry_data = body.get("telemetry", {})
             telemetry_data["tokens_processed"] = final_tokens
-            telemetry_data["earnings_cm"] = final_tokens
+            telemetry_data["provider_payable_micro_units"] = provider_payable_micro
+            telemetry_data["earnings_cm"] = provider_payable_micro
 
             client_ip = resolve_client_ip(self.headers, getattr(self, "client_address", None))
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
@@ -1160,8 +1157,8 @@ class PortalHandler(BaseHTTPRequestHandler):
                 "owner_key": active_owner_key,
                 "key_rotated": key_rotated,
                 "tokens_processed": final_tokens,
-                "earnings_cm": final_tokens,
-                "earnings_usd": round(final_tokens * (0.75 / 1_000_000.0), 6),
+                "earnings_cm": provider_payable_micro,
+                "earnings_usd": round(provider_payable_micro / 1_000_000.0, 6),
             }, HTTPStatus.OK)
             return
 
