@@ -38,10 +38,13 @@
   `https://ai.inetconnector.com/` without a query credential, and the AI
   Studio page has no active update toast. No destructive fleet action was
   triggered.
-- Android source compiles and `assembleDebug` succeeds. No ADB device is
-  connected (`adb devices` returned no devices), so phone installation and
-  handset runtime verification remain open. The current localized debug APK
-  was copied and hash-verified at
+- Android source compiles and `assembleDebug` succeeds. The paired Samsung
+  `SM-S931B` accepted the current localized debug APK as
+  `com.inetconnector.compumesh.debug` version `1.2.164`; `MainActivity` is
+  foreground, the process is alive, and logcat shows the local WebUI,
+  `/tools`, `/props` and `/v1/models` requests without a crash. The existing
+  production package `com.inetconnector.compumesh` remains untouched because
+  its production signature differs. The APK was also copied and hash-verified at
   `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.164-localized-debug.apk`.
   It is a development artifact, not a production-signed public update.
 
