@@ -1,10 +1,24 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-04
-**Release Version:** source is being prepared for `v1.2.185`; the last published NodeOS release is `v1.2.184`. The signed `v1.2.184` artifacts remain live in both Plesk webroots until the new release is built and verified. `.94` reports `1.2.184` and exposes four installed models, including `gemma4:26b`; its `/api/status` remains protected. `.27` was not overwritten during this pass.
+**Release Version:** the public NodeOS release channel is `v1.2.185`, and its verified Windows/Linux artifacts and WebUI are live in both Plesk webroots. The portal WebUI is byte-identical to the local source at `model-selector.js`, `sw.js`, `index.html` and `updates/version.json`. `.94` reports `1.2.184` and exposes four installed models, including `gemma4:26b`; its `/api/status` remains protected. `.27` was not overwritten during this pass.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** after the automatic-discovery changes, `python run_all_tests.py` passed `785/785`, the focused Node auth tests passed `6/6`, `git diff --check` passed, and Android `:app:compileDebugKotlin` passed. The signed Android `1.2.168` build, handset reinstall, NodeOS `v1.2.185` release build and live rollout are still open gates. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** this working tree contains the uncommitted automatic model-discovery, Android asset-parity, scoped owner-key inference authorization and Android version `1.2.168` changes. The public source remains on `main`; no `develop` branch exists. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and must not be overwritten wholesale.
+**Test Suite Status:** the focused WebUI suite passes `7/7`, JavaScript syntax checks pass, and Android `:app:compileDebugKotlin` passes for the current automatic model fallback. The signed Android `1.2.168` artifact has already passed production signing and was installed once, but the final post-fallback production reinstall is still an open gate. The full suite must be rerun after this WebUI change. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** this working tree contains the uncommitted fleet-aware browser catalogue, Android asset parity, Android runtime fallback, scoped owner-key inference authorization and Android version `1.2.168` changes. The public source remains on `main`; no `develop` branch exists. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and must not be overwritten wholesale.
+
+## 2026-10-04 fleet-aware browser model routing
+
+- `portal/webui/model-selector.js` now queries the authenticated fleet registry
+  in addition to loopback discovery. Online node endpoints are queried in
+  parallel with bounded browser concurrency provided by the platform; model
+  IDs are deduplicated, ranked, and tagged with the endpoint that supplied
+  them. Changing the model therefore changes the inference source as well as
+  the request model, rather than selecting an ID from an unrelated catalogue.
+- The same selector is mirrored byte-for-byte in
+  `apps/android/app/src/main/assets/webui/`. Both service-worker revisions
+  were regenerated for the changed selector. The focused WebUI tests pass
+  `7/7`; live deployment of these two changed WebUI files is the next release
+  operation after the complete suite and commit.
 
 ## 2026-10-04 continuous local-fleet model selection
 

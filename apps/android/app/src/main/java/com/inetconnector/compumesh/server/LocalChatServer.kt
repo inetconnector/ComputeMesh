@@ -27,6 +27,7 @@ class LocalChatServer(
 
     companion object {
         private const val TAG = "LocalChatServer"
+        private const val SAFE_DEFAULT_MODEL = "qwen2.5:3b"
         private val EXECUTOR = Executors.newCachedThreadPool()
         private const val DISCOVERY_REFRESH_MS = 15_000L
         private const val MODEL_QUERY_LIMIT = 64
@@ -38,6 +39,8 @@ class LocalChatServer(
     private val discoveryRunning = AtomicBoolean(true)
     @Volatile private var discoveredPeers: List<LocalMeshPeer> = emptyList()
     @Volatile private var discoveredModelPayload: JSONObject? = null
+    @Volatile private var primaryModelPayload: JSONObject? = null
+    @Volatile private var primaryModelIds: List<String> = emptyList()
 
     init {
         discoveryExecutor.execute { discoveryLoop() }
@@ -58,6 +61,8 @@ class LocalChatServer(
                         modelQueryExecutor.submit<JSONObject?> { fetchModels(peer.targetUrl, ownerKey) }
                     }
                 val primaryModels = fetchModels(gateway, ownerKey)
+                primaryModelPayload = primaryModels
+                primaryModelIds = modelIdsFromPayload(primaryModels)
                 val peerModels = modelResponses.mapNotNull { future: Future<JSONObject?> ->
                     runCatching { future.get() }.getOrNull()
                 }
@@ -98,6 +103,16 @@ class LocalChatServer(
         }.getOrNull()
     }
 
+    private fun ensurePrimaryModelCatalogue() {
+        if (primaryModelPayload != null) return
+        val gateway = MeshNodeService.gatewayUrl.trim().ifBlank { "https://mesh.inetconnector.com" }
+        val payload = fetchModels(gateway, MeshNodeService.ownerKey.trim()) ?: return
+        if (primaryModelPayload == null) {
+            primaryModelPayload = payload
+            primaryModelIds = modelIdsFromPayload(payload)
+        }
+    }
+
     private fun mergeModelPayloads(payloads: List<JSONObject>): JSONObject? {
         val modelsById = LinkedHashMap<String, JSONObject>()
         for (payload in payloads) {
@@ -115,6 +130,19 @@ class LocalChatServer(
         }
     }
 
+    private fun modelIdsFromPayload(payload: JSONObject?): List<String> {
+        val data = payload?.optJSONArray("data") ?: return emptyList()
+        return buildList {
+            for (index in 0 until data.length()) {
+                data.optJSONObject(index)
+                    ?.optString("id", data.optJSONObject(index)?.optString("name", "") ?: "")
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::add)
+            }
+        }
+    }
+
     private fun modelParameterBillions(model: JSONObject): Double {
         val values = listOf(
             model.optString("parameter_size", ""),
@@ -129,7 +157,7 @@ class LocalChatServer(
     }
 
     private fun bestDiscoveredModelId(): String? {
-        val data = discoveredModelPayload?.optJSONArray("data") ?: return null
+        val data = (discoveredModelPayload ?: primaryModelPayload)?.optJSONArray("data") ?: return null
         var best: JSONObject? = null
         for (index in 0 until data.length()) {
             val candidate = data.optJSONObject(index) ?: continue
@@ -141,9 +169,10 @@ class LocalChatServer(
         return best?.optString("id", "")?.trim()?.ifBlank { null }
     }
 
-    private fun replaceStaleModelSelection(rootJson: JSONObject) {
-        val bestId = bestDiscoveredModelId() ?: return
+    private fun replaceStaleModelSelection(rootJson: JSONObject): Boolean {
         val requested = rootJson.optString("model", "").trim()
+        val staleAlias = requested.isBlank() || requested == "computemesh-mesh" || requested == "computemesh-cluster-default"
+        val bestId = bestDiscoveredModelId() ?: if (staleAlias) SAFE_DEFAULT_MODEL else return false
         val knownIds = discoveredModelPayload?.optJSONArray("data")?.let { data ->
             buildSet {
                 for (index in 0 until data.length()) {
@@ -151,11 +180,38 @@ class LocalChatServer(
                 }
             }
         } ?: emptySet()
-        val staleAlias = requested.isBlank() || requested == "computemesh-mesh" || requested == "computemesh-cluster-default"
         if (staleAlias || (knownIds.isNotEmpty() && requested !in knownIds)) {
             rootJson.put("model", bestId)
             Log.i(TAG, "Using best discovered model $bestId instead of stale selection $requested")
+            return true
         }
+        return false
+    }
+
+    /**
+     * Keep automatic routing live when a discovered node disappears or its
+     * model inventory changes between catalogue refresh and inference.
+     * Primary gateway models are deliberately included as a bounded fallback.
+     */
+    private fun automaticModelVariants(rootJson: JSONObject): List<String> {
+        val ordered = LinkedHashSet<String>()
+        rootJson.optString("model", "").trim().takeIf { it.isNotBlank() }?.let(ordered::add)
+        primaryModelIds.forEach { id -> ordered.add(id) }
+        val data = discoveredModelPayload?.optJSONArray("data")
+        if (data != null) {
+            val models = buildList {
+                for (index in 0 until data.length()) {
+                    data.optJSONObject(index)?.let { model ->
+                        if (model.optBoolean("available", true)) add(model)
+                    }
+                }
+            }.sortedWith { left, right ->
+                val sizeOrder = modelParameterBillions(right).compareTo(modelParameterBillions(left))
+                if (sizeOrder != 0) sizeOrder else left.optString("id").compareTo(right.optString("id"))
+            }
+            models.forEach { model -> model.optString("id", "").trim().takeIf { it.isNotBlank() }?.let(ordered::add) }
+        }
+        return ordered.take(6)
     }
 
     override fun stop() {
@@ -499,8 +555,10 @@ class LocalChatServer(
         } catch (_: Throwable) {
             JSONObject()
         }
-        val explicitModelSelection = rootJson.optString("model", "").trim().isNotBlank()
-        replaceStaleModelSelection(rootJson)
+        ensurePrimaryModelCatalogue()
+        val requestedModel = rootJson.optString("model", "").trim()
+        val autoModelSelection = replaceStaleModelSelection(rootJson)
+        val explicitModelSelection = requestedModel.isNotBlank() && !autoModelSelection
 
         val isStream = rootJson.optBoolean("stream", true)
         val rawGateway = MeshNodeService.gatewayUrl.trim()
@@ -781,7 +839,11 @@ class LocalChatServer(
             }
         }
 
-        val targetPayloadBytes = rootJson.toString().toByteArray(StandardCharsets.UTF_8)
+        val modelVariants = if (autoModelSelection) {
+            automaticModelVariants(rootJson)
+        } else {
+            listOf(rootJson.optString("model", "").trim())
+        }
 
         if (isStream) {
             val pipedIn = PipedInputStream(128 * 1024)
@@ -791,10 +853,13 @@ class LocalChatServer(
                 var lastErrorMessage = ""
                 var streamedAnyBytes = false
 
-                for (candidateUrl in candidates) {
+                modelLoop@ for (modelId in modelVariants) {
+                    rootJson.put("model", modelId)
+                    val targetPayloadBytes = rootJson.toString().toByteArray(StandardCharsets.UTF_8)
+                    for (candidateUrl in candidates) {
                     var conn: HttpURLConnection? = null
                     try {
-                        Log.d(TAG, "Trying streaming inference candidate: $candidateUrl")
+                        Log.d(TAG, "Trying streaming inference candidate: $candidateUrl with model $modelId")
                         conn = (URL(candidateUrl).openConnection() as HttpURLConnection).apply {
                             requestMethod = "POST"
                             setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -872,7 +937,7 @@ class LocalChatServer(
                                 streamedAnyBytes = true
                             }
                             try { conn.disconnect() } catch (_: Throwable) {}
-                            break
+                            break@modelLoop
                         } else {
                             val errStream = conn.errorStream ?: conn.inputStream
                             val rawErr = errStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
@@ -888,6 +953,7 @@ class LocalChatServer(
                         lastErrorMessage = e.message ?: "Verbindungsfehler"
                         Log.w(TAG, "Candidate $candidateUrl failed: ${e.message}")
                         try { conn?.disconnect() } catch (_: Throwable) {}
+                    }
                     }
                 }
 
@@ -928,10 +994,13 @@ class LocalChatServer(
         var successfulConn: HttpURLConnection? = null
         var lastErrorMessage = ""
 
-        for (candidateUrl in candidates) {
+        modelLoop@ for (modelId in modelVariants) {
+            rootJson.put("model", modelId)
+            val targetPayloadBytes = rootJson.toString().toByteArray(StandardCharsets.UTF_8)
+            for (candidateUrl in candidates) {
             var conn: HttpURLConnection? = null
             try {
-                Log.d(TAG, "Trying non-stream inference candidate: $candidateUrl")
+                Log.d(TAG, "Trying non-stream inference candidate: $candidateUrl with model $modelId")
                 conn = (URL(candidateUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -952,7 +1021,7 @@ class LocalChatServer(
                 if (code in 200..299) {
                     successfulConn = conn
                     Log.i(TAG, "Successfully connected to inference candidate: $candidateUrl (HTTP $code)")
-                    break
+                    break@modelLoop
                 } else {
                     val errStream = conn.errorStream ?: conn.inputStream
                     val rawErr = errStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
@@ -964,6 +1033,7 @@ class LocalChatServer(
                 lastErrorMessage = e.message ?: "Verbindungsfehler"
                 Log.w(TAG, "Candidate $candidateUrl failed: ${e.message}")
                 try { conn?.disconnect() } catch (_: Throwable) {}
+            }
             }
         }
 

@@ -8,6 +8,7 @@
 	var selectedModel = null;
 	var picker = null;
 	var localNodeEndpoint = null;
+	var meshEndpoints = [];
 	var localNodeChecked = false;
 	var localNodeCheckingPromise = null;
 	var lastExecution = null;
@@ -26,6 +27,45 @@
 	} catch (_) {}
 	var originalFetch = window.fetch.bind(window);
 
+	function addMeshEndpoint(value) {
+		if (!value) return;
+		try {
+			var endpoint = new URL(String(value), window.location.origin).href.replace(/\/$/, '');
+			if (!/^https?:$/i.test(new URL(endpoint).protocol)) return;
+			if (!meshEndpoints.includes(endpoint)) meshEndpoints.push(endpoint);
+		} catch (_) {}
+	}
+
+	async function discoverFleetEndpoints() {
+		var paths = ['/api/v1/mesh/fleet', '/api/portal/fleet'];
+		for (var i = 0; i < paths.length; i++) {
+			try {
+				var response = await originalFetch(paths[i], { credentials: 'include', cache: 'no-store' });
+				if (!response.ok) continue;
+				var payload = await response.json();
+				var nodes = Array.isArray(payload && payload.nodes) ? payload.nodes : [];
+				nodes.forEach(function (node) {
+					if (!node || node.is_online === false || node.status === 'offline') return;
+					addMeshEndpoint(node.remote_url || node.endpoint || node.node_url || node.url);
+				});
+			} catch (_) {}
+		}
+	}
+
+	async function mapWithConcurrency(items, limit, mapper) {
+		var results = new Array(items.length);
+		var nextIndex = 0;
+		async function worker() {
+			while (nextIndex < items.length) {
+				var index = nextIndex++;
+				results[index] = await mapper(items[index], index);
+			}
+		}
+		var workerCount = Math.min(Math.max(1, limit), items.length);
+		await Promise.all(Array.from({ length: workerCount }, worker));
+		return results;
+	}
+
 	async function probeLocalNode() {
 		if (localNodeChecked) return localNodeEndpoint;
 		if (localNodeCheckingPromise) return localNodeCheckingPromise;
@@ -34,6 +74,7 @@
 			var isLocalHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
 			if (isLocalHost) {
 				localNodeEndpoint = window.location.origin;
+				addMeshEndpoint(localNodeEndpoint);
 				localNodeChecked = true;
 				return localNodeEndpoint;
 			}
@@ -53,11 +94,13 @@
 					clearTimeout(timer);
 					if (resp.ok) {
 						localNodeEndpoint = candidate;
+						addMeshEndpoint(candidate);
 						console.log('[ComputeMesh] Auto-discovered local GPU node at ' + candidate + ' (P2P direct loopback mode)');
 						break;
 					}
 				} catch (_) {}
 			}
+			await discoverFleetEndpoints();
 			localNodeChecked = true;
 			return localNodeEndpoint;
 		})();
@@ -506,6 +549,9 @@
 			select.addEventListener('change', function () {
 				selectedModel = models.find(function (model) { return model.id === select.value; }) || null;
 				if (!selectedModel) return;
+				localNodeEndpoint = selectedModel.__sourceEndpoint && selectedModel.__sourceEndpoint !== window.location.origin
+					? selectedModel.__sourceEndpoint
+					: null;
 				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
 				try {
 					var draft = document.querySelector('textarea');
@@ -580,18 +626,29 @@
 		try {
 			await probeLocalNode();
 
-			// When a local node is active, the selectable catalogue must come from
-			// that node. The cloud catalogue can contain IDs that are not installed
-			// locally; showing those IDs would cause the node router to substitute a
-			// different model at inference time.
-			var modelCatalogUrl = localNodeEndpoint ? (localNodeEndpoint + '/v1/models') : '/v1/models';
-			var response = await originalFetch(modelCatalogUrl, { credentials: 'same-origin', cache: 'no-store' });
-			if (!response.ok) throw new Error('Model list unavailable');
-			var result = await response.json();
-			models = Array.isArray(result.data) ? result.data.filter(function (model) {
-				return model && model.id && model.available !== false &&
-					(!model.availability || ['catalogued', 'available', 'available_cold', 'available_warm'].includes(model.availability));
-			}).sort(compareModels) : [];
+			var catalogEndpoints = meshEndpoints.slice();
+			if (!catalogEndpoints.length) catalogEndpoints.push(window.location.origin);
+			var catalogResults = await mapWithConcurrency(catalogEndpoints, 8, async function (endpoint) {
+				try {
+					var response = await originalFetch(endpoint + '/v1/models', { credentials: 'include', cache: 'no-store' });
+					if (!response.ok) return [];
+					var result = await response.json();
+					return (Array.isArray(result.data) ? result.data : []).filter(function (model) {
+						return model && model.id && model.available !== false &&
+							(!model.availability || ['catalogued', 'available', 'available_cold', 'available_warm'].includes(model.availability));
+					}).map(function (model) {
+						return Object.assign({}, model, { __sourceEndpoint: endpoint });
+					});
+				} catch (_) {
+					return [];
+				}
+			});
+			var byModelId = new Map();
+			catalogResults.flat().forEach(function (model) {
+				var existing = byModelId.get(model.id);
+				if (!existing || compareModels(model, existing) < 0) byModelId.set(model.id, model);
+			});
+			models = Array.from(byModelId.values()).sort(compareModels);
 			if (!models.length) throw new Error('No selectable models');
 
 			var savedId = '';
@@ -604,6 +661,9 @@
 				selectedModel = models.find(function (model) { return model.id === activeId; }) || models[0];
 				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
 			}
+			localNodeEndpoint = selectedModel.__sourceEndpoint && selectedModel.__sourceEndpoint !== window.location.origin
+				? selectedModel.__sourceEndpoint
+				: null;
 			applyCapabilities(selectedModel);
 			mountPicker();
 			new MutationObserver(mountPicker).observe(document.documentElement, { childList: true, subtree: true });
