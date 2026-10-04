@@ -15,10 +15,12 @@
   them. Changing the model therefore changes the inference source as well as
   the request model, rather than selecting an ID from an unrelated catalogue.
 - The same selector is mirrored byte-for-byte in
-  `apps/android/app/src/main/assets/webui/`. Both service-worker revisions
-  were regenerated for the changed selector. The focused WebUI tests pass
-  `7/7`; live deployment of these two changed WebUI files is the next release
-  operation after the complete suite and commit.
+  `apps/android/app/src/main/assets/webui/`. The focused WebUI tests pass
+  `7/7`, JavaScript syntax checks pass, and the complete public suite passes
+  `792/792`. Commit `f89f0f4` is pushed to `main`. The selector is live in
+  both Plesk webroots and matches local SHA-256
+  `80e1d4a67f8a073bce7655fa33758e61a54dbb0930b49e1db5d717f3ed61d383`.
+  Backup: `/root/computemesh-backups/20261004-website-fleet-before-model-selector`.
 
 ## 2026-10-04 continuous local-fleet model selection
 
