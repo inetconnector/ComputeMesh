@@ -12,6 +12,10 @@ drivers are reported as unsupported rather than showing fabricated values.
 The bundled Android WebUI asset is maintained alongside `portal/webui/`. A
 production Android APK is built through the separate signing/release process;
 the current release artifact is published with the Android download assets.
+Current TV-program questions are routed to live web search, including generic
+questions such as “What is on TV now?”. Mobile clients use a node tunnel only
+when its dedicated node-authentication credential is available; a fleet owner
+key is never mistaken for that credential.
 
 ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 

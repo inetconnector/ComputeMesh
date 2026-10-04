@@ -27,6 +27,13 @@ class TvProgramRoutingTests(unittest.TestCase):
         self.assertIsNotNone(intent)
         self.assertEqual(intent[0], "search_web")
 
+    def test_generic_television_question_defaults_to_current_schedule(self) -> None:
+        intent = detect_direct_tool_intent("Was kommt im Fernseher?")
+
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent[0], "search_web")
+        self.assertIn("jetzt", intent[1]["query"])
+
     def test_agent_loop_executes_live_search_before_answering(self) -> None:
         registry = ToolRegistry()
         loop = AgentLoop(registry)

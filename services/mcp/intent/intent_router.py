@@ -612,12 +612,21 @@ def detect_direct_tool_intent(text: str, registry: Optional[ToolRegistry] = None
         cleaned,
         re.IGNORECASE,
     ))
+    generic_tv_schedule_question = bool(re.search(
+        r"\bwas\s+(?:kommt|läuft|laeuft|ist)\s+"
+        r"(?:(?:gerade|jetzt|heute)\s+)?(?:im\s+)?"
+        r"(?:fernseh(?:en|er|programm)?|tv)\b",
+        cleaned,
+        re.IGNORECASE,
+    ))
     channel = next(
         (name for name in tv_channels if re.search(rf"\b{re.escape(name)}\b", cleaned, re.IGNORECASE)),
         "",
     )
     if has_tv_schedule_language and (
-        channel or re.search(r"\b(?:heute|morgen|jetzt|heuteabend|heute\s+abend|tonight)\b", cleaned, re.IGNORECASE)
+        channel
+        or re.search(r"\b(?:heute|morgen|jetzt|heuteabend|heute\s+abend|tonight)\b", cleaned, re.IGNORECASE)
+        or generic_tv_schedule_question
     ):
         time_scope = "heute" if re.search(
             r"\b(?:heute|heuteabend|heute\s+abend|tonight)\b", cleaned, re.IGNORECASE

@@ -24,8 +24,8 @@ android {
         applicationId = "com.inetconnector.compumesh"
         minSdk = 29
         targetSdk = 34
-        versionCode = 166
-        versionName = "1.2.166"
+        versionCode = 167
+        versionName = "1.2.167"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

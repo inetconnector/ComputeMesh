@@ -3,8 +3,21 @@
 **Last updated:** 2026-10-04
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and the Android model-routing fix. The focused TV-routing tests passed `3/3`; Android `:app:compileDebugKotlin` and the signed release build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after the generic TV-routing and Android tunnel-candidate changes. The focused TV-routing tests passed `4/4`; Android `:app:compileDebugKotlin` passed. The `1.2.167` signed release build and live deployment are still pending. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** local `main` and `origin/main` are aligned at `259e986`, which contains the Android active-model routing fix, live retest and public artifact deployment after PR #98. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+
+## 2026-10-04 generic TV routing and tunnel-auth fix
+
+- Generic current-TV wording such as `Was kommt im Fernseher?` now routes to
+  `search_web` with an explicit current-program query. Regression coverage is
+  `4/4` and includes the exact wording shown in the reported Android error.
+- Android no longer appends the protected cloud node tunnel as a chat candidate.
+  That endpoint requires `X-Node-Auth-Token`; the app's fleet owner key is a
+  different credential and must not be sent there as a substitute. Direct LAN
+  inference and the public gateway remain candidates.
+- The current working tree contains these changes but they have not yet been
+  committed, packaged, installed or deployed. The previous release remains
+  `1.2.166` until the new release gates complete.
 
 ## 2026-10-04 Android production installation (previous 1.2.165)
 

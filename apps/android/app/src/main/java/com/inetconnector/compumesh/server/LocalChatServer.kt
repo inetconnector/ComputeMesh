@@ -373,10 +373,6 @@ class LocalChatServer(
                 val ollamaPortUrl = rawGateway.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
             }
-            if (rawGateway.contains("192.168.") || rawGateway.contains("10.") || rawGateway.contains("172.16.")) {
-                val tunnelTarget = "https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions"
-                if (!candidates.contains(tunnelTarget)) candidates.add(tunnelTarget)
-            }
         }
 
         // 2. If rawKey is a URL
@@ -392,7 +388,6 @@ class LocalChatServer(
         // 3. Primary ComputeMesh Cloud Gateway
         candidates.add("https://mesh.inetconnector.com/v1/chat/completions")
         candidates.add("https://mesh.inetconnector.com/chat/completions")
-        candidates.add("https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions")
 
         // No silent fallback to a backend without ComputeMesh live-tool support.
 

@@ -2,6 +2,11 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
+Aktuelle Fragen zum Fernsehprogramm werden über eine Live-Websuche beantwortet,
+auch allgemeine Fragen wie „Was kommt jetzt im Fernsehen?“. Die mobile App
+verwendet einen Node-Tunnel nur mit dem dafür vorgesehenen Node-Zugangstoken;
+ein Flottenbesitzerschlüssel wird dafür niemals ersatzweise verwendet.
+
 ## Kurz gesagt
 
 ComputeMesh soll viele normale Computer zu einem gemeinsamen KI-Rechner verbinden.
