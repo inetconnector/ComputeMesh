@@ -4,7 +4,7 @@
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
 **Test Suite Status:** canonical `python run_all_tests.py` passed `785/785`; the focused TV-routing tests passed `4/4`; Android `:app:compileDebugKotlin` and the signed `1.2.167` release build passed. The live gateway returned HTTP 200 with current-TV search links for `Was kommt im Fernseher?`. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** local `main` and `origin/main` are aligned at `722c3cb`, which contains the generic TV-routing, node-tunnel candidate and duplicate-tool-call fixes. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Git Baseline:** local `main` and `origin/main` are aligned at `f2de3db`, which contains the generic TV-routing, node-tunnel candidate and duplicate-tool-call fixes plus the release documentation. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
 ## 2026-10-04 generic TV routing and tunnel-auth fix
 
@@ -29,10 +29,12 @@
   deployed to both public download webroots after backups. The public manifest
   and downloaded APK both report/match version `1.2.167` and SHA-256
   `0cacb0f4ceca20245527861122a7410e49c96383e3e35ecc9cc365f107c92b2f`.
-- ADB currently reports no connected device, so uninstall/install and the
-  on-device smoke test could not be repeated in this turn. The artifact is
-  ready; reconnect the Samsung and rerun the documented ADB gate before
-  claiming handset installation.
+- After restarting ADB, the paired Samsung `SM-S931B` was visible again. The
+  previous production package was uninstalled, `1.2.167` installed
+  successfully, `/health` reported version `1.2.167` and model `qwen2.5:3b`,
+  and the real local request `Was kommt im Fernseher?` returned HTTP 200 with
+  live TV results. The app-side service path is therefore verified; the
+  browser-level visual click pass remains a separate UI gate.
 
 ## 2026-10-04 Android production installation (previous 1.2.165)
 
