@@ -32,6 +32,10 @@
 - Release `1.2.166` was built with the canonical DiskStation keystore, verified
   with APK Signature Scheme v3, installed after uninstalling `1.2.165`, and
   copied to `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.166-production.apk`.
+- The APK, AAB and metadata were then deployed to both existing live download
+  webroots (`httpdocs/downloads` and `site2/downloads`) after timestamped
+  backups. The public metadata endpoint now reports `1.2.166`; both live APK
+  and AAB SHA-256 values match the locally built artifacts.
 - The installed app's local `/health` reports version `1.2.166` and model
   `qwen2.5:3b`. A real local-server request for `Was kommt jetzt im Fernsehen?`
   reached `https://mesh.inetconnector.com/v1/chat/completions` with HTTP 200
