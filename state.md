@@ -3,10 +3,10 @@
 **Last updated:** 2026-10-04
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and fixing client-tool forwarding, unknown-model rejection, and URL-key test contracts. Android `:app:compileDebugKotlin` passed after the localization changes; `compileall` and `git diff --check` remain required release checks. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after integrating the current `main` test additions and the Android model-routing fix. The focused TV-routing tests passed `3/3`; Android `:app:compileDebugKotlin` and the signed release build passed. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
 **Git Baseline:** local `main` and `origin/main` are aligned at merge commit `381ced6d10daef9fc664519de142ca0c292da7a4`, which merged PR #98 after the full GitHub Actions run `37160912965` passed. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
-## 2026-10-04 Android production installation
+## 2026-10-04 Android production installation (previous 1.2.165)
 
 - The connected Samsung `SM-S931B` was checked through ADB. The previous
   `com.inetconnector.compumesh` installation was uninstalled before installing
@@ -21,6 +21,25 @@
   `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.165-production.apk`.
 - Verification commands completed: Gradle `:app:signingReport`, ADB uninstall,
   ADB install, package/version inspection, app launch, and `apksigner verify`.
+
+## 2026-10-04 Android model routing fix and live retest
+
+- The Android client previously defaulted to `qwen2.5:7b`, although the active
+  gateway runtime exposes `qwen2.5:3b`. That mismatch caused gateway 502 errors.
+  The client and local server now use `qwen2.5:3b` and the unsupported
+  MCP-less Klartext fallback was removed, so a failed primary gateway request
+  is no longer silently turned into an answer without live tools.
+- Release `1.2.166` was built with the canonical DiskStation keystore, verified
+  with APK Signature Scheme v3, installed after uninstalling `1.2.165`, and
+  copied to `\\diskstation\Dani\ComputeMesh\ComputeMesh-Android-v1.2.166-production.apk`.
+- The installed app's local `/health` reports version `1.2.166` and model
+  `qwen2.5:3b`. A real local-server request for `Was kommt jetzt im Fernsehen?`
+  reached `https://mesh.inetconnector.com/v1/chat/completions` with HTTP 200
+  and returned current TV-program search results with source links. Logcat
+  confirms the primary gateway was used and no Klartext fallback was used.
+- Verification completed: `:app:compileDebugKotlin`, signed production APK/AAB
+  build, ADB uninstall/install/version inspection, local Android health/models
+  checks, the focused TV-routing tests (`3/3`) and the full suite (`785/785`).
 
 ## 2026-10-04 main integration and contract fixes
 
@@ -53,9 +72,9 @@
 - The old local `codex/fan-safety-dashboard-fix` branch and the merged local
   feature branch were removed only after the remote merge was confirmed.
 
-## 2026-10-04 Android AI live test
+## 2026-10-04 Android AI live test (resolved)
 
-- The connected Android device was tested through the installed production
+- The connected Android device was first tested through the installed production
   app (`com.inetconnector.compumesh` 1.2.165) with the question
   `Was kommt im Fernsehen?`.
 - The request reached the app, but the answer was an unsupported generic
@@ -65,9 +84,11 @@
   to `apps.inetconnector.com/klartext`, whose route has no MCP/web-search
   execution.
 - The public gateway health and model-list endpoints were HTTP 200, so the
-  remaining production issue is inference-backend availability/routing, not
-  Android installation or model discovery. This is an open live-deployment
-  issue and must be fixed before claiming TV/web tools work on the phone.
+  remaining production issue was inference-backend availability/routing, not
+  Android installation or model discovery. This was fixed in Android release
+  `1.2.166`; the successful retest and exact gateway path are recorded above.
+  The old 502/fallback observation remains here as historical evidence of the
+  regression.
 
 ## 2026-10-03 authenticated fleet-owner rebinding
 

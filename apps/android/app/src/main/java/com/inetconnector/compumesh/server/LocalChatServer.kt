@@ -41,13 +41,13 @@ class LocalChatServer(
                         .put("ok", true)
                         .put("server", "ComputeMesh")
                         .put("version", appVersion())
-                        .put("model", "qwen2.5:7b")
+                        .put("model", "qwen2.5:3b")
                 )
 
                 uri in listOf("/props", "/api/props", "/properties", "/v1/props") -> jsonResponse(
                     JSONObject().apply {
-                        put("model_alias", "qwen2.5:7b")
-                        put("model_path", "qwen2.5:7b")
+                        put("model_alias", "qwen2.5:3b")
+                        put("model_path", "qwen2.5:3b")
                         put("default_generation_settings", JSONObject().apply {
                             put("n_ctx", 32768)
                             put("n_predict", 2048)
@@ -228,7 +228,7 @@ class LocalChatServer(
 
         // High quality fallback models with complete metadata and loaded status
         val fallbackModels = listOf(
-            Triple("qwen2.5:7b", "Qwen 2.5 7B (Fast General Assistant)", "alibaba"),
+            Triple("qwen2.5:3b", "Qwen 2.5 3B (Fast General Assistant)", "alibaba"),
             Triple("gemma3:4b", "Gemma 3 4B (Multimodal Vision/Text)", "google"),
             Triple("qwen/qwen2.5-vl-7b-instruct", "Qwen 2.5 VL 7B (Vision & Document OCR)", "alibaba"),
             Triple("qwen2.5-coder:14b", "Qwen 2.5 Coder 14B (Code & Tool Calling)", "alibaba"),
@@ -394,8 +394,7 @@ class LocalChatServer(
         candidates.add("https://mesh.inetconnector.com/chat/completions")
         candidates.add("https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions")
 
-        // 4. Raw Klartext Fallback
-        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
+        // No silent fallback to a backend without ComputeMesh live-tool support.
 
         val key = if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) "cm_live_demo_mobile" else rawKey.ifBlank { "cm_live_demo_mobile" }
 
@@ -629,7 +628,7 @@ class LocalChatServer(
         val hasImages = sanitizeMultimodalPayload(rootJson)
         if (hasImages) {
             val curModel = rootJson.optString("model", "")
-            if (curModel.isBlank() || curModel == "qwen2.5:7b" || curModel == "computemesh-cluster-default" || (!curModel.contains("vl") && !curModel.contains("vision") && !curModel.contains("llava") && !curModel.contains("gemma3"))) {
+            if (curModel.isBlank() || curModel == "qwen2.5:3b" || curModel == "qwen2.5:7b" || curModel == "computemesh-cluster-default" || (!curModel.contains("vl") && !curModel.contains("vision") && !curModel.contains("llava") && !curModel.contains("gemma3"))) {
                 rootJson.put("model", "qwen/qwen2.5-vl-7b-instruct")
             }
         }
@@ -708,7 +707,7 @@ class LocalChatServer(
                                     put("id", jsonResp.optString("id", "chatcmpl-stream"))
                                     put("object", "chat.completion.chunk")
                                     put("created", System.currentTimeMillis() / 1000)
-                                    put("model", jsonResp.optString("model", "qwen2.5:7b"))
+                                    put("model", jsonResp.optString("model", "qwen2.5:3b"))
                                     put("choices", JSONArray().apply {
                                         put(JSONObject().apply {
                                             put("index", 0)

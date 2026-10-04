@@ -29,7 +29,7 @@ data class StreamToken(
 object InferenceClient {
     private const val TAG = "InferenceClient"
     const val DEFAULT_GATEWAY = "https://mesh.inetconnector.com"
-    const val DEFAULT_MODEL = "qwen2.5:7b"
+    const val DEFAULT_MODEL = "qwen2.5:3b"
     const val VISION_MODEL = "qwen2.5-vl:7b"
 
     private fun sanitizeError(raw: String): String {
@@ -137,7 +137,6 @@ object InferenceClient {
         }
         candidates.add("https://mesh.inetconnector.com/node/cm-inference-node-01/v1/chat/completions")
         candidates.add("${DEFAULT_GATEWAY.trimEnd('/')}/v1/chat/completions")
-        candidates.add("https://apps.inetconnector.com/klartext/api/v1/chat/completions")
 
         var successfulConn: HttpURLConnection? = null
         var lastErr = ""
