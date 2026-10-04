@@ -156,6 +156,7 @@ class AgentLoop:
         total_prompt_tok = 0
         total_comp_tok = 0
         last_assistant_content = ""
+        preflight_completed = False
 
         # Find latest user prompt and check for images
         last_user_text = ""
@@ -212,11 +213,16 @@ class AgentLoop:
                     "name": fn_name,
                     "content": output_str,
                 })
+                preflight_completed = True
                 _notify("preflight_completed", tool=fn_name)
 
         for iteration in range(1, max_iter + 1):
             _notify("iteration_start", iteration=iteration, max_iterations=max_iter)
-            response = llm_caller(curr_messages, tools if tools else [])
+            # A direct intent has already executed the authoritative live tool.
+            # Give the model only the resulting tool message for synthesis; if
+            # it receives the full registry here it can invent an unrelated
+            # second call instead of answering from the fresh result.
+            response = llm_caller(curr_messages, [] if preflight_completed else (tools if tools else []))
             if not isinstance(response, dict):
                 break
             usage = response.get("usage", {})

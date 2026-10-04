@@ -43,16 +43,23 @@ class TvProgramRoutingTests(unittest.TestCase):
             "results": [{"title": "Heute 20:15", "url": "https://zdf.de", "snippet": "Live result"}],
         }
 
+        calls_seen: list[list[dict[str, object]]] = []
+
+        def llm_caller(messages, tools):
+            calls_seen.append(tools)
+            return {
+                "choices": [{"message": {"role": "assistant", "content": "Auf Basis der Live-Daten: Heute 20:15."}}]
+            }
+
         with patch.object(registry, "execute_tool", return_value=live_result) as execute_tool:
             result = loop.run(
                 messages=[{"role": "user", "content": "was kommt denn heute auf ZDF im Fernseher"}],
                 model="qwen2.5:7b",
-                llm_caller=lambda messages, tools: {
-                    "choices": [{"message": {"role": "assistant", "content": "Auf Basis der Live-Daten: Heute 20:15."}}]
-                },
+                llm_caller=llm_caller,
             )
 
         execute_tool.assert_called_once()
+        self.assertEqual(calls_seen, [[]])
         self.assertEqual(execute_tool.call_args.args[0], "search_web")
         self.assertEqual(result.tool_calls_executed[0].name, "search_web")
         self.assertIn("Live-Daten", result.final_content)
