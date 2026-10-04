@@ -141,11 +141,38 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _verify_action_auth(self) -> bool:
         return self._verify_admin_auth()
 
+    def _verify_owner_inference_auth(self) -> bool:
+        """Allow the paired fleet owner to use inference on this local node.
+
+        The node token remains mandatory for dashboard and administrative
+        actions. A configured owner key is a separate, narrowly scoped LAN
+        inference grant so paired clients can use the node without copying a
+        node-secret into a phone or URL.
+        """
+        client_ip = str(getattr(self, "client_address", ("", 0))[0] or "")
+        try:
+            if not (ipaddress.ip_address(client_ip).is_private or ipaddress.ip_address(client_ip).is_loopback):
+                return False
+        except ValueError:
+            return False
+        configured = getattr(self, "config", None)
+        if configured is None:
+            configured = getattr(DashboardHandler, "config", None)
+        configured_key = str(getattr(configured, "owner_key", "") or "").strip()
+        if not configured_key:
+            return False
+        supplied_key = str(self.headers.get("X-Owner-Key", "") or "").strip()
+        if not supplied_key:
+            authorization = str(self.headers.get("Authorization", "") or "").strip()
+            if authorization.startswith("Bearer "):
+                supplied_key = authorization.removeprefix("Bearer ").strip()
+        return bool(supplied_key) and hmac.compare_digest(supplied_key, configured_key)
+
     def do_OPTIONS(self) -> None:
         self.send_response(HTTPStatus.OK)
         self._send_cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, Accept, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Node-Auth-Token, X-Owner-Key, Accept, X-Requested-With")
         self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -304,10 +331,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
-        # All POST routes, including inference and model management, require
-        # an explicit node authorization token. Anonymous LAN callers must
-        # never reach the agent loop or a privileged handler.
-        if not self._verify_action_auth():
+        # Administrative POST routes require the node token. The paired fleet
+        # owner may use only the inference routes with the configured owner
+        # key; anonymous LAN callers never reach the agent loop.
+        authorized = self._verify_action_auth()
+        inference_paths = {
+            "/v1/chat/completions",
+            "/chat/completions",
+            "/completion",
+            "/completions",
+            "/v1/completions",
+            "/webui/chat/completions",
+            "/webui/completion",
+            "/webui/completions",
+            "/webui/v1/chat/completions",
+            "/webui/v1/completions",
+            "/infill",
+            "/webui/infill",
+            "/api/chat",
+            "/api/v1/chat",
+            "/api/generate",
+            "/api/v1/generate",
+        }
+        if not authorized and req_path in inference_paths:
+            authorized = self._verify_owner_inference_auth()
+        if not authorized:
             self._send_unauthorized()
             return
 

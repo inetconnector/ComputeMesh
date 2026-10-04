@@ -96,6 +96,7 @@ CATEGORIES: dict[str, list[str]] = {
         "tools.appliance.tests.test_multi_gpu_launcher",
         "tools.appliance.tests.test_disk_clone",
         "apps.node.test_provider_agent",
+        "tests.test_appliance_webui",
     ],
     "Scheduler & Orchestrator": [
         "services.scheduler.tests.test_placement",

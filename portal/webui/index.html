@@ -783,10 +783,9 @@
 			}
 
 			/* All hidden triggers MUST NEVER intercept physical touches */
-			.pointer-events-none,
-			[class*="pointer-events-none"],
-			button.opacity-0,
-			[aria-hidden="true"].opacity-0,
+			.pointer-events-none:not(aside):not(aside *),
+			button.opacity-0:not(aside *),
+			[aria-hidden="true"].opacity-0:not(aside *),
 			[data-slot="popover-trigger"].pointer-events-none,
 			[data-state="closed"].opacity-0 {
 				pointer-events: none !important;

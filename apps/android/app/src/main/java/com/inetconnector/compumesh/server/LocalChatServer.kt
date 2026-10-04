@@ -6,7 +6,10 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
 import com.inetconnector.compumesh.service.MeshNodeService
+import com.inetconnector.compumesh.p2p.DirectLanDiscovery
+import com.inetconnector.compumesh.p2p.LocalMeshPeer
 import fi.iki.elonen.NanoHTTPD
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.*
@@ -14,6 +17,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicBoolean
 
 class LocalChatServer(
     private val context: Context,
@@ -23,6 +28,141 @@ class LocalChatServer(
     companion object {
         private const val TAG = "LocalChatServer"
         private val EXECUTOR = Executors.newCachedThreadPool()
+        private const val DISCOVERY_REFRESH_MS = 15_000L
+        private const val MODEL_QUERY_LIMIT = 64
+    }
+
+    private val lanDiscovery = DirectLanDiscovery(context)
+    private val discoveryExecutor = Executors.newSingleThreadExecutor()
+    private val modelQueryExecutor = Executors.newFixedThreadPool(8)
+    private val discoveryRunning = AtomicBoolean(true)
+    @Volatile private var discoveredPeers: List<LocalMeshPeer> = emptyList()
+    @Volatile private var discoveredModelPayload: JSONObject? = null
+
+    init {
+        discoveryExecutor.execute { discoveryLoop() }
+    }
+
+    private fun discoveryLoop() {
+        while (discoveryRunning.get()) {
+            try {
+                val gateway = MeshNodeService.gatewayUrl.trim()
+                val ownerKey = MeshNodeService.ownerKey.trim()
+                val peers = runBlocking {
+                    lanDiscovery.discoverAllPeers(gatewayUrl = gateway, ownerKey = ownerKey, timeoutMs = 2500)
+                }
+                discoveredPeers = peers
+                val modelResponses = peers
+                    .take(MODEL_QUERY_LIMIT)
+                    .map { peer ->
+                        modelQueryExecutor.submit<JSONObject?> { fetchModels(peer.targetUrl, ownerKey) }
+                    }
+                val primaryModels = fetchModels(gateway, ownerKey)
+                val peerModels = modelResponses.mapNotNull { future: Future<JSONObject?> ->
+                    runCatching { future.get() }.getOrNull()
+                }
+                val merged = mergeModelPayloads(listOfNotNull(primaryModels) + peerModels)
+                if (merged != null) discoveredModelPayload = merged
+            } catch (error: Throwable) {
+                Log.w(TAG, "Background LAN/model discovery failed: ${error.message}")
+            }
+            try {
+                Thread.sleep(DISCOVERY_REFRESH_MS)
+            } catch (_: InterruptedException) {
+                break
+            }
+        }
+    }
+
+    private fun fetchModels(baseUrl: String, ownerKey: String): JSONObject? {
+        val cleanBase = baseUrl.trim().trimEnd('/')
+        if (cleanBase.isBlank()) return null
+        val target = when {
+            cleanBase.endsWith("/v1/models") -> cleanBase
+            cleanBase.endsWith("/api/tags") -> cleanBase
+            else -> "$cleanBase/v1/models"
+        }
+        return runCatching {
+            val conn = (URL(target).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                if (ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
+                    setRequestProperty("Authorization", "Bearer $ownerKey")
+                    setRequestProperty("X-Owner-Key", ownerKey)
+                }
+                connectTimeout = 1800
+                readTimeout = 2500
+            }
+            if (conn.responseCode !in 200..299) return@runCatching null
+            JSONObject(conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() })
+        }.getOrNull()
+    }
+
+    private fun mergeModelPayloads(payloads: List<JSONObject>): JSONObject? {
+        val modelsById = LinkedHashMap<String, JSONObject>()
+        for (payload in payloads) {
+            val data = payload.optJSONArray("data") ?: continue
+            for (index in 0 until data.length()) {
+                val model = data.optJSONObject(index) ?: continue
+                val id = model.optString("id", model.optString("name", "")).trim()
+                if (id.isNotBlank() && !modelsById.containsKey(id)) modelsById[id] = model
+            }
+        }
+        if (modelsById.isEmpty()) return null
+        return JSONObject().apply {
+            put("object", "list")
+            put("data", JSONArray().apply { modelsById.values.forEach { put(it) } })
+        }
+    }
+
+    private fun modelParameterBillions(model: JSONObject): Double {
+        val values = listOf(
+            model.optString("parameter_size", ""),
+            model.optJSONObject("details")?.optString("parameter_size", "") ?: "",
+            model.optJSONObject("meta")?.optString("parameter_size", "" ) ?: "",
+            model.optString("id", "")
+        )
+        return values.maxOfOrNull { value ->
+            Regex("(\\d+(?:\\.\\d+)?)\\s*b(?:illion)?\\b", RegexOption.IGNORE_CASE)
+                .find(value)?.groupValues?.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+        } ?: 0.0
+    }
+
+    private fun bestDiscoveredModelId(): String? {
+        val data = discoveredModelPayload?.optJSONArray("data") ?: return null
+        var best: JSONObject? = null
+        for (index in 0 until data.length()) {
+            val candidate = data.optJSONObject(index) ?: continue
+            if (candidate.optBoolean("available", true).not()) continue
+            if (best == null || modelParameterBillions(candidate) > modelParameterBillions(best!!)) {
+                best = candidate
+            }
+        }
+        return best?.optString("id", "")?.trim()?.ifBlank { null }
+    }
+
+    private fun replaceStaleModelSelection(rootJson: JSONObject) {
+        val bestId = bestDiscoveredModelId() ?: return
+        val requested = rootJson.optString("model", "").trim()
+        val knownIds = discoveredModelPayload?.optJSONArray("data")?.let { data ->
+            buildSet {
+                for (index in 0 until data.length()) {
+                    data.optJSONObject(index)?.optString("id", "")?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }
+        } ?: emptySet()
+        val staleAlias = requested.isBlank() || requested == "computemesh-mesh" || requested == "computemesh-cluster-default"
+        if (staleAlias || (knownIds.isNotEmpty() && requested !in knownIds)) {
+            rootJson.put("model", bestId)
+            Log.i(TAG, "Using best discovered model $bestId instead of stale selection $requested")
+        }
+    }
+
+    override fun stop() {
+        discoveryRunning.set(false)
+        discoveryExecutor.shutdownNow()
+        modelQueryExecutor.shutdownNow()
+        super.stop()
     }
 
     override fun serve(session: IHTTPSession): Response {
@@ -152,6 +292,9 @@ class LocalChatServer(
     }.getOrDefault(0L)
 
     private fun handleModelsProxy(session: IHTTPSession, isTags: Boolean): Response {
+        if (!isTags) {
+            discoveredModelPayload?.let { return jsonResponse(it) }
+        }
         val rawGateway = MeshNodeService.gatewayUrl.trim()
         val rawKey = MeshNodeService.ownerKey.trim()
 
@@ -357,6 +500,7 @@ class LocalChatServer(
             JSONObject()
         }
         val explicitModelSelection = rootJson.optString("model", "").trim().isNotBlank()
+        replaceStaleModelSelection(rootJson)
 
         val isStream = rootJson.optBoolean("stream", true)
         val rawGateway = MeshNodeService.gatewayUrl.trim()
@@ -373,6 +517,15 @@ class LocalChatServer(
                 val ollamaPortUrl = rawGateway.replace(":8080", ":11434").trimEnd('/') + "/v1/chat/completions"
                 if (!candidates.contains(ollamaPortUrl)) candidates.add(ollamaPortUrl)
             }
+        }
+
+        // Prefer every currently discovered LAN/fleet peer. The background
+        // cache refreshes continuously, so chat never depends on a manually
+        // entered node URL and can fail over across many peers.
+        for (peer in discoveredPeers) {
+            val base = peer.targetUrl.trimEnd('/')
+            val target = if (base.endsWith("/v1/chat/completions")) base else "$base/v1/chat/completions"
+            if (target.isNotBlank() && !candidates.contains(target)) candidates.add(target)
         }
 
         // 2. If rawKey is a URL
@@ -730,7 +883,6 @@ class LocalChatServer(
                             // retry another gateway that may answer with a
                             // different model (the old cause of gemma4 being
                             // shown while qwen2.5 was selected).
-                            if (explicitModelSelection && code in 400..499) break
                         }
                     } catch (e: Throwable) {
                         lastErrorMessage = e.message ?: "Verbindungsfehler"
@@ -807,7 +959,6 @@ class LocalChatServer(
                     lastErrorMessage = sanitizeErrorMessage(rawErr)
                     Log.w(TAG, "Candidate $candidateUrl returned HTTP $code: $lastErrorMessage")
                     try { conn.disconnect() } catch (_: Throwable) {}
-                    if (explicitModelSelection && code in 400..499) break
                 }
             } catch (e: Throwable) {
                 lastErrorMessage = e.message ?: "Verbindungsfehler"

@@ -22,6 +22,13 @@ from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
 
 class TestWebUIStaticAssets(unittest.TestCase):
+    def test_portal_and_android_model_selector_are_identical(self) -> None:
+        portal_selector = REPO_ROOT / "portal" / "webui" / "model-selector.js"
+        android_selector = REPO_ROOT / "apps" / "android" / "app" / "src" / "main" / "assets" / "webui" / "model-selector.js"
+        self.assertTrue(portal_selector.is_file())
+        self.assertTrue(android_selector.is_file())
+        self.assertEqual(portal_selector.read_bytes(), android_selector.read_bytes())
+
     def test_pointer_event_rules_and_service_worker_revision_match(self) -> None:
         assets = (
             REPO_ROOT / "portal" / "webui",

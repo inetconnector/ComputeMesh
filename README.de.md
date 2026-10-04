@@ -45,7 +45,18 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.184` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, und ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen. Der Live-Stand steht in `state.md`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, und ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen. Der Live-Stand steht in `state.md`.
+
+Der aktuelle Arbeitsstand erweitert diesen Mesh-Pfad für gekoppelte Mobilgeräte:
+Die Android-WebUI enthält denselben Modellwähler wie das Portal, aktualisiert
+LAN- und Flotten-Nodes fortlaufend, fragt bis zu 64 Nodes mit begrenzter
+Parallelität ab und führt deren aktuelle Modellkataloge zusammen. Standardmäßig
+wird das stärkste aktuell verfügbare Modell anhand der gemeldeten
+Parametergröße gewählt; eine gültige ausdrückliche Auswahl bleibt erhalten.
+Veraltete Platzhalter werden automatisch ersetzt, ausgefallene Nodes werden beim
+Weiterleiten übersprungen. Der Flotten-Key gilt im NodeOS nur für Inferenz;
+Dashboard-, Modell-, Lüfter- und Systemaktionen benötigen weiterhin den eigenen
+Node-Zugang.
 
 ## Was noch nicht versprochen wird
 

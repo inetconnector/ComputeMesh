@@ -1,10 +1,31 @@
 # ComputeMesh State
 
 **Last updated:** 2026-10-04
-**Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
+**Release Version:** source is being prepared for `v1.2.185`; the last published NodeOS release is `v1.2.184`. The signed `v1.2.184` artifacts remain live in both Plesk webroots until the new release is built and verified. `.94` reports `1.2.184` and exposes four installed models, including `gemma4:26b`; its `/api/status` remains protected. `.27` was not overwritten during this pass.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785`; the focused TV-routing tests passed `4/4`; Android `:app:compileDebugKotlin` and the signed `1.2.167` release build passed. The live gateway returned HTTP 200 with current-TV search links for `Was kommt im Fernseher?`. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** local `main` and `origin/main` are aligned at `2ad4c7b`, which contains the generic TV-routing, node-tunnel candidate and duplicate-tool-call fixes plus the release and handset verification documentation. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Test Suite Status:** after the automatic-discovery changes, `python run_all_tests.py` passed `785/785`, the focused Node auth tests passed `6/6`, `git diff --check` passed, and Android `:app:compileDebugKotlin` passed. The signed Android `1.2.168` build, handset reinstall, NodeOS `v1.2.185` release build and live rollout are still open gates. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** this working tree contains the uncommitted automatic model-discovery, Android asset-parity, scoped owner-key inference authorization and Android version `1.2.168` changes. The public source remains on `main`; no `develop` branch exists. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and must not be overwritten wholesale.
+
+## 2026-10-04 continuous local-fleet model selection
+
+- The Android asset now includes the portal's `model-selector.js`; its SHA-256
+  matches the portal copy. This fixes the phone's stale `computemesh-mesh`
+  selection and keeps the mobile and desktop model contracts identical.
+- `LocalChatServer` refreshes direct LAN discovery and the authenticated fleet
+  catalogue every 15 seconds. UDP broadcast/unicast discovery is combined with
+  the fleet registry; up to 64 peers are queried through a bounded pool of
+  eight workers, so a large LAN does not create one unbounded thread per node.
+- The catalogue is merged and ranked by reported parameter size, warm status
+  and tool capability. A stale placeholder or unavailable requested ID is
+  replaced by the best currently discovered model; a valid explicit model is
+  left alone. Inference candidates include discovered peers and continue after
+  4xx/5xx responses so one offline or unauthorized node cannot stop the mesh.
+- NodeOS accepts the paired fleet owner key only on inference routes. Admin,
+  fan, model-management, kill-switch and system routes still require the node
+  token or dashboard session. Focused auth coverage is `6/6`.
+- The local `.94` check was read-only: `/api/version` returned `1.2.184`,
+  `/v1/models` returned four models, and `/api/status` returned `401` without
+  the node credential. No live node was replaced during this source pass.
 
 ## 2026-10-04 generic TV routing and tunnel-auth fix
 

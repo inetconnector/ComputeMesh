@@ -37,6 +37,27 @@ class TestDashboardAdminAuth(unittest.TestCase):
         request = self._request("192.168.1.44", path="/api/status?auth=" + NODE_AUTH_TOKEN)
         self.assertFalse(DashboardHandler._verify_admin_auth(request))
 
+    def test_paired_owner_key_is_inference_only(self) -> None:
+        DashboardHandler.config = SimpleNamespace(owner_key="inet-owner-test")
+        inference = self._request(
+            "192.168.1.44",
+            headers={"Authorization": "Bearer inet-owner-test"},
+            path="/v1/chat/completions",
+        )
+        self.assertTrue(DashboardHandler._verify_owner_inference_auth(inference))
+        wrong = self._request(
+            "192.168.1.44",
+            headers={"X-Owner-Key": "inet-owner-wrong"},
+            path="/v1/chat/completions",
+        )
+        self.assertFalse(DashboardHandler._verify_owner_inference_auth(wrong))
+        public = self._request(
+            "8.8.8.8",
+            headers={"X-Owner-Key": "inet-owner-test"},
+            path="/v1/chat/completions",
+        )
+        self.assertFalse(DashboardHandler._verify_owner_inference_auth(public))
+
 
 if __name__ == "__main__":
     unittest.main()

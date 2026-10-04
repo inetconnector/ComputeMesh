@@ -80,7 +80,17 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.184` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, warns when model storage is too small or not persistent, and lets an authenticated node follow the fleet owner key after a stale binding. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
+Current signed client/update channel: `v1.2.185` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, warns when model storage is too small or not persistent, and lets an authenticated node follow the fleet owner key after a stale binding. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
+
+The current working tree extends that mesh path for paired mobile clients: the
+Android WebUI contains the same model selector as the portal, refreshes LAN and
+fleet peers continuously, queries up to 64 peers with bounded parallelism, and
+merges their live model catalogues. The default is the strongest currently
+available model by reported parameter size, while a valid explicit selection is
+preserved. Stale placeholder selections are replaced automatically and failed
+nodes are skipped during inference failover. The fleet owner key is accepted on
+NodeOS only for inference; dashboard, model-management, fan and system actions
+still require the dedicated node credential.
 
 ## What Is Not Promised Yet
 
