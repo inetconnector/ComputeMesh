@@ -6,6 +6,9 @@ Aktuelle Fragen zum Fernsehprogramm werden über eine Live-Websuche beantwortet,
 auch allgemeine Fragen wie „Was kommt jetzt im Fernsehen?“. Die mobile App
 verwendet einen Node-Tunnel nur mit dem dafür vorgesehenen Node-Zugangstoken;
 ein Flottenbesitzerschlüssel wird dafür niemals ersatzweise verwendet.
+Nach der direkten Ausführung eines Live-Intents erhält der Assistent das
+Ergebnis nur noch zur Antwortformulierung. Ein zweiter uneingeschränkter
+Werkzeugaufruf kann die maßgebliche Live-Antwort dadurch nicht mehr ersetzen.
 
 ## Kurz gesagt
 

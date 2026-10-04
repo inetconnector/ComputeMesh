@@ -16,6 +16,9 @@ Current TV-program questions are routed to live web search, including generic
 questions such as “What is on TV now?”. Mobile clients use a node tunnel only
 when its dedicated node-authentication credential is available; a fleet owner
 key is never mistaken for that credential.
+After a direct live intent has executed, the assistant receives the result for
+synthesis without a second unrestricted tool registry, preventing unrelated
+follow-up tool calls from replacing the authoritative live answer.
 
 ComputeMesh is being built to connect many ordinary computers into one shared AI computer.
 

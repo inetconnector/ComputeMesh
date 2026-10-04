@@ -3,8 +3,8 @@
 **Last updated:** 2026-10-04
 **Release Version:** `v1.2.184` contains truthful fan telemetry, explicit model-storage diagnostics, and authenticated fleet-owner rebinding in addition to the v1.2.183 security/localization fixes. The signed release artifacts and manifest are live in both Plesk webroots. Both LAN nodes report `1.2.184`; `.27` has about 1.54 GB free in `/var/lib/computemesh/models`, no installed model, and no active llama.cpp engine because its persistence volume is not mounted. `.94` has no safe manual fan-control backend but has about 281 GB free storage.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785` after the generic TV-routing and Android tunnel-candidate changes. The focused TV-routing tests passed `4/4`; Android `:app:compileDebugKotlin` passed. The `1.2.167` signed release build and live deployment are still pending. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
-**Git Baseline:** local `main` and `origin/main` are aligned at `259e986`, which contains the Android active-model routing fix, live retest and public artifact deployment after PR #98. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
+**Test Suite Status:** canonical `python run_all_tests.py` passed `785/785`; the focused TV-routing tests passed `4/4`; Android `:app:compileDebugKotlin` and the signed `1.2.167` release build passed. The live gateway returned HTTP 200 with current-TV search links for `Was kommt im Fernseher?`. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Git Baseline:** local `main` and `origin/main` are aligned at `722c3cb`, which contains the generic TV-routing, node-tunnel candidate and duplicate-tool-call fixes. No `develop` branch exists. The remote feature branch and local temporary branches were removed after verification; preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and was not overwritten.
 
 ## 2026-10-04 generic TV routing and tunnel-auth fix
 
@@ -15,9 +15,24 @@
   That endpoint requires `X-Node-Auth-Token`; the app's fleet owner key is a
   different credential and must not be sent there as a substitute. Direct LAN
   inference and the public gateway remain candidates.
-- The current working tree contains these changes but they have not yet been
-  committed, packaged, installed or deployed. The previous release remains
-  `1.2.166` until the new release gates complete.
+- At the start of this fix tranche these changes were uncommitted and the
+  previous release was `1.2.166`; the completion evidence is recorded below.
+
+- The changes are committed in `722c3cb` and pushed to `origin/main`. The
+  gateway's direct-intent path now passes an empty tool registry to the model
+  after executing the authoritative `search_web` preflight, preventing a
+  second invented call such as `save_dynamic_tool`. The live gateway was
+  restarted from the matching file and returned HTTP 200 with current-TV
+  search links for the exact generic question.
+- Android release `1.2.167` was rebuilt and signed with the canonical
+  DiskStation keystore. Its APK/AAB/manifest were copied to DiskStation and
+  deployed to both public download webroots after backups. The public manifest
+  and downloaded APK both report/match version `1.2.167` and SHA-256
+  `0cacb0f4ceca20245527861122a7410e49c96383e3e35ecc9cc365f107c92b2f`.
+- ADB currently reports no connected device, so uninstall/install and the
+  on-device smoke test could not be repeated in this turn. The artifact is
+  ready; reconnect the Samsung and rerun the documented ADB gate before
+  claiming handset installation.
 
 ## 2026-10-04 Android production installation (previous 1.2.165)
 
