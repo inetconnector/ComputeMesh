@@ -4,6 +4,17 @@
 
 ## 2026-10-09 independent portal pages and neutral presentation
 
+- Static source rollout: 28 files in both Plesk webroots. Original rollback
+  snapshot: `/root/computemesh-backups/portal-pages-20261009-151011`;
+  subsequent polish snapshot: `portal-pages-20261009-151416`.
+- Live browser verification passed 13 routes on both public domains, at
+  390/1440 pixels in DE/EN. Counters showed 16 GB, one GPU, one active node.
+  The first aggressive check hit API throttling; the rate-respecting rerun
+  passed without page errors. Final calculator/filter polish passed the
+  local browser suite; cache version 5.1 ensures those assets refresh.
+- No backend restart or activation of the newly committed agent features
+  occurred. Existing APK/NodeOS download artifacts were not overwritten.
+
 - Homepage navigation now loads real documents; existing marketplace, model,
   pricing, download, API, status, security and fleet pages remain. Added
   products, projects (including SmartX), LAN mesh and playground pages while
