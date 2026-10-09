@@ -1,8 +1,6 @@
 """Unit tests for ComputeMesh OpenAI-Compatible Streaming API Gateway."""
-from http.server import ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import secrets
 import tempfile
 import threading
@@ -10,15 +8,19 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 
-from services.billing.ledger import Ledger
 from services.billing.accounting import AccountingStore
+from services.billing.ledger import Ledger
 from services.billing.stripe_connect import SettlementExecutor, StripeConnectService
 from services.billing.stripe_integration import StripePaymentService, StripeSessionStore
-from services.gateway.server import GatewayHandler
-from services.gateway.teaser import TeaserQuotaManager
 from services.gateway.inference import InferenceEngine
 from services.gateway.inference_backend import SyntheticInferenceBackend
+from services.gateway.server import GatewayHandler
+from services.gateway.teaser import TeaserQuotaManager
+from services.mcp.platform.artifacts import ArtifactStore
+from services.mcp.platform.session import AgentSessionStore, ApprovalStatus
 
 
 class FakeCheckoutSessionAPI:
@@ -134,6 +136,11 @@ class TestGatewayServer(unittest.TestCase):
             teaser_manager=GatewayHandler.teaser_manager,
             backend=SyntheticInferenceBackend(),
         )
+        GatewayHandler.agent_session_store = AgentSessionStore(Path(cls.tempdir.name) / "agent_sessions.sqlite")
+        GatewayHandler.agent_artifact_store = ArtifactStore(
+            Path(cls.tempdir.name) / "artifacts",
+            Path(cls.tempdir.name) / "agent_artifacts.sqlite",
+        )
         GatewayHandler.api_keys = {
             "cm_live_default_test_key": "cust_test_default",
             "cm_live_test_key_002": "cust_test_002",
@@ -151,17 +158,282 @@ class TestGatewayServer(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.server.shutdown()
         cls.server.server_close()
+        if GatewayHandler.agent_session_store is not None:
+            GatewayHandler.agent_session_store.close()
+            GatewayHandler.agent_session_store = None
+        if GatewayHandler.agent_artifact_store is not None:
+            GatewayHandler.agent_artifact_store.close()
+            GatewayHandler.agent_artifact_store = None
         cls.tempdir.cleanup()
         if cls.previous_static_catalog is None:
             os.environ.pop("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", None)
         else:
             os.environ["COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG"] = cls.previous_static_catalog
 
+    def test_agent_session_events_require_owner_and_resume_by_cursor(self) -> None:
+        session = GatewayHandler.agent_session_store.create_session(
+            "research",
+            agent_version="1",
+            principal_id="cust_agent_projection",
+            session_id="sess_gateway_projection",
+        )
+        GatewayHandler.agent_session_store.record_event(session.session_id, "progress", {"step": 1})
+        GatewayHandler.agent_session_store.record_event(session.session_id, "progress", {"step": 2})
+        self.register_customer_key("cm_live_agent_projection", "cust_agent_projection")
+
+        request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions/sess_gateway_projection/events?limit=1",
+            headers={"Authorization": "Bearer cm_live_agent_projection"},
+        )
+        with urllib.request.urlopen(request) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(len(payload["events"]), 1)
+        self.assertEqual(payload["next_sequence"], 1)
+
+        request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions/sess_gateway_projection/events?after_sequence=1",
+            headers={"Authorization": "Bearer cm_live_agent_projection"},
+        )
+        with urllib.request.urlopen(request) as response:
+            resumed = json.loads(response.read().decode("utf-8"))
+        self.assertEqual([event["payload"].get("step") for event in resumed["events"]], [1, 2])
+
+        wrong = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions/sess_gateway_projection/events",
+            headers={"Authorization": "Bearer cm_live_test_key_002"},
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(wrong)
+        self.assertEqual(ctx.exception.code, 403)
+
+        list_request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions",
+            headers={"Authorization": "Bearer cm_live_agent_projection"},
+        )
+        with urllib.request.urlopen(list_request) as response:
+            listed = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(listed["object"], "agent_sessions")
+        self.assertEqual(listed["sessions"][0]["session_id"], "sess_gateway_projection")
+
+        unauthenticated = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(unauthenticated)
+        self.assertEqual(ctx.exception.code, 401)
+
     def register_customer_key(self, key: str, account_id: str | None = None) -> str:
         account = account_id or f"cust_{key.removeprefix('cm_live_')}"
         GatewayHandler.api_keys[key] = account
         GatewayHandler.auth_manager.set_api_key(key, account)
         return account
+
+    def test_agent_approval_api_lists_and_resolves_exact_action(self) -> None:
+        session = GatewayHandler.agent_session_store.create_session(
+            "approval-agent",
+            principal_id="cust_approval_api",
+            session_id="sess_approval_api",
+        )
+        turn = GatewayHandler.agent_session_store.start_turn(
+            session.session_id,
+            "approve",
+            turn_id="turn_approval_api",
+        )
+        approval = GatewayHandler.agent_session_store.create_approval(
+            session.session_id,
+            turn_id=turn.turn_id,
+            tool_id="write_tool",
+            call_id="call_api",
+            arguments_digest="a" * 64,
+            principal_id="cust_approval_api",
+        )
+        self.register_customer_key("cm_live_approval_api", "cust_approval_api")
+        headers = {"Authorization": "Bearer cm_live_approval_api"}
+        with urllib.request.urlopen(urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/approvals?status=pending",
+            headers=headers,
+        )) as response:
+            listed = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(listed["object"], "agent_approvals")
+        self.assertEqual(listed["approvals"][0]["approval_id"], approval.approval_id)
+        self.assertNotIn("principal_id", listed["approvals"][0])
+
+        body = json.dumps({"decision": "approved", "reason": "user confirmed"}).encode("utf-8")
+        request = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/approvals/{approval.approval_id}",
+            data=body,
+            headers={**headers, "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            resolved = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(resolved["approval"]["status"], ApprovalStatus.APPROVED.value)
+
+    def test_agent_artifact_api_lists_and_downloads_principal_bound_bytes(self) -> None:
+        session = GatewayHandler.agent_session_store.create_session(
+            "artifact-agent",
+            principal_id="cust_artifact_api",
+            session_id="sess_artifact_api",
+        )
+        turn = GatewayHandler.agent_session_store.start_turn(
+            session.session_id,
+            "produce",
+            turn_id="turn_artifact_api",
+        )
+        ref = GatewayHandler.agent_artifact_store.put_bytes(
+            b"artifact payload",
+            session_id=session.session_id,
+            turn_id=turn.turn_id,
+            principal_id="cust_artifact_api",
+            name="result.txt",
+            mime_type="text/plain",
+        )
+        self.register_customer_key("cm_live_artifact_api", "cust_artifact_api")
+        headers = {"Authorization": "Bearer cm_live_artifact_api"}
+
+        with urllib.request.urlopen(urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions/sess_artifact_api/artifacts",
+            headers=headers,
+        )) as response:
+            listed = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(listed["object"], "agent_artifacts")
+        self.assertEqual(listed["artifacts"][0]["ref_id"], ref.ref_id)
+        self.assertNotIn("principal_id", listed["artifacts"][0])
+
+        with urllib.request.urlopen(urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/artifacts/{ref.ref_id}",
+            headers=headers,
+        )) as response:
+            self.assertEqual(response.headers["Content-Type"], "text/plain")
+            self.assertEqual(response.read(), b"artifact payload")
+
+        ranged_request = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/artifacts/{ref.ref_id}",
+            headers={**headers, "Range": "bytes=2-8"},
+        )
+        with urllib.request.urlopen(ranged_request) as response:
+            self.assertEqual(response.status, 206)
+            self.assertEqual(response.headers["Accept-Ranges"], "bytes")
+            self.assertEqual(response.headers["Content-Range"], "bytes 2-8/16")
+            self.assertEqual(response.read(), b"tifact ")
+
+        self.register_customer_key("cm_live_artifact_other", "cust_artifact_other")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(urllib.request.Request(
+                f"http://127.0.0.1:18000/v1/agents/artifacts/{ref.ref_id}",
+                headers={"Authorization": "Bearer cm_live_artifact_other"},
+            ))
+        self.assertEqual(ctx.exception.code, 403)
+
+    def test_agent_task_api_atomically_creates_model_bound_queued_turn(self) -> None:
+        self.register_customer_key("cm_live_agent_task", "cust_agent_task")
+        body = json.dumps({
+            "agent_id": "mesh.agent",
+            "agent_version": "2026.10",
+            "model": "qwen2.5:3b",
+            "input": "inspect the current node",
+            "environment_type": "none",
+            "priority": 7,
+            "deadline_at": time.time() + 60,
+        }).encode("utf-8")
+        request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions",
+            data=body,
+            headers={
+                "Authorization": "Bearer cm_live_agent_task",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            self.assertEqual(response.status, 201)
+            created = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(created["object"], "agent_task")
+        self.assertEqual(created["session"]["status"], "running")
+        self.assertEqual(created["turn"]["status"], "queued")
+        self.assertEqual(created["turn"]["priority"], 7)
+        self.assertGreater(created["turn"]["deadline_at"], time.time())
+        session = GatewayHandler.agent_session_store.get_session(created["session"]["session_id"])
+        self.assertEqual(session.state["model"], "qwen2.5:3b")
+
+    def test_agent_control_api_pauses_queued_turn_and_requires_owner(self) -> None:
+        self.register_customer_key("cm_live_agent_control", "cust_agent_control")
+        body = json.dumps({
+            "agent_id": "mesh.agent",
+            "model": "qwen2.5:3b",
+            "input": "pause this task",
+        }).encode("utf-8")
+        headers = {
+            "Authorization": "Bearer cm_live_agent_control",
+            "Content-Type": "application/json",
+        }
+        request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions",
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            created = json.loads(response.read().decode("utf-8"))
+        session_id = created["session"]["session_id"]
+        control_request = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/control",
+            data=json.dumps({"action": "pause"}).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(control_request) as response:
+            self.assertEqual(response.status, 200)
+            controlled = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(controlled["object"], "agent_control")
+        self.assertEqual(controlled["control"]["status"], "applied")
+        self.assertEqual(controlled["turn"]["status"], "paused")
+
+        self.register_customer_key("cm_live_agent_control_other", "cust_agent_control_other")
+        wrong = urllib.request.Request(
+            f"http://127.0.0.1:18000/v1/agents/sessions/{session_id}/control",
+            data=json.dumps({"action": "cancel"}).encode("utf-8"),
+            headers={
+                "Authorization": "Bearer cm_live_agent_control_other",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(wrong)
+        self.assertEqual(ctx.exception.code, 403)
+
+    def test_agent_session_turn_api_queues_a_follow_up_after_completion(self) -> None:
+        session = GatewayHandler.agent_session_store.create_session(
+            "continuing-agent",
+            principal_id="cust_agent_continue",
+            session_id="sess_agent_continue",
+        )
+        first = GatewayHandler.agent_session_store.start_turn(
+            session.session_id,
+            "first request",
+            turn_id="turn_agent_continue_first",
+        )
+        GatewayHandler.agent_session_store.transition_turn(first.turn_id, "running")
+        GatewayHandler.agent_session_store.transition_turn(first.turn_id, "completed")
+        self.register_customer_key("cm_live_agent_continue", "cust_agent_continue")
+        body = json.dumps({"input": "continue with the next step"}).encode("utf-8")
+        request = urllib.request.Request(
+            "http://127.0.0.1:18000/v1/agents/sessions/sess_agent_continue/turns",
+            data=body,
+            headers={
+                "Authorization": "Bearer cm_live_agent_continue",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            self.assertEqual(response.status, 201)
+            payload = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(payload["object"], "agent_turn")
+        self.assertEqual(payload["session"]["status"], "running")
+        self.assertEqual(payload["turn"]["status"], "queued")
 
     def register_provider_key(self, provider_node_id: str) -> str:
         token = f"cm_provider_{provider_node_id}"

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/model_catalogue.schema.json",
+  "title": "ComputeMesh Model Catalogue Update",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "profile_revision", "models"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "profile_revision": {"type": "integer", "minimum": 0},
+    "models": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["model_id"],
+        "properties": {
+          "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "available": {"type": "boolean"},
+          "status": {"type": "string", "maxLength": 64},
+          "capabilities": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 128}, "uniqueItems": true},
+          "modalities": {"type": "array", "maxItems": 16, "items": {"type": "string", "maxLength": 64}, "uniqueItems": true},
+          "quantization": {"type": "string", "maxLength": 64},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "parameters": {"type": "number", "minimum": 0},
+          "slots": {"type": "integer", "minimum": 0, "maximum": 4096},
+          "free_vram_bytes": {"type": "integer", "minimum": 0},
+          "available_vram_bytes": {"type": "integer", "minimum": 0},
+          "vram_bytes": {"type": "integer", "minimum": 0},
+          "context_tokens": {"type": "integer", "minimum": 0},
+          "context_size": {"type": "integer", "minimum": 0},
+          "max_context_tokens": {"type": "integer", "minimum": 0},
+          "throughput_tokens_per_second": {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  }
+}

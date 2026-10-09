@@ -386,6 +386,27 @@ fun LanMeshTab(
                             )
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val statusColor = when {
+                            peer.requiresAuth -> RoseDanger
+                            peer.isAvailable -> EmeraldSuccess
+                            peer.lifecycle == "reachable" -> CyanAccent
+                            else -> TextMuted
+                        }
+                        Text(
+                            when {
+                                peer.requiresAuth -> "⚠ Kopplung erforderlich – der Knoten bleibt sichtbar, wird aber nicht automatisch verwendet"
+                                peer.isAvailable -> "✓ Automatisch verfügbar${if (peer.modelIds.isNotEmpty()) " · ${peer.modelIds.size} Modelle erkannt" else ""}"
+                                peer.lifecycle == "reachable" -> "Erreichbar, aber noch kein Modellkatalog bestätigt"
+                                peer.lifecycle == "unreachable" -> "Zuletzt entdeckt, derzeit nicht erreichbar"
+                                else -> "Prüfe Knotenstatus …"
+                            },
+                            color = statusColor,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
+                        )
+
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
@@ -411,7 +432,7 @@ fun LanMeshTab(
                                 Text("Dashboard ↗", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
 
-                            if (!isConnected) {
+                            if (!isConnected && (!peer.isLocalLan || peer.requiresAuth)) {
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Button(
                                     onClick = {

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/model_preparation_request_payload.schema.json",
+  "title": "Authenticated ComputeMesh model preparation request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "session_revision", "node_id", "model_id", "artifact_digest", "size_bytes", "idempotency_key"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "session_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "artifact_digest": {"type": "string", "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$"},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 8796093022208},
+    "capabilities": {"type": "array", "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "context_tokens": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "source": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 256}
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/inference_stream_chunk_payload.schema.json",
+  "title": "Authenticated ComputeMesh inference stream chunk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "turn_id", "lease_id", "node_id", "model_id", "delta", "done"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "turn_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "lease_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "delta": {"type": "string", "maxLength": 65536},
+    "done": {"type": "boolean"},
+    "finish_reason": {"type": ["string", "null"], "maxLength": 64},
+    "tool_calls": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index"],
+        "properties": {
+          "index": {"type": "integer", "minimum": 0, "maximum": 31},
+          "id": {"type": "string", "minLength": 1, "maxLength": 160},
+          "type": {"const": "function"},
+          "function": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {"type": "string", "maxLength": 256},
+              "arguments": {"type": "string", "maxLength": 131072}
+            }
+          }
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt_tokens": {"type": "integer", "minimum": 0},
+        "completion_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "cpu_milliseconds": {"type": "integer", "minimum": 0},
+        "gpu_milliseconds": {"type": "integer", "minimum": 0},
+        "vram_byte_seconds": {"type": "integer", "minimum": 0},
+        "network_bytes": {"type": "integer", "minimum": 0},
+        "artifact_bytes": {"type": "integer", "minimum": 0},
+        "external_cost_micros": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

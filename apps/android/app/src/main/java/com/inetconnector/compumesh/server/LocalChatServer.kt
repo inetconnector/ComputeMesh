@@ -58,9 +58,9 @@ class LocalChatServer(
                 val modelResponses = peers
                     .take(MODEL_QUERY_LIMIT)
                     .map { peer ->
-                        modelQueryExecutor.submit<JSONObject?> { fetchModels(peer.targetUrl, ownerKey) }
+                        modelQueryExecutor.submit<JSONObject?> { fetchModels(peer.targetUrl, "", allowCredentials = false) }
                     }
-                val primaryModels = fetchModels(gateway, ownerKey)
+                val primaryModels = fetchModels(gateway, ownerKey, allowCredentials = true)
                 primaryModelPayload = primaryModels
                 primaryModelIds = modelIdsFromPayload(primaryModels)
                 val peerModels = modelResponses.mapNotNull { future: Future<JSONObject?> ->
@@ -79,7 +79,7 @@ class LocalChatServer(
         }
     }
 
-    private fun fetchModels(baseUrl: String, ownerKey: String): JSONObject? {
+    private fun fetchModels(baseUrl: String, ownerKey: String, allowCredentials: Boolean = true): JSONObject? {
         val cleanBase = baseUrl.trim().trimEnd('/')
         if (cleanBase.isBlank()) return null
         val target = when {
@@ -91,7 +91,7 @@ class LocalChatServer(
             val conn = (URL(target).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 setRequestProperty("Accept", "application/json")
-                if (ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
+                if (allowCredentials && ownerKey.isNotBlank() && !ownerKey.startsWith("http")) {
                     setRequestProperty("Authorization", "Bearer $ownerKey")
                     setRequestProperty("X-Owner-Key", ownerKey)
                 }
@@ -120,7 +120,9 @@ class LocalChatServer(
             for (index in 0 until data.length()) {
                 val model = data.optJSONObject(index) ?: continue
                 val id = model.optString("id", model.optString("name", "")).trim()
-                if (id.isNotBlank() && !modelsById.containsKey(id)) modelsById[id] = model
+                if (id.isNotBlank() && !modelsById.containsKey(id)) {
+                    modelsById[id] = normalizeCatalogModel(model)
+                }
             }
         }
         if (modelsById.isEmpty()) return null
@@ -128,6 +130,43 @@ class LocalChatServer(
             put("object", "list")
             put("data", JSONArray().apply { modelsById.values.forEach { put(it) } })
         }
+    }
+
+    /**
+     * Mesh catalogue entries are routable even when they came from a
+     * discovered peer. Expose that state consistently so the WebUI can request
+     * the per-model props endpoint and render its details dialog.
+     */
+    private fun normalizeCatalogModel(model: JSONObject): JSONObject {
+        if (!model.has("status")) {
+            model.put("status", JSONObject().put("value", "loaded"))
+        }
+        if (!model.has("available")) model.put("available", true)
+        if (!model.has("meta") || model.opt("meta") !is JSONObject) {
+            model.put("meta", JSONObject())
+        }
+        if (model.optString("id", model.optString("name", "")) == SAFE_DEFAULT_MODEL) {
+            val meta = model.optJSONObject("meta") ?: JSONObject()
+            meta.put("parameter_size", "3B")
+            meta.put("quantization_level", "Q4_K_M")
+            meta.put("n_ctx_train", 32768)
+            meta.put("size", 1929912432L)
+            meta.put("n_params", 3000000000L)
+            meta.put("n_embd", 2048)
+            meta.put("n_vocab", 151936)
+            meta.put("vocab_type", "BPE")
+            model.put("meta", meta)
+        }
+        return model
+    }
+
+    private fun normalizeCatalogPayload(payload: JSONObject): JSONObject {
+        val normalized = JSONObject(payload.toString())
+        val data = normalized.optJSONArray("data") ?: return normalized
+        for (index in 0 until data.length()) {
+            data.optJSONObject(index)?.let(::normalizeCatalogModel)
+        }
+        return normalized
     }
 
     private fun modelIdsFromPayload(payload: JSONObject?): List<String> {
@@ -240,10 +279,45 @@ class LocalChatServer(
                         .put("model", "qwen2.5:3b")
                 )
 
-                uri in listOf("/props", "/api/props", "/properties", "/v1/props") -> jsonResponse(
+                uri in listOf("/v1/mesh/peers", "/api/mesh/peers", "/mesh/peers") && method == Method.GET -> {
+                    jsonResponse(
+                        JSONObject().apply {
+                            put("object", "mesh_peer_list")
+                            put("data", JSONArray().apply {
+                                discoveredPeers.forEach { peer ->
+                                    put(JSONObject().apply {
+                                        put("node_id", peer.nodeId)
+                                        put("endpoint", peer.targetUrl)
+                                        put("ip_address", peer.ipAddress)
+                                        put("port", peer.port)
+                                        put("is_local_lan", peer.isLocalLan)
+                                        put("lifecycle", peer.lifecycle)
+                                        put("requires_auth", peer.requiresAuth)
+                                        put("available", peer.isAvailable)
+                                        put("gpu_summary", peer.gpuSummary)
+                                        put("models", JSONArray().apply { peer.modelIds.forEach(::put) })
+                                        put("probe_message", peer.probeMessage)
+                                        put("checked_at_epoch_ms", peer.checkedAtEpochMs)
+                                    })
+                                }
+                            })
+                        }
+                    )
+                }
+
+                uri in listOf("/props", "/webui/props", "/api/props", "/properties", "/v1/props") -> jsonResponse(
                     JSONObject().apply {
+                        put("role", "model")
+                        put("model", "qwen2.5:3b")
                         put("model_alias", "qwen2.5:3b")
                         put("model_path", "qwen2.5:3b")
+                        put("n_ctx_train", 32768)
+                        put("size", 1929912432L)
+                        put("n_params", 3000000000L)
+                        put("n_embd", 2048)
+                        put("n_vocab", 151936)
+                        put("vocab_type", "BPE")
+                        put("build_info", "ComputeMesh Android gateway")
                         put("default_generation_settings", JSONObject().apply {
                             put("n_ctx", 32768)
                             put("n_predict", 2048)
@@ -269,7 +343,12 @@ class LocalChatServer(
                 )
 
                 uri == "/slots" -> jsonResponse(
-                    JSONArray().put(JSONObject().put("id", 0).put("is_processing", false))
+                    JSONArray().put(
+                        JSONObject()
+                            .put("id", 0)
+                            .put("model", "qwen2.5:3b")
+                            .put("is_processing", false)
+                    )
                 )
 
                 uri in listOf("/tools", "/api/tools", "/v1/tools") -> jsonResponse(
@@ -349,7 +428,7 @@ class LocalChatServer(
 
     private fun handleModelsProxy(session: IHTTPSession, isTags: Boolean): Response {
         if (!isTags) {
-            discoveredModelPayload?.let { return jsonResponse(it) }
+            discoveredModelPayload?.let { return jsonResponse(normalizeCatalogPayload(it)) }
         }
         val rawGateway = MeshNodeService.gatewayUrl.trim()
         val rawKey = MeshNodeService.ownerKey.trim()
@@ -381,7 +460,7 @@ class LocalChatServer(
                     val models = json.optJSONArray("models") ?: JSONArray()
                     val enriched = JSONArray()
                     for (i in 0 until models.length()) {
-                        val m = models.getJSONObject(i)
+                        val m = normalizeCatalogModel(models.getJSONObject(i))
                         m.put("status", JSONObject().put("value", "loaded"))
                         val modelId = m.optString("name", m.optString("model", "")).lowercase()
                         val isVisionModel = modelId.contains("vision") || modelId.contains("-vl") ||
@@ -402,7 +481,7 @@ class LocalChatServer(
                     val data = json.optJSONArray("data") ?: JSONArray()
                     val enriched = JSONArray()
                     for (i in 0 until data.length()) {
-                        val m = data.getJSONObject(i)
+                        val m = normalizeCatalogModel(data.getJSONObject(i))
                         val modelId = m.optString("id", "").lowercase()
                         val isVisionModel = modelId.contains("vision") || modelId.contains("-vl") ||
                                 modelId.contains(":vl") || modelId.contains("llava") ||
@@ -515,6 +594,15 @@ class LocalChatServer(
         return clean.take(150)
     }
 
+    private fun isLanCandidate(candidateUrl: String): Boolean {
+        val host = runCatching { URL(candidateUrl).host.lowercase() }.getOrDefault("")
+        if (host == "localhost" || host == "::1" || host.startsWith("127.")) return true
+        if (host.startsWith("10.") || host.startsWith("192.168.")) return true
+        val octets = host.split('.')
+        val second = octets.getOrNull(1)?.toIntOrNull()
+        return octets.size == 4 && octets[0] == "172" && second in 16..31
+    }
+
     private fun modelIdsCompatible(requested: String, returned: String): Boolean {
         val wanted = requested.trim().lowercase()
         val actual = returned.trim().lowercase()
@@ -581,6 +669,7 @@ class LocalChatServer(
         // cache refreshes continuously, so chat never depends on a manually
         // entered node URL and can fail over across many peers.
         for (peer in discoveredPeers) {
+            if (peer.isLocalLan && !peer.isAvailable) continue
             val base = peer.targetUrl.trimEnd('/')
             val target = if (base.endsWith("/v1/chat/completions")) base else "$base/v1/chat/completions"
             if (target.isNotBlank() && !candidates.contains(target)) candidates.add(target)
@@ -603,6 +692,7 @@ class LocalChatServer(
         // No silent fallback to a backend without ComputeMesh live-tool support.
 
         val key = if (rawKey.startsWith("http://") || rawKey.startsWith("https://")) "cm_live_demo_mobile" else rawKey.ifBlank { "cm_live_demo_mobile" }
+        val hasExplicitOwnerKey = rawKey.isNotBlank() && !rawKey.startsWith("http://") && !rawKey.startsWith("https://")
 
         // Check if user is asking to paint / generate / draw an image
         val messages = rootJson.optJSONArray("messages")
@@ -852,6 +942,7 @@ class LocalChatServer(
             EXECUTOR.execute {
                 var lastErrorMessage = ""
                 var streamedAnyBytes = false
+                var localNodeAuthRequired = discoveredPeers.any { it.isLocalLan && it.requiresAuth }
 
                 modelLoop@ for (modelId in modelVariants) {
                     rootJson.put("model", modelId)
@@ -863,7 +954,9 @@ class LocalChatServer(
                         conn = (URL(candidateUrl).openConnection() as HttpURLConnection).apply {
                             requestMethod = "POST"
                             setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                            setRequestProperty("Authorization", "Bearer $key")
+                            if (hasExplicitOwnerKey || !isLanCandidate(candidateUrl)) {
+                                setRequestProperty("Authorization", "Bearer $key")
+                            }
                             setRequestProperty("Accept", "text/event-stream")
                             setRequestProperty("Accept-Encoding", "identity")
                             setRequestProperty("Cache-Control", "no-cache")
@@ -939,6 +1032,9 @@ class LocalChatServer(
                             try { conn.disconnect() } catch (_: Throwable) {}
                             break@modelLoop
                         } else {
+                            if (code == HttpURLConnection.HTTP_UNAUTHORIZED && isLanCandidate(candidateUrl)) {
+                                localNodeAuthRequired = true
+                            }
                             val errStream = conn.errorStream ?: conn.inputStream
                             val rawErr = errStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
                             lastErrorMessage = sanitizeErrorMessage(rawErr)
@@ -958,12 +1054,21 @@ class LocalChatServer(
                 }
 
                 if (!streamedAnyBytes) {
-                    val cleanErr = if (lastErrorMessage.isNotBlank()) lastErrorMessage else "Inferenz-Gateway nicht erreichbar. Bitte prüfe deine Verbindung."
+                    val cleanErr = if (localNodeAuthRequired) {
+                        "LAN-Node erkannt, aber manuelle Kopplung erforderlich."
+                    } else if (lastErrorMessage.isNotBlank()) {
+                        lastErrorMessage
+                    } else {
+                        "Inferenz-Gateway nicht erreichbar. Bitte prüfe deine Verbindung."
+                    }
                     val errChunk = JSONObject().apply {
                         put("id", "chatcmpl-err")
                         put("object", "chat.completion.chunk")
                         put("created", System.currentTimeMillis() / 1000)
                         put("model", "computemesh-mesh")
+                        if (localNodeAuthRequired) {
+                            put("compute_mesh_notice", JSONObject().put("code", "local_node_auth_required"))
+                        }
                         put("choices", JSONArray().apply {
                             put(JSONObject().apply {
                                 put("index", 0)
@@ -993,6 +1098,7 @@ class LocalChatServer(
         // Non-streaming fallback path
         var successfulConn: HttpURLConnection? = null
         var lastErrorMessage = ""
+        var localNodeAuthRequired = discoveredPeers.any { it.isLocalLan && it.requiresAuth }
 
         modelLoop@ for (modelId in modelVariants) {
             rootJson.put("model", modelId)
@@ -1004,7 +1110,9 @@ class LocalChatServer(
                 conn = (URL(candidateUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    setRequestProperty("Authorization", "Bearer $key")
+                    if (hasExplicitOwnerKey || !isLanCandidate(candidateUrl)) {
+                        setRequestProperty("Authorization", "Bearer $key")
+                    }
                     setRequestProperty("Accept", "application/json")
                     setRequestProperty("Accept-Encoding", "identity")
                     setRequestProperty("Cache-Control", "no-cache")
@@ -1023,6 +1131,9 @@ class LocalChatServer(
                     Log.i(TAG, "Successfully connected to inference candidate: $candidateUrl (HTTP $code)")
                     break@modelLoop
                 } else {
+                    if (code == HttpURLConnection.HTTP_UNAUTHORIZED && isLanCandidate(candidateUrl)) {
+                        localNodeAuthRequired = true
+                    }
                     val errStream = conn.errorStream ?: conn.inputStream
                     val rawErr = errStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: "HTTP $code"
                     lastErrorMessage = sanitizeErrorMessage(rawErr)
@@ -1039,10 +1150,21 @@ class LocalChatServer(
 
         val conn = successfulConn
         if (conn == null) {
-            val cleanErr = if (lastErrorMessage.isNotBlank()) lastErrorMessage else "Inferenz-Gateway nicht erreichbar. Bitte prüfe deine Verbindung."
+            val cleanErr = if (localNodeAuthRequired) {
+                "LAN-Node erkannt, aber manuelle Kopplung erforderlich."
+            } else if (lastErrorMessage.isNotBlank()) {
+                lastErrorMessage
+            } else {
+                "Inferenz-Gateway nicht erreichbar. Bitte prüfe deine Verbindung."
+            }
+            val error = JSONObject().put("message", "Inferenz-Fehler: $cleanErr")
+            if (localNodeAuthRequired) {
+                error.put("code", "local_node_auth_required")
+                error.put("compute_mesh_notice", JSONObject().put("code", "local_node_auth_required"))
+            }
             return jsonResponse(
-                JSONObject().put("error", JSONObject().put("message", "Inferenz-Fehler: $cleanErr")),
-                Response.Status.INTERNAL_ERROR
+                JSONObject().put("error", error),
+                if (localNodeAuthRequired) Response.Status.UNAUTHORIZED else Response.Status.INTERNAL_ERROR
             )
         }
 

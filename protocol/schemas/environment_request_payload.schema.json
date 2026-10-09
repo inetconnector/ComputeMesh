@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/environment_request_payload.schema.json",
+  "title": "Authenticated ComputeMesh environment request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "session_revision", "node_id", "environment_id", "operation"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "session_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "environment_id": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,160}$"},
+    "operation": {"enum": ["prepare", "heartbeat", "execute", "shutdown"]},
+    "lease_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "lease_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,160}$"},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,200}$"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 256},
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "allowed_operations", "allowed_paths", "network_allowlist", "resources", "lease_seconds"],
+      "properties": {
+        "kind": {"const": "mesh"},
+        "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "allowed_operations": {"type": "array", "maxItems": 10, "items": {"enum": ["health", "inference", "tool_call", "workspace_read", "workspace_write", "artifact_read", "artifact_write", "artifact_stage", "artifact_stage_status"]}},
+        "allowed_paths": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 512}},
+        "network_allowlist": {"type": "array", "maxItems": 128, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu_millis", "memory_bytes", "vram_bytes", "max_processes", "max_runtime_seconds"],
+          "properties": {
+            "cpu_millis": {"type": "integer", "minimum": 1, "maximum": 1000000},
+            "memory_bytes": {"type": "integer", "minimum": 1, "maximum": 1125899906842624},
+            "vram_bytes": {"type": "integer", "minimum": 0, "maximum": 1125899906842624},
+            "max_processes": {"type": "integer", "minimum": 1, "maximum": 100000},
+            "max_runtime_seconds": {"type": "integer", "minimum": 1, "maximum": 604800}
+          }
+        },
+        "lease_seconds": {"type": "integer", "minimum": 1, "maximum": 604800}
+      }
+    },
+    "payload": {"type": "object", "maxProperties": 64},
+    "operation_name": {"type": "string", "minLength": 1, "maxLength": 64}
+  }
+}

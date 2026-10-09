@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import (
@@ -178,6 +178,36 @@ class NodeSessionWireTests(unittest.TestCase):
             frozenset({"profile_v1", "benchmark_v1"}),
         )
         self.assertEqual(len(self.policy.calls), 1)
+
+    def test_model_catalogue_is_accepted_only_for_current_profile(self):
+        self.advance_to_profile_synced()
+        result = self.handler.handle(
+            self.envelope(
+                "ModelCatalogueUpdate",
+                {
+                    "schema_version": 1,
+                    "node_id": "node-1",
+                    "profile_revision": 7,
+                    "models": [{"model_id": "qwen2.5:3b", "context_size": 32768}],
+                },
+            ),
+            now=self.now,
+        )
+        self.assertEqual(result.state, NodeSessionState.PROFILE_SYNCED)
+        with self.assertRaises(ProfileMismatch):
+            self.handler.handle(
+                self.envelope(
+                    "ModelCatalogueUpdate",
+                    {
+                        "schema_version": 1,
+                        "node_id": "node-1",
+                        "profile_revision": 8,
+                        "models": [{"model_id": "qwen2.5:3b"}],
+                    },
+                    request_id="req-model-catalogue-revision-mismatch",
+                ),
+                now=self.now,
+            )
 
     def test_node_hello_payload_version_must_match_envelope(self):
         with self.assertRaises(SessionProtocolMismatch):

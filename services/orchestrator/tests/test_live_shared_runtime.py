@@ -1,6 +1,6 @@
+import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import unittest
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.rpc_spike import RpcEndpoint
@@ -87,6 +87,17 @@ def configured_registry(*, control=None, provider=None) -> LiveSharedRuntimeRegi
 
 
 class LiveSharedRuntimeTests(unittest.TestCase):
+    def test_agent_policy_resolver_is_optional_and_replaceable(self):
+        registry = LiveSharedRuntimeRegistry()
+        self.assertIsNone(registry.agent_policy_resolver)
+        resolver = lambda _session, _turn: {"allow_agents": True}
+        registry.set_agent_policy_resolver(resolver)
+        self.assertIs(registry.agent_policy_resolver, resolver)
+        registry.set_agent_policy_resolver(None)
+        self.assertIsNone(registry.agent_policy_resolver)
+        with self.assertRaises(TypeError):
+            registry.set_agent_policy_resolver(object())
+
     def test_builds_fresh_two_node_plan_without_placement_file(self):
         registry = configured_registry()
         registry.register_node(live_node("node-a", 10_000_000_000, 50051))

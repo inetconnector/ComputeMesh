@@ -1,0 +1,51 @@
+[Unit]
+Description=ComputeMesh authenticated provider node
+Documentation=https://github.com/inetconnector/ComputeMesh/tree/main/apps/node
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=computemesh
+Group=computemesh
+WorkingDirectory=/opt/computemesh
+EnvironmentFile=-/etc/computemesh/provider.env
+Environment=PYTHONPATH=/opt/computemesh
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m apps.node.provider_agent \
+  --control-host ${COMPUTEMESH_CONTROL_HOST} \
+  --control-port ${COMPUTEMESH_CONTROL_PORT} \
+  --ca-file ${COMPUTEMESH_CONTROL_CA_FILE} \
+  --node-id ${COMPUTEMESH_NODE_ID} \
+  --private-key ${COMPUTEMESH_NODE_PRIVATE_KEY} \
+  --profile ${COMPUTEMESH_NODE_PROFILE} \
+  --prefill ${COMPUTEMESH_NODE_PREFILL} \
+  --decode ${COMPUTEMESH_NODE_DECODE} \
+  --rpc-host ${COMPUTEMESH_NODE_RPC_HOST} \
+  --rpc-port ${COMPUTEMESH_NODE_RPC_PORT} \
+  --llama-build-number ${COMPUTEMESH_LLAMA_BUILD_NUMBER} \
+  --llama-build-commit ${COMPUTEMESH_LLAMA_BUILD_COMMIT} \
+  --inference-endpoint=${COMPUTEMESH_NODEOS_INFERENCE_ENDPOINT} \
+  --inference-auth-token=${COMPUTEMESH_NODEOS_INFERENCE_AUTH_TOKEN} \
+  --model-preparation-manifest=${COMPUTEMESH_MODEL_PREPARATION_MANIFEST} \
+  --environment-root=${COMPUTEMESH_NODEOS_ENVIRONMENT_ROOT}
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/computemesh
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

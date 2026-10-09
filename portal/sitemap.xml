@@ -1,13 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Core Portal Pages -->
+<?xml version='1.0' encoding='utf-8'?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
   <url>
     <loc>https://mesh.inetconnector.com/</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://smartx.inetconnector.com/</loc>
+    <lastmod>2026-10-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://mesh.inetconnector.com/docs</loc>
@@ -46,7 +50,7 @@
     <priority>0.75</priority>
   </url>
 
-  <!-- High-Demand Model Landing Pages -->
+
   <url>
     <loc>https://mesh.inetconnector.com/models/deepseek-r1</loc>
     <lastmod>2026-09-15</lastmod>
@@ -78,7 +82,7 @@
     <priority>0.85</priority>
   </url>
 
-  <!-- Competitive Benchmark & Comparison Landing Pages -->
+
   <url>
     <loc>https://mesh.inetconnector.com/compare/aws-bedrock</loc>
     <lastmod>2026-09-15</lastmod>
@@ -98,7 +102,7 @@
     <priority>0.85</priority>
   </url>
 
-  <!-- Legal & Compliance Pages -->
+
   <url>
     <loc>https://mesh.inetconnector.com/terms</loc>
     <lastmod>2026-09-15</lastmod>
@@ -117,4 +121,4 @@
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
-</urlset>
+<url><loc>https://mesh.inetconnector.com/products</loc></url><url><loc>https://mesh.inetconnector.com/projects</loc></url><url><loc>https://mesh.inetconnector.com/lan-mesh</loc></url><url><loc>https://mesh.inetconnector.com/playground</loc></url></urlset>

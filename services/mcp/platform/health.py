@@ -1,9 +1,9 @@
 """Operational health/status snapshots for ComputeMesh Agents Platform."""
 from __future__ import annotations
 
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import time
 from typing import Any
 
 from .runtime import AgentsPlatformRuntime
@@ -108,6 +108,18 @@ def collect_agents_platform_health(runtime: AgentsPlatformRuntime) -> AgentsPlat
         "HEALTHY" if runtime.audit is not None else "UNAVAILABLE",
         _path_status(audit_path),
     ))
+    if bool(getattr(runtime.config, "agents_platform_openai_agents_enabled", False)):
+        provider = getattr(runtime, "openai_agents", None)
+        provider_ready = bool(provider is not None and getattr(provider, "enabled", False))
+        components.append(ComponentHealth(
+            "openai_agents",
+            "HEALTHY" if provider_ready else "DEGRADED",
+            {
+                "enabled": True,
+                "configured": provider_ready,
+                "credential_value_exposed": False,
+            },
+        ))
 
     errors = tuple(runtime.initialization_errors)
     component_states = {component.status for component in components}

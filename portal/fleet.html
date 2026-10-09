@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
-  <link rel="stylesheet" href="/portal.css?v=4.0">
+  <link rel="stylesheet" href="/portal.css?v=5.0">
   <style>
     :root {
       --fleet-bg: #090d16;
@@ -536,6 +536,7 @@
     .sec-badge.danger { background: rgba(239, 68, 68, 0.15); color: #f87171; }
     .sec-badge.success { background: rgba(16, 185, 129, 0.15); color: #34d399; }
   </style>
+  <link rel="stylesheet" href="/portal-business.css?v=5.0">
 </head>
 <body>
 
@@ -572,30 +573,30 @@
         <ul class="nav-links">
           <li><a href="https://ai.inetconnector.com/" target="_blank" rel="noopener noreferrer" data-i18n="nav_aichat">💬 AI-Chat ↗</a></li>
           <li class="nav-item has-dropdown">
-            <a href="/#features" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
+            <a href="/products" class="nav-link" data-i18n="nav_products">Produkte <span class="dropdown-arrow">▾</span></a>
             <div class="dropdown-menu">
-              <a href="/#playground" class="dropdown-item">
+              <a href="/playground" class="dropdown-item">
                 <span class="item-icon">⚡</span>
                 <div>
                   <strong data-i18n="nav_prod_inference">Serverless Inferenz-API</strong>
                   <p data-i18n="nav_prod_inference_sub">Drop-in OpenAI &amp; Ollama kompatibles Streaming</p>
                 </div>
               </a>
-              <a href="/#marketplace" class="dropdown-item">
+              <a href="/marketplace" class="dropdown-item">
                 <span class="item-icon">🖥️</span>
                 <div>
                   <strong data-i18n="nav_prod_market">GPU Marketplace</strong>
                   <p data-i18n="nav_prod_market_sub">Live-Hardware, VRAM &amp; verteilte Knoten mieten</p>
                 </div>
               </a>
-              <a href="/#models" class="dropdown-item">
+              <a href="/models" class="dropdown-item">
                 <span class="item-icon">📚</span>
                 <div>
                   <strong data-i18n="nav_prod_models">Model Library</strong>
                   <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
                 </div>
               </a>
-              <a href="/#lan-mesh" class="dropdown-item">
+              <a href="/lan-mesh" class="dropdown-item">
                 <span class="item-icon">🏠</span>
                 <div>
                   <strong data-i18n="nav_prod_lan">Privates LAN-Mesh</strong>
@@ -605,9 +606,9 @@
             </div>
           </li>
           <li class="nav-item has-dropdown">
-            <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
+            <a href="/projects" class="nav-link" data-i18n="nav_apps">Apps <span class="dropdown-arrow">▾</span></a>
             <div class="dropdown-menu">
-              <a href="/#downloads" class="dropdown-item">
+              <a href="/downloads" class="dropdown-item">
                 <span class="item-icon">🤖</span>
                 <div>
                   <strong data-i18n="nav_app_localcode">LocalCode AI Studio</strong>
@@ -651,10 +652,10 @@
               </a>
             </div>
           </li>
-          <li><a href="/#marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
-          <li><a href="/#models" data-i18n="nav_models">Modelle</a></li>
-          <li><a href="/#pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/#downloads" data-i18n="nav_downloads">Downloads</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Modelle</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
           <li><a href="/security" data-i18n="nav_security" style="color: var(--accent-emerald);">🛡️ Sicherheit &amp; DSGVO</a></li>
           <li><a href="/docs" data-i18n="nav_docs">API-Docs</a></li>
           <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
@@ -845,7 +846,7 @@
           </div>
 
           <h3 style="margin-top:0;margin-bottom:1.25rem;font-size:1.2rem;" data-i18n="fleet_servers_title">Verbundene Server & Mining-Rigs</h3>
-          
+
           <div id="fleet-nodes" class="node-grid"></div>
 
           <div id="fleet-empty" style="text-align:center;padding:3rem 1rem;" hidden>
@@ -957,7 +958,7 @@
         <!-- Provider Profile Edit Form -->
         <div class="fleet-card">
           <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:1rem;">📝 Rechtliche Anbieterinformationen</h3>
-          
+
           <div class="form-group" style="margin-bottom:1.25rem;">
             <label style="font-weight:600;margin-bottom:0.4rem;display:block;">Anbieter-Rechtsform / Typ:</label>
             <div style="display:flex;gap:1.5rem;align-items:center;">
@@ -1091,7 +1092,7 @@
 
       <!-- VIEW 2: Security & Passkeys & Audit Log -->
       <div id="cockpit-view-security" style="display: none;">
-        
+
         <!-- Notification & Security Alert Email Manager -->
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
@@ -1276,7 +1277,7 @@
               <h4 style="margin:0;font-size:1.1rem;color:#f8fafc;display:flex;align-items:center;gap:0.5rem;">
                 <span>💻</span> <span>1-Klick Code-Integrationen (OpenAI-kompatibel)</span>
               </h4>
-              
+
               <!-- Tab Switcher -->
               <div class="pg-snippet-tabs" style="margin:0;background:rgba(0,0,0,0.4);padding:0.25rem;border-radius:8px;display:flex;gap:0.3rem;flex-wrap:wrap;">
                 <button class="pg-tab-btn active" id="tab-btn-dev-curl" onclick="switchDevApiTab('curl')">🐧 cURL (Linux / macOS)</button>
@@ -2307,8 +2308,8 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     </div>
   </footer>
 
-  <script src="/portal.js?v=2.8"></script>
-  <script src="/portal-core.js?v=2.8"></script>
+  <script src="/portal-core.js?v=5.0"></script>
+  <script src="/portal.js?v=5.0"></script>
   <script>
     let isLoggedIn = false;
     let activeOwnerKey = "";
@@ -2697,8 +2698,8 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
               ${escapeHtml(bannedBy)}
             </td>
             <td>
-              ${isActive 
-                ? '<span class="sec-badge danger">🛑 GESPERRT</span>' 
+              ${isActive
+                ? '<span class="sec-badge danger">🛑 GESPERRT</span>'
                 : '<span class="sec-badge info">Inaktiv</span>'}
             </td>
             <td style="text-align:right;">
@@ -3085,7 +3086,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
     function updateDevApiSnippets(key) {
       const effectiveKey = key || activeOwnerKey || "<OWNER_KEY>";
-      
+
       const ownerKeyEl = document.getElementById("api-owner-key-text");
       if (ownerKeyEl) ownerKeyEl.textContent = effectiveKey;
 
@@ -3217,11 +3218,11 @@ curl -X POST "https://mesh.inetconnector.com/v1/chat/completions" ^
       if (mcpPsEl) {
         mcpPsEl.textContent = `# Windows PowerShell (Native REST-Abfrage mit MCP)
 $headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer ${effectiveKey}" }
-$body = @{ 
+$body = @{
     model = "qwen2.5:7b"
     enable_mcp = $true
     messages = @(@{ role = "user"; content = "Wie steht der Bitcoin Kurs und was sind die aktuellen Krypto-News?" })
-    stream = $false 
+    stream = $false
 } | ConvertTo-Json
 Invoke-RestMethod -Uri "https://mesh.inetconnector.com/v1/chat/completions" -Method Post -Headers $headers -Body $body`;
       }
@@ -3484,7 +3485,7 @@ for chunk in stream:
     async function doLogin() {
       const email = document.getElementById("auth-email").value.trim();
       if (!email) { showMsg(getLang() === 'de' ? "Bitte E-Mail-Adresse eingeben." : "Please enter an email address.", "error"); return; }
-      
+
       // Auto-detect if user entered an API/Owner key instead of an email address
       if (!email.includes("@") && (email.startsWith("cm_") || email.startsWith("owner_") || email.startsWith("sk-") || email.length >= 8)) {
         document.getElementById("input-owner-key").value = email;
@@ -3800,7 +3801,7 @@ for chunk in stream:
           activeNodesList.forEach(n => {
             const card = document.createElement("div");
             card.className = "node-card";
-            
+
             const isOnline = (n.is_online !== undefined) ? n.is_online : (n.status === "online");
             const isMobile = (n.inventory && n.inventory.host_architecture === "android_arm64")
               || (n.software && n.software.client === "ComputeMesh-Android")
@@ -3945,7 +3946,7 @@ for chunk in stream:
       const msg = getLang() === 'de'
         ? `Möchtest du den Server "${nodeId}" wirklich aus deiner Flotte löschen?\n\nDieser Knoten wird dauerhaft entkoppelt.`
         : `Do you really want to remove server "${nodeId}" from your fleet?\n\nThis node will be permanently unbound.`;
-      
+
       if (!confirm(msg)) return;
 
       try {
@@ -4600,7 +4601,7 @@ for chunk in stream:
       if (bizFields) bizFields.style.display = isBiz ? "block" : "none";
       const lblName = document.getElementById("lbl-legal-name");
       if (lblName) {
-        lblName.textContent = isBiz 
+        lblName.textContent = isBiz
           ? "Vollständiger registrierter Firmenname (inkl. Rechtsform, z.B. GmbH):"
           : "Vollständiger Name (Vor- & Nachname):";
       }

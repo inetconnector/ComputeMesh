@@ -1,4 +1,3 @@
-from datetime import UTC, datetime, timedelta
 import threading
 import time
 import unittest
@@ -71,6 +70,35 @@ class TestLocalCapacityGuard(unittest.TestCase):
         with self.assertRaises(CapacityExceededError) as ctx:
             self.guard.acquire(job_id="job-2", memory_mb=6000)
         self.assertIn("insufficient local memory", str(ctx.exception))
+
+    def test_profiled_device_memory_and_identity_are_enforced(self) -> None:
+        guard = LocalCapacityGuard(
+            node_id="node-gpu",
+            max_concurrent_jobs=2,
+            device_memory_mb={"gpu:0": 8192, "gpu:1": 4096},
+        )
+        first = guard.acquire(job_id="job-gpu-1", device_id="gpu:0", memory_mb=6144)
+        self.assertEqual(first.device_id, "gpu:0")
+        with self.assertRaises(CapacityExceededError) as memory_error:
+            guard.acquire(job_id="job-gpu-2", device_id="gpu:0", memory_mb=2049)
+        self.assertIn("device 'gpu:0'", str(memory_error.exception))
+        with self.assertRaises(CapacityExceededError) as identity_error:
+            guard.acquire(job_id="job-unknown-device", device_id="gpu:2", memory_mb=1)
+        self.assertIn("not present in the node profile", str(identity_error.exception))
+        with self.assertRaises(CapacityExceededError) as ambiguous_error:
+            LocalCapacityGuard(node_id="multi-gpu", device_memory_mb={"gpu:0": 8192, "gpu:1": 4096}).acquire(
+                job_id="job-default", device_id="default", memory_mb=1
+            )
+        self.assertIn("default device is ambiguous", str(ambiguous_error.exception))
+        status = guard.get_status()
+        self.assertEqual(status["devices"]["gpu:0"]["used_memory_mb"], 6144)
+        self.assertEqual(status["devices"]["gpu:1"]["active_jobs"], 0)
+
+    def test_default_device_resolves_for_single_profiled_device(self) -> None:
+        guard = LocalCapacityGuard(node_id="single-gpu", device_memory_mb={"gpu:0": 8192})
+        reservation = guard.acquire(job_id="job-default", device_id="default", memory_mb=1)
+        self.assertEqual(reservation.device_id, "gpu:0")
+        self.assertEqual(guard.require_active_lease(reservation.lease_id).job_id, "job-default")
 
     def test_duplicate_active_job_rejected(self) -> None:
         self.guard.acquire(job_id="job-1", memory_mb=2048)

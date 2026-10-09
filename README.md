@@ -2,6 +2,16 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
+The portal reads live mesh telemetry after all client state has initialized,
+including when its core script is loaded dynamically. Missing measurements
+are distinct from a measured zero; online nodes are reported by the gateway.
+
+The portal has standalone product, project, marketplace, model, pricing,
+download, LAN-mesh and playground pages rather than homepage fragment links.
+`portal/portal-business.css` supplies a shared neutral, responsive presentation;
+existing account, fleet, calculator, inference and download controls remain.
+German and English are the portal's supported languages.
+
 ## In Plain Words
 
 The current NodeOS dashboard also exposes real hardware telemetry, a
@@ -65,6 +75,12 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - a per-browser AI Studio model selector in the **Model Information** panel's **Model** row; each chat request uses that selection, and model modalities control which photo/image, audio and video attachments are offered (text and PDF remain available). Large photo uploads (up to five images per request) are resized and compressed locally; the actual serialized request is measured and images are adaptively recompressed to fit the gateway payload limit;
 - automatic fleet-aware model discovery: an authenticated browser session queries the online fleet catalogue, loads model inventories in parallel, deduplicates and ranks them, and routes each selected model to the node that reported it. Local loopback discovery remains available for standalone nodes;
 - a provider app that lets a machine report available compute;
+- a restartable, least-privilege Linux systemd provider-service template under
+  `deploy/systemd/`; installation, enrollment and live production activation
+  remain operator-controlled. The provider's `SIGTERM`/`SIGINT` path unblocks
+  the authenticated control socket before supervisor restart, and the unit
+  forwards optional inference, model-preparation and typed-environment settings
+  when configured;
 - an optional Windows Cline integration that uses the local OpenAI-compatible
   endpoint and keeps client-owned tool schemas separate from ComputeMesh MCP
   tools;
@@ -92,6 +108,21 @@ preserved. Stale placeholder selections are replaced automatically and failed
 nodes are skipped during inference failover. The fleet owner key is accepted on
 NodeOS only for inference; dashboard, model-management, fan and system actions
 still require the dedicated node credential.
+
+Android LAN admission now keeps discovery separate from trust. Each discovered
+peer receives a bounded credential-free health/model probe and reports its
+state, model IDs and authentication requirement through the phone-local
+`/v1/mesh/peers` endpoint. Unknown local peers never receive the fleet owner
+key during catalogue discovery; unreachable or authentication-required peers
+remain visible but are excluded from automatic inference routing until they
+become usable. This preserves the requested automatic LAN behavior while
+making manual pairing an explicit, localized exception.
+
+The public Agent Platform also reconciles heartbeat freshness before routing:
+the configurable `COMPUTEMESH_AGENTS_NODE_STALE_AFTER_SECONDS` window defaults
+to 90 seconds. A stale verified node is quarantined and cannot receive a new
+lease until an authenticated session/profile refresh restores it through the
+normal admission path.
 
 ## What Is Not Promised Yet
 
@@ -160,6 +191,190 @@ For developers, this means:
 - The website, downloads and update files are versioned and signed.
 
 The sections below are more technical. They describe the boundaries, security rules and experiment paths for developers and operators.
+
+### Durable Mesh Agent Runtime
+
+The public runtime also contains a feature-gated durable agent layer under
+`services/mcp/platform/`. It provides SQLite-backed sessions and turns,
+bounded context compaction, policy-filtered tool execution, authenticated
+NodeOS dispatch, artifacts, usage, traces, child sessions, origin-aware MCP
+discovery and localized session/approval projections. A side-effecting tool
+pauses its durable turn at `waiting_for_approval`; an approved continuation
+must match the original session, turn, tool and argument digest and is consumed
+once. Approval HTTP requests never execute the side effect themselves. The
+legacy chat and inference path remains available when the feature is disabled,
+and `POST /v1/agents/sessions` can atomically create a model-bound queued task.
+After a completed turn, authenticated clients can queue follow-up input with
+`POST /v1/agents/sessions/{session_id}/turns`; the same durable worker and
+policy/approval boundaries are used. The bundled portal and Android WebUI
+include the localized task/continuation controls.
+Both copies retain only a bounded, redacted session projection and server
+cursor across app/WebView restarts; offline views retry in the background, while
+authentication failures clear the cache and no prompts, event payloads,
+approval arguments or credentials are persisted locally.
+The gateway can optionally require an immutable registered agent definition at
+worker claim time with `COMPUTEMESH_AGENTS_REQUIRE_DEFINITION=1`; its model,
+mesh-node and tool constraints are applied without exposing the definition
+payload, while legacy compatibility remains the default.
+An optional server-side OpenAIAgentsClient can bridge selected sessions to the
+official OpenAI Agents API for session creation, input/cancel events, saved
+items and event streams. Its credential is read only from the server
+environment and the local MeshAgentHarness remains the default; the adapter
+does not run on Android or NodeOS and has no effect when unconfigured. Runtime
+activation requires the explicit COMPUTEMESH_AGENTS_OPENAI_ENABLED switch.
+Authenticated clients can also post `pause`, `resume` or `cancel` to
+`/v1/agents/sessions/{session_id}/control`. Queued and waiting turns are
+changed atomically; active workers observe the request at safe model/tool
+boundaries. Both WebUI copies render these controls, and `MeshAgentWorker`
+provides a stoppable polling loop for continuous pickup. The
+`MeshAgentWorkerService` supervises bounded worker pools, startup recovery and
+cooperative stop/join without changing the single-worker API.
+`SubagentCoordinator` can optionally bind every child session/turn to an
+injected `NodeLeaseStore` lease factory and releases that lease on success or
+failure; node selection remains outside the public runtime policy boundary.
+`AgentsPlatformRuntime.build_mesh_agent_worker()` now binds those turns to
+the verified NodeOS dispatcher. The authenticated inference contract validates
+and forwards bounded tool schemas to the provider's loopback OpenAI-compatible
+runtime, preserves bounded native function-call responses and tool-call
+history, and keeps routing and leases enforced at the control plane. The
+streaming contract also preserves bounded native tool-call deltas and provides
+binding-checked assembly into the same caller shape.
+Authorized model preparation now uses a bounded, digest- and session-bound
+NodeOS request/response contract with an explicit provider capability gate;
+discovery and inventory remain read-only until installation is authorized. A
+local pinned preparation manifest can now connect that route to the existing
+NodeOS model manager, which retains commit, size, SHA-256, GGUF and storage
+validation.
+The public runtime also exposes `NodeOnboardingCoordinator` for safe automatic
+LAN admission. It keeps discovered nodes visible, maps an authentication
+challenge to `manual_pairing_required`, and only reaches a routable state after
+identity verification, preparation and an accepted benchmark. Probe,
+preparation and benchmark adapters are injected; discovery never transfers a
+credential or grants implicit trust.
+The authenticated live-provider channel also supports the bounded,
+profile-revision-bound `ModelCatalogueUpdate`. When
+`IntegratedLiveControlPlane` receives an Agent `NodeRegistry`, a complete
+authenticated provider is admitted into Agent routing through the existing
+identity, capability, preparation and benchmark gates. Missing or invalid
+inventories fail closed for Agent routing while Shared Serving remains intact.
+Mesh environments also have a typed authenticated NodeOS transport for
+prepare, heartbeat, execute and shutdown. It binds each request to the
+current session revision and environment lease and requires the
+`mesh_environment_v1` capability. The provider can now enable a concrete
+bounded NodeOS executor with `--environment-root`, supporting health,
+inference and symlink-safe workspace operations. Mesh artifact staging now
+transfers principal-authorized immutable data in bounded, digest-checked,
+idempotent chunks with atomic commit and resume status. The process adapter
+applies POSIX resource limits and Windows Job Object memory/process limits;
+GPU/device isolation remains a separate deployment gate and no shell fallback
+is exposed. Provider capacity admission also binds profiled GPU device IDs and
+per-device VRAM limits. Live inference now reserves that provider capacity
+through the authenticated channel before execution and releases it after the
+response or stream; complete physical inference-process/device isolation
+remains a deployment-specific gate.
+Supervised agent workers can opt into bounded global, principal and session
+concurrency budgets; the default remains the existing worker behavior. A
+deployment can set `persistent_concurrency=True` on the runtime worker builder
+to back those limits with SQLite admission leases shared by worker processes.
+An optional tenant limit applies the same boundary across all sessions of one
+tenant. Leases are atomically acquired, renewable, explicitly released and
+reclaimed after expiry, so a crashed worker cannot reserve capacity forever.
+Lease-bound model dispatch can also opt into bounded provider fallback with
+`max_attempts`: transient connection, timeout and OS transport failures exclude
+the failed node for the next attempt, use a distinct idempotency key, and emit
+retry lifecycle events. A full reservation is treated as a scheduling
+condition, so another verified candidate can be selected without consuming an
+execution retry. Minimized route requirements can also enforce measured
+throughput, latency and explicit node preferences. Validation and binding
+errors remain fail-closed.
+Approval-gated turns are resumed by the durable worker after an exact
+principal/session/turn/tool/argument match; the consumed approval authorizes
+that one side effect with its own stable idempotency key, after which the model
+continues synthesis from the persisted tool result.
+For self-hosted workspaces, `AgentsPlatformRuntime.build_process_workspace_transport()`
+provides an opt-in shell-free child-process boundary with JSONL protocol limits,
+wall-clock termination and POSIX resource limits. The direct local workspace
+transport remains the compatibility default; GPU/device isolation remains a
+separate deployment gate.
+The persistent provider channel also supports caller-bound request IDs and
+cooperative in-flight cancellation. Durable agent cancellation propagates from
+the session control request through the AgentLoop, model callers, lease
+dispatcher and authenticated NodeOS channel; provider backends receive the
+bounded cancel token when they support it. A cancellation releases the waiting
+control-plane call immediately, and the local HTTP inference adapter closes a
+  blocking response when cancellation arrives. `LocalOpenAIInferenceBackend`
+  also accepts an explicit deployment-owned `on_cancel` callback, so a
+  provider that owns its model process can terminate it at the process
+  supervisor boundary; shared model servers are never terminated by default.
+  The runnable provider can opt into this only for its own managed model engine
+  with `COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL=1`; it verifies the
+  configured loopback origin before connecting `ModelEngineService.stop`.
+Durable turns also carry a bounded priority and optional admission deadline;
+workers apply bounded aging, rotate equal-score principals and atomically fail
+expired queued work before claim. `WorkerSchedulingPolicy` is injectable from
+the runtime builders, and older SQLite session databases migrate these fields
+without losing existing turns.
+The runtime also exposes an append-only `AgentDefinitionStore`: each
+agent/version has an immutable digest covering its model strategy, instructions,
+skills, tools, MCP servers, node scope, privacy class and limits. Re-registering
+the same digest is idempotent; changing a published version fails closed.
+The usage ledger supports transactional global, tenant, principal and session
+quotas over lifetime, daily and monthly periods; this is metering and hard
+limit enforcement, not a public pricing or settlement implementation.
+Backend and mesh-dispatch callers also carry only bounded opaque execution job
+and node identifiers into the agent result, usage ledger, durable events and
+redacted traces. Placement scores, provider shares and private policy inputs
+remain outside the public runtime.
+`AgentEventOutboxDispatcher` consumes durable events with bounded consumer
+leases, acknowledgement/release and restart recovery. Delivery is
+at-least-once, so sinks must deduplicate by immutable `event_id`.
+In-flight agent turns also persist bounded private execution checkpoints at
+model/tool boundaries. An explicit resume can continue a saved tool batch or
+final model result without blindly replaying the whole turn; approval resumes
+intentionally replay only through the one-shot approval broker. Gateway agent
+billing can persist verified provider evidence in its private SQLite store so a
+process restart does not silently undercount completed model calls.
+`MeshAgentWorker` claims queued/resumed work only through an injected model
+caller and policy-bound harness. `BackendModelCaller` connects that worker to
+the existing inference backend contract without duplicating provider routing.
+Mesh deployments can enable
+`COMPUTEMESH_AGENTS_MESH_PREFLIGHT_ENABLED=1` to defer queued work until the
+verified node registry has a routable node for its bound model and requirements;
+the default remains compatibility mode.
+An integrated deployment can inject an authenticated control-plane client and
+set `COMPUTEMESH_AGENTS_MESH_DISPATCH_ENABLED=1` to route queued
+`environment_type=mesh` sessions through verified NodeOS dispatch, routing,
+leases and bounded retries. Startup and mesh turns fail closed without that
+explicit wiring; `none` and `self_hosted` keep the existing backend path. Mesh
+turns can also opt into the existing gateway hold/capture ledger when
+`COMPUTEMESH_AGENTS_BILLING_ENABLED=1` is enabled. The mesh caller sends
+authenticated selected-node and token evidence through a private observer to
+that ledger; provider shares never enter public session events or usage
+responses. Hardware-backed attestation and multi-provider settlement remain
+separate deployment gates.
+The canonical `services.gateway.live_server` bootstrap now provides that
+authenticated client from its integrated TLS control plane and starts the
+worker only after the live gateway gates pass; the compatibility gateway keeps
+the client absent and therefore remains fail-closed for mesh dispatch.
+Private deployments can also provide a `runtime_policy_resolver` to bind a
+minimized, request/principal-bound `RuntimePolicyEnvelope` to each claimed
+turn. The resolver is optional and never carries private placement, fraud,
+pricing, provider-share or credential data into the public runtime.
+The durable harness revalidates the envelope immediately before execution,
+including expiry, request ID, principal and fleet binding, and fails closed on
+rejection.
+The canonical live-runtime module can register this callback on
+`LiveSharedRuntimeRegistry`; `services.gateway.live_server` forwards it to the
+worker automatically when the worker feature is enabled.
+Gateway deployments may explicitly enable
+`COMPUTEMESH_AGENTS_BILLING_ENABLED=1`; the gateway then uses the existing
+persistent credit hold/capture ledger, requires verified provider shares, settles one
+idempotent journal event per agent turn and releases failed/unmetered holds.
+With the switch absent, the prior agent and chat billing behavior is unchanged.
+Authenticated clients can list session-scoped artifacts and download
+them through principal-bound `/v1/agents/...` endpoints, including bounded
+resumable HTTP byte ranges with full-object digest verification. Operating-system
+process isolation plus live provider/NodeOS preparation remain deployment gates.
 
 The public executor contract supports version-2 N-stage plans with ordered
 layer ranges, per-stage device indices and multiple RPC endpoints/devices.

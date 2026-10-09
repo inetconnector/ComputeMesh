@@ -23,6 +23,18 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 - **Stripe Checkout:** Creates real Stripe Checkout Sessions when `STRIPE_API_KEY` and `COMPUTEMESH_STRIPE_SESSION_STORE` are configured.
 - **Signed Webhook Ingestion:** Credits customer balances only from raw Stripe webhook payloads that verify against the `Stripe-Signature` header, normalizing Stripe SDK event objects before ledger processing.
 - **Stripe Connect Provider Settlement:** Registers Stripe Accounts v2 Express recipient payout accounts, creates onboarding links, and lets admins run idempotent provider settlements that transfer funds before clearing provider payables in the ledger.
+- **Durable Agent Tasks:** Authenticated clients can create a model-bound agent session and queued first turn atomically through `POST /v1/agents/sessions`; session events and principal-bound approvals are exposed through bounded projections. A separately configured `MeshAgentWorker` claims queued/resumed turns through the policy-bound runtime, and `BackendModelCaller` adapts the existing inference backend for model execution.
+
+The gateway's durable worker is an explicit deployment component. Set
+`COMPUTEMESH_AGENTS_WORKER_ENABLED=1` to start it with the gateway; otherwise
+the API continues to persist tasks without consuming the queue. The worker
+uses the same `COMPUTEMESH_AGENTS_SESSION_DB` as the HTTP task endpoints, the
+configured gateway inference backend and non-owner tool policy. Optional
+`COMPUTEMESH_AGENTS_WORKER_COUNT`, `COMPUTEMESH_AGENTS_WORKER_MAX_TOKENS`,
+`COMPUTEMESH_AGENTS_WORKER_BATCH` and
+`COMPUTEMESH_AGENTS_WORKER_PERSISTENT_CONCURRENCY` tune bounded deployment
+capacity. A worker failure is shut down before the HTTP server closes and does
+not alter the legacy chat completion path.
 
 ## Endpoints
 
@@ -39,10 +51,77 @@ Public OpenAI-compatible and Ollama-compatible API entry point, SSE/NDJSON strea
 - `POST /v1/providers/register`: Provider-authenticated registration/update for payout metadata.
 - `POST /v1/providers/stripe/onboarding`: Provider-authenticated Stripe Connect account creation/refresh plus onboarding link generation.
 - `POST /v1/providers/stripe/refresh`: Provider-authenticated Stripe Connect account status refresh after onboarding.
+- `POST /v1/agents/sessions`: Create an authenticated durable agent task with `agent_id`, `model` and `input`; optional bounded `priority` and `deadline_at` fields are persisted for worker scheduling.
+- `POST /v1/agents/sessions/{session_id}/turns`: Queue authenticated follow-up
+  input after the existing session is ready again, with the same optional
+  scheduling fields.
+- `GET /v1/agents/sessions`: List the caller's durable agent sessions.
+- `GET /v1/agents/sessions/{session_id}/artifacts`: List immutable artifacts for
+  one caller-owned session.
+- `GET /v1/agents/artifacts/{ref_id}`: Download one artifact after its
+  principal-bound reference is verified. The endpoint supports bounded HTTP
+  byte ranges for resumable downloads and returns `206`/`Content-Range`.
+- `GET /v1/agents/sessions/{session_id}/events`: Read a bounded reconnectable event cursor.
+- `GET /v1/agents/approvals`: List the caller's pending or resolved agent approvals.
+- `POST /v1/agents/approvals/{approval_id}`: Approve/reject one exact side-effect request and advance a waiting turn to explicit `resuming` state when applicable.
 - `GET /v1/providers/status`: Provider-authenticated account and payable-balance status.
 - `GET /v1/admin/providers`: Admin-only provider account and payable-balance listing.
 - `GET /v1/admin/settlements`: Admin-only settlement record listing with optional `status` and `limit` query parameters.
 - `POST /v1/admin/settlements/provider`: Admin-only provider settlement execution through Stripe Connect. Settlement records include the Stripe Transfer currency.
+
+For an integrated control-plane deployment, inject an authenticated control
+client into `build_gateway_agent_worker_runtime()` and set
+`COMPUTEMESH_AGENTS_MESH_DISPATCH_ENABLED=1`. Queued sessions with
+`environment_type=mesh` then use the verified NodeOS dispatcher, node routing,
+leases and bounded retry policy from `AgentsPlatformRuntime`. Without both the
+switch and the injected client, mesh turns fail closed; `none` and
+`self_hosted` sessions continue through `BackendModelCaller`. Mesh turns do
+not use gateway credit settlement yet because provider evidence and settlement
+ownership for that route are still a separate release gate.
+
+Mesh task creation may include a minimized `routing` object with required
+capabilities, minimum free VRAM/context, throughput or latency requirements,
+and allowed/excluded/preferred node IDs. The session store validates and
+normalizes only those fields; the worker projects them into the authenticated
+NodeOS route. Omitting `routing` preserves the existing model-only behavior.
+
+Private deployments may additionally pass a `runtime_policy_resolver` to
+`build_gateway_agent_worker_runtime()`. It receives the claimed session and
+turn and may return only a minimized `RuntimePolicyEnvelope` (or its mapping),
+which is validated and bound to the durable harness for that turn. This is the
+injection point for private allow/deny, tool, side-effect, privacy and budget
+policy; private scores, fraud, pricing, provider shares and credentials never
+enter the public session or event contract. Omitting the resolver preserves the
+existing deployment behavior.
+
+The worker can also enforce immutable, versioned definitions from the
+platform's `AgentDefinitionStore` with
+`COMPUTEMESH_AGENTS_REQUIRE_DEFINITION=1`. A registered definition may bind an
+allowed model set, a mesh node scope and a tool allowlist; those constraints
+are applied at claim time without exposing the definition payload in the
+session or event projection. The switch is off by default so existing
+legacy-created tasks continue to use their established path.
+
+The worker service uses persistent concurrency leases by default. Deployments
+can tune the shared limits and fair queue with
+`COMPUTEMESH_AGENTS_WORKER_GLOBAL_LIMIT`,
+`COMPUTEMESH_AGENTS_WORKER_PRINCIPAL_LIMIT`,
+`COMPUTEMESH_AGENTS_WORKER_SESSION_LIMIT`, optional
+`COMPUTEMESH_AGENTS_WORKER_TENANT_LIMIT`,
+`COMPUTEMESH_AGENTS_WORKER_FAIR_PRINCIPALS`,
+`COMPUTEMESH_AGENTS_WORKER_AGING_SECONDS`,
+`COMPUTEMESH_AGENTS_WORKER_MAX_CANDIDATES` and
+`COMPUTEMESH_AGENTS_WORKER_CONCURRENCY_LEASE_SECONDS`. With persistent
+concurrency enabled, the SQLite-backed admission gate applies these limits
+across worker processes instead of giving each process an independent quota.
+
+The canonical `services.gateway.live_server` bootstrap supplies this client
+automatically after the integrated TLS control plane is started. When the
+worker switch is enabled there, the worker is started only after the live
+gateway backend and confidential gateway gates have succeeded, and it is
+closed before the control plane during shutdown. The compatibility
+`services.gateway.server` entry point intentionally remains client-free and
+therefore keeps mesh dispatch fail-closed.
 
 ## Inference Runtime Configuration
 

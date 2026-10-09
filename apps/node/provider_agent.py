@@ -11,18 +11,27 @@ never runs here.
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
+import os
 import platform
 import secrets
+import signal
 import socket
-import time
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
+from urllib.parse import urlparse
 
+from apps.node.environment import NodeEnvironmentError, NodeEnvironmentExecutor
+from apps.node.inference_backend import LocalOpenAIInferenceBackend
+from apps.node.model_preparation import (
+    AllowlistedModelPreparationExecutor,
+    ModelPreparationManifestError,
+)
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
 from protocol.node_identity import (
     AUTH_METHOD,
@@ -39,9 +48,13 @@ from runtime.llama.gpu_promo_challenge import (
     build_signed_gpu_promo_proof,
 )
 from runtime.llama.node_attestation_service import NodeAttestationService
+from services.orchestrator.inference_transport import (
+    make_inference_request_handler,
+    make_inference_stream_handler,
+)
 from services.orchestrator.persistent_control_channel import (
-    ProviderPersistentClient,
     PersistentControlChannelError,
+    ProviderPersistentClient,
     recv_frame,
     send_frame,
     tls_client_connector,
@@ -53,10 +66,56 @@ BASE_CAPABILITIES = (
     "live_runtime_registration_v1",
     "capacity_reservation_v1",
 )
+MODEL_PREPARATION_CAPABILITY = "model_preparation_v1"
+ENVIRONMENT_CAPABILITY = "mesh_environment_v1"
+
+
+def _accepts_cancel_token(handler: Callable[..., Any] | None) -> bool:
+    if handler is None:
+        return False
+    try:
+        parameters = inspect.signature(handler).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    positional = [
+        parameter for parameter in parameters
+        if parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
+    ]
+    return len(positional) >= 3 or any(
+        parameter.kind is inspect.Parameter.VAR_POSITIONAL
+        for parameter in parameters
+    )
 
 
 class ProviderAgentError(RuntimeError):
     pass
+
+
+def _optional_path(value: str | os.PathLike[str] | None) -> Path | None:
+    """Treat an empty service-manager expansion as an omitted path."""
+    if value is None:
+        return None
+    text = os.fspath(value).strip()
+    return Path(text) if text else None
+
+
+def _install_shutdown_handlers(client: ProviderPersistentClient) -> Callable[[], None]:
+    """Make service-manager termination unblock the persistent provider loop."""
+    previous: dict[int, Any] = {}
+
+    def request_stop(_signum: int, _frame: Any) -> None:
+        client.stop()
+
+    for name in ("SIGTERM", "SIGINT"):
+        signum = getattr(signal, name, None)
+        if signum is not None:
+            previous[signum] = signal.signal(signum, request_stop)
+
+    def restore() -> None:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+    return restore
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -69,6 +128,111 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ProviderAgentError(f"JSON root must be an object: {path}")
     return value
+
+
+_MODEL_CATALOGUE_KEYS = (
+    "status",
+    "quantization",
+    "size_bytes",
+    "parameters",
+    "slots",
+    "free_vram_bytes",
+    "available_vram_bytes",
+    "vram_bytes",
+    "context_tokens",
+    "context_size",
+    "max_context_tokens",
+    "throughput_tokens_per_second",
+)
+
+
+def _normalize_model_catalogue(raw_models: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    """Expose only bounded, locally available model metadata to the control plane."""
+    normalized: list[dict[str, Any]] = []
+    for raw in raw_models:
+        if not isinstance(raw, Mapping):
+            raise ProviderAgentError("model catalogue contains a non-object")
+        available = raw.get("available", raw.get("present", True))
+        if available is False:
+            continue
+        model_id = raw.get("model_id") or raw.get("id") or raw.get("model") or raw.get("name")
+        if not isinstance(model_id, str) or not 1 <= len(model_id) <= 256:
+            raise ProviderAgentError("model catalogue contains an invalid model_id")
+        item: dict[str, Any] = {"model_id": model_id}
+        for key in _MODEL_CATALOGUE_KEYS:
+            value = raw.get(key)
+            if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+                item[key] = value
+        for key in ("capabilities", "modalities"):
+            value = raw.get(key)
+            if isinstance(value, (list, tuple, set)):
+                item[key] = [str(entry)[:128] for entry in list(value)[:32]]
+        normalized.append(item)
+        if len(normalized) > 512:
+            raise ProviderAgentError("model catalogue is too large")
+    return tuple(normalized)
+
+
+def _profile_device_memory_mb(profile: Mapping[str, Any]) -> dict[str, int]:
+    """Extract only bounded accelerator memory for local admission checks."""
+    raw_devices = profile.get("devices")
+    if not isinstance(raw_devices, (list, tuple)):
+        return {}
+    devices: dict[str, int] = {}
+    for raw in raw_devices:
+        if not isinstance(raw, Mapping):
+            continue
+        kind = str(raw.get("kind") or "").strip().lower()
+        if kind not in {"gpu", "accelerator", "cuda", "rocm", "metal"}:
+            continue
+        device_id = str(raw.get("device_id") or "").strip()
+        raw_bytes = raw.get("memory_total_bytes")
+        if not device_id or isinstance(raw_bytes, bool):
+            continue
+        try:
+            memory_mb = int(raw_bytes) // (1024 * 1024)
+        except (TypeError, ValueError):
+            continue
+        if memory_mb > 0:
+            devices[device_id] = memory_mb
+    return devices
+
+
+def _load_local_model_catalogue(path: Path | None) -> tuple[dict[str, Any], ...]:
+    if path is not None:
+        document = _load_json(path)
+        if document.get("schema_version") != 1 or not isinstance(document.get("models"), list):
+            raise ProviderAgentError("model catalogue must contain schema_version 1 and a models list")
+        return _normalize_model_catalogue(document["models"])
+    try:
+        from services.appliance_dashboard.model_manager import get_model_manager
+
+        return _normalize_model_catalogue(get_model_manager().list_models())
+    except Exception as exc:
+        raise ProviderAgentError(f"local model catalogue could not be read: {exc}") from exc
+
+
+def _managed_model_cancel_callback(endpoint: str) -> Callable[[], None] | None:
+    """Return a process-stop hook only for an explicitly owned NodeOS runtime."""
+    enabled = os.environ.get("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", "").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+
+    from services.appliance_dashboard.model_manager import get_model_manager
+
+    manager = get_model_manager()
+    engine = manager.engine
+    managed_origin = f"http://{engine.host}:{engine.port}"
+    requested = urlparse(endpoint)
+    expected = urlparse(managed_origin)
+    if (requested.scheme.lower(), requested.netloc.lower()) != (
+        expected.scheme.lower(),
+        expected.netloc.lower(),
+    ):
+        raise ProviderAgentError(
+            "managed-model cancellation requires the inference endpoint owned by NodeOS model engine"
+        )
+    return engine.stop
 
 
 def _load_private_key(path: Path) -> Ed25519PrivateKey:
@@ -153,9 +317,15 @@ class ProviderAgent:
         prefill: dict[str, Any],
         decode: dict[str, Any],
         runtime_advertisement: dict[str, Any],
+        models: Iterable[Mapping[str, Any]] = (),
         network_reports: Sequence[dict[str, Any]] = (),
         capacity_guard: LocalCapacityGuard | None = None,
         gpu_promo_runner: GpuPromoChallengeRunner | None = None,
+        inference_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        inference_stream_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Iterable[Mapping[str, Any]]] | None = None,
+        model_preparation_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        environment_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        enforce_inference_capacity: bool = False,
     ) -> None:
         if not node_id or len(node_id) > 128:
             raise ValueError("invalid node_id")
@@ -166,10 +336,37 @@ class ProviderAgent:
         self.prefill = dict(prefill)
         self.decode = dict(decode)
         self.runtime_advertisement = dict(runtime_advertisement)
+        self.models = _normalize_model_catalogue(models)
         self.network_reports = tuple(dict(item) for item in network_reports)
-        self.capacity_guard = capacity_guard or LocalCapacityGuard(node_id=node_id)
+        self.capacity_guard = capacity_guard or LocalCapacityGuard(
+            node_id=node_id,
+            device_memory_mb=_profile_device_memory_mb(self.profile),
+        )
         self.gpu_promo_runner = gpu_promo_runner
+        self.inference_executor = inference_executor
+        self.inference_stream_executor = inference_stream_executor
+        self.model_preparation_executor = model_preparation_executor
+        self.environment_executor = environment_executor
+        self.enforce_inference_capacity = bool(enforce_inference_capacity)
+        self._inference_handler = (
+            make_inference_request_handler(inference_executor)
+            if inference_executor is not None
+            else None
+        )
+        self._inference_stream_handler = (
+            make_inference_stream_handler(inference_stream_executor)
+            if inference_stream_executor is not None
+            else None
+        )
         self.capabilities = BASE_CAPABILITIES + ((GPU_PROMO_CAPABILITY,) if gpu_promo_runner else ())
+        if inference_executor is not None:
+            self.capabilities += ("inference_v1",)
+        if inference_stream_executor is not None:
+            self.capabilities += ("inference_stream_v1",)
+        if model_preparation_executor is not None:
+            self.capabilities += (MODEL_PREPARATION_CAPABILITY,)
+        if environment_executor is not None:
+            self.capabilities += (ENVIRONMENT_CAPABILITY,)
         if self.profile.get("node_id") != node_id:
             raise ProviderAgentError("profile node_id does not match configured node identity")
         revision = self.profile.get("profile_revision")
@@ -184,6 +381,15 @@ class ProviderAgent:
             raise ProviderAgentError("runtime advertisement profile_revision mismatch")
         contracts = SessionMessageContractValidator()
         contracts.validate("NodeProfileUpdate", self.profile)
+        contracts.validate(
+            "ModelCatalogueUpdate",
+            {
+                "schema_version": 1,
+                "node_id": node_id,
+                "profile_revision": revision,
+                "models": list(self.models),
+            },
+        )
         contracts.validate("RuntimeAdvertisement", self.runtime_advertisement)
         contracts.validate("BenchmarkReport", self.prefill)
         contracts.validate("BenchmarkReport", self.decode)
@@ -275,6 +481,20 @@ class ProviderAgent:
             payload=self.profile,
             correlation_id=session_id,
         )
+        revision, state = _send_envelope_and_ack(
+            sock,
+            message_type="ModelCatalogueUpdate",
+            actor_id=self.node_id,
+            target_id=control_plane_id,
+            revision=revision,
+            payload={
+                "schema_version": 1,
+                "node_id": self.node_id,
+                "profile_revision": self.profile["profile_revision"],
+                "models": list(self.models),
+            },
+            correlation_id=session_id,
+        )
         for message_type, document in (
             ("RuntimeAdvertisement", self.runtime_advertisement),
             ("BenchmarkReport", self.prefill),
@@ -317,6 +537,7 @@ class ProviderAgent:
             profile_revision=int(self.profile["profile_revision"]),
             drain_reason=None,
             close_reason=None,
+            key_id=self.key_id,
         )
 
     def _handle_gpu_promo_request(
@@ -361,7 +582,83 @@ class ProviderAgent:
         message_type: str,
         payload: dict[str, Any],
         session: SessionSnapshot,
+        cancel_event: threading.Event | None = None,
     ) -> dict[str, Any]:
+        if message_type == "EnvironmentRequest":
+            if self.environment_executor is None:
+                raise ProviderAgentError("mesh environment runtime is not configured on this node")
+            contracts = SessionMessageContractValidator()
+            contracts.validate(message_type, payload)
+            if (
+                payload.get("session_id") != session.session_id
+                or payload.get("session_revision") != session.revision
+                or payload.get("node_id") != self.node_id
+            ):
+                raise ProviderAgentError("environment request session or node binding mismatch")
+            try:
+                if cancel_event is not None and _accepts_cancel_token(self.environment_executor):
+                    raw_response = self.environment_executor(session, payload, cancel_event)
+                else:
+                    raw_response = self.environment_executor(session, payload)
+            except Exception as exc:
+                raise ProviderAgentError("environment executor failed") from exc
+            if not isinstance(raw_response, Mapping):
+                raise ProviderAgentError("environment executor returned a non-object response")
+            response = {
+                "schema_version": 1,
+                "session_id": session.session_id,
+                "session_revision": session.revision,
+                "node_id": self.node_id,
+                "environment_id": payload["environment_id"],
+                "operation": payload["operation"],
+                "status": raw_response.get("status", "ok"),
+            }
+            for key in ("lease_id", "issued_at", "expires_at", "lease_revision", "result", "reason_code"):
+                if key in raw_response:
+                    response[key] = raw_response[key]
+            contracts.validate("EnvironmentResponse", response)
+            return response
+        if message_type == "ModelPreparationRequest":
+            if self.model_preparation_executor is None:
+                raise ProviderAgentError("model preparation runtime is not configured on this node")
+            contracts = SessionMessageContractValidator()
+            contracts.validate(message_type, payload)
+            if (
+                payload.get("session_id") != session.session_id
+                or payload.get("session_revision") != session.revision
+                or payload.get("node_id") != self.node_id
+            ):
+                raise ProviderAgentError("model preparation request session or node binding mismatch")
+            try:
+                raw_response = self.model_preparation_executor(session, payload)
+            except Exception as exc:
+                raise ProviderAgentError("model preparation executor failed") from exc
+            if not isinstance(raw_response, Mapping):
+                raise ProviderAgentError("model preparation executor returned a non-object response")
+            response = {
+                "schema_version": 1,
+                "session_id": session.session_id,
+                "session_revision": session.revision,
+                "node_id": self.node_id,
+                "model_id": payload["model_id"],
+                "artifact_digest": payload["artifact_digest"],
+                "status": raw_response.get("status", "prepared"),
+            }
+            for key in ("reason_code", "idempotency_replay"):
+                if key in raw_response:
+                    response[key] = raw_response[key]
+            contracts.validate("ModelPreparationResponse", response)
+            return response
+        if message_type == "InferenceRequest":
+            if self._inference_handler is None:
+                raise ProviderAgentError("inference runtime is not configured on this node")
+            self._require_inference_capacity(payload)
+            try:
+                return self._inference_handler(message_type, payload, session, cancel_event)
+            except Exception as exc:
+                if isinstance(exc, ProviderAgentError):
+                    raise
+                raise ProviderAgentError(str(exc)) from exc
         if message_type == "CapacityReserveRequest":
             SessionMessageContractValidator().validate(message_type, payload)
             reservation = self.capacity_guard.acquire(
@@ -401,6 +698,27 @@ class ProviderAgent:
             request_session_id=str(request_session_id),
             request_document=request,
         )
+
+    def _require_inference_capacity(self, payload: Mapping[str, Any]) -> None:
+        if not self.enforce_inference_capacity:
+            return
+        lease_id = str(payload.get("lease_id") or "")
+        try:
+            self.capacity_guard.require_active_lease(lease_id)
+        except Exception as exc:
+            raise ProviderAgentError("inference requires an active provider capacity reservation") from exc
+
+    def handle_stream_request(
+        self,
+        message_type: str,
+        payload: dict[str, Any],
+        session: SessionSnapshot,
+        cancel_event: threading.Event | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        if self._inference_stream_handler is None:
+            raise ProviderAgentError("inference streaming runtime is not configured on this node")
+        self._require_inference_capacity(payload)
+        return self._inference_stream_handler(message_type, payload, session, cancel_event)
 
 
 def _runtime_document(
@@ -461,6 +779,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--prefill", type=Path, required=True)
     parser.add_argument("--decode", type=Path, required=True)
+    parser.add_argument(
+        "--model-catalogue",
+        type=_optional_path,
+        help="optional signed/operator-generated model inventory; otherwise read the local NodeOS catalogue",
+        default=_optional_path(os.environ.get("COMPUTEMESH_MODEL_CATALOGUE")),
+    )
     parser.add_argument("--network-report", type=Path, action="append", default=[])
     parser.add_argument("--rpc-host", required=True)
     parser.add_argument("--rpc-port", type=int, default=50052)
@@ -473,12 +797,62 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--promo-port", type=int, default=18090)
     parser.add_argument("--promo-ctx-size", type=int, default=2048)
     parser.add_argument("--promo-max-timeout", type=float, default=300.0)
+    parser.add_argument(
+        "--inference-endpoint",
+        help="optional loopback OpenAI-compatible NodeOS endpoint; enables inference_v1",
+        default=os.environ.get("COMPUTEMESH_NODEOS_INFERENCE_ENDPOINT"),
+    )
+    parser.add_argument(
+        "--inference-auth-token",
+        help="optional local-only bearer token for the loopback inference endpoint",
+        default=os.environ.get("COMPUTEMESH_NODEOS_INFERENCE_AUTH_TOKEN"),
+    )
+    parser.add_argument(
+        "--model-preparation-manifest",
+        type=_optional_path,
+        help="optional local allowlist for authenticated model preparation",
+        default=_optional_path(os.environ.get("COMPUTEMESH_MODEL_PREPARATION_MANIFEST")),
+    )
+    parser.add_argument(
+        "--environment-root",
+        type=_optional_path,
+        help="optional persistent root for typed mesh environments; enables mesh_environment_v1",
+        default=_optional_path(os.environ.get("COMPUTEMESH_NODEOS_ENVIRONMENT_ROOT")),
+    )
     args = parser.parse_args(argv)
 
     profile = _load_json(args.profile)
     profile_revision = profile.get("profile_revision")
     if isinstance(profile_revision, bool) or not isinstance(profile_revision, int):
         raise ProviderAgentError("profile lacks integer profile_revision")
+    models = _load_local_model_catalogue(args.model_catalogue)
+    inference_backend = (
+        LocalOpenAIInferenceBackend(
+            endpoint=str(args.inference_endpoint),
+            auth_token=args.inference_auth_token,
+            on_cancel=_managed_model_cancel_callback(str(args.inference_endpoint)),
+        )
+        if args.inference_endpoint
+        else None
+    )
+    model_preparation_executor = None
+    if args.model_preparation_manifest is not None:
+        try:
+            model_preparation_executor = AllowlistedModelPreparationExecutor.from_path(
+                args.model_preparation_manifest
+            )
+        except ModelPreparationManifestError as exc:
+            raise ProviderAgentError(str(exc)) from exc
+    environment_executor = None
+    if args.environment_root is not None:
+        try:
+            environment_executor = NodeEnvironmentExecutor(
+                node_id=args.node_id,
+                root=str(args.environment_root),
+                inference_executor=inference_backend,
+            )
+        except (OSError, ValueError, NodeEnvironmentError) as exc:
+            raise ProviderAgentError(str(exc)) from exc
     agent = ProviderAgent(
         node_id=args.node_id,
         private_key_path=args.private_key,
@@ -493,8 +867,14 @@ def main(argv: list[str] | None = None) -> int:
             build_number=args.llama_build_number,
             build_commit=args.llama_build_commit,
         ),
+        models=models,
         network_reports=tuple(_load_json(path) for path in args.network_report),
         gpu_promo_runner=_gpu_promo_runner_from_args(args),
+        inference_executor=inference_backend,
+        inference_stream_executor=(inference_backend.stream if inference_backend is not None else None),
+        model_preparation_executor=model_preparation_executor,
+        environment_executor=environment_executor,
+        enforce_inference_capacity=True,
     )
     if not args.ca_file.is_file():
         raise ProviderAgentError("control-plane CA file does not exist")
@@ -508,13 +888,17 @@ def main(argv: list[str] | None = None) -> int:
         connector=connector,
         handshake=agent.handshake,
         request_handler=agent.handle_request,
+        stream_handler=agent.handle_stream_request,
     )
+    restore_shutdown_handlers = _install_shutdown_handlers(client)
     try:
         client.serve_forever()
     except KeyboardInterrupt:
         client.stop()
     except PersistentControlChannelError as exc:
         raise ProviderAgentError(str(exc)) from exc
+    finally:
+        restore_shutdown_handlers()
     return 0
 
 

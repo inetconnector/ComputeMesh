@@ -12,7 +12,9 @@ from protocol.session_wire import BenchmarkAcceptanceDecision
 from runtime.llama.gpu_promo_challenge import GPU_PROMO_CAPABILITY
 from services.compliance.policy import load_provider_compliance_registry_from_env
 from services.identity.store import SQLiteIdentityStore
+from services.mcp.platform.node_registry import NodeRegistry
 from services.orchestrator.live_provider_registration import (
+    LiveAgentNodeAdmission,
     LiveProviderRegistration,
     accept_live_authenticated_provider,
 )
@@ -20,8 +22,20 @@ from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
 from services.orchestrator.persistent_control_channel import PersistentNodeControlClient
 from services.orchestrator.provider_compliance import ComplianceAwareLiveProviderRegistration
 
-
 CONFIDENTIAL_PROVISION_CAPABILITY = "confidential_session_provision_v1"
+CAPACITY_RESERVATION_CAPABILITY = "capacity_reservation_v1"
+INFERENCE_CAPABILITY = "inference_v1"
+INFERENCE_STREAM_CAPABILITY = "inference_stream_v1"
+
+LIVE_CONTROL_PLANE_CAPABILITIES = (
+    "execution_attestation_v1",
+    "live_runtime_registration_v1",
+    CAPACITY_RESERVATION_CAPABILITY,
+    INFERENCE_CAPABILITY,
+    INFERENCE_STREAM_CAPABILITY,
+    GPU_PROMO_CAPABILITY,
+    CONFIDENTIAL_PROVISION_CAPABILITY,
+)
 
 
 class LiveBenchmarkAcceptancePolicy:
@@ -53,6 +67,7 @@ class IntegratedLiveControlPlane:
         stale_after_seconds: float = 45.0,
         identity_store: SQLiteIdentityStore | None = None,
         close_identity_store: bool = False,
+        agent_node_registry: NodeRegistry | None = None,
     ) -> None:
         if heartbeat_interval_seconds <= 0 or stale_after_seconds <= heartbeat_interval_seconds:
             raise ValueError("heartbeat/stale intervals are invalid")
@@ -64,14 +79,23 @@ class IntegratedLiveControlPlane:
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self.stale_after_seconds = stale_after_seconds
         self.control_client = PersistentNodeControlClient()
+        agent_node_admission = (
+            LiveAgentNodeAdmission(agent_node_registry, control_client=self.control_client)
+            if agent_node_registry is not None
+            else None
+        )
         compliance_registry = load_provider_compliance_registry_from_env()
         self.registration: LiveProviderRegistration
         if compliance_registry is None:
-            self.registration = LiveProviderRegistration(registry)
+            self.registration = LiveProviderRegistration(
+                registry,
+                agent_node_admission=agent_node_admission,
+            )
         else:
             self.registration = ComplianceAwareLiveProviderRegistration(
                 registry,
                 compliance_registry=compliance_registry,
+                agent_node_admission=agent_node_admission,
             )
         self.benchmark_policy = LiveBenchmarkAcceptancePolicy()
         self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -136,12 +160,7 @@ class IntegratedLiveControlPlane:
                 control_client=self.control_client,
                 registration=self.registration,
                 control_plane_id=self.control_plane_id,
-                control_plane_capabilities=(
-                    "execution_attestation_v1",
-                    "live_runtime_registration_v1",
-                    GPU_PROMO_CAPABILITY,
-                    CONFIDENTIAL_PROVISION_CAPABILITY,
-                ),
+                control_plane_capabilities=LIVE_CONTROL_PLANE_CAPABILITIES,
             )
             transferred = True
         except Exception:

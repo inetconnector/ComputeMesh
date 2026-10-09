@@ -1,14 +1,44 @@
 """ComputeMesh Agents Platform public runtime contracts and integrations."""
 
+from services.orchestrator.inference_transport import (
+    AuthenticatedNodeInferenceClient,
+    AuthenticatedNodeModelExecutor,
+    InferenceContractError,
+    InferenceTransportError,
+    make_inference_request_handler,
+    make_inference_stream_handler,
+)
+from services.orchestrator.model_preparation_transport import (
+    AuthenticatedModelPreparationClient,
+    ModelPreparationTransportError,
+)
+
 from .admin import RegistryAdminError, SkillRegistryAdminAPI
+from .agent_definitions import (
+    AgentDefinition,
+    AgentDefinitionConflict,
+    AgentDefinitionError,
+    AgentDefinitionStore,
+    RegisteredAgentDefinition,
+)
 from .agents_rules import AgentRuleDocument, AgentsRuleResolver, RuleResolution
+from .artifacts import (
+    ArtifactAccessDenied,
+    ArtifactChunk,
+    ArtifactError,
+    ArtifactNotFound,
+    ArtifactRef,
+    ArtifactStore,
+)
 from .audit import AuditEvent, AuditLogger
+from .compaction import CompactionError, CompactionResult, ModelCompactor
+from .context import ContextBuild, ContextLimitError, ContextManager
 from .contracts import (
     RequestEnvelope,
-    RuntimePolicyEnvelope,
     RiskLevel,
     RouteCandidate,
     RoutingDecision,
+    RuntimePolicyEnvelope,
     SideEffectLevel,
     SkillManifest,
     SkillStatus,
@@ -19,9 +49,105 @@ from .contracts import (
     ToolManifest,
     ToolMode,
 )
+from .dispatch import (
+    LeaseBoundModelDispatcher,
+    ModelDispatchError,
+    ModelDispatchResult,
+    NoCapableNode,
+)
+from .environment import (
+    BoundedEnvironmentExecutor,
+    EnvironmentError,
+    EnvironmentEventSink,
+    EnvironmentExpired,
+    EnvironmentKind,
+    EnvironmentLease,
+    EnvironmentOperation,
+    EnvironmentPolicyDenied,
+    EnvironmentRequest,
+    EnvironmentSpec,
+    EnvironmentState,
+    EnvironmentStateConflict,
+    EnvironmentTransport,
+    ResourceLimits,
+    new_request_id,
+)
+from .event_outbox import AgentEventOutboxDispatcher, EventOutboxDispatchError, OutboxDispatchStats
+from .harness import HarnessRun, MeshAgentHarness
 from .health import AgentsPlatformHealth, ComponentHealth, collect_agents_platform_health
+from .leases import (
+    LeaseState,
+    NodeLease,
+    NodeLeaseStore,
+    ReservationConflict,
+    ReservationDenied,
+    ReservationError,
+)
+from .mcp_discovery import (
+    MCPDiscoveryError,
+    MCPDiscoveryPolicy,
+    MCPOrigin,
+    MCPServerStatus,
+    MCPToolDescriptor,
+    MCPToolDiscoveryBroker,
+)
+from .model_caller import (
+    BackendModelCaller,
+    CompletionBackend,
+    MeshDispatchModelCaller,
+    ModelCallerError,
+    make_backend_model_caller,
+)
+from .model_preparation import (
+    ModelArtifactSpec,
+    ModelPreparationCoordinator,
+    ModelPreparationError,
+    ModelPreparationPlan,
+    ModelPreparationResult,
+)
+from .multi_agent import (
+    DelegationDenied,
+    LeaseFactory,
+    MultiAgentError,
+    SubagentBatch,
+    SubagentCoordinator,
+    SubagentExecution,
+)
+from .node_onboarding import (
+    NodeAuthenticationRequired,
+    NodeOnboardingCoordinator,
+    NodeOnboardingError,
+    NodeOnboardingObservation,
+    NodeOnboardingResult,
+)
+from .node_registry import (
+    NodeLifecycle,
+    NodeRecord,
+    NodeRegistry,
+    NodeRegistryError,
+    NodeRegistryEvent,
+    NodeStateConflict,
+)
+from .node_routing import (
+    CapabilityAwareNodeRouter,
+    NodeRouteCandidate,
+    NodeRouteDecision,
+    NodeRouteRequirement,
+)
+from .node_transport import (
+    AuthenticatedNodeRegistrySync,
+    AuthenticatedNodeSyncError,
+    NodeSyncResult,
+)
+from .openai_agents import OpenAIAgentsClient, OpenAIAgentsConfig, OpenAIAgentsProviderError
 from .pipeline import AgentsOrchestrationPipeline, OrchestrationPlan, PlannedTask
-from .project_state import ProjectStateStore, StateSnapshot, StaleStateError
+from .process_workspace import (
+    ProcessIsolatedWorkspaceTransport,
+    ProcessSandboxError,
+    ProcessSandboxPolicy,
+    ProcessSandboxTimeout,
+)
+from .project_state import ProjectStateStore, StaleStateError, StateSnapshot
 from .request_analysis import (
     ConstraintSignal,
     EntitySignal,
@@ -31,10 +157,43 @@ from .request_analysis import (
     RequirementStrength,
 )
 from .reroute import RerouteAttempt, RerouteManager, RerouteResult, reroute_trigger_for_error
-from .runtime import AgentsPlatformRuntime, PlatformContextBlock, PlatformPreparation, build_agents_platform_runtime
+from .runtime import (
+    AgentsPlatformRuntime,
+    PlatformContextBlock,
+    PlatformPreparation,
+    build_agents_platform_runtime,
+)
+from .session import (
+    AgentControl,
+    AgentItem,
+    AgentSession,
+    AgentSessionStore,
+    AgentTurn,
+    Approval,
+    ApprovalStatus,
+    ControlAction,
+    ControlStatus,
+    EventPage,
+    SessionEvent,
+    SessionStateConflict,
+    SessionStatus,
+    TurnStatus,
+)
+from .session_projection import (
+    SessionProjection,
+    SessionProjectionDenied,
+    SessionProjectionError,
+    authorize_session,
+    project_approval,
+    project_approvals,
+    project_events,
+    project_session,
+    project_sessions,
+)
 from .skill_registry import PersistentSkillRegistry, parse_frontmatter
 from .skill_router import SkillRouter
 from .subagents import SubagentContract, SubagentGate, SubagentResult
+from .tool_broker import AgentToolBroker, BrokerCall
 from .tool_contracts import (
     EgressPolicy,
     PaginationState,
@@ -54,6 +213,18 @@ from .tool_execution import (
     ToolCapabilityRegistry,
     apply_default_compute_mesh_tool_policy,
 )
+from .tracing import TraceSpan, TraceStore
+from .usage import (
+    UsageBudget,
+    UsageConflict,
+    UsageDelta,
+    UsageError,
+    UsageLedger,
+    UsageLimitExceeded,
+    UsageQuota,
+    UsageRecord,
+    UsageTotals,
+)
 from .validation import (
     ErrorCode,
     EvidenceLedger,
@@ -65,6 +236,19 @@ from .validation import (
     ValidationResult,
     classify_exception,
 )
+from .worker import (
+    AgentWorkerError,
+    AgentWorkerRequest,
+    AgentWorkerResult,
+    AgentWorkerServiceSnapshot,
+    DurableWorkerConcurrencyGate,
+    MeshAgentWorker,
+    MeshAgentWorkerService,
+    WorkerConcurrencyBudget,
+    WorkerConcurrencyGate,
+    WorkerPreflight,
+    WorkerSchedulingPolicy,
+)
 from .workflow import (
     DAGWorkflowEngine,
     WorkflowDefinitionError,
@@ -73,16 +257,155 @@ from .workflow import (
     WorkflowResult,
     WorkflowStateConflict,
 )
+from .workspace import LocalWorkspaceError, LocalWorkspaceTransport
 
 __all__ = [
+    "AgentControl",
+    "ControlAction",
+    "ControlStatus",
     "AgentRuleDocument",
+    "AgentDefinition",
+    "AgentDefinitionConflict",
+    "AgentDefinitionError",
+    "AgentDefinitionStore",
+    "RegisteredAgentDefinition",
+    "Approval",
+    "ApprovalStatus",
+    "ArtifactAccessDenied",
+    "ArtifactChunk",
+    "ArtifactError",
+    "ArtifactNotFound",
+    "ArtifactRef",
+    "ArtifactStore",
     "AgentsOrchestrationPipeline",
     "AgentsPlatformHealth",
+    "HarnessRun",
+    "MeshAgentHarness",
+    "DelegationDenied",
+    "LeaseFactory",
+    "MultiAgentError",
+    "SubagentBatch",
+    "SubagentCoordinator",
+    "SubagentExecution",
+    "TraceSpan",
+    "TraceStore",
+    "AgentEventOutboxDispatcher",
+    "EventOutboxDispatchError",
+    "OutboxDispatchStats",
+    "UsageBudget",
+    "UsageConflict",
+    "UsageDelta",
+    "UsageError",
+    "UsageLedger",
+    "UsageLimitExceeded",
+    "UsageQuota",
+    "UsageRecord",
+    "UsageTotals",
+    "AgentWorkerError",
+    "AgentWorkerRequest",
+    "AgentWorkerResult",
+    "AgentWorkerServiceSnapshot",
+    "MeshAgentWorker",
+    "MeshAgentWorkerService",
+    "DurableWorkerConcurrencyGate",
+    "WorkerConcurrencyBudget",
+    "WorkerConcurrencyGate",
+    "WorkerPreflight",
+    "WorkerSchedulingPolicy",
+    "BackendModelCaller",
+    "MeshDispatchModelCaller",
+    "CompletionBackend",
+    "ModelCallerError",
+    "make_backend_model_caller",
+    "OpenAIAgentsClient",
+    "OpenAIAgentsConfig",
+    "OpenAIAgentsProviderError",
+    "AgentToolBroker",
+    "BrokerCall",
+    "MCPDiscoveryError",
+    "MCPDiscoveryPolicy",
+    "MCPOrigin",
+    "MCPServerStatus",
+    "MCPToolDescriptor",
+    "MCPToolDiscoveryBroker",
+    "ModelArtifactSpec",
+    "ModelPreparationCoordinator",
+    "ModelPreparationError",
+    "ModelPreparationPlan",
+    "ModelPreparationResult",
+    "AuthenticatedModelPreparationClient",
+    "ModelPreparationTransportError",
     "AgentsPlatformRuntime",
+    "AgentItem",
+    "AgentSession",
+    "AgentSessionStore",
+    "AgentTurn",
+    "EventPage",
     "AgentsRuleResolver",
     "AuditEvent",
     "AuditLogger",
     "ComponentHealth",
+    "ContextBuild",
+    "ContextLimitError",
+    "ContextManager",
+    "CompactionError",
+    "CompactionResult",
+    "ModelCompactor",
+    "BoundedEnvironmentExecutor",
+    "EnvironmentError",
+    "EnvironmentExpired",
+    "EnvironmentKind",
+    "EnvironmentLease",
+    "EnvironmentOperation",
+    "EnvironmentPolicyDenied",
+    "EnvironmentRequest",
+    "EnvironmentSpec",
+    "EnvironmentState",
+    "EnvironmentStateConflict",
+    "EnvironmentEventSink",
+    "EnvironmentTransport",
+    "NodeLifecycle",
+    "NodeRecord",
+    "NodeRegistry",
+    "NodeRegistryError",
+    "NodeRegistryEvent",
+    "NodeStateConflict",
+    "NodeAuthenticationRequired",
+    "NodeOnboardingCoordinator",
+    "NodeOnboardingError",
+    "NodeOnboardingObservation",
+    "NodeOnboardingResult",
+    "CapabilityAwareNodeRouter",
+    "NodeRouteCandidate",
+    "NodeRouteDecision",
+    "NodeRouteRequirement",
+    "AuthenticatedNodeRegistrySync",
+    "AuthenticatedNodeSyncError",
+    "NodeSyncResult",
+    "LeaseBoundModelDispatcher",
+    "ModelDispatchError",
+    "ModelDispatchResult",
+    "NoCapableNode",
+    "AuthenticatedNodeInferenceClient",
+    "AuthenticatedNodeModelExecutor",
+    "InferenceContractError",
+    "InferenceTransportError",
+    "make_inference_request_handler",
+    "make_inference_stream_handler",
+    "LeaseState",
+    "NodeLease",
+    "NodeLeaseStore",
+    "ReservationConflict",
+    "ReservationDenied",
+    "ReservationError",
+    "ResourceLimits",
+    "new_request_id",
+    "LocalWorkspaceError",
+    "LocalWorkspaceTransport",
+    "ProcessIsolatedWorkspaceTransport",
+    "ProcessSandboxError",
+    "ProcessSandboxPolicy",
+    "ProcessSandboxTimeout",
     "ConstraintSignal",
     "DAGWorkflowEngine",
     "EgressPolicy",
@@ -124,6 +447,9 @@ __all__ = [
     "SkillRegistryAdminAPI",
     "SkillRouter",
     "SkillStatus",
+    "SessionEvent",
+    "SessionStateConflict",
+    "SessionStatus",
     "StaleStateError",
     "StateSnapshot",
     "SubagentContract",
@@ -137,6 +463,16 @@ __all__ = [
     "ToolLifecycle",
     "ToolManifest",
     "ToolMode",
+    "TurnStatus",
+    "SessionProjection",
+    "SessionProjectionDenied",
+    "SessionProjectionError",
+    "authorize_session",
+    "project_events",
+    "project_approval",
+    "project_approvals",
+    "project_session",
+    "project_sessions",
     "ToolProvenance",
     "ToolResultEnvelope",
     "ToolResultStatus",

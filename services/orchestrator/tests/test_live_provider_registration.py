@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from protocol.control import ControlEnvelope
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
-from services.orchestrator.live_provider_registration import LiveProviderRegistration
+from services.mcp.platform.node_registry import NodeLifecycle, NodeRegistry
+from services.orchestrator.live_provider_registration import (
+    LiveAgentNodeAdmission,
+    LiveProviderRegistration,
+)
 from services.orchestrator.live_shared_runtime import LiveSharedRuntimeRegistry
-
 
 NOW = datetime.now(timezone.utc)
 
@@ -28,6 +32,7 @@ def session(state=NodeSessionState.PROFILE_SYNCED, revision=4):
         profile_revision=3,
         drain_reason=None,
         close_reason=None,
+        key_id="key-a",
     )
 
 
@@ -134,6 +139,55 @@ class LiveProviderRegistrationTests(unittest.TestCase):
         }
         with self.assertRaises(Exception):
             registration.consume(envelope("RuntimeAdvertisement", runtime, snap), snap)
+
+    def test_authenticated_model_catalogue_admits_node_to_agent_registry(self):
+        with tempfile.TemporaryDirectory() as raw:
+            agent_registry = NodeRegistry(f"{raw}/nodes.sqlite3")
+            try:
+                registration = LiveProviderRegistration(
+                    LiveSharedRuntimeRegistry(),
+                    agent_node_admission=LiveAgentNodeAdmission(agent_registry),
+                )
+                snap = session()
+                registration.note_session(snap)
+                registration.consume(envelope("NodeProfileUpdate", profile(), snap), snap)
+                registration.consume(
+                    envelope(
+                        "ModelCatalogueUpdate",
+                        {
+                            "schema_version": 1,
+                            "node_id": "node-a",
+                            "profile_revision": 3,
+                            "models": [{"model_id": "qwen2.5:3b", "context_size": 32768}],
+                        },
+                        snap,
+                    ),
+                    snap,
+                )
+                registration.consume(
+                    envelope(
+                        "RuntimeAdvertisement",
+                        {
+                            "schema_version": 1,
+                            "node_id": "node-a",
+                            "profile_revision": 3,
+                            "runtime": "llama.cpp",
+                            "llama_build_commit": "abcdef1",
+                            "llama_build_number": 123,
+                            "rpc": {"host": "10.0.0.2", "port": 50052},
+                        },
+                        snap,
+                    ),
+                    snap,
+                )
+                registration.consume(envelope("BenchmarkReport", benchmark("llama_cpp_prefill"), snap), snap)
+                registration.consume(envelope("BenchmarkReport", benchmark("llama_cpp_decode"), snap), snap)
+                admitted = agent_registry.get("node-a")
+                self.assertEqual(admitted.status, NodeLifecycle.READY)
+                self.assertEqual(admitted.models[0]["model_id"], "qwen2.5:3b")
+                self.assertEqual(registration.agent_admission_errors, {})
+            finally:
+                agent_registry.close()
 
 
 if __name__ == "__main__":

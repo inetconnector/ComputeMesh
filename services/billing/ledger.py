@@ -7,12 +7,12 @@ strict idempotency, and automated provider payout settlements.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 import enum
 import hashlib
 import json
 import os
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -47,10 +47,16 @@ class AccountType(enum.Enum):
 
 
 from services.common.pricing import (
-    DEFAULT_PRICE_TIERS,
-    ModelPriceTier,
+    DEFAULT_PRICE_TIERS as DEFAULT_PRICE_TIERS,
+)
+from services.common.pricing import (
+    ModelPriceTier as ModelPriceTier,
+)
+from services.common.pricing import (
     calculate_token_charge_micro,
-    get_price_tier,
+)
+from services.common.pricing import (
+    get_price_tier as get_price_tier,
 )
 
 
@@ -271,6 +277,22 @@ class Ledger:
                 self._persist_hold(hold)
                 return True
             return False
+
+    def get_hold(self, hold_id: str) -> CreditHold | None:
+        """Return a detached snapshot of one hold for restart-safe adapters."""
+        with self._lock:
+            hold = self._holds.get(str(hold_id))
+            if hold is None:
+                return None
+            return CreditHold(
+                hold_id=hold.hold_id,
+                account_id=hold.account_id,
+                amount_micro_units=hold.amount_micro_units,
+                model_id=hold.model_id,
+                created_at=hold.created_at,
+                expires_at=hold.expires_at,
+                status=hold.status,
+            )
 
     def capture_hold(
         self,

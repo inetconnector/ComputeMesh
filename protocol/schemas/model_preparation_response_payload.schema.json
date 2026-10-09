@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/model_preparation_response_payload.schema.json",
+  "title": "Authenticated ComputeMesh model preparation response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "session_revision", "node_id", "model_id", "artifact_digest", "status"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "session_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "artifact_digest": {"type": "string", "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$"},
+    "status": {"enum": ["prepared", "ready", "available", "failed"]},
+    "reason_code": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idempotency_replay": {"type": "boolean"}
+  }
+}

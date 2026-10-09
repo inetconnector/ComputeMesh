@@ -7,29 +7,32 @@ integrated with double-entry financial metering, Stripe Connect payouts, and Fre
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import hmac
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
-import secrets
 import sys
-import time
+from datetime import datetime, timezone
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore
-from services.billing.ledger import Ledger
+from services.billing.ledger import InsufficientBalanceError, Ledger
 from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.threadsafe_ledger import ThreadSafeLedger
-from services.portal.passkey_routes import FLEET_ACCOUNT_STORE, PasskeyAuthHandler, session_account_from_headers
+from services.gateway.inference_backend import InferenceBackendError
+from services.portal.passkey_routes import (
+    FLEET_ACCOUNT_STORE,
+    PasskeyAuthHandler,
+    session_account_from_headers,
+)
 from services.portal.routes_downloads import get_download_file_response
 from services.portal.routes_payouts import PortalPayoutsHandler
 
@@ -320,7 +323,12 @@ from services.billing.stripe_integration import (
 )
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
-from services.gateway.catalog import current_models, model_modalities, model_modality_flags, resolve_model_id
+from services.gateway.catalog import (
+    current_models,
+    model_modalities,
+    model_modality_flags,
+    resolve_model_id,
+)
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     _extract_candidate_local_urls,
@@ -339,7 +347,16 @@ from services.gateway.security import (
     sanitize_error_message,
 )
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
-from services.portal.passkey_routes import PasskeyAuthHandler, session_account_from_headers
+from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
+from services.mcp.platform.session import AgentSessionStore, ApprovalStatus, SessionStateConflict
+from services.mcp.platform.session_projection import (
+    SessionProjectionDenied,
+    project_approval,
+    project_approvals,
+    project_events,
+    project_session,
+    project_sessions,
+)
 
 DEFAULT_PORT = CONFIG.default_gateway_port
 
@@ -428,6 +445,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
     billing_routes: BillingRoutesHandler = BillingRoutesHandler(ledger=ledger, stripe_svc=stripe_svc, auth_manager=auth_manager)
     provider_routes: ProviderRoutesHandler = ProviderRoutesHandler(account_store=account_store, settlement_executor=settlement_executor, auth_manager=auth_manager, ledger=ledger)
     inference_engine: InferenceEngine = InferenceEngine(ledger=ledger, metrics=metrics, teaser_manager=teaser_manager)
+    agent_session_store: AgentSessionStore | None = None
+    agent_artifact_store: ArtifactStore | None = None
     passkey_handler: PasskeyAuthHandler = PasskeyAuthHandler()
     payouts_handler: PortalPayoutsHandler = PortalPayoutsHandler(ledger=ledger, account_store=account_store)
 
@@ -446,6 +465,30 @@ class GatewayHandler(BaseHTTPRequestHandler):
             pass
         backend = getattr(getattr(cls, "inference_engine", None), "backend", None)
         cls.inference_engine = InferenceEngine(ledger=cls.ledger, metrics=cls.metrics, teaser_manager=cls.teaser_manager, backend=backend)
+
+    @classmethod
+    def _get_agent_session_store(cls) -> AgentSessionStore:
+        if cls.agent_session_store is None:
+            raw_path = os.environ.get("COMPUTEMESH_AGENTS_SESSION_DB", "").strip()
+            path = Path(raw_path) if raw_path else REPO_ROOT / "data" / "agents" / "sessions.sqlite3"
+            if not path.is_absolute():
+                path = REPO_ROOT / path
+            cls.agent_session_store = AgentSessionStore(path)
+        return cls.agent_session_store
+
+    @classmethod
+    def _get_agent_artifact_store(cls) -> ArtifactStore:
+        if cls.agent_artifact_store is None:
+            raw_root = os.environ.get("COMPUTEMESH_AGENTS_ARTIFACT_ROOT", "").strip()
+            root = Path(raw_root) if raw_root else REPO_ROOT / "data" / "agents" / "artifacts"
+            if not root.is_absolute():
+                root = REPO_ROOT / root
+            raw_db = os.environ.get("COMPUTEMESH_AGENTS_ARTIFACT_DB", "").strip()
+            database = Path(raw_db) if raw_db else REPO_ROOT / "data" / "agents" / "artifacts.sqlite3"
+            if not database.is_absolute():
+                database = REPO_ROOT / database
+            cls.agent_artifact_store = ArtifactStore(root, database)
+        return cls.agent_artifact_store
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
@@ -590,6 +633,204 @@ class GatewayHandler(BaseHTTPRequestHandler):
         clean_path = parsed_path.path.rstrip("/")
         query = parse_qs(parsed_path.query)
 
+        agent_prefix = next(
+            (prefix for prefix in ("/v1/agents/sessions", "/api/v1/agents/sessions") if clean_path.startswith(prefix)),
+            None,
+        )
+        if agent_prefix is not None:
+            relative = clean_path[len(agent_prefix):].strip("/").split("/") if clean_path[len(agent_prefix):].strip("/") else []
+            if len(relative) > 2 or (len(relative) == 2 and relative[1] not in {"events", "artifacts"}):
+                self._send_error_response("Invalid agent session path", "invalid_request_error", HTTPStatus.NOT_FOUND)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent session authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            try:
+                store = self._get_agent_session_store()
+                principal_id = auth.owner_id or auth.account_id
+                is_admin = auth.account_id == "admin_root"
+                if len(relative) == 0:
+                    raw_limit = query.get("limit", ["100"])[0]
+                    list_limit = int(raw_limit)
+                    if list_limit < 1 or list_limit > 500:
+                        raise ValueError("limit is outside the allowed range")
+                    payload = project_sessions(store, principal_id=principal_id, limit=list_limit, is_admin=is_admin)
+                elif len(relative) == 1:
+                    session_id = relative[0]
+                    payload = project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                elif relative[1] == "artifacts":
+                    session_id = relative[0]
+                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    refs = self._get_agent_artifact_store().list_for_session(
+                        session_id,
+                        principal_id=principal_id,
+                    )
+                    projected_refs = []
+                    for ref in refs:
+                        item = ref.to_dict()
+                        item.pop("principal_id", None)
+                        projected_refs.append(item)
+                    payload = {
+                        "schema_version": 1,
+                        "object": "agent_artifacts",
+                        "session_id": session_id,
+                        "artifacts": projected_refs,
+                    }
+                else:
+                    def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+                        raw = query.get(name, [str(default)])[0]
+                        value = int(raw)
+                        if value < minimum or value > maximum:
+                            raise ValueError(f"{name} is outside the allowed range")
+                        return value
+
+                    payload = project_events(
+                        store,
+                        relative[0],
+                        principal_id=principal_id,
+                        after_sequence=bounded_int("after_sequence", 0, 0, 2_147_483_647),
+                        limit=bounded_int("limit", 100, 1, 1000),
+                        wait_seconds=float(query.get("wait_seconds", ["0"])[0]),
+                        is_admin=is_admin,
+                    )
+                self._send_json(payload)
+            except SessionProjectionDenied as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except ArtifactAccessDenied as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except KeyError:
+                self._send_error_response("Agent session not found", "not_found", HTTPStatus.NOT_FOUND)
+            except (TypeError, ValueError):
+                self._send_error_response("Invalid agent session query", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        artifact_prefix = next(
+            (prefix for prefix in ("/v1/agents/artifacts", "/api/v1/agents/artifacts") if clean_path.startswith(prefix)),
+            None,
+        )
+        if artifact_prefix is not None:
+            relative = clean_path[len(artifact_prefix):].strip("/").split("/") if clean_path[len(artifact_prefix):].strip("/") else []
+            if len(relative) != 1:
+                self._send_error_response("Invalid agent artifact path", "invalid_request_error", HTTPStatus.NOT_FOUND)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent artifact authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            principal_id = auth.owner_id or auth.account_id
+            try:
+                ref = self._get_agent_artifact_store().get_ref(relative[0], principal_id=principal_id)
+                data = self._get_agent_artifact_store().read_bytes(relative[0], principal_id=principal_id)
+            except ArtifactAccessDenied as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+                return
+            except ArtifactNotFound:
+                self._send_error_response("Agent artifact not found", "not_found", HTTPStatus.NOT_FOUND)
+                return
+            start = 0
+            end = len(data) - 1
+            status = HTTPStatus.OK
+            range_header = str(self.headers.get("Range") or "").strip()
+            if range_header:
+                if not range_header.startswith("bytes=") or "," in range_header:
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", f"bytes */{len(data)}")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.close_connection = True
+                    return
+                range_value = range_header[6:].strip()
+                raw_start, separator, raw_end = range_value.partition("-")
+                try:
+                    if not separator or (not raw_start and not raw_end):
+                        raise ValueError
+                    if raw_start:
+                        start = int(raw_start)
+                        end = int(raw_end) if raw_end else len(data) - 1
+                    else:
+                        suffix_length = int(raw_end)
+                        if suffix_length < 1:
+                            raise ValueError
+                        start = max(0, len(data) - suffix_length)
+                        end = len(data) - 1
+                except (TypeError, ValueError):
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", f"bytes */{len(data)}")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.close_connection = True
+                    return
+                if start < 0 or start >= len(data) or end < start:
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", f"bytes */{len(data)}")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.close_connection = True
+                    return
+                end = min(end, len(data) - 1)
+                data = data[start : end + 1]
+                status = HTTPStatus.PARTIAL_CONTENT
+            self.send_response(status)
+            self.send_header("Content-Type", ref.mime_type)
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(ref.name)}")
+            self.send_header("Accept-Ranges", "bytes")
+            if status is HTTPStatus.PARTIAL_CONTENT:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{ref.size_bytes}")
+            for h_name, h_val in SECURITY_HEADERS.items():
+                self.send_header(h_name, h_val)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(data)
+            self.close_connection = True
+            return
+
+        approval_prefix = next(
+            (prefix for prefix in ("/v1/agents/approvals", "/api/v1/agents/approvals") if clean_path.startswith(prefix)),
+            None,
+        )
+        if approval_prefix is not None:
+            relative = clean_path[len(approval_prefix):].strip("/").split("/") if clean_path[len(approval_prefix):].strip("/") else []
+            if len(relative) > 1:
+                self._send_error_response("Invalid agent approval path", "invalid_request_error", HTTPStatus.NOT_FOUND)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent approval authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            try:
+                store = self._get_agent_session_store()
+                principal_id = auth.owner_id or auth.account_id
+                is_admin = auth.account_id == "admin_root"
+                raw_limit = query.get("limit", ["100"])[0]
+                list_limit = int(raw_limit)
+                if list_limit < 1 or list_limit > 500:
+                    raise ValueError("limit is outside the allowed range")
+                if not relative:
+                    status = query.get("status", [None])[0]
+                    if status is not None and status not in {"pending", "approved", "rejected", "expired", "consumed"}:
+                        raise ValueError("invalid approval status")
+                    payload = project_approvals(
+                        store,
+                        principal_id=principal_id,
+                        session_id=query.get("session_id", [None])[0],
+                        status=status,
+                        limit=list_limit,
+                        is_admin=is_admin,
+                    )
+                else:
+                    payload = project_approval(store, relative[0], principal_id=principal_id, is_admin=is_admin)
+                self._send_json(payload)
+            except SessionProjectionDenied as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except KeyError:
+                self._send_error_response("Agent approval not found", "not_found", HTTPStatus.NOT_FOUND)
+            except (TypeError, ValueError):
+                self._send_error_response("Invalid agent approval query", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
         if clean_path in ("/metrics", "/v1/metrics"):
             text = self.metrics.render_prometheus_text()
             self.send_response(HTTPStatus.OK)
@@ -663,7 +904,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             node_data = NODE_TELEMETRY_REGISTRY[node_id]
             expected_auth_token = str(node_data.get("auth_token", "")).strip()
 
-            from services.common.node_access import get_node_session, issue_node_session, node_session_cookie
+            from services.common.node_access import (
+                get_node_session,
+                issue_node_session,
+                node_session_cookie,
+            )
             from_owner_session = session_account_from_headers(self.headers)
             session_owner_id = None
             if from_owner_session is not None:
@@ -749,12 +994,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/qr", "/api/v1/qr"):
-            query_params = urllib.parse.parse_qs(parsed_path.query)
+            query_params = parse_qs(parsed_path.query)
             text = query_params.get("data", [""])[0].strip() or query_params.get("text", [""])[0].strip()
             if not text:
                 text = "https://mesh.inetconnector.com/downloads/ComputeMesh-Android.apk"
             try:
                 import io
+
                 import qrcode
                 import qrcode.image.svg
                 factory = qrcode.image.svg.SvgPathImage
@@ -1210,6 +1456,165 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_error_response("Malformed JSON request body", "invalid_request_error", HTTPStatus.BAD_REQUEST)
             return
 
+        agent_session_prefix = next(
+            (prefix for prefix in ("/v1/agents/sessions", "/api/v1/agents/sessions") if clean_path.startswith(prefix)),
+            None,
+        )
+        if agent_session_prefix is not None:
+            relative = clean_path[len(agent_session_prefix):].strip("/").split("/") if clean_path[len(agent_session_prefix):].strip("/") else []
+            if (relative and (len(relative) != 2 or relative[1] not in {"turns", "control"})) or not isinstance(body, dict):
+                self._send_error_response("Invalid agent task path", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent task authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            try:
+                input_items = body.get("input", body.get("messages", body.get("message")))
+                store = self._get_agent_session_store()
+                principal_id = auth.owner_id or auth.account_id
+                is_admin = auth.account_id == "admin_root"
+                if relative:
+                    if relative[1] == "control":
+                        action = str(body.get("action") or "").strip().lower()
+                        if action not in {"pause", "resume", "cancel"}:
+                            raise ValueError("action must be pause, resume or cancel")
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        control = store.request_control(
+                            session_id,
+                            action,
+                            principal_id=principal_id,
+                            turn_id=str(body.get("turn_id") or "").strip() or None,
+                            is_admin=is_admin,
+                        )
+                        session_payload = project_session(
+                            store,
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        turn_payload = store.get_turn(control.turn_id).to_dict() if control.turn_id else None
+                        self._send_json({
+                            "schema_version": 1,
+                            "object": "agent_control",
+                            "control": control.to_dict(),
+                            "session": session_payload["session"],
+                            "turn": turn_payload,
+                        }, HTTPStatus.ACCEPTED if control.status.value == "requested" else HTTPStatus.OK)
+                        return
+                    if input_items is None:
+                        raise ValueError("input is required")
+                    session_id = relative[0]
+                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    turn = store.start_turn(
+                        session_id,
+                        input_items,
+                        priority=body.get("priority", 0),
+                        deadline_at=body.get("deadline_at"),
+                    )
+                    session_payload = project_session(
+                        store,
+                        session_id,
+                        principal_id=principal_id,
+                        is_admin=is_admin,
+                    )
+                    self._send_json({
+                        "schema_version": 1,
+                        "object": "agent_turn",
+                        "session": session_payload["session"],
+                        "turn": turn.to_dict(),
+                    }, HTTPStatus.CREATED)
+                    return
+                agent_id = str(body.get("agent_id") or "").strip()
+                agent_version = str(body.get("agent_version") or "1").strip()
+                model = str(body.get("model") or "").strip()
+                if not agent_id or not model or input_items is None:
+                    raise ValueError("agent_id, model and input are required")
+                session, turn = store.create_task(
+                    agent_id,
+                    model,
+                    input_items,
+                    agent_version=agent_version,
+                    principal_id=principal_id,
+                    environment_type=str(body.get("environment_type") or "none"),
+                    tenant_id=str(auth.account_id or principal_id or ""),
+                    priority=body.get("priority", 0),
+                    deadline_at=body.get("deadline_at"),
+                    routing=body.get("routing"),
+                )
+                self._send_json({
+                    "schema_version": 1,
+                    "object": "agent_task",
+                    "session": project_session(
+                        store,
+                        session.session_id,
+                        principal_id=principal_id,
+                        is_admin=is_admin,
+                    )["session"],
+                    "turn": turn.to_dict(),
+                }, HTTPStatus.CREATED)
+            except SessionProjectionDenied as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except PermissionError as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except SessionStateConflict as exc:
+                self._send_error_response(str(exc), "conflict", HTTPStatus.CONFLICT)
+            except (TypeError, ValueError):
+                self._send_error_response("Invalid agent task request", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+            return
+
+        approval_prefix = next(
+            (prefix for prefix in ("/v1/agents/approvals", "/api/v1/agents/approvals") if clean_path.startswith(prefix)),
+            None,
+        )
+        if approval_prefix is not None:
+            relative = clean_path[len(approval_prefix):].strip("/").split("/") if clean_path[len(approval_prefix):].strip("/") else []
+            if len(relative) != 1 or not isinstance(body, dict):
+                self._send_error_response("Invalid agent approval request", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
+            if not auth.is_authenticated or auth.is_teaser:
+                self._send_error_response(auth.error_message or "Agent approval authentication required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            decision = str(body.get("decision") or "").strip().lower()
+            if decision not in {"approved", "rejected"}:
+                self._send_error_response("Approval decision must be approved or rejected", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                store = self._get_agent_session_store()
+                resolved = store.resolve_approval(
+                    relative[0],
+                    principal_id=auth.owner_id or auth.account_id,
+                    decision=decision,
+                    reason=str(body.get("reason") or ""),
+                    is_admin=auth.account_id == "admin_root",
+                )
+                payload = project_approval(
+                    store,
+                    resolved.approval_id,
+                    principal_id=auth.owner_id or auth.account_id,
+                    is_admin=auth.account_id == "admin_root",
+                )
+                if resolved.status is ApprovalStatus.APPROVED:
+                    try:
+                        resumed_turn = store.resume_approved_turn(resolved.approval_id)
+                    except SessionStateConflict:
+                        resumed_turn = None
+                    if resumed_turn is not None:
+                        payload["resume"] = {
+                            "turn_id": resumed_turn.turn_id,
+                            "status": resumed_turn.status.value,
+                        }
+                self._send_json(payload)
+            except PermissionError as exc:
+                self._send_error_response(str(exc), "forbidden", HTTPStatus.FORBIDDEN)
+            except KeyError:
+                self._send_error_response("Agent approval not found", "not_found", HTTPStatus.NOT_FOUND)
+            except SessionStateConflict as exc:
+                self._send_error_response(str(exc), "conflict", HTTPStatus.CONFLICT)
+            return
+
         self._is_node_tunnel = False
         if clean_path.startswith("/node/"):
             node_rel = clean_path.removeprefix("/node/").strip("/")
@@ -1312,7 +1717,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if account is not None:
                 owner_key = account.owner_key
             else:
-                owner_key = str(body.get("owner_key", "")).strip() or query.get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
+                owner_key = str(body.get("owner_key", "")).strip() or parse_qs(parsed_path.query).get("owner_key", [""])[0].strip() or self.headers.get("X-Owner-Key", "").strip()
                 if not owner_key:
                     auth_hdr = self.headers.get("Authorization", "").strip()
                     if auth_hdr.startswith("Bearer "):
@@ -1596,7 +2001,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     )
                     self._send_json(data)
                 except Exception as exc:
-                    from services.billing.stripe_connect import is_stripe_connect_platform_activation_error
+                    from services.billing.stripe_connect import (
+                        is_stripe_connect_platform_activation_error,
+                    )
                     status = HTTPStatus.SERVICE_UNAVAILABLE if is_stripe_connect_platform_activation_error(exc) else HTTPStatus.BAD_REQUEST
                     self._send_json({"error": str(exc)}, status)
                 return
@@ -1949,7 +2356,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         # MCP Ledger Receipt Verification & Sync Ingestion
         if clean_path in ("/v1/mcp/ledger/verify-receipt", "/api/v1/mcp/ledger/verify-receipt"):
-            from services.mcp.ledger import get_compact_ledger, MerkleTree
+            from services.mcp.ledger import MerkleTree, get_compact_ledger
             from services.mcp.ledger.block import ProofOfExecutionReceipt
             receipt_id = str(body.get("receipt_id", "")).strip()
             if not receipt_id:
@@ -2143,7 +2550,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         family = "qwen2_vl" if "vl" in model_id.lower() else ("llama" if "llama" in model_id.lower() else ("llava" if "llava" in model_id.lower() else "qwen2"))
         self._send_json({
             "modelfile": f"# ComputeMesh Dynamic Modelfile\nFROM {model_id}\nTEMPLATE \"\"\"{{{{ .Prompt }}}}\"\"\"",
-            "parameters": f"stop                           \"<|im_end|>\"\ncontext_length                 32768",
+            "parameters": "stop                           \"<|im_end|>\"\ncontext_length                 32768",
             "template": "{{ .Prompt }}",
             "details": {
                 "parent_model": "",
@@ -2388,12 +2795,27 @@ def create_gateway_server(host: str = "127.0.0.1", port: int = 0) -> tuple[Threa
 
 def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
     server, bound_port = create_gateway_server(host, port)
-    print(f"ComputeMesh Gateway Server listening on http://{host}:{bound_port}")
+    worker_runtime = None
     try:
+        if os.environ.get("COMPUTEMESH_AGENTS_WORKER_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
+            from services.gateway.agent_worker_runtime import build_gateway_agent_worker_runtime
+
+            worker_runtime = build_gateway_agent_worker_runtime(
+                backend=GatewayHandler.inference_engine.backend,
+                session_store=GatewayHandler._get_agent_session_store(),
+                repo_root=REPO_ROOT,
+                tool_registry=GatewayHandler.inference_engine.tool_registry,
+                ledger=GatewayHandler.ledger,
+            )
+            if worker_runtime is not None:
+                worker_runtime.start()
+        print(f"ComputeMesh Gateway Server listening on http://{host}:{bound_port}")
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down Gateway server...")
     finally:
+        if worker_runtime is not None:
+            worker_runtime.close()
         server.server_close()
 
 

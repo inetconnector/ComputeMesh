@@ -7,11 +7,11 @@ transport. It never starts a second user-facing confidential API.
 from __future__ import annotations
 
 import argparse
-from http.server import ThreadingHTTPServer
 import importlib
 import os
-from pathlib import Path
 import sys
+from http.server import ThreadingHTTPServer
+from pathlib import Path
 from typing import Callable
 
 from protocol.node_identity import Ed25519ChallengeVerifier
@@ -42,6 +42,51 @@ from services.orchestrator.settlement_recovery import (
 
 class LiveGatewayBootstrapError(RuntimeError):
     pass
+
+
+def _start_optional_agent_worker(
+    *,
+    handler_cls: type,
+    control_plane: IntegratedLiveControlPlane,
+    runtime_policy_resolver=None,
+):
+    """Start the durable worker only after the live control plane is ready."""
+    enabled = os.environ.get("COMPUTEMESH_AGENTS_WORKER_ENABLED", "").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+
+    from services.gateway.agent_worker_runtime import build_gateway_agent_worker_runtime
+
+    inference_engine = getattr(handler_cls, "inference_engine", None)
+    backend = getattr(inference_engine, "backend", None)
+    tool_registry = getattr(inference_engine, "tool_registry", None)
+    get_session_store = getattr(handler_cls, "_get_agent_session_store", None)
+    if backend is None or not callable(get_session_store):
+        raise LiveGatewayBootstrapError(
+            "live gateway agent worker requires the composed inference backend and session store"
+        )
+
+    repo_root = Path(__file__).resolve().parents[2]
+    runtime = None
+    try:
+        runtime = build_gateway_agent_worker_runtime(
+            backend=backend,
+            session_store=get_session_store(),
+            repo_root=repo_root,
+            tool_registry=tool_registry,
+            ledger=getattr(handler_cls, "ledger", None),
+            control_client=control_plane.control_client,
+            runtime_policy_resolver=runtime_policy_resolver,
+        )
+        if runtime is not None:
+            runtime.start()
+        return runtime
+    except Exception:
+        # A partially created runtime owns SQLite stores and worker resources.
+        # Close it before the outer bootstrap tears down the control plane.
+        if runtime is not None:
+            runtime.close()
+        raise
 
 
 def configure_live_runtime_from_module(
@@ -172,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     control_plane: IntegratedLiveControlPlane | None = None
     gpu_promo_dispatch: RunningGpuPromoDispatch | None = None
     confidential_runtime: LiveConfidentialRuntime | None = None
+    agent_worker_runtime = None
     handler_cls = None
     try:
         # Nothing customer-facing comes up before compliance, verified models and
@@ -199,7 +245,14 @@ def main(argv: list[str] | None = None) -> int:
             handler_cls=handler_cls,
             registry=LIVE_SHARED_RUNTIME,
         )
+        agent_worker_runtime = _start_optional_agent_worker(
+            handler_cls=handler_cls,
+            control_plane=control_plane,
+            runtime_policy_resolver=LIVE_SHARED_RUNTIME.agent_policy_resolver,
+        )
     except Exception as exc:
+        if agent_worker_runtime is not None:
+            agent_worker_runtime.close()
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
         if control_plane is not None:
@@ -214,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
         # no process-level close hook. Provider control is closed last so no new
         # protected admission can race shutdown.
         _ = confidential_runtime
+        if agent_worker_runtime is not None:
+            agent_worker_runtime.close()
         if gpu_promo_dispatch is not None:
             gpu_promo_dispatch.close()
         if control_plane is not None:

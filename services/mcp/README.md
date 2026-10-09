@@ -1,6 +1,6 @@
 # ComputeMesh MCP and Live Tool Engine
 
-ComputeMesh exposes built-in live-data tools through `ToolRegistry` and can also attach explicitly configured external MCP stdio servers through `MCPClient`.
+ComputeMesh exposes built-in live-data tools through `ToolRegistry` and can also attach explicitly configured external MCP stdio/HTTP servers through `MCPClient`. The Agents Platform additionally provides an opt-in `MCPToolDiscoveryBroker` for bounded, origin-aware discovery without changing the legacy registry path.
 
 ## Built-in tool surface
 
@@ -81,6 +81,66 @@ The checked-in `mcp_config.json` is intentionally empty; it does not auto-launch
 }
 ```
 
+### Agent MCP discovery boundary
+
+`AgentsPlatformRuntime.build_mcp_discovery_broker()` creates a broker without
+starting configured servers. The caller must explicitly call `refresh()` to
+perform discovery. `search()` returns bounded schema-free summaries, while
+`describe()` loads a schema only for an exact qualified ID such as
+`events__search`. Origin/server/tool policy is applied before both discovery
+and execution, and `call()` is blocked unless its policy explicitly enables
+execution. Results are size-bounded and secret-scanned before they are
+returned. This boundary is intended for agent tool search; existing
+`MCPClient.register_all_into_registry()` behavior remains compatible.
+
+### Self-hosted workspace and approvals
+
+`LocalWorkspaceTransport` supplies a shell-free `self_hosted` filesystem
+workspace with bounded UTF-8 reads/writes, atomic replacement, path and
+symlink checks, lease heartbeats and optional content-addressed artifact
+writes. It is not an operating-system process sandbox; mesh environments must
+use an authenticated NodeOS transport.
+
+`AuthenticatedNodeEnvironmentTransport` is the typed NodeOS adapter for mesh
+environments. It binds `prepare`, `heartbeat`, `execute` and `shutdown` to the
+current authenticated session and issued lease, validates both wire schemas,
+and requires the `mesh_environment_v1` capability. It deliberately has no
+shell, command or arbitrary remote-execution fallback.
+The authenticated control channel supports caller-bound request IDs and
+cooperative cancellation. A handler may accept the cancellation token; the
+transport never claims that an uninterruptible backend has already stopped.
+
+Side-effecting agent tools create durable, principal-bound approval records in
+the session store. The gateway exposes `/v1/agents/approvals` for listing and
+`POST /v1/agents/approvals/{approval_id}` for an exact approve/reject decision.
+The mobile/WebUI session panel consumes that optional API using the existing
+localization layer. If a side-effecting tool is encountered inside the durable
+agent harness, the turn enters `waiting_for_approval` and later tool calls in
+the same batch are stopped. An approved continuation must present the same
+session, turn, tool and argument digest; the durable approval is then consumed
+atomically once. Approval resolution never stores raw arguments or executes a
+side effect directly from the HTTP request.
+
+`AgentSessionStore.create_task()` atomically creates the model-bound session
+and its first queued turn. `MeshAgentWorker` claims queued or explicitly
+resumed turns with a durable status transition and requires the deployment to
+inject both a model caller and a policy-bound harness factory. It never
+chooses a provider, shell or remote node implicitly. A resolver failure marks
+only the claimed turn failed and cannot cause a second worker to replay it.
+
+`BackendModelCaller` adapts an existing ComputeMesh `InferenceBackend` to the
+worker contract, preserving backend token usage and passing tool schemas only
+when the backend declares support. It does not create a second billing,
+provider-selection or transport path.
+
+An optional server-side `OpenAIAgentsClient` can bridge explicitly selected
+sessions to the official OpenAI Agents API. It supports bounded session and
+event requests, item retrieval and SSE events, but is disabled by default and
+never replaces the local `MeshAgentHarness` implicitly. Its credential is read
+only from the configured server environment; it is not available to Android,
+NodeOS or mesh workspaces. Enablement requires the explicit
+`COMPUTEMESH_AGENTS_OPENAI_ENABLED` rollout switch and deployment policy.
+
 ## Tests
 
 Core coverage is in:
@@ -91,6 +151,10 @@ Core coverage is in:
 - `services/mcp/tests/test_android_play_store_tools.py`
 - `services/mcp/tests/test_mcp_url_security.py`
 - `services/mcp/tests/test_mcp_client_hardening.py`
+- `services/mcp/tests/test_agents_mcp_discovery.py`
+- `services/mcp/tests/test_agents_worker.py`
+- `services/mcp/tests/test_agents_model_caller.py`
+- `services/mcp/tests/test_agents_openai_provider.py`
 - `services/mcp/tests/test_mcp_agent_hardening.py`
 - `services/mcp/tests/test_mcp_calc_hardening.py`
 

@@ -2,6 +2,13 @@
 
 **Status:** durable reference state machine plus authenticated live shared-serving orchestration implemented. The current live path includes authenticated provider control sessions, private global placement, bounded retry/re-placement, verified execution evidence/attestations, durable billing intent/outcome feedback and startup recovery. SQLite remains the current reference/operational persistence adapter rather than a final HA database decision.
 
+The live provider channel now carries an optional, profile-revision-bound model
+catalogue. Deployments may pass an Agent `NodeRegistry` to
+`IntegratedLiveControlPlane`; after authenticated profile, model, runtime and
+benchmark data is complete, the provider is admitted into Agent routing through
+the existing identity/capability/benchmark state machine. Admission errors are
+recorded and fail closed for Agent routing while Shared Serving remains intact.
+
 ## Purpose
 
 Own the canonical job lifecycle and coordinate reservation, dispatch, cancellation, retry/replan, completion, verification, and settlement transitions.

@@ -1,8 +1,8 @@
 """Populate LiveSharedRuntimeRegistry from authenticated provider push messages."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import threading
+from dataclasses import dataclass
 from typing import Any
 
 from protocol.control import ControlEnvelope, parse_control_envelope
@@ -11,6 +11,8 @@ from protocol.node_session import NodeSession, NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
 from protocol.session_wire import BenchmarkAcceptancePolicy, NodeSessionWireHandler
 from runtime.llama.rpc_spike import RpcEndpoint
+from services.mcp.platform.node_registry import NodeRegistry
+from services.mcp.platform.node_transport import AuthenticatedNodeRegistrySync, NodeSyncResult
 from services.orchestrator.live_shared_runtime import LiveNodeState, LiveSharedRuntimeRegistry
 from services.orchestrator.persistent_control_channel import (
     AcceptedProviderSession,
@@ -21,7 +23,7 @@ from services.orchestrator.persistent_control_channel import (
     send_frame,
 )
 
-_PROVIDER_PUSH_MESSAGES = frozenset({"NodeProfileUpdate", "RuntimeAdvertisement", "BenchmarkReport", "DrainRequest"})
+_PROVIDER_PUSH_MESSAGES = frozenset({"NodeProfileUpdate", "ModelCatalogueUpdate", "RuntimeAdvertisement", "BenchmarkReport", "DrainRequest"})
 
 
 @dataclass
@@ -33,13 +35,21 @@ class _PartialNode:
     rpc_endpoint: RpcEndpoint | None = None
     llama_build_number: int | None = None
     llama_build_commit: str | None = None
+    models: tuple[dict[str, Any], ...] = ()
 
 
 class LiveProviderRegistration:
     """Accumulate authenticated provider telemetry until a schedulable node is complete."""
 
-    def __init__(self, registry: LiveSharedRuntimeRegistry) -> None:
+    def __init__(
+        self,
+        registry: LiveSharedRuntimeRegistry,
+        *,
+        agent_node_admission: "LiveAgentNodeAdmission | None" = None,
+    ) -> None:
         self.registry = registry
+        self.agent_node_admission = agent_node_admission
+        self.agent_admission_errors: dict[str, str] = {}
         self._lock = threading.RLock()
         self._nodes: dict[str, _PartialNode] = {}
 
@@ -75,6 +85,12 @@ class LiveProviderRegistration:
                 current.rpc_endpoint = RpcEndpoint(str(rpc["host"]), int(rpc["port"]))
                 current.llama_build_number = int(payload["llama_build_number"])
                 current.llama_build_commit = str(payload["llama_build_commit"])
+            elif envelope.message_type == "ModelCatalogueUpdate":
+                if payload["node_id"] != node_id:
+                    raise PersistentControlChannelError("model catalogue node_id mismatch")
+                if current.profile is None or payload.get("profile_revision") != current.profile.get("profile_revision"):
+                    raise PersistentControlChannelError("model catalogue is not bound to current profile revision")
+                current.models = tuple(dict(model) for model in payload["models"])
             elif envelope.message_type == "BenchmarkReport":
                 if current.profile is None or payload.get("profile_revision") != current.profile.get("profile_revision"):
                     raise PersistentControlChannelError("benchmark is not bound to current profile revision")
@@ -117,7 +133,56 @@ class LiveProviderRegistration:
                 rpc_endpoint=current.rpc_endpoint,
                 llama_build_number=current.llama_build_number,
                 llama_build_commit=current.llama_build_commit,
+                models=current.models,
             )
+        )
+        if self.agent_node_admission is not None:
+            try:
+                self.agent_node_admission.sync(
+                    session=current.session,
+                    profile=current.profile,
+                    rpc_endpoint=current.rpc_endpoint,
+                    models=current.models,
+                    benchmark={
+                        "source": "authenticated_live_provider",
+                        "profile_revision": current.session.profile_revision,
+                        "prefill": dict(current.prefill),
+                        "decode": dict(current.decode),
+                    },
+                )
+                self.agent_admission_errors.pop(node_id, None)
+            except Exception as exc:
+                # Shared serving remains available while Agent admission fails
+                # closed until the inventory is complete and authenticated.
+                self.agent_admission_errors[node_id] = f"{type(exc).__name__}: {str(exc)[:240]}"
+
+
+class LiveAgentNodeAdmission:
+    """Bridge a complete authenticated live provider into Agent routing."""
+
+    def __init__(self, registry: NodeRegistry, *, control_client: Any | None = None) -> None:
+        self.syncer = AuthenticatedNodeRegistrySync(registry, control_client=control_client)
+
+    def sync(
+        self,
+        *,
+        session: SessionSnapshot,
+        profile: dict[str, Any],
+        rpc_endpoint: RpcEndpoint,
+        models: tuple[dict[str, Any], ...],
+        benchmark: dict[str, Any],
+    ) -> NodeSyncResult:
+        if not models:
+            raise PersistentControlChannelError("live provider has no authenticated model catalogue")
+        if not session.node_id:
+            raise PersistentControlChannelError("live provider session has no node identity")
+        return self.syncer.sync(
+            node_id=session.node_id,
+            endpoint=f"{rpc_endpoint.host}:{rpc_endpoint.port}",
+            session=session,
+            profile=profile,
+            models=models,
+            benchmark=benchmark,
         )
 
 

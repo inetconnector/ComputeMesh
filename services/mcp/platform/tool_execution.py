@@ -1,13 +1,13 @@
 """Capability-aware safety wrapper around the existing MCP ToolRegistry."""
 from __future__ import annotations
 
-from dataclasses import asdict, replace
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import threading
 import time
+from dataclasses import asdict, replace
+from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from .contracts import (
@@ -506,6 +506,8 @@ class PolicyToolRegistryProxy:
             "resources": result.provenance.get("resources", []),
             "idempotency_replay": result.idempotency_replay,
         }
+        if result.provenance.get("approval_id"):
+            metadata["approval_id"] = result.provenance["approval_id"]
         if isinstance(result.result, dict):
             presented = dict(result.result)
             presented.setdefault("_agents_platform_result", metadata)

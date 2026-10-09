@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import socket
 import threading
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from services.orchestrator.persistent_control_channel import (
     ChannelClosed,
     PersistentNodeConnection,
     PersistentNodeControlClient,
+    ProviderPersistentClient,
+    RequestCancelled,
     recv_frame,
     send_frame,
 )
@@ -35,6 +37,120 @@ def ready_session(node_id: str = "node-a") -> SessionSnapshot:
 
 
 class PersistentControlChannelTests(unittest.TestCase):
+    def test_cancel_pending_request_notifies_provider_and_unblocks_caller(self):
+        server_sock, provider_sock = socket.socketpair()
+        connection = PersistentNodeConnection(sock=server_sock, session=ready_session(), control_plane_id="cp-1")
+        client = PersistentNodeControlClient()
+        client.register(connection)
+        received = threading.Event()
+        cancel_seen = threading.Event()
+
+        def provider():
+            frame = recv_frame(provider_sock)
+            self.assertEqual(frame["request_id"], "req-cancel")
+            received.set()
+            cancel = recv_frame(provider_sock)
+            self.assertEqual(cancel["kind"], "cancel")
+            self.assertEqual(cancel["request_id"], "req-cancel")
+            cancel_seen.set()
+
+        provider_thread = threading.Thread(target=provider)
+        provider_thread.start()
+        result: list[BaseException] = []
+
+        def request():
+            try:
+                client.request(
+                    node_id="node-a",
+                    message_type="InferenceRequest",
+                    payload={},
+                    timeout_seconds=2,
+                    request_id="req-cancel",
+                )
+            except BaseException as exc:
+                result.append(exc)
+
+        request_thread = threading.Thread(target=request)
+        request_thread.start()
+        self.assertTrue(received.wait(1))
+        self.assertTrue(client.cancel(node_id="node-a", request_id="req-cancel"))
+        request_thread.join(1)
+        provider_thread.join(1)
+        self.assertTrue(cancel_seen.is_set())
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], RequestCancelled)
+        connection.close()
+        provider_sock.close()
+
+    def test_provider_client_processes_cancel_while_handler_is_running(self):
+        control_sock, provider_sock = socket.socketpair()
+        started = threading.Event()
+
+        def handler(message_type, payload, session, cancel_event):
+            started.set()
+            self.assertTrue(cancel_event.wait(1))
+            raise RequestCancelled("cancelled by test")
+
+        client = ProviderPersistentClient(
+            connector=lambda: provider_sock,
+            handshake=lambda sock, challenge: ready_session(),
+            request_handler=handler,
+            min_backoff_seconds=0.01,
+            max_backoff_seconds=0.01,
+        )
+        thread = threading.Thread(target=client.serve_forever)
+        thread.start()
+        send_frame(control_sock, {"kind": "challenge", "session_id": "session-a", "challenge": "challenge", "control_plane_id": "cp-1"})
+        send_frame(control_sock, {
+            "kind": "request",
+            "request_id": "running-1",
+            "message_type": "InferenceRequest",
+            "payload": {},
+            "session_id": "session-a",
+            "session_revision": 5,
+        })
+        self.assertTrue(started.wait(1))
+        send_frame(control_sock, {"kind": "cancel", "request_id": "running-1", "reason": "user_cancelled"})
+        response = recv_frame(control_sock)
+        self.assertFalse(response["ok"])
+        self.assertIn("cancel", response["error"].lower())
+        client.stop()
+        control_sock.close()
+        provider_sock.close()
+        thread.join(2)
+
+    def test_provider_client_stop_unblocks_a_connected_reader(self):
+        control_sock, provider_sock = socket.socketpair()
+        client = ProviderPersistentClient(
+            connector=lambda: provider_sock,
+            handshake=lambda sock, challenge: ready_session(),
+            request_handler=lambda message_type, payload, session: {},
+            min_backoff_seconds=0.01,
+            max_backoff_seconds=0.01,
+        )
+        thread = threading.Thread(target=client.serve_forever)
+        thread.start()
+        send_frame(control_sock, {
+            "kind": "challenge",
+            "session_id": "session-a",
+            "challenge": "challenge",
+            "control_plane_id": "cp-1",
+        })
+        # The handshake callback is enough for the provider loop to enter its
+        # blocking frame reader; no request is needed for this lifecycle test.
+        for _ in range(100):
+            with client._socket_lock:
+                connected = client._active_socket is not None
+            if connected:
+                break
+            time.sleep(0.01)
+        self.assertTrue(connected)
+        client.stop()
+        thread.join(2)
+        self.assertFalse(thread.is_alive())
+        control_sock.close()
+        provider_sock.close()
+
     def test_correlated_request_response_over_one_persistent_socket(self):
         server_sock, provider_sock = socket.socketpair()
         connection = PersistentNodeConnection(sock=server_sock, session=ready_session(), control_plane_id="cp-1")
@@ -137,7 +253,46 @@ class PersistentControlChannelTests(unittest.TestCase):
         p1.close()
         p2.close()
 
+    def test_provider_client_stream_handler_sends_ordered_terminal_chunks(self):
+        control_sock, provider_sock = socket.socketpair()
+        client = ProviderPersistentClient(
+            connector=lambda: provider_sock,
+            handshake=lambda sock, challenge: ready_session(),
+            request_handler=lambda message_type, payload, session: {},
+            stream_handler=lambda message_type, payload, session: iter((
+                {"delta": "a", "done": False},
+                {"delta": "b", "done": True},
+            )),
+            min_backoff_seconds=0.01,
+            max_backoff_seconds=0.01,
+        )
+        thread = threading.Thread(target=client.serve_forever)
+        thread.start()
+        send_frame(control_sock, {
+            "kind": "challenge",
+            "session_id": "session-a",
+            "challenge": "challenge",
+            "control_plane_id": "cp-1",
+        })
+        send_frame(control_sock, {
+            "kind": "request",
+            "request_id": "stream-1",
+            "message_type": "InferenceRequest",
+            "payload": {"stream": True},
+            "session_id": "session-a",
+            "session_revision": 5,
+        })
+        first = recv_frame(control_sock)
+        second = recv_frame(control_sock)
+        self.assertEqual([first["kind"], second["kind"]], ["stream", "stream"])
+        self.assertFalse(first["done"])
+        self.assertTrue(second["done"])
+        self.assertEqual([first["payload"]["delta"], second["payload"]["delta"]], ["a", "b"])
+        client.stop()
+        control_sock.close()
+        provider_sock.close()
+        thread.join(2)
+
 
 if __name__ == "__main__":
     unittest.main()
-

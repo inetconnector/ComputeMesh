@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://computemesh.dev/schema/environment_response_payload.schema.json",
+  "title": "Authenticated ComputeMesh environment response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "session_revision", "node_id", "environment_id", "operation", "status"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "session_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "environment_id": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,160}$"},
+    "operation": {"enum": ["prepare", "heartbeat", "execute", "shutdown"]},
+    "status": {"enum": ["ok", "rejected", "failed"]},
+    "lease_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "issued_at": {"type": "number", "exclusiveMinimum": 0},
+    "expires_at": {"type": "number", "exclusiveMinimum": 0},
+    "lease_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "result": {"type": "object", "maxProperties": 64},
+    "reason_code": {"type": "string", "minLength": 1, "maxLength": 128}
+  }
+}

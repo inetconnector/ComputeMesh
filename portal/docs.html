@@ -12,8 +12,9 @@
   <meta property="og:title" content="ComputeMesh Entwickler-Dokumentation & API-Referenz">
   <meta property="og:description" content="Vollständiges Integrationshandbuch für die OpenAI-kompatible ComputeMesh API, Provider-Daemon Setup und verteiltes Pipeline-Sharding.">
   <meta property="og:url" content="https://mesh.inetconnector.com/docs">
-  <link rel="stylesheet" href="/portal.css?v=4.3">
-  
+  <link rel="stylesheet" href="/portal.css?v=5.0">
+
+  <link rel="stylesheet" href="/portal-business.css?v=5.0">
 </head>
 <body>
 
@@ -75,7 +76,7 @@
       <aside style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; position: sticky; top: 90px;">
         <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 1rem;" data-i18n="docs_toc_title">Inhalt</h4>
         <ul class="footer-links" style="gap: 0.75rem;">
-          <li><a href="#quickstart" style="color: var(--text-main); font-weight: 600;" data-i18n="docs_toc_1">1. Schnellstart & OpenAI API</a></li>
+          <li><a href="/docs" style="color: var(--text-main); font-weight: 600;" data-i18n="docs_toc_1">1. Schnellstart & OpenAI API</a></li>
           <li><a href="#architecture" data-i18n="docs_toc_2">2. Verteilte Mesh-Architektur</a></li>
           <li><a href="#layer-sharding" data-i18n="docs_toc_3">3. Pipeline-Layer-Sharding</a></li>
           <li><a href="#providers" data-i18n="docs_toc_4">4. Provider-Node einrichten</a></li>
@@ -303,7 +304,7 @@ for chunk in response:
         </div>
         <div class="form-group" style="font-size:.82rem;line-height:1.45;margin-top:1rem;border-top:1px solid var(--border-subtle, rgba(255,255,255,0.08));padding-top:0.8rem;">
           <label style="display:flex;gap:.55rem;align-items:flex-start;cursor:pointer;">
-            <input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem"> 
+            <input id="business-user-confirm" type="checkbox" required style="margin-top:.2rem">
             <span data-i18n="compliance_combined">Ich akzeptiere die <a href="/terms" target="_blank" rel="noopener">Nutzungsbedingungen v2.1</a> & <a href="/privacy" target="_blank" rel="noopener">Datenschutzerklärung</a> und bestätige die geschäftliche Nutzung (B2B).</span>
           </label>
         </div>
@@ -362,7 +363,7 @@ for chunk in response:
     </div>
   </footer>
 
-  <script src="/portal-core.js?v=4.3"></script>
-  <script src="/portal.js?v=4.3"></script>
+  <script src="/portal-core.js?v=5.0"></script>
+  <script src="/portal.js?v=5.0"></script>
 </body>
 </html>

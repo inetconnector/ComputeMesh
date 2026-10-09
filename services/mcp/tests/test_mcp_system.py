@@ -8,30 +8,38 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from services.mcp.config import MCPConfig, get_mcp_config, set_mcp_config
-from services.mcp.tool_registry import ToolRegistry, ToolDefinition
-from services.mcp.agent_loop import AgentLoop, AgentExecutionResult
-from services.mcp.builtin.finance_market import execute_finance_quote, fetch_yahoo_quote
-from services.mcp.builtin.web_search import execute_web_search, clean_html
-from services.mcp.builtin.web_fetch import execute_web_fetch, clean_web_page_html
-from services.mcp.builtin.news_feed import execute_get_news
-from services.mcp.builtin.weather import get_current_weather
-from services.mcp.builtin.python_calc import run_python_calc
-from services.mcp.builtin.wikipedia import get_wikipedia_summary
-from services.mcp.builtin.time_calendar import get_time_and_calendar, calculate_easter_sunday, get_german_holidays
-from services.mcp.builtin.currency import convert_currency
-from services.mcp.builtin.geo_routing import get_distance_route, _haversine_distance_km, _compass_direction
-from services.mcp.builtin.country_data import lookup_country_data
-from services.mcp.builtin.world_bank import get_world_bank_stats
+from services.mcp.agent_loop import AgentLoop
 from services.mcp.builtin.arxiv_research import search_arxiv_papers
-from services.mcp.builtin.food_products import lookup_food_product
-from services.mcp.builtin.package_registry import lookup_software_package
-from services.mcp.builtin.earthquake_feed import get_recent_earthquakes
 from services.mcp.builtin.chemical_data import lookup_chemical_compound
+from services.mcp.builtin.country_data import lookup_country_data
+from services.mcp.builtin.currency import convert_currency
 from services.mcp.builtin.dictionary_lookup import lookup_word_definition
-from services.mcp.builtin.train_transit import lookup_train_schedule
-from services.mcp.builtin.network_tools import lookup_network_host, _is_ip_blocked
+from services.mcp.builtin.earthquake_feed import get_recent_earthquakes
+from services.mcp.builtin.finance_market import execute_finance_quote
+from services.mcp.builtin.food_products import lookup_food_product
+from services.mcp.builtin.geo_routing import (
+    _compass_direction,
+    _haversine_distance_km,
+    get_distance_route,
+)
+from services.mcp.builtin.network_tools import _is_ip_blocked, lookup_network_host
+from services.mcp.builtin.news_feed import execute_get_news
+from services.mcp.builtin.package_registry import lookup_software_package
+from services.mcp.builtin.python_calc import run_python_calc
 from services.mcp.builtin.system_tools import execute_system_info
+from services.mcp.builtin.time_calendar import (
+    calculate_easter_sunday,
+    get_german_holidays,
+    get_time_and_calendar,
+)
+from services.mcp.builtin.train_transit import lookup_train_schedule
+from services.mcp.builtin.weather import get_current_weather
+from services.mcp.builtin.web_fetch import clean_web_page_html
+from services.mcp.builtin.web_search import clean_html, execute_web_search
+from services.mcp.builtin.wikipedia import get_wikipedia_summary
+from services.mcp.builtin.world_bank import get_world_bank_stats
+from services.mcp.config import MCPConfig
+from services.mcp.tool_registry import ToolRegistry
 
 
 class TestMCPConfig(unittest.TestCase):
@@ -535,7 +543,16 @@ class TestAgentLoop(unittest.TestCase):
                 "choices": [{
                     "message": {"role": "assistant", "content": "Hallo! Wie kann ich helfen?"}
                 }],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "gpu_milliseconds": 7,
+                    "network_bytes": 11,
+                },
+                "provenance": {
+                    "execution_job_ids": ["job-loop-1"],
+                    "execution_node_ids": ["node-loop-1"],
+                },
             }
 
         res = self.loop.run(
@@ -546,6 +563,9 @@ class TestAgentLoop(unittest.TestCase):
         self.assertEqual(res.final_content, "Hallo! Wie kann ich helfen?")
         self.assertEqual(len(res.tool_calls_executed), 0)
         self.assertEqual(res.iterations, 1)
+        self.assertEqual(res.resource_usage["gpu_milliseconds"], 7)
+        self.assertEqual(res.resource_usage["network_bytes"], 11)
+        self.assertEqual(res.provenance, {"execution_job_ids": ["job-loop-1"], "execution_node_ids": ["node-loop-1"]})
 
     def test_agent_loop_with_tool_call(self):
         calls_count = 0
@@ -772,4 +792,3 @@ class TestAgentLoop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

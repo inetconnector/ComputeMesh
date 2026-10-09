@@ -35,8 +35,20 @@ class MCPConfig:
     agents_platform_memory_db: str = "data/agents/memory.sqlite3"
     agents_platform_audit_log: str = "data/agents/audit.jsonl"
     agents_platform_project_state: str = "data/agents/project_state.json"
+    agents_platform_session_db: str = "data/agents/sessions.sqlite3"
+    agents_platform_node_registry_db: str = "data/agents/nodes.sqlite3"
+    agents_platform_lease_db: str = "data/agents/leases.sqlite3"
+    agents_platform_artifact_root: str = "data/agents/artifacts"
+    agents_platform_artifact_db: str = "data/agents/artifacts.sqlite3"
+    agents_platform_usage_db: str = "data/agents/usage.sqlite3"
+    agents_platform_trace_db: str = "data/agents/traces.sqlite3"
     agents_platform_routing_min_score: float = 0.28
     agents_platform_routing_ambiguity_margin: float = 0.08
+    agents_platform_node_stale_after_seconds: float = 90.0
+    # Optional remote provider. Local MeshAgentHarness remains the default.
+    agents_platform_openai_agents_enabled: bool = False
+    agents_platform_openai_agents_base_url: str = "https://api.openai.com"
+    agents_platform_openai_agents_api_key_env: str = "OPENAI_API_KEY"
 
     @classmethod
     def from_env(cls) -> "MCPConfig":
@@ -56,6 +68,10 @@ class MCPConfig:
             ambiguity_margin = float(os.getenv("COMPUTEMESH_AGENTS_ROUTING_AMBIGUITY_MARGIN", "0.08"))
         except ValueError:
             ambiguity_margin = 0.08
+        try:
+            node_stale_after = float(os.getenv("COMPUTEMESH_AGENTS_NODE_STALE_AFTER_SECONDS", "90.0"))
+        except ValueError:
+            node_stale_after = 90.0
 
         return cls(
             enabled=_env_bool("COMPUTEMESH_MCP_ENABLED", True),
@@ -74,8 +90,19 @@ class MCPConfig:
             agents_platform_memory_db=os.getenv("COMPUTEMESH_AGENTS_MEMORY_DB", "data/agents/memory.sqlite3"),
             agents_platform_audit_log=os.getenv("COMPUTEMESH_AGENTS_AUDIT_LOG", "data/agents/audit.jsonl"),
             agents_platform_project_state=os.getenv("COMPUTEMESH_AGENTS_PROJECT_STATE", "data/agents/project_state.json"),
+            agents_platform_session_db=os.getenv("COMPUTEMESH_AGENTS_SESSION_DB", "data/agents/sessions.sqlite3"),
+            agents_platform_node_registry_db=os.getenv("COMPUTEMESH_AGENTS_NODE_REGISTRY_DB", "data/agents/nodes.sqlite3"),
+            agents_platform_lease_db=os.getenv("COMPUTEMESH_AGENTS_LEASE_DB", "data/agents/leases.sqlite3"),
+            agents_platform_artifact_root=os.getenv("COMPUTEMESH_AGENTS_ARTIFACT_ROOT", "data/agents/artifacts"),
+            agents_platform_artifact_db=os.getenv("COMPUTEMESH_AGENTS_ARTIFACT_DB", "data/agents/artifacts.sqlite3"),
+            agents_platform_usage_db=os.getenv("COMPUTEMESH_AGENTS_USAGE_DB", "data/agents/usage.sqlite3"),
+            agents_platform_trace_db=os.getenv("COMPUTEMESH_AGENTS_TRACE_DB", "data/agents/traces.sqlite3"),
             agents_platform_routing_min_score=route_min,
             agents_platform_routing_ambiguity_margin=ambiguity_margin,
+            agents_platform_node_stale_after_seconds=node_stale_after,
+            agents_platform_openai_agents_enabled=_env_bool("COMPUTEMESH_AGENTS_OPENAI_ENABLED", False),
+            agents_platform_openai_agents_base_url=os.getenv("COMPUTEMESH_AGENTS_OPENAI_BASE_URL", "https://api.openai.com"),
+            agents_platform_openai_agents_api_key_env=os.getenv("COMPUTEMESH_AGENTS_OPENAI_API_KEY_ENV", "OPENAI_API_KEY"),
         )
 
 

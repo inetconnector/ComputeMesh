@@ -42,7 +42,7 @@ CONNECTED
  -> CLOSED
 ```
 
-The current wire subset is `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `BenchmarkReport`, and `DrainRequest`.
+The current wire subset is `NodeHello`, `NodeAuthenticate`, `CapabilityNegotiation`, `NodeProfileUpdate`, `ModelCatalogueUpdate`, `BenchmarkReport`, and `DrainRequest`.
 
 Key properties:
 
@@ -56,6 +56,8 @@ Key properties:
 - successful request IDs are fingerprinted for the session: exact replay returns the prior snapshot, changed semantic reuse is rejected;
 - capability negotiation cannot add unoffered capabilities or silently drop configured required capabilities;
 - profile node/revision and benchmark profile revision are bound before readiness;
+- a model catalogue is accepted only after authentication and is bound to the
+  current profile revision, so routing never uses an unbound inventory;
 - readiness is decided by an injected `BenchmarkAcceptancePolicy`; there is no accept-all default;
 - drain is allowed only from `READY`;
 - an external incident/revocation signal can terminate an active session.

@@ -3,34 +3,51 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from .config import MCPConfig, get_mcp_config
-from .tool_registry import ToolRegistry
 
 # Subsystem Imports & Re-exports for 100% Backward Compatibility
-from .formatting.reasoning_formatter import format_reasoning_and_thinking_blocks, THINKING_RE
-from .formatting.tool_formatter import format_tool_content_if_json
-from .parser.tool_call_parser import (
-    XML_TOOL_CALL_RE,
-    JSON_CODE_BLOCK_RE,
-    RAW_JSON_TOOL_RE,
-    MAX_TOOL_CALLS_PER_ITERATION,
-    canonical_name,
-    _canonical_name,
-    parse_fallback_tool_calls,
-    _fallback_tool_calls,
-    decode_tool_arguments,
-    _decode_arguments,
+from .formatting.reasoning_formatter import THINKING_RE as THINKING_RE
+from .formatting.reasoning_formatter import (
+    format_reasoning_and_thinking_blocks as format_reasoning_and_thinking_blocks,
 )
-from .intent.entity_tokenizer import split_multi_entities, clean_entity_token
-from .intent.intent_router import detect_direct_tool_intent, detect_compound_tool_intents, REFUSAL_KEYWORDS
+from .formatting.tool_formatter import format_tool_content_if_json
+from .intent.entity_tokenizer import clean_entity_token as clean_entity_token
+from .intent.entity_tokenizer import split_multi_entities as split_multi_entities
+from .intent.intent_router import (
+    REFUSAL_KEYWORDS,
+    detect_compound_tool_intents,
+    detect_direct_tool_intent,
+)
+from .parser.tool_call_parser import JSON_CODE_BLOCK_RE as JSON_CODE_BLOCK_RE
+from .parser.tool_call_parser import (
+    MAX_TOOL_CALLS_PER_ITERATION,
+    _canonical_name,
+    _fallback_tool_calls,
+)
+from .parser.tool_call_parser import RAW_JSON_TOOL_RE as RAW_JSON_TOOL_RE
+from .parser.tool_call_parser import XML_TOOL_CALL_RE as XML_TOOL_CALL_RE
+from .parser.tool_call_parser import _decode_arguments as _decode_arguments
+from .parser.tool_call_parser import canonical_name as canonical_name
+from .parser.tool_call_parser import decode_tool_arguments as decode_tool_arguments
+from .parser.tool_call_parser import parse_fallback_tool_calls as parse_fallback_tool_calls
+from .tool_registry import ToolRegistry
 
 MAX_AGENT_ITERATIONS = 20
 MAX_TOOL_MESSAGE_CHARS = 100_000
+RESOURCE_USAGE_FIELDS = (
+    "cpu_milliseconds",
+    "gpu_milliseconds",
+    "vram_byte_seconds",
+    "network_bytes",
+    "artifact_bytes",
+    "external_cost_micros",
+)
 
 
 @dataclass
@@ -51,6 +68,27 @@ class AgentExecutionResult:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    resource_usage: Dict[str, int] = field(default_factory=dict)
+    # Only bounded opaque execution identifiers; never model/provider policy data.
+    provenance: Dict[str, List[str]] = field(default_factory=dict)
+
+
+class AgentApprovalRequired(RuntimeError):
+    """Raised internally when a durable side-effect approval pauses a turn."""
+
+    def __init__(self, execution: AgentExecutionResult, approval_ids: List[str]) -> None:
+        super().__init__("agent turn is waiting for approval")
+        self.execution = execution
+        self.approval_ids = tuple(str(value) for value in approval_ids)
+
+
+class AgentControlRequested(RuntimeError):
+    """Raised at a safe loop boundary when durable control asks us to stop."""
+
+    def __init__(self, action: str, execution: AgentExecutionResult) -> None:
+        super().__init__(f"agent turn control requested: {action}")
+        self.action = str(action)
+        self.execution = execution
 
 
 class AgentLoop:
@@ -69,6 +107,11 @@ class AgentLoop:
         max_iterations: Optional[int] = None,
         disabled_tools: Optional[List[str]] = None,
         on_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
+        tool_broker: Any | None = None,
+        should_stop: Optional[Callable[[], Optional[str]]] = None,
+        on_checkpoint: Optional[Callable[[Dict[str, Any]], None]] = None,
+        resume_state: Optional[Mapping[str, Any]] = None,
+        cancel_event: Any | None = None,
     ) -> AgentExecutionResult:
         try:
             requested_iterations = int(self.config.max_agent_iterations if max_iterations is None else max_iterations)
@@ -83,6 +126,17 @@ class AgentLoop:
                 except Exception:
                     pass
 
+        raw_resume = dict(resume_state) if isinstance(resume_state, Mapping) else {}
+        resume_phase = str(raw_resume.get("phase") or "")
+        try:
+            resume_iteration = max(0, int(raw_resume.get("iteration", 0) or 0))
+        except (TypeError, ValueError):
+            resume_iteration = 0
+        resume_messages = raw_resume.get("messages")
+        if isinstance(resume_messages, list) and all(isinstance(item, Mapping) for item in resume_messages):
+            resume_messages = [dict(item) for item in resume_messages]
+        else:
+            resume_messages = None
         curr_messages = [dict(message) for message in messages]
         disabled_set = {
             _canonical_name(self.registry, str(name).strip())
@@ -152,11 +206,168 @@ class AgentLoop:
                             m["content"] = str(m.get("content", "")) + mem_info
                         break
 
+        # A private execution checkpoint contains the exact in-flight message
+        # sequence. It is applied after normal system guidance so a resumed
+        # turn cannot accumulate a second injected system prompt.
+        if resume_messages is not None:
+            curr_messages = resume_messages
+
         executed_records: List[ToolCallRecord] = []
-        total_prompt_tok = 0
-        total_comp_tok = 0
-        last_assistant_content = ""
-        preflight_completed = False
+        raw_records = raw_resume.get("tool_records")
+        if isinstance(raw_records, list):
+            for raw_record in raw_records[:128]:
+                if not isinstance(raw_record, Mapping):
+                    continue
+                record_id = str(raw_record.get("id") or "")
+                record_name = str(raw_record.get("name") or "")
+                arguments = raw_record.get("arguments")
+                if record_id and record_name and isinstance(arguments, Mapping):
+                    executed_records.append(ToolCallRecord(
+                        id=record_id[:160],
+                        name=record_name[:256],
+                        arguments=dict(arguments),
+                        result=raw_record.get("result"),
+                    ))
+        def _restored_count(name: str) -> int:
+            value = raw_resume.get(name, 0)
+            return int(value) if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+
+        total_prompt_tok = _restored_count("prompt_tokens")
+        total_comp_tok = _restored_count("completion_tokens")
+        total_resource_usage = {
+            field: _restored_count(field)
+            for field in RESOURCE_USAGE_FIELDS
+        }
+        execution_provenance: Dict[str, List[str]] = {
+            "execution_job_ids": [],
+            "execution_node_ids": [],
+        }
+        restored_provenance = raw_resume.get("provenance")
+        if isinstance(restored_provenance, Mapping):
+            for field in execution_provenance:
+                values = restored_provenance.get(field)
+                if isinstance(values, (list, tuple)):
+                    execution_provenance[field] = [
+                        str(value).strip()[:160]
+                        for value in values[:32]
+                        if isinstance(value, str) and 1 <= len(value.strip()) <= 160
+                    ]
+        last_assistant_content = str(raw_resume.get("last_assistant_content") or "")[:MAX_TOOL_MESSAGE_CHARS]
+        preflight_completed = bool(raw_resume.get("preflight_completed", False))
+
+        def _record_resource_usage(usage: Any) -> None:
+            if not isinstance(usage, dict):
+                return
+            for field in RESOURCE_USAGE_FIELDS:
+                value = usage.get(field)
+                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                    total_resource_usage[field] += int(value)
+
+        def _record_execution_provenance(response: Any) -> None:
+            if not isinstance(response, dict):
+                return
+            provenance = response.get("provenance")
+            if not isinstance(provenance, dict):
+                return
+            for field, max_length in (("execution_job_ids", 32), ("execution_node_ids", 32)):
+                values = provenance.get(field)
+                if isinstance(values, str):
+                    values = [values]
+                if not isinstance(values, (list, tuple, set, frozenset)):
+                    continue
+                for value in values:
+                    if not isinstance(value, str):
+                        continue
+                    value = value.strip()
+                    if not 1 <= len(value) <= 160:
+                        continue
+                    if value not in execution_provenance[field]:
+                        execution_provenance[field].append(value)
+                    if len(execution_provenance[field]) >= max_length:
+                        break
+
+        def _execution_result(*, iterations: int, final_content: str = "") -> AgentExecutionResult:
+            return AgentExecutionResult(
+                final_content=final_content,
+                messages=curr_messages,
+                tool_calls_executed=executed_records,
+                iterations=iterations,
+                model=model,
+                prompt_tokens=total_prompt_tok,
+                completion_tokens=total_comp_tok,
+                total_tokens=total_prompt_tok + total_comp_tok,
+                resource_usage=dict(total_resource_usage),
+                provenance={
+                    key: list(values)
+                    for key, values in execution_provenance.items()
+                    if values
+                },
+            )
+
+        def _checkpoint(
+            *,
+            phase: str,
+            iteration: int,
+            pending_tool_calls: List[Dict[str, Any]] | None = None,
+            final_content: str = "",
+        ) -> None:
+            if on_checkpoint is None:
+                return
+            snapshot: Dict[str, Any] = {
+                "schema_version": 1,
+                "phase": str(phase),
+                "iteration": int(max(0, iteration)),
+                "messages": [dict(message) for message in curr_messages],
+                "tool_records": [
+                    {
+                        "id": record.id,
+                        "name": record.name,
+                        "arguments": dict(record.arguments),
+                        "result": record.result,
+                    }
+                    for record in executed_records[-128:]
+                ],
+                "prompt_tokens": total_prompt_tok,
+                "completion_tokens": total_comp_tok,
+                "provenance": {
+                    key: list(values)
+                    for key, values in execution_provenance.items()
+                    if values
+                },
+                "resource_usage": dict(total_resource_usage),
+                "last_assistant_content": last_assistant_content,
+                "preflight_completed": preflight_completed,
+                "pending_tool_calls": [dict(call) for call in (pending_tool_calls or [])[:MAX_TOOL_CALLS_PER_ITERATION]],
+                "final_content": str(final_content or "")[:MAX_TOOL_MESSAGE_CHARS],
+            }
+            encoded_size = len(json.dumps(snapshot, ensure_ascii=False, default=str).encode("utf-8"))
+            if encoded_size > 4 * 1024 * 1024:
+                raise ValueError("agent execution checkpoint exceeds the 4 MiB limit")
+            on_checkpoint(snapshot)
+
+        def _check_control() -> None:
+            if cancel_event is not None and bool(getattr(cancel_event, "is_set", lambda: False)()):
+                raise AgentControlRequested(
+                    "cancel",
+                    _execution_result(iterations=0, final_content=format_tool_content_if_json(last_assistant_content)),
+                )
+            if should_stop is None:
+                return
+            action = should_stop()
+            if action not in {"pause", "cancel"}:
+                return
+            raise AgentControlRequested(
+                action,
+                _execution_result(iterations=0, final_content=format_tool_content_if_json(last_assistant_content)),
+            )
+
+        _check_control()
+
+        if resume_phase == "completed":
+            return _execution_result(
+                iterations=resume_iteration,
+                final_content=str(raw_resume.get("final_content") or last_assistant_content),
+            )
 
         # Find latest user prompt and check for images
         last_user_text = ""
@@ -187,9 +398,14 @@ class AgentLoop:
         if direct_intent and not any(m.get("role") == "tool" for m in curr_messages):
             fn_name, fn_args = direct_intent
             if fn_name not in disabled_set and self.registry.get_tool(fn_name):
+                _check_control()
                 call_id = "call_direct_preflight_1"
                 _notify("intent_preflight", tool=fn_name, arguments=fn_args)
-                tool_res = self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
+                tool_res = (
+                    tool_broker.execute_tool(fn_name, fn_args, call_id=call_id, is_owner=is_owner)
+                    if tool_broker is not None
+                    else self.registry.execute_tool(fn_name, fn_args, is_owner=is_owner)
+                )
                 executed_records.append(ToolCallRecord(id=call_id, name=fn_name, arguments=fn_args, result=tool_res))
                 output_str = tool_res if isinstance(tool_res, str) else json.dumps(tool_res, ensure_ascii=False)
                 if len(output_str) > MAX_TOOL_MESSAGE_CHARS:
@@ -213,22 +429,84 @@ class AgentLoop:
                     "name": fn_name,
                     "content": output_str,
                 })
+                if isinstance(tool_res, dict) and tool_res.get("status") == "confirmation_required":
+                    provenance = tool_res.get("provenance") if isinstance(tool_res.get("provenance"), dict) else {}
+                    approval_id = str(provenance.get("approval_id") or "")
+                    if approval_id:
+                        _notify("approval_required", tool=fn_name, call_id=call_id, approval_id=approval_id)
+                        raise AgentApprovalRequired(
+                            _execution_result(iterations=0),
+                            [approval_id],
+                        )
                 preflight_completed = True
                 _notify("preflight_completed", tool=fn_name)
+                _checkpoint(phase="next_model", iteration=0)
 
-        for iteration in range(1, max_iter + 1):
+        pending_resume_tool_calls = raw_resume.get("pending_tool_calls")
+        if not isinstance(pending_resume_tool_calls, list):
+            pending_resume_tool_calls = None
+        resume_model_complete = resume_phase == "model_complete"
+        if resume_model_complete and not pending_resume_tool_calls:
+            return _execution_result(
+                iterations=resume_iteration,
+                final_content=str(raw_resume.get("final_content") or last_assistant_content),
+            )
+        start_iteration = max(1, resume_iteration if resume_model_complete else resume_iteration + 1)
+        for iteration in range(start_iteration, max_iter + 1):
+            _check_control()
             _notify("iteration_start", iteration=iteration, max_iterations=max_iter)
             # A direct intent has already executed the authoritative live tool.
             # Give the model only the resulting tool message for synthesis; if
             # it receives the full registry here it can invent an unrelated
             # second call instead of answering from the fresh result.
-            response = llm_caller(curr_messages, [] if preflight_completed else (tools if tools else []))
+            _check_control()
+            resumed_model_response = False
+            if resume_model_complete:
+                response = {
+                    "choices": [{
+                        "message": {
+                            "content": last_assistant_content,
+                            "tool_calls": pending_resume_tool_calls,
+                        },
+                    }],
+                }
+                resume_model_complete = False
+                pending_resume_tool_calls = None
+                resumed_model_response = True
+            else:
+                llm_tools = [] if preflight_completed else (tools if tools else [])
+                try:
+                    parameters = inspect.signature(llm_caller).parameters
+                    accepts_cancel = "cancel_event" in parameters or any(
+                        parameter.kind is inspect.Parameter.VAR_KEYWORD
+                        for parameter in parameters.values()
+                    )
+                except (TypeError, ValueError):
+                    accepts_cancel = False
+                try:
+                    response = (
+                        llm_caller(curr_messages, llm_tools, cancel_event=cancel_event)
+                        if accepts_cancel
+                        else llm_caller(curr_messages, llm_tools)
+                    )
+                except AgentControlRequested:
+                    raise
+                except Exception as exc:
+                    if cancel_event is not None and bool(getattr(cancel_event, "is_set", lambda: False)()):
+                        raise AgentControlRequested(
+                            "cancel",
+                            _execution_result(iterations=iteration - 1, final_content=format_tool_content_if_json(last_assistant_content)),
+                        ) from exc
+                    raise
+                _check_control()
             if not isinstance(response, dict):
                 break
+            _record_execution_provenance(response)
             usage = response.get("usage", {})
             if isinstance(usage, dict):
                 total_prompt_tok += int(usage.get("prompt_tokens", 0) or 0)
                 total_comp_tok += int(usage.get("completion_tokens", 0) or 0)
+                _record_resource_usage(usage)
 
             choices = response.get("choices", [])
             if not isinstance(choices, list) or not choices:
@@ -382,26 +660,25 @@ class AgentLoop:
                                 parts.append(f_fmt)
                         final = "\n\n---\n\n".join(parts) if parts else format_tool_content_if_json(content)
                 curr_messages.append({"role": "assistant", "content": final})
+                _checkpoint(phase="completed", iteration=iteration, final_content=final)
                 _notify("loop_finished", final_records_count=len(executed_records))
-                return AgentExecutionResult(
-                    final_content=final,
-                    messages=curr_messages,
-                    tool_calls_executed=executed_records,
-                    iterations=iteration,
-                    model=model,
-                    prompt_tokens=total_prompt_tok,
-                    completion_tokens=total_comp_tok,
-                    total_tokens=total_prompt_tok + total_comp_tok,
-                )
+                return _execution_result(iterations=iteration, final_content=final)
 
             assistant_msg: Dict[str, Any] = {"role": "assistant", "tool_calls": tool_calls}
             if content:
                 assistant_msg["content"] = content
-            curr_messages.append(assistant_msg)
+            if not resumed_model_response:
+                curr_messages.append(assistant_msg)
+            _checkpoint(phase="model_complete", iteration=iteration, pending_tool_calls=tool_calls)
 
             # Execute tool calls in parallel with automatic concurrency and TTL caching
+            _check_control()
             _notify("tools_batch_executing", count=len(tool_calls), tools=[c.get("function", {}).get("name") for c in tool_calls])
-            batch_results = self.registry.execute_tools_batch(tool_calls, is_owner=is_owner)
+            batch_results = (
+                tool_broker.execute_tools_batch(tool_calls, is_owner=is_owner)
+                if tool_broker is not None
+                else self.registry.execute_tools_batch(tool_calls, is_owner=is_owner)
+            )
             for res_item in batch_results:
                 call_id = res_item["id"]
                 fn_name = res_item["name"]
@@ -427,20 +704,28 @@ class AgentLoop:
                     "name": fn_name,
                     "content": output_str,
                 })
+            _checkpoint(phase="next_model", iteration=iteration)
+            approval_ids = []
+            for res_item in batch_results:
+                tool_output = res_item.get("result")
+                if isinstance(tool_output, dict) and tool_output.get("status") == "confirmation_required":
+                    provenance = tool_output.get("provenance") if isinstance(tool_output.get("provenance"), dict) else {}
+                    approval_id = str(provenance.get("approval_id") or "")
+                    if approval_id:
+                        approval_ids.append(approval_id)
+            if approval_ids:
+                _notify("approval_required", approval_ids=approval_ids)
+                raise AgentApprovalRequired(
+                    _execution_result(iterations=iteration),
+                    approval_ids,
+                )
             _notify("tools_batch_completed", count=len(batch_results))
+            _check_control()
 
         final = format_tool_content_if_json(last_assistant_content)
         if not final and executed_records:
             final = format_tool_content_if_json(
                 executed_records[-1].result if isinstance(executed_records[-1].result, str) else json.dumps(executed_records[-1].result, ensure_ascii=False)
             )
-        return AgentExecutionResult(
-            final_content=final,
-            messages=curr_messages,
-            tool_calls_executed=executed_records,
-            iterations=max_iter,
-            model=model,
-            prompt_tokens=total_prompt_tok,
-            completion_tokens=total_comp_tok,
-            total_tokens=total_prompt_tok + total_comp_tok,
-        )
+        _checkpoint(phase="completed", iteration=max_iter, final_content=final)
+        return _execution_result(iterations=max_iter, final_content=final)

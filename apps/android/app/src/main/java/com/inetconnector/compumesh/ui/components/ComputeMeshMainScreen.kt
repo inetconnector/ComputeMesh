@@ -372,7 +372,9 @@ fun ComputeMeshMainScreen(
     ) { padding ->
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = pagerState.currentPage != 0,
+            // Keep horizontal tab swipes available from the chat page too.
+            // The embedded WebView still owns vertical scrolling and controls.
+            userScrollEnabled = true,
             beyondBoundsPageCount = 4,
             modifier = Modifier
                 .fillMaxSize()

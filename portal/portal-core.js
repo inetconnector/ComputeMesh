@@ -4,6 +4,9 @@
 
 var translations = window.translations || {
   en: {
+    home_title: "ComputeMesh",
+    home_tagline: "GPU infrastructure and AI inference",
+    home_sub: "Run open-source models through an OpenAI-compatible API, offer GPU capacity, and manage your local or distributed fleet.",
     // Navigation & Common
     nav_home: "Home",
     nav_features: "Features",
@@ -112,6 +115,8 @@ var translations = window.translations || {
     nav_app_today_sub: "Daily Briefing, Smart Tasks & Autonomous Calendar Agent",
     nav_app_hub: "Google Play Store",
     nav_app_hub_sub: "Official Android Apps from InetConnector",
+    nav_app_smartx: "SmartX Blockchain",
+    nav_app_smartx_sub: "InetConnector blockchain project and decentralized network",
     apps_sec_tag: "ECOSYSTEM & APPLICATIONS",
     apps_sec_title: "Connected Intelligent AI Apps & Tool Suite",
     apps_sec_sub: "Explore our privacy-first, decentralized AI applications powered by the ComputeMesh infrastructure.",
@@ -129,6 +134,10 @@ var translations = window.translations || {
     apps_btn_playstore: "Google Play Store ➔",
     apps_btn_open: "Open App ➔",
     apps_btn_overview: "Download & IDE Overview ➔",
+    apps_badge_blockchain: "Blockchain Project",
+    apps_title_smartx: "SmartX Blockchain",
+    apps_desc_smartx: "Explore the SmartX blockchain project by InetConnector: a dedicated decentralized network for transparent, verifiable digital infrastructure.",
+    apps_btn_smartx: "smartx.inetconnector.com ↗",
     nav_marketplace: "Marketplace",
     nav_models: "Models",
     nav_developers: "Developers",
@@ -530,6 +539,9 @@ var translations = window.translations || {
   },
 
   de: {
+    home_title: "ComputeMesh",
+    home_tagline: "GPU-Infrastruktur und KI-Inferenz",
+    home_sub: "Nutze Open-Source-Modelle über eine OpenAI-kompatible API, biete GPU-Kapazität an und verwalte deine lokale oder verteilte Flotte.",
     // Navigation & Allgemein
     nav_home: "Startseite",
     nav_features: "Funktionen",
@@ -638,6 +650,8 @@ var translations = window.translations || {
     nav_app_today_sub: "Tagesbriefing, smarte Aufgaben & Kalender-Agent",
     nav_app_hub: "Google Play Store",
     nav_app_hub_sub: "Offizielle Android-Apps von InetConnector",
+    nav_app_smartx: "SmartX Blockchain",
+    nav_app_smartx_sub: "Blockchain-Projekt und dezentrales Netzwerk von InetConnector",
     apps_sec_tag: "ÖKOSYSTEM & ANWENDUNGEN",
     apps_sec_title: "Vernetzte intelligente KI-Apps & Anwendungs-Suite",
     apps_sec_sub: "Entdecke unsere datenschutzkonformen, dezentralen KI-Anwendungen, angetrieben von der ComputeMesh-Infrastruktur.",
@@ -655,6 +669,10 @@ var translations = window.translations || {
     apps_btn_playstore: "Google Play Store ➔",
     apps_btn_open: "App öffnen ➔",
     apps_btn_overview: "Download & IDE-Übersicht ➔",
+    apps_badge_blockchain: "Blockchain-Projekt",
+    apps_title_smartx: "SmartX Blockchain",
+    apps_desc_smartx: "Entdecke das SmartX-Blockchain-Projekt von InetConnector: ein eigenes dezentrales Netzwerk für transparente und überprüfbare digitale Infrastruktur.",
+    apps_btn_smartx: "smartx.inetconnector.com ↗",
     nav_marketplace: "Marketplace",
     nav_models: "Modelle",
     nav_developers: "Entwickler",
@@ -1114,6 +1132,19 @@ function switchLanguage(lang) {
   if (typeof window.onLanguageChanged === 'function') {
     try { window.onLanguageChanged(lang); } catch (e) { console.error(e); }
   }
+  plainPortalChrome();
+}
+
+function plainPortalChrome() {
+  document.querySelectorAll('header.site-header, .hero, footer').forEach(root => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!node.parentElement.closest('script, style')) {
+        node.textContent = node.textContent.replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, '');
+      }
+    }
+  });
 }
 
 function toggleLanguage() {
@@ -1308,7 +1339,7 @@ function updateAuthStateUI() {
             <p data-i18n="pg_auth_banner_desc">${t.pg_auth_banner_desc || (lang === 'de' ? 'Nutze die integrierte llama-server WebUI mit Multi-Modellen, PDF/Bilder-Upload, Branching und unbegrenzter Chat-Historie.' : 'Use the built-in llama-server WebUI with multi-model switching, PDF/image uploads, branching, and local chat history.')}</p>
           </div>
         </div>
-        <a href="${webuiUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm pg-auth-banner-btn" onclick="openWebUI(event)" data-i18n="pg_auth_banner_btn">
+        <a href="${aiChatUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm pg-auth-banner-btn" onclick="openWebUI(event)" data-i18n="pg_auth_banner_btn">
           ${t.pg_auth_banner_btn || (lang === 'de' ? '🚀 WebUI Studio öffnen ↗' : '🚀 Open WebUI Studio ↗')}
         </a>
       `;
@@ -1502,7 +1533,7 @@ function openModal(role = 'consumer') {
     const select = document.getElementById('modal-role');
     if (select) select.value = role;
   } else {
-    window.location.href = '/#register';
+    window.location.href = '/?action=register&role=' + encodeURIComponent(role);
   }
 }
 
@@ -1732,7 +1763,7 @@ function openDepositModal() {
     const msgBox = document.getElementById('deposit-msg-box');
     if (msgBox) msgBox.style.display = 'none';
   } else {
-    window.location.href = '/#deposit';
+    window.location.href = '/?action=deposit';
   }
 }
 
@@ -2679,6 +2710,10 @@ function initPortal() {
   const initialLang = detectInitialLanguage();
   switchLanguage(initialLang);
   initUnifiedPortalHeader();
+  plainPortalChrome();
+  const action = new URLSearchParams(window.location.search);
+  if (action.get('action') === 'deposit') openDepositModal();
+  if (action.get('action') === 'register') openModal(action.get('role') === 'provider' ? 'provider' : 'consumer');
   
   document.getElementById('slider-tokens')?.addEventListener('input', updateCalculators);
   document.getElementById('select-model')?.addEventListener('change', updateCalculators);
@@ -2699,12 +2734,6 @@ function initPortal() {
   } catch (e) {
     renderPlaygroundSnippet();
   }
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initPortal);
-} else {
-  initPortal();
 }
 
 window.initPortal = initPortal;
@@ -2758,7 +2787,7 @@ function renderRealMarketplaceCards(nodes, isDe) {
         </p>
         <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
           <button class="btn btn-primary" onclick="openModal('consumer')">${isDe ? '🚀 API-Key holen' : '🚀 Get API Key'}</button>
-          <a href="#downloads" class="btn btn-emerald">${isDe ? '⚡ Provider-Software laden (.exe / Linux / NodeOS)' : '⚡ Download Provider Agent'}</a>
+          <a href="/downloads" class="btn btn-emerald">${isDe ? '⚡ Provider-Software laden (.exe / Linux / NodeOS)' : '⚡ Download Provider Agent'}</a>
         </div>
       </div>
     `;
@@ -2851,7 +2880,7 @@ function renderRealMarketplaceCards(nodes, isDe) {
       </div>
     </div>
     <div class="market-card-actions">
-      <a href="#downloads" class="btn btn-emerald btn-sm" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;">${isDe ? 'Provider-Software herunterladen ➔' : 'Download Provider Software ➔'}</a>
+      <a href="/downloads" class="btn btn-emerald btn-sm" style="width: 100%; text-align: center; text-decoration: none; font-weight: 700;">${isDe ? 'Provider-Software herunterladen ➔' : 'Download Provider Software ➔'}</a>
     </div>
   `;
   container.appendChild(addCard);
@@ -3095,3 +3124,11 @@ window.deployMarketplaceOffer = deployMarketplaceOffer;
 window.copyMarketCommand = copyMarketCommand;
 window.switchDxTab = switchDxTab;
 window.copyDxCode = copyDxCode;
+
+// Dynamic script loading can occur after DOMContentLoaded. Initialize only
+// after the marketplace state and all other module bindings are available.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPortal);
+} else {
+  initPortal();
+}

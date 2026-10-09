@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
 import time
 import unittest
+from pathlib import Path
 
 from services.mcp.config import MCPConfig
 from services.mcp.platform.agents_rules import AgentsRuleResolver
@@ -267,6 +267,40 @@ class TestFeatureGatedRuntime(unittest.TestCase):
         preparation = runtime.prepare([{"role": "user", "content": "research"}])
         self.assertFalse(preparation.enabled)
         self.assertIsNone(preparation.routing)
+
+    def test_openai_provider_requires_explicit_enablement(self):
+        runtime = AgentsPlatformRuntime(
+            config=MCPConfig(agents_platform_enabled=True),
+            tool_registry=FakeToolRegistry(),
+            repo_root=Path.cwd(),
+        )
+        try:
+            with self.assertRaisesRegex(RuntimeError, "provider is disabled"):
+                runtime.build_openai_agents_client()
+        finally:
+            runtime.close()
+
+    def test_openai_provider_is_server_side_and_not_auto_enabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = AgentsPlatformRuntime(
+                config=MCPConfig(
+                    agents_platform_enabled=True,
+                    agents_platform_openai_agents_enabled=True,
+                    agents_platform_openai_agents_base_url="http://127.0.0.1:9",
+                    agents_platform_openai_agents_api_key_env="COMPUTEMESH_TEST_OPENAI_KEY",
+                    agents_platform_skill_roots="",
+                ),
+                tool_registry=FakeToolRegistry(),
+                repo_root=root,
+            )
+            try:
+                client = runtime.build_openai_agents_client()
+                self.assertFalse(client.enabled)
+                self.assertIs(runtime.openai_agents, client)
+                self.assertFalse((root / "data" / "agents" / "openai.key").exists())
+            finally:
+                runtime.close()
 
     def test_shadow_mode_routes_without_injecting_context(self):
         with tempfile.TemporaryDirectory() as directory:

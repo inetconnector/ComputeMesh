@@ -1,15 +1,18 @@
 """Provider-side authenticated persistent control-channel client."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import socket
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from protocol.control import CURRENT_PROTOCOL_MINOR, SUPPORTED_PROTOCOL_MAJOR, ControlEnvelope
 from protocol.node_identity import AUTH_METHOD, create_node_auth_proof
 from protocol.node_session import NodeHelloInfo, NodeSessionState, SessionSnapshot
+from services.orchestrator.inference_transport import (
+    make_inference_request_handler,
+    make_inference_stream_handler,
+)
 from services.orchestrator.persistent_control_channel import recv_frame, send_frame
 
 
@@ -120,3 +123,12 @@ def make_handshake(*, node_id: str, key_id: str, private_key: Ed25519PrivateKey,
             capabilities=capabilities,
         )
     return handshake
+
+
+__all__ = [
+    "ProviderHandshakeError",
+    "perform_provider_handshake",
+    "make_handshake",
+    "make_inference_request_handler",
+    "make_inference_stream_handler",
+]

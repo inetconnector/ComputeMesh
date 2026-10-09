@@ -19,8 +19,23 @@ class SessionMessageContractTests(unittest.TestCase):
                     "NodeAuthenticate",
                     "CapabilityNegotiation",
                     "NodeProfileUpdate",
+                    "ModelCatalogueUpdate",
+                    "RuntimeAdvertisement",
                     "BenchmarkReport",
                     "DrainRequest",
+                    "ExecutionAttestationRequest",
+                    "ExecutionAttestationResponse",
+                    "GpuPromoChallengeRequest",
+                    "GpuPromoChallengeResponse",
+                    "CapacityReserveRequest",
+                    "CapacityReleaseRequest",
+                    "InferenceRequest",
+                    "InferenceResponse",
+                    "InferenceStreamChunk",
+                    "ModelPreparationRequest",
+                    "ModelPreparationResponse",
+                    "EnvironmentRequest",
+                    "EnvironmentResponse",
                 }
             ),
         )
@@ -85,6 +100,17 @@ class SessionMessageContractTests(unittest.TestCase):
             broken = dict(report)
             broken["metrics"] = {}
             self.validator.validate("BenchmarkReport", broken)
+
+    def test_model_catalogue_is_revision_bound_and_bounded(self):
+        payload = {
+            "schema_version": 1,
+            "node_id": "node-1",
+            "profile_revision": 7,
+            "models": [{"model_id": "qwen2.5:3b", "context_size": 32768}],
+        }
+        self.validator.validate("ModelCatalogueUpdate", payload)
+        with self.assertRaises(SessionMessageContractError):
+            self.validator.validate("ModelCatalogueUpdate", {**payload, "models": [{"context_size": 1}]})
 
     def test_unknown_session_message_is_not_silently_accepted(self):
         with self.assertRaises(KeyError):

@@ -6,17 +6,20 @@ result, then executes it. The disclosed reference planner remains research-only.
 """
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-import threading
-from typing import Any
+from typing import Any, Callable
 
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_trial import TrialPlan
 from services.gateway.placement_selection import PlacementSelection
-from services.orchestrator.authenticated_attestation_transport import ATTESTATION_CAPABILITY, NodeControlClient
+from services.orchestrator.authenticated_attestation_transport import (
+    ATTESTATION_CAPABILITY,
+    NodeControlClient,
+)
 from services.orchestrator.placement_provider import (
     PlacementPlan,
     PlacementProvider,
@@ -38,6 +41,7 @@ class LiveNodeState:
     rpc_endpoint: RpcEndpoint
     llama_build_number: int
     llama_build_commit: str
+    models: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -74,6 +78,7 @@ class LiveSharedRuntimeRegistry:
         self._models: dict[str, LiveModelState] = {}
         self._network: dict[tuple[str, str], dict[str, Any]] = {}
         self._control_client: NodeControlClient | None = None
+        self._agent_policy_resolver: Callable[[Any, Any], Any] | None = None
         self._placement_provider: PlacementProvider = placement_provider or ReferencePlacementProvider()
 
     def set_placement_provider(self, provider: PlacementProvider) -> None:
@@ -104,6 +109,18 @@ class LiveSharedRuntimeRegistry:
     def set_control_client(self, client: NodeControlClient) -> None:
         with self._lock:
             self._control_client = client
+
+    def set_agent_policy_resolver(self, resolver: Callable[[Any, Any], Any] | None) -> None:
+        """Register a private adapter that returns only a minimized policy envelope."""
+        if resolver is not None and not callable(resolver):
+            raise TypeError("agent policy resolver must be callable or None")
+        with self._lock:
+            self._agent_policy_resolver = resolver
+
+    @property
+    def agent_policy_resolver(self) -> Callable[[Any, Any], Any] | None:
+        with self._lock:
+            return self._agent_policy_resolver
 
     @property
     def control_client(self) -> NodeControlClient:

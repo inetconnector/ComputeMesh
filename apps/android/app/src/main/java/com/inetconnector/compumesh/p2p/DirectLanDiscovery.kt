@@ -26,10 +26,19 @@ data class LocalMeshPeer(
     val port: Int,
     val gpuSummary: String,
     val isLocalLan: Boolean = true,
-    val remoteUrl: String = ""
+    val remoteUrl: String = "",
+    /** Discovery is not trust. This is the last bounded, credential-free probe result. */
+    val lifecycle: String = "discovered",
+    val requiresAuth: Boolean = false,
+    val modelIds: List<String> = emptyList(),
+    val probeMessage: String = "",
+    val checkedAtEpochMs: Long = 0L
 ) {
     val targetUrl: String
         get() = if (remoteUrl.isNotBlank()) remoteUrl else "http://$ipAddress:$port"
+
+    val isAvailable: Boolean
+        get() = !requiresAuth && lifecycle in setOf("reachable", "available")
 }
 
 /**
@@ -165,7 +174,95 @@ class DirectLanDiscovery(private val context: Context) {
             }
         }
 
-        merged.values.toList()
+        probePeers(merged.values.toList())
+    }
+
+    /**
+     * Check discovered endpoints without sending owner credentials. A node may
+     * be visible while still requiring explicit pairing; that state must remain
+     * visible to the user but must never become an implicit inference route.
+     */
+    private suspend fun probePeers(peers: List<LocalMeshPeer>): List<LocalMeshPeer> = coroutineScope {
+        peers.map { peer ->
+            async(Dispatchers.IO) { probePeer(peer) }
+        }.awaitAll()
+    }
+
+    private fun probePeer(peer: LocalMeshPeer): LocalMeshPeer {
+        val checkedAt = System.currentTimeMillis()
+        val base = peer.targetUrl.trimEnd('/')
+        if (base.isBlank()) return peer.copy(lifecycle = "unreachable", probeMessage = "missing_endpoint", checkedAtEpochMs = checkedAt)
+
+        var sawAuth = false
+        var sawReachable = false
+        var modelIds = emptyList<String>()
+        for (path in listOf("/v1/models", "/api/tags", "/health")) {
+            val connection = runCatching {
+                (URL(base + path).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = 1200
+                    readTimeout = 1800
+                }
+            }.getOrNull() ?: continue
+            try {
+                when (val code = connection.responseCode) {
+                    HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN -> sawAuth = true
+                    in 200..299 -> {
+                        sawReachable = true
+                        val body = runCatching {
+                            connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                        }.getOrDefault("")
+                        if (path != "/health") {
+                            runCatching {
+                                val payload = JSONObject(body)
+                                val data = payload.optJSONArray("data") ?: payload.optJSONArray("models") ?: JSONArray()
+                                modelIds = buildList {
+                                    for (index in 0 until data.length()) {
+                                        val item = data.optJSONObject(index) ?: continue
+                                        val id = item.optString("id", item.optString("name", item.optString("model", ""))).trim()
+                                        if (id.isNotBlank()) add(id.take(256))
+                                    }
+                                }.distinct().take(64)
+                            }
+                        }
+                        if (modelIds.isNotEmpty() || path == "/health") break
+                    }
+                }
+            } catch (_: Throwable) {
+                // A later endpoint may still provide a useful bounded result.
+            } finally {
+                try { connection.disconnect() } catch (_: Throwable) {}
+            }
+        }
+
+        // Fleet URLs are already returned by an authenticated fleet listing.
+        // A credential-free 401 there is not a pairing request for the phone.
+        if (sawAuth && peer.isLocalLan) {
+            return peer.copy(
+                lifecycle = "quarantined",
+                requiresAuth = true,
+                modelIds = modelIds,
+                probeMessage = "manual_pairing_required",
+                checkedAtEpochMs = checkedAt
+            )
+        }
+        if (sawReachable) {
+            return peer.copy(
+                lifecycle = if (modelIds.isNotEmpty()) "available" else "reachable",
+                requiresAuth = false,
+                modelIds = modelIds,
+                probeMessage = if (modelIds.isEmpty()) "model_catalogue_empty" else "",
+                checkedAtEpochMs = checkedAt
+            )
+        }
+        return peer.copy(
+            lifecycle = if (sawAuth) "reachable" else "unreachable",
+            requiresAuth = false,
+            modelIds = modelIds,
+            probeMessage = if (sawAuth) "credentials_required" else "probe_failed",
+            checkedAtEpochMs = checkedAt
+        )
     }
 
     suspend fun discoverLocalPeers(timeoutMs: Int = 3500): List<LocalMeshPeer> = withContext(Dispatchers.IO) {

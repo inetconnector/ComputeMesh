@@ -15,7 +15,7 @@
   <link rel="manifest" href="/site.webmanifest">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="/portal.css?v=4.3">
+  <link rel="stylesheet" href="/portal.css?v=5.0">
 
   <style>
     /* Dedicated AI Studio Auth Page Styles */
@@ -25,7 +25,7 @@
       flex-direction: column;
       justify-content: space-between;
       background-color: var(--bg-primary);
-      background-image: 
+      background-image:
         radial-gradient(circle at 50% 10%, rgba(0, 240, 255, 0.08) 0%, transparent 50%),
         radial-gradient(circle at 85% 60%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
         radial-gradient(circle at 15% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 45%);
@@ -329,6 +329,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/portal-business.css?v=5.0">
 </head>
 <body class="ai-studio-auth-page">
 
@@ -346,7 +347,7 @@
   <!-- Auth Main Container -->
   <main class="ai-auth-container">
     <div class="ai-auth-card">
-      
+
       <div class="ai-auth-header-block">
         <span class="ai-auth-badge" id="lbl-badge">🚀 AI STUDIO GATEWAY</span>
         <h1 class="ai-auth-title" id="lbl-title">Multi-Modell KI-Chat</h1>
@@ -461,14 +462,14 @@
 
   <!-- Minimal Footer -->
   <footer class="ai-auth-footer">
-    <a href="https://mesh.inetconnector.com/" target="_blank">ComputeMesh Portal</a> · 
-    <a href="https://mesh.inetconnector.com/privacy" target="_blank">Datenschutz</a> · 
-    <a href="https://mesh.inetconnector.com/terms" target="_blank">AGB</a> · 
+    <a href="https://mesh.inetconnector.com/" target="_blank">ComputeMesh Portal</a> ·
+    <a href="https://mesh.inetconnector.com/privacy" target="_blank">Datenschutz</a> ·
+    <a href="https://mesh.inetconnector.com/terms" target="_blank">AGB</a> ·
     <a href="https://mesh.inetconnector.com/impressum" target="_blank">Impressum</a>
   </footer>
 
   <!-- Scripts -->
-  <script src="/portal-core.js?v=4.3"></script>
+  <script src="/portal-core.js?v=5.0"></script>
   <script>
     var currentLang = (typeof window.getLang === 'function' ? window.getLang() : localStorage.getItem('cm_portal_lang')) || 'de';
 
@@ -645,7 +646,7 @@
           localStorage.setItem('cm_token', key);
           localStorage.setItem('apiKey', key);
         }
-        
+
         // Sync to all LlamaUi config keys
         var configKeys = ["LlamaUi.config", "LlamaCppWebui.config", "LlamacppWebui.config", "settings", "config"];
         configKeys.forEach(function(k) {

@@ -1,10 +1,756 @@
 # ComputeMesh State
 
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-09
+
+## 2026-10-09 independent portal pages and neutral presentation
+
+- Homepage navigation now loads real documents; existing marketplace, model,
+  pricing, download, API, status, security and fleet pages remain. Added
+  products, projects (including SmartX), LAN mesh and playground pages while
+  preserving the removed homepage sections on their corresponding pages.
+- Shared `portal-business.css` replaces gradients, glows, oversized headings
+  and multicolored project panels. Responsive navigation wraps on phones.
+- Core initialization is deferred until state exists. Loading an already
+  present core is skipped; fleet script order is corrected. Account-action
+  fallbacks use query parameters and open the requested modal on the homepage.
+- Browser checks: 3 passed, covering deferred telemetry, document navigation,
+  13 pages at 390/1440 pixels, German/English, no horizontal document overflow
+  and no JavaScript page errors. Homepage screenshots visually inspected.
+- Android `:app:assembleDebug`: BUILD SUCCESSFUL. No phone installation or
+  production-signed Android release was performed in this round.
+- Broad public suite: 960 passed plus 22 subtests. Private suite: 229 passed
+  plus 3 subtests. Changed public Python I/F check passes excluding F841;
+  private Ruff passes. CI and hardware-backed agent activation remain unrun.
+
+## 2026-10-09 portal telemetry initialization
+
+- Moved portal initialization after all marketplace bindings. The dynamic
+  loader previously called language switching before `_lastFetchedNodes`
+  existed, aborting initialization and leaving telemetry placeholders.
+- Bumped portal loader cache version to 4.5. Browser regression covers late
+  script loading, live-shaped telemetry and German/English switching.
+- Live API inspection reported one GPU, 16 GB VRAM and one active node.
+  The local corrected client displayed those values without browser errors.
+- Broad runtime and WebUI suite: 960 passed, 22 subtests. Browser regression:
+  1 passed. All existing agent/runtime and Android work is preserved for the
+  operator-requested commit. Android changes require a separate build gate.
+- Import organization was normalized across changed Python files. Gateway
+  missing error imports and QR/query references were corrected; duplicate
+  process-workspace exports were consolidated.
 **Release Version:** the public NodeOS release channel is `v1.2.185`, and its verified Windows/Linux artifacts and WebUI are live in both Plesk webroots. The portal WebUI is byte-identical to the local source at `model-selector.js`, `sw.js`, `index.html` and `updates/version.json`. `.94` reports `1.2.184` and exposes four installed models, including `gemma4:26b`; its `/api/status` remains protected. `.27` was not overwritten during this pass.
 **Active Mission / Last Prompt:** make the dashboard/WebUI controls reliable, keep Android WebUI parity, and enforce truthful hardware/fan telemetry for NodeOS.
-**Test Suite Status:** the focused WebUI suite passes `7/7`, JavaScript syntax checks pass, and Android `:app:compileDebugKotlin` passes for the current automatic model fallback. The signed Android `1.2.168` artifact has already passed production signing and was installed once, but the final post-fallback production reinstall is still an open gate. The full suite must be rerun after this WebUI change. Bare `pytest` collection remains unusable because committed release-staging copies under `artifacts/` collide with source test module names.
+**Test Suite Status:** the current extended public runtime/contract suite passes `938` tests plus `22` subtests (`apps/node`, `services/mcp/tests`, `services/gateway/tests`, `services/orchestrator/tests`, `protocol/tests`). Including `runtime/tests`, the broader local suite passes `951` tests plus `22` subtests. The focused capacity/provider/transport slice passes `50/50`, the focused mesh-billing slice passes `32/32`, the focused WebUI suite passes `9/9`, both bundled model-selector copies pass JavaScript syntax checks and remain byte-identical, and the private root suite passes `226` tests plus `3` subtests. The signed Android `1.2.168` artifact has already passed production signing and was installed once, but the final post-fallback production reinstall remains an open gate. Bare `pytest -q` still collects unrelated release/native folders and fails at environment-level collection; those failures are separate from the targeted runtime suite.
+
+## 2026-10-05 mesh-turn billing bridge
+
+- Mesh turns can now use the existing opt-in gateway hold/capture ledger. The
+  mesh caller sends a private callback payload containing token usage, a
+  deterministic execution ID and the authenticated selected node; provider
+  shares remain outside public session events, usage responses and traces.
+- Billing remains disabled by default and legacy `none`/`self_hosted` paths are
+  unchanged. The bridge fails closed when authenticated mesh dispatch does not
+  identify a selected node. Hardware-backed attestation and multi-provider
+  settlement are still deployment gates.
+- Verification: model-caller, billing and gateway-worker tests pass **32/32**;
+  the public targeted and extended suites pass **938 + 22** and **951 + 22**
+  respectively. No live provider, LAN, Android or production billing run was
+  performed.
+
+## 2026-10-05 provider inference lease binding
+
+- `AuthenticatedNodeInferenceClient` now reserves provider-local capacity through
+  `capacity_reservation_v1` before a live request and releases that reservation
+  after the response or stream completes. The reservation is bound to the
+  session, turn, lease and deterministic job ID; release failures leave the
+  provider TTL as the recovery boundary.
+- The runnable `ProviderAgent` now enables fail-closed inference admission and
+  accepts streaming through the same capacity check. Existing nodes that do
+  not negotiate the optional capacity capability retain the prior inference
+  path. Single-device profiles resolve `default` to their only profiled device;
+  multi-device profiles require an explicit device ID.
+- Verification: the focused capacity/provider/transport slice passes **50/50**;
+  the public suite passes **935 tests plus 22 subtests** and the broader suite
+  including `runtime/tests` passes **948 tests plus 22 subtests**; Ruff `I,F`
+  and Python compilation pass for the changed modules. No live provider,
+  NodeOS, LAN, Android or production restart check was run.
+
+## 2026-10-05 profile-bound provider GPU admission
+
+- `LocalCapacityGuard` now accepts the provider's profiled accelerator memory,
+  rejects reservation requests for unknown device IDs and enforces per-device
+  VRAM admission in addition to the existing global slot/system-memory limits.
+- `ProviderAgent` derives that bounded device map from the authenticated node
+  profile when no deployment-specific guard is injected. Nodes without a
+  device inventory retain the compatibility path and do not receive invented
+  device limits.
+- Verification: this admission slice is covered by the newer **50/50**
+  capacity/provider/transport run above. This remains admission accounting,
+  not a claim of physical GPU isolation.
+
+## 2026-10-05 provider service optional-feature wiring
+
+- The Linux `computemesh-node.service` template now forwards the optional
+  inference endpoint/token, model-preparation manifest and typed environment
+  root configured in `provider.env.example`.
+- Empty systemd variable expansions are normalized as unset paths, so the
+  corresponding capabilities remain disabled instead of treating an empty
+  value as the current directory.
+- Focused provider and service-template checks pass **20/20**. The public
+  full-suite rerun passes **932 tests plus 22 subtests**; the private root
+  suite passes **226 tests plus 3 subtests**.
+
+## 2026-10-05 provider process cancellation boundary
+
+- `LocalOpenAIInferenceBackend` now closes the active response on durable
+  cancellation and can invoke an optional deployment-owned `on_cancel` callback
+  exactly at that boundary. A provider that owns its `llama-server` process can
+  connect this callback to its supervisor; shared model servers remain untouched
+  by default.
+- Callback failures are swallowed after the cancellation signal so a broken
+  deployment hook cannot prevent the request from terminating. The callback is
+  intentionally not wired to arbitrary shell commands or global process lookup.
+- The runnable provider now supports
+  `COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL=1`. It connects only to the
+  local `ModelEngineService` origin and calls its supervised `stop()` method;
+  the switch is disabled by default and must not be used for shared runtimes.
+- Verification: provider/inference tests pass **27/27**. No live provider
+  process, NodeOS, LAN, Android or production restart check was run.
+
+## 2026-10-05 provider-neutral mesh queue preflight
+
+- `MeshAgentWorker` accepts an optional preflight callback before claim and
+  admission. Gateway mesh deployments can enable
+  `COMPUTEMESH_AGENTS_MESH_PREFLIGHT_ENABLED=1` so work remains queued until
+  the verified node registry can route its bound model and minimized routing
+  requirements.
+- The switch is off by default, preserving injected compatibility callers and
+  existing non-mesh/backend behavior. Private provider scores and economics do
+  not cross the boundary.
+- Verification: worker/gateway focused tests pass **35/35**; the complete
+  public runtime/contract suite passes **931 tests plus 22 subtests**. No live
+  provider, NodeOS, LAN, Android or production restart check was performed.
+
+## 2026-10-05 end-to-end durable agent cancellation
+
+- A running session cancel now propagates from the durable control request
+  through `MeshAgentHarness`, `AgentLoop`, backend/mesh model callers,
+  lease-bound dispatch and `AuthenticatedNodeInferenceClient`.
+- The authenticated transport watches the per-turn cancel event and sends one
+  caller-bound cancel frame to the live node channel. Provider handlers already
+  receive the token; backends that do not advertise it retain compatibility and
+  are checked at the next safe boundary.
+- Verification: focused caller/transport/harness tests pass **26/26**;
+  adjacent MCP/orchestrator/gateway tests pass **464 tests plus 16 subtests**;
+  the complete public runtime/contract suite passes **921 tests plus 22
+  subtests**. No live NodeOS, LAN, Android or production restart check was
+  performed.
+
+## 2026-10-05 opt-in gateway mesh-worker dispatch
+
+- The public gateway worker now accepts an injected authenticated control-plane
+  client. With `COMPUTEMESH_AGENTS_MESH_DISPATCH_ENABLED=1`, queued
+  `environment_type=mesh` turns use the verified NodeOS model caller, node
+  routing, leases and bounded retries from `AgentsPlatformRuntime`.
+- Startup fails closed when the switch is enabled without that client, and mesh
+  turns fail closed when the switch is absent. `none` and `self_hosted` keep the
+  existing backend caller and billing behavior. The standalone gateway server
+  intentionally does not fabricate a control client. Mesh turns do not attach
+  gateway credit settlement until provider evidence and settlement ownership
+  are defined for this route.
+- The canonical `services.gateway.live_server` bootstrap now supplies the
+  integrated TLS control client's `PersistentNodeControlClient` to this worker
+  after the live backend and confidential gateway gates pass. It shuts the
+  worker down before the control plane. The compatibility gateway remains
+  client-free and fail-closed for mesh dispatch.
+- The worker builder also accepts an optional per-turn
+  `runtime_policy_resolver`. Its result is coerced to the public minimized
+  `RuntimePolicyEnvelope` and bound to the durable harness; invalid, expired or
+  mismatched policy fails the turn through the worker boundary. Private
+  placement, fraud, pricing, provider shares and credentials remain outside
+  that envelope.
+  The durable harness revalidates expiry, request ID, principal and fleet
+  binding immediately before execution and records only a redacted rejection
+  event before failing closed.
+- `LiveSharedRuntimeRegistry.set_agent_policy_resolver()` and the canonical
+  live-gateway bootstrap now connect that private callback to the worker. A
+  configured live module may register it; absent registration the public
+  gateway behavior remains unchanged.
+- Verification: focused gateway worker tests pass **13/13**; the live-bootstrap
+  slice passes **11 tests**; the extended public suite passes **918 tests plus
+  22 subtests**. No live control-plane, NodeOS, LAN, Android or production
+  deployment check was run.
+
+## 2026-10-05 immutable agent-definition worker binding
+
+- The gateway worker now resolves the append-only `AgentDefinitionStore` for
+  each claimed session/turn. With `COMPUTEMESH_AGENTS_REQUIRE_DEFINITION=1`,
+  missing definitions fail closed; registered definitions can constrain the
+  model set, mesh node scope and tool allowlist without exposing their payload.
+- The default remains compatibility mode: legacy sessions without a registered
+  definition keep their existing model/backend path.
+- Verification: gateway worker definition-binding tests pass **13/13**. The
+  public targeted suite passes **918 tests plus 22 subtests**. No live provider,
+  NodeOS, LAN, Android or production restart check was run.
+
+## 2026-10-05 mobile agent-session reconnect cache
+
+- Both byte-identical bundled WebUI copies now persist a bounded, redacted
+  projection of known agent sessions, the selected session ID and each session's
+  durable server cursor. App/WebView restarts can resume polling from the last
+  acknowledged sequence without replaying the full event stream.
+- The same panel now renders up to twelve localized activity entries derived
+  only from redacted event types; event payloads are not retained or displayed.
+- Offline/network failures retain the last safe session view and retry polling;
+  `401/403` responses clear the cached state. Prompts, event payloads, approval
+  arguments and credentials are never stored in this cache.
+- Verification: both `model-selector.js` copies pass `node --check`, their
+  hashes are identical, and the focused WebUI contract suite passes **9/9**.
+  No physical Android restart/offline check was run.
+
+## 2026-10-05 credential-free LAN admission status
+
+- `DirectLanDiscovery` now records a bounded credential-free HTTP probe beside
+  UDP discovery. It distinguishes `discovered`, `reachable`, `available`,
+  `unreachable` and local authentication-required quarantine, retaining model
+  IDs and a bounded probe timestamp for the phone UI.
+- `LocalChatServer` does not forward the phone's owner key when querying a
+  newly discovered local peer. Local peers without a confirmed model catalogue
+  are excluded from automatic inference candidates; a local `401/403` remains
+  visible and produces the structured `local_node_auth_required` notice.
+- The phone-local server exposes `/v1/mesh/peers` and two compatibility aliases
+  with only bounded peer state, model IDs and GPU summary. `LanMeshTab` shows
+  the state and no longer presents a healthy local peer as requiring a manual
+  connection action.
+- Verification: `./gradlew.bat :app:compileDebugKotlin` completed
+  successfully; public `git diff --check` passed; and the focused WebUI suite
+  passes **9/9**. No physical phone, LAN or NodeOS live check was performed.
+
+## 2026-10-05 stale-node recovery at the routing boundary
+
+- `NodeRegistry.reconcile_stale_nodes()` quarantines verified `READY` and
+  `ACTIVE` nodes after the bounded `last_seen` window. They leave
+  `routable_nodes()` immediately and require a fresh authenticated
+  session/profile synchronization before re-admission.
+- `AgentsPlatformRuntime.route_node()` and `LeaseBoundModelDispatcher` invoke
+  this check before routing or leasing. The default window is 90 seconds and
+  is configurable with `COMPUTEMESH_AGENTS_NODE_STALE_AFTER_SECONDS`.
+- Verification: node-registry/transport/dispatch/platform tests pass **26/26**;
+  the full targeted public runtime/contract suite passes **872 tests plus 22
+  subtests**; compileall and `git diff --check` pass. No live NodeOS, LAN
+  heartbeat or physical Android check was performed.
+
+## 2026-10-05 live provider model catalogue and Agent admission
+
+- Added the authenticated `ModelCatalogueUpdate` session contract. It is
+  bounded, bound to the node identity and current profile revision, and cannot
+  be replayed with changed semantics.
+- The provider registration helper can publish a model inventory while
+  remaining backward compatible for callers that omit it. The live control
+  plane can optionally bridge complete authenticated providers into the Agent
+  `NodeRegistry`; incomplete or invalid inventories fail closed for Agent
+  routing while Shared Serving remains available.
+- Verification: focused provider/protocol/orchestrator/node-transport tests
+  pass **40/40**; the extended suite including `apps/node` passes **905 tests
+  plus 22 subtests**, and the WebUI gate passes **9/9**. No live provider, LAN,
+  NodeOS or physical Android check was performed.
+
+## 2026-10-05 agent execution provenance
+
+- Backend and mesh-dispatch callers now export only bounded opaque execution
+  job and node IDs. The legacy agent loop aggregates those IDs across model
+  calls without copying provider shares, placement scores or private policy
+  data.
+- `UsageDelta` and the SQLite `UsageLedger` persist the job/node ID lists with
+  a migration-safe JSON representation and the existing turn idempotency key.
+  The harness also includes them in `usage.recorded` and `turn.completed`
+  events and in redacted turn trace attributes.
+- Verification: the complete MCP suite passes **428 tests plus 16
+  subtests**; gateway tests pass **186 tests plus 2 subtests**; compileall and
+  `git diff --check` pass. No live provider, LAN, Android or production
+  deployment check was performed.
+
+## 2026-10-05 opt-in durable agent-turn billing
+
+- Added `services/gateway/agent_billing.py` as the gateway-owned adapter from
+  durable agent turns to the existing credit hold/capture ledger. It is off by
+  default and activates only with `COMPUTEMESH_AGENTS_BILLING_ENABLED=1`.
+- The adapter reserves `agent_turn:{turn_id}`, privately observes verified
+  backend job/provider evidence, captures one `agent-turn:{turn_id}` journal
+  event and releases failed or unmetered holds. Provider shares remain outside
+  public runtime responses, events, usage records and traces.
+- `AgentWorkerRequest` now accepts deployment-owned reserve/settle/release
+  callbacks, while `BackendModelCaller` accepts an optional private result
+  observer. The worker itself remains financial-policy neutral and the gateway
+  reuses `GatewayHandler.ledger`; no second billing system was introduced.
+- Focused verification: gateway billing/runtime plus model/worker tests pass
+  **37 tests**. The complete targeted public runtime/contract run now passes
+  **864 tests plus 22 subtests**: MCP **430 plus 16**, gateway **191 plus 2**,
+  and orchestrator/protocol contribute the remaining **243 plus 4**. No live
+  provider, LAN, Android or production deployment check was performed. Ruff
+  was not available in this checkout (`python -m ruff` reported that the
+  module is not installed).
+
+## 2026-10-05 durable in-flight checkpoints and billing evidence
+
+- `AgentSessionStore` now migrates a private `checkpoint_json` column on
+  `agent_turns`. `AgentLoop` checkpoints the bounded message sequence,
+  model/tool phase, usage totals, tool results and opaque provenance at safe
+  boundaries; public events expose only phase and byte-count metadata.
+- `MeshAgentHarness` uses those checkpoints on explicit resume. A saved model
+  response or completed tool batch is not blindly replayed. Approval resumes
+  clear the pre-approval snapshot so the approved action still executes once
+  through the existing broker/idempotency boundary.
+- `AgentBillingEvidenceStore` persists verified execution evidence privately
+  in SQLite and reloads it when a gateway worker is recreated. The path is
+  derived from the ledger path by default or set explicitly with
+  `COMPUTEMESH_AGENTS_BILLING_EVIDENCE_DB`; successful capture/release cleans
+  the evidence rows. The opt-in worker also rejects a non-persistent ledger so
+  a restart cannot lose an active hold.
+- Verification: combined public runtime/contract suite **867 tests plus 22
+  subtests**; MCP **431 plus 16**, gateway **193 plus 2**, and
+  orchestrator/protocol **243 plus 4**. No live provider, LAN, Android or
+  production restart check was performed.
+
+## 2026-10-05 durable event outbox dispatcher
+
+- Added `AgentEventOutboxDispatcher`, a bounded at-least-once consumer that
+  claims events with the existing consumer lease, acknowledges successful sink
+  delivery, releases failed deliveries and can run under a supervised thread
+  with clean stop/join semantics.
+- Added `AgentsPlatformRuntime.build_event_outbox_dispatcher()` so deployments
+  can attach an idempotent queue, WebSocket or telemetry sink without coupling
+  durable session reads to a transport. Sinks must deduplicate by `event_id`;
+  the dispatcher deliberately does not claim exactly-once side effects.
+- Verification: dispatcher tests pass **6/6**, the full MCP suite passes
+  **428 tests plus 16 subtests**, and the combined targeted public runtime /
+  contract suite passes **857 tests plus 22 subtests**. No live transport or
+  production deployment check was performed.
+
+## 2026-10-05 durable event outbox leases
+
+- Extended the existing session event outbox with consumer-bound claims,
+  absolute lease expiry, attempt counters, atomic acknowledgement and claim
+  release. Existing cursor and `pending_events()` APIs remain compatible.
+- Existing SQLite session databases migrate the additional outbox columns in
+  place. Expired claims can be recovered by another dispatcher without
+  changing the per-session event sequence.
+- Verification: session tests pass **12/12**, the full Agents/MCP suite passes
+  **428 tests plus 16 subtests**, and the targeted public runtime/contract
+  total is **857 tests plus 22 subtests**.
+
+## 2026-10-05 gateway durable-worker wiring
+
+- Added an explicit `COMPUTEMESH_AGENTS_WORKER_ENABLED=1` gateway deployment
+  switch. When enabled, the gateway starts a supervised `MeshAgentWorker`
+  service against the same SQLite session database used by the HTTP task API;
+  when absent, queued tasks remain durable and the legacy chat path is
+  unchanged.
+- Gateway workers reuse the configured inference backend through
+  `BackendModelCaller`, run under non-owner tool policy, use bounded worker
+  capacity and can coordinate SQLite admission leases across processes.
+- End-to-end verification: a gateway-created queued turn completed through a
+  test inference backend and projected an assistant item; the focused wiring
+  suite passes **2/2**. No live deployment or physical NodeOS check ran.
+
+## 2026-10-05 optional OpenAI Agents provider adapter
+
+- Added OpenAIAgentsClient as a server-side, opt-in adapter for the official
+  Agents API session surface. It supports bounded session creation, message
+  events, cancel events, session/item retrieval and SSE event streams.
+- The adapter reads the credential only from a configured server environment
+  variable, requires HTTPS outside loopback, caps request/response sizes,
+  supports idempotency keys and never belongs in the Android/node runtime.
+  Local sessions, policy, approvals, events and model routing remain the
+  authoritative default.
+- Verification: provider adapter tests pass `5/5`; the Agents/MCP suite
+  passes `422 tests plus 16 subtests` and the combined targeted public
+  runtime/contract suite passes `851 tests plus 22 subtests`. No external API
+  call or production provider configuration was performed.
+
+## 2026-10-05 explicit remote-provider rollout gate
+
+- MCPConfig now exposes an opt-in OpenAI Agents provider switch, base URL and
+  server-only API-key environment-variable name. The default is disabled.
+- AgentsPlatformRuntime.build_openai_agents_client() refuses disabled or
+  legacy-mode runtimes and does not select the remote provider automatically.
+  Local MeshAgentHarness execution remains the default and no credential is
+  persisted into the project, Android app or NodeOS workspace.
+- Verification: runtime feature-gate coverage passes **2/2**, the full
+  Agents/MCP suite passes **422 tests plus 16 subtests**, and the combined
+  targeted public runtime/contract suite passes **851 tests plus 22 subtests**.
+
+## 2026-10-05 localized agent execution status
+
+- The portal and Android model-selector now localize the execution-status
+  fallback text for all supported WebUI locales. Missing model/node metadata no
+  longer leaks German-only strings into another language.
+- The two bundled selector files remain byte-identical. Verification: `node
+  --check` passed for both copies, the focused WebUI suite passed **8/8**, the
+  agent/gateway subset passed **34 tests plus 2 subtests**, and the targeted
+  public runtime/contract suite passed **838 tests plus 22 subtests**. No
+  Android device or live NodeOS check was performed.
+
+## 2026-10-05 durable worker scheduling
+
+- Agent turns now persist a bounded `priority` and optional `deadline_at`.
+  Existing SQLite databases migrate these columns and the scheduler index in
+  place; default values preserve legacy behavior.
+- `MeshAgentWorker` applies bounded aging and rotates equal-score principals so
+  one producer cannot monopolize a worker pool. A queued/resuming turn whose
+  admission deadline has elapsed is atomically failed before claim and emits
+  the normal durable status event.
+- `WorkerSchedulingPolicy` is injectable through generic and mesh runtime
+  worker builders. No private placement score or pricing data crosses into the
+  public scheduler.
+- Verification: session/worker focused tests pass **26/26**; the public durable
+  agent suite passes **415 tests plus 16 subtests**, the combined targeted
+  public runtime/contract suite passes **842 tests plus 22 subtests**, and the
+  private root suite passes **225 tests plus 3 subtests**. No live NodeOS, LAN,
+  Android or production deployment check was performed.
+
+## 2026-10-05 immutable agent definitions
+
+- Added `AgentDefinitionStore`, an append-only SQLite registry keyed by
+  `agent_id` and version. The stored digest covers model strategy, instructions,
+  skills, tools, MCP servers, node scope, privacy class and bounded limits.
+- Re-registering an identical definition is idempotent; changing content under
+  an existing version raises `AgentDefinitionConflict`. The runtime initializes
+  the registry at `data/agents/definitions.sqlite3` when the platform is
+  enabled and closes it with the other stores.
+- Verification: definition-focused tests pass **4/4**. This registry is a
+  durable contract boundary; existing session APIs remain backwards compatible.
+
+## 2026-10-05 durable usage quotas
+
+- Extended `UsageLedger` with operator-configured hard quotas for global,
+  tenant, principal and session scopes over lifetime, UTC-day or UTC-month
+  periods. Checks run in the same SQLite transaction as the usage insert.
+- Added tenant usage binding through `UsageDelta`, `AgentWorkerRequest` and
+  the harness/runtime path. Replays remain idempotent and do not consume quota
+  twice; old usage databases migrate the new tenant column in place.
+- Pricing, settlement and private placement signals remain outside the public
+  ledger. Verification: usage/harness/worker tests pass **24/24**.
+
+The authenticated gateway task and follow-up endpoints now accept the same
+bounded `priority` and `deadline_at` fields, so API/WebUI-created turns use
+the durable scheduler contract instead of silently falling back to FIFO.
+
+Worker admission now supports an optional tenant-wide concurrency cap in both
+the in-process and SQLite-backed gates. Existing admission databases migrate
+the tenant column with an empty default, preserving old callers. Verification:
+worker coverage passes **20/20**.
+
+## 2026-10-05 Windows process-sandbox enforcement
+
+- The opt-in process workspace child is now attached to a Windows Job Object
+  with hard memory and active-process limits plus kill-on-close. Job setup is
+  fail-closed; the transport never silently continues without the declared
+  Windows limits.
+- POSIX CPU/address-space/file-size limits and parent wall-clock termination
+  remain unchanged. GPU/device isolation remains a deployment gate.
+- Process workspace verification passes **2 tests**; no live GPU or production
+  deployment check was performed.
+
+## 2026-10-05 automatic LAN onboarding state machine
+
+- Added `NodeOnboardingCoordinator` and a bounded probe observation contract.
+  Discovered nodes stay visible but cannot route until identity verification,
+  preparation and an accepted benchmark all succeed.
+- Authentication challenges or missing identity evidence produce the explicit
+  `manual_pairing_required` result and durable quarantine state. Discovery never
+  invents or transfers credentials.
+- Added the runtime builder and public exports. Focused onboarding/registry/
+  transport verification passes **10 tests**; the final public suite passes
+  **838/838** and the private root suite passes **225 tests plus 3 subtests**.
+  No live LAN, NodeOS or Android check was performed.
+
+## 2026-10-05 capacity-aware model/provider routing
+
+- `NodeRouteRequirement` now accepts bounded measured decode-throughput and
+  latency constraints plus an explicit preferred-node list. The public router
+  rejects unverified metrics and deterministically sorts accepted candidates by
+  preference, throughput, latency, free VRAM and context capacity.
+- The lease-bound dispatcher now skips a candidate whose capacity reservation is
+  full and tries the next verified candidate without consuming an execution
+  retry. It emits `mesh.dispatch.capacity_skipped` and preserves per-attempt
+  idempotency and lease release.
+- Focused routing/dispatch verification passes **9 tests**; Python compilation
+  passes. No live provider, NodeOS or Android check was performed.
+
+## 2026-10-05 authenticated model preparation transport
+
+- Added bounded `ModelPreparationRequest` and `ModelPreparationResponse`
+  session contracts with model digest, size, idempotency, session revision and
+  node binding.
+- Added `AuthenticatedModelPreparationClient` and a runtime builder path that
+  forwards only already-authorized preparation requests over a live enrolled
+  NodeOS channel advertising `model_preparation_v1`.
+- ProviderAgent can expose an explicit model-preparation callback and returns
+  only a normalized, contract-validated result. No generic shell or implicit
+  model installation was added.
+- Added `AllowlistedModelPreparationExecutor` and the provider CLI
+  `--model-preparation-manifest`/`COMPUTEMESH_MODEL_PREPARATION_MANIFEST`.
+  It binds requests to a local operator manifest and delegates verified
+  downloads to the existing NodeOS `ModelManager`.
+- Added bounded `ArtifactChunk` reads and authenticated HTTP range responses
+  (`206`/`Content-Range`) for resumable principal-bound artifact downloads;
+  ACL, expiry and full-object digest verification remain enforced.
+- The gateway/artifact integration check passes **36 tests plus 2 subtests**.
+- Added an authenticated, lease-bound `EnvironmentRequest` /
+  `EnvironmentResponse` transport for typed NodeOS `prepare`, `heartbeat`,
+  `execute` and `shutdown` operations, gated by `mesh_environment_v1`.
+  The provider callback is deliberately injected; it does not create a shell
+  or claim to be an OS process sandbox.
+- Environment transport/provider/contract checks pass **23 tests**.
+- Added `apps/node/environment.py`: an opt-in NodeOS executor wired by
+  `--environment-root` / `COMPUTEMESH_NODEOS_ENVIRONMENT_ROOT`. It maintains
+  environment leases, checks session/node/spec bindings, delegates bounded
+  health and workspace operations to the symlink-safe transport, and delegates
+  inference only to the configured local backend. It exposes no shell.
+- Node environment lifecycle/workspace/provider checks pass **17 tests**.
+- Persistent control requests now accept caller-bound IDs and support a
+  `cancel` frame. The provider reader processes cancellation while a request
+  worker is active, and token-aware handlers can terminate cooperatively;
+  backend-specific interruption is intentionally not claimed yet.
+- The local OpenAI-compatible inference adapter now watches the cancellation
+  token and closes a blocking HTTP response, so a cancelled provider request
+  does not remain stuck in a response read. External model-process termination
+  remains backend-specific.
+- Persistent-channel and inference transport checks pass **14 tests**.
+- The cancellation token now reaches the validated inference handler, the
+  concrete NodeOS environment executor and the local backend. Local SSE
+  streams close at the next chunk boundary; non-stream HTTP calls still keep
+  the explicit backend interruption limitation.
+- Focused provider/transport/preparation/contract checks pass **31 tests**;
+  the adapter plus existing ModelManager integration run passes **36 tests**;
+  physical NodeOS and Android gates remain open.
+
+## 2026-10-05 native NodeOS function-call responses
+
+- Extended the authenticated inference request/response schemas with bounded
+  native function-call objects, tool-call IDs, function names and serialized
+  arguments. Assistant tool-call history survives the NodeOS wire boundary.
+- The local OpenAI-compatible NodeOS adapter validates and returns native
+  `tool_calls`; `MeshDispatchModelCaller` maps them directly to the existing
+  AgentLoop response shape. Text/XML fallback behavior remains available for
+  legacy providers.
+- Streaming NodeOS chunks now preserve bounded native tool-call deltas and
+  assemble them with session/turn/lease/node/model binding checks.
+- Targeted native function-call and streaming checks pass **16 tests**; the
+  combined durable-agent and protocol suites pass **491 tests plus 20
+  subtests**, the public unified suite passes **800/800**, and the private
+  root suite passes **225 tests plus 3 subtests**. No Android, live NodeOS or
+  production deployment check was performed.
+
+## 2026-10-05 verification contract maintenance
+
+- Updated the documented session-message allowlist to include the already
+  implemented runtime-advertisement, attestation, reservation, GPU-promo and
+  inference message families. Unknown-message rejection remains covered.
+- Hardened the confidential-envelope tampering test to mutate a decoded
+  ciphertext byte, avoiding Base64URL padding-bit false negatives.
+- The combined durable-agent and protocol suites pass **491 tests plus 20
+  subtests** after these contract-test corrections.
+
+## 2026-10-05 lease-bound subagent execution
+
+- `SubagentCoordinator` accepts an explicit `NodeLeaseStore` plus lease
+  factory. Each child gets a lease bound to its own durable session and turn;
+  foreign, inactive or malformed leases fail closed before the runner starts.
+- Leases are released on successful and failed child execution, with durable
+  child events for bind, release and release failure. A release failure turns
+  the child result into a failure instead of silently reporting success.
+- `AgentsPlatformRuntime.build_subagent_coordinator()` exposes the boundary
+  without moving private placement or ranking policy into the public runtime.
+- Focused multi-agent tests pass **4 tests**; the complete durable-agent suite
+  passes **379 tests plus 16 subtests**, the public unified suite passes
+  **800/800**, and the private root suite passes **225 tests plus 3 subtests**.
+  No live NodeOS, Android or production check was performed.
+
+## 2026-10-04 supervised worker service and restart recovery
+
+- Added `MeshAgentWorkerService` with configurable bounded worker count,
+  deterministic worker IDs, cooperative `start`/`stop`/`join`/`close`, bounded
+  result and service-error retention, and a safe operational snapshot.
+- Added `AgentsPlatformRuntime.build_agent_worker_service()` and
+  `build_mesh_agent_worker_service()` so deployments can create supervised
+  generic or authenticated-NodeOS worker pools without changing the legacy
+  single-worker API.
+- Corrected restart recovery so unclaimed `queued` turns remain available for
+  pickup. Only turns that were actually in flight are paused and require an
+  explicit resume, preventing both blind replay and lost queued work.
+- Focused worker/session tests pass **15 tests** and relevant Python
+  compilation passes. No live NodeOS, Android or production deployment check
+  was performed.
 **Git Baseline:** this working tree contains the uncommitted fleet-aware browser catalogue, Android asset parity, Android runtime fallback, scoped owner-key inference authorization and Android version `1.2.168` changes. The public source remains on `main`; no `develop` branch exists. Preserve untracked `.codex-remote-attachments/` and all pre-existing user changes. The server checkout `/root/ComputeMesh` remains intentionally dirty and must not be overwritten wholesale.
+
+## 2026-10-05 agent usage metering and Mesh artifact staging
+
+- Mesh environments support principal-authorized `artifact_stage` and
+  `artifact_stage_status` operations with bounded chunks, stable idempotency,
+  offset resume, SHA-256 verification and atomic final commit.
+- Inference usage now carries optional CPU/GPU/VRAM/network/artifact and
+  external-cost dimensions through the AgentLoop and harness into idempotent
+  UsageLedger records. Hard budgets cover those dimensions; missing provider
+  measurements remain zero and are not treated as trusted settlement facts.
+- `WorkerConcurrencyBudget` and `WorkerConcurrencyGate` provide opt-in,
+  thread-safe global/principal/session admission for supervised worker pools;
+  queued turns remain queued when a limit is full, so they are retried without
+  being failed or silently replayed.
+- Focused agent, inference and wire checks pass **74 tests**. The public
+  unified suite passes **802/802**, and the private root suite passes **225
+  tests plus 3 subtests** after this metering change. No live NodeOS or Android
+  validation was performed.
+- Worker concurrency coverage passes **22 tests**; the public suite remains
+  **802/802** and the private root suite remains **225 tests plus 3 subtests**
+  after adding the opt-in worker admission gate.
+
+## 2026-10-05 persistent worker admission leases
+
+- Added `DurableWorkerConcurrencyGate`, an opt-in SQLite-backed admission
+  lease gate that coordinates global, principal and session limits across
+  worker processes using `BEGIN IMMEDIATE` transactions.
+- Worker admission keys bind a lease to the worker and turn. The gate supports
+  renewal, exact release, bounded lease expiry and stale-lease reclamation;
+  `MeshAgentWorker` runs a bounded heartbeat for long executions, and service
+  shutdown closes only gates it created itself. The existing in-process gate
+  and default worker behavior remain compatible.
+- `AgentsPlatformRuntime.build_agent_worker_service()` and
+  `build_mesh_agent_worker_service()` expose `persistent_concurrency` and
+  `concurrency_lease_seconds` without changing the existing call contract.
+- Focused worker coverage passes **12 tests**; the final public suite passes
+  **802/802**, the private root suite passes **225 tests plus 3 subtests**, and
+  touched-module compilation passes. No live provider, Android, hardware or
+  production deployment check was performed.
+- The worker now has an end-to-end approval continuation test: a waiting turn
+  resumes only after the exact approved call is reconstructed, executes the
+  side effect once with the approval ID as idempotency key, consumes the
+  approval, and completes subsequent model synthesis. The focused worker and
+  approval checks pass **19 tests**.
+
+## 2026-10-05 bounded model-dispatch fallback
+
+- `NodeRouteRequirement` now supports a bounded excluded-node set used only
+  for a retry attempt; routing remains restricted to authenticated,
+  prepared, benchmark-ready nodes.
+- `LeaseBoundModelDispatcher` now supports opt-in `max_attempts`. Only
+  connection, timeout and OS transport failures are retryable by default;
+  each fallback excludes the failed node, reserves with a distinct
+  idempotency key, emits `mesh.dispatch.retrying`, and releases every lease.
+  Binding, schema and policy failures remain fail-closed.
+- Dispatch/routing coverage passes **6 tests** including a two-node provider
+  failure fallback. The process-isolated workspace round trip passes **1
+  test**. The final public suite passes **802/802** and the private root suite
+  passes **225 tests plus 3 subtests**; no live provider, NodeOS, Android or
+  hardware check was performed.
+
+## 2026-10-05 opt-in process-isolated workspace transport
+
+- Added `ProcessIsolatedWorkspaceTransport` and `ProcessSandboxPolicy`. A
+  shell-free child process owns the local workspace transport and accepts only
+  typed JSONL lifecycle/request messages with bounded input/output, wall-clock
+  termination and clean disconnect handling.
+- POSIX children apply bounded CPU/address-space/file-size limits where the
+  host permits them; the declared environment memory/runtime limits tighten
+  the operator policy. The existing direct `LocalWorkspaceTransport` remains
+  the default, and Windows kernel memory/GPU isolation is explicitly not
+  claimed by this adapter.
+- `AgentsPlatformRuntime.build_process_workspace_transport()` exposes the
+  opt-in path. Process workspace round-trip coverage passes **1 test**; the
+  final public/private regression suites are green, and no live
+  NodeOS/Android/hardware check was performed.
+
+## 2026-10-04 durable agent controls and worker loop
+
+- Added principal-bound, durable `pause`, `resume` and `cancel` controls to
+  the public session store. Queued and waiting turns change atomically; active
+  workers observe a pending request only at safe model/tool loop boundaries.
+- Added `AgentLoop.should_stop`, structured `AgentControlRequested`, partial
+  message persistence in `MeshAgentHarness`, authenticated gateway control
+  endpoint, localized portal/Android buttons and a stoppable worker polling
+  loop. Existing chat and speech-input paths are unchanged.
+- The authenticated inference contract now carries bounded tool schemas through
+  `AuthenticatedNodeModelExecutor` into the provider's loopback runtime.
+  `MeshDispatchModelCaller` and
+  `AgentsPlatformRuntime.build_mesh_agent_worker()` bind AgentLoop calls to
+  capability-aware routing and per-call leases.
+- Verification: public `run_all_tests.py` **800/800**; public durable-agent
+  tests **372 passed plus 16 subtests**; private root **225 passed plus 3
+  subtests**; focused gateway/control/WebUI tests, `compileall` and both
+  `node --check` commands passed. No Android install or live NodeOS run was
+  performed.
+- Remaining: deployment must provide a provider-specific worker resolver and
+  model caller; active network calls are cooperatively stopped after the
+  current call returns, not force-killed.
+
+## 2026-10-04 durable task creation and worker pickup
+
+- `AgentSessionStore.create_task()` now atomically creates a model-bound
+  session and first queued turn. `MeshAgentWorker` claims queued or explicitly
+  resumed turns through the durable status transition and delegates execution
+  to injected model callers and policy-bound harness factories.
+- `POST /v1/agents/sessions` exposes authenticated task creation; approval,
+  session and event projections remain bounded and principal-scoped.
+- The worker intentionally has no implicit provider, shell or remote-node
+  fallback. Live model-caller wiring and scheduling remain deployment work.
+- The gateway now lists session-scoped immutable artifacts and downloads them
+  only after principal-bound reference checks; artifact metadata omits the
+  internal principal identifier.
+- Focused coverage for this tranche: **45 passed plus 2 subtests**; the full
+  durable-agent suite passes **128 plus 6 subtests**. The trace ordering fix
+  is included in this verification.
+
+## 2026-10-04 existing-backend model caller
+
+- Added `BackendModelCaller` and `make_backend_model_caller()` under
+  `services/mcp/platform/`. They bind an existing inference backend and model
+  ID to the durable AgentLoop response shape, including bounded token usage.
+- Tool schemas and optional response settings are forwarded only when the
+  backend signature supports them; no second provider, billing or transport
+  path is introduced. The synthetic backend was exercised through the real
+  worker and harness.
+- Focused model-caller/worker coverage passes **9 tests**; the full public
+  suite remains **796/796**. Live provider, NodeOS and Android execution were
+  not performed in this tranche.
+
+## 2026-10-04 authenticated agent artifact access
+
+- Added authenticated `GET /v1/agents/sessions/{session_id}/artifacts` and
+  `GET /v1/agents/artifacts/{ref_id}` projections over the existing immutable
+  `ArtifactStore`. Session ownership and artifact principal ownership are
+  checked independently; foreign principals receive no bytes or metadata.
+- The gateway test suite covers listing, content-type/download headers and
+  cross-principal denial. No artifact is copied into chat events or logs.
+- The same gateway now accepts authenticated follow-up input at
+  `POST /v1/agents/sessions/{session_id}/turns` after a completed turn and
+  returns a new queued turn in the existing session.
+- Both WebUI copies now expose localized task creation and follow-up controls
+  backed by the same endpoints; normal chat requests remain unchanged.
+- Static WebUI verification passes **8 tests**, and both selector copies pass
+  JavaScript syntax checks with matching SHA-256. Pause/cancel controls and
+  live worker scheduling are still separate gates. The panel also renders
+  principal-scoped artifact download links for the selected session.
+- The complete public regression after the mirrored artifact UI change passed
+  **799/799**. No Android build/install or live provider/NodeOS execution was
+  performed for this WebUI-only tranche.
+
+## 2026-10-04 durable approval pause and resume boundary
+
+- The durable agent harness now pauses a turn at `waiting_for_approval` when
+  the policy broker returns a confirmation-required side effect. It persists
+  partial assistant/tool items and stops the rest of that tool batch.
+- Approved continuation is bound to the session, turn, tool and argument
+  digest. `AgentSessionStore` atomically consumes the approval exactly once;
+  raw arguments are not copied into the approval record. The gateway advances
+  an approved waiting turn to explicit `resuming` state but does not execute
+  the side effect from the approval HTTP request.
+- The existing chat/inference path remains unchanged when the agent platform
+  is disabled. Operating-system process isolation, a worker that picks up the
+  resumable turn and live NodeOS model/artifact transfer are still deployment
+  gates.
+- Verification for this tranche: public `run_all_tests.py` **795/795**;
+  agent tests **124 passed plus 6 subtests**; gateway server tests **28 passed
+  plus 2 subtests**; private root **225 passed plus 3 subtests**.
 
 ## 2026-10-04 fleet-aware browser model routing
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Protocol
 
 from .control import ControlEnvelope
@@ -251,6 +251,26 @@ class NodeSessionWireHandler:
                     "NodeProfileUpdate node_id does not match authenticated node"
                 )
             snapshot = self.session.sync_profile(payload["profile_revision"], now=now_utc)
+
+        elif envelope.message_type == "ModelCatalogueUpdate":
+            self._require_negotiated_protocol(envelope)
+            self._require_authenticated_actor(envelope)
+            if self.session.state not in {NodeSessionState.PROFILE_SYNCED, NodeSessionState.READY}:
+                raise SessionTransitionError(
+                    f"session {self.session.session_id} is {self.session.state.value}; "
+                    f"expected {NodeSessionState.PROFILE_SYNCED.value} or {NodeSessionState.READY.value}"
+                )
+            self.session.ensure_auth_valid(now=now_utc)
+            if payload["node_id"] != self.session.node_id:
+                raise SessionMessageBindingError(
+                    "ModelCatalogueUpdate node_id does not match authenticated node"
+                )
+            if payload["profile_revision"] != self.session.profile_revision:
+                raise ProfileMismatch(
+                    f"model catalogue profile revision {payload['profile_revision']} does not match "
+                    f"synced profile {self.session.profile_revision}"
+                )
+            snapshot = self.session.snapshot()
 
         elif envelope.message_type == "BenchmarkReport":
             self._require_negotiated_protocol(envelope)

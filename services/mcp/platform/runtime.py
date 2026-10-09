@@ -7,38 +7,68 @@ context injection, optional private runtime policy and side-effect grants.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-import os
-from pathlib import Path
 import threading
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from services.memory.structured_memory import MemoryScope, StructuredMemoryStore
 
 from ..agent_loop import AgentExecutionResult, AgentLoop, ToolCallRecord
 from ..config import MCPConfig, get_mcp_config
+from ..mcp_client import MCPClient
 from ..tool_registry import ToolRegistry
+from .agent_definitions import AgentDefinitionStore
 from .agents_rules import AgentsRuleResolver
+from .artifacts import ArtifactStore
 from .audit import AuditLogger
+from .compaction import ModelCompactor
+from .context import ContextManager
 from .contracts import (
     RequestEnvelope,
     RuntimePolicyEnvelope,
     SideEffectLevel,
     ToolAuthorizationGrant,
 )
+from .dispatch import LeaseBoundModelDispatcher
+from .environment import BoundedEnvironmentExecutor, EnvironmentSpec, EnvironmentTransport
+from .event_outbox import AgentEventOutboxDispatcher, EventSink
+from .harness import MeshAgentHarness
+from .leases import NodeLeaseStore
+from .mcp_discovery import MCPDiscoveryPolicy, MCPToolDiscoveryBroker
+from .model_preparation import ModelPreparationCoordinator
+from .multi_agent import SubagentCoordinator
+from .node_onboarding import NodeOnboardingCoordinator
+from .node_registry import NodeRegistry
+from .node_routing import CapabilityAwareNodeRouter, NodeRouteDecision, NodeRouteRequirement
+from .node_transport import AuthenticatedNodeRegistrySync
+from .openai_agents import OpenAIAgentsClient, OpenAIAgentsConfig
 from .pipeline import AgentsOrchestrationPipeline, OrchestrationPlan, PlannedTask
+from .process_workspace import ProcessIsolatedWorkspaceTransport, ProcessSandboxPolicy
 from .project_state import ProjectStateStore, StaleStateError
 from .request_analysis import RequestAnalyzer
+from .session import AgentSessionStore
 from .skill_registry import PersistentSkillRegistry
 from .skill_router import SkillRouter
+from .tool_broker import AgentToolBroker
 from .tool_execution import (
     PolicyToolRegistryProxy,
     SafeToolExecutor,
     ToolCapabilityRegistry,
     apply_default_compute_mesh_tool_policy,
 )
+from .tracing import TraceStore
+from .usage import UsageLedger
 from .validation import ErrorCode, PlatformError, RecoveryAction
+from .worker import (
+    AgentWorkerRequest,
+    MeshAgentWorker,
+    MeshAgentWorkerService,
+    WorkerConcurrencyBudget,
+    WorkerSchedulingPolicy,
+)
 from .workflow import DAGWorkflowEngine, WorkflowStateConflict
+from .workspace import LocalWorkspaceTransport
 
 
 @dataclass(frozen=True)
@@ -87,6 +117,15 @@ class AgentsPlatformRuntime:
         self.router: SkillRouter | None = None
         self.memory: StructuredMemoryStore | None = None
         self.project_state: ProjectStateStore | None = None
+        self.session_store: AgentSessionStore | None = None
+        self.agent_definition_store: AgentDefinitionStore | None = None
+        self.node_registry: NodeRegistry | None = None
+        self.lease_store: NodeLeaseStore | None = None
+        self.artifact_store: ArtifactStore | None = None
+        self.usage_ledger: UsageLedger | None = None
+        self.subagent_coordinator: SubagentCoordinator | None = None
+        self.trace_store: TraceStore | None = None
+        self.openai_agents: OpenAIAgentsClient | None = None
         self.rule_resolver: AgentsRuleResolver | None = None
         self.capabilities: ToolCapabilityRegistry | None = None
         self.safe_tool_executor: SafeToolExecutor | None = None
@@ -95,6 +134,26 @@ class AgentsPlatformRuntime:
 
         if self.config.agents_platform_enabled:
             self._initialize_platform()
+
+    def build_openai_agents_client(self) -> OpenAIAgentsClient:
+        """Return the explicitly enabled remote provider adapter.
+
+        This never becomes an implicit fallback for local inference. Callers
+        must opt into the provider in configuration and choose it in their
+        deployment/provider policy.
+        """
+        if not self.config.agents_platform_enabled:
+            raise RuntimeError("Agents Platform is disabled")
+        if not self.config.agents_platform_openai_agents_enabled:
+            raise RuntimeError("OpenAI Agents provider is disabled")
+        if self.openai_agents is None:
+            self.openai_agents = OpenAIAgentsClient(
+                OpenAIAgentsConfig(
+                    base_url=self.config.agents_platform_openai_agents_base_url,
+                    api_key_env=self.config.agents_platform_openai_agents_api_key_env,
+                )
+            )
+        return self.openai_agents
 
     def _resolve_path(self, raw: str) -> Path:
         path = Path(raw)
@@ -112,12 +171,29 @@ class AgentsPlatformRuntime:
         return tuple(roots)
 
     def _initialize_platform(self) -> None:
+        if self.config.agents_platform_openai_agents_enabled:
+            try:
+                self.openai_agents = OpenAIAgentsClient(
+                    OpenAIAgentsConfig(
+                        base_url=self.config.agents_platform_openai_agents_base_url,
+                        api_key_env=self.config.agents_platform_openai_agents_api_key_env,
+                    )
+                )
+            except Exception as exc:
+                self.initialization_errors.append(f"openai_agents:{exc}")
         try:
             self.audit = AuditLogger(
                 self._resolve_path(self.config.agents_platform_audit_log)
             )
         except Exception as exc:
             self.initialization_errors.append(f"audit:{exc}")
+
+        try:
+            self.agent_definition_store = AgentDefinitionStore(
+                self._resolve_path("data/agents/definitions.sqlite3")
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"agent_definitions:{exc}")
 
         try:
             self.capabilities = ToolCapabilityRegistry(self.tool_registry)
@@ -181,6 +257,80 @@ class AgentsPlatformRuntime:
             )
         except Exception as exc:
             self.initialization_errors.append(f"project_state:{exc}")
+
+        try:
+            self.session_store = AgentSessionStore(
+                self._resolve_path(self.config.agents_platform_session_db)
+            )
+            recovered = self.session_store.recover_interrupted()
+            if recovered and self.audit:
+                self.audit.log(
+                    "agents_session_recovery",
+                    decision="paused_interrupted_turns",
+                    evidence={"turn_ids": recovered},
+                )
+        except Exception as exc:
+            self.initialization_errors.append(f"sessions:{exc}")
+
+        try:
+            self.node_registry = NodeRegistry(
+                self._resolve_path(self.config.agents_platform_node_registry_db)
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"node_registry:{exc}")
+
+        try:
+            if self.node_registry is None:
+                raise RuntimeError("node registry is unavailable")
+            self.lease_store = NodeLeaseStore(
+                self._resolve_path(self.config.agents_platform_lease_db),
+                node_registry=self.node_registry,
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"leases:{exc}")
+
+        try:
+            def artifact_event(event_type: str, payload: Mapping[str, Any]) -> None:
+                session_id = payload.get("session_id")
+                if self.session_store is not None and session_id:
+                    self.session_store.record_event(
+                        str(session_id),
+                        event_type,
+                        payload,
+                        turn_id=str(payload.get("turn_id")) if payload.get("turn_id") else None,
+                    )
+
+            self.artifact_store = ArtifactStore(
+                self._resolve_path(self.config.agents_platform_artifact_root),
+                self._resolve_path(self.config.agents_platform_artifact_db),
+                event_sink=artifact_event,
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"artifacts:{exc}")
+
+        try:
+            self.usage_ledger = UsageLedger(
+                self._resolve_path(self.config.agents_platform_usage_db)
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"usage:{exc}")
+
+        try:
+            self.trace_store = TraceStore(
+                self._resolve_path(self.config.agents_platform_trace_db)
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"tracing:{exc}")
+
+        try:
+            if self.session_store is None:
+                raise RuntimeError("session store is unavailable")
+            self.subagent_coordinator = SubagentCoordinator(
+                self.session_store,
+                workspace_root=str(self.repo_root),
+            )
+        except Exception as exc:
+            self.initialization_errors.append(f"multi_agent:{exc}")
 
         try:
             self.rule_resolver = AgentsRuleResolver(self.repo_root)
@@ -603,6 +753,660 @@ class AgentsPlatformRuntime:
             on_progress=on_progress,
         )
 
+    def build_agent_harness(
+        self,
+        *,
+        is_owner: bool = True,
+        request_id: str | None = None,
+        owner_id: str | None = None,
+        runtime_policy: RuntimePolicyEnvelope | None = None,
+        authorization_grants: Mapping[str, ToolAuthorizationGrant] | None = None,
+        approved_approval_ids: Sequence[str] = (),
+        disabled_tools: Sequence[str] = (),
+        context_manager: ContextManager | None = None,
+        context_compactor: Callable[[Sequence[Mapping[str, Any]]], str] | None = None,
+        compaction_llm_caller: Callable[[list[dict[str, Any]], list[dict[str, Any]]], dict[str, Any]] | None = None,
+        compaction_model: str | None = None,
+        subagent_coordinator: SubagentCoordinator | None = None,
+    ) -> MeshAgentHarness:
+        """Build the durable harness while preserving runtime policy filtering.
+
+        The broker is created per session/turn so authorization and event
+        routing cannot leak across concurrent users or turns.
+        """
+        if self.session_store is None or self.safe_tool_executor is None:
+            raise RuntimeError("Agents Platform session and tool stores are unavailable")
+        if context_compactor is not None and compaction_llm_caller is not None:
+            raise ValueError("provide context_compactor or compaction_llm_caller, not both")
+        if compaction_llm_caller is not None:
+            if not compaction_model:
+                raise ValueError("compaction_model is required with compaction_llm_caller")
+            context_compactor = ModelCompactor(compaction_llm_caller, model=compaction_model)
+        loop = self.build_agent_loop(
+            is_owner=is_owner,
+            request_id=request_id,
+            owner_id=owner_id,
+            runtime_policy=runtime_policy,
+            authorization_grants=authorization_grants,
+        )
+        allowed_tools = self._policy_allowed_tools(runtime_policy)
+        max_side_effect = runtime_policy.max_side_effect if runtime_policy is not None else SideEffectLevel.EXECUTE
+        effective_owner_id = runtime_policy.fleet_id if runtime_policy and runtime_policy.fleet_id else owner_id
+
+        def broker_factory(
+            session_id: str,
+            turn_id: str,
+            resume_approval_ids: Sequence[str] = (),
+        ) -> AgentToolBroker:
+            return AgentToolBroker(
+                self.safe_tool_executor,
+                session_store=self.session_store,
+                session_id=session_id,
+                turn_id=turn_id,
+                is_owner=is_owner,
+                owner_id=effective_owner_id,
+                request_id=request_id or (runtime_policy.request_id if runtime_policy is not None else None),
+                allowed_tools=allowed_tools,
+                max_side_effect=max_side_effect,
+                authorization_grants=authorization_grants,
+                approved_approval_ids=tuple(resume_approval_ids),
+            )
+
+        return MeshAgentHarness(
+            self.session_store,
+            agent_loop=loop,
+            context_manager=context_manager,
+            tool_broker_factory=broker_factory,
+            context_compactor=context_compactor,
+            usage_ledger=self.usage_ledger,
+            subagent_coordinator=subagent_coordinator or self.subagent_coordinator,
+            trace_store=self.trace_store,
+            approved_approval_ids=approved_approval_ids,
+            disabled_tools=disabled_tools,
+            runtime_policy=runtime_policy,
+            request_id=request_id,
+        )
+
+    def build_agent_worker(
+        self,
+        *,
+        request_resolver: Callable[[Any, Any], AgentWorkerRequest],
+        harness_factory: Callable[[Any, Any, tuple[str, ...]], MeshAgentHarness] | None = None,
+        worker_id: str | None = None,
+        scheduling_policy: WorkerSchedulingPolicy | None = None,
+        preflight: Callable[[Any, Any], bool] | None = None,
+    ) -> MeshAgentWorker:
+        """Build a durable turn worker without choosing a provider implicitly.
+
+        Deployments may inject a richer harness factory for private policy or
+        node leases. The default factory uses this runtime's existing policy
+        filtered harness and passes only the approved IDs for the claimed turn.
+        """
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+        if not callable(request_resolver):
+            raise TypeError("request_resolver must be callable")
+
+        if harness_factory is None:
+            def default_harness_factory(session: Any, _turn: Any, approved_ids: tuple[str, ...]) -> MeshAgentHarness:
+                return self.build_agent_harness(
+                    owner_id=session.principal_id or None,
+                    approved_approval_ids=approved_ids,
+                )
+
+            harness_factory = default_harness_factory
+        return MeshAgentWorker(
+            self.session_store,
+            harness_factory=harness_factory,
+            request_resolver=request_resolver,
+            worker_id=worker_id,
+            scheduling_policy=scheduling_policy,
+            preflight=preflight,
+        )
+
+    def build_agent_worker_service(
+        self,
+        *,
+        request_resolver: Callable[[Any, Any], AgentWorkerRequest],
+        harness_factory: Callable[[Any, Any, tuple[str, ...]], MeshAgentHarness] | None = None,
+        worker_count: int = 1,
+        worker_prefix: str = "mesh-agent",
+        poll_interval: float = 0.25,
+        batch_limit: int = 1,
+        max_results: int = 1000,
+        recover_on_start: bool = True,
+        concurrency_budget: WorkerConcurrencyBudget | None = None,
+        scheduling_policy: WorkerSchedulingPolicy | None = None,
+        preflight: Callable[[Any, Any], bool] | None = None,
+        persistent_concurrency: bool = False,
+        concurrency_lease_seconds: float = 300.0,
+    ) -> MeshAgentWorkerService:
+        """Build the supervised form of the durable worker pickup loop."""
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+        if not callable(request_resolver):
+            raise TypeError("request_resolver must be callable")
+        return MeshAgentWorkerService(
+            self.session_store,
+            worker_factory=lambda worker_id: self.build_agent_worker(
+                request_resolver=request_resolver,
+                harness_factory=harness_factory,
+                worker_id=worker_id,
+                scheduling_policy=scheduling_policy,
+                preflight=preflight,
+            ),
+            worker_count=worker_count,
+            worker_prefix=worker_prefix,
+            poll_interval=poll_interval,
+            batch_limit=batch_limit,
+            max_results=max_results,
+            recover_on_start=recover_on_start,
+            concurrency_budget=concurrency_budget,
+            persistent_concurrency=persistent_concurrency,
+            concurrency_lease_seconds=concurrency_lease_seconds,
+        )
+
+    def build_event_outbox_dispatcher(
+        self,
+        *,
+        consumer_id: str,
+        sink: EventSink,
+        batch_size: int = 100,
+        lease_seconds: float = 60.0,
+        poll_seconds: float = 1.0,
+    ) -> AgentEventOutboxDispatcher:
+        """Build an explicit restart-safe event delivery worker.
+
+        The runtime owns the session database, while the returned dispatcher
+        owns only its polling thread. Deployments decide whether to start it
+        and provide an idempotent sink for WebSocket, queue or telemetry
+        delivery; local durable session reads remain independent.
+        """
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+        return AgentEventOutboxDispatcher(
+            self.session_store,
+            consumer_id,
+            sink,
+            batch_size=batch_size,
+            lease_seconds=lease_seconds,
+            poll_seconds=poll_seconds,
+        )
+
+    def build_mesh_agent_worker(
+        self,
+        control_client: Any,
+        *,
+        worker_id: str | None = None,
+        max_tokens: int = 1024,
+        max_iterations: int | None = None,
+        dispatch_max_attempts: int = 1,
+        requirement_factory: Callable[[Any, Any], NodeRouteRequirement] | None = None,
+        timeout_seconds: float = 120.0,
+        scheduling_policy: WorkerSchedulingPolicy | None = None,
+        preflight: Callable[[Any, Any], bool] | None = None,
+    ) -> MeshAgentWorker:
+        """Build a worker whose model calls route through authenticated NodeOS.
+
+        The worker still remains an explicit deployment component: callers
+        choose when and where to run ``run_until_stopped`` and can wrap the
+        resolver with private policy, billing or provider selection.
+        """
+        if control_client is None:
+            raise ValueError("control_client is required")
+
+        def resolve_request(session: Any, turn: Any) -> AgentWorkerRequest:
+            model = str((session.state or {}).get("model") or "").strip()
+            if not model:
+                raise ValueError("agent session has no model binding")
+            requirement = (
+                requirement_factory(session, turn)
+                if requirement_factory is not None
+                else NodeRouteRequirement(
+                    model_id=model,
+                    required_capabilities=frozenset({"inference_v1"}),
+                )
+            )
+            caller = self.build_mesh_model_caller(
+                session_id=session.session_id,
+                turn_id=turn.turn_id,
+                model_id=model,
+                control_client=control_client,
+                requirement=requirement,
+                max_tokens=max_tokens,
+                max_attempts=dispatch_max_attempts,
+                timeout_seconds=timeout_seconds,
+            )
+            return AgentWorkerRequest(
+                model=model,
+                llm_caller=caller,
+                is_owner=True,
+                max_iterations=max_iterations,
+                principal_id=session.principal_id,
+                tenant_id=str((session.state or {}).get("tenant_id") or ""),
+            )
+
+        effective_preflight = preflight
+        if effective_preflight is None and self.node_registry is not None:
+            def effective_preflight(session: Any, turn: Any) -> bool:
+                model = str((session.state or {}).get("model") or "").strip()
+                if not model:
+                    return False
+                requirement = (
+                    requirement_factory(session, turn)
+                    if requirement_factory is not None
+                    else NodeRouteRequirement(
+                        model_id=model,
+                        required_capabilities=frozenset({"inference_v1"}),
+                    )
+                )
+                return self.route_node(requirement).selected is not None
+
+        return self.build_agent_worker(
+            request_resolver=resolve_request,
+            worker_id=worker_id,
+            scheduling_policy=scheduling_policy,
+            preflight=effective_preflight,
+        )
+
+    def build_mesh_agent_worker_service(
+        self,
+        control_client: Any,
+        *,
+        worker_count: int = 1,
+        worker_prefix: str = "mesh-agent",
+        max_tokens: int = 1024,
+        max_iterations: int | None = None,
+        dispatch_max_attempts: int = 1,
+        requirement_factory: Callable[[Any, Any], NodeRouteRequirement] | None = None,
+        timeout_seconds: float = 120.0,
+        poll_interval: float = 0.25,
+        batch_limit: int = 1,
+        max_results: int = 1000,
+        recover_on_start: bool = True,
+        concurrency_budget: WorkerConcurrencyBudget | None = None,
+        scheduling_policy: WorkerSchedulingPolicy | None = None,
+        preflight: Callable[[Any, Any], bool] | None = None,
+        persistent_concurrency: bool = False,
+        concurrency_lease_seconds: float = 300.0,
+    ) -> MeshAgentWorkerService:
+        """Build supervised workers using authenticated NodeOS dispatch."""
+        if control_client is None:
+            raise ValueError("control_client is required")
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+        return MeshAgentWorkerService(
+            self.session_store,
+            worker_factory=lambda worker_id: self.build_mesh_agent_worker(
+                control_client,
+                worker_id=worker_id,
+                max_tokens=max_tokens,
+                max_iterations=max_iterations,
+                dispatch_max_attempts=dispatch_max_attempts,
+                requirement_factory=requirement_factory,
+                timeout_seconds=timeout_seconds,
+                scheduling_policy=scheduling_policy,
+                preflight=preflight,
+            ),
+            worker_count=worker_count,
+            worker_prefix=worker_prefix,
+            poll_interval=poll_interval,
+            batch_limit=batch_limit,
+            max_results=max_results,
+            recover_on_start=recover_on_start,
+            concurrency_budget=concurrency_budget,
+            persistent_concurrency=persistent_concurrency,
+            concurrency_lease_seconds=concurrency_lease_seconds,
+        )
+
+    def build_mcp_discovery_broker(
+        self,
+        *,
+        client: MCPClient | None = None,
+        policy: MCPDiscoveryPolicy | None = None,
+        config_path: str | Path | None = None,
+    ) -> MCPToolDiscoveryBroker:
+        """Build an explicit external-MCP discovery boundary.
+
+        No external process is started and no HTTP endpoint is contacted until
+        the returned broker's ``refresh`` method is called. The legacy
+        ``register_all_into_registry`` path remains independent of this API.
+        """
+        effective_client = client or MCPClient()
+        selected_path = config_path if config_path is not None else self.config.config_path
+        if selected_path:
+            path = Path(selected_path)
+            if not path.is_absolute():
+                path = self.repo_root / path
+            effective_client.load_from_config(str(path))
+        return MCPToolDiscoveryBroker(effective_client, policy=policy)
+
+    def build_model_preparation_coordinator(
+        self,
+        *,
+        transport: Callable[[Any, Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        control_client: Any | None = None,
+        timeout_seconds: float = 300.0,
+        required_capability: str = "model_preparation_v1",
+    ) -> ModelPreparationCoordinator:
+        """Build the authorization-gated model preparation boundary.
+
+        A supplied transport remains useful for private/provider adapters. A
+        live authenticated control client gets the standard digest-bound
+        NodeOS transport; callers still have to pass ``authorized=True`` to
+        the coordinator before any installation request is sent.
+        """
+        if self.node_registry is None:
+            raise RuntimeError("Agents Platform node registry is unavailable")
+        if transport is not None and control_client is not None:
+            raise ValueError("transport and control_client are mutually exclusive")
+        if control_client is not None:
+            from services.orchestrator.model_preparation_transport import (
+                AuthenticatedModelPreparationClient,
+            )
+
+            transport = AuthenticatedModelPreparationClient(
+                control_client,
+                required_capability=required_capability,
+                timeout_seconds=timeout_seconds,
+            )
+        return ModelPreparationCoordinator(self.node_registry, transport=transport)
+
+    def delegate_subagents(self, *args: Any, **kwargs: Any) -> Any:
+        if self.subagent_coordinator is None:
+            raise RuntimeError("Agents Platform subagent coordinator is unavailable")
+        return self.subagent_coordinator.delegate(*args, **kwargs)
+
+    def build_subagent_coordinator(
+        self,
+        *,
+        lease_factory: Callable[[Any, Any, Any], Any] | None = None,
+        workspace_root: str | Path | None = None,
+        max_children: int = 8,
+        max_depth: int = 2,
+        max_total_steps: int = 100,
+    ) -> SubagentCoordinator:
+        """Build a bounded coordinator with optional child-turn leases.
+
+        Lease selection remains injected so private placement policy never
+        crosses the public runtime boundary. When supplied, the factory must
+        return a lease bound to the newly created child session and turn.
+        """
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+        if lease_factory is not None and self.lease_store is None:
+            raise RuntimeError("Agents Platform lease store is unavailable")
+        return SubagentCoordinator(
+            self.session_store,
+            workspace_root=str(workspace_root or self.repo_root),
+            max_children=max_children,
+            max_depth=max_depth,
+            max_total_steps=max_total_steps,
+            lease_store=self.lease_store if lease_factory is not None else None,
+            lease_factory=lease_factory,
+        )
+
+    def store_artifact(self, data: bytes, **metadata: Any) -> Any:
+        """Persist a scoped immutable artifact through the platform store."""
+        if self.artifact_store is None:
+            raise RuntimeError("Agents Platform artifact store is unavailable")
+        return self.artifact_store.put_bytes(data, **metadata)
+
+    def usage_totals(self, *, session_id: str | None = None, principal_id: str | None = None) -> Any:
+        if self.usage_ledger is None:
+            raise RuntimeError("Agents Platform usage ledger is unavailable")
+        return self.usage_ledger.totals(session_id=session_id, principal_id=principal_id)
+
+    def build_environment_executor(
+        self,
+        spec: EnvironmentSpec,
+        transport: EnvironmentTransport | None = None,
+        *,
+        event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
+        clock: Callable[[], float] | None = None,
+    ) -> BoundedEnvironmentExecutor:
+        """Bind an environment executor to the durable session event store."""
+        if self.session_store is None:
+            raise RuntimeError("Agents Platform session store is unavailable")
+
+        def emit(event_type: str, payload: Mapping[str, Any]) -> None:
+            self.session_store.record_event(spec.session_id, event_type, payload)
+            if event_sink is not None:
+                event_sink(event_type, payload)
+
+        kwargs: dict[str, Any] = {
+            "transport": transport,
+            "event_sink": emit,
+        }
+        if clock is not None:
+            kwargs["clock"] = clock
+        return BoundedEnvironmentExecutor(spec, **kwargs)
+
+    def build_authenticated_environment_transport(
+        self,
+        control_client: Any,
+        *,
+        required_capability: str = "mesh_environment_v1",
+        timeout_seconds: float = 120.0,
+    ) -> Any:
+        """Build the typed, authenticated NodeOS environment adapter."""
+        from services.orchestrator.environment_transport import (
+            AuthenticatedNodeEnvironmentTransport,
+        )
+
+        return AuthenticatedNodeEnvironmentTransport(
+            control_client,
+            required_capability=required_capability,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def build_local_workspace_transport(self, **kwargs: Any) -> LocalWorkspaceTransport:
+        """Create a shell-free self-hosted filesystem workspace adapter."""
+        return LocalWorkspaceTransport(self._resolve_path("data/agents/workspaces"), **kwargs)
+
+    def build_process_workspace_transport(
+        self,
+        *,
+        policy: ProcessSandboxPolicy | None = None,
+        **kwargs: Any,
+    ) -> ProcessIsolatedWorkspaceTransport:
+        """Create an opt-in process-isolated self-hosted workspace adapter."""
+        return ProcessIsolatedWorkspaceTransport(
+            self._resolve_path("data/agents/workspaces"),
+            policy=policy,
+            **kwargs,
+        )
+
+    def route_node(self, requirement: NodeRouteRequirement) -> NodeRouteDecision:
+        """Route against only the public, verified node inventory."""
+        if self.node_registry is None:
+            raise RuntimeError("Agents Platform node registry is unavailable")
+        self.node_registry.reconcile_stale_nodes(self.config.agents_platform_node_stale_after_seconds)
+        return CapabilityAwareNodeRouter().route(self.node_registry.routable_nodes(), requirement)
+
+    def reconcile_stale_nodes(
+        self,
+        max_age_seconds: float,
+        *,
+        now: float | None = None,
+    ) -> tuple[Any, ...]:
+        """Remove nodes from routing until authenticated state is refreshed."""
+        if self.node_registry is None:
+            raise RuntimeError("Agents Platform node registry is unavailable")
+        return self.node_registry.reconcile_stale_nodes(max_age_seconds, now=now)
+
+    def sync_authenticated_node(
+        self,
+        *,
+        control_client: Any | None = None,
+        clock: Callable[[], Any] | None = None,
+        required_capability: str = "execution_attestation_v1",
+        **kwargs: Any,
+    ) -> Any:
+        """Admit a verified NodeSession/profile into the public capability registry."""
+        if self.node_registry is None:
+            raise RuntimeError("Agents Platform node registry is unavailable")
+        return AuthenticatedNodeRegistrySync(
+            self.node_registry,
+            control_client=control_client,
+            clock=clock,
+            required_capability=required_capability,
+        ).sync(**kwargs)
+
+    def build_node_onboarding_coordinator(self) -> NodeOnboardingCoordinator:
+        """Build the safe discovery-to-readiness state-machine adapter.
+
+        Probe, preparation and benchmark I/O remain injected by the discovery
+        integration. The coordinator itself never transfers credentials or
+        treats an unauthenticated LAN response as routable.
+        """
+        if self.node_registry is None:
+            raise RuntimeError("Agents Platform node registry is unavailable")
+        return NodeOnboardingCoordinator(self.node_registry)
+
+    def reserve_node(self, **kwargs: Any) -> Any:
+        if self.lease_store is None:
+            raise RuntimeError("Agents Platform lease store is unavailable")
+        return self.lease_store.reserve(**kwargs)
+
+    def build_model_dispatcher(
+        self,
+        executor: Callable[[Any, Mapping[str, Any]], Mapping[str, Any]],
+        *,
+        event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
+        max_attempts: int = 1,
+    ) -> LeaseBoundModelDispatcher:
+        if self.node_registry is None or self.lease_store is None:
+            raise RuntimeError("Agents Platform node routing and lease stores are unavailable")
+
+        def emit(event_type: str, payload: Mapping[str, Any]) -> None:
+            session_id = payload.get("session_id")
+            turn_id = payload.get("turn_id")
+            if self.session_store is not None and session_id:
+                self.session_store.record_event(
+                    str(session_id),
+                    event_type,
+                    payload,
+                    turn_id=str(turn_id) if turn_id else None,
+                )
+            if event_sink is not None:
+                event_sink(event_type, payload)
+
+        return LeaseBoundModelDispatcher(
+            self.node_registry,
+            self.lease_store,
+            executor,
+            event_sink=emit,
+            max_attempts=max_attempts,
+            node_stale_after_seconds=self.config.agents_platform_node_stale_after_seconds,
+        )
+
+    def build_authenticated_model_dispatcher(
+        self,
+        control_client: Any,
+        *,
+        required_capability: str = "inference_v1",
+        timeout_seconds: float = 120.0,
+        event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
+        max_attempts: int = 1,
+    ) -> LeaseBoundModelDispatcher:
+        """Build a dispatcher backed by the authenticated NodeOS wire channel."""
+        from services.orchestrator.inference_transport import AuthenticatedNodeModelExecutor
+
+        client = self.build_authenticated_inference_client(
+            control_client,
+            required_capability=required_capability,
+            timeout_seconds=timeout_seconds,
+            event_sink=event_sink,
+        )
+        return self.build_model_dispatcher(
+            AuthenticatedNodeModelExecutor(client),
+            event_sink=event_sink,
+            max_attempts=max_attempts,
+        )
+
+    def build_mesh_model_caller(
+        self,
+        *,
+        session_id: str,
+        turn_id: str,
+        model_id: str,
+        control_client: Any | None = None,
+        dispatcher: LeaseBoundModelDispatcher | None = None,
+        requirement: NodeRouteRequirement | None = None,
+        max_tokens: int = 1024,
+        capacity_limit: int = 1,
+        requested_slots: int = 1,
+        lease_ttl_seconds: int = 300,
+        timeout_seconds: float = 120.0,
+        event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
+        max_attempts: int = 1,
+        result_observer: Callable[[Any], None] | None = None,
+    ) -> Any:
+        """Build an AgentLoop caller backed by verified NodeOS dispatch.
+
+        Deployments may provide a preconfigured dispatcher. Supplying a live
+        authenticated control client builds the standard lease-bound dispatcher
+        without exposing private placement policy to the public caller.
+        """
+        from .model_caller import MeshDispatchModelCaller
+
+        selected_dispatcher = dispatcher
+        if selected_dispatcher is None:
+            if control_client is None:
+                raise ValueError("control_client or dispatcher is required")
+            selected_dispatcher = self.build_authenticated_model_dispatcher(
+                control_client,
+                timeout_seconds=timeout_seconds,
+                event_sink=event_sink,
+                max_attempts=max_attempts,
+            )
+        return MeshDispatchModelCaller(
+            selected_dispatcher,
+            session_id=session_id,
+            turn_id=turn_id,
+            model_id=model_id,
+            requirement=requirement,
+            max_tokens=max_tokens,
+            capacity_limit=capacity_limit,
+            requested_slots=requested_slots,
+            lease_ttl_seconds=lease_ttl_seconds,
+            result_observer=result_observer,
+        )
+
+    def build_authenticated_inference_client(
+        self,
+        control_client: Any,
+        *,
+        required_capability: str = "inference_v1",
+        required_stream_capability: str = "inference_stream_v1",
+        timeout_seconds: float = 120.0,
+        event_sink: Callable[[str, Mapping[str, Any]], None] | None = None,
+    ) -> Any:
+        """Create an authenticated inference client with durable session events."""
+        from services.orchestrator.inference_transport import AuthenticatedNodeInferenceClient
+
+        def emit(event_type: str, payload: Mapping[str, Any]) -> None:
+            session_id = payload.get("session_id")
+            turn_id = payload.get("turn_id")
+            if self.session_store is not None and session_id:
+                self.session_store.record_event(
+                    str(session_id),
+                    event_type,
+                    payload,
+                    turn_id=str(turn_id) if turn_id else None,
+                )
+            if event_sink is not None:
+                event_sink(event_type, payload)
+
+        return AuthenticatedNodeInferenceClient(
+            control_client,
+            required_capability=required_capability,
+            required_stream_capability=required_stream_capability,
+            timeout_seconds=timeout_seconds,
+            event_sink=emit,
+        )
+
     @staticmethod
     def _sink_task_ids(plan: OrchestrationPlan) -> list[str]:
         dependency_ids = {
@@ -907,6 +1711,9 @@ class AgentsPlatformRuntime:
 
     def close(self) -> None:
         """Close SQLite and persistent resource handles cleanly."""
+        if self.agent_definition_store is not None:
+            self.agent_definition_store.close()
+            self.agent_definition_store = None
         if self.safe_tool_executor is not None:
             self.safe_tool_executor.close()
         if self.skill_registry is not None:
@@ -917,6 +1724,19 @@ class AgentsPlatformRuntime:
             self.pipeline.workflow.close()
         if self.memory is not None:
             self.memory.close()
+        if self.session_store is not None:
+            self.session_store.close()
+        if self.artifact_store is not None:
+            self.artifact_store.close()
+        if self.usage_ledger is not None:
+            self.usage_ledger.close()
+        if self.trace_store is not None:
+            self.trace_store.close()
+        if self.lease_store is not None:
+            self.lease_store.close()
+        if self.node_registry is not None:
+            self.node_registry.close()
+        self.openai_agents = None
 
     def __enter__(self) -> AgentsPlatformRuntime:
         return self

@@ -1,8 +1,8 @@
 """Publish provider scheduling inputs over an authenticated persistent control channel."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from protocol.control import ControlEnvelope
@@ -77,9 +77,10 @@ def publish_live_registration(
     llama_build_number: int,
     rpc_host: str,
     rpc_port: int,
+    models: Iterable[dict[str, Any]] | None = None,
     benchmarks: Iterable[dict[str, Any]],
 ) -> SessionSnapshot:
-    """Push profile, runtime/RPC advertisement and current scheduler benchmarks in order."""
+    """Push profile, optional model inventory, runtime advertisement and benchmarks."""
     current = push_and_ack(
         sock,
         session=session,
@@ -87,6 +88,19 @@ def publish_live_registration(
         message_type="NodeProfileUpdate",
         payload=dict(profile),
     )
+    if models is not None:
+        current = push_and_ack(
+            sock,
+            session=current,
+            control_plane_id=control_plane_id,
+            message_type="ModelCatalogueUpdate",
+            payload={
+                "schema_version": 1,
+                "node_id": current.node_id,
+                "profile_revision": current.profile_revision,
+                "models": [dict(model) for model in models],
+            },
+        )
     runtime = {
         "schema_version": 1,
         "node_id": current.node_id,

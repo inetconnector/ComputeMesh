@@ -2,15 +2,15 @@
 """Integration test ensuring Appliance Dashboard (port 8080) serves WebUI Chat Studio and AI routes."""
 from __future__ import annotations
 
-from http import HTTPStatus
 import hashlib
 import http.client
 import json
-from pathlib import Path
 import sys
 import threading
 import time
 import unittest
+from http import HTTPStatus
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -28,6 +28,78 @@ class TestWebUIStaticAssets(unittest.TestCase):
         self.assertTrue(portal_selector.is_file())
         self.assertTrue(android_selector.is_file())
         self.assertEqual(portal_selector.read_bytes(), android_selector.read_bytes())
+
+    def test_agent_task_controls_use_durable_gateway_contract(self) -> None:
+        selector = (REPO_ROOT / "portal" / "webui" / "model-selector.js").read_text(encoding="utf-8")
+        self.assertIn("/v1/agents/sessions", selector)
+        self.assertIn("/turns", selector)
+        self.assertIn("environment_type: 'mesh'", selector)
+        for locale in ("de", "en", "fr", "es", "it", "pt-BR", "nl", "pl", "tr"):
+            self.assertTrue(
+                locale + ": {" in selector or "'" + locale + "': {" in selector,
+                f"missing localized agent task labels for {locale}",
+            )
+        self.assertIn("agentTaskCreateButton", selector)
+        self.assertIn("agentTaskContinueButton", selector)
+        self.assertIn("agentTaskPauseButton", selector)
+        self.assertIn("agentTaskResumeButton", selector)
+        self.assertIn("agentTaskCancelButton", selector)
+        self.assertIn("/control", selector)
+        self.assertIn("agentSessionActivityPanel", selector)
+        self.assertIn("agentSessionActivity = agentSessionActivity.slice(-12)", selector)
+        self.assertIn("agentSessionActivity.push({ label: describeAgentSessionEvent(event) })", selector)
+
+    def test_android_lan_discovery_keeps_unknown_nodes_visible_without_trusting_them(self) -> None:
+        discovery = (
+            REPO_ROOT
+            / "apps"
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "inetconnector"
+            / "compumesh"
+            / "p2p"
+            / "DirectLanDiscovery.kt"
+        ).read_text(encoding="utf-8")
+        server = (
+            REPO_ROOT
+            / "apps"
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "inetconnector"
+            / "compumesh"
+            / "server"
+            / "LocalChatServer.kt"
+        ).read_text(encoding="utf-8")
+        ui = (
+            REPO_ROOT
+            / "apps"
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "inetconnector"
+            / "compumesh"
+            / "ui"
+            / "tabs"
+            / "LanMeshTab.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn('lifecycle: String = "discovered"', discovery)
+        self.assertIn('requiresAuth: Boolean = false', discovery)
+        self.assertIn('manual_pairing_required', discovery)
+        self.assertIn('fetchModels(peer.targetUrl, "", allowCredentials = false)', server)
+        self.assertIn('/v1/mesh/peers', server)
+        self.assertIn('peer.isLocalLan && !peer.isAvailable', server)
+        self.assertIn('peer.requiresAuth', ui)
 
     def test_pointer_event_rules_and_service_worker_revision_match(self) -> None:
         assets = (

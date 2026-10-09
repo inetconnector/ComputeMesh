@@ -14,8 +14,9 @@ class ComplianceAwareLiveProviderRegistration(LiveProviderRegistration):
         registry: LiveSharedRuntimeRegistry,
         *,
         compliance_registry: ProviderComplianceRegistry,
+        agent_node_admission=None,
     ) -> None:
-        super().__init__(registry)
+        super().__init__(registry, agent_node_admission=agent_node_admission)
         self.compliance_registry = compliance_registry
 
     def _publish_if_complete(self, node_id: str) -> None:

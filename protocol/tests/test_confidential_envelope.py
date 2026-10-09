@@ -178,8 +178,11 @@ class ConfidentialEnvelopeTests(unittest.TestCase):
         value = self._encrypted().to_dict()
         tampered = copy.deepcopy(value)
         ciphertext = tampered["ciphertext"]
-        replacement = "A" if ciphertext[-1] != "A" else "B"
-        tampered["ciphertext"] = ciphertext[:-1] + replacement
+        # Mutate the first encoded sextet so the decoded ciphertext byte
+        # changes as well. The final Base64URL character can contain padding
+        # bits that do not affect the decoded bytes.
+        replacement = "A" if ciphertext[0] != "A" else "B"
+        tampered["ciphertext"] = replacement + ciphertext[1:]
         with self.assertRaises(ConfidentialEnvelopeError):
             decrypt_in_attested_recipient(
                 tampered,

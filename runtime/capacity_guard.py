@@ -5,12 +5,12 @@ on the provider node to prevent resource over-allocation during active inference
 """
 from __future__ import annotations
 
+import secrets
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-import secrets
-import threading
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 
 class CapacityGuardError(RuntimeError):
@@ -51,6 +51,7 @@ class LocalCapacityGuard:
         node_id: str,
         max_concurrent_jobs: int = 1,
         total_memory_mb: int | None = None,
+        device_memory_mb: Mapping[str, int] | None = None,
         default_ttl_seconds: int = 60,
     ) -> None:
         if not node_id:
@@ -59,12 +60,22 @@ class LocalCapacityGuard:
             raise ValueError("max_concurrent_jobs must be >= 1")
         if total_memory_mb is not None and total_memory_mb < 1:
             raise ValueError("total_memory_mb must be >= 1 if specified")
+        normalized_devices: dict[str, int] = {}
+        if device_memory_mb is not None:
+            for raw_device_id, raw_memory in device_memory_mb.items():
+                device_id = str(raw_device_id or "").strip()
+                if not device_id or len(device_id) > 128:
+                    raise ValueError("device IDs must be non-empty and at most 128 characters")
+                if isinstance(raw_memory, bool) or int(raw_memory) < 1:
+                    raise ValueError("device memory must be at least 1 MB")
+                normalized_devices[device_id] = int(raw_memory)
         if not 1 <= default_ttl_seconds <= 3600:
             raise ValueError("default_ttl_seconds must be between 1 and 3600")
 
         self.node_id = node_id
         self.max_concurrent_jobs = max_concurrent_jobs
         self.total_memory_mb = total_memory_mb
+        self.device_memory_mb = dict(normalized_devices)
         self.default_ttl_seconds = default_ttl_seconds
         self._lock = threading.RLock()
         self._reservations: dict[str, CapacityReservation] = {}
@@ -99,6 +110,9 @@ class LocalCapacityGuard:
             raise ValueError("job_id must be non-empty text")
         if memory_mb < 0:
             raise ValueError("memory_mb cannot be negative")
+        normalized_device_id = str(device_id or "").strip()
+        if not normalized_device_id or len(normalized_device_id) > 128:
+            raise ValueError("device_id must be non-empty and at most 128 characters")
 
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl_seconds
         if not 1 <= ttl <= 3600:
@@ -109,6 +123,18 @@ class LocalCapacityGuard:
 
         with self._lock:
             self._prune_expired_locked(now)
+
+            if self.device_memory_mb and normalized_device_id == "default":
+                if len(self.device_memory_mb) != 1:
+                    raise CapacityExceededError(
+                        "default device is ambiguous for a node with multiple profiled devices"
+                    )
+                normalized_device_id = next(iter(self.device_memory_mb))
+
+            if self.device_memory_mb and normalized_device_id not in self.device_memory_mb:
+                raise CapacityExceededError(
+                    f"device '{normalized_device_id}' is not present in the node profile"
+                )
 
             if job_id in self._reservations:
                 existing = self._reservations[job_id]
@@ -132,12 +158,25 @@ class LocalCapacityGuard:
                         f"insufficient local memory: requesting {memory_mb} MB, used {used_mem}/{self.total_memory_mb} MB"
                     )
 
+            if self.device_memory_mb:
+                device_limit = self.device_memory_mb[normalized_device_id]
+                device_used = sum(
+                    reservation.memory_mb
+                    for reservation in self._reservations.values()
+                    if reservation.device_id == normalized_device_id
+                )
+                if device_used + memory_mb > device_limit:
+                    raise CapacityExceededError(
+                        f"insufficient memory on device '{normalized_device_id}': "
+                        f"requesting {memory_mb} MB, used {device_used}/{device_limit} MB"
+                    )
+
             reservation = CapacityReservation(
                 reservation_id=f"res-{secrets.token_hex(12)}",
                 lease_id=effective_lease_id,
                 job_id=job_id,
                 node_id=self.node_id,
-                device_id=device_id,
+                device_id=normalized_device_id,
                 memory_mb=memory_mb,
                 acquired_at=now,
                 expires_at=now + timedelta(seconds=ttl),
@@ -154,6 +193,19 @@ class LocalCapacityGuard:
                 del self._reservations[job_id]
                 return True
             return False
+
+    def require_active_lease(self, lease_id: str) -> CapacityReservation:
+        """Return the active reservation bound to a lease or fail closed."""
+        normalized_lease_id = str(lease_id or "").strip()
+        if not normalized_lease_id:
+            raise InvalidLeaseError("lease_id must be non-empty")
+        now = datetime.now(UTC)
+        with self._lock:
+            self._prune_expired_locked(now)
+            for reservation in self._reservations.values():
+                if reservation.lease_id == normalized_lease_id:
+                    return reservation
+        raise InvalidLeaseError(f"no active reservation found for lease '{normalized_lease_id}'")
 
     def renew(self, job_id: str, additional_seconds: int = 30) -> CapacityReservation:
         """Extend the TTL of an active reservation."""
@@ -208,6 +260,22 @@ class LocalCapacityGuard:
                     if self.total_memory_mb is not None
                     else None
                 ),
+                "devices": {
+                    device_id: {
+                        "total_memory_mb": total_memory,
+                        "used_memory_mb": sum(
+                            reservation.memory_mb
+                            for reservation in self._reservations.values()
+                            if reservation.device_id == device_id
+                        ),
+                        "active_jobs": sum(
+                            1
+                            for reservation in self._reservations.values()
+                            if reservation.device_id == device_id
+                        ),
+                    }
+                    for device_id, total_memory in self.device_memory_mb.items()
+                },
             }
 
     @contextmanager

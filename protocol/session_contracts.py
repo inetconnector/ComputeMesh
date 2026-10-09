@@ -16,6 +16,7 @@ _SCHEMA_BY_MESSAGE = {
     "NodeAuthenticate": "node_authenticate_payload.schema.json",
     "CapabilityNegotiation": "capability_negotiation_payload.schema.json",
     "NodeProfileUpdate": "node_profile.schema.json",
+    "ModelCatalogueUpdate": "model_catalogue.schema.json",
     "RuntimeAdvertisement": "runtime_advertisement_payload.schema.json",
     "BenchmarkReport": "benchmark_result.schema.json",
     "DrainRequest": "drain_request_payload.schema.json",
@@ -25,6 +26,13 @@ _SCHEMA_BY_MESSAGE = {
     "GpuPromoChallengeResponse": "gpu_promo_challenge_response_payload.schema.json",
     "CapacityReserveRequest": "capacity_reserve_request_payload.schema.json",
     "CapacityReleaseRequest": "capacity_release_request_payload.schema.json",
+    "InferenceRequest": "inference_request_payload.schema.json",
+    "InferenceResponse": "inference_response_payload.schema.json",
+    "InferenceStreamChunk": "inference_stream_chunk_payload.schema.json",
+    "ModelPreparationRequest": "model_preparation_request_payload.schema.json",
+    "ModelPreparationResponse": "model_preparation_response_payload.schema.json",
+    "EnvironmentRequest": "environment_request_payload.schema.json",
+    "EnvironmentResponse": "environment_response_payload.schema.json",
 }
 
 

@@ -214,13 +214,17 @@
     }
   };
 
+  if (typeof window.initPortal === 'function') {
+    setupModalHooks();
+    return;
+  }
   const core = document.createElement('script');
-  core.src = 'portal-core.js?v=4.4';
+  core.src = 'portal-core.js?v=5.0';
   core.async = false;
   core.onload = setupModalHooks;
   core.onerror = function () {
     const fallback = document.createElement('script');
-    fallback.src = '/portal-core.js?v=4.4';
+    fallback.src = '/portal-core.js?v=5.0';
     fallback.async = false;
     fallback.onload = setupModalHooks;
     fallback.onerror = function () {

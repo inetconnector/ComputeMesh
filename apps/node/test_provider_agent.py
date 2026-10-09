@@ -2,13 +2,22 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import Mock, patch
 
+import pytest
+from apps.node.provider_agent import (
+    ProviderAgent,
+    ProviderAgentError,
+    _install_shutdown_handlers,
+    _managed_model_cancel_callback,
+    _optional_path,
+    _runtime_document,
+)
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from apps.node.provider_agent import ProviderAgent, ProviderAgentError, _runtime_document
 from protocol.node_session import NodeSessionState, SessionSnapshot
 from protocol.session_contracts import SessionMessageContractValidator
+from runtime.capacity_guard import CapacityExceededError
 from runtime.llama.gpu_promo_challenge import (
     GPU_PROMO_CAPABILITY,
     GpuPromoWorkResult,
@@ -72,7 +81,16 @@ def _write_key(path: Path) -> None:
     )
 
 
-def _agent(tmp_path: Path, *, gpu_promo_runner: object | None = None) -> ProviderAgent:
+def _agent(
+    tmp_path: Path,
+    *,
+    gpu_promo_runner: object | None = None,
+    inference_executor: object | None = None,
+    model_preparation_executor: object | None = None,
+    environment_executor: object | None = None,
+    enforce_inference_capacity: bool = False,
+) -> ProviderAgent:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     key_path = tmp_path / "node.pem"
     _write_key(key_path)
     return ProviderAgent(
@@ -90,6 +108,10 @@ def _agent(tmp_path: Path, *, gpu_promo_runner: object | None = None) -> Provide
             build_commit="abcdef1",
         ),
         gpu_promo_runner=gpu_promo_runner,  # type: ignore[arg-type]
+        inference_executor=inference_executor,  # type: ignore[arg-type]
+        model_preparation_executor=model_preparation_executor,  # type: ignore[arg-type]
+        environment_executor=environment_executor,  # type: ignore[arg-type]
+        enforce_inference_capacity=enforce_inference_capacity,
     )
 
 
@@ -120,6 +142,48 @@ def _assert_provider_error(fragment: str, call: object) -> None:
         raise AssertionError(f"expected ProviderAgentError containing {fragment!r}")
 
 
+def test_optional_path_treats_empty_service_values_as_unset() -> None:
+    assert _optional_path("") is None
+    assert _optional_path("   ") is None
+    assert _optional_path("/var/lib/computemesh/evidence/model.json") == Path(
+        "/var/lib/computemesh/evidence/model.json"
+    )
+
+
+def test_environment_executor_is_typed_and_advertised(tmp_path: Path) -> None:
+    def execute(session: SessionSnapshot, payload: dict[str, object]) -> dict[str, object]:
+        assert payload["operation"] == "prepare"
+        return {"status": "ok", "lease_id": "lease_1", "issued_at": 100.0, "expires_at": 200.0, "lease_revision": 1}
+
+    agent = _agent(tmp_path, environment_executor=execute)
+    assert "mesh_environment_v1" in agent.capabilities
+    payload = {
+        "schema_version": 1,
+        "session_id": "session-a",
+        "session_revision": 7,
+        "node_id": "node-a",
+        "environment_id": "env_1",
+        "operation": "prepare",
+        "spec": {
+            "kind": "mesh",
+            "allowed_operations": ["inference"],
+            "allowed_paths": [],
+            "network_allowlist": [],
+            "resources": {
+                "cpu_millis": 1000,
+                "memory_bytes": 536870912,
+                "vram_bytes": 0,
+                "max_processes": 32,
+                "max_runtime_seconds": 3600,
+            },
+            "lease_seconds": 300,
+        },
+    }
+    response = agent.handle_request("EnvironmentRequest", payload, _session(agent))
+    assert response["lease_id"] == "lease_1"
+    assert response["operation"] == "prepare"
+
+
 def test_runtime_advertisement_matches_public_contract() -> None:
     doc = _runtime_document(
         node_id="node-a",
@@ -139,6 +203,214 @@ def test_provider_agent_binds_profile_benchmarks_runtime_and_key(tmp_path: Path)
     assert agent.capacity_guard.node_id == "node-a"
     assert agent.capacity_guard.get_status()["available_slots"] == 1
     assert GPU_PROMO_CAPABILITY not in agent.capabilities
+
+
+def test_provider_agent_normalizes_and_keeps_only_available_models(tmp_path: Path) -> None:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    _write_key(tmp_path / "node.pem")
+    agent = ProviderAgent(
+        node_id="node-a",
+        private_key_path=(tmp_path / "node.pem"),
+        profile=_profile("node-a"),
+        prefill=_benchmark("llama_cpp_prefill"),
+        decode=_benchmark("llama_cpp_decode"),
+        runtime_advertisement=_runtime_document(
+            node_id="node-a",
+            profile_revision=3,
+            rpc_host="10.0.0.2",
+            rpc_port=50052,
+            build_number=123,
+            build_commit="abcdef1",
+        ),
+        models=(
+            {"model_id": "qwen2.5:3b", "present": True, "size_bytes": 123},
+            {"model_id": "missing", "present": False},
+        ),
+    )
+    assert agent.models == ({"model_id": "qwen2.5:3b", "size_bytes": 123},)
+    SessionMessageContractValidator().validate(
+        "ModelCatalogueUpdate",
+        {
+            "schema_version": 1,
+            "node_id": "node-a",
+            "profile_revision": 3,
+            "models": list(agent.models),
+        },
+    )
+
+
+def test_provider_agent_advertises_inference_only_with_explicit_runtime(tmp_path: Path) -> None:
+    plain = _agent(tmp_path / "plain")
+    assert "inference_v1" not in plain.capabilities
+    configured = _agent(tmp_path / "configured", inference_executor=lambda session, request: {
+        "schema_version": 1,
+        "session_id": session.session_id,
+        "turn_id": request["turn_id"],
+        "lease_id": request["lease_id"],
+        "node_id": session.node_id,
+        "model_id": request["model_id"],
+        "output": "ok",
+    })
+    assert "inference_v1" in configured.capabilities
+
+
+def test_managed_model_cancel_callback_is_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", raising=False)
+    assert _managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions") is None
+
+
+def test_managed_model_cancel_callback_binds_only_to_model_engine(monkeypatch) -> None:
+    monkeypatch.setenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", "1")
+    engine = Mock(host="127.0.0.1", port=8081)
+    manager = Mock(engine=engine)
+    with patch("services.appliance_dashboard.model_manager.get_model_manager", return_value=manager):
+        callback = _managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions")
+        assert callback is engine.stop
+        callback()
+    engine.stop.assert_called_once_with()
+
+
+def test_managed_model_cancel_callback_rejects_other_loopback_endpoint(monkeypatch) -> None:
+    monkeypatch.setenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", "1")
+    engine = Mock(host="127.0.0.1", port=8081)
+    with patch(
+        "services.appliance_dashboard.model_manager.get_model_manager",
+        return_value=Mock(engine=engine),
+    ):
+        with pytest.raises(ProviderAgentError, match="owned by NodeOS model engine"):
+            _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
+
+
+def test_shutdown_handlers_stop_client_and_restore_previous_handlers(monkeypatch) -> None:
+    import signal
+
+    client = Mock()
+    handlers = {}
+
+    def install(signum, handler):
+        prior = handlers.get(signum)
+        handlers[signum] = handler
+        return prior
+
+    monkeypatch.setattr("apps.node.provider_agent.signal.signal", install)
+    restore = _install_shutdown_handlers(client)
+    handlers[signal.SIGTERM](signal.SIGTERM, None)
+    handlers[signal.SIGINT](signal.SIGINT, None)
+    assert client.stop.call_count == 2
+    restore()
+    assert handlers[signal.SIGTERM] is None
+    assert handlers[signal.SIGINT] is None
+
+
+def test_provider_agent_advertises_and_handles_authorized_model_preparation(tmp_path: Path) -> None:
+    digest = "a" * 64
+    agent = _agent(
+        tmp_path,
+        model_preparation_executor=lambda _session, _request: {
+            "status": "prepared",
+            "reason_code": "downloaded_and_verified",
+        },
+    )
+    assert "model_preparation_v1" in agent.capabilities
+    result = agent.handle_request(
+        "ModelPreparationRequest",
+        {
+            "schema_version": 1,
+            "session_id": "session-a",
+            "session_revision": 7,
+            "node_id": "node-a",
+            "model_id": "qwen2.5:3b",
+            "artifact_digest": digest,
+            "size_bytes": 100,
+            "context_tokens": 32768,
+            "source": "verified_catalog",
+            "idempotency_key": "modelprep_test",
+        },
+        _session(agent),
+    )
+    assert result["status"] == "prepared"
+    assert result["artifact_digest"] == digest
+
+
+def test_provider_agent_rejects_unbound_model_preparation(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, model_preparation_executor=lambda _session, _request: {"status": "prepared"})
+    payload = {
+        "schema_version": 1,
+        "session_id": "other-session",
+        "session_revision": 7,
+        "node_id": "node-a",
+        "model_id": "qwen2.5:3b",
+        "artifact_digest": "a" * 64,
+        "size_bytes": 100,
+        "idempotency_key": "modelprep_test",
+    }
+    _assert_provider_error("binding mismatch", lambda: agent.handle_request("ModelPreparationRequest", payload, _session(agent)))
+
+
+def test_provider_agent_handles_lease_bound_inference_request(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, inference_executor=lambda session, request: {
+        "schema_version": 1,
+        "session_id": session.session_id,
+        "turn_id": request["turn_id"],
+        "lease_id": request["lease_id"],
+        "node_id": session.node_id,
+        "model_id": request["model_id"],
+        "output": "local answer",
+    })
+    result = agent.handle_request("InferenceRequest", {
+        "schema_version": 1,
+        "session_id": "session-a",
+        "turn_id": "turn-a",
+        "lease_id": "lease-a",
+        "model_id": "model-a",
+        "messages": [{"role": "user", "content": "hello"}],
+        "max_tokens": 32,
+        "stream": False,
+    }, _session(agent))
+    assert result["output"] == "local answer"
+
+
+def test_provider_agent_requires_and_accepts_active_capacity_for_live_inference(tmp_path: Path) -> None:
+    agent = _agent(
+        tmp_path,
+        inference_executor=lambda session, request: {
+            "schema_version": 1,
+            "session_id": session.session_id,
+            "turn_id": request["turn_id"],
+            "lease_id": request["lease_id"],
+            "node_id": session.node_id,
+            "model_id": request["model_id"],
+            "output": "capacity-bound answer",
+        },
+        enforce_inference_capacity=True,
+    )
+    payload = {
+        "schema_version": 1,
+        "session_id": "session-a",
+        "turn_id": "turn-capacity-bound",
+        "lease_id": "lease-capacity-bound",
+        "model_id": "model-a",
+        "messages": [{"role": "user", "content": "hello"}],
+        "max_tokens": 32,
+        "stream": False,
+    }
+    with pytest.raises(ProviderAgentError, match="active provider capacity reservation"):
+        agent.handle_request("InferenceRequest", payload, _session(agent))
+
+    reserved = agent.handle_request(
+        "CapacityReserveRequest",
+        {
+            "job_id": "job-capacity-bound",
+            "lease_id": payload["lease_id"],
+            "memory_mb": 0,
+            "ttl_seconds": 30,
+            "device_id": "default",
+        },
+        _session(agent),
+    )
+    assert reserved["device_id"] == "gpu:0"
+    result = agent.handle_request("InferenceRequest", payload, _session(agent))
+    assert result["output"] == "capacity-bound answer"
 
 
 def test_provider_agent_accepts_custom_capacity_guard(tmp_path: Path) -> None:
@@ -188,6 +460,20 @@ def test_provider_agent_enforces_capacity_requests_on_authenticated_channel(tmp_
         session,
     )
     assert released["released"] is True
+
+
+def test_provider_agent_binds_capacity_guard_to_profiled_gpu_memory(tmp_path: Path) -> None:
+    agent = _agent(tmp_path)
+    assert agent.capacity_guard.device_memory_mb == {"gpu:0": 11444}
+    payload = {
+        "job_id": "job-profiled-gpu",
+        "lease_id": "lease-profiled-gpu",
+        "memory_mb": 1,
+        "ttl_seconds": 30,
+        "device_id": "gpu:1",
+    }
+    with pytest.raises(CapacityExceededError, match="not present in the node profile"):
+        agent.handle_request("CapacityReserveRequest", payload, _session(agent))
 
 
 class _GpuRunner:
