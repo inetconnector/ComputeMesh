@@ -69,12 +69,12 @@
     <div class="marketplace-controls" style="margin-bottom: 2rem;">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" id="market-search" placeholder="Node-ID, GPU-Modell oder Interface filtern..." oninput="filterMarketplace()">
+        <input type="text" id="market-search" data-i18n-ph="market_search_placeholder" placeholder="Node-ID, GPU-Modell oder Interface filtern..." oninput="filterMarketplace()">
       </div>
 
       <div class="filter-pills-row">
         <span class="filter-label" data-i18n="market_filter_gpu">Hardware:</span>
-        <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)">Alle Knoten</button>
+        <button class="filter-pill active" data-filter-type="gpu" data-filter-val="all" onclick="setMarketFilter('gpu', 'all', this)" data-i18n="market_all_nodes">Alle Knoten</button>
         <button class="filter-pill" data-filter-type="gpu" data-filter-val="nvidia" onclick="setMarketFilter('gpu', 'nvidia', this)">NVIDIA (CUDA)</button>
         <button class="filter-pill" data-filter-type="gpu" data-filter-val="amd" onclick="setMarketFilter('gpu', 'amd', this)">AMD (ROCm / Vulkan)</button>
         <button class="filter-pill" data-filter-type="gpu" data-filter-val="apple" onclick="setMarketFilter('gpu', 'apple', this)">Apple Silicon</button>
@@ -83,15 +83,15 @@
 
       <div class="filter-pills-row secondary">
         <span class="filter-label" data-i18n="market_filter_vram">Min. VRAM:</span>
-        <button class="filter-pill active" data-filter-type="vram" data-filter-val="all" onclick="setMarketFilter('vram', 'all', this)">Beliebig</button>
+        <button class="filter-pill active" data-filter-type="vram" data-filter-val="all" onclick="setMarketFilter('vram', 'all', this)" data-i18n="market_any_vram">Beliebig</button>
         <button class="filter-pill" data-filter-type="vram" data-filter-val="8" onclick="setMarketFilter('vram', '8', this)">&ge; 8 GB</button>
         <button class="filter-pill" data-filter-type="vram" data-filter-val="16" onclick="setMarketFilter('vram', '16', this)">&ge; 16 GB</button>
         <button class="filter-pill" data-filter-type="vram" data-filter-val="24" onclick="setMarketFilter('vram', '24', this)">&ge; 24 GB</button>
         <button class="filter-pill" data-filter-type="vram" data-filter-val="48" onclick="setMarketFilter('vram', '48', this)">&ge; 48 GB</button>
 
         <span class="filter-label" style="margin-left: 1rem;" data-i18n="market_filter_status">Status:</span>
-        <button class="filter-pill active" data-filter-type="status" data-filter-val="all" onclick="setMarketFilter('status', 'all', this)">Alle</button>
-        <button class="filter-pill" data-filter-type="status" data-filter-val="online" onclick="setMarketFilter('status', 'online', this)">🟢 Nur Online</button>
+        <button class="filter-pill active" data-filter-type="status" data-filter-val="all" onclick="setMarketFilter('status', 'all', this)" data-i18n="market_all_status">Alle</button>
+        <button class="filter-pill" data-filter-type="status" data-filter-val="online" onclick="setMarketFilter('status', 'online', this)" data-i18n="market_online_only">🟢 Nur Online</button>
       </div>
     </div>
 

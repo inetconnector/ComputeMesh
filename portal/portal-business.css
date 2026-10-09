@@ -76,6 +76,13 @@ section.container { padding-top: 36px !important; padding-bottom: 36px !importan
 .market-card, .model-card, .download-card, .calc-result-card, .calculator-box, .playground-studio, .code-window, .modal-box { background: var(--bg-card) !important; border-color: var(--border-subtle) !important; border-radius: 6px !important; box-shadow: none !important; transform: none !important; }
 .model-card:hover, .download-card:hover, .market-card:hover { border-color: #737e83 !important; }
 .filter-pill.active, .calc-tab.active { color: #e3e9e7; border-color: #667a73; background: #35453e; }
+.marketplace-controls, .calc-box, .search-box, .pg-toolbar, .pg-metrics-bar { background: #202325 !important; border-color: #383d41 !important; box-shadow: none !important; }
+.form-control, .search-box input { background: #181a1c !important; border-color: #434b4f !important; }
+header.site-header .nav-links a.active, header.site-header .nav-links a:hover { background: #303537 !important; border-color: #50585c !important; box-shadow: none !important; }
+.calc-tabs { overflow: visible; flex-wrap: wrap; }
+.calc-tab { min-width: 0; white-space: normal; text-align: left; }
+.slider-labels { gap: 16px; }
+.slider-labels > span:last-child { flex-shrink: 0; }
 .product-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; }
 .product-links a { display: block; padding: 28px 0; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); text-decoration: none; }
 .product-links h2 { font-size: 20px; margin-bottom: 8px; }
@@ -106,6 +113,8 @@ footer { background: #151718 !important; }
   .ticker-item { padding: 0 !important; border: 0 !important; }
   .ticker-val { font-size: 21px; }
   .product-links, .calc-content { grid-template-columns: 1fr; }
+  .calc-tabs { flex-direction: column; overflow: visible; }
+  .calc-tab { width: 100%; flex: 1 1 auto; }
   .dropdown-menu { left: 0; width: 280px; }
   .section-header h1, .section-header h2 { font-size: 25px !important; }
 }

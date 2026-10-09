@@ -4,6 +4,12 @@
 
 var translations = window.translations || {
   en: {
+    market_all_nodes: "All nodes",
+    market_any_vram: "Any",
+    market_all_status: "All",
+    market_online_only: "Online only",
+    market_search_placeholder: "Filter by node ID, GPU model or interface",
+    market_filter_status: "Status:",
     home_title: "ComputeMesh",
     home_tagline: "GPU infrastructure and AI inference",
     home_sub: "Run open-source models through an OpenAI-compatible API, offer GPU capacity, and manage your local or distributed fleet.",
@@ -539,6 +545,12 @@ var translations = window.translations || {
   },
 
   de: {
+    market_all_nodes: "Alle Knoten",
+    market_any_vram: "Beliebig",
+    market_all_status: "Alle",
+    market_online_only: "Nur online",
+    market_search_placeholder: "Nach Node-ID, GPU-Modell oder Interface filtern",
+    market_filter_status: "Status:",
     home_title: "ComputeMesh",
     home_tagline: "GPU-Infrastruktur und KI-Inferenz",
     home_sub: "Nutze Open-Source-Modelle über eine OpenAI-kompatible API, biete GPU-Kapazität an und verwalte deine lokale oder verteilte Flotte.",

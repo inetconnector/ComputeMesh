@@ -48,6 +48,13 @@ def test_portal_documents_navigation_and_layout(width):
                 page.evaluate("lang => switchLanguage(lang)", language)
                 assert page.locator('header a[href^="#"]').count() == 0
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), (path, language, width)
+                if path == "/pricing":
+                    for button in page.locator('.calc-tab').all():
+                        box = button.bounding_box()
+                        assert box and box['x'] + box['width'] <= width + 1
+                    page.locator('#tab-prov-btn').click()
+                    assert page.locator('#pane-prov').is_visible()
+                    page.locator('#tab-dev-btn').click()
             if path == "/":
                 assert page.locator("h1").inner_text() == "ComputeMesh"
                 assert page.locator('a[href="https://smartx.inetconnector.com/"]').count() > 0
