@@ -1,5 +1,10 @@
 # ComputeMesh
 
+## KI-Fähigkeitenprogramm (Paket 0, keine Freigabe)
+
+Der Umsetzungsplan wird im privaten Parent unter `docs/agents-platform/AI_CAPABILITY_IMPLEMENTATION_PLAN.md` geführt. Dieser öffentliche Branch ergänzt [versionierte Evaluierungsfälle mit nachweispflichtigem Baseline-Bericht](tests/evals/README.md). Es werden **keine** Werkzeuge aktiviert, keine Modellwechsel erzwungen und keine Verbesserung der Modellqualität oder Produktionsfreigabe behauptet. Solange echte Messungen fehlen, bleibt das Release-Gate gesperrt. Owner-Prüfung im Gateway und Python-Ausführung im Prozess sind weiterhin harte P0-Sicherheits-Stop-Gates.
+
+
 **Sprachen:** [English](README.md) | **Deutsch**
 
 Aktuelle Fragen zum Fernsehprogramm werden über eine Live-Websuche beantwortet,

@@ -35,6 +35,12 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q apps deploy models protocol runtime sdk services setup tests tools
 
+      - name: AI capability evaluation infrastructure (not a model PASS)
+        run: |
+          python -m unittest discover -s tests/evals -p 'test_*.py' -v
+          python tests/evals/ai_capability_baseline.py --output /tmp/capability-baseline.json
+          python tests/evals/source_inventory.py --output /tmp/capability-inventory.json
+
       - name: Concert research tests
         run: python -m unittest services.concert_research.tests.test_concert_research -v
 

@@ -4,7 +4,7 @@ ComputeMesh exposes built-in live-data tools through `ToolRegistry` and can also
 
 ## Built-in tool surface
 
-With the normal configuration (`system_tools_enabled=false`) the registry exposes 25 built-in tools. Enabling the owner-only system information tool raises the total to 26.
+**Do not rely on a fixed number of built-ins.** The current registry includes conditional, owner-scoped and integration-specific registrations. A source registration is not proof that the tool is active or authorized. Use `tests/evals/source_inventory.py` for a repeatable declared-tool snapshot and an authenticated runtime probe for actual visibility; compare `is_owner=False` and `is_owner=True` for every release. No external MCP server is started merely because a config document exists.
 
 | Area | Tools |
 | --- | --- |
