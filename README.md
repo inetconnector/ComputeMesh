@@ -12,6 +12,13 @@ download, LAN-mesh and playground pages rather than homepage fragment links.
 existing account, fleet, calculator, inference and download controls remain.
 German and English are the portal's supported languages.
 
+The WebUI validates saved model selections against the current gateway and
+reachable peer catalogs. Discovery requests have bounded timeouts; failed
+peer discovery or optional slot lookup cannot discard a usable gateway model.
+A failed direct-node request falls back using a gateway-advertised model,
+not the obsolete model ID stored in an older conversation. Portal and Android
+WebUI assets share this behavior; Android installation is a separate release gate.
+
 ## In Plain Words
 
 The current NodeOS dashboard also exposes real hardware telemetry, a

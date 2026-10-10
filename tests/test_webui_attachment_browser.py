@@ -90,8 +90,8 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                 ),
             )
             with page.expect_request(lambda request: request.method == "POST" and "chat/completions" in request.url, timeout=10000) as pending_request:
-                page.locator("textarea").last.fill("Lies den Anhang")
-                page.locator("textarea").last.press("Enter")
+                page.locator("textarea").first.fill("Lies den Anhang")
+                page.locator("textarea").first.press("Enter")
             request_body = pending_request.value.post_data or ""
             self.assertIn("Browser attachment check", request_body)
             self.assertIn("Lies den Anhang", request_body)
@@ -173,14 +173,70 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
                 lambda route: route.fulfill(status=200, content_type="application/json", body='{"choices":[]}'),
             )
             with page.expect_request(lambda request: request.method == "POST" and "chat/completions" in request.url, timeout=10000) as pending_request:
-                page.locator("textarea").last.fill("Was ist auf dem Bild?")
-                page.locator("textarea").last.press("Enter")
+                page.locator("textarea").first.fill("Was ist auf dem Bild?")
+                page.locator("textarea").first.press("Enter")
             request_body = pending_request.value.post_data or ""
             self.assertIn('"model":"qwen2.5-vl"', request_body)
             self.assertIn("data:image/png;base64,", request_body)
             self.assertEqual(page_errors, [], "vision upload must not raise JavaScript errors")
         finally:
             context.close()
+
+    def test_stale_model_uses_gateway_when_peer_or_slots_fail(self) -> None:
+        selector = (REPO_ROOT / "portal/webui/model-selector.js").read_text(encoding="utf-8")
+        for failure in ("peer", "slots", "completion", "valid_selection"):
+            with self.subTest(failure=failure):
+                context = self.browser.new_context()
+                page = context.new_page()
+                completions = []
+
+                def respond(route):
+                    url = route.request.url
+                    if "chat/completions" in url and "peer.test" in url:
+                        route.abort()
+                    elif "chat/completions" in url:
+                        completions.append(route.request.post_data_json)
+                        route.fulfill(json={"choices": []})
+                    elif url == "https://gateway.test/webui/":
+                        route.fulfill(content_type="text/html", body="<html><body></body></html>")
+                    elif url.endswith("/v1/models") and "gateway.test" in url:
+                        route.fulfill(json={"data": [
+                            {"id": "qwen2.5:3b", "available": True},
+                            {"id": "qwen2.5:1.5b", "available": True},
+                        ]})
+                    elif url.endswith("/v1/models") and failure == "completion":
+                        route.fulfill(json={"data": [{"id": "peer:7b", "available": True}]})
+                    elif "/fleet" in url:
+                        nodes = [{"is_online": True, "endpoint": "https://peer.test"}]
+                        route.fulfill(json={
+                            "nodes": nodes if failure in ("peer", "completion") else [],
+                        })
+                    elif url.endswith("/slots") and failure != "slots":
+                        route.fulfill(json=[])
+                    else:
+                        route.abort()
+
+                page.route("**/*", respond)
+                try:
+                    page.goto("https://gateway.test/webui/")
+                    stored = {
+                        "completion": "peer:7b", "valid_selection": "qwen2.5:1.5b",
+                    }.get(failure, "qwen/qwen2.5-7b-instruct")
+                    page.evaluate("id => localStorage.setItem('cm_selected_model_id', id)", stored)
+                    page.add_script_tag(content=selector)
+                    page.evaluate("""async () => {
+                        await fetch('/webui/chat/completions', {
+                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({model: 'qwen/qwen2.5-7b-instruct',
+                                messages: [{role: 'user', content: 'Hallo'}]})
+                        });
+                    }""")
+                    expected = "qwen2.5:1.5b" if failure == "valid_selection" else "qwen2.5:3b"
+                    self.assertEqual(completions[0]["model"], expected)
+                    saved = page.evaluate("localStorage.getItem('cm_selected_model_id')")
+                    self.assertEqual(saved, expected)
+                finally:
+                    context.close()
 
 
 if __name__ == "__main__":

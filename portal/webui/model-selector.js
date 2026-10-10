@@ -332,13 +332,22 @@
 		} catch (_) {}
 	}
 
+	async function fetchDiscoveryJson(url, credentials) {
+		var controller = new AbortController();
+		var timer = setTimeout(function () { controller.abort(); }, 2000);
+		try {
+			var response = await originalFetch(url, { credentials: credentials, cache: 'no-store', signal: controller.signal });
+			return response.ok ? await response.json() : null;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
 	async function discoverFleetEndpoints() {
 		var paths = ['/api/v1/mesh/fleet', '/api/portal/fleet'];
 		for (var i = 0; i < paths.length; i++) {
 			try {
-				var response = await originalFetch(paths[i], { credentials: 'include', cache: 'no-store' });
-				if (!response.ok) continue;
-				var payload = await response.json();
+				var payload = await fetchDiscoveryJson(paths[i], 'include');
 				var nodes = Array.isArray(payload && payload.nodes) ? payload.nodes : [];
 				nodes.forEach(function (node) {
 					if (!node || node.is_online === false || node.status === 'offline') return;
@@ -1301,7 +1310,14 @@
 			if (isCrossRouting) {
 				console.warn('[ComputeMesh] Local node unreachable, falling back to cloud gateway:', err);
 				localNodeEndpoint = null;
-				return originalFetch(input, init);
+				var gatewayModel = models.find(function (model) { return model.__sourceEndpoint === window.location.origin; });
+				if (!gatewayModel) throw err;
+				selectedModel = gatewayModel;
+				applyCapabilities(selectedModel);
+				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
+				var fallbackBody = await withSelectedModel(fetchOptions.body);
+				if (fallbackBody) fetchOptions.body = fallbackBody;
+				return originalFetch(input, fetchOptions);
 			}
 			throw err;
 		}
@@ -1539,14 +1555,14 @@
 		try {
 			await probeLocalNode();
 
-			var catalogEndpoints = meshEndpoints.slice();
-			if (!catalogEndpoints.length) catalogEndpoints.push(window.location.origin);
+			// Peer discovery must never hide the authenticated gateway's catalog.
+			var catalogEndpoints = [window.location.origin].concat(meshEndpoints.filter(function (endpoint) {
+				return endpoint !== window.location.origin;
+			}));
 			var catalogResults = await mapWithConcurrency(catalogEndpoints, 8, async function (endpoint) {
 				try {
-					var response = await originalFetch(endpoint + '/v1/models', { credentials: 'include', cache: 'no-store' });
-					if (!response.ok) return [];
-					var result = await response.json();
-					return (Array.isArray(result.data) ? result.data : []).filter(function (model) {
+					var result = await fetchDiscoveryJson(endpoint + '/v1/models', 'include');
+					return (result && Array.isArray(result.data) ? result.data : []).filter(function (model) {
 						return model && model.id && model.available !== false &&
 							(!model.availability || ['catalogued', 'available', 'available_cold', 'available_warm'].includes(model.availability));
 					}).map(function (model) {
@@ -1568,10 +1584,12 @@
 			try { savedId = localStorage.getItem(STORAGE_KEY) || ''; } catch (_) {}
 			selectedModel = models.find(function (model) { return model.id === savedId; }) || null;
 			if (!selectedModel) {
-				var slotResponse = await originalFetch('/slots', { credentials: 'same-origin', cache: 'no-store' });
-				var slots = slotResponse.ok ? await slotResponse.json() : [];
-				var activeId = Array.isArray(slots) && slots[0] && slots[0].model;
-				selectedModel = models.find(function (model) { return model.id === activeId; }) || models[0];
+				selectedModel = models[0];
+				try {
+					var slots = await fetchDiscoveryJson('/slots', 'same-origin');
+					var activeId = Array.isArray(slots) && slots[0] && slots[0].model;
+					selectedModel = models.find(function (model) { return model.id === activeId; }) || selectedModel;
+				} catch (_) {}
 				try { localStorage.setItem(STORAGE_KEY, selectedModel.id); } catch (_) {}
 			}
 			localNodeEndpoint = selectedModel.__sourceEndpoint && selectedModel.__sourceEndpoint !== window.location.origin

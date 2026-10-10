@@ -1,6 +1,48 @@
 # ComputeMesh State
 
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
+
+## 2026-10-10 stale chat model selection repair
+
+- Source branch: `codex/mesh-agent-portal-rollout`, starting from `dc7032f`.
+  The submodule was clean before this change. The separate public checkout
+  and its dirty documentation were not changed; divergent local main remains.
+- Live `ai.inetconnector.com/v1/models` advertises `qwen2.5:3b`; the screenshot
+  requested unavailable `qwen/qwen2.5-7b-instruct`. Two browser reproductions
+  failed before the fix: failed discovered peer hides the gateway catalog,
+  and failed optional `/slots` lookup leaves the model selection unset.
+- `portal/webui/model-selector.js` always includes the origin catalog, bounds
+  discovery JSON requests to two seconds, tolerates slot failures, and rewrites
+  direct-node network-failure fallback using an origin-advertised model.
+  Valid saved selections remain respected. Android selector is byte-identical.
+- Selector cache version is `20261010-1`; both index files and their service
+  worker root revisions were updated. No new localized strings were added.
+- Verification: new browser regression passes with four subtests; focused
+  selector/static/dashboard slice passes 10 tests plus four subtests. Final
+  full browser/static/dashboard slice: 11 passed, two failed, four subtests
+  passed. JavaScript syntax and Git whitespace checks pass. Ruff E/F/I passes
+  excluding pre-existing E402/E501 conventions. Android `:app:assembleDebug`
+  succeeds (SDK XML version warning); no phone install or signed release.
+- Broader baseline comparison: the unchanged selector had three attachment
+  browser failures, and gateway compatibility had three HTTP 400 failures.
+  The attachment send tests targeted the newly added agent textarea rather
+  than the composer; corrected locators recover the desktop send test.
+  Remaining attachment failures: mobile category toggle opens a chooser,
+  and a sibling overlay intercepts the vision-menu item. Synthetic gateway
+  fixtures do not mark their catalog models available; investigate/isolate
+  their fixture before changing production availability rules.
+- Live preimages of selector, index and service worker matched HEAD after
+  line-ending normalization. Only those three files were deployed in both
+  existing webroots; rollback snapshot is retained on the operator server.
+  Both public domains' six external asset hashes match source. Actual Send
+  clicks on `ai.inetconnector.com` at 1280x900 and 390x780, seeded with the
+  obsolete saved ID, returned HTTP 200, `qwen2.5:3b`, and `OK`; zero page errors.
+  Screenshots were inspected. The existing fixed agent-session panel overlays
+  mobile conversation content, and theme contrast needs a separate repair.
+- Next: fix the two attachment regressions and responsive agent-panel/contrast
+  issues, isolate synthetic gateway fixtures, then rerun the complete browser
+  matrix. Catalog refresh after initialization, hundreds-of-nodes performance,
+  Android handset install and hardware-backed validation remain unverified.
 
 ## 2026-10-09 independent portal pages and neutral presentation
 
