@@ -1,5 +1,34 @@
 # ComputeMesh State
 
+## 2026-10-10 AI capability Paket 0: source-only inventory and evaluation infrastructure
+
+- Working branch: `codex/ai-capability-p0-20261010`, forked from public
+  `11fb5ddcc673583d6f9b4dab4c016c4750a739ee`. The matching private
+  branch is based on `bb13ac1599c1245caff030d1b5af4110553dae7a`.
+- Scope: `tests/evals/ai_capability_tasks_v1.json` has 22 anonymized DE/EN
+  tasks spanning 11 categories and three difficulty tiers.
+  `ai_capability_baseline.py` enforces evidence requirements for PASS/FAIL,
+  and `source_inventory.py` records source-declared tools/flags without
+  importing or executing their handlers. Tests and CI entry were added.
+- No real model/API/NodeOS/Android/browsing task or physical acceptance
+  was executed in this tranche. The baseline is deliberately 0 passed,
+  0 failed, **22 not measured** until operator-supplied evidence exists;
+  numeric quality/cost/latency SLOs are not established.
+- Security gates still OPEN: normal Gateway agent call sets `is_owner=True`,
+  and `services/mcp/builtin/python_sandbox.py` uses in-process `exec/eval`.
+  Neither is resolved by these infrastructure changes. Powerful tools must
+  not be widened while these P0 gates are open.
+- CI: `python -m unittest discover -s tests/evals -p 'test_*.py' -v`
+  plus baseline/inventory CLI was added to `.github/workflows/ci.yml`.
+  CI result is **not yet verified** at the time of this source change.
+- Public/private boundary unchanged. No tool enabled, no runtime config
+  changed, no public/private secrets moved, no WebUI/Android assets touched,
+  no production deployment/release/signature/handset verification claimed.
+- Rollback: revert these evaluation/docs/CI commits; no user state is mutated.
+  Next: obtain real approved baseline samples, set numeric gates, then tackle
+  gateway owner binding and sandbox isolation with adversarial regression tests.
+
+
 **Last updated:** 2026-10-10
 
 ## 2026-10-10 portal navigation unification and live rollout
