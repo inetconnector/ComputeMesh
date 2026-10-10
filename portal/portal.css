@@ -2565,9 +2565,19 @@ footer.site-footer {
   animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Keep the parent hovered while the pointer crosses the visual menu gap. */
+.dropdown-menu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: calc(0.5rem + 1px);
+}
+
 @keyframes dropdownFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .nav-item.has-dropdown:hover .dropdown-menu,

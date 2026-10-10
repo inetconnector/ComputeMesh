@@ -11,6 +11,8 @@ download, LAN-mesh and playground pages rather than homepage fragment links.
 `portal/portal-business.css` supplies a shared neutral, responsive presentation;
 existing account, fleet, calculator, inference and download controls remain.
 German and English are the portal's supported languages.
+Shared navigation dropdowns keep the hover path continuous between their
+trigger and submenu, including wrapped narrow-screen navigation.
 
 The WebUI validates saved model selections against the current gateway and
 reachable peer catalogs. Discovery requests have bounded timeouts; failed

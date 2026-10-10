@@ -61,3 +61,59 @@ def test_portal_documents_navigation_and_layout(width):
                 page.screenshot(path=str(Path(os.getenv("TEMP", ".")) / f"computemesh-portal-{width}.png"), full_page=True)
         assert errors == []
         browser.close()
+
+
+@pytest.mark.skipif(os.getenv("COMPUTEMESH_BROWSER_E2E") != "1", reason="browser E2E opt-in")
+@pytest.mark.parametrize("width", [390, 1440])
+def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": width, "height": 900}, locale="de-DE")
+
+        def serve(route):
+            path = urlsplit(route.request.url).path
+            if path.startswith(("/api/", "/v1/")):
+                route.fulfill(json={"nodes": [], "data": []})
+                return
+            target = PORTAL / ("index.html" if path == "/" else path.lstrip("/"))
+            if not target.suffix:
+                target = target.with_suffix(".html")
+            if target.is_file():
+                route.fulfill(path=str(target))
+            else:
+                route.fulfill(status=404, body="Not found")
+
+        page.route("https://portal.test/**", serve)
+        try:
+            for language in ("de", "en"):
+                for trigger_path, target_path in (("/products", "/models"), ("/projects", "/downloads")):
+                    page.goto("https://portal.test/projects")
+                    page.wait_for_function("typeof window.switchLanguage === 'function'")
+                    page.evaluate("lang => switchLanguage(lang)", language)
+                    group = page.locator(".nav-item.has-dropdown").filter(
+                        has=page.locator(f'.nav-link[href="{trigger_path}"]')
+                    )
+                    trigger = group.locator(".nav-link")
+                    menu = group.locator(".dropdown-menu")
+                    trigger.hover()
+                    expect(menu).to_be_visible()
+                    page.wait_for_timeout(250)
+                    trigger_box = trigger.bounding_box()
+                    menu_box = menu.bounding_box()
+                    bottom = trigger_box["y"] + trigger_box["height"]
+                    page.mouse.move(
+                        trigger_box["x"] + trigger_box["width"] / 2,
+                        (bottom + menu_box["y"]) / 2,
+                        steps=10,
+                    )
+                    expect(menu).to_be_visible(timeout=1000)
+                    link = menu.locator(f'a[href="{target_path}"]')
+                    box = link.bounding_box()
+                    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=20)
+                    expect(menu).to_be_visible()
+                    link.click()
+                    page.wait_for_url(f"https://portal.test{target_path}")
+        finally:
+            browser.close()

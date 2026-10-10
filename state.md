@@ -2,6 +2,33 @@
 
 **Last updated:** 2026-10-10
 
+## 2026-10-10 portal navigation dropdown hover repair
+
+- Clean starting source: `26cbf21`, branch `codex/mesh-agent-portal-rollout`.
+  No unrelated working-tree changes were overwritten.
+- The shared dropdown had an eight-pixel margin outside its hoverable area;
+  crossing it closed the menu. A transparent pseudo-element bridges that gap.
+  Fade-in now changes opacity only, so animation cannot shift the hit area.
+  Existing submenu links and keyboard focus-within behavior remain unchanged.
+- `portal/portal.css` supplies the repair for all portal documents; 19 HTML
+  documents reference CSS cache version `5.2`. Original BOMs were preserved.
+  This is remote portal navigation, not the bundled WebUI: Android/WebUI
+  assets, APKs, NodeOS installers and backend processes were not changed.
+- The new pointer-path regression failed on both 390/1440 viewports before
+  editing and passes afterward for Products/Apps in German and English,
+  including actual destination navigation. Portal page/layout/telemetry and
+  dropdown browser suite: five passed. Ruff F/I and Git whitespace pass.
+- Live preimages for the CSS plus 19 documents matched HEAD in both existing
+  webroots after newline/BOM normalization; only these files were backed up
+  and deployed. External CSS hashes on the main and mesh domains match source.
+- Live pointer traversal and destination clicks passed on the main and mesh
+  domains at 390/1440 pixels, DE/EN, both dropdowns; no JavaScript page errors.
+  Screenshots were inspected. The narrow Apps menu still clips at the right
+  viewport edge (pre-existing); responsive horizontal positioning is a separate
+  next step, not solved by the hover-gap repair.
+- Previously documented WebUI attachment/agent-panel and signing/handset
+  issues remain open; this change does not claim to address those surfaces.
+
 ## 2026-10-10 stale chat model selection repair
 
 - Source branch: `codex/mesh-agent-portal-rollout`, starting from `dc7032f`.
