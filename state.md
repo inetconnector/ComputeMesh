@@ -33,9 +33,10 @@
   executable because the local Playwright-managed Chromium binary is absent.
 - Special standalone auth/payment/game pages and the bundled WebUI are not
   part of the 28-document portal header contract and were not rewritten.
-- Next: commit/push the public rollout, update the private ControlPlane
-  submodule pin and its handoff documentation. Android/NodeOS artifacts are
-  outside this website-only change.
+- Completed: public commit `43f0887` and tag `v1.2.186` are pushed to
+  `origin/main`; the private parent pins that commit. This is a portal-only
+  code tag and does not replace the signed NodeOS/installer channel
+  `v1.2.185`. Android/NodeOS artifacts are outside this website-only change.
 
 ## 2026-10-10 portal navigation dropdown hover repair
 
