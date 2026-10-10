@@ -80,9 +80,11 @@ class CapabilityBaselineTests(unittest.TestCase):
             result = invoke("--output", str(path))
             self.assertEqual(result.returncode, 0, result.stderr)
             data = path.read_text(encoding="utf-8")
-            self.assertNotIn("prompt", data)
-            self.assertNotIn("api_key", data)
-            self.assertEqual(json.loads(data)["task_count"], 22)
+            report = json.loads(data)
+            self.assertNotIn("prompt", report)
+            self.assertNotIn("api_key", report)
+            self.assertNotIn("evidence_ref", report)
+            self.assertEqual(report["task_count"], 22)
 
 
 if __name__ == "__main__":
