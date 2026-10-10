@@ -2,6 +2,41 @@
 
 **Last updated:** 2026-10-10
 
+## 2026-10-10 portal navigation unification and live rollout
+
+- The portal source now has one canonical header across all **28 normal
+  portal documents**, including downloads, model detail and comparison pages.
+  Navigation targets are real document routes (`/products`, `/projects`,
+  `/marketplace`, `/models`, `/pricing`, `/downloads`, `/security`, `/docs`,
+  `/status`, `/fleet`) instead of mixed legacy homepage fragments.
+- Every covered document uses `/portal.css?v=5.2` and
+  `/portal-business.css?v=5.1`. Nested comparison/model pages now load the
+  shared `portal-core.js` and `portal.js`, so language switching and shared
+  menu behavior work there as well. `portal.js` loads the core from the
+  root-absolute cache-pinned path.
+- Added a static consistency regression that hashes the canonical header and
+  rejects old portal CSS versions. Local browser verification passed all 28
+  documents at 390px and 1440px, including German/English switching, menu
+  destination clicks and zero page errors. The focused portal and telemetry
+  suite passes **6 tests**, and Ruff F/I plus `git diff --check` pass.
+- Before deployment, both Plesk webroots were compared against the working
+  source. Live differences were stale legacy headers, `/#...` links, missing
+  business CSS and old cache versions; no newer live-only page behavior was
+  found. `portal-core.js` already matched the source byte-for-byte.
+- Deployed and hash-verified **58 files** (28 HTML documents plus
+  `portal.js` in each of `httpdocs` and `site2`). Rollback backup:
+  `/root/computemesh-backups/unified-nav-20261010`.
+- Live browser verification passed **56 pages** across
+  `https://inetconnector.com` and `https://mesh.inetconnector.com`, plus 12
+  dropdown interactions, with identical menus/assets, working language
+  toggles and no JavaScript errors. The browser used the installed Chrome
+  executable because the local Playwright-managed Chromium binary is absent.
+- Special standalone auth/payment/game pages and the bundled WebUI are not
+  part of the 28-document portal header contract and were not rewritten.
+- Next: commit/push the public rollout, update the private ControlPlane
+  submodule pin and its handoff documentation. Android/NodeOS artifacts are
+  outside this website-only change.
+
 ## 2026-10-10 portal navigation dropdown hover repair
 
 - Clean starting source: `26cbf21`, branch `codex/mesh-agent-portal-rollout`.

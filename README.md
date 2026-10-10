@@ -13,6 +13,11 @@ existing account, fleet, calculator, inference and download controls remain.
 German and English are the portal's supported languages.
 Shared navigation dropdowns keep the hover path continuous between their
 trigger and submenu, including wrapped narrow-screen navigation.
+All 28 normal portal documents use the same canonical header, navigation
+targets, localized language control and cache-pinned portal assets. This
+includes downloads, model detail and comparison pages; standalone auth,
+payment, game and bundled WebUI documents intentionally keep their own
+application shells.
 
 The WebUI validates saved model selections against the current gateway and
 reachable peer catalogs. Discovery requests have bounded timeouts; failed

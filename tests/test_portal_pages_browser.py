@@ -1,6 +1,8 @@
 """Real document navigation and compact/mobile portal layout regression."""
 
+import hashlib
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -117,3 +119,30 @@ def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
                     page.wait_for_url(f"https://portal.test{target_path}")
         finally:
             browser.close()
+
+
+def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
+    documents = sorted(PORTAL.rglob("*.html"))
+    documents = [
+        path for path in documents
+        if '<header class="site-header">' in path.read_text(encoding="utf-8-sig")
+    ]
+    canonical = re.search(
+        r'<header class="site-header">.*?</header>',
+        (PORTAL / "index.html").read_text(encoding="utf-8-sig"),
+        re.DOTALL,
+    )
+    assert canonical is not None
+    expected = hashlib.sha256(canonical.group(0).encode("utf-8")).hexdigest()
+
+    assert len(documents) == 28
+    for document in documents:
+        text = document.read_text(encoding="utf-8-sig")
+        header = re.search(r'<header class="site-header">.*?</header>', text, re.DOTALL)
+        assert header is not None, document
+        actual = hashlib.sha256(header.group(0).encode("utf-8")).hexdigest()
+        assert actual == expected, document
+        assert text.count('portal.css?v=5.2') == 1, document
+        assert text.count('portal-business.css?v=5.1') == 1, document
+        assert 'portal.css?v=3.7' not in text
+        assert 'portal.css?v=4.3' not in text
