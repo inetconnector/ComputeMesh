@@ -223,3 +223,31 @@ def test_download_entrypoints_and_translation_keys_are_consistent():
     for key in required_keys:
         assert downloads.count(f'data-i18n="{key}"') == 1, key
         assert core.count(f"{key}:") >= 2, key
+
+
+def test_primary_catalog_pages_mark_page_content_for_bilingual_switching():
+    required = {
+        "marketplace.html": (
+            "market_provider_tag", "market_provider_title", "market_provider_desc",
+            "market_provider_button", "footer_brand_desc", "footer_col_platform",
+            "footer_col_resources", "footer_col_legal", "footer_rights", "footer_tech_status",
+        ),
+        "models.html": (
+            "models_filter_all", "models_filter_code", "models_filter_reasoning",
+            "models_filter_vision", "models_filter_fast", "models_integration_tag",
+            "models_integration_title", "models_integration_desc", "models_copy_code",
+            "footer_brand_desc", "footer_col_platform", "footer_col_resources",
+            "footer_col_legal", "footer_rights", "footer_tech_status",
+        ),
+        "pricing.html": (
+            "pricing_tag", "pricing_title", "pricing_sub", "pricing_loading",
+            "pricing_disclaimer", "footer_brand_desc", "footer_col_platform",
+            "footer_col_resources", "footer_col_legal", "footer_rights", "footer_tech_status",
+        ),
+    }
+    core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
+    for filename, keys in required.items():
+        page = (PORTAL / filename).read_text(encoding="utf-8-sig")
+        for key in keys:
+            assert f'data-i18n="{key}"' in page, (filename, key)
+            assert core.count(f"{key}:") >= 2, key

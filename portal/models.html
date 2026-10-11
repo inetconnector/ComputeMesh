@@ -154,11 +154,11 @@
 
     <!-- Model Category Pills -->
     <div class="model-category-pills" style="margin-bottom: 2.5rem;">
-      <button class="category-pill active" onclick="filterModelCategory('all', this)">Alle Modelle</button>
-      <button class="category-pill" onclick="filterModelCategory('code', this)">💻 Code &amp; Agents</button>
-      <button class="category-pill" onclick="filterModelCategory('reasoning', this)">🧠 Reasoning &amp; Math</button>
-      <button class="category-pill" onclick="filterModelCategory('vision', this)">👁️ Vision &amp; Multimodal</button>
-      <button class="category-pill" onclick="filterModelCategory('fast', this)">⚡ High-Speed Lightweight</button>
+      <button class="category-pill active" onclick="filterModelCategory('all', this)" data-i18n="models_filter_all">Alle Modelle</button>
+      <button class="category-pill" onclick="filterModelCategory('code', this)" data-i18n="models_filter_code">💻 Code &amp; Agents</button>
+      <button class="category-pill" onclick="filterModelCategory('reasoning', this)" data-i18n="models_filter_reasoning">🧠 Reasoning &amp; Math</button>
+      <button class="category-pill" onclick="filterModelCategory('vision', this)" data-i18n="models_filter_vision">👁️ Vision &amp; Multimodal</button>
+      <button class="category-pill" onclick="filterModelCategory('fast', this)" data-i18n="models_filter_fast">⚡ High-Speed Lightweight</button>
     </div>
 
     <!-- Models Grid -->
@@ -169,10 +169,10 @@
     <!-- API Drop-In Quickstart Section -->
     <div style="margin-top: 4rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem;">
       <div style="margin-bottom: 1.5rem;">
-        <span class="section-tag">OPENAI DROP-IN INTEGRATION</span>
-        <h2 style="font-size: 1.6rem; margin-top: 0.3rem;">Jedes Modell mit 2 Zeilen Code ansteuern</h2>
+        <span class="section-tag" data-i18n="models_integration_tag">OPENAI DROP-IN INTEGRATION</span>
+        <h2 data-i18n="models_integration_title" style="font-size: 1.6rem; margin-top: 0.3rem;">Jedes Modell mit 2 Zeilen Code ansteuern</h2>
         <p style="color: var(--text-muted); font-size: 0.95rem;">
-          Tausche einfach die `base_url` und den `api_key` in deinen bestehenden OpenAI SDKs aus:
+          <span data-i18n="models_integration_desc">Tausche einfach `base_url` und `api_key` in deinen bestehenden OpenAI-SDKs aus:</span>
         </p>
       </div>
 
@@ -184,7 +184,7 @@
             <span class="dot green"></span>
             <span class="code-file-title">inference_example.py</span>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="copyDxCode()">📋 Code kopieren</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyDxCode()" data-i18n="models_copy_code">📋 Code kopieren</button>
         </div>
         <pre><code id="dx-code-content">from openai import OpenAI
 
@@ -212,39 +212,39 @@ for chunk in response:
       <div>
         <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
         <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
-          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+          <span data-i18n="footer_brand_desc">Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.</span>
         </p>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
+        <h4 data-i18n="footer_col_platform" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
-          <li><a href="/models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
-          <li><a href="/pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
         </ul>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
+        <h4 data-i18n="footer_col_resources" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
-          <li><a href="/status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
-          <li><a href="/security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
+          <li><a href="/status" data-i18n="nav_status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
           <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none;">GitHub Repositories</a></li>
         </ul>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
+        <h4 data-i18n="footer_col_legal" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
-          <li><a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
-          <li><a href="/terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
-          <li><a href="/contact" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
+          <li><a href="/impressum" data-i18n="nav_impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
+          <li><a href="/privacy" data-i18n="nav_privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
+          <li><a href="/terms" data-i18n="nav_terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
+          <li><a href="/contact" data-i18n="nav_support" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
         </ul>
       </div>
     </div>
     <div class="container" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
-      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+      &copy; 2026 InetConnector ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span> <span data-i18n="footer_tech_status">Netzwerkstatus: Betriebsbereit</span>.
     </div>
   </footer>
 

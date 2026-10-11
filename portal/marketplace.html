@@ -193,15 +193,15 @@
     <!-- Provider Onboarding Banner -->
     <div class="feature-card highlight" style="margin-top: 4rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 2.5rem;">
       <div style="max-width: 650px;">
-        <div style="font-size: 0.8rem; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;">PROVIDER PROGRAMM</div>
-        <h2 style="font-size: 1.8rem; margin-bottom: 0.6rem;">Eigene GPU vermieten &amp; 75% Revenue Share verdienen</h2>
+        <div data-i18n="market_provider_tag" style="font-size: 0.8rem; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;">PROVIDER PROGRAMM</div>
+        <h2 data-i18n="market_provider_title" style="font-size: 1.8rem; margin-bottom: 0.6rem;">Eigene GPU vermieten &amp; 75 % Revenue Share verdienen</h2>
         <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
-          Schließe deinen Gaming-PC, dein Mining-Rig oder deine Server-Hardware in unter 2 Minuten an das globale Netzwerk an. Automatische wöchentliche Auszahlungen auf dein Bankkonto via Stripe Connect.
+          <span data-i18n="market_provider_desc">Schließe deinen Gaming-PC, dein Mining-Rig oder deine Server-Hardware in unter 2 Minuten an das globale Netzwerk an. Automatische wöchentliche Auszahlungen auf dein Bankkonto via Stripe Connect.</span>
         </p>
       </div>
       <div>
         <button class="btn btn-emerald btn-lg" onclick="openModal('provider')">
-          ⚡ Jetzt GPU registrieren
+          <span data-i18n="market_provider_button">⚡ GPU jetzt registrieren</span>
         </button>
       </div>
     </div>
@@ -213,39 +213,39 @@
       <div>
         <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
         <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
-          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+          <span data-i18n="footer_brand_desc">Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.</span>
         </p>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
+        <h4 data-i18n="footer_col_platform" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Produkte</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
-          <li><a href="/models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
-          <li><a href="/pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace" style="color: var(--text-muted); text-decoration: none;">GPU Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models" style="color: var(--text-muted); text-decoration: none;">Model Library</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing" style="color: var(--text-muted); text-decoration: none;">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads" style="color: var(--text-muted); text-decoration: none;">Downloads</a></li>
         </ul>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
+        <h4 data-i18n="footer_col_resources" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Entwickler</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
-          <li><a href="/status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
-          <li><a href="/security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs" style="color: var(--text-muted); text-decoration: none;">API Dokumentation</a></li>
+          <li><a href="/status" data-i18n="nav_status" style="color: var(--text-muted); text-decoration: none;">Systemstatus</a></li>
+          <li><a href="/security" data-i18n="nav_security" style="color: var(--text-muted); text-decoration: none;">Sicherheit &amp; DSGVO</a></li>
           <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none;">GitHub Repositories</a></li>
         </ul>
       </div>
       <div>
-        <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
+        <h4 data-i18n="footer_col_legal" style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 1rem;">Rechtliches</h4>
         <ul style="list-style: none; font-size: 0.85rem; line-height: 2;">
-          <li><a href="/impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
-          <li><a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
-          <li><a href="/terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
-          <li><a href="/contact" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
+          <li><a href="/impressum" data-i18n="nav_impressum" style="color: var(--text-muted); text-decoration: none;">Impressum</a></li>
+          <li><a href="/privacy" data-i18n="nav_privacy" style="color: var(--text-muted); text-decoration: none;">Datenschutz</a></li>
+          <li><a href="/terms" data-i18n="nav_terms" style="color: var(--text-muted); text-decoration: none;">AGB</a></li>
+          <li><a href="/contact" data-i18n="nav_support" style="color: var(--text-muted); text-decoration: none;">Kontakt</a></li>
         </ul>
       </div>
     </div>
     <div class="container" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.8rem;">
-      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+      &copy; 2026 InetConnector ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span> <span data-i18n="footer_tech_status">Netzwerkstatus: Betriebsbereit</span>.
     </div>
   </footer>
 
