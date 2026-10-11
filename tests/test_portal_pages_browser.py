@@ -255,3 +255,16 @@ def test_primary_catalog_pages_mark_page_content_for_bilingual_switching():
         for key in keys:
             assert f'data-i18n="{key}"' in page, (filename, key)
             assert core.count(f"{key}:") >= 2, key
+
+
+def test_docs_page_marks_architecture_flow_and_footer_for_bilingual_switching():
+    docs = (PORTAL / "docs.html").read_text(encoding="utf-8-sig")
+    core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
+    for key in (
+        "docs_arch_flow_1", "docs_arch_flow_2", "docs_arch_flow_3",
+        "docs_arch_flow_4", "docs_arch_flow_5", "footer_brand_desc",
+        "footer_col_platform", "footer_col_resources", "footer_col_legal",
+        "footer_rights", "footer_tech_status",
+    ):
+        assert f'data-i18n="{key}"' in docs, key
+        assert core.count(f"{key}:") >= 2, key

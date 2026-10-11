@@ -230,11 +230,11 @@ for chunk in response:
             ComputeMesh verbindet unabhängige GPU-Knoten zu einem einheitlichen Rechennetzwerk. Anfragen werden dynamisch nach Latenz, VRAM und Durchsatz geroutet.
           </p>
           <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem; font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.8;">
-            Client-Anfrage ➔ Öffentliches Gateway (mTLS & Rate-Limit)<br>
-            &nbsp;&nbsp;➔ Placement Engine wählt optimale GPU-Nodes (Latenz & VRAM)<br>
-            &nbsp;&nbsp;➔ Pipeline-Sharded Execution über Hochgeschwindigkeits-Wire<br>
-            &nbsp;&nbsp;➔ Zero-Knowledge Ausführungsnachweis (Ed25519)<br>
-            &nbsp;&nbsp;➔ Transparente Verbuchung im Double-Entry-Ledger
+            <span data-i18n="docs_arch_flow_1">Client-Anfrage ➔ Öffentliches Gateway (mTLS &amp; Rate-Limits)</span><br>
+            <span data-i18n="docs_arch_flow_2">➔ Placement Engine wählt optimale GPU-Knoten (Latenz &amp; VRAM)</span><br>
+            <span data-i18n="docs_arch_flow_3">➔ Pipeline-Sharded Execution über Hochgeschwindigkeits-Wire</span><br>
+            <span data-i18n="docs_arch_flow_4">➔ Zero-Knowledge-Ausführungsnachweis (Ed25519)</span><br>
+            <span data-i18n="docs_arch_flow_5">➔ Transparente Verbuchung im Double-Entry-Ledger</span>
           </div>
         </section>
 
@@ -409,39 +409,39 @@ for chunk in response:
       <div>
         <div class="brand-logo" style="font-size: 1.3rem; margin-bottom: 0.75rem;">Compute<span class="gradient-text">Mesh</span></div>
         <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
-          Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.
+          <span data-i18n="footer_brand_desc">Dezentrales Hochleistungs-KI-Rechennetzwerk für Open-Source-Inferenz und fairen GPU-Kapazitätsmarktplatz.</span>
         </p>
       </div>
       <div>
-        <h4>Produkte</h4>
+        <h4 data-i18n="footer_col_platform">Produkte</h4>
         <ul>
-          <li><a href="/marketplace">GPU Marketplace</a></li>
-          <li><a href="/models">Model Library</a></li>
-          <li><a href="/pricing">Preise &amp; Rechner</a></li>
-          <li><a href="/downloads">Downloads</a></li>
+          <li><a href="/marketplace" data-i18n="nav_marketplace">GPU Marketplace</a></li>
+          <li><a href="/models" data-i18n="nav_models">Model Library</a></li>
+          <li><a href="/pricing" data-i18n="nav_pricing">Preise &amp; Rechner</a></li>
+          <li><a href="/downloads" data-i18n="nav_downloads">Downloads</a></li>
         </ul>
       </div>
       <div>
-        <h4>Entwickler</h4>
+        <h4 data-i18n="footer_col_resources">Entwickler</h4>
         <ul>
-          <li><a href="/docs">API Dokumentation</a></li>
-          <li><a href="/status">Systemstatus</a></li>
-          <li><a href="/security">Sicherheit &amp; DSGVO</a></li>
+          <li><a href="/docs" data-i18n="nav_docs">API Dokumentation</a></li>
+          <li><a href="/status" data-i18n="nav_status">Systemstatus</a></li>
+          <li><a href="/security" data-i18n="nav_security">Sicherheit &amp; DSGVO</a></li>
           <li><a href="https://github.com/inetconnector" target="_blank" rel="noopener">GitHub Repositories</a></li>
         </ul>
       </div>
       <div>
-        <h4>Rechtliches</h4>
+        <h4 data-i18n="footer_col_legal">Rechtliches</h4>
         <ul>
-          <li><a href="/impressum">Impressum</a></li>
-          <li><a href="/privacy">Datenschutz</a></li>
-          <li><a href="/terms">AGB</a></li>
-          <li><a href="/contact">Kontakt</a></li>
+          <li><a href="/impressum" data-i18n="nav_impressum">Impressum</a></li>
+          <li><a href="/privacy" data-i18n="nav_privacy">Datenschutz</a></li>
+          <li><a href="/terms" data-i18n="nav_terms">AGB</a></li>
+          <li><a href="/contact" data-i18n="nav_support">Kontakt</a></li>
         </ul>
       </div>
     </div>
     <div class="container footer-bottom">
-      &copy; 2026 InetConnector ComputeMesh. Alle Rechte vorbehalten. Made in EU &bull; 100% DSGVO-konform.
+      &copy; 2026 InetConnector ComputeMesh. <span data-i18n="footer_rights">Alle Rechte vorbehalten. Dezentrale KI-Mesh-Architektur.</span> <span data-i18n="footer_tech_status">Systemstatus: Voll einsatzbereit</span>.
     </div>
   </footer>
 
