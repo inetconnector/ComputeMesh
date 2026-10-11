@@ -12,11 +12,37 @@
   --cm-danger: #e7a3a8;
 }
 
-html,
-body {
+html body {
   background: var(--cm-bg) !important;
   color: var(--cm-text) !important;
   background-image: none !important;
+}
+
+#cm-agent-session-panel {
+  background: var(--cm-surface) !important;
+  border-color: var(--cm-border) !important;
+  color: var(--cm-text) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28) !important;
+}
+
+#cm-agent-session-panel select,
+#cm-agent-session-panel textarea {
+  background: var(--cm-card) !important;
+  border-color: var(--cm-border) !important;
+  color: var(--cm-text) !important;
+}
+
+#cm-agent-session-panel button {
+  background: var(--cm-card-hover) !important;
+  border-color: var(--cm-border) !important;
+  color: var(--cm-text) !important;
+  box-shadow: none !important;
+}
+
+#cm-agent-session-panel button:first-of-type {
+  background: var(--cm-accent) !important;
+  border-color: var(--cm-accent) !important;
+  color: #17221e !important;
 }
 
 /* Keep application surfaces readable while removing the legacy neon cards. */
