@@ -195,7 +195,7 @@ client = OpenAI(
 
 response = client.chat.completions.create(
     model="qwen2.5:7b",
-    messages=[{"role": "user", "content": "Schreibe einen Algorithmus für verteiltes Inferenz-Routing."}],
+    messages=[{"role": "user", "content": "inference routing"}],
     stream=True
 )
 
