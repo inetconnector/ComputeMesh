@@ -964,7 +964,7 @@ var translations = window.translations || {
     docs_sec4_h2: "4. Provider-Node einrichten",
     docs_sec4_p: "Tritt dem Netzwerk in wenigen Minuten bei. Unser nativer Agent steht für Windows (mit übersichtlicher Tray-App) und Linux (als Server-Daemon und Docker) zur Verfügung.",
     docs_sec4_note: "Alle Verbindungen sind Ende-zu-Ende über mTLS und Ed25519-Schlüssel gesichert.",
-    docs_sec5_h2: "5. Mining-Rig NodeOS Appliance & Setup Guide",
+    docs_sec5_h2: "5. Mining-Rig-NodeOS-Appliance & Einrichtungsleitfaden",
     docs_sec5_p: "NodeOS ist ein schlüsselfertiges, bootfähiges Linux-Betriebssystem für Multi-GPU-Mining-Rigs (4 bis 12 Grafikkarten) mit automatischer Treiber-Konfiguration (AMD ROCm/Vulkan & NVIDIA CUDA), Live-Web-Dashboard und Zero-Touch Mesh-Anbindung.",
     docs_nodeos_guide_title: "Schritt-für-Schritt Installation (USB auf Festplatte / SSD)",
     docs_nodeos_step1_title: "NodeOS Image herunterladen",
