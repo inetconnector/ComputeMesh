@@ -9,11 +9,14 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import hmac
+import io
 import json
 import logging
 from pathlib import Path
 import secrets
 import sys
+import threading
+import time
 from typing import Any
 import urllib.parse
 
@@ -101,6 +104,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     node_id: str
     tokens_served: int = 0
     earnings_cm: float = 0.0
+    _qr_rate_lock = threading.Lock()
+    _qr_rate_windows: dict[str, list[float]] = {}
 
     def _current_node_id(self) -> str:
         configured = str(getattr(self.config, "rig_name", "") or "").strip()
@@ -192,6 +197,69 @@ class DashboardHandler(BaseHTTPRequestHandler):
             HTTPStatus.UNAUTHORIZED,
         )
 
+    def _qr_rate_allowed(self) -> bool:
+        """Allow a small number of authenticated QR renders per client."""
+        client_ip = str(getattr(self, "client_address", ("unknown", 0))[0] or "unknown")
+        now = time.monotonic()
+        with self._qr_rate_lock:
+            recent = [stamp for stamp in self._qr_rate_windows.get(client_ip, []) if now - stamp < 60.0]
+            if len(recent) >= 30:
+                self._qr_rate_windows[client_ip] = recent
+                return False
+            recent.append(now)
+            self._qr_rate_windows[client_ip] = recent
+            return True
+
+    def _handle_local_qr(self, parsed_url: urllib.parse.ParseResult) -> bool:
+        """Render a short-lived dashboard QR without a third-party image host."""
+        if not self._verify_admin_auth():
+            self._send_unauthorized()
+            return True
+        if not self._qr_rate_allowed():
+            self._send_json(
+                {"error": {"message": "QR generation rate limit exceeded", "code": 429}},
+                HTTPStatus.TOO_MANY_REQUESTS,
+            )
+            return True
+        query = urllib.parse.parse_qs(parsed_url.query, keep_blank_values=False)
+        text = str((query.get("data") or query.get("text") or [""])[0]).strip()
+        if not text or len(text) > 2048:
+            self._send_json(
+                {"error": {"message": "A QR data URL up to 2048 characters is required", "code": 400}},
+                HTTPStatus.BAD_REQUEST,
+            )
+            return True
+        target = urllib.parse.urlparse(text)
+        if target.scheme not in {"http", "https"} or target.username or target.password:
+            self._send_json(
+                {"error": {"message": "QR data must be an HTTP(S) URL without credentials", "code": 400}},
+                HTTPStatus.BAD_REQUEST,
+            )
+            return True
+        try:
+            import qrcode
+            import qrcode.image.svg
+
+            image = qrcode.make(text, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2)
+            output = io.BytesIO()
+            image.save(output)
+            payload = output.getvalue()
+        except Exception as exc:
+            log.warning("Local QR generation unavailable: %s", exc)
+            self._send_json(
+                {"error": {"message": "Local QR generation is unavailable", "code": 503}},
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+            return True
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
+        self.send_header("Cache-Control", "private, no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+        return True
+
     def do_GET(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
@@ -200,6 +268,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if InferenceRouter.handle_get(self, req_path, APPLIANCE_VERSION):
+            return
+
+        if req_path in ("/api/portal/qr", "/api/v1/qr"):
+            self._handle_local_qr(parsed_url)
             return
 
         if FanControlHandler.handle_get(self, req_path):

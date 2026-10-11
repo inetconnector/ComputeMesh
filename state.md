@@ -20,6 +20,20 @@
   signed release was changed. The remaining dynamic QR/local-fallback work is
   listed in the private remediation plan.
 
+## 2026-10-11 QR and WebUI parity completion
+
+- Dashboard QR images no longer use `api.qrserver.com`. Authenticated
+  `/api/v1/qr` and `/api/portal/qr` requests validate HTTP(S) URLs without
+  credentials, enforce a per-client rate limit, return private SVGs and keep
+  tokens out of URLs. The browser falls back to a neutral placeholder until
+  the dashboard token is available.
+- `portal/webui/neutral-theme.css` and the byte-identical Android asset are
+  loaded by both WebUI entrypoints. Focus outlines and reduced-motion behavior
+  are included in the shared contract.
+- QR/server, dashboard static, and WebUI parity tests passed **9 tests**;
+  Android `:app:assembleDebug` completed successfully. No phone install,
+  signed APK, Plesk write or production rollout was performed.
+
 ## 2026-10-11 platform integrity implementation
 
 - Branch: `codex/platform-integrity-20261011`, created from public

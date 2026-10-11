@@ -4,6 +4,7 @@ import unittest
 import urllib.request
 import urllib.error
 from http import HTTPStatus
+from urllib.parse import quote
 
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import ApplianceConfig
@@ -62,6 +63,27 @@ class TestDashboardImageRoute(unittest.TestCase):
             self.assertTrue(len(res["data"]) > 0)
             self.assertIn("url", res["data"][0])
             self.assertTrue(res["data"][0]["url"].startswith("http") or res["data"][0]["url"].startswith("data:"))
+
+    def test_local_qr_requires_auth_and_returns_svg(self):
+        target = "https://mesh.inetconnector.com/"
+        url = f"http://127.0.0.1:{self.port}/api/v1/qr?data={quote(target, safe='')}"
+        with self.assertRaises(urllib.error.HTTPError) as unauthenticated:
+            urllib.request.urlopen(url, timeout=5)
+        self.assertEqual(unauthenticated.exception.code, HTTPStatus.UNAUTHORIZED)
+
+        req = urllib.request.Request(url, headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            self.assertEqual(resp.status, HTTPStatus.OK)
+            self.assertEqual(resp.headers.get_content_type(), "image/svg+xml")
+            self.assertIn(b"<svg", resp.read(4096))
+
+    def test_local_qr_rejects_credentials_and_non_http_urls(self):
+        for target in ("javascript:alert(1)", "https://user:pass@example.test/"):
+            url = f"http://127.0.0.1:{self.port}/api/v1/qr?data={quote(target, safe='')}"
+            req = urllib.request.Request(url, headers={"X-Node-Auth-Token": NODE_AUTH_TOKEN})
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(error.exception.code, HTTPStatus.BAD_REQUEST)
 
 if __name__ == "__main__":
     unittest.main()

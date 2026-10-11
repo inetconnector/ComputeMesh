@@ -37,6 +37,12 @@ A failed direct-node request falls back using a gateway-advertised model,
 not the obsolete model ID stored in an older conversation. Portal and Android
 WebUI assets share this behavior; Android installation is a separate release gate.
 
+The dashboard renders QR codes locally through an authenticated,
+rate-limited `/api/v1/qr` route. No third-party QR image host is required, and
+credentials or non-HTTP(S) values are rejected. Desktop and Android WebUI
+entrypoints load the same neutral theme asset; the Android debug build is
+verified locally, while signed production release remains a separate gate.
+
 Gateway MCP tools now default to owner-only unless explicitly reviewed as
 public read-only information tools. Only the configured gateway admin token
 can authorize host-level tools or manage custom tools. The legacy in-process

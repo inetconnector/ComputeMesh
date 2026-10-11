@@ -795,7 +795,7 @@
       </div>
       <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1.5rem; justify-content: center;">
         <div class="remote-qr-box" id="remote-qr-container">
-          <img id="remote-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=https%3A%2F%2Fmesh.inetconnector.com" alt="Scan QR Code">
+          <img id="remote-qr-code" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect width='150' height='150' fill='%23272a2c'/%3E%3Cpath d='M24 24h36v36H24zm66 0h36v36H90zM24 90h36v36H24zm50 0h12v12H74zm20 20h12v16H94zm22-20h16v12h-16z' fill='%23c1d4cd'/%3E%3C/svg%3E" alt="QR-Code wird nach der Anmeldung geladen">
           <span class="qr-label">📱 Handy-Scan (Webserver)</span>
         </div>
         <div class="remote-qr-box" id="lan-qr-container" style="display:none;">
@@ -1274,6 +1274,22 @@
       return retry;
     }
 
+    async function updateLocalQrImage(image, targetUrl) {
+      if (!image || !targetUrl || image.dataset.url === targetUrl || !dashboardAuthToken) return;
+      try {
+        const response = await apiFetch(`/api/v1/qr?data=${encodeURIComponent(targetUrl)}`);
+        if (!response.ok) return;
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        if (image.dataset.objectUrl) URL.revokeObjectURL(image.dataset.objectUrl);
+        image.src = objectUrl;
+        image.dataset.objectUrl = objectUrl;
+        image.dataset.url = targetUrl;
+      } catch (error) {
+        console.warn('Local QR generation unavailable', error);
+      }
+    }
+
     function switchTab(tabId, btnEl) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
@@ -1719,11 +1735,7 @@
           });
 
           const qrImg = document.getElementById('remote-qr-code');
-          if (qrImg && tunnelUrl && (!qrImg.dataset.loaded || qrImg.dataset.url !== tunnelUrl)) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(tunnelUrl)}`;
-            qrImg.dataset.loaded = 'true';
-            qrImg.dataset.url = tunnelUrl;
-          }
+          if (qrImg && tunnelUrl) updateLocalQrImage(qrImg, tunnelUrl);
 
           // Second QR code for the LAN URL: this is the only way to reach the
           // full interactive dashboard (config, USB->SSD clone, etc.) from a
@@ -1734,11 +1746,7 @@
           const lanQrContainer = document.getElementById('lan-qr-container');
           const lanQrImg = document.getElementById('lan-qr-code');
           if (lanIface && lanQrContainer && lanQrImg) {
-            if (!lanQrImg.dataset.loaded || lanQrImg.dataset.url !== lanIface.url) {
-              lanQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(lanIface.url)}`;
-              lanQrImg.dataset.loaded = 'true';
-              lanQrImg.dataset.url = lanIface.url;
-            }
+            updateLocalQrImage(lanQrImg, lanIface.url);
             lanQrContainer.style.display = 'flex';
           }
         }
