@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ComputeMesh - Flotten-Verwaltung & Server-Cockpit</title>
+  <title data-i18n="fleet_meta_title">ComputeMesh - Fleet Management &amp; Server Cockpit</title>
   <link rel="stylesheet" href="/portal.css?v=5.2">
   <style>
     :root {
@@ -795,7 +795,7 @@
           <div class="telemetry-lbl" data-i18n="fleet_stat_tflops">Mesh-Rechenleistung</div>
         </div>
         <div class="telemetry-box">
-          <div id="telem-status" class="telemetry-val emerald" style="font-size:1.3rem;padding-top:0.35rem;">🟢 Aktiv</div>
+          <div id="telem-status" class="telemetry-val emerald" style="font-size:1.3rem;padding-top:0.35rem;" data-i18n="fleet_telem_active">🟢 Active</div>
           <div class="telemetry-lbl" data-i18n="fleet_stat_status">Cluster-Status</div>
         </div>
       </div>
@@ -815,7 +815,7 @@
           <span data-i18n="fleet_nav_tab_payouts">💳 Einnahmen & Auszahlungen</span>
         </button>
         <button id="btn-cockpit-compliance" class="cockpit-tab-btn" onclick="switchCockpitView('compliance')">
-          <span>⚖️ Betreiber &amp; Compliance (DSA Art. 30)</span>
+          <span data-i18n="fleet_nav_tab_compliance">⚖️ Operators &amp; Compliance (DSA Art. 30)</span>
         </button>
         <button id="btn-cockpit-security" class="cockpit-tab-btn" onclick="switchCockpitView('security')">
           <span data-i18n="fleet_nav_tab_security">🛡️ Sicherheit & Passkeys</span>
@@ -827,10 +827,10 @@
           <span data-i18n="fleet_nav_tab_ollama">🦙 Ollama & Dev Pool</span>
         </button>
         <button id="btn-cockpit-killswitch" class="cockpit-tab-btn" onclick="switchCockpitView('killswitch')" style="border:1px solid rgba(239, 68, 68, 0.4); color:#fca5a5;">
-          <span>🛑 Kill Switch &amp; Not-Aus</span>
+          <span data-i18n="fleet_nav_tab_killswitch">🛑 Kill Switch &amp; Emergency Stop</span>
         </button>
         <button id="btn-cockpit-admin" class="cockpit-tab-btn" onclick="switchCockpitView('admin')" style="border:1px solid rgba(245, 158, 11, 0.4); color:#fde68a;">
-          <span>👑 Master-Admin</span>
+          <span data-i18n="fleet_nav_tab_admin">👑 Master Admin</span>
         </button>
       </div>
 
@@ -2334,6 +2334,12 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
     }
     window.getLang = getLang;
 
+    function fleetText(key, fallback) {
+      const lang = getLang();
+      const dictionary = window.translations && window.translations[lang];
+      return (dictionary && dictionary[key]) || fallback;
+    }
+
     function setLang(lang) {
       if (typeof window.switchLanguage === "function") {
         window.switchLanguage(lang);
@@ -3778,10 +3784,10 @@ for chunk in stream:
           if (suspendedBanner) suspendedBanner.style.display = "block";
           if (reasonEl) reasonEl.textContent = data.suspension_reason || "Administrative suspension";
           if (dateEl) dateEl.textContent = data.banned_at || "--";
-          document.getElementById("telem-status").innerHTML = "<span style='color:#ef4444;'>🔴 GESPERRT</span>";
+          document.getElementById("telem-status").innerHTML = `<span style='color:#ef4444;'>${fleetText('fleet_telem_blocked', '🔴 BLOCKED')}</span>`;
         } else {
           if (suspendedBanner) suspendedBanner.style.display = "none";
-          document.getElementById("telem-status").innerHTML = onlineCount > 0 ? "🟢 Aktiv" : "🟡 Standby";
+          document.getElementById("telem-status").innerHTML = onlineCount > 0 ? fleetText('fleet_telem_active', '🟢 Active') : fleetText('fleet_telem_standby', '🟡 Standby');
         }
 
         // Update Quick Switcher Dropdown
