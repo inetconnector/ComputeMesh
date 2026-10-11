@@ -14,6 +14,7 @@
 
 html body {
   background: var(--cm-bg) !important;
+  background-color: var(--cm-bg) !important;
   color: var(--cm-text) !important;
   background-image: none !important;
 }
@@ -21,6 +22,7 @@ html body {
 body > div,
 body > #svelte {
   background: var(--cm-bg) !important;
+  background-color: var(--cm-bg) !important;
   background-image: none !important;
   color: var(--cm-text) !important;
 }
@@ -30,8 +32,22 @@ main,
 [data-slot="chat-container"],
 .messages-container {
   background: var(--cm-bg) !important;
+  background-color: var(--cm-bg) !important;
   background-image: none !important;
   color: var(--cm-text) !important;
+}
+
+[class*="bg-background"] {
+  background: var(--cm-bg) !important;
+  background-color: var(--cm-bg) !important;
+  background-image: none !important;
+}
+
+[class*="bg-card"],
+[class*="bg-popover"] {
+  background: var(--cm-surface) !important;
+  background-color: var(--cm-surface) !important;
+  background-image: none !important;
 }
 
 #cm-agent-session-panel {

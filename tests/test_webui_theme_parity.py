@@ -19,4 +19,4 @@ def test_neutral_theme_is_present_and_byte_identical():
 def test_both_webui_entrypoints_load_the_shared_theme():
     for entrypoint in (DESKTOP / "index.html", ANDROID / "index.html"):
         source = entrypoint.read_text(encoding="utf-8")
-        assert './neutral-theme.css?v=20261011-4' in source
+        assert './neutral-theme.css?v=20261011-5' in source
