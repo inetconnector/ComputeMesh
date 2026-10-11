@@ -189,6 +189,9 @@ def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
         assert actual == expected, document
         assert text.count('portal.css?v=5.2') == 1, document
         assert text.count('portal-business.css?v=5.1') == 1, document
+        if 'portal-core.js' in text:
+            assert text.count('portal-core.js?v=5.4') == 1, document
+            assert 'portal-core.js?v=5.3' not in text
         assert 'portal.css?v=3.7' not in text
         assert 'portal.css?v=4.3' not in text
 
