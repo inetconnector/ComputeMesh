@@ -18,6 +18,13 @@ html body {
   background-image: none !important;
 }
 
+body > div,
+body > #svelte {
+  background: var(--cm-bg) !important;
+  background-image: none !important;
+  color: var(--cm-text) !important;
+}
+
 #cm-agent-session-panel {
   background: var(--cm-surface) !important;
   border-color: var(--cm-border) !important;
