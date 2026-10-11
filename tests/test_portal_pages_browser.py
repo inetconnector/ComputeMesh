@@ -194,6 +194,8 @@ def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
             assert 'portal-core.js?v=5.3' not in text
         assert 'portal.css?v=3.7' not in text
         assert 'portal.css?v=4.3' not in text
+        if '<footer' in text:
+            assert 'data-i18n="footer_rights"' in text, document
 
 
 def test_download_entrypoints_and_translation_keys_are_consistent():
