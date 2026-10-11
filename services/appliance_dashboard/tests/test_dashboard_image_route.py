@@ -8,6 +8,7 @@ from http import HTTPStatus
 from services.appliance_dashboard.server import create_dashboard_server
 from tools.appliance.appliance_config import ApplianceConfig
 from tools.appliance.hardware_detector import RigInventory
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 
 class TestDashboardImageRoute(unittest.TestCase):
     @classmethod
@@ -47,7 +48,11 @@ class TestDashboardImageRoute(unittest.TestCase):
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Node-Auth-Token": NODE_AUTH_TOKEN,
+            },
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=30) as resp:

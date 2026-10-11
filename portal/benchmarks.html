@@ -1,16 +1,17 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Performance & Inferenz-Benchmarks — ComputeMesh</title>
-  <meta name="description" content="Empirische Geschwindigkeits- und Durchsatz-Messungen über modernste Open-Source-Modelle und verteilte GPU-Knoten.">
+  <title>Benchmark-Status und Messmethodik — ComputeMesh</title>
+  <meta name="description" content="ComputeMesh Benchmark-Status und Messmethodik. Nicht verifizierte Leistungswerte werden nicht veröffentlicht.">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://mesh.inetconnector.com/benchmarks">
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="ComputeMesh">
-  <meta property="og:title" content="ComputeMesh Performance & Inferenz-Benchmarks">
-  <meta property="og:description" content="Empirische Geschwindigkeits- und Durchsatz-Messungen über modernste Open-Source-Modelle und verteilte GPU-Knoten.">
+  <meta property="og:title" content="ComputeMesh Benchmark-Status">
+  <meta property="og:description" content="Messmethodik und aktueller Status verifizierter Leistungswerte.">
+  <meta property="og:image" content="https://mesh.inetconnector.com/assets/og-image.png">
   <meta property="og:url" content="https://mesh.inetconnector.com/benchmarks">
   <link rel="stylesheet" href="/portal.css?v=5.2">
 
@@ -148,102 +149,27 @@
   </header>
 
   <main class="container" style="padding: 4rem 1.5rem;">
-    <div class="section-header" style="text-align: left; max-width: 100%; margin-bottom: 2rem;">
-      <span class="section-tag" data-i18n="bench_page_tag">PERFORMANCE-BENCHMARKS</span>
-      <h1 data-i18n="bench_main_h1">ComputeMesh Geschwindigkeit & Durchsatz</h1>
-      <p data-i18n="bench_main_p">Reale Leistungsmessungen über führende Open-Source-Modelle, GPU-Architekturen und verteilte Knoten-Konfigurationen.</p>
+    <div class="section-header">
+      <span class="section-tag" data-i18n="bench_page_tag">MESSSTATUS</span>
+      <h1 data-i18n="bench_main_h1">Benchmark-Status</h1>
+      <p data-i18n="bench_main_p">Für die aktuell verfügbaren Modelle sind noch keine reproduzierbaren Leistungswerte veröffentlicht.</p>
     </div>
-
-    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2.5rem; color: var(--text-muted); line-height: 1.6;">
-      <span data-i18n="bench_ttft_alert"><strong style="color: var(--text-main);">High-Throughput Streaming:</strong> ComputeMesh optimiert sowohl die Time-to-First-Token (TTFT) als auch die kontinuierliche Generierungsgeschwindigkeit über verteilte Knoten hinweg.</span>
+    <div class="feature-card" style="padding: 1.75rem; margin-bottom: 2rem;">
+      <h2 data-i18n="bench_method_title">So werden Werte freigegeben</h2>
+      <p data-i18n="bench_method_p">Jeder künftige Messwert benötigt Modell-ID, Quantisierung, Hardware, Laufzeitversion, Prompt-Satz, Stichprobe und Messdatum. Durchsatz und Time-to-First-Token werden getrennt angegeben.</p>
+      <p data-i18n="bench_no_data" style="margin-top: 1rem;">Bis diese Nachweise vorliegen, zeigen wir keine Geschwindigkeits- oder Preisvergleiche.</p>
+      <a href="/status" class="btn btn-secondary" data-i18n="bench_status_link" style="margin-top: 1rem;">Live-Systemstatus ansehen</a>
     </div>
-
-    <div class="calc-box" style="overflow-x: auto; margin-bottom: 3rem;">
-      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--accent-cyan);">
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_evidence">Konfiguration</th>
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_hw">Hardware-Topologie</th>
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_model">Modell-Architektur</th>
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_prefill">Time to First Token</th>
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_decode">Generierungstempo</th>
-            <th style="padding: 1rem 0.5rem;" data-i18n="bench_th_interp">Performance-Klasse</th>
-          </tr>
-        </thead>
-        <tbody style="color: var(--text-muted);">
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;" data-i18n="bench_row1_title">Single-Node High-Speed Inferenz</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row1_hw">NVIDIA RTX 4090 / 3080 GPU, CUDA 12</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row1_model">Llama 3.1 8B (Q4_K_M)</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">&lt; 35 ms</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono); color: var(--accent-emerald);">78+ tok/s</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row1_interp">Ultra-Fast Edge Inference</td>
-          </tr>
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;" data-i18n="bench_row2_title">CPU & Edge Baseline</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row2_hw">Server CPU-Architektur (x86_64)</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row2_model">Qwen 2.5 7B (Q4_K_M)</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">&lt; 180 ms</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">15+ tok/s</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row2_interp">Zuverlässige Ausweich-Rechenleistung</td>
-          </tr>
-          <tr>
-            <td style="padding: 1rem 0.5rem; color: var(--text-main); font-weight: 600;" data-i18n="bench_row3_title">Verteiltes Pipeline-Sharding</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row3_hw">Multi-Node Mesh-Cluster</td>
-            <td style="padding: 1rem 0.5rem;" data-i18n="bench_row3_model">Llama 3.1 70B (Pipeline Split)</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono);">&lt; 120 ms</td>
-            <td style="padding: 1rem 0.5rem; font-family: var(--font-mono); color: var(--accent-emerald);">45+ tok/s</td>
-            <td style="padding: 1rem 0.5rem; color: var(--accent-emerald);" data-i18n="bench_row3_interp">Enterprise Distributed Scale</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- High-Resolution Infographics -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
-      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; padding: 1rem;">
-        <h4 style="color: var(--accent-cyan); margin-bottom: 0.75rem; font-size: 1.1rem;">📊 LLM Inferenz Kostenvergleich (1M Tokens)</h4>
-        <img src="/assets/viral/benchmark-cost-comparison.png" alt="LLM Inferenz Kostenvergleich ComputeMesh vs Hyperscaler" style="width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border-subtle);">
-        <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Format: 1200x630 (HD Card)</span>
-          <a href="/assets/viral/benchmark-cost-comparison.png" download class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">PNG herunterladen</a>
-        </div>
+    <div class="feature-card" style="padding: 1.75rem;">
+      <h2>ComputeMesh</h2>
+      <p data-i18n="bench_badges_intro">Diese neutralen Badges verweisen auf Produktfunktionen und den Live-Status, nicht auf unbestätigte Messwerte.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 1rem;">
+        <img src="/badges/powered-by.svg" alt="ComputeMesh Gateway" loading="lazy">
+        <img src="/badges/speed.svg" alt="Live throughput" loading="lazy">
+        <img src="/badges/privacy-gdpr.svg" alt="Privacy controls" loading="lazy">
+        <img src="/badges/pricing.svg" alt="Live price status" loading="lazy">
+        <img src="/badges/deepseek-ready.svg" alt="Live model catalog" loading="lazy">
       </div>
-      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; padding: 1rem;">
-        <h4 style="color: var(--accent-emerald); margin-bottom: 0.75rem; font-size: 1.1rem;">⚡ Durchsatz & TTFT Latenz</h4>
-        <img src="/assets/viral/benchmark-speed-throughput.png" alt="Inferenz Performance und Generierungstempo" style="width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border-subtle);">
-        <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Format: 1200x630 (HD Card)</span>
-          <a href="/assets/viral/benchmark-speed-throughput.png" download class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">PNG herunterladen</a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Developer Badges Section -->
-    <div class="calc-box" style="margin-bottom: 3rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.75rem;">
-      <h3 style="color: #fff; margin-bottom: 0.5rem;">🛡️ Developer Badges für dein GitHub-Repository</h3>
-      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.25rem;">Nutzt dein Open-Source-Projekt ComputeMesh? Binde einfach unsere SVG-Badges in dein README ein:</p>
-
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
-        <img src="/badges/powered-by.svg" alt="Powered by ComputeMesh Badge">
-        <img src="/badges/speed.svg" alt="Throughput Badge">
-        <img src="/badges/privacy-gdpr.svg" alt="Privacy Badge">
-        <img src="/badges/pricing.svg" alt="Pricing Badge">
-        <img src="/badges/deepseek-ready.svg" alt="DeepSeek Ready Badge">
-      </div>
-
-      <pre style="background: #040711; padding: 1rem; border-radius: 6px; overflow-x: auto; color: #e2e8f0; font-family: monospace; font-size: 0.85rem;"><code>[![Inference: ComputeMesh](https://mesh.inetconnector.com/badges/powered-by.svg)](https://mesh.inetconnector.com)
-[![Throughput](https://mesh.inetconnector.com/badges/speed.svg)](https://mesh.inetconnector.com/benchmarks)</code></pre>
-    </div>
-
-    <div class="feature-card" style="margin-bottom: 3rem;">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;" data-i18n="bench_net_h3">Netzwerk-Routing & Latenz</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;" data-i18n="bench_net_p">Unser binäres RPC-Wire-Protokoll und optimiertes Tensor-Streaming stellen sicher, dass verteilte Inferenz ohne spürbaren Netzwerk-Overhead läuft.</p>
-    </div>
-
-    <div class="feature-card">
-      <h3 style="font-size: 1.35rem; margin-bottom: 0.8rem;" data-i18n="bench_repro_h3">Verifizierbare Messungen</h3>
-      <p style="color: var(--text-muted); line-height: 1.7;" data-i18n="bench_repro_p">Alle Benchmark-Daten basieren auf realen Messungen im aktiven Mesh-Netzwerk mit standardisierten Prompt-Längen.</p>
     </div>
   </main>
 

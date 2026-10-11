@@ -2,6 +2,24 @@
 
 **Last updated:** 2026-10-11
 
+## 2026-10-11 local website/dashboard remediation
+
+- The appliance dashboard handles a 401 without forcing a full reload: it
+  clears the stale session token, offers a localized retry, and shows an
+  explicit auth banner if retry is canceled or fails.
+- Dashboard colors now follow the neutral gray portal direction. Dynamic
+  network-interface URLs and node roster values are inserted with DOM APIs;
+  invalid schemes and untrusted HTML are rejected.
+- Portal badges, favicons, OG artwork and benchmark images are neutral,
+  parseable assets. A new image-contract test checks alt text, local paths,
+  metadata/download references and image signatures. The benchmark page
+  presents methodology/status while live evidence is unavailable.
+- Browser coverage includes 390px and 1280px dashboard auth recovery and
+  overflow/injection checks. The portal and dashboard slice passed **9 tests**;
+  image/auth tests passed **8 tests**. No Plesk file, Android asset, APK or
+  signed release was changed. The remaining dynamic QR/local-fallback work is
+  listed in the private remediation plan.
+
 ## 2026-10-11 platform integrity implementation
 
 - Branch: `codex/platform-integrity-20261011`, created from public

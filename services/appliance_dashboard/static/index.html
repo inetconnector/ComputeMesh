@@ -7,22 +7,22 @@
   <title id="page-title">ComputeMesh Dashboard — AI Inference Provider</title>
   <style>
     :root {
-      --bg-base: #0a0e17;
-      --bg-surface: #111827;
-      --bg-card: rgba(19, 27, 46, 0.75);
-      --bg-card-hover: rgba(28, 39, 65, 0.85);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-bright: rgba(0, 240, 255, 0.3);
-      --accent-cyan: #00f0ff;
-      --accent-blue: #3b82f6;
-      --accent-emerald: #10b981;
-      --accent-amber: #f59e0b;
-      --accent-rose: #f43f5e;
-      --text-main: #f3f4f6;
-      --text-dim: #9ca3af;
-      --font-main: 'Inter', sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-      --font-heading: 'Outfit', sans-serif;
+      --bg-base: #181a1c;
+      --bg-surface: #202325;
+      --bg-card: #272a2c;
+      --bg-card-hover: #303537;
+      --border-color: #383d41;
+      --border-bright: #778c87;
+      --accent-cyan: #b7d3cb;
+      --accent-blue: #b7d3cb;
+      --accent-emerald: #a4c7b0;
+      --accent-amber: #d7c29c;
+      --accent-rose: #e7a3a8;
+      --text-main: #f0f1f2;
+      --text-dim: #b6bbbf;
+      --font-main: Arial, sans-serif;
+      --font-mono: Consolas, monospace;
+      --font-heading: Arial, sans-serif;
     }
     *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; }
     html.is-windows .linux-only,
@@ -689,6 +689,57 @@
         font-size: 0.95rem;
       }
     }
+    /* Match the restrained portal presentation on every dashboard tab. */
+    .logo-badge, .nav-tab.active, .btn-primary, .iface-tag {
+      background: #c1d4cd !important;
+      color: #17221e !important;
+      box-shadow: none !important;
+    }
+    .nav-tabs, .model-row, .remote-access-card, .config-card, .stat-card,
+    .global-mesh-card, .gpu-card, .ip-chip {
+      background: var(--bg-card) !important;
+      border-color: var(--border-color) !important;
+      box-shadow: none !important;
+      backdrop-filter: none;
+    }
+    .nav-tabs { background: var(--bg-surface) !important; }
+    .remote-title, .stat-sub { color: var(--text-main); }
+    .nav-tab[href="/webui/"], .remote-badge {
+      background: var(--bg-card-hover) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-main) !important;
+    }
+    #remote-banner .ip-chip, #remote-banner .iface-tag { box-shadow: none !important; }
+    main > [style*="linear-gradient"], .stat-card[style*="linear-gradient"],
+    .global-mesh-card[style*="linear-gradient"] {
+      background: var(--bg-card) !important;
+      border-color: var(--border-color) !important;
+      box-shadow: none !important;
+    }
+    .status-dot { box-shadow: none; }
+    .auth-required-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      color: var(--text-main);
+      background: var(--bg-card);
+      border: 1px solid var(--accent-amber);
+      border-radius: 6px;
+    }
+    .auth-required-banner button {
+      background: #c1d4cd;
+      color: #17221e;
+      border: 0;
+      border-radius: 5px;
+      padding: 0.55rem 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    @media (max-width: 620px) {
+      .auth-required-banner { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
@@ -714,6 +765,10 @@
 
   <main>
     <div id="toast-banner" class="toast-msg toast-success"></div>
+    <div id="auth-required-banner" class="auth-required-banner" role="alert">
+      <span id="auth-required-text">Node-Authentifizierung erforderlich.</span>
+      <button type="button" onclick="retryDashboardAuth()" id="auth-retry-button">Node-Token eingeben</button>
+    </div>
 
     <!-- REMOTE DASHBOARD ACCESS & IP ADDRESS BANNER -->
     <div class="remote-access-card" id="remote-banner">
@@ -1142,10 +1197,12 @@
 
     // Credentials stay in sessionStorage only; never put node tokens in URLs.
     let dashboardAuthToken = sessionStorage.getItem('computemesh.nodeAuthToken') || '';
-    let authPromptShown = false;
+    let authPromptDismissed = false;
     const dashboardTranslations = {
       en: {
         nodeAuthPrompt: 'Node authentication required. Enter the node token:',
+        authRequired: 'Node authentication is required. Enter the node token to reconnect.',
+        authRetry: 'Enter node token',
         fanDutyLabel: 'Fan setpoint',
         fanMeasuredLabel: 'Fan ({duty}% PWM)',
         modelStorageWarning: 'Only {free} is free in the model storage. A standard local model needs at least {required}. Attach or select a larger data volume before downloading.',
@@ -1154,6 +1211,8 @@
       },
       de: {
         nodeAuthPrompt: 'Node-Authentifizierung erforderlich. Bitte den Node-Token eingeben:',
+        authRequired: 'Node-Authentifizierung erforderlich. Gib den Node-Token ein, um die Verbindung wiederherzustellen.',
+        authRetry: 'Node-Token eingeben',
         fanDutyLabel: 'Lüfter-Sollwert',
         fanMeasuredLabel: 'Lüfter ({duty}% PWM)',
         modelStorageWarning: 'Im Modellspeicher sind nur {free} frei. Ein übliches lokales Modell benötigt mindestens {required}. Vor dem Download ein größeres Datenvolume anschließen oder auswählen.',
@@ -1167,21 +1226,52 @@
       return dashboardTranslations[language]?.[key] || dashboardTranslations.en[key] || key;
     }
 
-    function apiFetch(path, options = {}) {
+    function showAuthRequired() {
+      const banner = document.getElementById('auth-required-banner');
+      const message = document.getElementById('auth-required-text');
+      const button = document.getElementById('auth-retry-button');
+      if (message) message.textContent = dashboardText('authRequired');
+      if (button) button.textContent = dashboardText('authRetry');
+      if (banner) banner.style.display = 'flex';
+      const status = document.getElementById('header-status');
+      if (status) status.textContent = dashboardText('authRetry');
+    }
+
+    function retryDashboardAuth() {
+      authPromptDismissed = false;
+      updateDashboard();
+    }
+
+    async function apiFetch(path, options = {}) {
       const url = new URL(path, window.location.origin);
       const headers = new Headers(options.headers || {});
       if (dashboardAuthToken) headers.set('X-Node-Auth-Token', dashboardAuthToken);
-      return fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' }).then(async response => {
-        if (response.status !== 401 || dashboardAuthToken || authPromptShown) return response;
-        authPromptShown = true;
-        const entered = window.prompt(dashboardText('nodeAuthPrompt'));
-        if (!entered) return response;
-        dashboardAuthToken = entered.trim();
-        sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
-        const retryHeaders = new Headers(options.headers || {});
-        retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
-        return fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
-      });
+      const response = await fetch(url.pathname + url.search, { ...options, headers, credentials: 'same-origin' });
+      if (response.status !== 401) return response;
+      // A token stored by an earlier NodeOS process may have expired. Never
+      // keep sending it, and give the operator a way to authenticate again.
+      dashboardAuthToken = '';
+      sessionStorage.removeItem('computemesh.nodeAuthToken');
+      showAuthRequired();
+      if (authPromptDismissed) return response;
+      authPromptDismissed = true;
+      const entered = window.prompt(dashboardText('nodeAuthPrompt'));
+      if (!entered || !entered.trim()) return response;
+      dashboardAuthToken = entered.trim();
+      sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('X-Node-Auth-Token', dashboardAuthToken);
+      const retry = await fetch(url.pathname + url.search, { ...options, headers: retryHeaders, credentials: 'same-origin' });
+      if (retry.status === 401) {
+        dashboardAuthToken = '';
+        sessionStorage.removeItem('computemesh.nodeAuthToken');
+        showAuthRequired();
+      } else {
+        const banner = document.getElementById('auth-required-banner');
+        if (banner) banner.style.display = 'none';
+        authPromptDismissed = false;
+      }
+      return retry;
     }
 
     function switchTab(tabId, btnEl) {
@@ -1490,11 +1580,15 @@
         const res = await apiFetch('/api/status', { cache: 'no-store' });
         if (!res.ok) {
           nodeState = null;
-          if (res.status === 401) showToast('Dashboard-Sitzung abgelaufen. Bitte die Seite neu laden.', false);
+          if (res.status === 401) showAuthRequired();
           return;
         }
         const data = await res.json();
         nodeState = data;
+        const authBanner = document.getElementById('auth-required-banner');
+        if (authBanner) authBanner.style.display = 'none';
+        const headerStatus = document.getElementById('header-status');
+        if (headerStatus) headerStatus.textContent = 'ONLINE';
 
         const gpus = (data.inventory && data.inventory.gpus) ? data.inventory.gpus : [];
         const healthyGpus = gpus.filter(g => g.healthy);
@@ -1569,15 +1663,18 @@
               row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.65rem; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); gap: 0.5rem; flex-wrap: wrap;';
               const nameLabel = n.is_local ? `🟢 ${n.node_id} (Dieser Rechner)` : `🟢 ${n.node_id}`;
               const desc = n.gpu_summary || `${n.gpus_count} GPU(s) • ${n.vram_gb} GB VRAM`;
-              row.innerHTML = `
-                <div>
-                  <span style="color: var(--accent-emerald); font-weight: 700;">${nameLabel}</span>
-                  <span style="color: var(--text-dim); margin-left: 0.35rem;">• ${desc}</span>
-                </div>
-                <div style="color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap;">
-                  ${Number(n.tflops || 0) > 0 ? n.tflops + ' TFLOPS' : 'Nicht gemessen'}
-                </div>
-              `;
+              const labels = document.createElement('div');
+              const name = document.createElement('span');
+              name.style.cssText = 'color: var(--accent-emerald); font-weight: 700;';
+              name.textContent = nameLabel;
+              const detail = document.createElement('span');
+              detail.style.cssText = 'color: var(--text-dim); margin-left: 0.35rem;';
+              detail.textContent = `• ${desc}`;
+              labels.append(name, detail);
+              const throughput = document.createElement('div');
+              throughput.style.cssText = 'color: var(--accent-cyan); font-weight: 600; font-family: var(--font-mono); font-size: 0.85rem; white-space: nowrap;';
+              throughput.textContent = Number(n.tflops || 0) > 0 ? `${n.tflops} TFLOPS` : 'Nicht gemessen';
+              row.append(labels, throughput);
               elNodesList.appendChild(row);
             });
           }
@@ -1586,27 +1683,43 @@
         // Populate Remote IP Address Chips & QR Code
         const ipContainer = document.getElementById('remote-ip-chips');
         if (ipContainer && data.network && data.network.interfaces && data.network.interfaces.length > 0) {
+          const safeDashboardUrl = value => {
+            try {
+              const url = new URL(String(value || ''));
+              return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+            } catch (error) {
+              return '';
+            }
+          };
           ipContainer.innerHTML = '';
-          const tunnelIface = data.network.interfaces.find(i => i.interface === 'tunnel') || data.network.interfaces[0];
-          const tunnelUrl = tunnelIface.url;
+          const tunnelIface = data.network.interfaces.find(i => i && i.interface === 'tunnel') || data.network.interfaces[0];
+          const tunnelUrl = safeDashboardUrl(tunnelIface?.url);
 
           data.network.interfaces.forEach(iface => {
+            if (!iface) return;
+            const targetUrl = safeDashboardUrl(iface.url);
+            if (!targetUrl) return;
             const chip = document.createElement('a');
             chip.className = 'ip-chip';
-            chip.href = iface.url;
-            const isTunnel = iface.interface.toLowerCase() === 'tunnel' || iface.interface.toLowerCase() === 'web';
+            chip.href = targetUrl;
+            const ifaceName = String(iface.interface || '').toUpperCase();
+            const isTunnel = ifaceName === 'TUNNEL' || ifaceName === 'WEB';
+            const tag = document.createElement('span');
+            tag.className = 'iface-tag';
+            tag.textContent = isTunnel ? 'TUNNEL' : ifaceName;
+            const label = document.createElement('span');
+            label.textContent = targetUrl;
+            label.style.wordBreak = 'break-all';
             if (isTunnel) {
-              chip.style.borderColor = 'rgba(0, 240, 255, 0.5)';
-              chip.style.background = 'rgba(0, 240, 255, 0.12)';
-              chip.innerHTML = `<span class="iface-tag" style="background: #00f0ff; color: #000; font-weight: 700;">TUNNEL</span> <span style="font-weight: 700; color: #fff;">${iface.url}</span>`;
-            } else {
-              chip.innerHTML = `<span class="iface-tag">${iface.interface.toUpperCase()}</span> <span style="word-break: break-all;">${iface.url}</span>`;
+              tag.style.fontWeight = '700';
+              label.style.fontWeight = '700';
             }
+            chip.append(tag, label);
             ipContainer.appendChild(chip);
           });
 
           const qrImg = document.getElementById('remote-qr-code');
-          if (qrImg && (!qrImg.dataset.loaded || qrImg.dataset.url !== tunnelUrl)) {
+          if (qrImg && tunnelUrl && (!qrImg.dataset.loaded || qrImg.dataset.url !== tunnelUrl)) {
             qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(tunnelUrl)}`;
             qrImg.dataset.loaded = 'true';
             qrImg.dataset.url = tunnelUrl;
@@ -1616,7 +1729,8 @@
           // full interactive dashboard (config, USB->SSD clone, etc.) from a
           // phone -- the tunnel/gateway URL above only renders a read-only
           // remote telemetry view, not the full dashboard.
-          const lanIface = data.network.interfaces.find(i => i.interface.toLowerCase() !== 'tunnel' && i.interface.toLowerCase() !== 'web');
+          const lanIface = data.network.interfaces.find(i => i &&
+            !['tunnel', 'web'].includes(String(i.interface || '').toLowerCase()) && safeDashboardUrl(i.url));
           const lanQrContainer = document.getElementById('lan-qr-container');
           const lanQrImg = document.getElementById('lan-qr-code');
           if (lanIface && lanQrContainer && lanQrImg) {

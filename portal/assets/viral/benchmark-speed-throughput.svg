@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Leistung: Daten fehlen">
+  <title>Leistung: Daten fehlen</title>
+  <rect width="1200" height="630" fill="#181a1c"/>
+  <rect x="46" y="46" width="1108" height="538" rx="18" fill="#202325" stroke="#383d41" stroke-width="2"/>
+  <circle cx="116" cy="127" r="12" fill="#b7d3cb"/>
+  <text x="150" y="140" fill="#b7d3cb" font-family="Arial, sans-serif" font-size="27" font-weight="700">ComputeMesh · Messstatus</text>
+  <rect x="104" y="183" width="992" height="1" fill="#383d41"/>
+  <text x="104" y="295" fill="#f0f1f2" font-family="Arial, sans-serif" font-size="54" font-weight="700">Leistung: Daten fehlen</text>
+  <text x="104" y="374" fill="#b6bbbf" font-family="Arial, sans-serif" font-size="26">Durchsatz und Latenz brauchen Modell, Hardware und Testkonfiguration.</text>
+  <text x="104" y="421" fill="#b6bbbf" font-family="Arial, sans-serif" font-size="26">Messwerte folgen nach reproduzierbaren Benchmarks.</text>
+  <text x="104" y="528" fill="#b7d3cb" font-family="Arial, sans-serif" font-size="24">mesh.inetconnector.com/benchmarks</text>
+</svg>

@@ -1,21 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="170" height="20" role="img" aria-label="DeepSeek-R1: Mesh Ready">
-  <title>DeepSeek-R1: Mesh Ready</title>
-  <linearGradient id="b" x2="0" y2="100%">
-    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-    <stop offset="1" stop-opacity=".1"/>
-  </linearGradient>
-  <clipPath id="a">
-    <rect width="170" height="20" rx="3" fill="#fff"/>
-  </clipPath>
-  <g clip-path="url(#a)">
-    <rect width="88" height="20" fill="#1e293b"/>
-    <rect x="88" width="82" height="20" fill="#00f2fe"/>
-    <rect width="170" height="20" fill="url(#b)"/>
-  </g>
-  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
-    <text aria-hidden="true" x="440.0" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="760">DeepSeek-R1</text>
-    <text x="440.0" y="140" transform="scale(.1)" fill="#fff" textLength="760">DeepSeek-R1</text>
-    <text aria-hidden="true" x="1290.0" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="700">Mesh Ready</text>
-    <text x="1290.0" y="140" transform="scale(.1)" fill="#fff" textLength="700">Mesh Ready</text>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="185" height="28" viewBox="0 0 185 28" role="img" aria-label="Live model catalog">
+  <title>Live model catalog</title>
+  <rect x="0.5" y="0.5" width="184" height="27" rx="5" fill="#272a2c" stroke="#778c87"/>
+  <circle cx="14" cy="14" r="4" fill="#b7d3cb"/>
+  <text x="26" y="18" fill="#f0f1f2" font-family="Arial, sans-serif" font-size="12">Live model catalog</text>
 </svg>
