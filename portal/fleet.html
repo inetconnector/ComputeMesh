@@ -3852,7 +3852,7 @@ for chunk in stream:
                 <div class="node-card-header">
                   <div>
                     <div class="node-id-title">${escapeHtml(n.node_id)}</div>
-                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">Knoten-ID &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : 'Nicht erreichbar'}</div>
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${getLang() === 'de' ? 'Knoten-ID' : 'Node ID'} &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : (getLang() === 'de' ? 'Nicht erreichbar' : 'Unreachable')}</div>
                   </div>
                   ${statusBadge}
                 </div>
@@ -3864,7 +3864,7 @@ for chunk in stream:
                     <strong>${n.vram_gb || 0} GB</strong>
                   </div>
                   <div class="node-spec-row">
-                    <span>Rechenleistung:</span>
+                    <span>${getLang() === 'de' ? 'Rechenleistung:' : 'Compute capacity:'}</span>
                     <strong>${isOnline ? (n.tflops || (isMobile ? 1.5 : 0)) : 0} TFLOPS</strong>
                   </div>
                   ${mobileDetails}
