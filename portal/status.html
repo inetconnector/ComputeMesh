@@ -337,7 +337,9 @@
             const tData = await toolsRes.json();
             const tList = document.getElementById('custom-tools-list');
             const tools = tData.data || [];
-            document.getElementById('custom-tools-count').textContent = statusText('status_tools_active', '{count} tools active', { count: tools.length });
+            const toolsCount = document.getElementById('custom-tools-count');
+            toolsCount.textContent = statusText('status_tools_active', '{count} tools active', { count: tools.length });
+            toolsCount.dataset.loaded = 'true';
             if (tools.length > 0) {
               tList.innerHTML = tools.map(t => `
                 <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 1rem;">
@@ -408,7 +410,13 @@
         refreshLedgerExplorer();
         setInterval(refreshLedgerExplorer, 15000);
       });
-      window.onLanguageChanged = () => refreshLedgerExplorer();
+      window.onLanguageChanged = () => {
+        const toolsCount = document.getElementById('custom-tools-count');
+        if (toolsCount && toolsCount.dataset.loaded !== 'true') {
+          toolsCount.textContent = statusText('status_tools_active', '{count} tools active', { count: 0 });
+        }
+        refreshLedgerExplorer();
+      };
     </script>
 
 
