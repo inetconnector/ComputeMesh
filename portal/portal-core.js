@@ -1458,9 +1458,10 @@ async function loadLivePricing() {
     const tiers = prices && prices.tiers && typeof prices.tiers === 'object' ? prices.tiers : {};
     const entries = Array.isArray(models.data) ? models.data : [];
     const published = entries.filter(model => model && typeof model.id === 'string' &&
-      Object.prototype.hasOwnProperty.call(tiers, model.id) &&
-      Number.isFinite(Number(tiers[model.id].prompt_usd_per_million)) &&
-      Number.isFinite(Number(tiers[model.id].completion_usd_per_million)));
+      model.available !== false && !String(model.availability || '').startsWith('unavailable') &&
+      Object.prototype.hasOwnProperty.call(tiers, model.id) && tiers[model.id] &&
+      Number.isFinite(tiers[model.id].prompt_usd_per_million) &&
+      Number.isFinite(tiers[model.id].completion_usd_per_million));
     target.replaceChildren();
     if (!published.length) {
       target.textContent = german
