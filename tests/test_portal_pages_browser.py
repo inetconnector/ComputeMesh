@@ -259,6 +259,23 @@ def test_primary_catalog_pages_mark_page_content_for_bilingual_switching():
             assert core.count(f"{key}:") >= 2, key
 
 
+def test_status_page_marks_ledger_explorer_for_bilingual_switching():
+    page = (PORTAL / "status.html").read_text(encoding="utf-8-sig")
+    core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
+    required = (
+        "status_ledger_title", "status_ledger_badge", "status_ledger_desc",
+        "status_ledger_refresh", "status_ledger_height", "status_ledger_genesis",
+        "status_ledger_receipts", "status_ledger_anchored", "status_ledger_integrity",
+        "status_ledger_valid", "status_ledger_storage", "status_ledger_verify_title",
+        "status_ledger_verify_placeholder", "status_ledger_verify_button",
+        "status_ledger_recent_blocks", "status_tools_title", "status_tools_active",
+        "status_tools_loading", "status_tools_none", "status_verify_success",
+    )
+    for key in required:
+        assert (f'data-i18n="{key}"' in page or f'data-i18n-ph="{key}"' in page or f"'{key}'" in page), key
+        assert core.count(f"{key}:") >= 2, key
+
+
 def test_docs_page_marks_architecture_flow_and_footer_for_bilingual_switching():
     docs = (PORTAL / "docs.html").read_text(encoding="utf-8-sig")
     core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
