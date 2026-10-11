@@ -9,7 +9,11 @@ are distinct from a measured zero; online nodes are reported by the gateway.
 The portal has standalone product, project, marketplace, model, pricing,
 download, LAN-mesh and playground pages rather than homepage fragment links.
 `portal/portal-business.css` supplies a shared neutral, responsive presentation;
-existing account, fleet, calculator, inference and download controls remain.
+existing account, fleet, inference and download controls remain. The model
+library and playground read the gateway's live model catalog. Marketplace
+cards require fleet authorization and show missing measurements explicitly.
+The pricing page lists prices only when a live model ID exactly matches a
+published price tier; it does not estimate provider earnings.
 German and English are the portal's supported languages.
 Shared navigation dropdowns keep the hover path continuous between their
 trigger and submenu, including wrapped narrow-screen navigation.
@@ -25,6 +29,12 @@ peer discovery or optional slot lookup cannot discard a usable gateway model.
 A failed direct-node request falls back using a gateway-advertised model,
 not the obsolete model ID stored in an older conversation. Portal and Android
 WebUI assets share this behavior; Android installation is a separate release gate.
+
+Gateway MCP tools now default to owner-only unless explicitly reviewed as
+public read-only information tools. Only the configured gateway admin token
+can authorize host-level tools or manage custom tools. The legacy in-process
+Python execution tool is not registered; an isolated execution service is
+still required before restoring code execution.
 
 ## In Plain Words
 

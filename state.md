@@ -1,6 +1,49 @@
 # ComputeMesh State
 
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-11
+
+## 2026-10-11 platform integrity implementation
+
+- Branch: `codex/platform-integrity-20261011`, created from public
+  `11fb5ddcc673583d6f9b4dab4c016c4750a739ee`. The source tree was clean
+  before this work; the old local `codex/mesh-agent-portal-rollout` and its
+  divergent `main` were not reset. The private parent still pointed at the
+  starting commit when this section was drafted. The final public commit and
+  parent Gitlink are recorded in private `ComputeMesh-ControlPlane/state.md`.
+- Gateway auth now exposes host-level MCP tools only to the configured admin
+  token. Teaser, ordinary API-key and fleet-owner sessions use the public tool
+  catalog. Custom-tool management routes require admin auth. Newly registered
+  tools default to owner-only unless in the reviewed public information
+  allowlist; `list_available_tools` reflects the caller's scope. The legacy
+  in-process Python `exec`/`eval` tool is unregistered. A process-isolated,
+  resource-bounded replacement is still missing.
+- Normal portal model cards and both playground selectors read `/v1/models`.
+  Anonymous fleet 401 displays a sign-in state. Unknown VRAM/TFLOPS are not
+  rendered as measured values. Model IDs and marketplace strings are escaped;
+  remote node links accept only HTTP(S). Model-detail pages for models absent
+  from the measured live catalog no longer advertise callable endpoints or
+  fixed speed/price claims. The pricing page joins live model IDs with exact
+  `/api/v1/pricing` keys; no match means no public price display. The old
+  speculative provider-earnings calculator was removed.
+- On the live gateway observed during this work, seven `/v1/models` IDs had
+  zero exact matches among 18 `/api/v1/pricing` tiers. This is a production
+  catalog/billing contract mismatch that must be resolved before making
+  customer price promises. The portal code is source-only and was not deployed.
+- Verification actually run: gateway HTTP `35 passed, 13 subtests`; focused
+  auth/inference/registry `73 passed`; full MCP suite `439 passed, 16 subtests`;
+  portal Chrome browser suite `7 passed`; Python `compileall` and Node syntax
+  checks passed; `git diff --check` passed after whitespace repair. Initial
+  restricted-sandbox runs failed on local DB/socket/temp/Git permissions; the
+  same suites passed with the required local escalation. Ruff could not run
+  because the module/executable is absent. CI, Android build/install, physical
+  nodes, end-to-end billing and production rollout were not checked.
+- Release status: development branch only; no push, merge, deployment, tag or
+  server write. Android WebUI asset was not changed because this pass changes
+  the ordinary portal and gateway, not `portal/webui/` behavior. Remaining
+  release gates: reconcile the Plesk checkout, fix live catalog/pricing IDs,
+  run CI and Android parity checks where relevant, verify gateway owner scope
+  in staging, then review a targeted rollout and rollback plan. The larger
+  capability roadmap remains in the private implementation plan.
 
 ## 2026-10-10 portal navigation unification and live rollout
 

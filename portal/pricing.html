@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preise & Ersparnis-Rechner — ComputeMesh</title>
-  <meta name="description" content="Transparente Inferenz-Preise ab $0.09 pro 1 Million Tokens und GPU-Stundensätze. Bis zu 80% günstiger als Hyperscaler. Interaktiver Kostenrechner.">
+  <title>Live-Preisstatus — ComputeMesh</title>
+  <meta name="description" content="Aktuelle Modellpreise im ComputeMesh Gateway prüfen. Nur verfügbare Modelle mit veröffentlichtem Preistier werden angezeigt.">
   <meta name="keywords" content="ComputeMesh Preise, Inferenz Kosten, GPU Stundensätze, LLM Token Preise, GPU Mining Ertrag, ROI Rechner">
   <link rel="canonical" href="https://mesh.inetconnector.com/pricing">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -63,7 +63,7 @@
                 <span class="item-icon">📚</span>
                 <div>
                   <strong data-i18n="nav_prod_models">Model Library</strong>
-                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
+                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
                 </div>
               </a>
               <a href="/lan-mesh" class="dropdown-item">
@@ -145,148 +145,20 @@
   <!-- Main Pricing Content -->
   <main class="container" style="padding: 3rem 1.5rem 5rem 1.5rem;">
     <div class="section-header">
-      <span class="section-tag" data-i18n="calc_tag">TRANSPARENTE PREISE &amp; RECHNER</span>
-      <h1 data-i18n="calc_title">Faire Preise für Entwickler • Lukrative Erträge für Provider</h1>
-      <p data-i18n="calc_sub" style="max-width: 800px; margin: 0.5rem auto 0 auto;">
-        Spare bis zu 80% gegenüber Hyperscalern wie AWS, Google Cloud oder Azure. Keine Mindestvertragslaufzeiten, sekundengenaue Abrechnung.
+      <span class="section-tag">LIVE-PREISSTATUS</span>
+      <h1>Preise für verfügbare Modelle</h1>
+      <p style="max-width: 800px; margin: 0.5rem auto 0 auto;">
+        Diese Seite vergleicht den aktuellen Modellkatalog des Gateways mit den veröffentlichten Preistiers.
+        Nur Modelle mit einer exakten Preiszuordnung werden angezeigt. Preis und Verfügbarkeit können sich ändern.
       </p>
     </div>
-
-    <!-- Interactive Calculator -->
-    <div class="calc-box" style="margin-bottom: 4rem;">
-      <div class="calc-tabs">
-        <button id="tab-dev-btn" class="calc-tab active" onclick="showTab('dev')" data-i18n="tab_developer">
-          👨‍💻 Entwickler: Kostenersparnis berechnen
-        </button>
-        <button id="tab-prov-btn" class="calc-tab" onclick="showTab('prov')" data-i18n="tab_provider">
-          ⚡ Provider / Miner: Einnahmen berechnen
-        </button>
-      </div>
-
-      <!-- Developer Savings Pane -->
-      <div id="pane-dev" class="calc-content calc-pane">
-        <div>
-          <div class="slider-group">
-            <div class="slider-labels">
-              <span data-i18n="lbl_monthly_tokens">Monatliches Inferenzvolumen (Millionen Tokens)</span>
-              <span id="tokens-val" class="gradient-text" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">50 M</span>
-            </div>
-            <input type="range" id="slider-tokens" min="1" max="500" value="50" step="5" oninput="updateCalculators()">
-          </div>
-
-          <div class="slider-group">
-            <div class="slider-labels">
-              <span data-i18n="lbl_model_tier">Modellgröße / Klasse</span>
-            </div>
-            <select id="select-model" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
-              <option value="2b">2B-Klasse (z.B. Phi-3 Mini, Qwen 2.5 1.5B) — $0.09 / 1M</option>
-              <option value="8b" selected>8B-Klasse (z.B. Llama 3.1 8B, Qwen 2.5 7B) — $0.15 / 1M</option>
-              <option value="14b">14B-Klasse (z.B. Qwen 2.5 14B, Mistral NeMo) — $0.20 / 1M</option>
-              <option value="32b">32B-Klasse (z.B. Qwen 2.5 Coder 32B, DeepSeek-R1) — $0.25 / 1M</option>
-              <option value="70b">70B-Klasse (z.B. Llama 3.3 70B Distributed) — $0.45 / 1M</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="calc-result-card">
-          <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_computemesh_cost">Geschätzte ComputeMesh-Kosten</div>
-          <div id="calc-cm-cost" class="calc-big-num">$7.50</div>
-          <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem;">
-            <span data-i18n="lbl_cloud_cost">Traditionelle Hyperscaler-Kosten:</span>
-            <span id="calc-cloud-cost" style="text-decoration: line-through; color: #f87171;">$37.50</span>
-          </div>
-          <div class="savings-pill" id="calc-savings-badge">
-            💰 Ersparnis: $30.00 / Monat (80%)
-          </div>
-        </div>
-      </div>
-
-      <!-- Provider Earnings Pane -->
-      <div id="pane-prov" class="calc-content calc-pane" style="display: none;">
-        <div>
-          <div class="slider-group">
-            <div class="slider-labels">
-              <span data-i18n="lbl_gpu_setup">Hardware-Konfiguration / GPU-Klasse</span>
-            </div>
-            <select id="select-rig" class="form-control" onchange="updateCalculators()" style="cursor: pointer;">
-              <option value="rtx4090" selected>1x NVIDIA GeForce RTX 4090 (24GB VRAM, 82.6 TFLOPS)</option>
-              <option value="rtx3090">1x NVIDIA RTX 3080 / 3090 (24GB VRAM, 35.6 TFLOPS)</option>
-              <option value="5x8gb">5x 8GB GPU Mining Rig (40GB VRAM, 122.8 TFLOPS)</option>
-              <option value="8x3070">8x 8GB GPU Mining Rig (64GB VRAM, 196.0 TFLOPS)</option>
-              <option value="rx7900">1x AMD Radeon RX 7900 XTX (24GB VRAM, 61.4 TFLOPS)</option>
-              <option value="apple_m">1x Apple Silicon M3 Max (128GB Unified Memory)</option>
-            </select>
-          </div>
-
-          <div class="slider-group">
-            <div class="slider-labels">
-              <span data-i18n="lbl_hours_online">Tägliche Online-Zeit</span>
-              <span id="hours-val" class="gradient-emerald" style="font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem;">24 h/Tag</span>
-            </div>
-            <input type="range" id="slider-hours" min="1" max="24" value="24" step="1" oninput="updateCalculators()">
-          </div>
-        </div>
-
-        <div class="calc-result-card">
-          <div style="font-size: 0.9rem; color: var(--text-muted);" data-i18n="lbl_est_earnings">Geschätzte monatliche Netto-Einnahmen</div>
-          <div id="calc-provider-earnings" class="calc-big-num" style="color: var(--accent-cyan);">$158.40</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-top: 0.5rem;" data-i18n="lbl_payout_note">
-            75% aller Job-Gebühren wandern direkt in dein Provider-Ledger. Automatische SEPA-/Stripe-Connect-Auszahlung ab $25.00.
-          </div>
-        </div>
-      </div>
+    <div class="feature-card" id="live-pricing" aria-live="polite">
+      Live-Preise werden geladen...
     </div>
-
-    <!-- Pricing Comparison Matrix Table -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 3.5rem;">
-      <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem;">
-        <span>📊</span> <span>Modell-Inferenz Preisvergleich (pro 1 Million Tokens)</span>
-      </h2>
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.92rem; text-align: left;">
-          <thead>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
-              <th style="padding: 0.85rem 1rem;">Modell / Anwendungsfall</th>
-              <th style="padding: 0.85rem 1rem;">ComputeMesh Preis</th>
-              <th style="padding: 0.85rem 1rem;">Hyperscaler / Closed API</th>
-              <th style="padding: 0.85rem 1rem;">Deine Ersparnis</th>
-            </tr>
-          </thead>
-          <tbody style="line-height: 1.8;">
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(16, 185, 129, 0.04);">
-              <td style="padding: 1rem; font-weight: 700;">DeepSeek-R1 (Distill 32B / 671B)</td>
-              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.35 / 1M</td>
-              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$2.50 / 1M (OpenAI o1)</td>
-              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">86% günstiger</td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 1rem; font-weight: 700;">Qwen 2.5 Coder 32B</td>
-              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.25 / 1M</td>
-              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$1.25 / 1M (Claude 3.5)</td>
-              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">80% günstiger</td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 1rem; font-weight: 700;">Llama 3.3 70B Instruct</td>
-              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.45 / 1M</td>
-              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$2.00 / 1M (AWS Bedrock)</td>
-              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">78% günstiger</td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 1rem; font-weight: 700;">Mistral NeMo 12B / Llama 3.1 8B</td>
-              <td style="padding: 1rem; font-weight: 700; color: var(--accent-emerald);">$0.15 / 1M</td>
-              <td style="padding: 1rem; color: var(--text-dim); text-decoration: line-through;">$0.60 / 1M (GPT-4o mini)</td>
-              <td style="padding: 1rem; color: var(--accent-emerald); font-weight: 700;">75% günstiger</td>
-            </tr>
-            <tr>
-              <td style="padding: 1rem; font-weight: 700;">Privates LAN-Mesh (Eigene Hardware)</td>
-              <td style="padding: 1rem; font-weight: 800; color: var(--accent-cyan);">0,00 € (Kostenlos)</td>
-              <td style="padding: 1rem; color: var(--text-dim);">—</td>
-              <td style="padding: 1rem; color: var(--accent-cyan); font-weight: 700;">100% Kostenfrei</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <p style="color: var(--text-muted); margin-top: 1.5rem;">
+      Provider-Einnahmen hängen von tatsächlich abgewickelten Aufträgen, Auslastung und Abrechnungsregeln ab.
+      Eine verlässliche Ertragsprognose ist derzeit nicht verfügbar.
+    </p>
   </main>
 
   <!-- Site Footer -->
@@ -380,7 +252,7 @@
     </div>
   </div>
 
-  <script src="/portal-core.js?v=5.2"></script>
-  <script src="/portal.js?v=5.2"></script>
+  <script src="/portal-core.js?v=5.3"></script>
+  <script src="/portal.js?v=5.3"></script>
 </body>
 </html>

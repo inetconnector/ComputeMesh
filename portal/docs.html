@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -69,7 +69,7 @@
                 <span class="item-icon">📚</span>
                 <div>
                   <strong data-i18n="nav_prod_models">Model Library</strong>
-                  <p data-i18n="nav_prod_models_sub">Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL</p>
+                  <p data-i18n="nav_prod_models_sub">Live-Modellkatalog</p>
                 </div>
               </a>
               <a href="/lan-mesh" class="dropdown-item">
@@ -192,7 +192,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen2.5:7b",
+    model="qwen2.5:3b",
     messages=[{"role": "user", "content": "Explain the ComputeMesh decentralized architecture."}],
     stream=True
 )
@@ -208,13 +208,8 @@ for chunk in response:
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
-              <select id="playground-model" class="form-control">
-                <option value="qwen2.5:7b">Qwen 2.5 7B (Instruct)</option>
-                <option value="llama3.1:8b">Llama 3.1 8B (Instruct)</option>
-                <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option>
-                <option value="mistral:7b">Mistral 7B (v0.3)</option>
-              </select>
-              <button id="playground-btn" class="btn btn-primary" onclick="runPlaygroundPrompt()" data-i18n="playground_send">▶ Inferenz starten</button>
+              <select id="playground-model" class="form-control" disabled><option value="">Live-Modellkatalog wird geladen...</option></select>
+              <button id="playground-btn" class="btn btn-primary" onclick="runPlaygroundPrompt()" disabled data-i18n="playground_send">▶ Inferenz starten</button>
             </div>
 
             <textarea id="playground-input" class="form-control" rows="2" style="width: 100%; margin-bottom: 1rem; font-family: var(--font-sans);" placeholder="Prompt hier eingeben..." data-i18n="docs_playground_ph">Was macht ComputeMesh einzigartig?</textarea>
@@ -222,7 +217,7 @@ for chunk in response:
             <div class="code-window" style="margin-top: 0.5rem;">
               <div class="code-header" style="display: flex; justify-content: space-between;">
                 <span data-i18n="docs_terminal_title">Gateway Antwort-Terminal</span>
-                <span id="playground-stats" style="font-size: 0.75rem; color: var(--accent-emerald);" data-i18n="docs_terminal_ready">Verbunden</span>
+                <span id="playground-stats" style="font-size: 0.75rem; color: var(--accent-emerald);" data-i18n="docs_terminal_ready">Modellkatalog wird geladen</span>
               </div>
               <pre style="max-height: 240px; overflow-y: auto; background: #080c14; padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; color: #f3f4f6; white-space: pre-wrap;"><code id="playground-output" data-i18n="docs_terminal_init">Klicke auf "Inferenz starten", um Tokens live aus dem Mesh zu streamen.</code></pre>
             </div>
@@ -450,7 +445,7 @@ for chunk in response:
     </div>
   </footer>
 
-  <script src="/portal-core.js?v=5.2"></script>
-  <script src="/portal.js?v=5.2"></script>
+  <script src="/portal-core.js?v=5.3"></script>
+  <script src="/portal.js?v=5.3"></script>
 </body>
 </html>

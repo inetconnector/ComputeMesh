@@ -71,7 +71,6 @@ from .builtin.package_registry import lookup_software_package
 from .builtin.places import search_places
 from .builtin.product_price_engine import search_product_prices
 from .builtin.python_calc import run_python_calc
-from .builtin.python_sandbox import execute_python_code
 from .builtin.rag_tool import search_knowledge_base, index_document_text, list_indexed_documents
 from .builtin.sports_data import get_sports_data
 from .builtin.system_tools import execute_system_info, execute_gpu_telemetry, execute_process_summary
@@ -529,6 +528,19 @@ def _validate_strict_arguments(schema: Dict[str, Any], arguments: Any) -> Option
     return None
 
 
+PUBLIC_INFORMATION_TOOLS = frozenset({
+    "list_available_tools", "get_live_news", "get_current_weather", "get_weather_forecast",
+    "search_events", "search_places", "get_sports_data", "lookup_company",
+    "calculate_math", "get_wikipedia_summary", "fetch_multilingual_wikipedia",
+    "fetch_recent_timeline", "verify_fact_multi_source", "get_time_and_calendar",
+    "convert_currency", "get_distance_route", "lookup_country_data", "get_world_bank_stats",
+    "search_arxiv_papers", "lookup_food_product", "lookup_software_package",
+    "get_recent_earthquakes", "lookup_chemical_compound", "lookup_word_definition",
+    "lookup_train_schedule", "check_url_safety", "search_web", "get_market_quote",
+    "get_market_movers", "search_product_prices",
+})
+
+
 class ToolRegistry:
     def __init__(self, config: Optional[MCPConfig] = None):
         self.config = config or get_mcp_config()
@@ -555,7 +567,7 @@ class ToolRegistry:
             description=description,
             parameters=parameters,
             handler=handler,
-            owner_only=owner_only,
+            owner_only=owner_only or name not in PUBLIC_INFORMATION_TOOLS,
             source=source,
         )
 
@@ -646,6 +658,14 @@ class ToolRegistry:
                     "Tool-Ausführung blockiert: übergeordnete Sicherheitsprüfung "
                     f"ist nicht verfügbar ({exc})"
                 )
+            }
+
+        if resolved == "list_available_tools":
+            return {
+                "available_tools": [
+                    {"name": item.name, "description": item.description}
+                    for item in self.list_tools(is_owner=is_owner)
+                ]
             }
 
         # Check in-memory TTL cache
@@ -1142,15 +1162,8 @@ class ToolRegistry:
             source="builtin_security",
         )
 
-        self.register_tool(
-            "execute_python_code",
-            "Führt mehrzeiligen Python-Code in einer sicheren Data-Science-Sandbox aus (Pandas, Numpy, Matplotlib) und gibt Textausgaben sowie generierte Diagramme (PNG) zurück.",
-            schema({
-                "code": {"type": "string", "description": "Vollständiger mehrzeiliger Python-Code zur Ausführung."},
-            }, ["code"]),
-            execute_python_code,
-            source="builtin_sandbox",
-        )
+        # The legacy in-process Python helper is not an isolated sandbox.
+        # Do not expose it to gateway agents until an isolated executor exists.
 
         self.register_tool(
             "search_knowledge_base",

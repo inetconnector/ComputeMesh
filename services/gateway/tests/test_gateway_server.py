@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from services.billing.accounting import AccountingStore
 from services.billing.ledger import Ledger
@@ -102,6 +103,66 @@ def trusted_json_verifier(payload: bytes, signature: str, secret: str) -> dict:
 
 
 class TestGatewayServer(unittest.TestCase):
+    def test_chat_owner_tool_scope_follows_verified_identity(self) -> None:
+        body = json.dumps({
+            "model": "qwen/qwen2.5-7b-instruct",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": False,
+        }).encode("utf-8")
+        cases = (
+            ({}, False),
+            ({"Authorization": "Bearer cm_live_default_test_key"}, False),
+            ({"Authorization": "Bearer cm_admin_gateway_test_secret_2026"}, True),
+        )
+        with patch.object(
+            GatewayHandler.inference_engine,
+            "execute_chat_completion",
+            return_value=({"choices": []}, None, 200),
+        ) as completion:
+            for headers, expected_owner in cases:
+                request = urllib.request.Request(
+                    "http://127.0.0.1:18000/v1/chat/completions",
+                    data=body,
+                    headers={"Content-Type": "application/json", **headers},
+                )
+                with self.subTest(headers=headers), urllib.request.urlopen(request) as response:
+                    self.assertEqual(response.status, 200)
+                self.assertEqual(completion.call_args.kwargs["is_owner"], expected_owner)
+
+    def test_public_tool_catalog_excludes_owner_only_tools(self) -> None:
+        for headers, expected_owner in (
+            ({}, False),
+            ({"Authorization": "Bearer cm_live_default_test_key"}, False),
+            ({"Authorization": "Bearer cm_admin_gateway_test_secret_2026"}, True),
+        ):
+            request = urllib.request.Request(
+                "http://127.0.0.1:18000/v1/mcp/tools",
+                headers=headers,
+            )
+            with self.subTest(headers=headers), urllib.request.urlopen(request) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            names = {tool["function"]["name"] for tool in payload["data"]}
+            self.assertEqual("lookup_network_host" in names, expected_owner)
+
+    def test_custom_tool_routes_require_operator_auth_before_store_access(self) -> None:
+        cases = (
+            ("GET", "/v1/mcp/custom-tools"),
+            ("GET", "/api/v1/mcp/custom-tools/sample"),
+            ("POST", "/v1/mcp/custom-tools"),
+            ("POST", "/v1/mcp/custom-tools/sample/execute"),
+            ("DELETE", "/v1/mcp/custom-tools/sample"),
+        )
+        for method, path in cases:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:18000{path}",
+                data=b"{}" if method == "POST" else None,
+                headers={"Content-Type": "application/json"},
+                method=method,
+            )
+            with self.subTest(method=method, path=path), self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(request)
+            self.assertEqual(ctx.exception.code, 401)
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)

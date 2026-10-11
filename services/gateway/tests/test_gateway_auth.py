@@ -63,6 +63,7 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertEqual(auth.account_id, "cust_registered_user")
         self.assertFalse(auth.is_teaser)
         self.assertFalse(auth.is_provider_self_compute)
+        self.assertFalse(auth.can_use_owner_tools)
         self.assertFalse(auth.is_quota_exceeded)
         self.assertGreater(self.ledger.get_balance("cust_registered_user"), 0)
 
@@ -115,6 +116,7 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertTrue(auth.is_authenticated)
         self.assertEqual(auth.account_id, "provider_self_rig_alpha_01")
         self.assertTrue(auth.is_provider_self_compute)
+        self.assertFalse(auth.can_use_owner_tools)
         self.assertFalse(auth.is_teaser)
         self.assertGreater(self.ledger.get_balance("provider_self_rig_alpha_01"), 0)
 
@@ -124,6 +126,7 @@ class TestGatewayAuth(unittest.TestCase):
         self.assertTrue(auth.is_authenticated)
         self.assertEqual(auth.account_id, "teaser_198_51_100_77")
         self.assertTrue(auth.is_teaser)
+        self.assertFalse(auth.can_use_owner_tools)
         self.assertFalse(auth.is_quota_exceeded)
         self.assertGreater(self.ledger.get_balance("teaser_198_51_100_77"), 0)
 
@@ -157,6 +160,8 @@ class TestGatewayAuth(unittest.TestCase):
         os.environ["COMPUTEMESH_ADMIN_KEY"] = "cm_admin_gateway_test_secret_2026"
         try:
             headers_valid = {"Authorization": "Bearer cm_admin_gateway_test_secret_2026"}
+            operator = self.auth_manager.authenticate_request(headers_valid)
+            self.assertTrue(operator.can_use_owner_tools)
             is_admin, err, status = self.auth_manager.authenticate_admin(headers_valid)
             self.assertTrue(is_admin)
             self.assertIsNone(err)

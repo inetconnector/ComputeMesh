@@ -105,7 +105,7 @@ var translations = window.translations || {
     nav_prod_market: "GPU Marketplace",
     nav_prod_market_sub: "Rent live hardware, VRAM & distributed nodes",
     nav_prod_models: "Model Library",
-    nav_prod_models_sub: "Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL",
+    nav_prod_models_sub: "Live model catalog",
     nav_prod_lan: "Private LAN Mesh",
     nav_prod_lan_sub: "Zero-config & 100% free local inference",
     nav_prod_localcode: "LocalCode AI Studio",
@@ -182,25 +182,25 @@ var translations = window.translations || {
     ticker_nodes: "Distributed Cluster Nodes",
 
     // Marketplace Section
-    market_tag: "LIVE GPU MARKETPLACE",
-    market_title: "Real-Time Available High-Performance Nodes",
-    market_sub: "Rent distributed GPU capacity or execute inference on dedicated hardware tiers. Transparent pricing, verified reliability, and ultra-low latency.",
+    market_tag: "MESH FLEET",
+    market_title: "Mesh fleet and node status",
+    market_sub: "Public totals come from live gateway telemetry. Detailed node data requires the associated fleet sign-in.",
     market_filter_gpu: "GPU Tier:",
     market_filter_vram: "VRAM:",
     market_filter_region: "Region:",
 
     // Curated Model Library
     models_tag: "CURATED MODEL LIBRARY",
-    models_title: "Leading Open-Source AI Models Ready to Deploy",
-    models_sub: "Choose from the most capable state-of-the-art models. Fully optimized for distributed inference streaming with maximum token throughput.",
+    models_title: "Models in the live gateway catalog",
+    models_sub: "Availability is loaded from the gateway. The listed models and capabilities can change as nodes join or leave.",
 
     // Playground Section
     pg_tag: "INTERACTIVE DEMO",
     pg_title: "Experience <span class=\"gradient-text\">Real-Time Mesh Inference</span>",
-    pg_sub: "Test our low-latency distributed GPU network directly in your browser. Choose an open-source model and start streaming responses instantly.",
+    pg_sub: "Choose a currently available model from the gateway's live catalog and send a prompt.",
     pg_model_lbl: "Model:",
     pg_quota_pill: "Free Demo Credits",
-    pg_cluster_pending: "Connecting to Mesh...",
+    pg_cluster_pending: "Loading live model catalog...",
     pg_ai_author: "ComputeMesh AI",
     pg_ai_badge: "LIVE MESH",
     pg_ai_welcome: "Welcome to ComputeMesh! Our distributed inference cluster is online and ready. How can I assist you with your project today?",
@@ -646,7 +646,7 @@ var translations = window.translations || {
     nav_prod_market: "GPU Marketplace",
     nav_prod_market_sub: "Live-Hardware, VRAM & verteilte Knoten mieten",
     nav_prod_models: "Model Library",
-    nav_prod_models_sub: "Qwen 2.5, DeepSeek-R1, Llama 3.3, SDXL",
+    nav_prod_models_sub: "Live-Modellkatalog",
     nav_prod_lan: "Privates LAN-Mesh",
     nav_prod_lan_sub: "Zero-Config & 100% kostenlose lokale Inferenz",
     nav_prod_localcode: "LocalCode AI Studio",
@@ -723,25 +723,25 @@ var translations = window.translations || {
     ticker_nodes: "Verteilte Cluster-Knoten",
 
     // Marketplace Section
-    market_tag: "LIVE GPU-MARKTPLATZ",
-    market_title: "Verfügbare High-Performance Nodes in Echtzeit",
-    market_sub: "Miete verteilte GPU-Kapazität oder führe Inferenz auf dedizierten Hardware-Klassen aus. Transparente Preise, verifizierte Zuverlässigkeit und minimale Latenz.",
+    market_tag: "MESH-FLOTTE",
+    market_title: "Mesh-Flotte und Knotenstatus",
+    market_sub: "Öffentliche Summen stammen aus der Live-Telemetrie des Gateways. Für Knotendetails ist die Anmeldung bei der zugehörigen Flotte nötig.",
     market_filter_gpu: "GPU-Klasse:",
     market_filter_vram: "VRAM:",
     market_filter_region: "Region:",
 
     // Curated Model Library
     models_tag: "KURATIERTE MODEL LIBRARY",
-    models_title: "Führende Open-Source KI-Modelle sofort einsatzbereit",
-    models_sub: "Wähle aus den leistungsstärksten State-of-the-Art Modellen. Vollständig optimiert für verteiltes Inferenz-Streaming mit maximalem Token-Durchsatz.",
+    models_title: "Modelle im Live-Katalog des Gateways",
+    models_sub: "Die Verfügbarkeit wird direkt vom Gateway geladen. Modelle und Fähigkeiten können sich ändern, wenn Knoten hinzukommen oder ausfallen.",
 
     // Playground Section
     pg_tag: "INTERAKTIVE DEMO",
     pg_title: "Erlebe die <span class=\"gradient-text\">Geschwindigkeit des Meshs</span>",
-    pg_sub: "Teste unsere ultra-schnelle Streaming-Inferenz direkt im Browser. Wähle ein Open-Source-Modell und sende deinen ersten Prompt.",
+    pg_sub: "Wähle ein aktuell verfügbares Modell aus dem Live-Katalog des Gateways und sende einen Prompt.",
     pg_model_lbl: "Modell:",
     pg_quota_pill: "Kostenloses Demo-Guthaben",
-    pg_cluster_pending: "Verbinde mit Mesh-Cluster...",
+    pg_cluster_pending: "Live-Modellkatalog wird geladen...",
     pg_ai_author: "ComputeMesh AI",
     pg_ai_badge: "LIVE MESH",
     pg_ai_welcome: "Willkommen bei ComputeMesh! Unser dezentrales Inferenz-Netzwerk ist online. Wie kann ich dir heute bei deinem Projekt helfen?",
@@ -1130,10 +1130,14 @@ function switchLanguage(lang) {
   try {
     localStorage.setItem('cm_portal_lang', lang);
   } catch (e) {}
-  updateCalculators();
+  loadLivePricing();
   updateAuthNavBtn();
   if (typeof renderRealMarketplaceCards === 'function' && typeof _lastFetchedNodes !== 'undefined') {
     renderRealMarketplaceCards(_lastFetchedNodes, lang === 'de');
+  }
+  if (typeof renderLiveModelCards === 'function' && typeof _lastFetchedModels !== 'undefined') {
+    renderLiveModelCards(_lastFetchedModels, lang === 'de');
+    renderLivePlaygroundModels(_lastFetchedModels, lang === 'de');
   }
   if (typeof window.syncComplianceLanguage === 'function') {
     window.syncComplianceLanguage(lang);
@@ -1439,101 +1443,57 @@ window.handleAiSubdomainRouting = handleAiSubdomainRouting;
 window.translations = translations;
 window.currentLang = currentLang;
 
-// Canonical Pricing State
-let CM_PRICING = {
-  '2b': { blended: 0.105, cloud: 0.40 },
-  '8b': { blended: 0.175, cloud: 0.75 },
-  '14b': { blended: 0.375, cloud: 1.50 },
-  '32b': { blended: 0.60, cloud: 2.50 },
-  '70b': { blended: 1.20, cloud: 5.00 },
-};
-
-async function loadCanonicalPricing() {
+// Show prices only when the active gateway model ID has an exact published tier.
+async function loadLivePricing() {
+  const target = document.getElementById('live-pricing');
+  if (!target) return;
+  const german = currentLang === 'de';
   try {
-    const res = await fetch('/api/v1/pricing');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.tiers) {
-        if (data.tiers['openbmb/minicpm5-2b']) {
-          CM_PRICING['2b'].blended = data.tiers['openbmb/minicpm5-2b'].blended_usd_per_million;
-          CM_PRICING['2b'].cloud = data.tiers['openbmb/minicpm5-2b'].cloud_reference_usd_per_million;
-        }
-        if (data.tiers['meta-llama/llama-3.1-8b-instruct']) {
-          CM_PRICING['8b'].blended = data.tiers['meta-llama/llama-3.1-8b-instruct'].blended_usd_per_million;
-          CM_PRICING['8b'].cloud = data.tiers['meta-llama/llama-3.1-8b-instruct'].cloud_reference_usd_per_million;
-        }
-        if (data.tiers['qwen/qwen2.5-14b-instruct']) {
-          CM_PRICING['14b'].blended = data.tiers['qwen/qwen2.5-14b-instruct'].blended_usd_per_million;
-          CM_PRICING['14b'].cloud = data.tiers['qwen/qwen2.5-14b-instruct'].cloud_reference_usd_per_million;
-        }
-        if (data.tiers['qwen/qwen2.5-32b-instruct']) {
-          CM_PRICING['32b'].blended = data.tiers['qwen/qwen2.5-32b-instruct'].blended_usd_per_million;
-          CM_PRICING['32b'].cloud = data.tiers['qwen/qwen2.5-32b-instruct'].cloud_reference_usd_per_million;
-        }
-        if (data.tiers['llama/llama-3.1-70b-instruct']) {
-          CM_PRICING['70b'].blended = data.tiers['llama/llama-3.1-70b-instruct'].blended_usd_per_million;
-          CM_PRICING['70b'].cloud = data.tiers['llama/llama-3.1-70b-instruct'].cloud_reference_usd_per_million;
-        }
-        updateCalculators();
-      }
+    const [modelsResponse, pricesResponse] = await Promise.all([
+      fetch('/v1/models'), fetch('/api/v1/pricing')
+    ]);
+    if (!modelsResponse.ok || !pricesResponse.ok) throw new Error('catalog_unavailable');
+    const models = await modelsResponse.json();
+    const prices = await pricesResponse.json();
+    const tiers = prices && prices.tiers && typeof prices.tiers === 'object' ? prices.tiers : {};
+    const entries = Array.isArray(models.data) ? models.data : [];
+    const published = entries.filter(model => model && typeof model.id === 'string' &&
+      Object.prototype.hasOwnProperty.call(tiers, model.id) &&
+      Number.isFinite(Number(tiers[model.id].prompt_usd_per_million)) &&
+      Number.isFinite(Number(tiers[model.id].completion_usd_per_million)));
+    target.replaceChildren();
+    if (!published.length) {
+      target.textContent = german
+        ? 'Für die aktuell verfügbaren Modelle ist noch kein passender öffentlicher Preistier veröffentlicht. Bitte vor Nutzung die Abrechnung prüfen.'
+        : 'No matching public price tier is published for the currently available models. Check billing before use.';
+      return;
     }
-  } catch (e) {}
-}
-
-// Pricing Calculators
-function updateCalculators() {
-  // Developer Calculator
-  const tokensM = parseFloat(document.getElementById('slider-tokens')?.value || 50);
-  const modelTier = document.getElementById('select-model')?.value || '8b';
-  
-  const tierCfg = CM_PRICING[modelTier] || CM_PRICING['8b'];
-  const ratePerMillion = tierCfg.blended;
-  const cloudRate = tierCfg.cloud;
-  
-  const cmCost = (tokensM * ratePerMillion).toFixed(2);
-  const cloudCost = (tokensM * cloudRate).toFixed(2);
-  
-  const cmEl = document.getElementById('calc-cm-cost');
-  const cloudEl = document.getElementById('calc-cloud-cost');
-  const tokensVal = document.getElementById('tokens-val');
-  
-  if (cmEl) cmEl.textContent = `$${cmCost}`;
-  if (cloudEl) cloudEl.textContent = `$${cloudCost}`;
-  if (tokensVal) tokensVal.textContent = `${tokensM} M`;
-
-  // Provider Calculator (75% net revenue payout from processed tokens)
-  const rigType = document.getElementById('select-rig')?.value || '5x8gb';
-  const hours = parseFloat(document.getElementById('slider-hours')?.value || 24);
-  
-  let monthlyYield = 145.0; // 5x 8GB base (~$145 net/month)
-  if (rigType === 'rtx3080') monthlyYield = 65.0;
-  else if (rigType === 'rtx4090') monthlyYield = 195.0;
-  else if (rigType === '8x3070') monthlyYield = 310.0;
-  
-  const estEarnings = ((monthlyYield * (hours / 24))).toFixed(2);
-  const earnedCredits = Math.round(Number(estEarnings) * 1000000); // 1 USD = 1,000,000 Credits (Micro-Units)
-  const earnEl = document.getElementById('calc-provider-earnings');
-  const hoursVal = document.getElementById('hours-val');
-  
-  if (earnEl) {
-    const period = currentLang === 'de' ? '/ Monat' : '/ month';
-    earnEl.innerHTML = `$${estEarnings} <span style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">${period} (${(earnedCredits / 1000000).toFixed(2)}M Credits)</span>`;
-  }
-  if (hoursVal) hoursVal.textContent = currentLang === 'de' ? `${hours} h/Tag` : `${hours} h/day`;
-}
-
-function showTab(tabName) {
-  document.querySelectorAll('.calc-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.calc-pane').forEach(p => p.style.display = 'none');
-  
-  if (tabName === 'dev') {
-    document.getElementById('tab-dev-btn')?.classList.add('active');
-    const pane = document.getElementById('pane-dev');
-    if (pane) pane.style.display = 'grid';
-  } else {
-    document.getElementById('tab-prov-btn')?.classList.add('active');
-    const pane = document.getElementById('pane-prov');
-    if (pane) pane.style.display = 'grid';
+    const table = document.createElement('table');
+    const header = document.createElement('tr');
+    for (const title of (german
+      ? ['Modell', 'Eingabe / 1 Mio. Tokens', 'Ausgabe / 1 Mio. Tokens']
+      : ['Model', 'Input / 1M tokens', 'Output / 1M tokens'])) {
+      const cell = document.createElement('th');
+      cell.textContent = title;
+      header.appendChild(cell);
+    }
+    table.appendChild(header);
+    for (const model of published) {
+      const row = document.createElement('tr');
+      const tier = tiers[model.id];
+      for (const value of [model.id, `$${Number(tier.prompt_usd_per_million).toFixed(4)}`,
+        `$${Number(tier.completion_usd_per_million).toFixed(4)}`]) {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.appendChild(cell);
+      }
+      table.appendChild(row);
+    }
+    target.appendChild(table);
+  } catch (error) {
+    target.textContent = german
+      ? 'Live-Preise sind derzeit nicht abrufbar. Bitte vor Nutzung die Abrechnung prüfen.'
+      : 'Live pricing is unavailable. Check billing before use.';
   }
 }
 
@@ -2396,7 +2356,7 @@ async function runPlaygroundPrompt() {
   const statsEl = document.getElementById('playground-stats');
   const btnEl = document.getElementById('playground-btn');
 
-  if (!modelEl || !inputEl || !outputEl) return;
+  if (!modelEl || !inputEl || !outputEl || modelEl.disabled || !modelEl.value) return;
 
   const promptText = inputEl.value.trim();
   if (!promptText) return;
@@ -2453,6 +2413,7 @@ async function sendPlaygroundMessage() {
 
   const promptText = inputEl.value.trim();
   if (!promptText) return;
+  if (modelEl.disabled || !modelEl.value) return;
 
   // Check quota limit
   if (teaserRequestsRemaining <= 0 && teaserResetAtMs > Date.now()) {
@@ -2688,7 +2649,9 @@ function updateMeshTelemetryTicker(stats) {
     gpusEl.textContent = `${gpusVal} ${gpuWord} ${onlineWord}`;
   }
   if (tflopsEl) {
-    tflopsEl.textContent = `${tflopsVal.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} TFLOPS`;
+    tflopsEl.textContent = Number.isFinite(tflopsVal) && tflopsVal > 0
+      ? `${tflopsVal.toLocaleString(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} TFLOPS`
+      : (isDe ? 'Nicht gemessen' : 'Not measured');
   }
   if (nodesEl) {
     nodesEl.textContent = `${nodesVal} ${nodeWord} ${activeWord}`;
@@ -2727,14 +2690,9 @@ function initPortal() {
   if (action.get('action') === 'deposit') openDepositModal();
   if (action.get('action') === 'register') openModal(action.get('role') === 'provider' ? 'provider' : 'consumer');
   
-  document.getElementById('slider-tokens')?.addEventListener('input', updateCalculators);
-  document.getElementById('select-model')?.addEventListener('change', updateCalculators);
-  document.getElementById('select-rig')?.addEventListener('change', updateCalculators);
-  document.getElementById('slider-hours')?.addEventListener('input', updateCalculators);
-  
-  updateCalculators();
-  loadCanonicalPricing();
+  loadLivePricing();
   fetchMeshTelemetry();
+  loadLiveModelCatalog();
   loadRealMarketplaceData();
   setInterval(loadRealMarketplaceData, 20000);
   setInterval(fetchMeshTelemetry, 15000);
@@ -2763,6 +2721,118 @@ let currentMarketFilters = {
 };
 
 let _lastFetchedNodes = [];
+let _marketplaceFetchState = 'loading';
+let _lastFetchedModels = null;
+let _modelCatalogLoaded = false;
+let _currentModelCategory = 'all';
+
+async function loadLiveModelCatalog() {
+  if (!document.getElementById('models-cards-container') &&
+      !document.getElementById('playground-model-select') &&
+      !document.getElementById('playground-model')) return;
+  try {
+    const response = await fetch('/v1/models', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Model catalog HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.data)) throw new Error('Invalid model catalog');
+    _lastFetchedModels = payload.data.filter(model => model && typeof model.id === 'string' && model.id.length <= 128);
+  } catch (error) {
+    console.warn('Model catalog fetch note:', error);
+    _lastFetchedModels = null;
+  }
+  _modelCatalogLoaded = true;
+  renderLiveModelCards(_lastFetchedModels, window.currentLang === 'de');
+  renderLivePlaygroundModels(_lastFetchedModels, window.currentLang === 'de');
+}
+
+function renderLivePlaygroundModels(models, isDe) {
+  for (const selectId of ['playground-model-select', 'playground-model']) {
+  const select = document.getElementById(selectId);
+  if (!select) continue;
+  const previous = select.value;
+  const availableModels = (models || []).filter(model =>
+    model.available !== false && !String(model.availability || '').startsWith('unavailable')
+  );
+  select.replaceChildren();
+  const sendButton = document.getElementById(selectId === 'playground-model' ? 'playground-btn' : 'playground-send-btn');
+  if (availableModels.length === 0) {
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = !_modelCatalogLoaded
+      ? (isDe ? 'Live-Modelle werden geladen...' : 'Loading live models...')
+      : (isDe ? 'Keine Modelle verfügbar' : 'No models available');
+    select.appendChild(placeholder);
+    select.disabled = true;
+    if (sendButton) sendButton.disabled = true;
+    continue;
+  }
+  for (const model of availableModels) {
+    const option = document.createElement('option');
+    option.value = model.id;
+    option.textContent = model.id;
+    select.appendChild(option);
+  }
+  select.value = availableModels.some(model => model.id === previous) ? previous : availableModels[0].id;
+  select.disabled = false;
+  if (sendButton) sendButton.disabled = false;
+  if (selectId === 'playground-model-select') syncPlaygroundModel(select.value);
+  }
+}
+
+function renderLiveModelCards(models, isDe) {
+  const container = document.getElementById('models-cards-container');
+  if (!container) return;
+  container.replaceChildren();
+  if (!models || models.length === 0) {
+    const notice = document.createElement('p');
+    notice.className = 'model-catalog-notice';
+    notice.textContent = models === null
+      ? (!_modelCatalogLoaded
+          ? (isDe ? 'Der Live-Modellkatalog wird geladen...' : 'Loading the live model catalog...')
+          : (isDe ? 'Der Live-Modellkatalog ist momentan nicht erreichbar.' : 'The live model catalog is currently unavailable.'))
+      : (isDe ? 'Das Gateway meldet derzeit keine Modelle.' : 'The gateway currently lists no models.');
+    container.appendChild(notice);
+    return;
+  }
+
+  for (const model of models) {
+    const capabilities = Array.isArray(model.capabilities) ? model.capabilities.filter(value => typeof value === 'string') : [];
+    const lowerId = model.id.toLowerCase();
+    const category = capabilities.includes('vision') || lowerId.includes('llava') ? 'vision'
+      : lowerId.includes('coder') || lowerId.includes('code') ? 'code'
+      : lowerId.includes('reason') || lowerId.includes('deepseek') ? 'reasoning' : 'fast';
+    const available = model.available !== false && !String(model.availability || '').startsWith('unavailable');
+    const card = document.createElement('div');
+    card.className = 'model-card';
+    card.dataset.category = category;
+    card.innerHTML = '<div class="model-card-top"><span class="model-badge fast"></span><span class="model-context"></span></div>' +
+      '<h3 class="model-name"></h3><p class="model-desc"></p><div class="model-card-footer"></div>';
+    card.querySelector('.model-badge').textContent = available
+      ? (isDe ? 'Im Gateway verfügbar' : 'Available in gateway')
+      : (isDe ? 'Derzeit nicht verfügbar' : 'Currently unavailable');
+    card.querySelector('.model-context').textContent = category === 'vision'
+      ? (isDe ? 'Bild + Text' : 'Image + text') : (isDe ? 'Text' : 'Text');
+    card.querySelector('.model-name').textContent = model.id;
+    card.querySelector('.model-desc').textContent = isDe
+      ? `Live-Katalogeintrag · Fähigkeiten: ${capabilities.join(', ') || 'Text'}`
+      : `Live catalog entry · Capabilities: ${capabilities.join(', ') || 'text'}`;
+    if (available) {
+      const actions = card.querySelector('.model-card-footer');
+      const chatLink = document.createElement('a');
+      chatLink.href = 'https://ai.inetconnector.com/webui/';
+      chatLink.className = 'btn btn-primary btn-sm';
+      chatLink.textContent = isDe ? 'Im Chat öffnen' : 'Open chat';
+      const copyButton = document.createElement('button');
+      copyButton.type = 'button';
+      copyButton.className = 'btn btn-secondary btn-sm';
+      copyButton.textContent = isDe ? 'API-Code kopieren' : 'Copy API code';
+      copyButton.addEventListener('click', () => copyModelApiSnippet(model.id));
+      actions.append(chatLink, copyButton);
+    }
+    container.appendChild(card);
+  }
+  filterModelCategory(_currentModelCategory);
+}
 
 async function loadRealMarketplaceData() {
   const container = document.getElementById('marketplace-cards-container');
@@ -2772,13 +2842,21 @@ async function loadRealMarketplaceData() {
 
   try {
     const res = await fetch('/api/v1/mesh/fleet', { cache: 'no-store' });
+    if (res.status === 401 || res.status === 403) {
+      _marketplaceFetchState = 'auth';
+      _lastFetchedNodes = [];
+      renderRealMarketplaceCards([], isDe);
+      return;
+    }
     if (!res.ok) throw new Error('Fleet status HTTP ' + res.status);
     const data = await res.json();
-    _lastFetchedNodes = (data && data.nodes) ? data.nodes : [];
+    _lastFetchedNodes = (data && Array.isArray(data.nodes)) ? data.nodes : [];
+    _marketplaceFetchState = 'ready';
 
     renderRealMarketplaceCards(_lastFetchedNodes, isDe);
   } catch (err) {
     console.warn('Real marketplace fetch note:', err);
+    if (_marketplaceFetchState !== 'ready') _marketplaceFetchState = 'error';
     renderRealMarketplaceCards(_lastFetchedNodes, isDe);
   }
 }
@@ -2790,12 +2868,36 @@ function renderRealMarketplaceCards(nodes, isDe) {
   container.innerHTML = '';
 
   if (!nodes || nodes.length === 0) {
+    if (_marketplaceFetchState !== 'ready') {
+      const notice = document.createElement('div');
+      notice.className = 'market-card highlight';
+      notice.style.gridColumn = '1 / -1';
+      notice.style.textAlign = 'center';
+      notice.style.padding = '3rem 2rem';
+      const heading = document.createElement('h3');
+      const body = document.createElement('p');
+      const link = document.createElement('a');
+      heading.textContent = _marketplaceFetchState === 'auth'
+        ? (isDe ? 'Knotendetails erfordern eine Anmeldung' : 'Sign in to view node details')
+        : (_marketplaceFetchState === 'loading'
+            ? (isDe ? 'Knotendaten werden geladen' : 'Loading node data')
+            : (isDe ? 'Knotendaten sind momentan nicht verfügbar' : 'Node data is currently unavailable'));
+      body.textContent = isDe
+        ? 'Öffentliche GPU- und Knotenzahlen stehen in der Live-Übersicht. Persönliche Flottendetails sind geschützt.'
+        : 'Public GPU and node counts appear in the live overview. Personal fleet details are protected.';
+      link.href = '/fleet';
+      link.className = 'btn btn-primary';
+      link.textContent = isDe ? 'Zur Flottenanmeldung' : 'Open fleet sign-in';
+      notice.append(heading, body, link);
+      container.appendChild(notice);
+      return;
+    }
     container.innerHTML = `
       <div class="market-card highlight" style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem; background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(56, 189, 248, 0.08)); border: 1px dashed rgba(56, 189, 248, 0.35);">
         <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🌐</div>
-        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">${isDe ? 'Mesh-Gateway ist live &amp; betriebsbereit' : 'Mesh Gateway is Live &amp; Ready'}</h3>
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">${isDe ? 'Keine Knoten in dieser Flottenansicht' : 'No nodes in this fleet view'}</h3>
         <p style="color: var(--text-muted); max-width: 620px; margin: 0 auto 1.5rem auto; font-size: 0.95rem; line-height: 1.6;">
-          ${isDe ? 'Führe KI-Inferenz über unsere OpenAI-kompatible High-Speed-API aus oder verbinde deine eigenen GPUs &amp; Mining-Rigs, um hier in Echtzeit als Hardware-Provider gelistet zu werden.' : 'Run high-speed AI inference via our OpenAI-compatible gateway or connect your own GPUs &amp; mining rigs to be listed here as a live hardware provider.'}
+          ${isDe ? 'Das Gateway hat für diese Anmeldung derzeit keine sichtbaren Knoten gemeldet.' : 'The gateway currently reports no visible nodes for this sign-in.'}
         </p>
         <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
           <button class="btn btn-primary" onclick="openModal('consumer')">${isDe ? '🚀 API-Key holen' : '🚀 Get API Key'}</button>
@@ -2808,12 +2910,20 @@ function renderRealMarketplaceCards(nodes, isDe) {
 
   // Render each REAL live node
   nodes.forEach(node => {
-    const gpusList = (node.gpus && node.gpus.length > 0) ? node.gpus : ['ComputeMesh Hardware Worker'];
-    const gpusStr = gpusList.join(' • ');
+    if (!node || typeof node !== 'object') return;
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+    const gpusList = Array.isArray(node.gpus) && node.gpus.length > 0
+      ? node.gpus.filter(value => typeof value === 'string').slice(0, 16)
+      : ['ComputeMesh Hardware Worker'];
+    const gpusStr = escapeHtml(gpusList.join(' • '));
     const isOnline = Boolean(node.is_online || node.status === 'online');
-    const vram = node.vram_gb ? Number(node.vram_gb).toFixed(1) : '16.0';
-    const tflops = node.tflops ? Number(node.tflops).toFixed(1) : '24.0';
-    const nodeId = node.node_id || 'Node';
+    const vramNumber = Number(node.vram_gb);
+    const tflopsNumber = Number(node.tflops);
+    const vram = Number.isFinite(vramNumber) && vramNumber > 0 ? `${vramNumber.toFixed(1)} GB` : (isDe ? 'Nicht gemessen' : 'Not measured');
+    const tflops = Number.isFinite(tflopsNumber) && tflopsNumber > 0 ? `${tflopsNumber.toFixed(1)} TFLOPS` : (isDe ? 'Nicht gemessen' : 'Not measured');
+    const nodeId = escapeHtml(node.node_id || 'Node');
 
     let gpuCategory = 'nvidia';
     let badgeClass = 'nvidia';
@@ -2834,12 +2944,18 @@ function renderRealMarketplaceCards(nodes, isDe) {
       badgeText = `${gpusList.length}x Multi-GPU Cluster`;
     }
 
-    const remoteUrl = node.remote_url || (node.candidate_local_urls && node.candidate_local_urls[0]) || '';
+    let remoteUrl = '';
+    try {
+      const parsedUrl = new URL(String(node.remote_url || ''));
+      if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') remoteUrl = escapeHtml(parsedUrl.href);
+    } catch (error) {
+      // No dashboard link without a valid HTTP(S) URL.
+    }
 
     const card = document.createElement('div');
     card.className = 'market-card';
     card.setAttribute('data-gpu', gpuCategory);
-    card.setAttribute('data-vram', Math.round(Number(vram)));
+    card.setAttribute('data-vram', Number.isFinite(vramNumber) && vramNumber > 0 ? Math.round(vramNumber) : 0);
     card.setAttribute('data-status', isOnline ? 'online' : 'standby');
 
     card.innerHTML = `
@@ -2852,20 +2968,20 @@ function renderRealMarketplaceCards(nodes, isDe) {
       <h3 class="market-gpu-name" style="font-family: var(--font-mono); font-size: 1.15rem; color: #ffffff;">${nodeId}</h3>
       <p class="market-gpu-sub">${gpusStr}</p>
       <div class="market-specs-row">
-        <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">${vram} GB</span></div>
-        <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">${tflops} TFLOPS</span></div>
-        <div class="spec-box"><span class="spec-lbl">${isDe ? 'Netzwerk' : 'Network'}</span><span class="spec-val">Direct P2P</span></div>
+        <div class="spec-box"><span class="spec-lbl">VRAM</span><span class="spec-val">${vram}</span></div>
+        <div class="spec-box"><span class="spec-lbl">AI Power</span><span class="spec-val">${tflops}</span></div>
+        <div class="spec-box"><span class="spec-lbl">${isDe ? 'Status' : 'Status'}</span><span class="spec-val">${isOnline ? 'Online' : 'Standby'}</span></div>
       </div>
       <div class="market-price-row">
         <div>
-          <span class="price-val">$0.15</span> <span class="price-unit">/ 1M Tokens</span>
-          <div class="hourly-est">${isDe ? 'Pay-per-Token Abrechnung' : 'Pay-per-Token Billing'}</div>
+          <span class="price-val">${isDe ? 'Tarif nach Modell' : 'Price by model'}</span>
+          <div class="hourly-est">${isDe ? 'Preis vor Auftrag prüfen' : 'Check price before request'}</div>
         </div>
         <span class="verified-tag">${isDe ? '✓ Echter Mesh-Knoten' : '✓ Real Mesh Node'}</span>
       </div>
       <div class="market-card-actions">
-        <button class="btn btn-primary btn-sm" onclick="selectModelInPlayground('deepseek-ai/deepseek-r1')">⚡ ${isDe ? 'Inferenz starten' : 'Run Inference'}</button>
-        ${remoteUrl ? `<a href="${remoteUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🖥️ ${isDe ? 'Node Dashboard' : 'Node Dashboard'}</a>` : `<button class="btn btn-secondary btn-sm" onclick="copyModelApiSnippet('deepseek-ai/deepseek-r1')">📋 API-Snippet</button>`}
+        <a class="btn btn-primary btn-sm" href="/models">${isDe ? 'Modelle ansehen' : 'View models'}</a>
+        ${remoteUrl ? `<a href="${remoteUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🖥️ Node Dashboard</a>` : ''}
       </div>
     `;
     container.appendChild(card);
@@ -2951,8 +3067,11 @@ function copyMarketCommand(modelId) {
 }
 
 function filterModelCategory(cat, btn) {
-  document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  _currentModelCategory = cat;
+  if (btn) {
+    document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+  }
   
   const cards = document.querySelectorAll('.model-card');
   cards.forEach(card => {
@@ -3005,7 +3124,7 @@ for chunk in response:
 function syncPlaygroundModel(modelId) {
   const statusEl = document.getElementById('pg-cluster-status');
   if (statusEl) {
-    statusEl.textContent = (currentLang === 'de' ? `Mesh-Cluster aktiv (${modelId})` : `Mesh cluster active (${modelId})`);
+    statusEl.textContent = (currentLang === 'de' ? `Modell ausgewählt (${modelId})` : `Model selected (${modelId})`);
   }
 }
 

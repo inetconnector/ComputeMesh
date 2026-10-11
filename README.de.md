@@ -2,6 +2,15 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
+Das Portal liest den aktuellen Modellkatalog direkt vom Gateway. Modellliste
+und Playground zeigen nur gemeldete Modelle; die Marketplace-Ansicht verlangt
+Flottenzugriff und kennzeichnet fehlende Messwerte. Die Preisseite zeigt nur
+Preise für Live-Modell-IDs mit exakt passendem veröffentlichtem Preistier und
+schätzt keine Provider-Einnahmen. Der alte Python-`exec`/`eval`-MCP ist nicht
+mehr registriert; für Codeausführung fehlt noch ein isolierter Dienst. Neue
+und nicht ausdrücklich geprüfte MCP-Werkzeuge sind standardmäßig nur mit dem
+konfigurierten Gateway-Admin-Token nutzbar.
+
 Aktuelle Fragen zum Fernsehprogramm werden über eine Live-Websuche beantwortet,
 auch allgemeine Fragen wie „Was kommt jetzt im Fernsehen?“. Die mobile App
 verwendet einen Node-Tunnel nur mit dem dafür vorgesehenen Node-Zugangstoken;

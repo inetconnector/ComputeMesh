@@ -502,6 +502,12 @@ class TestToolRegistry(unittest.TestCase):
         names = [t.name for t in non_owner_tools]
         self.assertNotIn("lookup_network_host", names)
         self.assertNotIn("get_system_info", names)
+        self.assertNotIn("read_workspace_file", names)
+        self.assertNotIn("run_terminal_command", names)
+        self.assertNotIn("execute_http_request", names)
+        self.assertNotIn("search_knowledge_base", names)
+        self.assertNotIn("generate_ai_image", names)
+        self.assertNotIn("execute_python_code", names)
         self.assertIn("calculate_math", names)
         self.assertIn("convert_currency", names)
         self.assertIn("lookup_country_data", names)
@@ -524,6 +530,27 @@ class TestToolRegistry(unittest.TestCase):
         res = self.registry.execute_tool("lookup_network_host", {"host": "example.com"}, is_owner=False)
         self.assertIn("error", res)
         self.assertIn("Owner Key", res["error"])
+
+        blocked = self.registry.execute_tool("run_terminal_command", {"command": "echo hello"}, is_owner=False)
+        self.assertIn("error", blocked)
+        self.assertIn("Owner Key", blocked["error"])
+        self.assertIsNone(self.registry.get_tool("execute_python_code"))
+
+    def test_tool_inventory_respects_caller_scope(self):
+        public = self.registry.execute_tool("list_available_tools", {}, is_owner=False)
+        owner = self.registry.execute_tool("list_available_tools", {}, is_owner=True)
+        public_names = {item["name"] for item in public["available_tools"]}
+        owner_names = {item["name"] for item in owner["available_tools"]}
+        self.assertNotIn("lookup_network_host", public_names)
+        self.assertIn("lookup_network_host", owner_names)
+
+        self.registry.register_tool(
+            "new_unreviewed_tool", "Unknown capabilities stay private", {"type": "object", "properties": {}},
+            lambda: {"ok": True},
+        )
+        self.assertNotIn("new_unreviewed_tool", {
+            item.name for item in self.registry.list_tools(is_owner=False)
+        })
 
 
 class TestAgentLoop(unittest.TestCase):

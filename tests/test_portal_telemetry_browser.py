@@ -11,7 +11,9 @@ def test_late_portal_script_initializes_telemetry():
 
     core = Path(__file__).resolve().parents[1] / "portal" / "portal-core.js"
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = playwright.chromium.launch(
+            headless=True, executable_path=os.getenv("COMPUTEMESH_BROWSER_EXECUTABLE") or None
+        )
         page = browser.new_page()
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))

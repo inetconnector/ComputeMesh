@@ -18,7 +18,9 @@ def test_portal_documents_navigation_and_layout(width):
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = playwright.chromium.launch(
+            headless=True, executable_path=os.getenv("COMPUTEMESH_BROWSER_EXECUTABLE") or None
+        )
         context = browser.new_context(viewport={"width": width, "height": 900}, locale="de-DE")
         page = context.new_page()
         errors = []
@@ -51,12 +53,8 @@ def test_portal_documents_navigation_and_layout(width):
                 assert page.locator('header a[href^="#"]').count() == 0
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), (path, language, width)
                 if path == "/pricing":
-                    for button in page.locator('.calc-tab').all():
-                        box = button.bounding_box()
-                        assert box and box['x'] + box['width'] <= width + 1
-                    page.locator('#tab-prov-btn').click()
-                    assert page.locator('#pane-prov').is_visible()
-                    page.locator('#tab-dev-btn').click()
+                    assert page.locator('#live-pricing').is_visible()
+                    assert page.locator('#tab-prov-btn').count() == 0
             if path == "/":
                 assert page.locator("h1").inner_text() == "ComputeMesh"
                 assert page.locator('a[href="https://smartx.inetconnector.com/"]').count() > 0
@@ -71,7 +69,9 @@ def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
     from playwright.sync_api import expect, sync_playwright
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = playwright.chromium.launch(
+            headless=True, executable_path=os.getenv("COMPUTEMESH_BROWSER_EXECUTABLE") or None
+        )
         page = browser.new_page(viewport={"width": width, "height": 900}, locale="de-DE")
 
         def serve(route):
@@ -115,7 +115,7 @@ def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
                     box = link.bounding_box()
                     page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=20)
                     expect(menu).to_be_visible()
-                    link.click()
+                    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
                     page.wait_for_url(f"https://portal.test{target_path}")
         finally:
             browser.close()

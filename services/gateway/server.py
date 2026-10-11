@@ -610,11 +610,26 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.close_connection = True
 
+    @staticmethod
+    def _is_custom_tool_path(path: str) -> bool:
+        return any(
+            path == prefix or path.startswith(prefix + "/")
+            for prefix in ("/v1/mcp/custom-tools", "/api/v1/mcp/custom-tools", "/mcp/custom-tools")
+        )
+
+    def _require_mcp_admin(self) -> bool:
+        allowed, error_message, status = self.auth_manager.authenticate_admin(self.headers)
+        if not allowed:
+            self._send_error_response(error_message or "Operator authentication required", "authentication_error", status)
+        return allowed
+
     def do_DELETE(self) -> None:
         if not self._check_rate_limit():
             return
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
+        if self._is_custom_tool_path(clean_path) and not self._require_mcp_admin():
+            return
         if clean_path.startswith("/v1/mcp/custom-tools/") or clean_path.startswith("/api/v1/mcp/custom-tools/"):
             from services.mcp.dynamic.custom_tool_store import get_custom_tool_store
             t_name = clean_path.split("/")[-1]
@@ -632,6 +647,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
         query = parse_qs(parsed_path.query)
+        if self._is_custom_tool_path(clean_path) and not self._require_mcp_admin():
+            return
 
         agent_prefix = next(
             (prefix for prefix in ("/v1/agents/sessions", "/api/v1/agents/sessions") if clean_path.startswith(prefix)),
@@ -1095,7 +1112,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/v1/mcp/tools", "/api/v1/mcp/tools", "/mcp/tools"):
-            tools = self.inference_engine.tool_registry.get_openai_tools(is_owner=True)
+            auth = self.auth_manager.authenticate_request(
+                self.headers, getattr(self, "client_address", None), allow_teaser=True
+            )
+            tools = self.inference_engine.tool_registry.get_openai_tools(
+                is_owner=auth.can_use_owner_tools and auth.is_authenticated and not auth.is_teaser
+            )
             self._send_json({"object": "list", "data": tools})
             return
 
@@ -1420,6 +1442,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         parsed_path = urlparse(self.path)
         clean_path = parsed_path.path.rstrip("/")
+        if self._is_custom_tool_path(clean_path) and not self._require_mcp_admin():
+            return
 
         content_length_hdr = self.headers.get("Content-Length")
         if not content_length_hdr:
@@ -2625,6 +2649,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 messages=messages,
                 is_teaser=is_teaser,
                 is_provider_self_compute=is_self_compute,
+                is_owner=auth.can_use_owner_tools and not is_teaser,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
@@ -2646,6 +2671,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 messages=messages,
                 is_teaser=is_teaser,
                 is_provider_self_compute=is_self_compute,
+                is_owner=auth.can_use_owner_tools and not is_teaser,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
@@ -2703,6 +2729,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 messages=messages,
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
+                is_owner=auth.can_use_owner_tools and not auth.is_teaser,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
             )
@@ -2723,6 +2750,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             messages=messages,
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
+            is_owner=auth.can_use_owner_tools and not auth.is_teaser,
             client_ip=client_ip,
             max_tokens=max_tokens,
         ):
@@ -2757,6 +2785,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 images=images,
                 is_teaser=auth.is_teaser,
                 is_provider_self_compute=auth.is_provider_self_compute,
+                is_owner=auth.can_use_owner_tools and not auth.is_teaser,
                 client_ip=client_ip,
                 max_tokens=max_tokens,
             )
@@ -2778,6 +2807,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             images=images,
             is_teaser=auth.is_teaser,
             is_provider_self_compute=auth.is_provider_self_compute,
+            is_owner=auth.can_use_owner_tools and not auth.is_teaser,
             client_ip=client_ip,
             max_tokens=max_tokens,
         ):

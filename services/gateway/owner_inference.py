@@ -146,6 +146,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         client_ip: str = "127.0.0.1",
         is_teaser: bool = False,
         is_provider_self_compute: bool = False,
+        is_owner: bool = False,
         max_tokens: int | None = None,
         enable_mcp: bool = True,
         client_tools: list[dict[str, Any]] | None = None,
@@ -161,6 +162,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                 client_ip=client_ip,
                 is_teaser=True,
                 is_provider_self_compute=False,
+                is_owner=False,
                 max_tokens=max_tokens,
                 enable_mcp=enable_mcp,
                 client_tools=client_tools,
@@ -251,7 +253,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                 has_tool_system = any(m.get("role") == "system" and "Verfügbare Tools" in str(m.get("content", "")) for m in enhanced_msgs)
                 if not has_tool_system:
                     active_tools = [
-                        t for t in self.tool_registry.list_tools(is_owner=True)
+                        t for t in self.tool_registry.list_tools(is_owner=is_owner)
                         if t.name not in disabled_set
                     ]
                     tools_desc = "\n".join([
@@ -275,7 +277,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                     messages=enhanced_msgs,
                     model=canonical_model_id,
                     llm_caller=local_llm_caller,
-                    is_owner=True,
+                    is_owner=is_owner,
                     disabled_tools=disabled_tools,
                 )
                 completion_text = agent_res.final_content

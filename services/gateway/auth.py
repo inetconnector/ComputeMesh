@@ -108,6 +108,8 @@ def _load_api_key_store(path: Path | None) -> dict[str, str]:
 class AuthResult:
     account_id: str | None = None
     owner_id: str | None = None
+    # Owner-only gateway tools act on the host, so fleet ownership alone is insufficient.
+    can_use_owner_tools: bool = False
     is_teaser: bool = False
     is_provider_self_compute: bool = False
     is_quota_exceeded: bool = False
@@ -281,6 +283,7 @@ class GatewayAuthManager:
                 return AuthResult(
                     account_id="admin_root",
                     owner_id="admin_root",
+                    can_use_owner_tools=True,
                     is_teaser=False,
                     is_provider_self_compute=True,
                     is_quota_exceeded=False,
