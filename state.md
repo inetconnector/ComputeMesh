@@ -4,6 +4,11 @@
 
 ## 2026-10-11 targeted Plesk rollout
 
+The updater now validates deployment-specific absolute extraction targets and
+systemd unit names and invokes `systemctl` directly without a shell command.
+This is covered by five focused updater tests. The live Plesk updater remains
+held while the staging target and service restart policy are reviewed.
+
 - Public commits `364f40c` through `2f98f2f` implement the protected local QR
   SVG route, neutral dashboard/WebUI tokens, and synchronized Android WebUI
   theme. The final WebUI cache marker is `neutral-theme.css?v=20261011-5`.

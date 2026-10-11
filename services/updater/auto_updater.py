@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import sys
 import tempfile
@@ -177,6 +178,45 @@ class AutoUpdater:
 
         return target_path
 
+    @staticmethod
+    def _linux_update_targets() -> list[Path]:
+        """Return configured extraction roots without accepting relative paths."""
+        raw = os.environ.get("COMPUTEMESH_LINUX_UPDATE_TARGETS", "")
+        values = [item.strip() for item in raw.split(os.pathsep) if item.strip()]
+        if not values:
+            values = ["/opt/computemesh", "/root/ComputeMesh"]
+        targets: list[Path] = []
+        for value in values:
+            # These are Linux paths even when the module is unit-tested on
+            # Windows, so validate the POSIX root marker explicitly.
+            target = Path(value)
+            if not value.startswith("/"):
+                raise ValueError("COMPUTEMESH_LINUX_UPDATE_TARGETS must contain absolute paths")
+            if target not in targets:
+                targets.append(target)
+        return targets
+
+    @staticmethod
+    def _linux_update_services() -> list[str]:
+        """Return validated systemd units to restart after a Linux update."""
+        raw = os.environ.get("COMPUTEMESH_LINUX_UPDATE_SERVICES", "")
+        values = [item.strip() for item in raw.split() if item.strip()]
+        if not values:
+            values = [
+                "computemesh-appliance.service",
+                "computemesh-dashboard.service",
+                "computemesh-kiosk.service",
+                "computemesh-console.service",
+                "computemesh-node.service",
+                "computemesh-gateway.service",
+                "computemesh-autoupdate.service",
+                "computemesh.service",
+            ]
+        for value in values:
+            if not re.fullmatch(r"computemesh-[a-z0-9-]+\.service|computemesh\.service", value):
+                raise ValueError(f"invalid systemd unit: {value}")
+        return list(dict.fromkeys(values))
+
     def apply_windows_update(self, downloaded_exe: Path) -> None:
         """Apply Windows binary update by spawning updater script."""
         import subprocess
@@ -231,7 +271,7 @@ start "" "%DST%"
         import subprocess
 
         if downloaded_pkg.suffix in (".gz", ".tgz") or downloaded_pkg.name.endswith(".tar.gz"):
-            for target_dir in ["/opt/computemesh", "/root/ComputeMesh"]:
+            for target_dir in self._linux_update_targets():
                 p = Path(target_dir)
                 if p.exists():
                     try:
@@ -247,9 +287,9 @@ start "" "%DST%"
                     except Exception:
                         pass
 
-            # Restart all active computemesh services
+            # Restart only explicitly configured, validated ComputeMesh units.
             subprocess.Popen(
-                ["sh", "-c", "sleep 1 && systemctl restart computemesh-appliance.service computemesh-dashboard.service computemesh-kiosk.service computemesh-console.service computemesh-node.service computemesh-gateway.service computemesh-autoupdate.service computemesh.service || true"],
+                ["systemctl", "restart", *self._linux_update_services()],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )

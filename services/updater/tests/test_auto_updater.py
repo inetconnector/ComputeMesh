@@ -1,8 +1,10 @@
 """Unit tests for ComputeMesh Cryptographic Auto-Updater."""
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
@@ -68,6 +70,56 @@ class TestAutoUpdater(unittest.TestCase):
             pub_key.verify(
                 bytes.fromhex(tampered_sig),
                 json.dumps(tampered_manifest, sort_keys=True).encode("utf-8"),
+            )
+
+    def test_linux_update_targets_require_absolute_paths(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"COMPUTEMESH_LINUX_UPDATE_TARGETS": f"/srv/one{os.pathsep}/srv/one{os.pathsep}/srv/two"},
+            clear=False,
+        ):
+            self.assertEqual(
+                AutoUpdater._linux_update_targets(),
+                [Path("/srv/one"), Path("/srv/two")],
+            )
+
+        with patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_TARGETS": "relative/path"}, clear=False):
+            with self.assertRaisesRegex(ValueError, "absolute paths"):
+                AutoUpdater._linux_update_targets()
+
+    def test_linux_update_services_are_validated_and_deduplicated(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"COMPUTEMESH_LINUX_UPDATE_SERVICES": "computemesh-gateway.service computemesh-node.service computemesh-gateway.service"},
+            clear=False,
+        ):
+            self.assertEqual(
+                AutoUpdater._linux_update_services(),
+                ["computemesh-gateway.service", "computemesh-node.service"],
+            )
+
+        with patch.dict(os.environ, {"COMPUTEMESH_LINUX_UPDATE_SERVICES": "sh -c evil"}, clear=False):
+            with self.assertRaisesRegex(ValueError, "invalid systemd unit"):
+                AutoUpdater._linux_update_services()
+
+    def test_linux_update_uses_configured_targets_and_units(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "target"
+            target.mkdir()
+            package = Path(temp_dir) / "update.tar.gz"
+            package.touch()
+            with patch.object(AutoUpdater, "_linux_update_targets", return_value=[target]), patch.object(
+                AutoUpdater,
+                "_linux_update_services",
+                return_value=["computemesh-gateway.service", "computemesh-node.service"],
+            ), patch("shutil.unpack_archive") as unpack, patch("subprocess.Popen") as popen:
+                self.updater.apply_linux_update(package)
+
+            unpack.assert_called_once_with(str(package), str(target))
+            popen.assert_called_once_with(
+                ["systemctl", "restart", "computemesh-gateway.service", "computemesh-node.service"],
+                stdout=unittest.mock.ANY,
+                stderr=unittest.mock.ANY,
             )
 
 

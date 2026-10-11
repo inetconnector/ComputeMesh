@@ -9,6 +9,13 @@ The checked portal/WebUI assets are now deployed to both existing Plesk
 webroots with a targeted rollback backup. Android build/install and signed
 production release remain separate gates.
 
+The Linux cryptographic updater supports deployment-specific absolute target
+directories and an explicit allowlist of ComputeMesh systemd units through
+`COMPUTEMESH_LINUX_UPDATE_TARGETS` and `COMPUTEMESH_LINUX_UPDATE_SERVICES`.
+Unset variables retain the legacy defaults; production staging should set both
+variables explicitly and keep the updater disabled until its target has been
+validated.
+
 **Languages:** **English** | [Deutsch](README.de.md)
 
 The portal reads live mesh telemetry after all client state has initialized,
