@@ -229,6 +229,7 @@ def test_download_entrypoints_and_translation_keys_are_consistent():
 
 
 def test_primary_catalog_pages_mark_page_content_for_bilingual_switching():
+    assert (PORTAL / "models.html").read_bytes() == (PORTAL / "models" / "index.html").read_bytes()
     required = {
         "marketplace.html": (
             "market_provider_tag", "market_provider_title", "market_provider_desc",
