@@ -2,6 +2,23 @@
 
 **Last updated:** 2026-10-11
 
+## 2026-10-11 targeted Plesk rollout
+
+- Public commits `364f40c` through `2f98f2f` implement the protected local QR
+  SVG route, neutral dashboard/WebUI tokens, and synchronized Android WebUI
+  theme. The final WebUI cache marker is `neutral-theme.css?v=20261011-5`.
+- The changed portal assets, benchmark page, model/comparison metadata,
+  neutral badges, portal WebUI entrypoint and theme were copied to both
+  `/var/www/vhosts/inetconnector.com/httpdocs` and `site2`. Every transferred
+  file matched the local SHA-256 after deployment.
+- Rollback backups: `/root/computemesh-backups/website-remediation-20261011-195924`
+  and the subsequent WebUI snapshots ending in `2002-webui`, `2005-webui` and
+  `2010-webui`/`2015-webui`.
+- External Chrome verification showed the gray homepage, benchmark status page
+  and gray WebUI/agent panel. The private `/opt/computemesh` source checkout
+  was not reset or overwritten. Android debug build passed; no signed APK or
+  physical device install was performed.
+
 ## 2026-10-11 local website/dashboard remediation
 
 - The appliance dashboard handles a 401 without forcing a full reload: it

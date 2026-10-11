@@ -5,7 +5,9 @@ remediation slice: expired dashboard sessions can be retried in place, the
 dashboard uses the neutral gray visual direction, dynamic values are escaped,
 and portal images are checked for valid local assets and alt text. Benchmark
 and social-card artwork remains neutral until measured evidence is published.
-Production deployment and Android build/install remain separate release gates.
+The checked portal/WebUI assets are now deployed to both existing Plesk
+webroots with a targeted rollback backup. Android build/install and signed
+production release remain separate gates.
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
