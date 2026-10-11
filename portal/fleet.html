@@ -944,49 +944,49 @@
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
             <div>
-              <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);">⚖️ Anbieter- &amp; Betreiberidentität</h3>
-              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;">
-                Erfüllung der gesetzlichen Betreiberpflichten gem. Digital Services Act (DSA Art. 30/31) &amp; DSGVO
+              <h3 style="margin:0;font-size:1.25rem;color:var(--accent-cyan);" data-i18n="fleet_compliance_title">⚖️ Provider &amp; operator identity</h3>
+              <p style="color:#94a3b8;font-size:0.88rem;margin:0.25rem 0 0 0;" data-i18n="fleet_compliance_subtitle">
+                Fulfilment of statutory operator duties under the Digital Services Act (DSA Art. 30/31) &amp; GDPR
               </p>
             </div>
-            <span id="compliance-status-badge" class="sec-badge info">⚪ Lade Compliance-Status...</span>
+            <span id="compliance-status-badge" class="sec-badge info" data-i18n="fleet_compliance_loading">⚪ Loading compliance status...</span>
           </div>
 
           <div id="compliance-missing-box" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:1rem;margin-bottom:1.25rem;">
-            <h4 style="margin:0 0 0.5rem 0;color:#fca5a5;font-size:0.95rem;">⚠️ Erforderliche Angaben für den Marketplace:</h4>
+            <h4 style="margin:0 0 0.5rem 0;color:#fca5a5;font-size:0.95rem;" data-i18n="fleet_compliance_missing">⚠️ Information required for the marketplace:</h4>
             <ul id="compliance-missing-list" style="margin:0;padding-left:1.25rem;color:#fca5a5;font-size:0.88rem;"></ul>
           </div>
 
           <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:1rem;font-size:0.85rem;color:#94a3b8;line-height:1.5;">
-            💡 <strong>Warum wird das benötigt?</strong> Als Anbieter von Rechenleistung am ComputeMesh-Marketplace treten Sie gegenüber Auftraggebern als gewerblicher oder privater Leistungserbringer auf. Die Verordnung (EU) 2022/2065 (Digital Services Act) verpflichtet Plattformbetreiber zur Rückverfolgbarkeit von Händlern (Art. 30 DSA). Ihre Daten werden sicher nach Art. 5/6 DSGVO verarbeitet. Finanzielle Auszahlungen und Bank-KYC werden separat über Stripe Connect abgewickelt.
+            💡 <strong data-i18n="fleet_compliance_why_title">Why is this required?</strong> <span data-i18n="fleet_compliance_why_desc">As a provider of compute capacity on the ComputeMesh marketplace, you act as a commercial or private service provider for customers. The Digital Services Act (EU) 2022/2065 requires platform operators to keep traders traceable (Art. 30 DSA). Your data is processed securely under Art. 5/6 GDPR. Payouts and bank KYC are handled separately through Stripe Connect.</span>
           </div>
         </div>
 
         <!-- Provider Profile Edit Form -->
         <div class="fleet-card">
-          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:1rem;">📝 Rechtliche Anbieterinformationen</h3>
+          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:1rem;" data-i18n="fleet_compliance_profile_title">📝 Legal provider information</h3>
 
           <div class="form-group" style="margin-bottom:1.25rem;">
-            <label style="font-weight:600;margin-bottom:0.4rem;display:block;">Anbieter-Rechtsform / Typ:</label>
+            <label style="font-weight:600;margin-bottom:0.4rem;display:block;" data-i18n="fleet_compliance_entity_label">Provider legal form / type:</label>
             <div style="display:flex;gap:1.5rem;align-items:center;">
               <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;">
                 <input type="radio" name="entity_type" value="individual" id="entity-individual" checked onchange="toggleComplianceEntityType('individual')" style="accent-color:var(--accent-cyan);">
-                <span>Natürliche Person / Einzelunternehmer</span>
+                <span data-i18n="fleet_compliance_individual">Natural person / sole proprietor</span>
               </label>
               <label style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;">
                 <input type="radio" name="entity_type" value="business" id="entity-business" onchange="toggleComplianceEntityType('business')" style="accent-color:var(--accent-cyan);">
-                <span>Unternehmen / Organisation (GmbH, AG, UG etc.)</span>
+                <span data-i18n="fleet_compliance_business">Company / organisation (Ltd, corporation, etc.)</span>
               </label>
             </div>
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1rem;">
             <div class="form-group">
-              <label id="lbl-legal-name">Vollständiger Name (Vor- &amp; Nachname):</label>
+              <label id="lbl-legal-name" data-i18n="fleet_compliance_legal_name">Full name (first &amp; last name):</label>
               <input id="prv-legal-name" type="text" class="form-control-custom" placeholder="z. B. Max Mustermann" spellcheck="false">
             </div>
             <div class="form-group">
-              <label>Geschäftsname / Brand (optional):</label>
+              <label data-i18n="fleet_compliance_trade_name">Business name / brand (optional):</label>
               <input id="prv-trade-name" type="text" class="form-control-custom" placeholder="z. B. Mustermann Computing" spellcheck="false">
             </div>
           </div>
@@ -995,19 +995,19 @@
           <div id="compliance-business-fields" style="display:none;background:rgba(15,23,42,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;margin-bottom:1rem;">
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:1rem;">
               <div class="form-group">
-                <label>Vertretungsberechtigte Person (z. B. GF):</label>
+                <label data-i18n="fleet_compliance_legal_rep">Authorised representative (e.g. managing director):</label>
                 <input id="prv-legal-rep" type="text" class="form-control-custom" placeholder="z. B. Max Mustermann (Geschäftsführer)">
               </div>
               <div class="form-group">
-                <label>Handelsregister / Registergericht:</label>
+                <label data-i18n="fleet_compliance_registry_name">Commercial register / registry court:</label>
                 <input id="prv-reg-name" type="text" class="form-control-custom" placeholder="z. B. Amtsgericht München">
               </div>
               <div class="form-group">
-                <label>Handelsregisternummer:</label>
+                <label data-i18n="fleet_compliance_registry_number">Commercial register number:</label>
                 <input id="prv-reg-num" type="text" class="form-control-custom" placeholder="z. B. HRB 123456">
               </div>
               <div class="form-group">
-                <label>Umsatzsteuer-ID / VAT-ID (optional):</label>
+                <label data-i18n="fleet_compliance_vat">VAT ID (optional):</label>
                 <input id="prv-vat-id" type="text" class="form-control-custom" placeholder="z. B. DE123456789">
               </div>
             </div>
@@ -1015,28 +1015,28 @@
 
           <!-- Address Fields -->
           <div style="margin-bottom:1rem;">
-            <h4 style="font-size:0.95rem;margin:0 0 0.75rem 0;color:#cbd5e1;">Ladungsfähige Geschäftsanschrift</h4>
+            <h4 style="font-size:0.95rem;margin:0 0 0.75rem 0;color:#cbd5e1;" data-i18n="fleet_compliance_address_title">Registered business address</h4>
             <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:0.75rem;">
               <div class="form-group">
-                <label>Straße und Hausnummer:</label>
+                <label data-i18n="fleet_compliance_street">Street and house number:</label>
                 <input id="prv-addr-line1" type="text" class="form-control-custom" placeholder="Musterstraße 42">
               </div>
               <div class="form-group">
-                <label>Adresszusatz (optional):</label>
+                <label data-i18n="fleet_compliance_address_extra">Address line 2 (optional):</label>
                 <input id="prv-addr-line2" type="text" class="form-control-custom" placeholder="Gebäude B, 2. OG">
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:1rem;">
               <div class="form-group">
-                <label>Postleitzahl:</label>
+                <label data-i18n="fleet_compliance_postal">Postal code:</label>
                 <input id="prv-addr-postal" type="text" class="form-control-custom" placeholder="10115">
               </div>
               <div class="form-group">
-                <label>Ort / Stadt:</label>
+                <label data-i18n="fleet_compliance_city">City:</label>
                 <input id="prv-addr-city" type="text" class="form-control-custom" placeholder="Berlin">
               </div>
               <div class="form-group">
-                <label>Land (ISO 2-stellig):</label>
+                <label data-i18n="fleet_compliance_country">Country (ISO 2-letter):</label>
                 <input id="prv-addr-country" type="text" class="form-control-custom" value="DE" maxlength="2" style="text-transform:uppercase;">
               </div>
             </div>
@@ -1045,18 +1045,18 @@
           <!-- Contact Channels -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1.5rem;">
             <div class="form-group">
-              <label>Offizielle geschäftliche E-Mail:</label>
+              <label data-i18n="fleet_compliance_email">Official business email:</label>
               <input id="prv-email" type="email" class="form-control-custom" placeholder="contact@example.com">
             </div>
             <div class="form-group">
-              <label>Telefonnummer (optional):</label>
+              <label data-i18n="fleet_compliance_phone">Phone number (optional):</label>
               <input id="prv-phone" type="tel" class="form-control-custom" placeholder="+49 30 12345678">
             </div>
           </div>
 
           <div style="display:flex;gap:1rem;align-items:center;">
             <button class="btn btn-primary" onclick="saveProviderProfile()">
-              💾 Anbieterprofil speichern
+              <span data-i18n="fleet_compliance_save">💾 Save provider profile</span>
             </button>
             <span id="prv-save-msg" style="font-size:0.85rem;font-weight:600;"></span>
           </div>
@@ -1065,21 +1065,21 @@
         <!-- DSA Art. 30 Trader Self-Declaration -->
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
-            <h3 style="margin:0;font-size:1.15rem;">📜 Gesetzliche Händler-Selbsterklärung (DSA Art. 30 Abs. 1 lit. e)</h3>
+            <h3 style="margin:0;font-size:1.15rem;" data-i18n="fleet_compliance_dsa_title">📜 Statutory trader self-declaration (DSA Art. 30(1)(e))</h3>
             <span class="sec-badge info">Version: dsa_art30_v1.0</span>
           </div>
           <div style="background:rgba(15,23,42,0.65);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:1rem;font-size:0.88rem;line-height:1.6;color:#e2e8f0;margin-bottom:1rem;">
-            „Ich verpflichte mich hiermit im Sinne von Artikel 30 Abs. 1 lit. e der Verordnung (EU) 2022/2065 (Digital Services Act), auf dem ComputeMesh-Marketplace ausschließlich rechtmäßige Produkte, IT-Ressourcen und Rechenleistungen anzubieten, die den anwendbaren Vorschriften des Unionsrechts entsprechen.“
+            <span data-i18n="fleet_compliance_dsa_text">I hereby undertake, within the meaning of Article 30(1)(e) of Regulation (EU) 2022/2065 (Digital Services Act), to offer only lawful products, IT resources and compute services on the ComputeMesh marketplace that comply with applicable Union law.</span>
           </div>
           <div style="margin-bottom:1rem;">
             <label style="display:inline-flex;align-items:center;gap:0.6rem;cursor:pointer;font-size:0.9rem;">
               <input type="checkbox" id="chk-dsa-declaration" style="accent-color:var(--accent-cyan);transform:scale(1.2);">
-              <span>Ich habe die Erklärung gelesen und bestätige diese rechtsverbindlich für alle von mir betriebenen Flotten.</span>
+              <span data-i18n="fleet_compliance_dsa_confirm">I have read the declaration and legally confirm it for all fleets I operate.</span>
             </label>
           </div>
           <div style="display:flex;gap:1rem;align-items:center;">
             <button id="btn-submit-declaration" class="btn btn-primary" onclick="submitTraderDeclaration()">
-              ✍️ Selbsterklärung abgeben
+              <span data-i18n="fleet_compliance_dsa_submit">✍️ Submit self-declaration</span>
             </button>
             <span id="prv-decl-msg" style="font-size:0.85rem;font-weight:600;"></span>
           </div>
@@ -1087,12 +1087,12 @@
 
         <!-- Public Disclosure Transparency Preview -->
         <div class="fleet-card">
-          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:0.75rem;">👁️ Öffentliche Händlertransparenz-Vorschau (Art. 30 DSA)</h3>
-          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem;">
-            So sehen Auftraggeber und Marketplace-Nutzer Ihr verifiziertes Anbieterprofil. Private Identifikatoren, Passkeys und genaue Wohnanschriften bleiben geschützt.
+          <h3 style="margin-top:0;font-size:1.15rem;margin-bottom:0.75rem;" data-i18n="fleet_compliance_preview_title">👁️ Public trader transparency preview (Art. 30 DSA)</h3>
+          <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:1rem;" data-i18n="fleet_compliance_preview_desc">
+            This is how customers and marketplace users see your verified provider profile. Private identifiers, passkeys and exact home addresses remain protected.
           </p>
           <div id="prv-public-preview" style="background:#090d16;border:1px solid rgba(56,189,248,0.3);border-radius:12px;padding:1.25rem;">
-            <div style="color:#64748b;font-size:0.85rem;">Lade Vorschau...</div>
+            <div style="color:#64748b;font-size:0.85rem;" data-i18n="fleet_compliance_preview_loading">Loading preview...</div>
           </div>
         </div>
       </div>
@@ -4615,8 +4615,8 @@ for chunk in stream:
       const lblName = document.getElementById("lbl-legal-name");
       if (lblName) {
         lblName.textContent = isBiz
-          ? "Vollständiger registrierter Firmenname (inkl. Rechtsform, z.B. GmbH):"
-          : "Vollständiger Name (Vor- & Nachname):";
+          ? fleetText('fleet_compliance_legal_name_business', 'Full registered company name (including legal form, e.g. Ltd):')
+          : fleetText('fleet_compliance_legal_name', 'Full name (first & last name):');
       }
     }
 
@@ -4636,7 +4636,7 @@ for chunk in stream:
         if (!res.ok) {
           if (res.status === 401 && badge) {
             badge.className = "sec-badge sec-badge-warn";
-            badge.textContent = "🔒 Nicht angemeldet";
+            badge.textContent = fleetText('fleet_compliance_not_signed_in', '🔒 Not signed in');
           }
           return;
         }
@@ -4651,19 +4651,19 @@ for chunk in stream:
           const state = evaluation.identity_state || evaluation.state || "UNVERIFIED";
           if (state === "VERIFIED") {
             badge.className = "sec-badge sec-badge-ok";
-            badge.textContent = "✅ Identität Verifiziert";
+            badge.textContent = fleetText('fleet_compliance_verified', '✅ Identity verified');
           } else if (state === "PENDING_REVIEW") {
             badge.className = "sec-badge info";
-            badge.textContent = "⏳ Prüfung ausstehend (Pending)";
+            badge.textContent = fleetText('fleet_compliance_pending', '⏳ Review pending');
           } else if (state === "NEEDS_INFORMATION" || state === "INCOMPLETE") {
             badge.className = "sec-badge sec-badge-warn";
-            badge.textContent = "⚠️ Angaben erforderlich (Incomplete)";
+            badge.textContent = fleetText('fleet_compliance_incomplete', '⚠️ Information required');
           } else if (state === "SUSPENDED" || state === "REJECTED") {
             badge.className = "sec-badge sec-badge-err";
-            badge.textContent = "🚫 Gesperrt / Abgelehnt";
+            badge.textContent = fleetText('fleet_compliance_rejected', '🚫 Suspended / rejected');
           } else {
             badge.className = "sec-badge sec-badge-warn";
-            badge.textContent = "⚪ Unvollständig / Nicht verifiziert";
+            badge.textContent = fleetText('fleet_compliance_unverified', '⚪ Incomplete / not verified');
           }
         }
 
@@ -4717,21 +4717,21 @@ for chunk in stream:
 
         if (hasActiveDecl) {
           if (chkDecl) { chkDecl.checked = true; chkDecl.disabled = true; }
-          if (btnDecl) { btnDecl.disabled = true; btnDecl.textContent = "✓ Erklärung abgegeben"; }
-          if (declMsg) { declMsg.style.color = "#34d399"; declMsg.textContent = "Gültig für Art. 30 DSA (" + targetVer + ")"; }
+          if (btnDecl) { btnDecl.disabled = true; btnDecl.textContent = fleetText('fleet_compliance_dsa_submitted', '✓ Declaration submitted'); }
+          if (declMsg) { declMsg.style.color = "#34d399"; declMsg.textContent = fleetText('fleet_compliance_dsa_valid', 'Valid for Art. 30 DSA (') + targetVer + ')'; }
         } else if (!isDsaApplicable) {
           if (chkDecl) { chkDecl.disabled = false; chkDecl.checked = false; }
-          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = "✍️ Erklärung optional hinterlegen"; }
-          if (declMsg) { declMsg.style.color = "#94a3b8"; declMsg.textContent = "Optional (Aktueller Betriebsmodus erfordert keine DSA Art. 30 Selbsterklärung)"; }
+          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = fleetText('fleet_compliance_dsa_optional_button', '✍️ Store optional declaration'); }
+          if (declMsg) { declMsg.style.color = "#94a3b8"; declMsg.textContent = fleetText('fleet_compliance_dsa_optional', 'Optional (current operating mode does not require a DSA Art. 30 declaration)'); }
         } else {
           if (chkDecl) { chkDecl.disabled = false; chkDecl.checked = false; }
-          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = "✍️ Selbsterklärung abgeben"; }
+          if (btnDecl) { btnDecl.disabled = false; btnDecl.textContent = fleetText('fleet_compliance_dsa_submit', '✍️ Submit self-declaration'); }
           if (declMsg) { declMsg.textContent = ""; }
         }
 
         if (previewBox) {
           if (!data.has_profile || !identity || !identity.legal_name) {
-            previewBox.innerHTML = `<span style="color:#94a3b8;font-size:0.88rem;">Profil noch nicht angelegt. Füllen Sie die rechtlichen Anbieterinformationen aus.</span>`;
+            previewBox.innerHTML = `<span style="color:#94a3b8;font-size:0.88rem;">${fleetText('fleet_compliance_preview_empty', 'Profile not created yet. Complete the legal provider information.')}</span>`;
           } else {
             const addr = identity.address || {};
             const reg = identity.registry_info || {};
@@ -4746,15 +4746,15 @@ for chunk in stream:
                     <div style="font-size:0.85rem;color:#94a3b8;">${escapeHtml(identity.legal_name)} · <span style="text-transform:uppercase;">${escapeHtml(identity.entity_type || 'individual')}</span></div>
                   </div>
                   <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
-                    ${isVer ? '✅ Geprüfter DSA-Händler' : '⚠️ Identität unvollständig'}
+                    ${isVer ? fleetText('fleet_compliance_preview_verified_trader', '✅ Verified DSA trader') : fleetText('fleet_compliance_preview_identity_incomplete', '⚠️ Identity incomplete')}
                   </span>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.75rem;font-size:0.85rem;color:#cbd5e1;background:rgba(255,255,255,0.03);padding:0.75rem;border-radius:8px;">
-                  <div><strong>Standort:</strong> ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.country_code || '')} (${escapeHtml(addr.postal_code || '')})</div>
-                  <div><strong>Kontakt:</strong> ${escapeHtml(identity.email || '')}</div>
-                  ${reg.registration_number ? `<div><strong>Register:</strong> ${escapeHtml(reg.registry_name || '')} (${escapeHtml(reg.registration_number || '')})</div>` : ''}
-                  ${identity.vat_id ? `<div><strong>USt-ID:</strong> ${escapeHtml(identity.vat_id)}</div>` : ''}
-                  <div><strong>DSA Selbsterklärung:</strong> ${hasActiveDecl ? '✅ Liegt vor (' + escapeHtml(targetVer) + ')' : '❌ Ausstehend'}</div>
+                  <div><strong>${fleetText('fleet_compliance_preview_location', 'Location:')}</strong> ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.country_code || '')} (${escapeHtml(addr.postal_code || '')})</div>
+                  <div><strong>${fleetText('fleet_compliance_preview_contact', 'Contact:')}</strong> ${escapeHtml(identity.email || '')}</div>
+                  ${reg.registration_number ? `<div><strong>${fleetText('fleet_compliance_preview_register', 'Register:')}</strong> ${escapeHtml(reg.registry_name || '')} (${escapeHtml(reg.registration_number || '')})</div>` : ''}
+                  ${identity.vat_id ? `<div><strong>${fleetText('fleet_compliance_preview_vat', 'VAT ID:')}</strong> ${escapeHtml(identity.vat_id)}</div>` : ''}
+                  <div><strong>${fleetText('fleet_compliance_preview_declaration', 'DSA self-declaration:')}</strong> ${hasActiveDecl ? fleetText('fleet_compliance_preview_declared', '✅ Submitted (') + escapeHtml(targetVer) + ')' : fleetText('fleet_compliance_preview_pending', '❌ Pending')}</div>
                 </div>
               `;
             } else {
@@ -4762,14 +4762,14 @@ for chunk in stream:
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
                   <div>
                     <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;">${escapeHtml(pubName)}</div>
-                    <div style="font-size:0.85rem;color:#94a3b8;">Betreiberland: ${escapeHtml(addr.country_code || 'DE')}</div>
+                    <div style="font-size:0.85rem;color:#94a3b8;">${fleetText('fleet_compliance_preview_operator_country', 'Operator country:')} ${escapeHtml(addr.country_code || 'DE')}</div>
                   </div>
                   <span class="sec-badge ${isVer ? 'sec-badge-ok' : 'sec-badge-warn'}">
-                    ${isVer ? '✅ Verifizierter Betreiber' : '⚠️ Identität unvollständig'}
+                    ${isVer ? fleetText('fleet_compliance_preview_verified_operator', '✅ Verified operator') : fleetText('fleet_compliance_preview_identity_incomplete', '⚠️ Identity incomplete')}
                   </span>
                 </div>
                 <div style="font-size:0.85rem;color:#94a3b8;background:rgba(255,255,255,0.02);padding:0.75rem;border-radius:8px;line-height:1.5;">
-                  🔒 <em>Minimales öffentliches Profil aktiv (Datenschutz nach Art. 5/25 DSGVO). Private Wohnanschriften und Kontaktdaten werden in diesem Betriebsmodus nicht öffentlich exponiert.</em>
+                  🔒 <em>${fleetText('fleet_compliance_preview_minimal', 'Minimal public profile active (privacy under Art. 5/25 GDPR). Private home addresses and contact details are not exposed in this operating mode.')}</em>
                 </div>
               `;
             }
