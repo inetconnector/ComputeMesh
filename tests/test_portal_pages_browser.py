@@ -55,6 +55,15 @@ def test_portal_documents_navigation_and_layout(width):
                 if path == "/pricing":
                     assert page.locator('#live-pricing').is_visible()
                     assert page.locator('#tab-prov-btn').count() == 0
+                if path == "/downloads":
+                    win_button = page.locator('[data-i18n="dl_win_btn"]')
+                    if language == "de":
+                        assert win_button.inner_text() == "ComputeMesh (.exe) herunterladen"
+                        assert page.locator('[data-i18n="dl_win_title"]').inner_text() == "Windows System-Tray-Client"
+                    else:
+                        assert win_button.inner_text() == "Download ComputeMesh (.exe)"
+                        assert page.locator('[data-i18n="dl_win_title"]').inner_text() == "Windows Provider Agent"
+                    assert "Setup" not in win_button.inner_text()
             if path == "/":
                 assert page.locator("h1").inner_text() == "ComputeMesh"
                 assert page.locator('a[href="https://smartx.inetconnector.com/"]').count() > 0
@@ -121,6 +130,42 @@ def test_navigation_dropdown_pointer_crosses_gap_and_clicks_link(width):
             browser.close()
 
 
+@pytest.mark.skipif(os.getenv("COMPUTEMESH_BROWSER_E2E") != "1", reason="browser E2E opt-in")
+def test_downloads_page_uses_one_language_and_short_windows_button():
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            headless=True, executable_path=os.getenv("COMPUTEMESH_BROWSER_EXECUTABLE") or None
+        )
+        page = browser.new_page(viewport={"width": 1440, "height": 900}, locale="de-DE")
+
+        def serve(route):
+            path = urlsplit(route.request.url).path
+            if path.startswith(("/api/", "/v1/")):
+                route.fulfill(json={"nodes": [], "data": []})
+                return
+            target = PORTAL / ("index.html" if path == "/" else path.lstrip("/"))
+            if not target.suffix:
+                target = target.with_suffix(".html")
+            if target.is_file():
+                route.fulfill(path=str(target))
+            else:
+                route.fulfill(status=404, body="Not found")
+
+        page.route("https://portal.test/**", serve)
+        page.goto("https://portal.test/downloads", wait_until="domcontentloaded", timeout=10000)
+        page.wait_for_function("typeof window.switchLanguage === 'function'")
+        page.evaluate("switchLanguage('de')")
+        assert page.locator('[data-i18n="dl_win_btn"]').inner_text() == "ComputeMesh (.exe) herunterladen"
+        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.164 • Produktionssigniert"
+        page.evaluate("switchLanguage('en')")
+        assert page.locator('[data-i18n="dl_win_btn"]').inner_text() == "Download ComputeMesh (.exe)"
+        assert page.locator('[data-i18n="dl_android_status"]').inner_text() == "v1.2.164 • Production signed"
+        assert "Setup" not in page.locator('[data-i18n="dl_win_btn"]').inner_text()
+        browser.close()
+
+
 def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
     documents = sorted(PORTAL.rglob("*.html"))
     documents = [
@@ -146,3 +191,31 @@ def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
         assert text.count('portal-business.css?v=5.1') == 1, document
         assert 'portal.css?v=3.7' not in text
         assert 'portal.css?v=4.3' not in text
+
+
+def test_download_entrypoints_and_translation_keys_are_consistent():
+    downloads = (PORTAL / "downloads.html").read_text(encoding="utf-8-sig")
+    downloads_index = (PORTAL / "downloads" / "index.html").read_text(encoding="utf-8-sig")
+    assert downloads == downloads_index
+    assert "ComputeMesh Setup (EXE) herunterladen" not in downloads
+    required_keys = (
+        "dl_meta_title",
+        "dl_win_status",
+        "dl_win_title",
+        "dl_win_desc",
+        "dl_win_btn",
+        "dl_win_feature_cuda",
+        "dl_win_feature_webui",
+        "dl_win_feature_lan",
+        "dl_android_status",
+        "dl_android_store_btn",
+        "dl_linux_status",
+        "dl_linux_platforms",
+        "dl_security_title",
+        "dl_security_desc",
+        "footer_github",
+    )
+    core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")
+    for key in required_keys:
+        assert downloads.count(f'data-i18n="{key}"') == 1, key
+        assert core.count(f"{key}:") >= 2, key
