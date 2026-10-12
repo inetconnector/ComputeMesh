@@ -1103,18 +1103,18 @@
         <!-- Notification & Security Alert Email Manager -->
         <div class="fleet-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:0.75rem;">
-            <h3 style="margin:0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
-              <span>📧</span> <span>Benachrichtigungs- &amp; Sicherheits-Alarm E-Mail</span>
+            <h3 style="margin:0;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;" data-i18n="fleet_security_email_title">
+              📧 Notification &amp; security alert email
             </h3>
-            <span id="email-status-badge" class="sec-badge sec-badge-warn">⚠️ Keine E-Mail hinterlegt</span>
+            <span id="email-status-badge" class="sec-badge sec-badge-warn" data-i18n="fleet_security_email_missing">⚠️ No alert email configured</span>
           </div>
-          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;line-height:1.5;">
-            An diese Adresse werden sicherheitskritische Ereignisse (Secret Master Key-Rotationen, Passkey-Änderungen, Server-Trennungen) sowie Magic-Link Logins gesendet.
+          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;line-height:1.5;" data-i18n="fleet_security_email_desc">
+            Security-critical events (secret master-key rotations, passkey changes, server disconnects) and magic-link logins are sent to this address.
           </p>
           <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
             <input id="notification-email-input" type="email" class="form-control-custom" style="max-width:340px;padding:0.6rem 0.85rem;" placeholder="deine-email@beispiel.de" spellcheck="false">
             <button id="btn-save-email" class="btn btn-primary" style="font-size:0.85rem;padding:0.6rem 1.1rem;" onclick="saveNotificationEmail()">
-              💾 E-Mail speichern &amp; Test-Alarm senden
+              <span data-i18n="fleet_security_email_save">💾 Save email &amp; send test alert</span>
             </button>
           </div>
           <div id="notification-email-msg" style="margin-top:0.75rem;font-size:0.85rem;font-weight:600;display:none;"></div>
@@ -1128,8 +1128,8 @@
               <span data-i18n="fleet_btn_add_passkey">+ Weiteren Passkey / YubiKey registrieren</span>
             </button>
           </div>
-          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;">
-            Du kannst mehrere FIDO2-Sicherheitsschlüssel (z. B. MacBook Touch ID, Windows Hello und einen YubiKey) für deinen Account hinterlegen.
+          <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:1rem;" data-i18n="fleet_security_passkey_desc">
+            You can register multiple FIDO2 security keys (for example MacBook Touch ID, Windows Hello and a YubiKey) for your account.
           </p>
           <div id="passkeys-list-box"></div>
         </div>
@@ -1151,8 +1151,8 @@
         <!-- Security Audit Log -->
         <div class="fleet-card">
           <h3 style="margin-top:0;font-size:1.2rem;" data-i18n="fleet_audit_title">Sicherheits-Audit-Log (mesh@inetconnector.com geschützt)</h3>
-          <p style="color:#94a3b8;font-size:0.88rem;">
-            Protokoll der letzten sicherheitsrelevanten Aktionen (Logins, Passkey-Registrierungen, Node-Entfernungen).
+          <p style="color:#94a3b8;font-size:0.88rem;" data-i18n="fleet_security_audit_desc">
+            Log of recent security-relevant actions (logins, passkey registrations, node removals).
           </p>
           <div id="audit-log-box" style="overflow-x:auto;"></div>
         </div>
@@ -2338,6 +2338,19 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       const lang = getLang();
       const dictionary = window.translations && window.translations[lang];
       return (dictionary && dictionary[key]) || fallback;
+    }
+
+    function localizeAuditDetail(detail) {
+      if (getLang() === 'de' || !detail) return detail || '--';
+      const exact = {
+        'E-Mail Magic-Link Login erfolgreich': 'Email magic-link login succeeded',
+      };
+      if (exact[detail]) return exact[detail];
+      return String(detail)
+        .replace('Alarm-E-Mail aktualisiert auf', 'Alert email updated to')
+        .replace('(vorher:', '(previous:')
+        .replace('Fleet Owner Key rotiert (Präfix:', 'Fleet Owner Key rotated (prefix:')
+        .replace('Sicherheits-Ereignis', 'Security event');
     }
 
     function setLang(lang) {
@@ -3997,11 +4010,11 @@ for chunk in stream:
 
         const res = await fetch("/api/auth/passkeys", { headers });
         const data = await res.json();
-        if (!res.ok) { box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${getErrorMessage(data, 'Fehler beim Laden der Passkeys')}</span></div>`; return; }
+        if (!res.ok) { box.innerHTML = `<div class="fleet-msg error"><span>⚠️</span><span>${getErrorMessage(data, fleetText('fleet_security_load_passkeys_error', 'Error loading passkeys'))}</span></div>`; return; }
 
         const list = data.passkeys || [];
         if (list.length === 0) {
-          box.innerHTML = `<p style="color:#94a3b8;">Keine Passkeys gefunden. Du kannst oben einen neuen Sicherheitsschlüssel registrieren.</p>`;
+          box.innerHTML = `<p style="color:#94a3b8;">${fleetText('fleet_security_no_passkeys', 'No passkeys found. You can register a new security key above.')}</p>`;
           return;
         }
 
@@ -4009,10 +4022,10 @@ for chunk in stream:
           <table class="sec-table">
             <thead>
               <tr>
-                <th>Schlüssel-Name</th>
-                <th>Erstellt am</th>
-                <th>Zuletzt verwendet</th>
-                <th>Aktionen</th>
+                <th>${fleetText('fleet_security_key_name', 'Key name')}</th>
+                <th>${fleetText('fleet_security_created', 'Created')}</th>
+                <th>${fleetText('fleet_security_last_used', 'Last used')}</th>
+                <th>${fleetText('fleet_security_actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -4025,7 +4038,7 @@ for chunk in stream:
               <td style="color:#94a3b8;font-size:0.82rem;">${pk.last_used_at ? pk.last_used_at.substring(0, 19).replace('T', ' ') : '--'}</td>
               <td>
                 <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.25rem 0.6rem;color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="deletePasskey('${escapeHtml(pk.credential_id)}')">
-                  🗑️ Löschen
+                  ${fleetText('fleet_security_delete', '🗑️ Delete')}
                 </button>
               </td>
             </tr>
@@ -4115,7 +4128,7 @@ for chunk in stream:
     async function generateEnrollmentToken() {
       const resBox = document.getElementById("enrollment-token-result");
       try {
-        resBox.textContent = "Erzeuge Code...";
+        resBox.textContent = fleetText('fleet_enrollment_generating', 'Generating code...');
         const headers = { "Content-Type": "application/json" };
         if (activeOwnerKey) headers["X-Owner-Key"] = activeOwnerKey;
 
@@ -4123,8 +4136,8 @@ for chunk in stream:
         const data = await res.json();
         if (res.ok && data.enrollment_token) {
           resBox.innerHTML = `
-            <span>Code: <code>${data.enrollment_token}</code> (Gültig: 30 Min.)</span>
-            <button class="copy-btn" style="margin-left:0.5rem;" onclick="navigator.clipboard.writeText('${data.enrollment_token}').then(()=>alert('Code kopiert!'))">📋 Kopieren</button>
+            <span>${fleetText('fleet_enrollment_code', 'Code:')} <code>${data.enrollment_token}</code> (${fleetText('fleet_enrollment_valid', 'valid for 30 min')})</span>
+            <button class="copy-btn" style="margin-left:0.5rem;" onclick="navigator.clipboard.writeText('${data.enrollment_token}').then(()=>alert('${fleetText('fleet_enrollment_copied', 'Code copied!')}'))">📋 ${fleetText('fleet_security_copy', 'Copy')}</button>
           `;
         } else {
           resBox.textContent = "Fehler: " + getErrorMessage(data, "Nicht autorisiert");
@@ -4144,11 +4157,11 @@ for chunk in stream:
 
         const res = await fetch("/api/portal/fleet/audit_log", { headers });
         const data = await res.json();
-        if (!res.ok) { box.innerHTML = `<p style="color:#94a3b8;">${getErrorMessage(data, 'Audit Log nicht verfügbar')}</p>`; return; }
+        if (!res.ok) { box.innerHTML = `<p style="color:#94a3b8;">${getErrorMessage(data, fleetText('fleet_security_audit_unavailable', 'Audit log unavailable'))}</p>`; return; }
 
         const logs = data.audit_log || [];
         if (logs.length === 0) {
-          box.innerHTML = `<p style="color:#94a3b8;">Keine Einträge vorhanden.</p>`;
+          box.innerHTML = `<p style="color:#94a3b8;">${fleetText('fleet_security_no_audit', 'No entries available.')}</p>`;
           return;
         }
 
@@ -4156,10 +4169,10 @@ for chunk in stream:
           <table class="sec-table">
             <thead>
               <tr>
-                <th>Ereignis</th>
-                <th>Details</th>
-                <th>IP-Adresse</th>
-                <th>Zeitpunkt (UTC)</th>
+                <th>${fleetText('fleet_security_audit_event', 'Event')}</th>
+                <th>${fleetText('fleet_security_audit_details', 'Details')}</th>
+                <th>${fleetText('fleet_security_audit_ip', 'IP address')}</th>
+                <th>${fleetText('fleet_security_audit_time', 'Timestamp (UTC)')}</th>
               </tr>
             </thead>
             <tbody>
@@ -4173,7 +4186,7 @@ for chunk in stream:
           html += `
             <tr>
               <td><span class="sec-badge ${badgeClass}">${escapeHtml(l.event_type)}</span></td>
-              <td style="color:#e2e8f0;">${escapeHtml(l.details || '--')}</td>
+              <td style="color:#e2e8f0;">${escapeHtml(localizeAuditDetail(l.details))}</td>
               <td style="font-family:'JetBrains Mono', monospace;font-size:0.8rem;color:#94a3b8;">${escapeHtml(l.ip_address || '--')}</td>
               <td style="color:#94a3b8;font-size:0.8rem;">${escapeHtml(l.created_at ? l.created_at.substring(0, 19).replace('T', ' ') : '--')}</td>
             </tr>
