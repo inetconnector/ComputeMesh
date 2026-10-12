@@ -2397,6 +2397,12 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       if (isLoggedIn) {
         loadFleet(false);
       }
+      const securityView = document.getElementById("cockpit-view-security");
+      if (securityView && securityView.style.display !== "none") {
+        updateEmailUI();
+        loadPasskeys();
+        loadAuditLog();
+      }
     };
 
     function b64urlToBytes(b64url) {
