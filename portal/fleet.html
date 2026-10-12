@@ -618,22 +618,29 @@
               <a href="https://aegis.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
                 <span class="item-icon">🛡️</span>
                 <div>
-                  <strong data-i18n="nav_app_aegis">Aegis AI Security</strong>
-                  <p data-i18n="nav_app_aegis_sub">Zero-Knowledge Prompt-Firewall &amp; Datenschutz</p>
+                  <strong data-i18n="nav_app_aegis">Aegis AI Risk Terminal</strong>
+                  <p data-i18n="nav_app_aegis_sub">Frühwarnsystem für Börsencrashs &amp; Marktrisiken</p>
                 </div>
               </a>
               <a href="https://ancesora.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
                 <span class="item-icon">🌳</span>
                 <div>
                   <strong data-i18n="nav_app_ancesora">Ancesora AI</strong>
-                  <p data-i18n="nav_app_ancesora_sub">Genealogie &amp; historische Dokumenten-KI</p>
+                  <p data-i18n="nav_app_ancesora_sub">Genealogieplattform für Familienarchive, Personen &amp; Quellen</p>
                 </div>
               </a>
               <a href="https://today.inetconnector.com" target="_blank" rel="noopener" class="dropdown-item">
                 <span class="item-icon">📅</span>
                 <div>
-                  <strong data-i18n="nav_app_today">Today Assistant</strong>
-                  <p data-i18n="nav_app_today_sub">Tagesbriefing, smarte Aufgaben &amp; Kalender-Agent</p>
+                  <strong data-i18n="nav_app_today">Heute &amp; Morgen</strong>
+                  <p data-i18n="nav_app_today_sub">Konzerte heute und morgen nach Ort, PLZ &amp; Radius</p>
+                </div>
+              </a>
+              <a href="https://trade.inetconnector.com/" target="_blank" rel="noopener" class="dropdown-item">
+                <span class="item-icon">📉</span>
+                <div>
+                  <strong data-i18n="nav_app_causamind">CausaMind Market Predictor</strong>
+                  <p data-i18n="nav_app_causamind_sub">Research-Signale und risikobewusste Kauf-/Verkaufspläne</p>
                 </div>
               </a>
               <a href="https://smartx.inetconnector.com/" target="_blank" rel="noopener noreferrer" class="dropdown-item">
@@ -2340,6 +2347,90 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
       return (dictionary && dictionary[key]) || fallback;
     }
 
+    const mcpGermanEnglish = Object.freeze({
+      'Model Context Protocol (MCP) & Live Agent Engine': 'Model Context Protocol (MCP) & Live Agent Engine',
+      'Flotten-Werkzeuge:': 'Fleet tools:',
+      'Alle aktivieren': 'Enable all',
+      'Alle deaktivieren': 'Disable all',
+      'Gespeichert pro Flotte': 'Saved per fleet',
+      'Live-Börsenkurse & Krypto': 'Live market & crypto prices',
+      'Echtzeit Yahoo Finance & CoinGecko Kurse für Aktien (NVDA, AAPL, MSFT), Krypto (BTC, ETH, SOL) und Rohstoffe.': 'Real-time Yahoo Finance & CoinGecko prices for stocks (NVDA, AAPL, MSFT), crypto (BTC, ETH, SOL) and commodities.',
+      'Live-Nachrichten & RSS': 'Live news & RSS',
+      'Aktuelle Meldungen und Schlagzeilen in Echtzeit (Tech, KI, Wirtschaft, Krypto, Tagesschau oder Stichwort-Suche).': 'Real-time reports and headlines (technology, AI, business, crypto, Tagesschau or keyword search).',
+      'Live-Wetterdaten weltweit': 'Live weather worldwide',
+      'Echtzeit-Wetter, Temperatur, Luftfeuchtigkeit, Wind und WMO-Bedingungen via Open-Meteo & wttr.in für jeden Ort.': 'Real-time weather, temperature, humidity, wind and WMO conditions via Open-Meteo & wttr.in for any location.',
+      'Python Mathe-Sandbox': 'Python math sandbox',
+      'Präzise mathematische Berechnungen, Formeln, Zinseszins, Statistik & Algorithmen im isolierten AST-Sandbox.': 'Precise mathematical calculations, formulas, compound interest, statistics and algorithms in an isolated AST sandbox.',
+      'Wikipedia & Enzyklopädie': 'Wikipedia & encyclopedia',
+      'Fundierte Zusammenfassungen, Definitionen, historische Daten und Biografien direkt über die offizielle Wikipedia-API.': 'Reliable summaries, definitions, historical data and biographies from the official Wikipedia API.',
+      'Länder- & Geodatenbank': 'Country & geographic data',
+      'Hauptstädte, Einwohnerzahlen, Amtssprachen, Währungen, Nachbarländer und Zeitzonen aller Staaten weltweit via REST Countries.': 'Capitals, populations, official languages, currencies, neighbouring countries and time zones for every country via REST Countries.',
+      'Weltbank & Makroökonomie': 'World Bank & macroeconomics',
+      'Offizielle Daten zu Bruttoinlandsprodukt (BIP), Inflation, Lebenserwartung, CO2-Emissionen und Bevölkerung über Jahrzehnte.': 'Official data on GDP, inflation, life expectancy, CO2 emissions and population across decades.',
+      'arXiv Forschung & Paper': 'arXiv research & papers',
+      'Vollständige Suche nach neuesten wissenschaftlichen Preprints, KI-/ML-Forschung, Physik, Mathe und Informatik-Abstracts.': 'Search the latest scientific preprints and abstracts in AI/ML, physics, mathematics and computer science.',
+      'Lebensmittel & Nutri-Score': 'Food & Nutri-Score',
+      'Inhaltsstoffe, Allergene, Nutri-Score (A-E), Eco-Score und Nährwerttabellen per Produktname oder EAN-Barcode (Open Food Facts).': 'Ingredients, allergens, Nutri-Score (A-E), Eco-Score and nutrition tables by product name or EAN barcode (Open Food Facts).',
+      'Pakete & CVE-Sicherheit': 'Packages & CVE security',
+      'Prüfung von PyPI-, NPM- und Rust-Paketen, Versionen, Lizenzen und direkter Abgleich bekannter Sicherheitslücken via OSV.dev.': 'Check PyPI, NPM and Rust packages, versions and licenses against known vulnerabilities via OSV.dev.',
+      'USGS Live-Erdbebenfeed': 'USGS live earthquake feed',
+      'Weltweite seismische Live-Daten (Magnitude, Epizentrum, Tiefe, Tsunami-Warnungen) direkt vom United States Geological Survey.': 'Global seismic live data (magnitude, epicentre, depth and tsunami warnings) directly from the United States Geological Survey.',
+      'PubChem Chemie & Stoffe': 'PubChem chemistry & compounds',
+      'Summenformeln, Molekulargewichte, IUPAC-Namen, SMILES und Eigenschaften von Stoffen via NIH PubChem.': 'Molecular formulas, weights, IUPAC names, SMILES and compound properties via NIH PubChem.',
+      'Wörterbuch & Lautschrift': 'Dictionary & phonetics',
+      'Wortdefinitionen, Lautschrift (Phonetics), Wortarten, Beispielsätze und Synonyme via Free Dictionary API.': 'Definitions, phonetics, parts of speech, examples and synonyms via the Free Dictionary API.',
+      'Bahn- & Zug-Fahrplan': 'Rail & train schedules',
+      'Live-Abfahrtszeiten der Deutschen Bahn (ICE, RE, S-Bahn), Gleise, Zielbahnhöfe und Echtzeit-Verspätungen via HAFAS.': 'Live Deutsche Bahn departures (ICE, RE, S-Bahn), platforms, destinations and delays via HAFAS.',
+      'Währungs- & Krypto-Rechner': 'Currency & crypto converter',
+      'Echtzeit-Wechselkurse (EUR, USD, GBP, CHF, JPY) via EZB/Frankfurter sowie Krypto-Umrechnungen (BTC, ETH, SOL).': 'Real-time exchange rates (EUR, USD, GBP, CHF, JPY) via ECB/Frankfurter and crypto conversions (BTC, ETH, SOL).',
+      'Weltzeit & Feiertage': 'World time & holidays',
+      'Genaue Uhrzeit aller Zeitzonen weltweit, Kalenderwochen und gesetzliche deutsche Feiertage pro Bundesland.': 'Accurate time in every time zone, calendar weeks and German public holidays by state.',
+      'Entfernungs- & Routenrechner': 'Distance & route calculator',
+      'Berechnung von Luftlinie, Himmelsrichtung, Geokoordinaten und Fahrtstrecke/Fahrzeit zwischen Orten weltweit.': 'Calculate straight-line distance, bearing, coordinates and driving distance/time between locations worldwide.',
+      'Echtzeit Web-Suche': 'Real-time web search',
+      'Direkte Internet-Recherche via DuckDuckGo HTML & Bing RSS mit intelligenter Textbereinigung und Snippet-Synthese.': 'Direct web research via DuckDuckGo HTML and Bing RSS with clean text and snippet synthesis.',
+      'Web-Reader & Scraper': 'Web reader & scraper',
+      'Automatisches Auslesen und Formatieren von Online-Artikeln, Blogbeiträgen und Entwickler-Dokumentationen.': 'Automatically read and format online articles, blog posts and developer documentation.',
+      'Netzwerk-Diagnose & SSL': 'Network diagnostics & SSL',
+      'Sichere DNS-Prüfung, HTTP-Status & SSL-Zertifikatslaufzeit öffentlicher Domains mit SSRF-Schutzwall (Owner Only).': 'Secure DNS checks, HTTP status and SSL certificate expiry for public domains with SSRF protection (owner only).',
+      'Souveräner Playwright MCP-Browser & Web-Automation Sandbox': 'Sovereign Playwright MCP browser & web automation sandbox',
+      'Vollständig isolierte Playwright-Browser-Umgebung in einer abgesicherten MicroVM/Sandbox. Entwickelt für beliebige autonome Web-Aufgaben, Recherchen, Portal-Interaktionen, Formularbefüllungen, Script-Ausführungen, Datei-Uploads & Downloads – gesteuert durch deine Benutzeranweisungen mit absolutem Zero-Trust Schutz.': 'Fully isolated Playwright browser environment in a secured MicroVM/sandbox for autonomous web tasks, research, portal interactions, form filling, scripts, uploads and downloads under zero-trust controls.',
+      'Open Web & Egress-Control': 'Open web & egress control',
+      'Fleet-Owner Auth': 'Fleet-owner authentication',
+      'Staging-Dateitresor': 'Staging file vault',
+      'Kritische oder unwiderrufliche Aktionen (Bestellungen, Zahlungen, Löschvorgänge, Einreichungen) erfordern vorab eine explizite Bestätigung mit kryptografischem Request-Token.': 'Critical or irreversible actions (orders, payments, deletions and submissions) require explicit approval with a cryptographic request token.',
+      'MCP Client-Einbindung (Claude Desktop, Antigravity IDE, Cursor & Terminal)': 'MCP client integration (Claude Desktop, Antigravity IDE, Cursor & terminal)',
+      'Config kopieren': 'Copy config',
+      'Start-Befehl kopieren': 'Copy start command'
+    });
+
+    function syncMcpLanguage(lang) {
+      const root = document.getElementById('cockpit-view-mcp');
+      if (!root) return;
+      const elements = [...root.querySelectorAll('*')];
+      elements.forEach(el => {
+        if (el.children.length !== 0) return;
+        const current = el.dataset.cmMcpDe || el.textContent.trim();
+        if (!mcpGermanEnglish[current]) return;
+        el.dataset.cmMcpDe = current;
+        el.textContent = lang === 'en' ? mcpGermanEnglish[current] : current;
+      });
+      const mainDescription = root.querySelector('.fleet-card > p');
+      if (mainDescription) {
+        mainDescription.dataset.cmMcpDe = 'Mit dem Model Context Protocol (MCP) wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen oder eigene MCP-Server ansteuern.';
+        mainDescription.innerHTML = lang === 'en'
+          ? 'The <strong>Model Context Protocol (MCP)</strong> turns your private GPU fleet into a dynamic AI agent. With your Owner Key, the model can access external data in real time or connect to your own MCP servers.'
+          : 'Mit dem <strong>Model Context Protocol (MCP)</strong> wird deine private GPU-Flotte zum dynamischen KI-Agenten. Wenn du Anfragen mit deinem Owner Key ausführst, kann das Modell in Echtzeit auf externe Daten zugreifen oder eigene MCP-Server ansteuern.';
+      }
+      const status = root.querySelector('.fleet-card > div > .status-pill.online');
+      if (status) {
+        status.innerHTML = `<span class="pulse-dot"></span> ${lang === 'en' ? '🟢 MCP subsystem active' : '🟢 MCP Subsystem Aktiv'}`;
+      }
+      const saved = document.querySelector('#mcp-save-indicator');
+      if (saved) saved.innerHTML = `<span>💾</span> <span>${lang === 'en' ? 'Saved per fleet' : 'Gespeichert pro Flotte'}</span>`;
+      updateMcpActiveCount();
+    }
+
     function localizeAuditDetail(detail) {
       if (getLang() === 'de' || !detail) return detail || '--';
       const exact = {
@@ -2394,6 +2485,7 @@ ollama run qwen2.5:7b "Hallo aus dem Terminal!"</code></pre>
 
     window.onLanguageChanged = function(lang) {
       updateAuthNavBtn();
+      syncMcpLanguage(lang);
       if (isLoggedIn) {
         loadFleet(false);
       }
@@ -4487,14 +4579,14 @@ for chunk in stream:
       if (badgeEl) {
         if (activeCount === ALL_MCP_TOOLS.length) {
           badgeEl.className = "status-pill online";
-          badgeEl.innerHTML = `<span class="pulse-dot"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} Tools aktiv für diese Flotte`;
+          badgeEl.innerHTML = `<span class="pulse-dot"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} ${fleetText('fleet_mcp_tools_active', 'Tools active for this fleet')}`;
         } else if (activeCount > 0) {
           badgeEl.className = "status-pill online";
           badgeEl.style.borderColor = "rgba(245,158,11,0.5)";
-          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#f59e0b;"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} Tools aktiv (${ALL_MCP_TOOLS.length - activeCount} deaktiviert)`;
+          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#f59e0b;"></span> <span id="mcp-active-count">${activeCount}</span>/${ALL_MCP_TOOLS.length} ${fleetText('fleet_mcp_tools_partial', 'tools active')} (${ALL_MCP_TOOLS.length - activeCount} ${fleetText('fleet_mcp_tools_disabled', 'disabled')})`;
         } else {
           badgeEl.className = "status-pill offline";
-          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#64748b;"></span> <span id="mcp-active-count">0</span>/${ALL_MCP_TOOLS.length} Tools aktiv (Alle deaktiviert)`;
+          badgeEl.innerHTML = `<span class="pulse-dot" style="background:#64748b;"></span> <span id="mcp-active-count">0</span>/${ALL_MCP_TOOLS.length} ${fleetText('fleet_mcp_tools_none', 'tools active (all disabled)')}`;
         }
       }
     }

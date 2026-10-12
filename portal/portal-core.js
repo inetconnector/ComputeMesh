@@ -154,6 +154,10 @@ var translations = window.translations || {
     fleet_enrollment_valid: "valid for 30 min",
     fleet_enrollment_copied: "Code copied!",
     fleet_security_copy: "Copy",
+    fleet_mcp_tools_active: "tools active for this fleet",
+    fleet_mcp_tools_partial: "tools active",
+    fleet_mcp_tools_disabled: "disabled",
+    fleet_mcp_tools_none: "tools active (all disabled)",
     fleet_passkeys_title: "Registered Passkeys & Hardware Keys",
     fleet_btn_add_passkey: "+ Add Additional Passkey / YubiKey",
     fleet_enrollment_title: "One-Time Zero-Trust Server Enrollment",
@@ -200,12 +204,14 @@ var translations = window.translations || {
     nav_apps: "Apps",
     nav_app_localcode: "LocalCode AI Studio",
     nav_app_localcode_sub: "Download & Autonomous IDE Overview",
-    nav_app_aegis: "Aegis AI Security",
-    nav_app_aegis_sub: "Zero-Knowledge Prompt Firewall & Privacy Guard",
+    nav_app_aegis: "Aegis AI Risk Terminal",
+    nav_app_aegis_sub: "Market crash early-warning & risk terminal",
     nav_app_ancesora: "Ancesora AI",
-    nav_app_ancesora_sub: "Genealogy, Family Tree AI & Historical Document Analysis",
-    nav_app_today: "Today Assistant",
-    nav_app_today_sub: "Daily Briefing, Smart Tasks & Autonomous Calendar Agent",
+    nav_app_ancesora_sub: "Genealogy platform for family archives, people & sources",
+    nav_app_today: "Today & Tomorrow",
+    nav_app_today_sub: "Concerts today and tomorrow by city, postcode & radius",
+    nav_app_causamind: "CausaMind Market Predictor",
+    nav_app_causamind_sub: "Research signals, risk-aware buy/sell/hold plans",
     nav_app_hub: "Google Play Store",
     nav_app_hub_sub: "Official Android Apps from InetConnector",
     nav_app_smartx: "SmartX Blockchain",
@@ -215,12 +221,19 @@ var translations = window.translations || {
     apps_sec_sub: "Explore our privacy-first, decentralized AI applications powered by the ComputeMesh infrastructure.",
     apps_badge_ide: "Autonomous IDE",
     apps_desc_localcode: "Local AI coding IDE with native ComputeMesh & Ollama backends, Windows System Tray mode, and mobile Android remote companion.",
-    apps_badge_sec: "Prompt Firewall",
-    apps_desc_aegis: "Zero-Knowledge Prompt Firewall with automated PII redaction, DLP protection, and GDPR-compliant guardrail filtering for sensitive AI prompts.",
-    apps_badge_genealogy: "Ancestry AI",
-    apps_desc_ancesora: "Historical document analysis, Kurrent & Sütterlin OCR, automatic pedigree tree synthesis, and biographical reconstruction.",
-    apps_badge_assistant: "Daily Agent",
-    apps_desc_today: "Autonomous AI daily companion with intelligent morning briefing, calendar & task prioritization, and proactive voice interaction.",
+    apps_badge_sec: "Crash Radar",
+    apps_title_aegis: "Aegis AI Risk Terminal",
+    apps_title_ancesora: "Ancesora AI",
+    apps_title_today: "Today & Tomorrow",
+    apps_desc_aegis: "Aegis AI Risk Terminal monitors market crashes, volatility spikes, liquidity crises and systemic market risk in real time with a fragility and trigger model.",
+    apps_badge_genealogy: "Genealogy platform",
+    apps_desc_ancesora: "Modern, research-oriented and accessible genealogy platform for family archives, people, sources and interactive family trees.",
+    apps_badge_assistant: "Concert finder",
+    apps_desc_today: "Find concerts for today and tomorrow by city, postcode and radius, with researched venue and event sources.",
+    apps_badge_causamind: "Market research",
+    apps_title_causamind: "CausaMind Market Predictor",
+    apps_desc_causamind: "Research dashboard for ranked buy, sell and hold plans with sizing, validity windows, execution guidance and risk-aware portfolio context.",
+    apps_btn_causamind: "trade.inetconnector.com ↗",
     apps_badge_suite: "Play Store",
     apps_title_hub: "Google Play Store",
     apps_desc_hub: "Official Android apps on Google Play Store: ComputeMesh, Activity Launcher Pro, Share to NAS, News Kiosk and smart AI tools.",
@@ -229,7 +242,7 @@ var translations = window.translations || {
     apps_btn_overview: "Download & IDE Overview ➔",
     apps_badge_blockchain: "Blockchain Project",
     apps_title_smartx: "SmartX Blockchain",
-    apps_desc_smartx: "Explore the SmartX blockchain project by InetConnector: a dedicated decentralized network for transparent, verifiable digital infrastructure.",
+    apps_desc_smartx: "SmartXChain block explorer and Web3 studio for real-time blocks, transactions, smart contracts and validator consensus.",
     apps_btn_smartx: "smartx.inetconnector.com ↗",
     nav_marketplace: "Marketplace",
     nav_models: "Models",
@@ -862,6 +875,10 @@ var translations = window.translations || {
     fleet_enrollment_valid: "gültig: 30 Min.",
     fleet_enrollment_copied: "Code kopiert!",
     fleet_security_copy: "Kopieren",
+    fleet_mcp_tools_active: "Tools aktiv für diese Flotte",
+    fleet_mcp_tools_partial: "Tools aktiv",
+    fleet_mcp_tools_disabled: "deaktiviert",
+    fleet_mcp_tools_none: "Tools aktiv (alle deaktiviert)",
     fleet_passkeys_title: "Registrierte Passkeys & Hardware-Schlüssel",
     fleet_btn_add_passkey: "+ Weiteren Passkey / YubiKey registrieren",
     fleet_enrollment_title: "Einmaliger Zero-Trust Server-Pairing-Code",
@@ -908,12 +925,14 @@ var translations = window.translations || {
     nav_apps: "Apps",
     nav_app_localcode: "LocalCode AI Studio",
     nav_app_localcode_sub: "Download & Autonome IDE-Übersicht",
-    nav_app_aegis: "Aegis AI Security",
-    nav_app_aegis_sub: "Zero-Knowledge Prompt-Firewall & Datenschutz",
+    nav_app_aegis: "Aegis AI Risk Terminal",
+    nav_app_aegis_sub: "Frühwarnsystem für Börsencrashs & Marktrisiken",
     nav_app_ancesora: "Ancesora AI",
-    nav_app_ancesora_sub: "Genealogie & historische Dokumenten-KI",
-    nav_app_today: "Today Assistant",
-    nav_app_today_sub: "Tagesbriefing, smarte Aufgaben & Kalender-Agent",
+    nav_app_ancesora_sub: "Genealogieplattform für Familienarchive, Personen & Quellen",
+    nav_app_today: "Heute & Morgen",
+    nav_app_today_sub: "Konzerte heute und morgen nach Ort, PLZ & Radius",
+    nav_app_causamind: "CausaMind Market Predictor",
+    nav_app_causamind_sub: "Research-Signale und risikobewusste Kauf-/Verkaufspläne",
     nav_app_hub: "Google Play Store",
     nav_app_hub_sub: "Offizielle Android-Apps von InetConnector",
     nav_app_smartx: "SmartX Blockchain",
@@ -923,12 +942,19 @@ var translations = window.translations || {
     apps_sec_sub: "Entdecke unsere datenschutzkonformen, dezentralen KI-Anwendungen, angetrieben von der ComputeMesh-Infrastruktur.",
     apps_badge_ide: "Autonome IDE",
     apps_desc_localcode: "Lokale KI-Coding-IDE mit nativer ComputeMesh- & Ollama-Anbindung, Windows System-Tray Modus und mobiler Android Remote-App.",
-    apps_badge_sec: "Prompt-Firewall",
-    apps_desc_aegis: "Zero-Knowledge Prompt-Firewall mit automatischer PII-Redaction, DLP-Schutz und DSGVO-konformer Guardrail-Filterung für sensible KI-Prompts.",
-    apps_badge_genealogy: "Genealogie-KI",
-    apps_desc_ancesora: "Historische Dokumentenanalyse, Kurrentschrift- & Sütterlin-OCR, automatische Stammbaum-Synthese und biografische Rekonstruktion.",
-    apps_badge_assistant: "Tages-Agent",
-    apps_desc_today: "Autonomer KI-Tagesbegleiter mit intelligentem Morgen-Briefing, Kalender- und Aufgabenpriorisierung und proaktiver Sprachinteraktion.",
+    apps_badge_sec: "Crash-Radar",
+    apps_title_aegis: "Aegis AI Risk Terminal",
+    apps_title_ancesora: "Ancesora AI",
+    apps_title_today: "Heute & Morgen",
+    apps_desc_aegis: "Aegis AI Risk Terminal überwacht Börsencrashs, Volatilitätssprünge und Liquiditätsrisiken in Echtzeit mit einem Fragilitäts- und Trigger-Modell.",
+    apps_badge_genealogy: "Genealogieplattform",
+    apps_desc_ancesora: "Moderne, wissenschaftliche und barrierefreie Genealogieplattform für Familienarchive, Personen, Quellen und interaktive Stammbäume.",
+    apps_badge_assistant: "Konzertsuche",
+    apps_desc_today: "Finde Konzerte für heute und morgen nach Ort, PLZ und Radius mit recherchierten Veranstaltungs- und Quellenangaben.",
+    apps_badge_causamind: "Marktforschung",
+    apps_title_causamind: "CausaMind Market Predictor",
+    apps_desc_causamind: "Research-Dashboard für gerankte Kauf-, Verkaufs- und Haltepläne mit Positionsgröße, Gültigkeitsfenster, Ausführungshinweisen und risikobewusstem Portfoliokontext.",
+    apps_btn_causamind: "trade.inetconnector.com ↗",
     apps_badge_suite: "Play Store",
     apps_title_hub: "Google Play Store",
     apps_desc_hub: "Offizielle Android-Apps im Google Play Store: ComputeMesh, Activity Launcher Pro, Share to NAS, Zeitungskiosk und smarte KI-Tools.",
@@ -937,7 +963,7 @@ var translations = window.translations || {
     apps_btn_overview: "Download & IDE-Übersicht ➔",
     apps_badge_blockchain: "Blockchain-Projekt",
     apps_title_smartx: "SmartX Blockchain",
-    apps_desc_smartx: "Entdecke das SmartX-Blockchain-Projekt von InetConnector: ein eigenes dezentrales Netzwerk für transparente und überprüfbare digitale Infrastruktur.",
+    apps_desc_smartx: "SmartXChain Block Explorer und Web3 Studio für Blöcke, Transaktionen, Smart Contracts und Validator-Konsens in Echtzeit.",
     apps_btn_smartx: "smartx.inetconnector.com ↗",
     nav_marketplace: "Marketplace",
     nav_models: "Modelle",
@@ -1752,9 +1778,27 @@ function handleAuthNavClick() {
   }
 }
 
+function ensureCausaMindMenuItem(header) {
+  const menu = header && header.querySelector('.dropdown-menu');
+  if (!menu || menu.querySelector('a[href*="trade.inetconnector.com"]')) return;
+  const item = document.createElement('a');
+  item.href = 'https://trade.inetconnector.com/';
+  item.target = '_blank';
+  item.rel = 'noopener';
+  item.className = 'dropdown-item';
+  item.innerHTML = '<span class="item-icon">📉</span><div><strong data-i18n="nav_app_causamind"></strong><p data-i18n="nav_app_causamind_sub"></p></div>';
+  const today = [...menu.querySelectorAll('a')].find(link => link.href.includes('today.inetconnector.com'));
+  if (today) today.after(item); else menu.appendChild(item);
+  const dictionary = translations[currentLang] || translations.de;
+  item.querySelector('[data-i18n="nav_app_causamind"]').textContent = dictionary.nav_app_causamind;
+  item.querySelector('[data-i18n="nav_app_causamind_sub"]').textContent = dictionary.nav_app_causamind_sub;
+}
+
 function initUnifiedPortalHeader() {
   const header = document.querySelector('header.site-header');
   if (!header) return;
+
+  ensureCausaMindMenuItem(header);
 
   const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
   const navLinks = header.querySelectorAll('.nav-links a');
@@ -1786,6 +1830,7 @@ window.getActiveComputeMeshApiKey = getActiveComputeMeshApiKey;
 window.hasActiveSession = hasActiveSession;
 window.handleAuthNavClick = handleAuthNavClick;
 window.initUnifiedPortalHeader = initUnifiedPortalHeader;
+window.ensureCausaMindMenuItem = ensureCausaMindMenuItem;
 window.handleAiSubdomainRouting = handleAiSubdomainRouting;
 window.translations = translations;
 window.currentLang = currentLang;
