@@ -16,6 +16,10 @@ Unset variables retain the legacy defaults; production staging should set both
 variables explicitly and keep the updater disabled until its target has been
 validated.
 
+## AI capability program (Paket 0, not released)
+
+The AI Capability implementation plan is tracked in the private umbrella at `docs/agents-platform/AI_CAPABILITY_IMPLEMENTATION_PLAN.md`. This public branch introduces the versioned [evaluation corpus and evidence-gated baseline](tests/evals/README.md). It **does not** enable tools, change model routing, claim improved inference quality, or authorize a production rollout. The current unmeasured baseline blocks release. The gateway owner check and in-process Python interpreter remain mandatory P0 security stop-gates before any new powerful tools are enabled.
+
 **Languages:** **English** | [Deutsch](README.de.md)
 
 The portal reads live mesh telemetry after all client state has initialized,
