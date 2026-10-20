@@ -93,7 +93,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertNotIn("ai.inetconnector.com/webui/?key=", portal_core)
         self.assertNotIn("/webui/?key=", portal_core)
         self.assertNotIn("portal-core.js?v=4.1", portal_js)
-        self.assertIn("portal-core.js?v=4.4", portal_js)
+        self.assertIn("portal-core.js?v=5.3", portal_js)
         self.assertIn("cm_session=", webui)
 
     def test_new_ui_messages_use_localization_resources(self) -> None:
