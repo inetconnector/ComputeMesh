@@ -32,9 +32,13 @@
   download icon. A broader security file also has unrelated catalog-state and
   stale cache-version assertions, so only the new registration regression was
   selected from that file.
-- Release/deployment: pending commit, push, server backup and live verification
-  at the time of this entry. Android source assets are synchronized, but no
-  signed APK release is implied.
+- Release/deployment: public commit `e424494` is pushed on `origin/main`.
+  Backup `/root/computemesh-backups/portal-webui-20261020-1938` precedes the
+  rollout to both Plesk webroots. Local/live SHA-256 hashes match, nginx syntax
+  and reload passed, `/models`, `/models/`, and `/models.html` return HTTP 200,
+  and a 390 px live Chrome smoke verified light background `#f5f7fa`, the
+  Agent toggle/panel, and no horizontal overflow. Android source assets are
+  synchronized, but no signed APK release is implied.
 
 ## 2026-10-11 targeted Plesk rollout
 
