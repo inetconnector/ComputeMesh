@@ -22,6 +22,8 @@ class StreamFederationPeer:
     latency_ms: float = 0.0
     is_active: bool = True
     tokens_streamed: int = 0
+    error_rate: float = 0.0
+    last_seen: float = field(default_factory=time.time)
 
 
 @dataclass
@@ -33,6 +35,7 @@ class StreamFederationMetrics:
     inter_token_latency_ms: float = 0.0
     active_peer_id: str = "local"
     failover_occurred: bool = False
+    failover_sequence: list[str] = field(default_factory=list)
 
 
 class P2PStreamFederator:
@@ -43,14 +46,48 @@ class P2PStreamFederator:
         self._peers: dict[str, StreamFederationPeer] = {}
         self._active_streams: dict[str, StreamFederationMetrics] = {}
 
-    def register_peer(self, peer_id: str, transport_type: str = "webrtc", latency_ms: float = 10.0) -> None:
+    def register_peer(
+        self,
+        peer_id: str,
+        transport_type: str = "webrtc",
+        latency_ms: float = 10.0,
+        error_rate: float = 0.0,
+    ) -> None:
         with self._lock:
             self._peers[peer_id] = StreamFederationPeer(
                 peer_id=peer_id,
                 transport_type=transport_type,
                 latency_ms=latency_ms,
                 is_active=True,
+                error_rate=error_rate,
+                last_seen=time.time(),
             )
+
+    def update_peer_metrics(self, peer_id: str, latency_ms: float, error_rate: float = 0.0) -> None:
+        with self._lock:
+            peer = self._peers.get(peer_id)
+            if peer:
+                peer.latency_ms = latency_ms
+                peer.error_rate = error_rate
+                peer.last_seen = time.time()
+                peer.is_active = error_rate < 0.5
+
+    def get_peer_health(self) -> list[dict[str, Any]]:
+        with self._lock:
+            res = []
+            for p in self._peers.values():
+                res.append(
+                    {
+                        "peer_id": p.peer_id,
+                        "transport_type": p.transport_type,
+                        "latency_ms": p.latency_ms,
+                        "is_active": p.is_active,
+                        "tokens_streamed": p.tokens_streamed,
+                        "error_rate": p.error_rate,
+                        "last_seen": p.last_seen,
+                    }
+                )
+            return res
 
     def federate_stream(
         self,
@@ -59,7 +96,11 @@ class P2PStreamFederator:
         primary_peer_id: str = "local",
         fallback_peer_id: str | None = None,
     ) -> Generator[str, None, None]:
-        metrics = StreamFederationMetrics(stream_id=stream_id, active_peer_id=primary_peer_id)
+        metrics = StreamFederationMetrics(
+            stream_id=stream_id,
+            active_peer_id=primary_peer_id,
+            failover_sequence=[primary_peer_id],
+        )
         with self._lock:
             self._active_streams[stream_id] = metrics
 
@@ -79,15 +120,19 @@ class P2PStreamFederator:
                 last_token_time = now
                 metrics.total_tokens += 1
 
+                with self._lock:
+                    peer = self._peers.get(metrics.active_peer_id)
+                    if peer:
+                        peer.tokens_streamed += 1
+
                 yield token
 
         except Exception as exc:
             log.warning("P2P Stream error on primary peer %s: %s. Initiating zero-drop failover...", primary_peer_id, exc)
             metrics.failover_occurred = True
-            if fallback_peer_id:
-                metrics.active_peer_id = fallback_peer_id
-            else:
-                metrics.active_peer_id = "local_failover"
+            next_peer = fallback_peer_id or "local_failover"
+            metrics.active_peer_id = next_peer
+            metrics.failover_sequence.append(next_peer)
 
             yield f"\n[Stream Federation Failover to {metrics.active_peer_id}]\n"
 
@@ -103,6 +148,7 @@ class P2PStreamFederator:
                 "inter_token_latency_ms": m.inter_token_latency_ms,
                 "active_peer_id": m.active_peer_id,
                 "failover_occurred": m.failover_occurred,
+                "failover_sequence": m.failover_sequence,
                 "elapsed_sec": round(time.time() - m.start_time, 2),
             }
 

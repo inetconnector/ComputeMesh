@@ -35,7 +35,7 @@ class MeshShardingHandler:
                     )
                 )
 
-            # Sample 70B parameters model plan calculation
+            # Sample 72B parameters model plan calculation
             plan = DynamicShardingEngine.calculate_sharding_plan(
                 model_id="Qwen/Qwen2.5-72B-Instruct-GGUF",
                 total_layers=80,
@@ -52,6 +52,8 @@ class MeshShardingHandler:
                         "required_vram_gb": round(plan.required_vram_bytes / (1024**3), 2),
                         "feasible": plan.feasible,
                         "reason": plan.reason,
+                        "estimated_pipeline_latency_ms": plan.estimated_pipeline_latency_ms,
+                        "tensor_parallel_enabled": plan.tensor_parallel_enabled,
                         "assignments": [
                             {
                                 "node_id": a.node_id,
@@ -61,6 +63,8 @@ class MeshShardingHandler:
                                 "allocated_vram_gb": round(a.allocated_vram_bytes / (1024**3), 2),
                                 "fraction": a.fraction,
                                 "is_local": a.is_local,
+                                "tensor_parallel_degree": a.tensor_parallel_degree,
+                                "estimated_transfer_ms": a.estimated_transfer_ms,
                             }
                             for a in plan.assignments
                         ],
@@ -75,12 +79,14 @@ class MeshShardingHandler:
             return True
 
         if path == "/api/v1/mesh/stream/status":
+            peers_health = GLOBAL_STREAM_FEDERATOR.get_peer_health()
             handler_inst._send_json(
                 {
                     "p2p_stream_federation": {
                         "status": "active",
                         "peers_count": len(GLOBAL_STREAM_FEDERATOR._peers),
                         "active_streams_count": len(GLOBAL_STREAM_FEDERATOR._active_streams),
+                        "peers": peers_health,
                     }
                 }
             )
@@ -96,6 +102,7 @@ class MeshShardingHandler:
                 model_id = str(data.get("model_id", "Qwen/Qwen2.5-72B-Instruct-GGUF"))
                 total_layers = int(data.get("total_layers", 80))
                 model_vram_bytes = int(data.get("model_vram_bytes", 42 * 1024 * 1024 * 1024))
+                enable_tp = bool(data.get("enable_tensor_parallel", False))
 
                 local_status = getattr(handler_inst, "_get_status_dict", lambda: None)()
                 mesh_stats = GLOBAL_MESH_AGGREGATOR.get_mesh_stats(local_status=local_status)
@@ -120,6 +127,7 @@ class MeshShardingHandler:
                     total_layers=total_layers,
                     model_vram_bytes=model_vram_bytes,
                     nodes=nodes_cap,
+                    enable_tensor_parallel=enable_tp,
                 )
 
                 handler_inst._send_json(
@@ -131,6 +139,8 @@ class MeshShardingHandler:
                             "required_vram_gb": round(plan.required_vram_bytes / (1024**3), 2),
                             "feasible": plan.feasible,
                             "reason": plan.reason,
+                            "estimated_pipeline_latency_ms": plan.estimated_pipeline_latency_ms,
+                            "tensor_parallel_enabled": plan.tensor_parallel_enabled,
                             "assignments": [
                                 {
                                     "node_id": a.node_id,
@@ -140,6 +150,8 @@ class MeshShardingHandler:
                                     "allocated_vram_gb": round(a.allocated_vram_bytes / (1024**3), 2),
                                     "fraction": a.fraction,
                                     "is_local": a.is_local,
+                                    "tensor_parallel_degree": a.tensor_parallel_degree,
+                                    "estimated_transfer_ms": a.estimated_transfer_ms,
                                 }
                                 for a in plan.assignments
                             ],
@@ -158,5 +170,19 @@ class MeshShardingHandler:
             GLOBAL_DISTRIBUTED_MODEL_CACHE.clear_all()
             handler_inst._send_json({"status": "success", "message": "Distributed model cache cleared successfully"})
             return True
+
+        if path == "/api/v1/mesh/cache/verify":
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+                model_id = str(data.get("model_id", ""))
+                res = GLOBAL_DISTRIBUTED_MODEL_CACHE.verify_shard_integrity(model_id)
+                handler_inst._send_json({"integrity": res})
+                return True
+            except Exception as exc:
+                handler_inst._send_json(
+                    {"error": {"message": f"Cache verification failed: {exc}", "code": 400}},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
 
         return False

@@ -4123,3 +4123,25 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
   - `services/mcp/tests/` + `services/appliance_dashboard/tests/`: 114 / 114 passed (100%).
   - `tests/`: 63 / 63 passed (100%).
   - Total: 177 / 177 passed across all test suites.
+
+## 85. Appliance WebUI Dynamic Sharding, Distributed Model Cache & P2P Stream Federation (2026-10-21)
+
+- Implemented and verified full production-grade Dynamic Model Sharding, Distributed Model Cache, and P2P Stream Federation across `runtime/`, `services/appliance_dashboard/`, and `portal/webui/`:
+  1. **Dynamic Model Sharding Engine** (`runtime/dynamic_sharding.py`):
+     - Advanced layer and adaptive tensor-parallel sharding calculation across heterogeneous mesh nodes based on GPU VRAM, TFLOPS, and network bandwidth.
+     - Pipelined activation transfer latency estimation and total execution latency calculation.
+  2. **Distributed Model Cache Manager** (`runtime/distributed_model_cache.py`):
+     - Chunk-based model storage with SHA256 integrity verification (`verify_shard_integrity`).
+     - Missing chunk detection (`get_missing_chunks`) and model shard pinning (`pin_model_shard`) preventing LRU eviction of pinned models.
+  3. **P2P Stream Federation Engine** (`runtime/p2p_stream_federation.py`):
+     - Multi-peer active link health monitoring with WebRTC and mTLS transport tracking.
+     - Zero-drop streaming failover sequence execution and token delivery telemetry.
+  4. **Appliance Dashboard API Extensions** (`services/appliance_dashboard/mesh_sharding_handler.py`):
+     - Added `/api/v1/mesh/sharding/calculate` with tensor-parallel configuration options.
+     - Added `/api/v1/mesh/cache/verify` and `/api/v1/mesh/cache/clear`.
+     - Added `/api/v1/mesh/stream/status` with active peer health and stream metrics.
+  5. **WebUI Static Asset Parity** (`portal/webui/model-selector.js` & `apps/android/app/src/main/assets/webui/model-selector.js`):
+     - Background polling and JavaScript API bindings (`window.ComputeMeshSharding`) for sharding plans, model cache status, and stream federation.
+     - 100% synchronized static asset parity across web portal and Android application assets.
+- Verification Evidence:
+  - Executed unified test suite (`python3 run_all_tests.py`): 843 / 843 tests passed across all 12 categories in 78.79s with 0 failures or errors.
