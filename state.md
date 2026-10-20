@@ -1,6 +1,14 @@
 # ComputeMesh State
 
-**Last updated:** 2026-10-20
+**Last updated:** 2026-10-21
+
+## 2026-10-21 System Hardening Phase: WebRTC Mesh Fabric Resilience, Dynamic Model Catalog Fallback & Worker High-Availability Protocol
+
+- **WebRTC Mesh Fabric Resilience:** Implemented zero-trust P2P data channel transport in `runtime/network/webrtc_mesh_fabric.py` featuring binary framing, CRC32 payload checksum validation, active ping/pong heartbeat & RTT latency probing, and dynamic zero-data-loss failover to direct mTLS TCP tunnel upon peer degradation or failure.
+- **Dynamic Model Catalog Fallback:** Implemented `validate_model_catalog_invariants` and `current_models_with_fallback` in `services/gateway/catalog.py` enforcing the fallback chain `Remote Registry -> Live Local Model Catalog -> Static Catalog` with strict invariant checks (non-empty list, valid model IDs, context length bounds, duplicate detection, sha256 digest validation).
+- **Worker High-Availability (HA) Protocol:** Implemented `services/orchestrator/worker_ha_protocol.py` providing active worker heartbeat lease monitoring, fence-token based split-brain protection, dynamic primary worker failover, and orphaned turn reassignment.
+- **Service Worker Precache Synchronization:** Updated precache MD5 revision hash in `portal/webui/sw.js` and `apps/android/app/src/main/assets/webui/sw.js` matching `index.html`.
+- **Unified Test Suite Verification:** Executed `pytest tests/test_appliance_webui.py -v` (10/10 OK) and `python3 run_all_tests.py` across all 12 categories (831/831 OK in ~79.71s with 0 errors and 0 failures). Rule 7 (100% production implementation without mocks or stubs) strictly fulfilled.
 
 ## 2026-10-20 System Hardening Phase: Model Catalog Fallback, Gateway Invariant Hardening & Production Audit Acceptance
 

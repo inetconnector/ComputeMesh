@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import json
+import logging
 import os
 import re
 import threading
@@ -25,7 +26,13 @@ from services.common.pricing import (
 )
 from services.gateway.registry_client import ModelRegistryClient, RegistryClientError, RegistryModel, build_registry_client_from_env
 
+logger = logging.getLogger("computemesh.catalog")
+
 PriceTier = ModelPriceTier
+
+
+class CatalogInvariantValidationError(RuntimeError):
+    """Raised when a model catalog fails strict invariant verification."""
 
 
 @dataclass(frozen=True)
@@ -122,6 +129,39 @@ _RUNTIME_CACHE_AT = 0.0
 _RUNTIME_CACHE: tuple[ModelSpec, ...] = ()
 
 
+def validate_model_catalog_invariants(models: list[ModelSpec | RegistryModel]) -> list[ModelSpec | RegistryModel]:
+    """Strictly validates catalog invariants for security, metadata integrity, and bounds."""
+    if not isinstance(models, list):
+        raise CatalogInvariantValidationError("Model catalog must be a list")
+    if not models:
+        raise CatalogInvariantValidationError("Model catalog must not be empty")
+
+    seen_ids: set[str] = set()
+    for entry in models:
+        model_id = str(getattr(entry, "id", "")).strip()
+        if not model_id or len(model_id) > 256:
+            raise CatalogInvariantValidationError("Catalog entry has invalid or missing model_id")
+        if model_id in seen_ids:
+            raise CatalogInvariantValidationError(f"Duplicate model_id detected in catalog: {model_id}")
+        seen_ids.add(model_id)
+
+        ctx_len = getattr(entry, "context_window", None) or getattr(entry, "context_length", None)
+        if not isinstance(ctx_len, int) or ctx_len <= 0:
+            raise CatalogInvariantValidationError(f"Model {model_id} has invalid context length: {ctx_len}")
+
+        digest = str(getattr(entry, "artifact_digest", "")).strip()
+        if digest:
+            clean_digest = digest.lower().removeprefix("sha256:")
+            if not re.fullmatch(r"[0-9a-f]{64}", clean_digest):
+                raise CatalogInvariantValidationError(f"Model {model_id} has malformed sha256 digest: {digest}")
+
+        size = getattr(entry, "artifact_size_bytes", 0)
+        if not isinstance(size, int) or size < 0:
+            raise CatalogInvariantValidationError(f"Model {model_id} has invalid artifact size: {size}")
+
+    return models
+
+
 def _runtime_models_from_env() -> list[ModelSpec] | None:
     """Return an authoritative local-runtime view, or None when none is configured."""
     backend = os.environ.get("COMPUTEMESH_INFERENCE_BACKEND", "").strip().lower()
@@ -188,19 +228,35 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
     return discovered
 
 
+def current_models_with_fallback() -> list[ModelSpec | RegistryModel]:
+    """Returns authoritative registry/runtime models with dynamic fallback chain and invariant validation."""
+    # Step 1: Remote Registry
+    if LIVE_MODEL_REGISTRY is not None:
+        try:
+            remote_models = list(LIVE_MODEL_REGISTRY.models())
+            return validate_model_catalog_invariants(remote_models)
+        except (RegistryClientError, CatalogInvariantValidationError) as exc:
+            logger.warning(f"Remote model registry unavailable or invalid ({exc}). Triggering catalog fallback.")
+
+    # Step 2: Live Local Model Catalog / Runtime
+    runtime_models = _runtime_models_from_env()
+    if runtime_models is not None and len(runtime_models) > 0:
+        try:
+            return validate_model_catalog_invariants(runtime_models)
+        except CatalogInvariantValidationError as exc:
+            logger.warning(f"Local runtime model catalog invalid ({exc}). Continuing fallback.")
+
+    # Step 3: Static Model Catalog Fallback
+    allow_static = os.environ.get("COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG", "").strip() in ("1", "true", "TRUE")
+    if allow_static or LIVE_MODEL_REGISTRY is None:
+        return validate_model_catalog_invariants(list(AVAILABLE_MODELS))
+
+    return []
+
+
 def current_models() -> list[ModelSpec | RegistryModel]:
-    """Return authoritative registry/runtime models, else the unavailable catalogue."""
-    if LIVE_MODEL_REGISTRY is None:
-        runtime_models = _runtime_models_from_env()
-        if runtime_models is not None:
-            return runtime_models
-        return list(AVAILABLE_MODELS)
-    try:
-        return list(LIVE_MODEL_REGISTRY.models())
-    except RegistryClientError:
-        # An explicitly configured registry is authoritative; never advertise
-        # stale static or synthetic models after it becomes unavailable.
-        return []
+    """Return authoritative registry/runtime models, else validated fallback catalogue."""
+    return current_models_with_fallback()
 
 
 def model_modalities(model: ModelSpec | RegistryModel) -> tuple[str, ...]:

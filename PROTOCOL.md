@@ -316,6 +316,18 @@ Cancellation is idempotent. It includes a cancellation reason and cutoff policy.
 
 Stops new reservations and transitions the node toward a safe idle state.
 
+## 8.1. WebRTC P2P Mesh Fabric & Worker High-Availability
+
+### WebRTC P2P Data Channel Framing & Failover
+- **Framing**: Binary header `!4sBIII` (`WMRF` magic, frame type, 32-bit sequence, payload length, CRC32 checksum).
+- **Probing**: Active heartbeat ping/pong messages measuring RTT and missed heartbeat probes.
+- **Failover**: Automatic zero-data-loss fallback from degraded/failed WebRTC P2P data channels to direct mTLS TCP tunnel.
+
+### Worker High-Availability (HA) Protocol
+- **Roles & States**: `PRIMARY`, `STANDBY`, `OFFLINE` roles with `ACTIVE`, `DEGRADED`, `EXPIRED`, `EJECTED` lease states.
+- **Fence Token**: Monotonic fence token increments on primary failover to prevent stale writers and split-brain actions.
+- **Reassignment**: Orphaned or running turns under an expired primary worker are automatically reset and reassigned to the elected active standby worker.
+
 ### `FailureReport`
 
 Structured failure:

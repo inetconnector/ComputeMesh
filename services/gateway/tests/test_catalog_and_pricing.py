@@ -11,12 +11,15 @@ if str(REPO_ROOT) not in sys.path:
 from services.gateway.catalog import (
     AVAILABLE_MODELS,
     DEFAULT_PRICE_TIERS,
+    CatalogInvariantValidationError,
     ModelSpec,
     PriceTier,
+    current_models_with_fallback,
     model_modalities,
     model_modality_flags,
     provider_shares_from_env,
     resolve_model_id,
+    validate_model_catalog_invariants,
 )
 from services.gateway.registry_client import RegistryModel
 
@@ -66,6 +69,35 @@ class TestCatalogAndPricing(unittest.TestCase):
             license="Apache-2.0",
         )
         self.assertEqual(model_modalities(model), ("text", "vision", "audio", "video"))
+
+    def test_catalog_invariant_validation(self) -> None:
+        # Valid catalog
+        valid = [ModelSpec(id="valid/m1", context_window=4096)]
+        self.assertEqual(validate_model_catalog_invariants(valid), valid)
+
+        # Empty catalog
+        with self.assertRaises(CatalogInvariantValidationError):
+            validate_model_catalog_invariants([])
+
+        # Duplicate ID
+        dup = [ModelSpec(id="m1", context_window=4096), ModelSpec(id="m1", context_window=8192)]
+        with self.assertRaises(CatalogInvariantValidationError):
+            validate_model_catalog_invariants(dup)
+
+        # Invalid context length
+        invalid_ctx = [ModelSpec(id="m1", context_window=0)]
+        with self.assertRaises(CatalogInvariantValidationError):
+            validate_model_catalog_invariants(invalid_ctx)
+
+        # Invalid digest
+        invalid_digest = [ModelSpec(id="m1", context_window=4096, artifact_digest="bad_digest")]
+        with self.assertRaises(CatalogInvariantValidationError):
+            validate_model_catalog_invariants(invalid_digest)
+
+    def test_current_models_fallback_chain(self) -> None:
+        models = current_models_with_fallback()
+        self.assertGreater(len(models), 0)
+        self.assertIn("qwen/qwen2.5-7b-instruct", [m.id for m in models])
 
     def test_resolve_model_id_aliases(self) -> None:
         # Exact match
