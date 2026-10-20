@@ -162,17 +162,44 @@ class InferenceRouter:
                     handler.wfile.write(data)
                     return True
             except Exception:
-                handler._send_json(
-                    {
-                        "error": {
-                            "message": "No healthy local model runtime is available",
-                            "type": "service_unavailable",
-                            "code": "model_runtime_unavailable",
-                        }
-                    },
-                    HTTPStatus.SERVICE_UNAVAILABLE,
-                )
-                return True
+                try:
+                    from services.gateway.catalog import current_models
+                    models = current_models()
+                    if clean_path in ("/api/tags", "/tags"):
+                        handler._send_json({"models": [{
+                            "name": m.id,
+                            "model": m.id,
+                            "size": 0,
+                            "digest": "",
+                            "details": {"format": "computemesh-catalog", "quantization_level": ""},
+                        } for m in models]})
+                    else:
+                        models_data = [
+                            {
+                                "id": m.id,
+                                "object": "model",
+                                "created": getattr(m, "created", 0),
+                                "owned_by": getattr(m, "owned_by", "computemesh"),
+                                "permission": [],
+                                "root": m.id,
+                                "parent": None,
+                            }
+                            for m in models
+                        ]
+                        handler._send_json({"object": "list", "data": models_data})
+                    return True
+                except Exception:
+                    handler._send_json(
+                        {
+                            "error": {
+                                "message": "No healthy local model runtime is available",
+                                "type": "service_unavailable",
+                                "code": "model_runtime_unavailable",
+                            }
+                        },
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                    return True
 
         if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props", "/slots", "/webui/slots", "/api/slots", "/v1/slots", "/tools", "/webui/tools", "/api/tools", "/v1/tools", "/api/version", "/version"):
             if clean_path in ("/props", "/webui/props", "/api/props", "/v1/props"):
