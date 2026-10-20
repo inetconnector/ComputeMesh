@@ -1655,6 +1655,19 @@
 	installImageUploadOptimization();
 	installImageTagRewriter();
 	setInterval(renderModelInfoFallback, 500);
+
+	function fetchMeshShardingPlan() {
+		fetch('/api/v1/mesh/sharding/plan')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.sharding_plan) {
+					window.cmMeshShardingPlan = d.sharding_plan;
+				}
+			})
+			.catch(function () {});
+	}
+	fetchMeshShardingPlan();
+	setInterval(fetchMeshShardingPlan, 15000);
 	modelSelectionReady = document.readyState === 'loading'
 		? new Promise(function (resolve) {
 			document.addEventListener('DOMContentLoaded', function () { initialize().finally(resolve); }, { once: true });
