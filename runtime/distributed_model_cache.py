@@ -36,6 +36,7 @@ class CachedModelShardManifest:
     sha256_hash: str
     chunks: list[ModelChunkMetadata] = field(default_factory=list)
     last_accessed: float = field(default_factory=time.time)
+    is_pinned: bool = False
 
 
 class DistributedModelCache:
@@ -66,6 +67,7 @@ class DistributedModelCache:
                         sha256_hash=data["sha256_hash"],
                         chunks=chunks,
                         last_accessed=data.get("last_accessed", time.time()),
+                        is_pinned=data.get("is_pinned", False),
                     )
                     self._manifests[model_id] = manifest
                 except Exception as exc:
@@ -77,6 +79,7 @@ class DistributedModelCache:
         total_size_bytes: int,
         chunks_data: list[tuple[int, bytes]],
         sha256_hash: str = "",
+        is_pinned: bool = False,
     ) -> CachedModelShardManifest:
         model_safe_name = hashlib.sha256(model_id.encode()).hexdigest()[:16]
         model_sub_dir = self.cache_dir / model_safe_name
@@ -111,6 +114,7 @@ class DistributedModelCache:
             sha256_hash=sha256_hash,
             chunks=chunk_metas,
             last_accessed=time.time(),
+            is_pinned=is_pinned,
         )
 
         manifest_file = self.cache_dir / f"{model_safe_name}.manifest.json"
@@ -130,13 +134,62 @@ class DistributedModelCache:
                 return manifest
             return None
 
+    def pin_model_shard(self, model_id: str, pinned: bool = True) -> bool:
+        with self._lock:
+            manifest = self._manifests.get(model_id)
+            if not manifest:
+                return False
+            manifest.is_pinned = pinned
+            model_safe_name = hashlib.sha256(model_id.encode()).hexdigest()[:16]
+            manifest_file = self.cache_dir / f"{model_safe_name}.manifest.json"
+            manifest_file.write_text(json.dumps(asdict(manifest), indent=2), encoding="utf-8")
+            return True
+
+    def verify_shard_integrity(self, model_id: str) -> dict[str, Any]:
+        with self._lock:
+            manifest = self._manifests.get(model_id)
+            if not manifest:
+                return {"valid": False, "reason": f"Model shard {model_id} not found in cache"}
+
+            corrupted_chunks = []
+            missing_chunks = []
+            for chunk in manifest.chunks:
+                p = Path(chunk.stored_path)
+                if not p.exists():
+                    missing_chunks.append(chunk.chunk_index)
+                    continue
+                file_hash = hashlib.sha256(p.read_bytes()).hexdigest()
+                if file_hash != chunk.sha256_hash:
+                    corrupted_chunks.append(chunk.chunk_index)
+
+            is_valid = len(corrupted_chunks) == 0 and len(missing_chunks) == 0
+            return {
+                "valid": is_valid,
+                "model_id": model_id,
+                "total_chunks": manifest.total_chunks,
+                "missing_chunks": missing_chunks,
+                "corrupted_chunks": corrupted_chunks,
+                "verified_at": time.time(),
+            }
+
+    def get_missing_chunks(self, model_id: str, total_chunks: int) -> list[int]:
+        with self._lock:
+            manifest = self._manifests.get(model_id)
+            if not manifest:
+                return list(range(total_chunks))
+            existing_indices = {c.chunk_index for c in manifest.chunks if c.is_available_locally and Path(c.stored_path).exists()}
+            return [i for i in range(total_chunks) if i not in existing_indices]
+
     def _enforce_eviction_policy(self) -> None:
-        """LRU Eviction when cached data exceeds max_cache_bytes."""
+        """LRU Eviction when cached data exceeds max_cache_bytes, skipping pinned models."""
         total_bytes = sum(m.total_size_bytes for m in self._manifests.values())
         if total_bytes <= self.max_cache_bytes:
             return
 
-        sorted_manifests = sorted(self._manifests.values(), key=lambda m: m.last_accessed)
+        sorted_manifests = sorted(
+            [m for m in self._manifests.values() if not m.is_pinned],
+            key=lambda m: m.last_accessed,
+        )
         for m in sorted_manifests:
             if total_bytes <= self.max_cache_bytes:
                 break
@@ -177,6 +230,7 @@ class DistributedModelCache:
                         "size_gb": round(m.total_size_bytes / (1024**3), 3),
                         "chunks_count": len(m.chunks),
                         "last_accessed": m.last_accessed,
+                        "is_pinned": m.is_pinned,
                         "hash": m.sha256_hash,
                     }
                 )

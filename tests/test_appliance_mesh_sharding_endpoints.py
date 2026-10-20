@@ -16,6 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.appliance_dashboard.server import create_dashboard_server
+from services.appliance_dashboard.tunnel_relay import NODE_AUTH_TOKEN
 from tools.appliance.appliance_config import load_appliance_config
 from tools.appliance.hardware_detector import scan_rig_hardware_stable
 
@@ -52,7 +53,11 @@ class TestApplianceMeshShardingEndpoints(unittest.TestCase):
     def _post(self, path: str, payload: dict) -> tuple[int, dict]:
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         body = json.dumps(payload).encode("utf-8")
-        conn.request("POST", path, body=body, headers={"Content-Type": "application/json"})
+        headers = {
+            "Content-Type": "application/json",
+            "X-Node-Auth-Token": NODE_AUTH_TOKEN,
+        }
+        conn.request("POST", path, body=body, headers=headers)
         resp = conn.getresponse()
         data = resp.read()
         conn.close()
@@ -66,10 +71,30 @@ class TestApplianceMeshShardingEndpoints(unittest.TestCase):
         self.assertIn("model_id", plan)
         self.assertIn("feasible", plan)
 
+    def test_sharding_calculate_endpoint(self) -> None:
+        payload = {
+            "model_id": "meta-llama/Llama-3.3-70B-Instruct-GGUF",
+            "total_layers": 80,
+            "model_vram_bytes": 40 * 1024 * 1024 * 1024,
+            "enable_tensor_parallel": True,
+        }
+        status, parsed = self._post("/api/v1/mesh/sharding/calculate", payload)
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIn("sharding_plan", parsed)
+        plan = parsed["sharding_plan"]
+        self.assertEqual(plan["model_id"], "meta-llama/Llama-3.3-70B-Instruct-GGUF")
+        self.assertTrue(plan["tensor_parallel_enabled"])
+
     def test_cache_status_endpoint(self) -> None:
         status, parsed = self._get("/api/v1/mesh/cache/status")
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIn("distributed_model_cache", parsed)
+
+    def test_cache_verify_endpoint(self) -> None:
+        status, parsed = self._post("/api/v1/mesh/cache/verify", {"model_id": "nonexistent-model"})
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIn("integrity", parsed)
+        self.assertFalse(parsed["integrity"]["valid"])
 
     def test_stream_status_endpoint(self) -> None:
         status, parsed = self._get("/api/v1/mesh/stream/status")

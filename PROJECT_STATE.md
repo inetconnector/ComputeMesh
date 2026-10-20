@@ -98,4 +98,5 @@ Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous
 
 - v1-v3: initial architecture, platform implementation and first complete validation.
 - v4: Review-2 security/architecture findings closed; permanent security tests and real private-to-public enforcement validation added.
-- v5: current public/private `main` changes merged into both AgentsPlatform branches, semantic submodule conflict handled deliberately, and both merge states revalidated. This state revision is the final public CI candidate before exact private re-pin and PR readiness.
+- v5: current public/private `main` changes merged into both AgentsPlatform branches, semantic submodule conflict handled deliberately, and both merge states revalidated.
+- v6: Appliance WebUI Dynamic Sharding, Distributed Model Cache & P2P Stream Federation phase implemented with 100% test verification (843/843 tests passing).

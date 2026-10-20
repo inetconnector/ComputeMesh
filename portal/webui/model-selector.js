@@ -1652,6 +1652,33 @@
 
 	window.ComputeMeshModelSelector = { getSelectedModel: currentModel, modalitiesFor: modalitiesFor, probeLocalNode: probeLocalNode };
 	window.ComputeMeshAgentSessions = { refresh: initializeAgentSessions, poll: pollAgentSessionEvents, refreshApprovals: refreshAgentApprovals };
+	window.ComputeMeshSharding = {
+		getPlan: function () { return window.cmMeshShardingPlan || null; },
+		calculatePlan: function (modelId, totalLayers, modelVramBytes, enableTp) {
+			return fetch('/api/v1/mesh/sharding/calculate', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					model_id: modelId || 'Qwen/Qwen2.5-72B-Instruct-GGUF',
+					total_layers: totalLayers || 80,
+					model_vram_bytes: modelVramBytes || (42 * 1024 * 1024 * 1024),
+					enable_tensor_parallel: !!enableTp
+				})
+			}).then(function (r) { return r.json(); });
+		},
+		getCacheStatus: function () { return window.cmMeshCacheStatus || null; },
+		clearCache: function () {
+			return fetch('/api/v1/mesh/cache/clear', { method: 'POST' }).then(function (r) { return r.json(); });
+		},
+		verifyCache: function (modelId) {
+			return fetch('/api/v1/mesh/cache/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ model_id: modelId })
+			}).then(function (r) { return r.json(); });
+		},
+		getStreamStatus: function () { return window.cmMeshStreamStatus || null; }
+	};
 	installImageUploadOptimization();
 	installImageTagRewriter();
 	setInterval(renderModelInfoFallback, 500);
@@ -1662,6 +1689,24 @@
 			.then(function (d) {
 				if (d && d.sharding_plan) {
 					window.cmMeshShardingPlan = d.sharding_plan;
+				}
+			})
+			.catch(function () {});
+
+		fetch('/api/v1/mesh/cache/status')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.distributed_model_cache) {
+					window.cmMeshCacheStatus = d.distributed_model_cache;
+				}
+			})
+			.catch(function () {});
+
+		fetch('/api/v1/mesh/stream/status')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.p2p_stream_federation) {
+					window.cmMeshStreamStatus = d.p2p_stream_federation;
 				}
 			})
 			.catch(function () {});
