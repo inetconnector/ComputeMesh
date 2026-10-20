@@ -97,6 +97,7 @@ CATEGORIES: dict[str, list[str]] = {
         "tools.appliance.tests.test_disk_clone",
         "apps.node.test_provider_agent",
         "tests.test_appliance_webui",
+        "tests.test_appliance_mesh_sharding_endpoints",
     ],
     "Scheduler & Orchestrator": [
         "services.scheduler.tests.test_placement",
@@ -133,6 +134,7 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.network.tests.test_mesh_transport",
         "runtime.network.tests.test_webrtc_mesh_fabric",
         "runtime.tests.test_capacity_guard",
+        "runtime.tests.test_mesh_sharding_and_cache",
         "runtime.llama.tests.test_shared_trial",
         "runtime.llama.tests.test_shared_run_evidence",
         "runtime.llama.tests.test_rpc_spike",

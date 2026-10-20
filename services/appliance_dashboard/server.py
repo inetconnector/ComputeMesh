@@ -51,6 +51,7 @@ from services.appliance_dashboard.system_actions import SystemActionsHandler
 from services.appliance_dashboard.killswitch_actions import KillswitchHandler
 from services.appliance_dashboard.telemetry_handler import TelemetryHandler
 from services.appliance_dashboard.webapp_handler import WebAppsHandler
+from services.appliance_dashboard.mesh_sharding_handler import MeshShardingHandler
 
 log = logging.getLogger("computemesh.appliance.server")
 APPLIANCE_VERSION = CONFIG.appliance_version
@@ -264,6 +265,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         req_path = parsed_url.path
 
+        if MeshShardingHandler.handle_get(self, req_path):
+            return
+
         if ModelManagerHandler.handle_get(self, req_path, parsed_url.query):
             return
 
@@ -429,6 +433,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             authorized = self._verify_owner_inference_auth()
         if not authorized:
             self._send_unauthorized()
+            return
+
+        if MeshShardingHandler.handle_post(self, req_path, post_body):
             return
 
         if ModelManagerHandler.handle_post(self, req_path, post_body):
