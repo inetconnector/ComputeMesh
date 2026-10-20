@@ -59,7 +59,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen, Modellkatalog-Fallbacks sind bei inaktiven lokalen Runtimes aktiv, und Service Worker Precache-Revisionen sind synchronisiert. Der Live-Stand steht in `state.md`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen, Modellkatalog-Fallbacks sind bei inaktiven lokalen Runtimes aktiv, setzt Fail-Closed-Gateway-Invarianten durch und Service Worker Precache-Revisionen sind synchronisiert. Der Live-Stand steht in `state.md`.
 
 Der aktuelle Arbeitsstand erweitert diesen Mesh-Pfad für gekoppelte Mobilgeräte:
 Die Android-WebUI enthält denselben Modellwähler wie das Portal, aktualisiert
