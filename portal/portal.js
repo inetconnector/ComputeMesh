@@ -11,6 +11,14 @@
     return (window.currentLang === 'de' || localStorage.getItem('cm_portal_lang') === 'de' || (!localStorage.getItem('cm_portal_lang') && (navigator.language || '').startsWith('de'))) ? 'de' : 'en';
   }
 
+  function registrationErrorMessage(payload, fallback) {
+    const error = payload && payload.error;
+    if (typeof error === 'string' && error.trim()) return error.trim();
+    if (error && typeof error.message === 'string' && error.message.trim()) return error.message.trim();
+    if (payload && typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim();
+    return fallback;
+  }
+
   function syncProviderControls() {
     const role = document.getElementById('modal-role')?.value || 'consumer';
     const providerFields = document.getElementById('provider-extra-fields');
@@ -86,7 +94,9 @@
         })
       });
       const data = await response.json();
-      if (!response.ok || !data.api_key) throw new Error(data.error || 'registration_failed');
+      if (!response.ok || !data.api_key) {
+        throw new Error(registrationErrorMessage(data, lang === 'de' ? 'Registrierung konnte nicht abgeschlossen werden.' : 'Registration could not be completed.'));
+      }
       if (keyInput) keyInput.value = data.api_key;
       try { localStorage.setItem('cm_api_key', data.api_key); } catch (e) {}
       if (typeof window.updateCodeSnippetsWithKey === 'function') {

@@ -17,6 +17,25 @@
 - **Security Audit Regression Test Alignment:** Synchronized `tests/test_security_audit_fixes.py` asset version assertion to expect `portal-core.js?v=5.3` in `portal/portal.js`.
 - **Verification & Compliance:** Executed `python3 run_all_tests.py` across all 12 categories. All 815 tests passed without failures (815/815 OK in ~77 seconds). Rule 7 (complete implementations without stubs) strictly adhered to.
 
+## 2026-10-20 WebUI, model route and registration release candidate
+
+- Branch/worktree: public `main`; preserve any unrelated private-parent work.
+- WebUI: light/dark tokens are shared by portal and Android, update/reload and
+  attachment overlays are hit-test safe, and Agent Sessions use an explained,
+  persistent disclosure button instead of an always-open debug-looking box.
+- Portal: exact nginx locations for `/models` and `/models/` serve
+  `models.html`; structured registration errors use `error.message` and never
+  stringify objects.
+- Verification run: focused WebUI/theme/attachment/portal/registration suite
+  produced **27 passed, 4 subtests passed**. Three unrelated pre-existing
+  download-label browser assertions still expect text without the existing
+  download icon. A broader security file also has unrelated catalog-state and
+  stale cache-version assertions, so only the new registration regression was
+  selected from that file.
+- Release/deployment: pending commit, push, server backup and live verification
+  at the time of this entry. Android source assets are synchronized, but no
+  signed APK release is implied.
+
 ## 2026-10-11 targeted Plesk rollout
 
 The updater now validates deployment-specific absolute extraction targets and

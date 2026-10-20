@@ -1,5 +1,16 @@
 # ComputeMesh
 
+## WebUI accessibility and public route fixes (2026-10-20)
+
+The shared browser/Android WebUI now has a complete high-contrast light theme,
+a compact opt-in Agent Sessions panel with an explanation of its purpose, and
+reliable pointer handling for update, attachment, dropdown, and mobile-sheet
+controls. Agent Sessions are production controls for durable multi-step tasks;
+the panel stays closed until the user opens it. The clean public `/models` and
+`/models/` URLs are explicitly resolved to the model catalogue instead of an
+nginx directory listing. Portal registration also renders structured gateway
+errors as readable messages rather than `[object Object]`.
+
 The local development checkout also contains the first NodeOS/dashboard
 remediation slice: expired dashboard sessions can be retried in place, the
 dashboard uses the neutral gray visual direction, dynamic values are escaped,

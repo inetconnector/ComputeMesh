@@ -22,6 +22,8 @@
 	var agentSessionPollInFlight = false;
 	var agentSessionPollBlocked = false;
 	var agentSessionPanel = null;
+	var agentSessionToggle = null;
+	var agentSessionPanelOpen = false;
 	var agentSessionSelect = null;
 	var agentSessionStatus = null;
 	var agentSessionActivityPanel = null;
@@ -40,6 +42,27 @@
 	var agentApprovals = [];
 	var agentSessionLastEvent = '';
 	var AGENT_SESSION_CACHE_KEY = 'cm_agent_sessions_cache_v1';
+	var AGENT_PANEL_OPEN_KEY = 'cm_agent_panel_open_v1';
+	var agentPanelLabels = {
+		de: { open: 'Agenten', close: 'Agenten schließen', help: 'Agenten erledigen längere Aufgaben in mehreren Schritten. Hier kannst du Aufgaben starten, Fortschritt sehen und nötige Freigaben erteilen.' },
+		en: { open: 'Agents', close: 'Close agents', help: 'Agents handle longer, multi-step tasks. Start work here, follow progress and review required approvals.' }
+	};
+
+	function agentPanelText(key) {
+		var locale = agentSessionLocale();
+		var labels = agentPanelLabels[locale] || agentPanelLabels.en;
+		return labels[key] || agentPanelLabels.en[key];
+	}
+
+	function setAgentSessionPanelOpen(open) {
+		agentSessionPanelOpen = Boolean(open);
+		try { localStorage.setItem(AGENT_PANEL_OPEN_KEY, agentSessionPanelOpen ? '1' : '0'); } catch (_) {}
+		if (agentSessionPanel) agentSessionPanel.hidden = !agentSessionPanelOpen;
+		if (agentSessionToggle) {
+			agentSessionToggle.setAttribute('aria-expanded', agentSessionPanelOpen ? 'true' : 'false');
+			agentSessionToggle.setAttribute('aria-label', agentSessionPanelOpen ? agentPanelText('close') : agentPanelText('open'));
+		}
+	}
 
 	var agentControlLabels = {
 		de: { pause: 'Pausieren', resume: 'Fortsetzen', cancel: 'Abbrechen', controlError: 'Steuerung konnte nicht gespeichert werden', controlQueued: 'Steuerung angefordert' },
@@ -667,13 +690,34 @@
 
 	function ensureAgentSessionPanel() {
 		if (agentSessionPanel || !document.body) return;
+		try { agentSessionPanelOpen = localStorage.getItem(AGENT_PANEL_OPEN_KEY) === '1'; } catch (_) {}
+		agentSessionToggle = document.createElement('button');
+		agentSessionToggle.id = 'cm-agent-toggle';
+		agentSessionToggle.type = 'button';
+		agentSessionToggle.textContent = '✦ ' + agentPanelText('open');
+		agentSessionToggle.addEventListener('click', function () { setAgentSessionPanelOpen(!agentSessionPanelOpen); });
+		document.body.appendChild(agentSessionToggle);
 		agentSessionPanel = document.createElement('section');
 		agentSessionPanel.id = 'cm-agent-session-panel';
 		agentSessionPanel.setAttribute('aria-live', 'polite');
-		agentSessionPanel.style.cssText = 'position:fixed;right:16px;top:max(104px,calc(env(safe-area-inset-top, 0px) + 104px));z-index:39;width:min(360px,calc(100vw - 32px));max-height:min(72vh,560px);overflow:auto;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(56,189,248,.28);border-radius:8px;background:rgba(15,23,42,.96);color:#cbd5e1;box-shadow:0 8px 28px rgba(0,0,0,.28);font-size:11px;pointer-events:auto;';
+		agentSessionPanel.style.cssText = 'overflow:auto;pointer-events:auto;';
+		var header = document.createElement('div');
+		header.className = 'cm-agent-header';
+		var heading = document.createElement('div');
+		heading.className = 'cm-agent-heading';
 		var title = document.createElement('div');
 		title.textContent = agentSessionText('title');
-		title.style.cssText = 'font-weight:600;margin-bottom:5px;overflow-wrap:anywhere;';
+		title.style.cssText = 'font-weight:700;overflow-wrap:anywhere;';
+		var help = document.createElement('p');
+		help.textContent = agentPanelText('help');
+		var close = document.createElement('button');
+		close.type = 'button';
+		close.className = 'cm-agent-close';
+		close.textContent = '×';
+		close.setAttribute('aria-label', agentPanelText('close'));
+		close.addEventListener('click', function () { setAgentSessionPanelOpen(false); });
+		heading.append(title, help);
+		header.append(heading, close);
 		agentSessionSelect = document.createElement('select');
 		agentSessionSelect.setAttribute('aria-label', agentSessionText('select'));
 		agentSessionSelect.style.cssText = 'display:block;width:100%;min-width:0;height:32px;box-sizing:border-box;padding:0 8px;border:1px solid rgba(148,163,184,.35);border-radius:6px;background:#111827;color:#f8fafc;font-size:12px;';
@@ -738,8 +782,9 @@
 		agentApprovalPanel.style.cssText = 'margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,.2);';
 		agentArtifactPanel = document.createElement('div');
 		agentArtifactPanel.style.cssText = 'margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,.2);';
-		agentSessionPanel.append(title, agentSessionSelect, agentTaskPrompt, actionRow, controlRow, agentTaskActionMessage, agentSessionStatus, agentSessionActivityPanel, agentApprovalPanel, agentArtifactPanel);
+		agentSessionPanel.append(header, agentSessionSelect, agentTaskPrompt, actionRow, controlRow, agentTaskActionMessage, agentSessionStatus, agentSessionActivityPanel, agentApprovalPanel, agentArtifactPanel);
 		document.body.appendChild(agentSessionPanel);
+		setAgentSessionPanelOpen(agentSessionPanelOpen);
 	}
 
 	function renderAgentArtifacts() {
@@ -958,7 +1003,7 @@
 	function renderAgentSessionPanel() {
 		ensureAgentSessionPanel();
 		if (!agentSessionPanel || !agentSessionSelect || !agentSessionStatus) return;
-		agentSessionPanel.hidden = false;
+		agentSessionPanel.hidden = !agentSessionPanelOpen;
 		agentSessionSelect.replaceChildren();
 		if (!agentSessions.length) {
 			agentSessionSelect.hidden = true;

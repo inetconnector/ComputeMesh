@@ -60,7 +60,7 @@
 				}
 			} catch (e) {}
 		</script>
-		<script src="./model-selector.js?v=20261010-1"></script>
+		<script src="./model-selector.js?v=20261020-1"></script>
 		<link rel="icon" href="favicon.ico" sizes="48x48" />
 		<link rel="icon" href="favicon.svg" sizes="any" type="image/svg+xml" />
 
@@ -783,6 +783,61 @@
 			}
 
 			/* All hidden triggers MUST NEVER intercept physical touches */
+			/*
+			 * Keep the service-worker update card above every custom overlay.
+			 * The upstream layout uses z-9999, while this tailored WebUI has
+			 * dialogs/popovers up to z-index 1000005.  Without this override a
+			 * transparent overlay can win hit-testing although the card is visible.
+			 * The wrapper itself stays click-through; only the visible card and its
+			 * controls accept pointer input, so it cannot create another dead zone.
+			 */
+			.fixed.right-4.bottom-4.z-9999 {
+				z-index: 2147483000 !important;
+				pointer-events: none !important;
+			}
+
+			.fixed.right-4.bottom-4.z-9999 > [data-slot="card"],
+			.fixed.right-4.bottom-4.z-9999 > [data-slot="card"] *,
+			.fixed.right-4.bottom-4.z-9999 button {
+				pointer-events: auto !important;
+				touch-action: manipulation !important;
+			}
+
+			/* Keep visible attachment actions above animated sheet/menu siblings. */
+			[role="menuitem"]:not([aria-disabled="true"]),
+			[data-slot="dropdown-menu-item"]:not([data-disabled]) {
+				position: relative !important;
+				z-index: 2 !important;
+				pointer-events: auto !important;
+			}
+			html body [data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]),
+			html body [data-bits-dropdown-menu-sub-content]:not([data-state="closed"]) {
+				position: relative !important;
+				z-index: 2147482000 !important;
+				pointer-events: auto !important;
+			}
+			/* Bit UI portals inherit their ancestor stacking context. Lift the
+			 * portal host as well, otherwise the composer can cover a visibly open
+			 * submenu and steal its taps on narrow screens. */
+			body > div:has([data-slot="dropdown-menu-sub-content"]),
+			body > div:has([data-bits-dropdown-menu-sub-content]) {
+				z-index: 2147482000 !important;
+			}
+			/* While the attachment submenu is open it owns the overlapping hit
+			 * area; the fixed composer underneath must not steal those taps. */
+			body:has([data-slot="dropdown-menu-sub-content"]:not([data-state="closed"])) .conversation-chat-form,
+			body:has([data-slot="dropdown-menu-sub-content"]:not([data-state="closed"])) .conversation-chat-form *,
+			body:has([data-bits-dropdown-menu-sub-content]:not([data-state="closed"])) .conversation-chat-form,
+			body:has([data-bits-dropdown-menu-sub-content]:not([data-state="closed"])) .conversation-chat-form * {
+				pointer-events: none !important;
+			}
+			@media (min-width: 768px) {
+				html body [data-slot="dropdown-menu-sub-content"]:not([data-state="closed"]),
+				html body [data-bits-dropdown-menu-sub-content]:not([data-state="closed"]) {
+					translate: -95% 50px !important;
+				}
+			}
+
 			.pointer-events-none:not(aside):not(aside *),
 			button.opacity-0:not(aside *),
 			[aria-hidden="true"].opacity-0:not(aside *),
@@ -976,7 +1031,7 @@
 			}
 
 		</style>
-		<link rel="stylesheet" href="./neutral-theme.css?v=20261011-5">
+		<link rel="stylesheet" href="./neutral-theme.css?v=20261020-1">
 	</head>
 
 	<body data-sveltekit-preload-data="hover">
@@ -2007,6 +2062,30 @@
 						}
 					}
 				});
+
+				// Category triggers open an attachment menu/sheet. They must not also
+				// activate a nested/associated file input on touch browsers.
+				var cmAllowFilePickerForAction = false;
+				document.addEventListener('click', function(e) {
+					if (e.target && e.target.matches && e.target.matches('input[type="file"]')) {
+						if (!cmAllowFilePickerForAction) {
+							e.preventDefault();
+							e.stopImmediatePropagation();
+						}
+						cmAllowFilePickerForAction = false;
+						return;
+					}
+					var trigger = e.target && e.target.closest && e.target.closest('button.file-upload-button, button, [role="menuitem"]');
+					if (!trigger) return;
+					var label = (trigger.innerText || '').trim().toLowerCase();
+					if (trigger.matches('button.file-upload-button') || label === 'dateien hinzufügen' || label === 'add files') {
+						e.preventDefault();
+						cmAllowFilePickerForAction = false;
+					} else {
+						cmAllowFilePickerForAction = true;
+						setTimeout(function() { cmAllowFilePickerForAction = false; }, 750);
+					}
+				}, true);
 
 				// The gateway's active slot is the source of truth for modality actions.
 				// Fail closed: do not offer photo/audio/video actions when support is

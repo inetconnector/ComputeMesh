@@ -48,6 +48,22 @@ class TestWebUIStaticAssets(unittest.TestCase):
         self.assertIn("agentSessionActivityPanel", selector)
         self.assertIn("agentSessionActivity = agentSessionActivity.slice(-12)", selector)
         self.assertIn("agentSessionActivity.push({ label: describeAgentSessionEvent(event) })", selector)
+        self.assertIn("cm-agent-toggle", selector)
+        self.assertIn("AGENT_PANEL_OPEN_KEY", selector)
+        self.assertIn("Agents handle longer, multi-step tasks", selector)
+        self.assertIn("Agenten erledigen längere Aufgaben", selector)
+
+    def test_light_and_dark_theme_are_complete_and_shared(self) -> None:
+        portal_theme = REPO_ROOT / "portal" / "webui" / "neutral-theme.css"
+        android_theme = REPO_ROOT / "apps" / "android" / "app" / "src" / "main" / "assets" / "webui" / "neutral-theme.css"
+        self.assertEqual(portal_theme.read_bytes(), android_theme.read_bytes())
+        theme = portal_theme.read_text(encoding="utf-8")
+        self.assertIn(":root {", theme)
+        self.assertIn(":root.dark {", theme)
+        self.assertIn("color-scheme: light", theme)
+        self.assertIn("color-scheme: dark", theme)
+        self.assertIn("--cm-text: #172033", theme)
+        self.assertIn("#cm-agent-session-panel[hidden]", theme)
 
     def test_android_lan_discovery_keeps_unknown_nodes_visible_without_trusting_them(self) -> None:
         discovery = (
@@ -119,6 +135,21 @@ class TestWebUIStaticAssets(unittest.TestCase):
                 ".pointer-events-none:not(aside):not(aside *)",
                 html,
                 f"hidden trigger rule is missing from {index}",
+            )
+            self.assertIn(
+                ".fixed.right-4.bottom-4.z-9999",
+                html,
+                f"service-worker update layer override is missing from {index}",
+            )
+            self.assertIn(
+                "z-index: 2147483000 !important",
+                html,
+                f"service-worker update card can be covered by custom overlays in {index}",
+            )
+            self.assertIn(
+                '.fixed.right-4.bottom-4.z-9999 > [data-slot="card"] *',
+                html,
+                f"service-worker update controls do not explicitly accept pointer input in {index}",
             )
             revision = hashlib.md5(index.read_bytes()).hexdigest()
             self.assertIn(

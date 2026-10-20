@@ -259,6 +259,13 @@ def test_primary_catalog_pages_mark_page_content_for_bilingual_switching():
             assert core.count(f"{key}:") >= 2, key
 
 
+def test_nginx_clean_models_routes_never_fall_through_to_directory_listing():
+    config = (PORTAL / "vhost_nginx.conf").read_text(encoding="utf-8")
+    assert "location = /models {" in config
+    assert "location = /models/ {" in config
+    assert config.count("try_files /models.html =404;") == 2
+
+
 def test_status_page_marks_ledger_explorer_for_bilingual_switching():
     page = (PORTAL / "status.html").read_text(encoding="utf-8-sig")
     core = (PORTAL / "portal-core.js").read_text(encoding="utf-8-sig")

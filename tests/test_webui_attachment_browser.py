@@ -60,6 +60,83 @@ class TestWebUIAttachmentBrowser(unittest.TestCase):
             cls.server.shutdown()
             cls.server.server_close()
 
+    def test_update_card_stays_clickable_above_custom_overlays(self) -> None:
+        context = self.browser.new_context(viewport={"width": 390, "height": 844}, locale="de-DE")
+        page = context.new_page()
+        try:
+            page.goto(f"http://127.0.0.1:{self.port}/webui/", wait_until="domcontentloaded")
+            page.evaluate(
+                """
+                () => {
+                    const blocker = document.createElement('div');
+                    blocker.id = 'hit-test-blocker';
+                    blocker.style.cssText = 'position:fixed;inset:0;z-index:1000005;background:transparent;pointer-events:auto';
+                    document.body.appendChild(blocker);
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'fixed right-4 bottom-4 z-9999 flex flex-col items-end gap-1';
+                    wrapper.innerHTML = '<div data-slot="card"><p>Update available</p><button id="update-hit-test">Reload</button></div>';
+                    document.body.appendChild(wrapper);
+                    document.getElementById('update-hit-test').addEventListener('click', () => {
+                        document.body.dataset.updateClicked = 'yes';
+                    });
+                }
+                """
+            )
+            button = page.locator("#update-hit-test")
+            button.click()
+            self.assertEqual(page.locator("body").get_attribute("data-update-clicked"), "yes")
+            owns_hit_target = button.evaluate(
+                """
+                (button) => {
+                    const box = button.getBoundingClientRect();
+                    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+                    return hit === button || button.contains(hit);
+                }
+                """
+            )
+            self.assertTrue(owns_hit_target, "the visible Reload button must own its physical touch target")
+        finally:
+            context.close()
+
+    def test_light_theme_contrast_and_agent_panel_disclosure(self) -> None:
+        context = self.browser.new_context(viewport={"width": 1280, "height": 900}, locale="de-DE")
+        page = context.new_page()
+        try:
+            page.goto(f"http://127.0.0.1:{self.port}/webui/", wait_until="domcontentloaded")
+            page.locator("#cm-agent-toggle").wait_for(timeout=15000)
+            page.evaluate("document.documentElement.classList.remove('dark')")
+            contrast = page.evaluate(
+                """
+                () => {
+                    const parse = (value) => value.match(/[0-9.]+/g).slice(0, 3).map(Number);
+                    const lum = (rgb) => {
+                        const c = rgb.map((v) => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+                        return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+                    };
+                    const style = getComputedStyle(document.body);
+                    const a = lum(parse(style.color));
+                    const b = lum(parse(style.backgroundColor));
+                    return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+                }
+                """
+            )
+            self.assertGreaterEqual(contrast, 4.5)
+            self.assertTrue(page.locator("#cm-agent-session-panel").get_attribute("hidden") is not None)
+            page.locator("#cm-agent-toggle").click()
+            panel = page.locator("#cm-agent-session-panel")
+            panel.wait_for(state="visible", timeout=5000)
+            panel_text = panel.inner_text().lower()
+            self.assertTrue(
+                "längere aufgaben" in panel_text or "longer, multi-step tasks" in panel_text,
+                panel_text,
+            )
+            self.assertGreaterEqual(float(panel.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")), 14)
+            page.locator(".cm-agent-close").click()
+            panel.wait_for(state="hidden", timeout=5000)
+        finally:
+            context.close()
+
     def test_desktop_submenu_and_text_attachment(self) -> None:
         context = self.browser.new_context(viewport={"width": 1280, "height": 900}, locale="de-DE")
         page = context.new_page()

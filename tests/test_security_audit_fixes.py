@@ -96,6 +96,12 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertIn("portal-core.js?v=5.3", portal_js)
         self.assertIn("cm_session=", webui)
 
+    def test_portal_registration_renders_structured_gateway_errors(self) -> None:
+        portal_js = (Path(__file__).resolve().parents[1] / "portal" / "portal.js").read_text(encoding="utf-8")
+        self.assertIn("function registrationErrorMessage", portal_js)
+        self.assertIn("error.message", portal_js)
+        self.assertIn("registrationErrorMessage(data", portal_js)
+
     def test_new_ui_messages_use_localization_resources(self) -> None:
         android_root = Path(__file__).resolve().parents[1] / "apps" / "android"
         main_activity = (android_root / "app/src/main/java/com/inetconnector/compumesh/ui/MainActivity.kt").read_text(encoding="utf-8")
