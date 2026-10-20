@@ -126,10 +126,12 @@ CATEGORIES: dict[str, list[str]] = {
         "services.orchestrator.tests.test_billing_outbox",
         "services.orchestrator.tests.test_contracts",
         "services.orchestrator.tests.test_adversarial_fault_injection",
+        "services.orchestrator.tests.test_worker_ha_protocol",
     ],
     "Runtime & Mesh Network": [
         "runtime.network.tests.test_tcp_relay",
         "runtime.network.tests.test_mesh_transport",
+        "runtime.network.tests.test_webrtc_mesh_fabric",
         "runtime.tests.test_capacity_guard",
         "runtime.llama.tests.test_shared_trial",
         "runtime.llama.tests.test_shared_run_evidence",

@@ -1,4 +1,4 @@
-"""Runtime network research helpers."""
+"""Runtime network research and mesh fabric transport helpers."""
 
 from .tcp_relay import (
     PrivateEndpoint,
@@ -8,6 +8,14 @@ from .tcp_relay import (
     run_relay,
     run_relay_once,
 )
+from .webrtc_mesh_fabric import (
+    MeshFabricMetrics,
+    ResilientMeshFabricManager,
+    WebRTCFabricError,
+    WebRTCP2PPeer,
+    WebRTCP2PState,
+    WebRTCSignalingEnvelope,
+)
 
 __all__ = [
     "PrivateEndpoint",
@@ -16,4 +24,10 @@ __all__ = [
     "RelayMetrics",
     "run_relay",
     "run_relay_once",
+    "MeshFabricMetrics",
+    "ResilientMeshFabricManager",
+    "WebRTCFabricError",
+    "WebRTCP2PPeer",
+    "WebRTCP2PState",
+    "WebRTCSignalingEnvelope",
 ]
