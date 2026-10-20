@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import os
 from pathlib import Path
+import unittest
 from unittest.mock import Mock, patch
 
-import pytest
 from apps.node.provider_agent import (
     ProviderAgent,
     ProviderAgentError,
@@ -79,6 +80,10 @@ def _write_key(path: Path) -> None:
             serialization.NoEncryption(),
         )
     )
+    try:
+        path.chmod(0o600)
+    except Exception:
+        pass
 
 
 def _agent(
@@ -254,52 +259,129 @@ def test_provider_agent_advertises_inference_only_with_explicit_runtime(tmp_path
     assert "inference_v1" in configured.capabilities
 
 
-def test_managed_model_cancel_callback_is_disabled_by_default(monkeypatch) -> None:
-    monkeypatch.delenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", raising=False)
-    assert _managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions") is None
+class TestProviderAgentUnit(unittest.TestCase):
+    def test_managed_model_cancel_callback_is_disabled_by_default(self) -> None:
+        old_val = os.environ.pop("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", None)
+        try:
+            self.assertIsNone(_managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions"))
+        finally:
+            if old_val is not None:
+                os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = old_val
 
+    def test_managed_model_cancel_callback_binds_only_to_model_engine(self) -> None:
+        old_val = os.environ.get("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL")
+        os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = "1"
+        try:
+            engine = Mock(host="127.0.0.1", port=8081)
+            manager = Mock(engine=engine)
+            with patch("services.appliance_dashboard.model_manager.get_model_manager", return_value=manager):
+                callback = _managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions")
+                self.assertIs(callback, engine.stop)
+                callback()
+            engine.stop.assert_called_once_with()
+        finally:
+            if old_val is not None:
+                os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = old_val
+            else:
+                os.environ.pop("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", None)
 
-def test_managed_model_cancel_callback_binds_only_to_model_engine(monkeypatch) -> None:
-    monkeypatch.setenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", "1")
-    engine = Mock(host="127.0.0.1", port=8081)
-    manager = Mock(engine=engine)
-    with patch("services.appliance_dashboard.model_manager.get_model_manager", return_value=manager):
-        callback = _managed_model_cancel_callback("http://127.0.0.1:8081/v1/chat/completions")
-        assert callback is engine.stop
-        callback()
-    engine.stop.assert_called_once_with()
+    def test_managed_model_cancel_callback_rejects_other_loopback_endpoint(self) -> None:
+        old_val = os.environ.get("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL")
+        os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = "1"
+        try:
+            engine = Mock(host="127.0.0.1", port=8081)
+            with patch(
+                "services.appliance_dashboard.model_manager.get_model_manager",
+                return_value=Mock(engine=engine),
+            ):
+                with self.assertRaisesRegex(ProviderAgentError, "owned by NodeOS model engine"):
+                    _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
+        finally:
+            if old_val is not None:
+                os.environ["COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL"] = old_val
+            else:
+                os.environ.pop("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", None)
 
+    def test_shutdown_handlers_stop_client_and_restore_previous_handlers(self) -> None:
+        import signal
 
-def test_managed_model_cancel_callback_rejects_other_loopback_endpoint(monkeypatch) -> None:
-    monkeypatch.setenv("COMPUTEMESH_NODEOS_STOP_MANAGED_MODEL_ON_CANCEL", "1")
-    engine = Mock(host="127.0.0.1", port=8081)
-    with patch(
-        "services.appliance_dashboard.model_manager.get_model_manager",
-        return_value=Mock(engine=engine),
-    ):
-        with pytest.raises(ProviderAgentError, match="owned by NodeOS model engine"):
-            _managed_model_cancel_callback("http://127.0.0.1:8082/v1/chat/completions")
+        client = Mock()
+        handlers = {}
 
+        def install(signum, handler):
+            prior = handlers.get(signum)
+            handlers[signum] = handler
+            return prior
 
-def test_shutdown_handlers_stop_client_and_restore_previous_handlers(monkeypatch) -> None:
-    import signal
+        with patch("apps.node.provider_agent.signal.signal", side_effect=install):
+            restore = _install_shutdown_handlers(client)
+            handlers[signal.SIGTERM](signal.SIGTERM, None)
+            handlers[signal.SIGINT](signal.SIGINT, None)
+            self.assertEqual(client.stop.call_count, 2)
+            restore()
+            self.assertIsNone(handlers[signal.SIGTERM])
+            self.assertIsNone(handlers[signal.SIGINT])
 
-    client = Mock()
-    handlers = {}
+    def test_provider_agent_requires_and_accepts_active_capacity_for_live_inference(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            agent = _agent(
+                tmp_path,
+                inference_executor=lambda session, request: {
+                    "schema_version": 1,
+                    "session_id": session.session_id,
+                    "turn_id": request["turn_id"],
+                    "lease_id": request["lease_id"],
+                    "node_id": session.node_id,
+                    "model_id": request["model_id"],
+                    "output": "capacity-bound answer",
+                },
+                enforce_inference_capacity=True,
+            )
+            payload = {
+                "schema_version": 1,
+                "session_id": "session-a",
+                "turn_id": "turn-capacity-bound",
+                "lease_id": "lease-capacity-bound",
+                "model_id": "model-a",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "stream": False,
+            }
+            with self.assertRaisesRegex(ProviderAgentError, "active provider capacity reservation"):
+                agent.handle_request("InferenceRequest", payload, _session(agent))
 
-    def install(signum, handler):
-        prior = handlers.get(signum)
-        handlers[signum] = handler
-        return prior
+            reserved = agent.handle_request(
+                "CapacityReserveRequest",
+                {
+                    "job_id": "job-capacity-bound",
+                    "lease_id": payload["lease_id"],
+                    "memory_mb": 0,
+                    "ttl_seconds": 30,
+                    "device_id": "default",
+                },
+                _session(agent),
+            )
+            self.assertEqual(reserved["device_id"], "gpu:0")
+            result = agent.handle_request("InferenceRequest", payload, _session(agent))
+            self.assertEqual(result["output"], "capacity-bound answer")
 
-    monkeypatch.setattr("apps.node.provider_agent.signal.signal", install)
-    restore = _install_shutdown_handlers(client)
-    handlers[signal.SIGTERM](signal.SIGTERM, None)
-    handlers[signal.SIGINT](signal.SIGINT, None)
-    assert client.stop.call_count == 2
-    restore()
-    assert handlers[signal.SIGTERM] is None
-    assert handlers[signal.SIGINT] is None
+    def test_provider_agent_binds_capacity_guard_to_profiled_gpu_memory(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            agent = _agent(tmp_path)
+            self.assertEqual(agent.capacity_guard.device_memory_mb, {"gpu:0": 11444})
+            payload = {
+                "job_id": "job-profiled-gpu",
+                "lease_id": "lease-profiled-gpu",
+                "memory_mb": 1,
+                "ttl_seconds": 30,
+                "device_id": "gpu:1",
+            }
+            with self.assertRaisesRegex(CapacityExceededError, "not present in the node profile"):
+                agent.handle_request("CapacityReserveRequest", payload, _session(agent))
 
 
 def test_provider_agent_advertises_and_handles_authorized_model_preparation(tmp_path: Path) -> None:
@@ -370,49 +452,6 @@ def test_provider_agent_handles_lease_bound_inference_request(tmp_path: Path) ->
     assert result["output"] == "local answer"
 
 
-def test_provider_agent_requires_and_accepts_active_capacity_for_live_inference(tmp_path: Path) -> None:
-    agent = _agent(
-        tmp_path,
-        inference_executor=lambda session, request: {
-            "schema_version": 1,
-            "session_id": session.session_id,
-            "turn_id": request["turn_id"],
-            "lease_id": request["lease_id"],
-            "node_id": session.node_id,
-            "model_id": request["model_id"],
-            "output": "capacity-bound answer",
-        },
-        enforce_inference_capacity=True,
-    )
-    payload = {
-        "schema_version": 1,
-        "session_id": "session-a",
-        "turn_id": "turn-capacity-bound",
-        "lease_id": "lease-capacity-bound",
-        "model_id": "model-a",
-        "messages": [{"role": "user", "content": "hello"}],
-        "max_tokens": 32,
-        "stream": False,
-    }
-    with pytest.raises(ProviderAgentError, match="active provider capacity reservation"):
-        agent.handle_request("InferenceRequest", payload, _session(agent))
-
-    reserved = agent.handle_request(
-        "CapacityReserveRequest",
-        {
-            "job_id": "job-capacity-bound",
-            "lease_id": payload["lease_id"],
-            "memory_mb": 0,
-            "ttl_seconds": 30,
-            "device_id": "default",
-        },
-        _session(agent),
-    )
-    assert reserved["device_id"] == "gpu:0"
-    result = agent.handle_request("InferenceRequest", payload, _session(agent))
-    assert result["output"] == "capacity-bound answer"
-
-
 def test_provider_agent_accepts_custom_capacity_guard(tmp_path: Path) -> None:
     from runtime.capacity_guard import LocalCapacityGuard
 
@@ -460,20 +499,6 @@ def test_provider_agent_enforces_capacity_requests_on_authenticated_channel(tmp_
         session,
     )
     assert released["released"] is True
-
-
-def test_provider_agent_binds_capacity_guard_to_profiled_gpu_memory(tmp_path: Path) -> None:
-    agent = _agent(tmp_path)
-    assert agent.capacity_guard.device_memory_mb == {"gpu:0": 11444}
-    payload = {
-        "job_id": "job-profiled-gpu",
-        "lease_id": "lease-profiled-gpu",
-        "memory_mb": 1,
-        "ttl_seconds": 30,
-        "device_id": "gpu:1",
-    }
-    with pytest.raises(CapacityExceededError, match="not present in the node profile"):
-        agent.handle_request("CapacityReserveRequest", payload, _session(agent))
 
 
 class _GpuRunner:
