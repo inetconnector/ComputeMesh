@@ -4181,3 +4181,7 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - **Hard Constraint Scheduler Gate:** Implemented `HardConstraintScheduler` enforcing the invariant: "The scheduler MUST evaluate hard constraints before ranking feasible plans" ensuring invalid candidates are removed deterministically.
 - **Auditable Billing Event Logger:** Implemented `AuditableBillingEventLogger` enforcing the invariant: "Billing MUST derive from auditable execution events, not provider self-report alone" using cryptographic chains.
 - **Unified Test Suite Verification:** Developed exhaustive deterministic tests in `services/orchestrator/tests/test_architecture_hardening_part3.py` providing 100% test coverage. Executed `python3 run_all_tests.py` with 883/883 passed tests strictly fulfilling Rule 7 (no mocks or stubs).
+
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 4)
+
+- **Split Phase Performance Model:** Implemented `SplitPhasePerformanceModel` in `services/orchestrator/architecture_hardening_part4.py` strictly enforcing the invariant: "The scheduler MUST model prefill and decode separately". This guarantees placement plans consider both latency profiles accurately and is fully tested with unit tests.
