@@ -1,4 +1,13 @@
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 8)
+
+- **Model Manifest Enforcer:** Implemented `ModelManifestEnforcer` to enforce: "A model version must declare at least: canonical model ID/version; source and license metadata; architecture; tokenizer/config digests; supported runtimes; quantizations; partitionable boundaries; memory model; compatibility constraints; expected shard set; safety/privacy metadata where applicable."
+- **Shard Manifest Enforcer:** Implemented `ShardManifestEnforcer` to enforce: "A shard must declare: immutable digest; model version; byte size; tensor/layer/expert range; quantization; runtime compatibility; expected device memory; artifact signature metadata."
+- **Integration:** Integrated both enforcers into `services/orchestrator/live_model_catalog.py` to strictly validate artifacts and manifests upon discovery.
+- **Verifikation:** GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7)
+
+
 
 - **Stateful Idempotent Command Enforcer:** Implemented `StatefulIdempotentCommandEnforcer` in SQLite to strictly enforce: "Every state-changing command MUST be idempotent or carry an idempotency key."
 - **Stateful Capacity Lease Manager:** Implemented `StatefulCapacityLeaseManager` in SQLite to enforce: "Capacity MUST be leased/reserved before job dispatch to avoid placement races" and "Expired leases MUST release capacity automatically."

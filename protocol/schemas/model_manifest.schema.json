@@ -4,31 +4,62 @@
   "title": "ComputeMesh Model Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "model_id", "model_version", "architecture", "license", "runtime_compatibility", "quantizations", "partitioning", "artifacts"],
+  "required": [
+    "schema_version",
+    "model_id",
+    "model_version",
+    "architecture",
+    "license",
+    "runtime_compatibility",
+    "quantizations",
+    "partitioning",
+    "artifacts"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
-    "model_version": {"type": "string", "minLength": 1, "maxLength": 256},
-    "architecture": {"type": "string", "minLength": 1},
-    "layer_count": {"type": "integer", "minimum": 2, "maximum": 100000},
+    "schema_version": {
+      "const": 1
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "architecture": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layer_count": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 100000
+    },
     "upstream": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["publisher", "model_name", "source"],
-      "properties": {
-        "publisher": {"type": "string", "minLength": 1, "maxLength": 256},
-        "model_name": {"type": "string", "minLength": 1, "maxLength": 256},
-        "source": {"type": "string", "minLength": 1, "maxLength": 2048}
-      }
+      "type": "object"
     },
     "license": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "source"],
+      "required": [
+        "id",
+        "source"
+      ],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "source": {"type": "string", "minLength": 1},
-        "redistribution_allowed": {"type": "boolean"}
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "redistribution_allowed": {
+          "type": "boolean"
+        }
       }
     },
     "runtime_compatibility": {
@@ -37,21 +68,49 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["runtime"],
+        "required": [
+          "runtime"
+        ],
         "properties": {
-          "runtime": {"type": "string", "minLength": 1},
-          "min_version": {"type": "string"},
-          "max_version": {"type": "string"}
+          "runtime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_version": {
+            "type": "string"
+          },
+          "max_version": {
+            "type": "string"
+          }
         }
       }
     },
-    "quantizations": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "quantizations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
     "partitioning": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["allowed"],
+      "required": [
+        "allowed"
+      ],
       "properties": {
-        "allowed": {"type": "array", "items": {"enum": ["contiguous_layers", "experts", "replica"]}, "uniqueItems": true}
+        "allowed": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "contiguous_layers",
+              "experts",
+              "replica"
+            ]
+          },
+          "uniqueItems": true
+        }
       }
     },
     "artifacts": {
@@ -60,13 +119,57 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["digest", "size_bytes"],
+        "required": [
+          "digest",
+          "size_bytes"
+        ],
         "properties": {
-          "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
-          "size_bytes": {"type": "integer", "minimum": 1},
-          "media_type": {"type": "string"}
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "range": {
+            "type": "object"
+          },
+          "expected_device_memory": {
+            "type": "integer"
+          },
+          "signature_metadata": {
+            "type": "object"
+          },
+          "quantization": {
+            "type": "string"
+          },
+          "runtime_compatibility": {
+            "type": "array"
+          },
+          "model_version": {
+            "type": "string"
+          }
         }
       }
+    },
+    "tokenizer_digest": {
+      "type": "string"
+    },
+    "config_digest": {
+      "type": "string"
+    },
+    "memory_model": {
+      "type": "string"
+    },
+    "compatibility_constraints": {
+      "type": "object"
+    },
+    "safety_metadata": {
+      "type": "object"
     }
   }
 }

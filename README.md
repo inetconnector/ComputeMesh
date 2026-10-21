@@ -1,5 +1,9 @@
 # ComputeMesh
 
+## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
+
+- Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
+
 ## WebUI accessibility and public route fixes (2026-10-20)
 
 The shared browser/Android WebUI now has a complete high-contrast light theme,

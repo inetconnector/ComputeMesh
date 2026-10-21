@@ -27,10 +27,24 @@ class LiveModelCatalogTests(unittest.TestCase):
             "runtime_compatibility": [{"runtime": "llama.cpp"}],
             "quantizations": ["Q4"],
             "partitioning": {"allowed": ["contiguous_layers"]},
+            "upstream": {"publisher": "test", "model_name": "tiny", "source": "local"},
+            "tokenizer_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "config_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "memory_model": "unified",
+            "compatibility_constraints": {},
+            "safety_metadata": {"compliant": True},
+
             "artifacts": [{
                 "digest": "sha256:" + ("0" * 64 if tamper else digest),
                 "size_bytes": artifact.stat().st_size,
                 "media_type": "application/x-gguf",
+                "range": {"start_layer": 0, "end_layer": 4},
+                "expected_device_memory": 1024,
+                "signature_metadata": {"signer": "test"},
+                "quantization": "Q4",
+                "runtime_compatibility": [{"runtime": "llama.cpp"}],
+                "model_version": "1",
+
             }],
         }
         manifest_path = root / "tiny.computemesh-model-manifest.json"
