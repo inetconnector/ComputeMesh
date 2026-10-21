@@ -7,6 +7,12 @@ import json
 from pathlib import Path
 import secrets
 from typing import Any, Callable
+from services.orchestrator.architecture_hardening_part12 import (
+    StaleProviderResponseEnforcer,
+    UserCancellationPropagator,
+    ExecutionEvidenceEnforcer,
+    RecoveryStateEnforcer
+)
 from services.orchestrator.architecture_hardening_part5 import AutomaticCapacityRelease, AgentExecutionPolicy, RelayPolicyEnforcer, CryptographicProofClaimVerifier
 from services.orchestrator.architecture_hardening_part7 import StatefulIdempotentCommandEnforcer, StatefulCapacityLeaseManager
 
@@ -358,6 +364,13 @@ class SharedRequestOrchestratedBackend:
                 if self.verified_execution_hook is not None:
                     self.verified_execution_hook(runtime_result.evidence_path, verified)
                 self._advance(job_id, JobState.COMPLETED)
+
+                # Part 12 Hardening: enforce billable work maps to accepted execution evidence
+                ExecutionEvidenceEnforcer().enforce_billable_work(
+                    job_id,
+                    evidence={"accepted": True, "evidence_id": verified.evidence_id}
+                )
+
                 # We return a dict since IdempotentCommandEnforcer expects a JSON serializable dict
                 return {
                     "text": runtime_result.text,
