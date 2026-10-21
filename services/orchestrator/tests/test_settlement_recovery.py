@@ -4,6 +4,8 @@ import unittest
 
 from services.gateway.cancellable_inference import CancellableInferenceEngine
 from services.gateway.inference_backend import BackendResult
+import services.gateway.catalog
+from dataclasses import replace
 from services.orchestrator.settlement_recovery import (
     acknowledge_job_settlement,
     reconcile_completed_settlements,
@@ -118,9 +120,25 @@ class _CompletedBackend:
 
 class SettlementRecoveryTests(unittest.TestCase):
     def setUp(self):
+        import os
+        self.original_registry = services.gateway.catalog.LIVE_MODEL_REGISTRY
+        self.original_available = services.gateway.catalog.AVAILABLE_MODELS
+        services.gateway.catalog.LIVE_MODEL_REGISTRY = None
+        services.gateway.catalog.AVAILABLE_MODELS = [replace(model, availability='available_warm', available=True) for model in services.gateway.catalog.AVAILABLE_MODELS]
+        services.gateway.catalog._RUNTIME_CACHE_AT = 0.0
+        self.previous_static = os.environ.get('COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG')
+        os.environ['COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG'] = '1'
         self.store = RecoveryStateStore(":memory:")
 
     def tearDown(self):
+        import os
+        if self.previous_static is not None:
+            os.environ['COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG'] = self.previous_static
+        else:
+            os.environ.pop('COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG', None)
+        services.gateway.catalog.LIVE_MODEL_REGISTRY = self.original_registry
+        services.gateway.catalog.AVAILABLE_MODELS = self.original_available
+        services.gateway.catalog._RUNTIME_CACHE_AT = 0.0
         self.store.close()
 
     def test_acknowledge_moves_only_completed_to_settled(self):

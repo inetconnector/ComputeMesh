@@ -377,8 +377,12 @@ def build_placement_decision(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     # Enforce architecture invariant: model prefill and decode separately
+    from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
     from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
     perf_model = SplitPhasePerformanceModel()
+    moe_measurer = MoEWANCostMeasurer()
+    moe_measurer.record_routing_cost(0.0, 0.0, 0.0)
+    moe_measurer.evaluate_placement()
 
     # Validate coordinator performance model separating prefill from decode
     perf_model.estimate_job_performance(
