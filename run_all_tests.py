@@ -135,6 +135,7 @@ CATEGORIES: dict[str, list[str]] = {
         "runtime.network.tests.test_webrtc_mesh_fabric",
         "runtime.tests.test_capacity_guard",
         "runtime.tests.test_mesh_sharding_and_cache",
+        "runtime.tests.test_autonomous_failover_mesh",
         "runtime.llama.tests.test_shared_trial",
         "runtime.llama.tests.test_shared_run_evidence",
         "runtime.llama.tests.test_rpc_spike",
