@@ -21,6 +21,13 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from services.scheduler.architecture_hardening_part6 import (
+    ExecutionPathOptimizer,
+    OSNeutralProtocolEnforcer,
+    ComponentBoundaryEnforcer
+)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = REPO_ROOT / "protocol" / "schemas"
 DECISION_SCHEMA = Path(__file__).with_name("placement_decision.schema.json")
@@ -376,6 +383,14 @@ def build_placement_decision(
     policy: PlannerPolicy = PlannerPolicy(),
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    # -- Architecture Hardening Part 6 Invariants --
+    os_neutral_enforcer = OSNeutralProtocolEnforcer()
+    os_neutral_enforcer.validate_contract(model_manifest)
+    os_neutral_enforcer.validate_contract(coordinator_profile)
+    os_neutral_enforcer.validate_contract(worker_profile)
+
+    boundary_enforcer = ComponentBoundaryEnforcer()
+
     # Enforce architecture invariant: model prefill and decode separately
     from services.orchestrator.architecture_hardening_part5 import MoEWANCostMeasurer
     from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
@@ -631,6 +646,31 @@ def build_placement_decision(
             "explanation": explanation,
         },
     }
+    # -- Architecture Hardening Part 6 Invariants execution --
+    # optimize execution path
+    optimizer = ExecutionPathOptimizer()
+
+    # We update the candidates with execution path optimizations
+    # The actual optimization happens on candidates.
+    for cand in decision["candidates"]:
+        if cand["feasible"]:
+            cand_plan = {
+                "provider_node_ids": [lr["node_id"] for lr in cand.get("layer_ranges", [])],
+                "network_latency_ms": network_result.get("metrics", {}).get("rtt_ms_p50", 100.0) if "metrics" in network_result else 100.0,
+                "tensor_split": cand.get("tensor_split", [1.0])
+            }
+            optimizer.optimize_and_verify(cand_plan)
+            cand["execution_path_optimized"] = cand_plan.get("execution_path_optimized", True)
+            if "path_optimization_applied" in cand_plan:
+                cand["path_optimization_applied"] = cand_plan["path_optimization_applied"]
+            if "tensor_split" in cand_plan:
+                cand["tensor_split"] = cand_plan["tensor_split"]
+
+    # Explicit boundary enforcement
+    boundary_result = boundary_enforcer.call_across_boundary("scheduler", "dispatcher", decision)
+    decision["boundary_transition"] = boundary_result["boundary_transition"]
+
+
     _validate(decision, DECISION_SCHEMA, "placement decision")
     return decision
 
