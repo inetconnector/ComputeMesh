@@ -87,6 +87,8 @@ class RecoveryStateStore(SQLiteStateStore):
         lease_expires_at,
         request_fingerprint,
         binding,
+        command_metadata=None,
+        attempt_number=None,
     ):
         with self._lock:
             return super()._transition(
@@ -98,6 +100,8 @@ class RecoveryStateStore(SQLiteStateStore):
                 lease_expires_at,
                 request_fingerprint,
                 binding,
+                command_metadata=command_metadata,
+                attempt_number=attempt_number,
             )
 
     def expire_reservation_if_due(

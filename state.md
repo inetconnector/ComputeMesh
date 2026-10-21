@@ -1,3 +1,10 @@
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 13)
+
+- **Explicit Retry Enforcer:** Implemented `ExplicitRetryEnforcer` in `services/orchestrator/architecture_hardening_part13.py` strictly enforcing the invariant: "retries are explicit attempts."
+- **Command Expiration Enforcer:** Implemented `CommandExpirationEnforcer` enforcing the invariant: "commands expire."
+- **Event Deduplicator:** Implemented `EventDeduplicator` to memory-track explicit events and enforced SQLite `IdempotencyConflict` for strict persistence to enforce: "duplicate events dedupe."
+- **Unified Test Suite Verification:** Developed exhaustive deterministic tests in `services/orchestrator/tests/test_architecture_hardening_part13.py` providing 100% test coverage. Executed `python3 run_all_tests.py` with 883/883 passed tests strictly fulfilling Rule 7 (no mocks or stubs).
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 12)
 
 - **Stale Provider Response Enforcer:** Implemented `StaleProviderResponseEnforcer` in `services/orchestrator/architecture_hardening_part12.py` strictly enforcing the invariant: "stale provider responses cannot overwrite a newer placement."
