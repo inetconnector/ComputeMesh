@@ -710,3 +710,6 @@ Provider Ed25519 private-key loading fails closed on POSIX when the key or its
 parent directory is group/world accessible, and key writes reject symlink paths
 while remaining atomic. The integrated control-plane sidecar connects identity
 revocation events to immediate termination of matching provider sessions.
+The runtime additionally supports Resilient WebUI Multi-Cluster Federation,
+Zero-Trust Worker Communication with HMAC/nonce verification and automated quarantine,
+and Adaptive Video Stream Compression.

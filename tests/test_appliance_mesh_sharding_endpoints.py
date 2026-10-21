@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Integration test for Appliance WebUI Mesh Sharding, Distributed Cache & Stream Federation API endpoints."""
+"""Integration test for Appliance WebUI Mesh Sharding, Distributed Cache, Stream Federation, Multi-Cluster, Zero-Trust, and Video Compression API endpoints."""
 from __future__ import annotations
 
 import http.client
@@ -100,6 +100,57 @@ class TestApplianceMeshShardingEndpoints(unittest.TestCase):
         status, parsed = self._get("/api/v1/mesh/stream/status")
         self.assertEqual(status, HTTPStatus.OK)
         self.assertIn("p2p_stream_federation", parsed)
+
+    def test_federation_clusters_endpoint(self) -> None:
+        status, parsed = self._get("/api/v1/mesh/federation/clusters")
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIn("multi_cluster_federation", parsed)
+
+    def test_federation_sync_endpoint(self) -> None:
+        payload = {
+            "clusters": [
+                {
+                    "cluster_id": "cluster-test-1",
+                    "name": "Test Cluster 1",
+                    "region": "eu-central",
+                    "nodes": [
+                        {
+                            "node_id": "test-node-1",
+                            "vram_bytes": 16 * 1024 * 1024 * 1024,
+                            "tflops": 30.0,
+                            "ping_ms": 10.0,
+                            "is_active": True,
+                        }
+                    ],
+                }
+            ]
+        }
+        status, parsed = self._post("/api/v1/mesh/federation/sync", payload)
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(parsed["status"], "success")
+        self.assertGreaterEqual(parsed["synced_clusters_count"], 1)
+
+    def test_zero_trust_status_endpoint(self) -> None:
+        status, parsed = self._get("/api/v1/mesh/zero_trust/status")
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIn("zero_trust_worker_communication", parsed)
+
+    def test_video_compression_status_endpoint(self) -> None:
+        status, parsed = self._get("/api/v1/mesh/video/compression/status")
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertIn("adaptive_video_stream_compression", parsed)
+
+    def test_video_compression_tune_endpoint(self) -> None:
+        payload = {
+            "rtt_ms": 15.0,
+            "packet_loss_pct": 0.2,
+            "bandwidth_kbps": 9000.0,
+        }
+        status, parsed = self._post("/api/v1/mesh/video/compression/tune", payload)
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(parsed["status"], "success")
+        metrics = parsed["adaptive_video_stream_compression"]
+        self.assertEqual(metrics["current_tier"], "ultra_hd")
 
 
 if __name__ == "__main__":
