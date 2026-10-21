@@ -1,3 +1,11 @@
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 5)
+
+- **Automatic Capacity Release:** Implemented `AutomaticCapacityRelease` to enforce: "Expired leases MUST release capacity automatically."
+- **Agent Execution Policy:** Implemented `AgentExecutionPolicy` to enforce: "The agent MUST NOT expose a generic remote-execution API."
+- **Relay Policy Enforcer:** Implemented `RelayPolicyEnforcer` to enforce: "Relays MUST NOT silently weaken end-to-end policy."
+- **Cryptographic Proof Verifier:** Implemented `CryptographicProofClaimVerifier` to enforce: "It MUST NOT claim cryptographic proof of correct inference unless such a mechanism is actually implemented and independently evaluated."
+- **MoE WAN Cost Measurer:** Implemented `MoEWANCostMeasurer` to enforce: "ComputeMesh MUST measure these effects rather than assume MoE solves WAN cost."
+
 # ComputeMesh State
 
 **Last updated:** 2026-10-21

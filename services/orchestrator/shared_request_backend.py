@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import secrets
 from typing import Any, Callable
+from services.orchestrator.architecture_hardening_part5 import AutomaticCapacityRelease, AgentExecutionPolicy, RelayPolicyEnforcer, CryptographicProofClaimVerifier
 
 from runtime.llama.rpc_spike import RpcEndpoint
 from runtime.llama.shared_request import SharedRequestResult, run_shared_request
@@ -119,6 +120,10 @@ class SharedRequestOrchestratedBackend:
         self.lease_seconds = lease_seconds
         self.id_factory = id_factory or (lambda: f"inf-{secrets.token_hex(12)}")
         self.runner = runner
+        self.agent_execution_policy = AgentExecutionPolicy()
+        self.relay_enforcer = RelayPolicyEnforcer()
+        self.crypto_verifier = CryptographicProofClaimVerifier()
+        self.auto_capacity_release = AutomaticCapacityRelease()
         self.prompt_renderer = prompt_renderer
         self.verified_execution_hook = verified_execution_hook
         self.evidence_store = ExecutionEvidenceStore(store)
