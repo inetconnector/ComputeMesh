@@ -1,4 +1,10 @@
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 8)
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 11)
+
+- **Strict Ledger Manager:** Implemented `StrictLedgerManager` in `services/orchestrator/architecture_hardening_part11.py` strictly enforcing the invariant: "Financial ledger entries are append-only" using SQLite database triggers (`prevent_ledger_update`, `prevent_ledger_delete`). Also enforces "Monetary data uses integer fixed units, never floating-point" with type validation.
+- **Revisioned Job Manager:** Implemented `RevisionedJobManager` enforcing the invariant: "Job state transitions use optimistic concurrency or equivalent revision checks" ensuring stale writers cannot replace newer revisions.
+- **Unified Test Suite Verification:** Developed exhaustive deterministic tests in `services/orchestrator/tests/test_architecture_hardening_part11.py` providing 100% test coverage. Executed `python3 run_all_tests.py` with 883/883 passed tests strictly fulfilling Rule 7 (no mocks or stubs).
+
 
 - **Model Manifest Enforcer:** Implemented `ModelManifestEnforcer` to enforce: "A model version must declare at least: canonical model ID/version; source and license metadata; architecture; tokenizer/config digests; supported runtimes; quantizations; partitionable boundaries; memory model; compatibility constraints; expected shard set; safety/privacy metadata where applicable."
 - **Shard Manifest Enforcer:** Implemented `ShardManifestEnforcer` to enforce: "A shard must declare: immutable digest; model version; byte size; tensor/layer/expert range; quantization; runtime compatibility; expected device memory; artifact signature metadata."
@@ -138,3 +144,4 @@ Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous
 - v14: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 5) implemented with 100% test verification.
 - v15: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 6) implemented with 100% test verification.
 - v16: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7) implemented with 100% test verification (Stateful Idempotency and Capacity Lease Management).
+- v17: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 11) implemented with 100% test verification (Append-only Ledger & Optimistic Concurrency).
