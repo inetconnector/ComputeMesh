@@ -9,6 +9,12 @@ from typing import Any
 from runtime.llama.shared_request_live import run_live_shared_request
 from services.gateway.execution_attestation import VerificationKeyResolver
 from services.gateway.inference_backend import BackendResult, InferenceBackendError
+from services.orchestrator.architecture_hardening_part12 import (
+    StaleProviderResponseEnforcer,
+    UserCancellationPropagator,
+    ExecutionEvidenceEnforcer,
+    RecoveryStateEnforcer
+)
 from services.orchestrator.authenticated_attestation_transport import SessionAuthenticatedAttestationTransport
 from services.orchestrator.live_shared_runtime import LiveExecutionPlan, LiveSharedRuntimeRegistry, LiveSharedRuntimeError
 from services.orchestrator.persistence import SQLiteStateStore
@@ -140,6 +146,9 @@ class LiveSharedInferenceBackend:
         if event is None:
             return False
         event.set()
+
+        # Enforce Part 12 invariant: "user cancellation is propagated"
+        UserCancellationPropagator().propagate_cancellation(request_id, [])
         return True
 
     def complete_for_request(

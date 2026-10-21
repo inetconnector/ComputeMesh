@@ -9,6 +9,7 @@ import threading
 from typing import Iterable
 
 from services.orchestrator.persistence import SQLiteStateStore, StateRecord
+from services.orchestrator.architecture_hardening_part12 import RecoveryStateEnforcer
 from services.orchestrator.state_machine import JobState, ReservationState
 
 
@@ -163,6 +164,11 @@ def reconcile_startup_state(store: RecoveryStateStore, *, now: datetime | None =
 
     jobs = store.records(kind="job", states=(state.value for state in _RECOVERABLE_JOB_STATES))
     for job in jobs:
+        # Part 12 Hardening: enforce recovery never assumes a failed node retained state
+        # In this recovery step, by definition we restart the orchestrator/jobs. We mark them failed,
+        # and validate they don't have an illegal assumed retained state flag anywhere.
+        RecoveryStateEnforcer().validate_recovery({"failed": True, "retained_state": False})
+
         for reservation in store.reservations_for_job(job.entity_id):
             if reservation.state not in _RELEASABLE_RESERVATION_STATES:
                 continue
