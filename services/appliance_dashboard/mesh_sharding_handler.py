@@ -8,11 +8,14 @@ from typing import Any
 from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability
 from runtime.distributed_model_cache import GLOBAL_DISTRIBUTED_MODEL_CACHE
 from runtime.p2p_stream_federation import GLOBAL_STREAM_FEDERATOR
+from runtime.multi_cluster_federation import GLOBAL_MULTI_CLUSTER_FEDERATOR
+from runtime.zero_trust_worker import GLOBAL_ZERO_TRUST_WORKER_COMMUNICATOR
+from runtime.adaptive_video_compression import GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR
 from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
 
 
 class MeshShardingHandler:
-    """Sub-handler managing endpoints for Dynamic Sharding, Distributed Cache, and P2P Stream Federation."""
+    """Sub-handler managing endpoints for Dynamic Sharding, Distributed Cache, P2P Stream Federation, Multi-Cluster Federation, Zero-Trust Worker Communication, and Adaptive Video Stream Compression."""
 
     @staticmethod
     def handle_get(handler_inst: Any, path: str) -> bool:
@@ -90,6 +93,21 @@ class MeshShardingHandler:
                     }
                 }
             )
+            return True
+
+        if path in ("/api/v1/mesh/federation/clusters", "/api/v1/mesh/federation/health"):
+            capacity = GLOBAL_MULTI_CLUSTER_FEDERATOR.get_federated_capacity()
+            handler_inst._send_json({"multi_cluster_federation": capacity})
+            return True
+
+        if path == "/api/v1/mesh/zero_trust/status":
+            zt_status = GLOBAL_ZERO_TRUST_WORKER_COMMUNICATOR.get_zero_trust_status()
+            handler_inst._send_json({"zero_trust_worker_communication": zt_status})
+            return True
+
+        if path == "/api/v1/mesh/video/compression/status":
+            comp_metrics = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.get_compression_metrics()
+            handler_inst._send_json({"adaptive_video_stream_compression": comp_metrics})
             return True
 
         return False
@@ -181,6 +199,58 @@ class MeshShardingHandler:
             except Exception as exc:
                 handler_inst._send_json(
                     {"error": {"message": f"Cache verification failed: {exc}", "code": 400}},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
+
+        if path == "/api/v1/mesh/federation/sync":
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+                clusters = data.get("clusters", [])
+                synced_count = GLOBAL_MULTI_CLUSTER_FEDERATOR.sync_cluster_states(clusters)
+                handler_inst._send_json(
+                    {
+                        "status": "success",
+                        "synced_clusters_count": synced_count,
+                        "federated_capacity": GLOBAL_MULTI_CLUSTER_FEDERATOR.get_federated_capacity(),
+                    }
+                )
+                return True
+            except Exception as exc:
+                handler_inst._send_json(
+                    {"error": {"message": f"Multi-cluster sync failed: {exc}", "code": 400}},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
+
+        if path == "/api/v1/mesh/video/compression/tune":
+            try:
+                data = json.loads(post_body.decode("utf-8")) if post_body else {}
+                rtt_ms = float(data.get("rtt_ms", 35.0))
+                loss_pct = float(data.get("packet_loss_pct", 0.5))
+                bw_kbps = float(data.get("bandwidth_kbps", 3000.0))
+                target_fps = data.get("target_fps")
+                max_bitrate = data.get("max_bitrate_kbps")
+
+                profile = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.evaluate_network_conditions(
+                    rtt_ms=rtt_ms, packet_loss_pct=loss_pct, bandwidth_kbps=bw_kbps
+                )
+                if target_fps or max_bitrate:
+                    GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.tune_parameters(
+                        target_fps=int(target_fps) if target_fps else None,
+                        max_bitrate_kbps=int(max_bitrate) if max_bitrate else None,
+                    )
+
+                handler_inst._send_json(
+                    {
+                        "status": "success",
+                        "adaptive_video_stream_compression": GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.get_compression_metrics(),
+                    }
+                )
+                return True
+            except Exception as exc:
+                handler_inst._send_json(
+                    {"error": {"message": f"Video compression tuning failed: {exc}", "code": 400}},
                     HTTPStatus.BAD_REQUEST,
                 )
                 return True

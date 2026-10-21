@@ -387,3 +387,6 @@ Schlüsseldatei oder Elternverzeichnis für Gruppe/Andere zugänglich sind.
 Schreibvorgänge lehnen Symlink-Pfade ab und bleiben atomar. Der integrierte
 Control-Plane-Sidecar verbindet Revocation-Ereignisse mit dem sofortigen
 Beenden betroffener Provider-Sitzungen.
+Die Runtime unterstützt zusätzlich Resilient WebUI Multi-Cluster Federation,
+Zero-Trust Worker Communication mit HMAC-/Nonce-Validierung und automatischer Quarantäne,
+sowie Adaptive Video Stream Compression.

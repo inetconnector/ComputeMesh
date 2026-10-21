@@ -1677,7 +1677,24 @@
 				body: JSON.stringify({ model_id: modelId })
 			}).then(function (r) { return r.json(); });
 		},
-		getStreamStatus: function () { return window.cmMeshStreamStatus || null; }
+		getStreamStatus: function () { return window.cmMeshStreamStatus || null; },
+		getMultiClusterFederation: function () { return window.cmMultiClusterFederation || null; },
+		syncFederatedClusters: function (clusters) {
+			return fetch('/api/v1/mesh/federation/sync', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ clusters: clusters || [] })
+			}).then(function (r) { return r.json(); });
+		},
+		getZeroTrustStatus: function () { return window.cmZeroTrustStatus || null; },
+		getAdaptiveVideoCompression: function () { return window.cmAdaptiveVideoCompression || null; },
+		tuneVideoCompression: function (params) {
+			return fetch('/api/v1/mesh/video/compression/tune', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(params || {})
+			}).then(function (r) { return r.json(); });
+		}
 	};
 	installImageUploadOptimization();
 	installImageTagRewriter();
@@ -1707,6 +1724,33 @@
 			.then(function (d) {
 				if (d && d.p2p_stream_federation) {
 					window.cmMeshStreamStatus = d.p2p_stream_federation;
+				}
+			})
+			.catch(function () {});
+
+		fetch('/api/v1/mesh/federation/clusters')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.multi_cluster_federation) {
+					window.cmMultiClusterFederation = d.multi_cluster_federation;
+				}
+			})
+			.catch(function () {});
+
+		fetch('/api/v1/mesh/zero_trust/status')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.zero_trust_worker_communication) {
+					window.cmZeroTrustStatus = d.zero_trust_worker_communication;
+				}
+			})
+			.catch(function () {});
+
+		fetch('/api/v1/mesh/video/compression/status')
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (d && d.adaptive_video_stream_compression) {
+					window.cmAdaptiveVideoCompression = d.adaptive_video_stream_compression;
 				}
 			})
 			.catch(function () {});
