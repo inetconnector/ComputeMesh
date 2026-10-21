@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-10-21
 
-## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1)
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1 & 2)
 
 - **Architecture Hardening Engine:** Implemented `runtime/architecture_hardening.py` strictly enforcing core invariants.
 - **Mesh Circuit Breaker & Fault Tolerance:** Created `MeshCircuitBreaker` for autonomous state transitions (CLOSED, OPEN, HALF_OPEN) preventing cascading mesh failures during unexpected load.
@@ -4168,3 +4168,9 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
      - 100% synchronized static asset parity across web portal and Android application assets.
 - Verification Evidence:
   - Executed unified test suite (`python3 run_all_tests.py`): 843 / 843 tests passed across all 12 categories in 78.79s with 0 failures or errors.
+
+- **Node Lifecycle Manager:** Implemented `NodeLifecycleManager` adhering to invariant: "A provider node MUST be able to drain without accepting new work".
+- **Strict State Recovery:** Implemented `StrictStateRecovery` adhering to invariant: "Recovery MUST never silently continue from unverified or ambiguous state".
+- **Privacy Constraint Evaluator:** Implemented `PrivacyConstraintEvaluator` adhering to invariant: "Privacy policy MUST be an enforceable placement constraint".
+- **Content Addressed Artifact Registry:** Implemented `ContentAddressedArtifactRegistry` adhering to invariant: "Model artifacts MUST be immutable and content-addressed".
+- **Privacy Preserving Telemetry:** Implemented `PrivacyPreservingTelemetry` adhering to invariant: "Telemetry MUST avoid prompt/output content by default".
