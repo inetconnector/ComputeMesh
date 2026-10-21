@@ -1,3 +1,10 @@
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7)
+
+- **Stateful Idempotent Command Enforcer:** Implemented `StatefulIdempotentCommandEnforcer` in SQLite to strictly enforce: "Every state-changing command MUST be idempotent or carry an idempotency key."
+- **Stateful Capacity Lease Manager:** Implemented `StatefulCapacityLeaseManager` in SQLite to enforce: "Capacity MUST be leased/reserved before job dispatch to avoid placement races" and "Expired leases MUST release capacity automatically."
+- **Integration:** Integrated both components into `SharedRequestOrchestratedBackend` in `services/orchestrator/shared_request_backend.py`.
+- **Verifikation:** GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 6)
 
 - **Whole Path Optimization:** Implemented `ExecutionPathOptimizer` to enforce: "The system therefore MUST optimize the whole execution path, not individual GPUs."
@@ -120,3 +127,5 @@ Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous
 - v12: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 3) implemented with 100% test verification.
 - v13: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 4) implemented with 100% test verification.
 - v14: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 5) implemented with 100% test verification.
+- v15: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 6) implemented with 100% test verification.
+- v16: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7) implemented with 100% test verification (Stateful Idempotency and Capacity Lease Management).

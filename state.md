@@ -1,3 +1,10 @@
+## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7)
+
+- **Stateful Idempotent Command Enforcer:** Implemented `StatefulIdempotentCommandEnforcer` in SQLite to strictly enforce: "Every state-changing command MUST be idempotent or carry an idempotency key."
+- **Stateful Capacity Lease Manager:** Implemented `StatefulCapacityLeaseManager` in SQLite to enforce: "Capacity MUST be leased/reserved before job dispatch to avoid placement races" and "Expired leases MUST release capacity automatically."
+- **Integration:** Integrated both components into `SharedRequestOrchestratedBackend` in `services/orchestrator/shared_request_backend.py`.
+- **Verifikation:** GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 6)
 
 - **Verifikation:** GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
