@@ -1,3 +1,9 @@
+## 2026-10-21 — P0 next-agent remediation / evidence gate (OPEN)
+
+- **Mandatory next task:** [Issue #113](https://github.com/inetconnector/ComputeMesh/issues/113) and [P0 audit/remediation plan](docs/tasks/P0_AUDIT_REMEDIATION_2026-10-21.md). Before more features, reproduce risks, fix actual code, test, review and document evidence.
+- **Current factual status:** Task was committed; this status update **does not** fix or validate the described vulnerabilities. Treat new security/performance/physical deployment claims as **NOT VERIFIED** until exact-commit functional, negative, adversarial and required real-device/host tests are provided.
+- **Release discipline:** Maintain already-applicable release restrictions. Do not classify physical-device/crypto/clinical/production capability as proven by isolated unit tests or self-reported PR text. Unmet critical evidence means **NO-GO** for that claim. Keep Issue #113 open until actually completed.
+
 ---
 document_type: PROJECT_STATE
 state_schema_version: "1.0"
