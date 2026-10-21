@@ -376,6 +376,30 @@ def build_placement_decision(
     policy: PlannerPolicy = PlannerPolicy(),
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    # Enforce architecture invariant: model prefill and decode separately
+    from services.orchestrator.architecture_hardening_part4 import SplitPhasePerformanceModel
+    perf_model = SplitPhasePerformanceModel()
+
+    # Validate coordinator performance model separating prefill from decode
+    perf_model.estimate_job_performance(
+        node_profile={
+            "prefill_speed_tps": _positive_metric(coordinator_prefill, "prefill_tokens_per_second_avg"),
+            "decode_speed_tps": _positive_metric(coordinator_decode, "decode_tokens_per_second_avg")
+        },
+        prompt_tokens=256,
+        expected_decode_tokens=128
+    )
+
+    # Validate worker performance model separating prefill from decode
+    perf_model.estimate_job_performance(
+        node_profile={
+            "prefill_speed_tps": _positive_metric(worker_prefill, "prefill_tokens_per_second_avg"),
+            "decode_speed_tps": _positive_metric(worker_decode, "decode_tokens_per_second_avg")
+        },
+        prompt_tokens=256,
+        expected_decode_tokens=128
+    )
+
     documents = (
         (coordinator_profile, "node_profile.schema.json", "coordinator profile"),
         (worker_profile, "node_profile.schema.json", "worker profile"),
