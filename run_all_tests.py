@@ -130,6 +130,7 @@ CATEGORIES: dict[str, list[str]] = {
         "services.orchestrator.tests.test_worker_ha_protocol",
     ],
     "Runtime & Mesh Network": [
+        "runtime.tests.test_architecture_hardening",
         "runtime.network.tests.test_tcp_relay",
         "runtime.network.tests.test_mesh_transport",
         "runtime.network.tests.test_webrtc_mesh_fabric",
