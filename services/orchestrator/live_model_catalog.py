@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from services.compliance.policy import require_production_model_attribution
 from services.orchestrator.live_shared_runtime import LiveModelState, LiveSharedRuntimeError
+from services.orchestrator.architecture_hardening_part8 import ModelManifestEnforcer, ShardManifestEnforcer
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_SCHEMA = ROOT / "protocol" / "schemas" / "model_manifest.schema.json"
@@ -34,6 +35,7 @@ def _load_json(path: Path) -> Any:
 
 
 def _validate_manifest(manifest: dict[str, Any]) -> None:
+    ModelManifestEnforcer.enforce(manifest)
     schema = json.loads(MODEL_SCHEMA.read_text(encoding="utf-8"))
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(manifest),
@@ -97,6 +99,7 @@ def load_verified_live_model(*, manifest_path: Path, artifact_path: Path) -> Liv
         raise LiveModelCatalogError("model manifest root must be an object")
     _validate_manifest(manifest)
     artifact = _artifact_record(manifest)
+    ShardManifestEnforcer.enforce(artifact)
     if artifact_path.is_symlink() or not artifact_path.is_file():
         raise LiveModelCatalogError("model artifact must be a regular non-symlink file")
     size = artifact_path.stat().st_size
