@@ -130,8 +130,19 @@ class AutonomousFailoverMeshFabric:
 
         self.optimizer._metrics.failover_events_triggered += 1
 
-        new_route = self.optimizer.get_optimal_route(target_node_id)
-        if new_route:
+        # A candidate route is NOT an established connection. Probe each eligible
+        # replacement over TCP before recording success or changing active state.
+        # Every failed replacement is removed from this attempt, preventing loops.
+        while (new_route := self.optimizer.get_optimal_route(target_node_id)) is not None:
+            try:
+                with socket.create_connection((new_route.host, new_route.port), timeout=2.0) as sock:
+                    sock.sendall(b"PING")
+            except (socket.timeout, ConnectionRefusedError, OSError) as exc:
+                log.warning("Replacement route %s failed its TCP probe: %s", new_route.route_id, type(exc).__name__)
+                new_route.is_active = False
+                new_route.error_rate = 1.0
+                continue
+
             self.active_connections[target_node_id] = new_route.route_id
             self.failover_history.append({
                 "target_node": target_node_id,
@@ -139,13 +150,12 @@ class AutonomousFailoverMeshFabric:
                 "new_route": new_route.route_id,
                 "timestamp": time.time()
             })
-            log.info(f"Successfully failed over to route {new_route.route_id} for node {target_node_id}")
+            log.info("Verified TCP connection on replacement route %s", new_route.route_id)
             return True
-        else:
-            log.error(f"Failover failed for {target_node_id}. No active routes available.")
-            if target_node_id in self.active_connections:
-                del self.active_connections[target_node_id]
-            return False
+
+        log.error("Failover failed for %s: no reachable replacement route.", target_node_id)
+        self.active_connections.pop(target_node_id, None)
+        return False
 
 
 GLOBAL_LATENCY_OPTIMIZER = EndToEndLatencyOptimizer()
