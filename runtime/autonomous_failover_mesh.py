@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
+import socket
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -15,8 +16,11 @@ log = logging.getLogger("computemesh.runtime.autonomous_failover")
 @dataclass
 class MeshRoute:
     """Represents a specific network path to a target node in the mesh."""
+    original_latency_ms: float = field(init=False)
     route_id: str
     target_node_id: str
+    host: str
+    port: int
     latency_ms: float
     bandwidth_mbps: float
     error_rate: float
@@ -39,28 +43,44 @@ class EndToEndLatencyOptimizer:
         self._routes: Dict[str, MeshRoute] = {}
         self._metrics = OptimizationMetrics()
 
-    def register_route(self, route_id: str, target_node_id: str, latency_ms: float, bandwidth_mbps: float) -> None:
+    def register_route(self, route_id: str, target_node_id: str, host: str, port: int, latency_ms: float, bandwidth_mbps: float) -> None:
         """Registers a new possible network route to a node."""
-        self._routes[route_id] = MeshRoute(
+        route = MeshRoute(
             route_id=route_id,
             target_node_id=target_node_id,
+            host=host,
+            port=port,
             latency_ms=latency_ms,
             bandwidth_mbps=bandwidth_mbps,
             error_rate=0.0
         )
+        route.original_latency_ms = latency_ms
+        self._routes[route_id] = route
 
     def update_route_metrics(self, route_id: str, latency_ms: float, error_rate: float) -> None:
         """Updates route metrics based on real-time observations."""
         if route_id in self._routes:
             route = self._routes[route_id]
-            old_latency = route.latency_ms
+
             # EWMA for latency
             route.latency_ms = (route.latency_ms * 0.7) + (latency_ms * 0.3)
             route.error_rate = error_rate
             route.last_probed_at = time.time()
-            if old_latency > route.latency_ms:
-                self._metrics.average_latency_improvement_ms += (old_latency - route.latency_ms)
-                self._metrics.total_routes_optimized += 1
+
+            # Recalculate metrics based on actual improvements over original baseline
+            improved_routes = 0
+            total_improvement = 0.0
+
+            for r in self._routes.values():
+                if r.latency_ms < r.original_latency_ms:
+                    improved_routes += 1
+                    total_improvement += (r.original_latency_ms - r.latency_ms)
+
+            self._metrics.total_routes_optimized = improved_routes
+            if improved_routes > 0:
+                self._metrics.average_latency_improvement_ms = total_improvement / improved_routes
+            else:
+                self._metrics.average_latency_improvement_ms = 0.0
 
     def get_optimal_route(self, target_node_id: str) -> Optional[MeshRoute]:
         """Returns the best available route to a node based on latency and bandwidth."""
@@ -88,8 +108,17 @@ class AutonomousFailoverMeshFabric:
         """Establishes connection to a node using the optimal route."""
         route = self.optimizer.get_optimal_route(target_node_id)
         if route:
-            self.active_connections[target_node_id] = route.route_id
-            return True
+            try:
+                # Attempt an actual TCP connection
+                with socket.create_connection((route.host, route.port), timeout=2.0) as sock:
+                    sock.sendall(b"PING")
+                self.active_connections[target_node_id] = route.route_id
+                return True
+            except (socket.timeout, ConnectionRefusedError, OSError) as e:
+                log.warning(f"Failed to connect to {target_node_id} via {route.route_id}: {e}")
+                # Update error rate and try failover immediately
+                self.optimizer.update_route_metrics(route.route_id, latency_ms=route.latency_ms, error_rate=1.0)
+                return self.handle_connection_failure(target_node_id, route.route_id)
         return False
 
     def handle_connection_failure(self, target_node_id: str, failed_route_id: str) -> bool:

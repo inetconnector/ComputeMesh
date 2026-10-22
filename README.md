@@ -2,7 +2,7 @@
 
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
-- Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
+- Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
 
 ## WebUI accessibility and public route fixes (2026-10-20)
 
