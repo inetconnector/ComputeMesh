@@ -8,6 +8,9 @@
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 12)
 
 - **Stale Provider Response Enforcer:** Implemented `StaleProviderResponseEnforcer` in `services/orchestrator/architecture_hardening_part12.py` strictly enforcing the invariant: "stale provider responses cannot overwrite a newer placement."
+- **Placement Revision Enforcer:** Implemented `PlacementRevisionEnforcer` in `services/orchestrator/architecture_hardening_part17.py` strictly enforcing the invariant: "placement has revision."
+- **Rate/Budget Limits Enforcer:** Implemented `RateBudgetLimitEnforcer` in `services/orchestrator/architecture_hardening_part17.py` strictly enforcing the invariant: "rate/budget limits."
+- **Node Workload Boundary Enforcer:** Implemented `NodeWorkloadBoundaryEnforcer` in `services/orchestrator/architecture_hardening_part17.py` strictly enforcing the invariant: "node workload boundary."
 - **User Cancellation Propagator:** Implemented `UserCancellationPropagator` enforcing the invariant: "user cancellation is propagated."
 - **Execution Evidence Enforcer:** Implemented `ExecutionEvidenceEnforcer` enforcing the invariant: "billable work maps to accepted execution evidence."
 - **Recovery State Enforcer:** Implemented `RecoveryStateEnforcer` enforcing the invariant: "recovery never assumes a failed node retained state."
