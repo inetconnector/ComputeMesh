@@ -58,6 +58,7 @@ Private fleet orchestration, provider policy, commercial model policy, billing/s
 A task is complete only when applicable syntax checks, unit tests, integration tests and security/regression checks pass, or when any unrun gate is explicitly reported as unverified. Agent-platform changes must include tests for normal, missing/ambiguous input, invalid manifests, permission denial, prompt injection/untrusted content, persistence/restart and stale/corrupt state where relevant.
 
 - Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7) completed.
+- Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 17) completed.
 
 
 GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen
