@@ -16,6 +16,14 @@ try:
         CommandExpiredError,
         DuplicateEventError
     )
+    from services.orchestrator.architecture_hardening_part17 import (
+        PlacementRevisionEnforcer,
+        RateBudgetLimitEnforcer,
+        NodeWorkloadBoundaryEnforcer,
+        PlacementRevisionError,
+        RateBudgetLimitError,
+        WorkloadBoundaryError
+    )
     from .state_machine import (
         IdempotencyConflict,
         InvalidTransition,
@@ -101,6 +109,14 @@ class SQLiteStateStore:
             self.explicit_retry_enforcer = ExplicitRetryEnforcer(self._db)
             self.command_expiration_enforcer = CommandExpirationEnforcer()
             self.event_deduplicator = EventDeduplicator(self._db)
+        except NameError:
+            pass
+
+        # Hardening Part 17 Enforcers
+        try:
+            self.placement_revision_enforcer = PlacementRevisionEnforcer(self._db)
+            self.rate_budget_limit_enforcer = RateBudgetLimitEnforcer(self._db)
+            self.node_workload_boundary_enforcer = NodeWorkloadBoundaryEnforcer(self._db)
         except NameError:
             pass
 
