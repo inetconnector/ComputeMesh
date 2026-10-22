@@ -53,6 +53,14 @@ Private fleet orchestration, provider policy, commercial model policy, billing/s
 - Writing or destructive tools require explicit authorization according to `TOOLS.md`.
 - Generated state updates must be atomic where supported.
 
+## Website deployment and single source of truth
+
+- Never edit HTML, CSS, JavaScript, images, or server routes directly on the Plesk server.
+- Make every website change locally first in `portal/` or `services/portal/` and verify it locally.
+- After successful local verification, commit the change and push it to GitHub. `origin/main` is the authoritative source of truth.
+- Deploy only through `deploy/sync_plesk_portal.sh`, or by pulling `origin/main` into `/opt/computemesh` and then using the standardized synchronization into `/var/www/vhosts/inetconnector.com/site2` and `/var/www/vhosts/inetconnector.com/httpdocs`.
+- Preserve binary installers in `downloads/` (`.iso`, `.apk`, `.exe`, and similar); the deployment process must not overwrite them.
+
 ## Completion gates
 
 A task is complete only when applicable syntax checks, unit tests, integration tests and security/regression checks pass, or when any unrun gate is explicitly reported as unverified. Agent-platform changes must include tests for normal, missing/ambiguous input, invalid manifests, permission denial, prompt injection/untrusted content, persistence/restart and stale/corrupt state where relevant.
