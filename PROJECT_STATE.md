@@ -1,3 +1,7 @@
+## NÄCHSTER SCHRITT MIT JULES / ANTIGRAVITY — ZIEL-NACHWEIS-P0 (2026-10-22)
+
+**KANONISCHE NÄCHSTE ENTWICKLUNGSAUFGABE:** [Vollständiger, projektspezifischer KI-Prompt](docs/tasks/PRIORITY_GOAL_ALIGNMENT_JULES_ANTIGRAVITY_2026-10-22.md). Zuerst aktuelles Default-Branch/AGENTS.md lesen, offenes [P0-Issue #113](https://github.com/inetconnector/ComputeMesh/issues/113) ursächlich bearbeiten und Fortschritt zum eigentlichen Projektziel anhand reproduzierbarer Negativtests und Vorher-/Nachher-Messungen belegen. **Keine neue nummerierte Feature-/Härtungsphase anstelle dieser Evidenzaufgabe.** Jules/Antigravity können Sourcecode, Tests, sichere lokale Integration und Dokumentation bearbeiten; reale externe Server, WAN, Geräte, produktive Zahlungen oder andere nicht freigegebene Infrastruktur ausdrücklich **SKIP/BLOCKED**. Dies ist eine gespeicherte Priorität, kein gestarteter Agent oder Freigabebeleg; externe Akzeptanz/Release weiterhin NO-GO, soweit ohne physische Evidenz.
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 8)
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 11)
 
