@@ -4242,3 +4242,9 @@ Folgende Linux-Kernel- und Systemd-Sicherheitsdirektiven wurden auf `computemesh
 - **Split Phase Performance Model:** Implemented `SplitPhasePerformanceModel` in `services/orchestrator/architecture_hardening_part4.py` strictly enforcing the invariant: "The scheduler MUST model prefill and decode separately". This guarantees placement plans consider both latency profiles accurately and is fully tested with unit tests.
 
 GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen
+
+## 2026-10-22 Agent instruction consolidation
+
+- Consolidated the former `.agents/rules/website_deployment_ssot.md` requirements into the repository-root `AGENTS.md` so agents have one authoritative instruction file.
+- Removed the superseded `.agents` rule file after preserving its local-first, Git-SSOT, standardized-deployment, and installer-preservation requirements.
+- No runtime code or deployment state changed. Documentation-only validation used Git diff and targeted text searches; no product test suite was required or run.
