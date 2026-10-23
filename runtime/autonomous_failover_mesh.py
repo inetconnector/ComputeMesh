@@ -122,15 +122,28 @@ class AutonomousFailoverMeshFabric:
         sock.settimeout(timeout)
         sock.sendall(json.dumps(req).encode('utf-8') + b'\n')
 
-        response_data = b""
+        response_data = bytearray()
         start_time = time.time()
+        max_length = 4096
+
         while True:
             if time.time() - start_time > timeout:
                 raise socket.timeout("Handshake timeout")
-            chunk = sock.recv(1024)
+
+            try:
+                chunk = sock.recv(min(1024, max_length - len(response_data) + 1))
+            except socket.timeout:
+                raise socket.timeout("Handshake timeout during recv")
+
             if not chunk:
                 return False
-            response_data += chunk
+
+            response_data.extend(chunk)
+
+            if len(response_data) > max_length:
+                log.warning(f"Handshake failed: response exceeded {max_length} bytes")
+                return False
+
             if b'\n' in response_data:
                 break
 
@@ -138,6 +151,9 @@ class AutonomousFailoverMeshFabric:
             resp = json.loads(response_data.decode('utf-8').strip())
             if resp.get("type") != "ACK":
                 log.warning(f"Handshake failed: expected ACK, got {resp.get('type')}")
+                return False
+            if resp.get("session_id") != session_id:
+                log.warning(f"Handshake failed: mismatch session_id {resp.get('session_id')} != {session_id}")
                 return False
             if resp.get("request_id") != request_id:
                 log.warning(f"Handshake failed: mismatch request_id {resp.get('request_id')} != {request_id}")
@@ -160,7 +176,7 @@ class AutonomousFailoverMeshFabric:
                 with socket.create_connection((route.host, route.port), timeout=2.0) as sock:
                     if not self._perform_handshake(sock, target_node_id):
                         raise OSError("Handshake verification failed")
-                self.active_connections[target_node_id] = route.route_id
+                self.active_connections[target_node_id] = route.route_id + "_LOCAL_UNAUTHENTICATED_ONLY"
                 return True
             except (socket.timeout, ConnectionRefusedError, OSError) as e:
                 log.warning(f"Failed to connect to {target_node_id} via {route.route_id}: {e}")
@@ -192,7 +208,7 @@ class AutonomousFailoverMeshFabric:
                 new_route.error_rate = 1.0
                 continue
 
-            self.active_connections[target_node_id] = new_route.route_id
+            self.active_connections[target_node_id] = new_route.route_id + "_LOCAL_UNAUTHENTICATED_ONLY"
             self.failover_history.append({
                 "target_node": target_node_id,
                 "failed_route": failed_route_id,
