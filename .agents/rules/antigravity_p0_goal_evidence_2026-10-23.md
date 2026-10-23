@@ -1,3 +1,11 @@
+# AKTUELLER RE-AUDIT: DIESER ABSCHNITT HAT VORRANG
+### P0 RE-AUDIT / NÄCHSTE ANTI-GRAVITY-KORREKTUR — 23.10.2026, 13:23 MESZ
+**Bestätigter Restfehler:** PR #129 ist gemergt und fügte `_perform_handshake()` in `runtime/autonomous_failover_mesh.py` hinzu. Der Code erstellt `session_id`, validiert im ACK aber NUR `type=ACK`, `request_id` und `target_node_id`; **Antwort-`session_id` fehlt**. Absenderidentität und kryptografische Authentisierung werden ebenfalls nicht geprüft. Der PR beansprucht „Session-/Node-/Request-ID“ vollständig und 882/882 Tests, dies ist durch die tatsächliche ACK-Prüfung nicht belegt.
+**Sofortauftrag:** Antigravity schreibt erst einen negativen Red-Test für ACK mit falscher/fehlender `session_id`, gefälschter Node-ID, falscher Peer-Identität, Replay, Oversize, fragmentierter Newline-JSON-Antwort und stillhängendem Peer. Dann ACK an die angeforderte Session + authentisierten Ziel-Peer binden; Protokollversion/Längenlimit/max. Zeit- und Fehlerbudget festlegen, echtes Token/Zertifikat nicht erfinden. Bei fehlender Auth explizit `LOCAL_UNAUTHENTICATED_ONLY`/NO-GO markieren statt sichere Netzwerk-Verbindung behaupten. Tests mit echten Loopback-Sockets und getrennten Prozessen, danach wirkliche Worker-Jobresultate und Retry/Lease nachweisen.
+**Nachweise:** `python -m unittest runtime.tests.test_failover_candidate_verification runtime.tests.test_multiprocess_failover_mesh` sowie volle unterstützte Testsuite, exakt SHA, Exitcode und reproduzierbare Outputs. Echte GPU-Hosts/WAN/Billing bleiben extern BLOCKED. Issue #113 offen.
+
+---
+
 # Antigravity-Regel – P0-Zielerreichung und verifizierte Korrektur (ComputeMesh)
 ## Priorität: zwingend vor neuer Feature-/Phase-Entwicklung
 **Datum:** 2026-10-23 · **Projekt:** inetconnector/ComputeMesh · **Baseline beim Auftrag:** `ab75617bb043133d3f53e20f0a0821118599fede` (`main`).
