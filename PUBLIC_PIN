@@ -1,0 +1,57 @@
+# ComputeMesh Public-Pin Compatibility Contract
+
+**Effective Date:** 2026-10-23
+**Status:** Active
+**Version:** 1.0.0
+
+## Context and Purpose
+
+This document defines the strict public compatibility contract for the integration of private ControlPlane policies into the open-source ComputeMesh Public Runtime. It explicitly establishes the boundary to ensure that the open-source runtime remains neutral, inspectable, and secure, while enabling organizations to overlay their proprietary scheduling and placement logic.
+
+## Boundary Enforcement: The Signed Handoff-Envelope
+
+As mandated by Goal Evidence P0 (2026-10-23), the private orchestration plan **MUST** couple to the Public Runtime exclusively via a documented, minimal signed **Handoff-Envelope**.
+
+### Principles
+
+1.  **Zero Private Leakage:** Private scores, proprietary heuristics, commercial billing secrets, and internal fleet intelligence remain strictly isolated within the ControlPlane. They **MUST NOT** be imported into or exposed through the public runtime or the resulting Handoff-Envelope.
+2.  **Cryptographic Attestation:** The decision emitted by the private ControlPlane is packaged in an Ed25519-signed envelope. The Public Runtime (`services/scheduler/placement_provider.py`) acts defensively, verifying the integrity and origin of the Handoff-Envelope without trusting the internal derivation of the plan.
+3.  **Minimal Necessary State:** The envelope carries only the actionable execution plan required by the worker nodes (e.g., node IDs, layer ranges, model digests). It strips away the 'why' (reputation scores, price bounds) and retains only the 'what'.
+
+### Schema Contract
+
+The Public Runtime expects the private response to conform to the `placement_decision.schema.json` execution payload structure, embedded within an authenticated wrapper:
+
+```json
+{
+  "schema_version": 2,
+  "decision_type": "execution_plan",
+  "decision_id": "decision-1234...",
+  "issued_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "expires_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "payload": {
+    "model": {
+      "model_id": "string",
+      "artifact_digest": "sha256:...",
+      "artifact_size_bytes": "integer",
+      "layer_count": "integer"
+    },
+    "execution": {
+      "executor_version": 2,
+      "coordinator": {"node_id": "...", "kind": "gpu", "name": "..." },
+      "stages": [
+         { "node_id": "...", "device_index": 0, "start_layer": 0, "end_layer_exclusive": 4, "tensor_weight": 2.0 }
+      ]
+    }
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "key_id": "cp-auth-key-id",
+    "value": "<base64url-signature>"
+  }
+}
+```
+
+### Protocol Interaction
+
+The `RemotePlacementProvider` submits a bounded candidate-pool request over TLS. The corresponding response is parsed as the `Handoff-Envelope` and submitted to `_verify_envelope` prior to local execution routing.

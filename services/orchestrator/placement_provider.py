@@ -132,7 +132,7 @@ def _canonical_unsigned_envelope(value: dict[str, Any]) -> bytes:
 def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expected_key_id: str) -> None:
     signature = value.get("signature")
     if not isinstance(signature, dict):
-        raise PlacementProviderError("private placement response is unsigned")
+        raise PlacementProviderError("private placement Handoff-Envelope response is unsigned")
     if signature.get("algorithm") != "Ed25519" or signature.get("key_id") != expected_key_id:
         raise PlacementProviderError("private placement response uses an unexpected signing key")
     try:
@@ -140,7 +140,7 @@ def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expec
             _b64u_decode(signature.get("value"), 64), _canonical_unsigned_envelope(value)
         )
     except (InvalidSignature, ValueError) as exc:
-        raise PlacementProviderError("private placement signature verification failed") from exc
+        raise PlacementProviderError("private placement signature verification failed on Handoff-Envelope") from exc
     try:
         issued = datetime.fromisoformat(str(value["issued_at"]).replace("Z", "+00:00"))
         expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
@@ -157,7 +157,7 @@ def _verify_envelope(value: dict[str, Any], *, verification_key_b64u: str, expec
 
 def _external_plan(value: dict[str, Any]) -> PlacementPlan:
     if value.get("schema_version") != 2 or value.get("decision_type") != "execution_plan":
-        raise PlacementProviderError("private placement response has an unsupported envelope")
+        raise PlacementProviderError("private placement response has an unsupported Handoff-Envelope")
     payload = value.get("payload")
     if not isinstance(payload, dict):
         raise PlacementProviderError("private placement response lacks payload")
