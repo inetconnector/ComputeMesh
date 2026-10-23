@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 import time
 import socket
+import json
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -104,14 +106,60 @@ class AutonomousFailoverMeshFabric:
         self.active_connections: Dict[str, str] = {} # target_node_id -> active route_id
         self.failover_history: List[Dict[str, Any]] = []
 
+
+    def _perform_handshake(self, sock: socket.socket, target_node_id: str, timeout: float = 2.0) -> bool:
+        request_id = str(uuid.uuid4())
+        session_id = str(uuid.uuid4())
+
+        req = {
+            "type": "HANDSHAKE",
+            "session_id": session_id,
+            "node_id": "local-node",
+            "request_id": request_id,
+            "target_node_id": target_node_id
+        }
+
+        sock.settimeout(timeout)
+        sock.sendall(json.dumps(req).encode('utf-8') + b'\n')
+
+        response_data = b""
+        start_time = time.time()
+        while True:
+            if time.time() - start_time > timeout:
+                raise socket.timeout("Handshake timeout")
+            chunk = sock.recv(1024)
+            if not chunk:
+                return False
+            response_data += chunk
+            if b'\n' in response_data:
+                break
+
+        try:
+            resp = json.loads(response_data.decode('utf-8').strip())
+            if resp.get("type") != "ACK":
+                log.warning(f"Handshake failed: expected ACK, got {resp.get('type')}")
+                return False
+            if resp.get("request_id") != request_id:
+                log.warning(f"Handshake failed: mismatch request_id {resp.get('request_id')} != {request_id}")
+                return False
+            if resp.get("target_node_id") != target_node_id:
+                log.warning(f"Handshake failed: mismatch target_node_id {resp.get('target_node_id')} != {target_node_id}")
+                return False
+            return True
+        except json.JSONDecodeError:
+            log.warning("Handshake failed: invalid JSON response")
+            return False
+
     def connect_to_node(self, target_node_id: str) -> bool:
+
         """Establishes connection to a node using the optimal route."""
         route = self.optimizer.get_optimal_route(target_node_id)
         if route:
             try:
                 # Attempt an actual TCP connection
                 with socket.create_connection((route.host, route.port), timeout=2.0) as sock:
-                    sock.sendall(b"PING")
+                    if not self._perform_handshake(sock, target_node_id):
+                        raise OSError("Handshake verification failed")
                 self.active_connections[target_node_id] = route.route_id
                 return True
             except (socket.timeout, ConnectionRefusedError, OSError) as e:
@@ -136,7 +184,8 @@ class AutonomousFailoverMeshFabric:
         while (new_route := self.optimizer.get_optimal_route(target_node_id)) is not None:
             try:
                 with socket.create_connection((new_route.host, new_route.port), timeout=2.0) as sock:
-                    sock.sendall(b"PING")
+                    if not self._perform_handshake(sock, target_node_id):
+                        raise OSError("Handshake verification failed")
             except (socket.timeout, ConnectionRefusedError, OSError) as exc:
                 log.warning("Replacement route %s failed its TCP probe: %s", new_route.route_id, type(exc).__name__)
                 new_route.is_active = False
