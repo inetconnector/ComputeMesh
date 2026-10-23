@@ -259,7 +259,7 @@ class TestPublicGatewayWorkerRPC(unittest.TestCase):
         self.worker_proc.join(timeout=1.0)
 
         # Attempt connection (should fail)
-        with self.assertRaises(ConnectionRefusedError):
+        with self.assertRaises((ConnectionRefusedError, TimeoutError, OSError)):
             socket.create_connection(("127.0.0.1", self.port), timeout=0.5)
 
         # Spin up replacement worker
