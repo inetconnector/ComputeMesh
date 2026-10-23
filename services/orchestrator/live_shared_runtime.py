@@ -111,7 +111,7 @@ class LiveSharedRuntimeRegistry:
             self._control_client = client
 
     def set_agent_policy_resolver(self, resolver: Callable[[Any, Any], Any] | None) -> None:
-        """Register a private adapter that returns only a minimized policy envelope."""
+        """Register a private adapter that returns only a minimized signed Handoff-Envelope."""
         if resolver is not None and not callable(resolver):
             raise TypeError("agent policy resolver must be callable or None")
         with self._lock:

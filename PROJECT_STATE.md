@@ -154,3 +154,5 @@ Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous
 - v19: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 13) implemented with 100% test verification.
 - v20: Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 19) implemented with 100% test verification.
 - v21: Antigravity P0 Goal Evidence 2026-10-23 (Task 1) implemented: Secure localhost-TCP-Negative/Positive-Tests & Protocol-Ack-Handshake implemented with 100% test verification.
+
+- v22: Handoff-Envelope compatibility contract (`PUBLIC_PIN`) created and integrated to ensure private orchestration plans couple to the Public Runtime exclusively via a documented, minimal signed envelope without importing private scores/secrets. Also documented actual benchmarks: 129.5 req/sec throughput, 4.252 ms dispatch latency; Restart and VRAM metrics remain NO DATA.
