@@ -1,3 +1,45 @@
+# VERBINDLICHER ANTI-GRAVITY-AUSFÜHRUNGSAUFTRAG — 24.10.2026
+> **P0 / VORRANG VOR ALLEN ÄLTEREN RE-AUDIT-TEXTEN IN DIESER DATEI.** Ältere Abschnitte darunter bleiben als historische Befundspur, sind aber nach neueren Commits nicht blind zu übernehmen. Diese Anweisung wurde nach einer read-only GitHub-Quellcodeprüfung aktualisiert. Der GitHub-Commit dieser Regel startet keinen Agenten automatisch.
+>
+> **Berechtigungsrahmen:** Antigravity darf nur in der autorisierten lokalen Entwicklungsumgebung und nach vorhandenen Repo-Regeln Quellcode reparieren, gezielte Negativ-/Integrationstests hinzufügen und zur Review vorlegen. ChatGPT selbst ändert dafür ausschließlich die Dateien unter .agents/. Nie auf fremde/externe Server, produktive Datenbanken, Cloud-/Brokerkonten, Patientendaten oder physische Geräte zugreifen, auch wenn ältere Agent-Regeln pauschal „autonomes Deployment“ verlangen. AdbQrPairer ist explizit ausgenommen.
+>
+> **Arbeitsreihenfolge in jeder Sitzung:** (0) aktuellen HEAD, README, AGENTS.md, .agents/rules, State, offene P0-Issue und PRs lesen; (1) Fakten-/Codepfad-Matrix samt reproduzierbarem Test aufstellen; (2) Negativtest für realen Defekt RED; (3) kleinsten sicherheitskorrekten Fix im aktiven Code; (4) gezielte Tests, gesamte passende Suite, Lint/Build und adversarielle Regression GREEN; (5) diff/code review, ggf. PR nach Repo-Policy, Testbelege, ehrlicher Status. **Kein Phasen-„Fortschritt“ ohne funktionale Evidenz.**
+>
+> **Zwingendes Prüfprotokoll** für jeden Gate: `HEAD_SHA`, Branch, OS/Toolchain, Exaktbefehl, Exit-Code, Testanzahl, Test-IDs, reproduzierbare Log- oder Artefakthashes, Security-/Funktionswirkung vorher/nachher, verbliebene Blocker. Ein bloßer PR-Text „alle Tests grün“ ist kein unabhängiger Beleg. Felder `PASS_LOCAL`, `FAIL`, `BLOCKED_EXTERNAL`, `NOT_RUN` strikt unterscheiden. Reproduzierbare Tests dürfen keine Geheimnisse in Logs ausgeben.
+>
+> **Done-Definition:** Nur die tatsächlich erfüllten Teilkriterien lokal als PASS markieren. Übergeordnetes P0-Issue NICHT schließen, solange externe/physische/unabhängige Abnahmen fehlen. Bei fehlendem Runner ehrlich NOT_RUN statt PASS; bei fehlenden Daten DATA_BLOCKED statt erfundener Erkenntnis. Nach Abschluss dem Auftraggeber klar angeben, was durch Code/Test erwiesen wurde und was nicht. Bestehende ungeprüfte PRs nie automatisch mergen. Keine neue P0-Phase als Ersatz für offene Defekte.
+
+## ComputeMesh: P0 #113 – Authentisiertes Failover und wirklich erbrachte Worker-Rechenarbeit
+**Prüfungs-HEAD:** `4578aa662983fbe0fdf835cc879aa354281c1378`. Aktuellen HEAD bei Arbeitsbeginn erneut lesen; nachfolgende Commits berücksichtigen.
+**Ausgangspunkt:** PR #129, #130, #131 gemergt. Session_id-ACK-Prüfung, Request-ID und 4096-Byte-Bound sind bereits im `runtime/autonomous_failover_mesh.py` vorhanden: **NICHT als unfixed darstellen/erneut denselben Patch bauen**. Für unauthentisierte Verbindungen wird `_LOCAL_UNAUTHENTICATED_ONLY` signalisiert. `services/orchestrator/placement_provider.py` prüft Ed25519-Handoff-Envelopes. Das beweist NICHT jede Worker-Job-Authentisierung, GPU-Ausführung oder unabhängige physische Abnahme.
+
+### 1. P0-A Aktive Trust-Boundaries
+Route Client→Gateway→Signed Private Handoff→Scheduler→Public Worker→Result→Lease/Billing entlang real verwendeter Funktionen, Versionen/Port/Envelope und Commit-Pins nachvollziehen; vorhandenes Ack/Ed25519 NICHT als automatisch durchgehende end-to-end Auth deklarieren.
+
+### 2. P0-B Unauthenticated/Protocol-Negatives
+Handshake-Tests für korrekte Session, falsches Session/Request/Node-Paar, Replay, geteilten TCP-Frame, EOF, Timeout, große Nachricht und Peer-Spoofing ausführen. Zusätzlicher Test: trotz gültigem echoed JSON-ACK muss ein nicht authentifizierter Worker als LOCAL_UNAUTHENTICATED_ONLY klassifiziert und für secure/billable Jobfreigabe abgewiesen werden.
+
+### 3. P0-C Echte Worker-Ausführung
+Mit zwei voneinander getrennten lokalen Prozessen und individuellen Schlüsseln eine winzige deterministische Arbeit über tatsächlichen Gateway-/Worker-RPC ausführen. Signed request nonce, job-id, artifact digest, result hash, client ack und korrekte Origin prüfen; Worker kill/restart und verlorenes Ack absichtlich auslösen.
+
+### 4. P0-D Replay/Idempotence/Billing
+Parallel identische Job-ID zweimal einreichen; maximal einmal Ausführung/Belastung/Accounting. Bad lease owner, doppelte Rechnung, verspätete Token, beschädigtes signed envelope, falscher model digest, ungültige Epoch müssen FAIL sein. Private Scores/Secrets niemals in Public Runtime persistieren.
+
+### 5. P0-E Benchmark-Evidenz
+PR #131 126.6 req/s und 3.938ms nur nach exaktem Runner/Profil/Datenset/SHA als LOCAL benchmark berichten; VRAM, Restart, realer GPU-Speed und WAN weiterhin NO DATA. Deterministische lokale Benchmark mit mindestens wiederholten Läufen und Varianz.
+
+### Auszuführende Test-Gates
+`python -m unittest runtime.tests.test_failover_candidate_verification runtime.tests.test_multiprocess_failover_mesh`; `runtime/tests/test_public_gateway_worker_rpc.py` und gesamte Repo-Suite nach tatsächlicher Test-Discovery; SHA/Exitcode/Log ohne Secrets.
+
+### Nicht verfügbare/externe Abnahmen
+Echte unabhängige GPU-Knoten, WAN, Payment, fremde Provider, Produktionskonten sind BLOCKED_EXTERNAL.
+
+### Erwartete Rückmeldung an Antigravity-Controller
+Tabelle pro Gate: Prüfung | echte Testdatei/aktiver Pfad | geprüfte SHA | Befehl | Exitcode | PASS/FAIL/BLOCKED | verbleibende Risiken. Bei FAIL: genaue reproduzierte Ursache, minimaler Patch, vor/nach Regression. Keine Behauptung eines wissenschaftlichen/produktiven Durchbruchs ohne unabhängig überprüfbare Daten. P0 #113 offen lassen.
+
+---
+
+## ÄLTERE ANWEISUNGEN (nur Kontext; bei Widerspruch gilt der obige Auftrag)
 # AKTUELLER RE-AUDIT: DIESER ABSCHNITT HAT VORRANG
 
 ### Re-Audit 2026-10-23 — P0-Sofortauftrag: Handshake-Session-Bindung und echter Worker-Beleg
