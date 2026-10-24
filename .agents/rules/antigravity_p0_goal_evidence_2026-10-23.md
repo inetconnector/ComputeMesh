@@ -80,10 +80,10 @@ Verteiltes ComputeMesh führt autorisierte KI-Arbeit auf tatsächlichen unabhän
 PR #126 ist gemergt: runtime/autonomous_failover_mesh.py TCP-probt jetzt Ersatzrouten. Das beweist Socket-Erreichbarkeit, NICHT verifizierte Jobverarbeitung, echtes Inferenzresultat oder WAN. P0 #113 offen; Private ControlPlane hat getrennte Verantwortlichkeiten.
 
 ## Nächste konkrete Implementierungsaufgaben
-1. Sichere bestehende localhost-TCP-Negativ-/Positivtests und ergänze einen Protokoll-Ack-Handshake, der echte Session-/Node-/Request-ID, Timeout und fehlgeleitete Antwort prüft; keine erlogenen FAILOVER_SUCCESS-Labels nach bloßer Socket-Verbindung. (LOCAL_TEST_PASSED - Implemented in autonomous_failover_mesh.py)
-2. Prüfe aktive Public-Gateway-/Worker-RPC Call-Chain statt nur autonomous_failover_mesh.py. Mit mindestens zwei echten Loopback-Prozessen und getrennten Keys ein signiertes Work-Request/Job-Resultat über Autoritätsgrenzen nachweisen; Retry, Duplicate, Crash, Lease und Billing idempotent testen.
-3. Kopple privaten Plan nur über dokumentierte minimale signierte Handoff-Envelope an Public Runtime, keine privaten Scores/Secrets importieren. Aktualisiere den Public-Pin/Kompatibilitätsvertrag nach korrekten lokalen Tests.
-4. Dokumentiere tatsächliche Benchmarks (Latenz, Durchsatz, Wiederanlauf, VRAM) vs klare NO DATA; keine weiteren reinen Architekturteile ohne echte Integration.
+1. Sichere bestehende localhost-TCP-Negativ-/Positivtests und ergänze einen Protokoll-Ack-Handshake, der echte Session-/Node-/Request-ID, Timeout und fehlgeleitete Antwort prüft; keine erlogenen FAILOVER_SUCCESS-Labels nach bloßer Socket-Verbindung. (LOCAL_TEST_PASSED - Implemented in autonomous_failover_mesh.py, MULTIPROCESS_INTEGRATION_PASSED)
+2. Prüfe aktive Public-Gateway-/Worker-RPC Call-Chain statt nur autonomous_failover_mesh.py. Mit mindestens zwei echten Loopback-Prozessen und getrennten Keys ein signiertes Work-Request/Job-Resultat über Autoritätsgrenzen nachweisen; Retry, Duplicate, Crash, Lease und Billing idempotent testen. (LOCAL_TEST_PASSED, MULTIPROCESS_INTEGRATION_PASSED)
+3. Kopple privaten Plan nur über dokumentierte minimale signierte Handoff-Envelope an Public Runtime, keine privaten Scores/Secrets importieren. Aktualisiere den Public-Pin/Kompatibilitätsvertrag nach korrekten lokalen Tests. (LOCAL_TEST_PASSED, COMPLETE)
+4. Dokumentiere tatsächliche Benchmarks (Latenz, Durchsatz, Wiederanlauf, VRAM) vs klare NO DATA; keine weiteren reinen Architekturteile ohne echte Integration. (COMPLETE)
 
 ## Nachweis-/Testplan
 `python -m unittest runtime.tests.test_failover_candidate_verification runtime.tests.test_multiprocess_failover_mesh` (Verfügbarkeit/Python import zuerst prüfen), Repo-`pytest`/CI-Gates mit SHA und Exit-Code; realisierte lokale Prozessgrenzen als LOCAL_ONLY kennzeichnen.
