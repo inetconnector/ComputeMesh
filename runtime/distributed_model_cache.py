@@ -270,8 +270,8 @@ class OffHeapCacheManager:
             shm = shared_memory.SharedMemory(create=True, size=size)
             shm.buf[:size] = data
             with self._lock:
-                self._chunks[chunk_id] = {"shm_name": shm.name, "size": size}
-            shm.close()
+                # Retain open shm handle to prevent Windows from releasing the named mapping early
+                self._chunks[chunk_id] = {"shm": shm, "shm_name": shm.name, "size": size}
             return True
         except Exception as e:
             with self._lock:
@@ -284,8 +284,11 @@ class OffHeapCacheManager:
             if chunk_id not in self._chunks:
                 return None
             info = self._chunks[chunk_id]
-            shm_name = info["shm_name"]
+            shm = info.get("shm")
             size = info["size"]
+            if shm is not None:
+                return bytes(shm.buf[:size])
+            shm_name = info["shm_name"]
 
         try:
             shm = shared_memory.SharedMemory(name=shm_name)
@@ -301,14 +304,19 @@ class OffHeapCacheManager:
             if chunk_id not in self._chunks:
                 return
             info = self._chunks.pop(chunk_id)
+            shm = info.get("shm")
             shm_name = info["shm_name"]
             size = info["size"]
             self._used_quota -= size
 
         try:
-            shm = shared_memory.SharedMemory(name=shm_name)
-            shm.close()
-            shm.unlink()
+            if shm is not None:
+                shm.close()
+                shm.unlink()
+            else:
+                s = shared_memory.SharedMemory(name=shm_name)
+                s.close()
+                s.unlink()
         except Exception as e:
             log.warning("Failed to free off-heap memory for %s: %s", chunk_id, e)
 
