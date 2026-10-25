@@ -1,32 +1,32 @@
 {
   "version": "1.2.185",
-  "release_date": "2026-10-04T08:27:40.795450+00:00",
+  "release_date": "2026-10-25T20:57:46.889233+00:00",
   "min_compatible_version": "1.0.0",
   "public_key": "0f559b72426bc24e12bd67790af054b2dba713bf0deb1bcc2faf0dfa1200f2bc",
   "platforms": {
     "windows-x64": {
       "filename": "ComputeMesh-Setup-x64.exe",
       "url": "https://mesh.inetconnector.com/downloads/ComputeMesh-Setup-x64.exe",
-      "sha256": "0830326ca8fa7360212503aabe80ec989df99d7f0207d7f62ac10328fb43d9a2",
-      "size_bytes": 119160736
+      "sha256": "3cb5547d24c6ae95d63e7bd42d1f292f1963f3ebe53e5440d870d8239ba99a71",
+      "size_bytes": 113721085
     },
     "linux-x64": {
       "filename": "computemesh-linux-x86_64.tar.gz",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-linux-x86_64.tar.gz",
-      "sha256": "4cbac444819518120eb07b17bf1fcf448c394712991d254178ec95a13da8304d",
-      "size_bytes": 7452051
+      "sha256": "f47db789191a3e0eb602149d0ebe7fcda1f979d65da04f9a56a3e2fdee75489c",
+      "size_bytes": 7516127
     },
     "nodeos-iso": {
       "filename": "computemesh-nodeos-x86_64.iso",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.iso",
-      "sha256": "34d3b949bc1d9830bdb1a9a42336b724b4d4c1857bc72f1254356b0061e25a60",
-      "size_bytes": 68157440
+      "sha256": "cee5568f5a3bc9785e7857de3e642940ca72c89932a801142b0a2c3b5cdb3311",
+      "size_bytes": 541065216
     },
     "nodeos-img": {
       "filename": "computemesh-nodeos-x86_64.img.xz",
       "url": "https://mesh.inetconnector.com/downloads/computemesh-nodeos-x86_64.img.xz",
-      "sha256": "a7066f7432da966a535a4d933672af7bdc0a7071f44fac8e3e21c1d973ce607f",
-      "size_bytes": 2463456
+      "sha256": "71fa4be754ec174ef35652f43d14da7161cd515ea0349d9ecc9ead0eb3598f8c",
+      "size_bytes": 525896448
     },
     "installer-script": {
       "filename": "install.sh",
@@ -35,5 +35,5 @@
       "size_bytes": 6651
     }
   },
-  "signature": "767a37e50e490871f5144d9e239b625fefd3d88fe841756b80b9578b0c6e0fe6759e566f676146f77238354a6c15951ed95932da2ffb26051c18401fbe3c300c"
+  "signature": "fe97fba7df3c0348b0966adebd2eb5ea85a5eea79229c227a0c6a2743735e2a42acf360bd5a26325462866bc39b3c7d5f51cc4fe3d6e3fc61922533971803b0d"
 }

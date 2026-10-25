@@ -1,8 +1,17 @@
 # ComputeMesh
 
+## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
+
+- Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen (887/887 Tests bestanden).
+
+## WebUI-Barrierefreiheit und öffentliche Routen-Korrekturen (2026-10-20)
+
+Die gemeinsame Browser-/Android-WebUI besitzt ein barrierearmes High-Contrast-Theme, ein kompaktes Agent-Sessions-Panel mit Zweckbeschreibung und verlässliches Pointer-Handling für Updates, Dateianhänge, Dropdowns und mobile Bedienung. Öffentliche `/models` und `/models/` URLs werden explizit auf den Modellkatalog aufgelöst statt ein Nginx-Verzeichnislisting anzuzeigen. Strukturierte Gateway-Fehler werden als lesbare Nachrichten formatiert statt als `[object Object]`.
+
 ## KI-Fähigkeitenprogramm (Paket 0, keine Freigabe)
 
 Der Umsetzungsplan wird im privaten Parent unter `docs/agents-platform/AI_CAPABILITY_IMPLEMENTATION_PLAN.md` geführt. Dieser öffentliche Branch ergänzt [versionierte Evaluierungsfälle mit nachweispflichtigem Baseline-Bericht](tests/evals/README.md). Es werden **keine** Werkzeuge aktiviert, keine Modellwechsel erzwungen und keine Verbesserung der Modellqualität oder Produktionsfreigabe behauptet. Solange echte Messungen fehlen, bleibt das Release-Gate gesperrt. Owner-Prüfung im Gateway und Python-Ausführung im Prozess sind weiterhin harte P0-Sicherheits-Stop-Gates.
+
 
 
 **Sprachen:** [English](README.md) | **Deutsch**
@@ -43,12 +52,28 @@ KI braucht sehr viel Rechenleistung. Gleichzeitig stehen überall Grafikkarten u
 
 Das Ziel: KI-Rechenleistung soll nicht nur wenigen großen Anbietern gehören. Mehr Menschen und Firmen sollen Rechenleistung anbieten, nutzen und dafür bezahlt werden können.
 
+## Wie die beiden Repositories zusammenpassen
+
+ComputeMesh ist bewusst in ein öffentliches Ausführungs-Repository und ein privates Produktionssteuerungs-Repository getrennt:
+
+| Repository | Rolle |
+| --- | --- |
+| `inetconnector/ComputeMesh` **(dieses Repository)** | **Öffentliche Ausführungsebene:** Provider-/Node-Software, Hardware- und Netzwerkmessung, Gateway-/API-Oberflächen, Protokoll-/Identitätsverträge, Ausführungsnachweise, llama.cpp-Integration und die Laufzeitumgebung, die einen freigegebenen Plan ausführt. |
+| `inetconnector/ComputeMesh-ControlPlane` | **Private Produktionssteuerung:** Produktions-Placement-/Wiederherstellungsentscheidungen und die betriebliche Steuerungslogik zur Zuweisung von Rechenleistung. |
+
+Kurz zusammengefasst: **Die private Control Plane entscheidet; die öffentliche ComputeMesh-Runtime führt aus.** Die öffentliche Seite liefert Momentaufnahmen der Live-Hardware und Netzwerkkapazität; die private Seite liefert einen kryptografisch signierten Ausführungsplan.
+
+Das private Repository bindet dieses öffentliche Repository als Git-Submodul unter `ComputeMesh/` ein.
+
 ## Was schon funktioniert
 
 ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 
 - eine öffentliche Webseite, die in Deutschland standardmäßig Deutsch zeigt;
 - Live-Zähler für öffentliche Kapazität, die nur frische authentifizierte Node-Heartbeats zählen;
+- **Aktive Live-Mesh-Flotte (64 GB VRAM online):**
+  - Node A (`test-node-custom`): Windows-Client mit NVIDIA GeForce RTX 3080 Laptop GPU (16 GB VRAM), authentifiziert am Gateway, **gemessene Inferenzleistung: 82,24 Token/s** (Gemma 3 4B via Ollama-Adapter).
+  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.185 mit 6x AMD Radeon Polaris GPUs (48 GB VRAM), authentifiziert via Node-Tunnel, diagnostiziert für Vulkan llama-server und ext4-Persistenz.
 - serialisierte Appliance-Heartbeats: Beim Umbenennen einer Node bleibt die ID vom sofortigen Sync über den gesendeten Payload bis zum Rückgabewert konsistent, auch wenn der periodische Hintergrundprozess läuft;
 - signierte Windows- und Linux-Clients mit Update-Prüfung;
 - ein Gateway, über das KI-Anfragen angenommen werden können;
@@ -59,7 +84,8 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen, Modellkatalog-Fallbacks sind bei inaktiven lokalen Runtimes aktiv, setzt Fail-Closed-Gateway-Invarianten durch, Service Worker Precache-Revisionen sind synchronisiert, bietet WebRTC P2P Mesh Fabric Resilienz mit CRC32-Framing und dynamischem mTLS-Fallback, erzwingt strikte Modellkatalog-Invarianzprüfungen und bietet Worker High-Availability mit Heartbeat-Lease-Tracking und Fence-Token Split-Brain Schutz. "Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1, 2, 3, 4 & 5)" umgesetzt (MeshCircuitBreaker, IdempotencyEnforcer, WorkloadAdmissionGate, StrictStateRecovery, PrivacyConstraintEvaluator, NodeLifecycleManager, ContentAddressedArtifactRegistry, PrivacyPreservingTelemetry, RuntimeSandbox, HardConstraintScheduler, AuditableBillingEventLogger, SplitPhasePerformanceModel). Der Live-Stand steht in `state.md`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen, Modellkatalog-Fallbacks sind bei inaktiven lokalen Runtimes aktiv, setzt Fail-Closed-Gateway-Invarianten durch, Service Worker Precache-Revisionen sind synchronisiert, bietet WebRTC P2P Mesh Fabric Resilienz mit CRC32-Framing und dynamischem mTLS-Fallback, erzwingt strikte Modellkatalog-Invarianzprüfungen und bietet Worker High-Availability mit Heartbeat-Lease-Tracking und Fence-Token Split-Brain Schutz. "Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1, 2, 3, 4 & 5)" umgesetzt (MeshCircuitBreaker, IdempotencyEnforcer, WorkloadAdmissionGate, StrictStateRecovery, PrivacyConstraintEvaluator, NodeLifecycleManager, ContentAddressedArtifactRegistry, PrivacyPreservingTelemetry, RuntimeSandbox, HardConstraintScheduler, AuditableBillingEventLogger, SplitPhasePerformanceModel). Alle 887 Tests der einheitlichen Testsuite bestehen fehlerfrei. Der Live-Stand steht in `state.md`.
+
 
 Der aktuelle Arbeitsstand erweitert diesen Mesh-Pfad für gekoppelte Mobilgeräte:
 Die Android-WebUI enthält denselben Modellwähler wie das Portal, aktualisiert
@@ -122,7 +148,14 @@ geordneten Layer-Bereichen, gerätebezogenen Stage-Indizes und mehreren
 RPC-Endpunkten/Geräten. Reale Hardware-Tests mit drei oder mehr Nodes und
 Multi-GPU-Rigs bleiben ein Produktions-Gate.
 
+### Robuste Mesh-Agenten-Laufzeit (Durable Mesh Agent Runtime)
+
+Die öffentliche Laufzeitumgebung enthält unter `services/mcp/platform/` eine robuste, per Feature-Flag aktivierbare Agentenebene. Sie bietet SQLite-gestützte Sitzungen und Züge (Turns), begrenzte Kontextkompaktierung, richtliniengesteuerte Werkzeugausführung, authentifizierte NodeOS-Weiterleitung, Artefaktverwaltung, Token-Nutzungsverfolgung und MCP-Werkzeugerkennung. 
+
+Werkzeuge mit Seiteneffekten unterbrechen ihren Ausführungszug im Status `waiting_for_approval`; eine genehmigte Fortsetzung muss exakt zur ursprünglichen Sitzung, zum Zug und zum Hash der Argumente passen und wird einmalig konsumiert. Genehmigungs-HTTP-Anfragen führen die Nebenwirkung niemals selbst aus. Bei deaktiviertem Feature bleibt der Standard-Chat- und Inferenzpfad uneingeschränkt aktiv.
+
 ### Öffentliche/private Produktionsgrenze
+
 
 `services/scheduler/placement.py` bleibt der offengelegte deterministische **Research-/Reference**-Machbarkeitsplaner, der unten beschrieben wird. Er ist nicht die produktive Ranking-Engine.
 

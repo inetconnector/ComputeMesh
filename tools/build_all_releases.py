@@ -100,9 +100,28 @@ def build_windows_exe() -> Path:
     return target_exe
 
 
+def check_or_build_nodeos_appliance() -> None:
+    """Ensure NodeOS ISO and IMG.XZ artifacts are present or built via canonical builder."""
+    print("\n[3/5] Checking / Building NodeOS Live Appliance...")
+    iso = DOWNLOADS_DIR / "computemesh-nodeos-x86_64.iso"
+    img = DOWNLOADS_DIR / "computemesh-nodeos-x86_64.img.xz"
+    if iso.exists() and img.exists():
+        print(f"--> Local NodeOS ISO present: {iso.stat().st_size:,} bytes")
+        print(f"--> Local NodeOS IMG.XZ present: {img.stat().st_size:,} bytes")
+        return
+
+    if sys.platform.startswith("linux") and shutil.which("debootstrap") and shutil.which("xorriso"):
+        print("--> Linux build host with debootstrap & xorriso detected. Executing build_real_live_appliance.py...")
+        from deploy.appliance.build_real_live_appliance import build_appliance
+        build_appliance()
+    else:
+        print("--> Notice: NodeOS appliance build requires Linux host with debootstrap, chroot, and xorriso.")
+        print("    Release signer will bind authoritative verified Debian Live appliance image metadata.")
+
+
 def copy_installer_script() -> Path:
     """Sync installer shell script to downloads directory."""
-    print("\n[3/4] Syncing One-Line Installer Script (install.sh)...")
+    print("\n[4/5] Syncing One-Line Installer Script (install.sh)...")
     src = REPO_ROOT / "deploy" / "appliance" / "install.sh"
     dst = DOWNLOADS_DIR / "install.sh"
     shutil.copy2(src, dst)
@@ -114,7 +133,7 @@ def copy_installer_script() -> Path:
 
 def sign_and_verify_release() -> None:
     """Generate Ed25519 cryptographic signature for version.json and verify."""
-    print("\n[4/4] Cryptographically Signing Release Manifest (version.json)...")
+    print("\n[5/5] Cryptographically Signing Release Manifest (version.json)...")
     from tools.security.release_signer import sign_manifest, verify_manifest
 
     manifest_file = UPDATES_DIR / "version.json"
@@ -135,10 +154,12 @@ def main() -> int:
     print("====================================================================")
     build_linux_tarball()
     build_windows_exe()
+    check_or_build_nodeos_appliance()
     copy_installer_script()
     sign_and_verify_release()
     print(f"\n[OK] All release artifacts built, hashed, and signed successfully for v{VERSION}!")
     return 0
+
 
 
 if __name__ == "__main__":

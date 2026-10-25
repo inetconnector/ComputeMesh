@@ -1,45 +1,19 @@
 # Model Metadata and Examples
 
-**Status:** planned component
+**Status:** Implemented canonical model manifest fixtures and schemas.
 
 ## Purpose
 
-Versioned example manifests, shard-layout examples, compatibility notes, and test models.
+Versioned model manifests, shard-layout metadata, compatibility notes, and test fixtures.
 
 ## Responsibilities
 
-- sample model manifests
-- sample shard manifests
-- supported-runtime notes
-- test fixtures
-
-## Non-goals
-
-- large copyrighted model weights unless redistribution is explicitly allowed
-- mutable model aliases as immutable identity
-
-## Canonical interfaces
-
-- Registry
-
-## M1 scope
-
-- one small legal test model manifest plus partition example
-
-## Required tests / evidence
-
-- schema validation
-- digest fixtures
-- runtime compatibility
-
-## Security and reliability rules
-
-- Treat external inputs as untrusted.
-- Use bounded messages/resources.
-- Preserve idempotency for state changes.
-- Emit structured errors and metrics without raw prompt/output content.
-- Do not widen the V1 arbitrary-code boundary without an accepted ADR.
+- canonical model manifests (`qwen2.5-0.5b-instruct.computemesh-model-manifest.json`)
+- diffusion model support (`diffusion/`)
+- supported-runtime and quantization metadata
+- test fixtures and schema validation
 
 ## Implementation status
 
-No production implementation exists yet. Update this file when the component acquires real entry points, configuration, dependencies, and run/test commands.
+Canonical model manifests are implemented and validated against `model_manifest.schema.json` via `tools/benchmark/gguf_manifest.py` and subsystem tests. Large model weight files are stored externally in `COMPUTEMESH_MODEL_DIR` and verified against exact SHA-256 and size metadata before execution.
+

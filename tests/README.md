@@ -110,6 +110,19 @@ The latest cross-platform suite counts and workflow evidence are recorded in `st
 - packet-level latency/jitter/loss/reordering through controlled OS/network emulation;
 - billing/security invariants.
 
-The current TCP measurement relay can inject userspace stream delay/jitter and deliberate disconnects, but it is not a packet-loss emulator and is not the production runtime transport. The current planner is feasibility-only and deliberately does not predict shared speedup before a correct shared run exists.
+Latest local validation: `python run_all_tests.py` passed **887/887 tests** across all 12 subsystems in 104.22s on 2026-10-25:
+- Protocol & Session Wire: 3/3 passed
+- Gateway Subsystem: 159/159 passed
+- AI-Chat & MCP Tools Subsystem: 20/20 passed
+- Portal & Web Subsystem: 65/65 passed
+- Billing & Financial Ledger: 41/41 passed
+- Identity & Vault Security: 30/30 passed
+- Appliance & Hardware Daemon: 52/52 passed
+- Scheduler & Orchestrator: 162/162 passed
+- Runtime & Mesh Network: 131/131 passed
+- Configuration & Performance: 41/41 passed
+- Confidential & Protected Execution: 90/90 passed
+- Model Context Protocol & Live Tools: 93/93 passed
 
-No production system-test harness exists yet; the launchers only orchestrate the implemented local suites. Latest local validation: `python run_all_tests.py` passed 357/357 tests in 12.32s on 2026-08-26.
+In addition, the ControlPlane test suite validates 89 unit tests, bringing the combined verification matrix to 976 automated tests.
+

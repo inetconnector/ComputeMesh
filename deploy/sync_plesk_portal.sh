@@ -19,17 +19,23 @@ echo "ComputeMesh Plesk Portal Synchronization (SSOT -> Production)"
 echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "================================================================="
 
-# 1. Verify and update Git repository
+# 1. Verify and update Git repository to verified release tag (Never deploy untagged main)
 if [ ! -d "${REPO_DIR}" ]; then
   echo "Error: Repository directory ${REPO_DIR} does not exist."
   exit 1
 fi
 
 cd "${REPO_DIR}"
-echo "[1/6] Fetching and pulling latest changes from GitHub (origin/main)..."
-git fetch origin main
-git checkout main
-git pull --ff-only origin main
+RELEASE_TAG="${1:-}"
+git fetch origin --tags
+
+if [ -z "${RELEASE_TAG}" ]; then
+  # Default to latest annotated release tag, never unreviewed HEAD
+  RELEASE_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.2.185")"
+fi
+
+echo "[1/6] Checking out verified release tag (${RELEASE_TAG})..."
+git checkout "${RELEASE_TAG}"
 
 PORTAL_SRC="${REPO_DIR}/portal"
 if [ ! -d "${PORTAL_SRC}" ]; then

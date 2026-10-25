@@ -1,6 +1,6 @@
 # Protocol Package
 
-**Status:** M0 control envelope, durable initial handlers, node-session semantics/wire binding, and an M1 Ed25519 reference verifier are implemented. There is still no production network transport or production identity service.
+**Status:** Common control envelope, durable orchestration handlers, node-session wire binding, authenticated Gateway transport (HTTP/SSE), persistent Ed25519 node identity registry, and WebRTC/mTLS mesh network fabric are implemented. Cross-shard BFT attestation and WAN multi-host verification remain open release gates under Issue #65.
 
 ## Purpose
 

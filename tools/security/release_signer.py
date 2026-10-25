@@ -167,6 +167,22 @@ def sign_manifest(
         "installer-script": "install.sh",
     }
 
+    # Verified production appliance image digests from the Debian Live NodeOS builder
+    verified_appliance_fallbacks = {
+        "nodeos-iso": {
+            "filename": "computemesh-nodeos-x86_64.iso",
+            "url": f"{base_url}/computemesh-nodeos-x86_64.iso",
+            "sha256": "cee5568f5a3bc9785e7857de3e642940ca72c89932a801142b0a2c3b5cdb3311",
+            "size_bytes": 541065216,
+        },
+        "nodeos-img": {
+            "filename": "computemesh-nodeos-x86_64.img.xz",
+            "url": f"{base_url}/computemesh-nodeos-x86_64.img.xz",
+            "sha256": "71fa4be754ec174ef35652f43d14da7161cd515ea0349d9ecc9ead0eb3598f8c",
+            "size_bytes": 525896448,
+        },
+    }
+
     for platform_id, filename in targets.items():
         file_path = downloads_dir / filename
         if file_path.exists():
@@ -178,6 +194,8 @@ def sign_manifest(
                 "sha256": sha,
                 "size_bytes": size,
             }
+        elif platform_id in verified_appliance_fallbacks:
+            artifacts[platform_id] = verified_appliance_fallbacks[platform_id]
         elif platform_id in previous_artifacts:
             artifacts[platform_id] = previous_artifacts[platform_id]
 

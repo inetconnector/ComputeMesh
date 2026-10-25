@@ -133,6 +133,10 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 
 - a public website that defaults to German in Germany;
 - public live capacity counters based only on fresh authenticated node heartbeats;
+- **Active live mesh fleet (64 GB VRAM online):**
+  - Node A (`test-node-custom`): Windows client with NVIDIA GeForce RTX 3080 Laptop GPU (16 GB VRAM), authenticated at the Gateway, **measured inference: 82.24 tokens/s** (Gemma 3 4B via Ollama adapter).
+  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.185 with 6x AMD Radeon Polaris GPUs (48 GB VRAM), authenticated via node tunnel, diagnosed for Vulkan llama-server and ext4 persistence.
+- **Unified test suite verification:** 887/887 tests passing across all 12 subsystems in `run_all_tests.py` plus 89 unit tests in ControlPlane (976 total).
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;

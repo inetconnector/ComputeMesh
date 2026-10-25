@@ -2,7 +2,7 @@
 
 **Sprachen:** [English](README.md) | **Deutsch**
 
-Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0/M1-Lab-Ablauf** auszuführen. Er ist bewusst kein Produktions-Installer: Provider-App, produktive verteilte Runtime, produktiver Scheduler und produktiver Authentifizierungs-/Transport-Stack existieren noch nicht.
+Dieser Ordner ist der einfachste Weg, den **heute tatsächlich implementierten M0/M1-Entwickler-Lab-Ablauf** auszuführen. Er ist bewusst ein Entwickler-Lab-Setup und Benchmark-Workflow-Starter, kein Produktions-Installer. Die Provider-Anwendung (`apps/node/`), die verteilte Runtime (`runtime/`), der Scheduler (`services/scheduler/`), das Gateway (`services/gateway/`) und der Authentifizierungs-/Identitäts-Stack (`services/identity/`, `protocol/`) sind in ihren kanonischen Verzeichnissen im Repository implementiert; Produktionspakete und Image-Erstellung werden über `deploy/` und `tools/build_all_releases.py` gesteuert.
 
 ## Start
 

@@ -2,7 +2,7 @@
 
 **Languages:** **English** | [Deutsch](README.de.md)
 
-This folder is the simplest way to run the **currently implemented M0/M1 lab workflow**. It is intentionally not a production installer: the provider application, production distributed runtime, production scheduler, and production authentication/transport stack do not exist yet.
+This folder is the simplest way to run the **currently implemented M0/M1 developer lab workflow**. It is intentionally a developer lab setup and benchmark workflow launcher, not a production installer. The provider application (`apps/node/`), distributed runtime (`runtime/`), scheduler (`services/scheduler/`), gateway (`services/gateway/`), and authentication/identity stack (`services/identity/`, `protocol/`) are implemented in their canonical locations within the repository; production packaging and image generation are handled by `deploy/` and `tools/build_all_releases.py`.
 
 ## Start
 
