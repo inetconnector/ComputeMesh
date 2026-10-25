@@ -4254,3 +4254,10 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
 - Implemented `OffHeapCacheManager` in `runtime/distributed_model_cache.py` to handle decentralized off-heap cache management with atomic quota calculation.
 - Used `multiprocessing.shared_memory.SharedMemory` for high-performance off-heap storage.
 - Added comprehensive unit tests in `runtime/tests/test_mesh_sharding_and_cache.py`.
+
+## 87. Dynamic Peer Capability Heartbeats & Decentralized Shard Failover
+
+- Implemented `DecentralizedShardFailover` to manage zero-drop failover for model shards.
+- Added `PeerCapabilityHeartbeat` to monitor active network nodes and resources.
+- Successfully integrated automatic failover switching and atomic quota preservation inside `runtime/dynamic_sharding.py`.
+- Verified functionality across the unified test suite.
