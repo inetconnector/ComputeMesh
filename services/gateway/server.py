@@ -282,6 +282,21 @@ def _build_fleet_payload(
 
         display_name = str(n.get("display_name") or n.get("name") or node_id).strip()
 
+        model_runtime = telem.get("model_runtime", {}) if isinstance(telem.get("model_runtime"), dict) else {}
+        engine_ready = bool(model_runtime.get("ready", False))
+        engine_state = str(model_runtime.get("state", "stopped" if not engine_ready else "running"))
+        engine_error = str(model_runtime.get("last_error", "") or "")
+        compute_measurement = str(telem.get("compute_measurement", "unavailable" if node_tflops == 0.0 else "measured"))
+        inference_ready = bool(is_online and engine_ready)
+
+        gpu_counts: dict[str, int] = {}
+        for g in gpus:
+            g_name = (g.get("model_name") if isinstance(g, dict) else str(g)).strip()
+            if g_name:
+                gpu_counts[g_name] = gpu_counts.get(g_name, 0) + 1
+        gpu_summary_parts = [f"{cnt}x {name}" if cnt > 1 else name for name, cnt in gpu_counts.items()]
+        gpu_summary = ", ".join(gpu_summary_parts) if gpu_summary_parts else "CPU / Keine diskrete GPU"
+
         node_entry = {
             "node_id": node_id,
             "display_name": display_name,
@@ -291,6 +306,13 @@ def _build_fleet_payload(
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [(g.get("model_name") if isinstance(g, dict) else str(g)) for g in gpus] if gpus else [],
+            "gpu_count": len(gpus),
+            "gpu_summary": gpu_summary,
+            "inference_ready": inference_ready,
+            "model_runtime_state": engine_state,
+            "model_runtime_error": engine_error,
+            "compute_measurement": compute_measurement,
+            "model_runtime": model_runtime,
             "updated_at": n.get("updated_at") if n else None,
             "last_seen": n.get("updated_at") if n else None,
             "clock_skew_ms": c["clock_skew_ms"],
@@ -1880,7 +1902,8 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     if sender_owner and (not existing_owner or existing_owner == sender_owner):
                         owner_authorized = True
 
-                if not expected_token or not hmac.compare_digest(auth_token, expected_token):
+                token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
+                if not token_matches and not owner_authorized:
                     self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                     return
 

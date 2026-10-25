@@ -3931,11 +3931,27 @@ for chunk in stream:
               || (n.software && n.software.client === "ComputeMesh-Android")
               || (n.node_id && n.node_id.startsWith("android-"));
 
-            const gpuNames = (n.gpus && n.gpus.length) ? n.gpus.join(", ") : "Compute Node GPU";
-            const gpuIcon = isMobile ? "📱" : "🎮";
+            function formatGpuSummary(gList) {
+              if (!gList || !gList.length) return (getLang() === 'de' ? 'CPU-only (Keine diskrete GPU)' : 'CPU-only (No discrete GPU)');
+              const counts = {};
+              gList.forEach(g => {
+                const name = (typeof g === 'string' ? g : (g && g.model_name ? g.model_name : 'GPU')).trim();
+                if (name) counts[name] = (counts[name] || 0) + 1;
+              });
+              return Object.entries(counts)
+                .map(([name, count]) => (count > 1 ? `${count}x ${name}` : name))
+                .join(", ");
+            }
+
+            const rawGpus = (n.capabilities && n.capabilities.gpus && n.capabilities.gpus.length)
+              ? n.capabilities.gpus
+              : ((n.gpus && n.gpus.length) ? n.gpus : []);
+            const gpuSummary = n.gpu_summary || formatGpuSummary(rawGpus);
+            const gpuCount = (n.gpu_count !== undefined) ? n.gpu_count : rawGpus.length;
+            const gpuIcon = isMobile ? "📱" : (gpuCount === 0 ? "💻" : "🎮");
             const displayGpu = isMobile
               ? ((n.inventory && n.inventory.soc_model) ? n.inventory.soc_model : "Android ARM64 CPU/NPU (MiniCPM5-2B)")
-              : gpuNames;
+              : gpuSummary;
 
             const mobileDetails = isMobile ? `
               <div class="node-spec-row" style="color:#94a3b8;font-size:0.8rem;margin-top:4px;">
@@ -3948,22 +3964,68 @@ for chunk in stream:
 
             const targetUrl = n.remote_url || `/node/${n.node_id}`;
 
-            const statusBadge = isOnline
-              ? `<div class="status-pill online"><span class="pulse-dot"></span> Online</div>`
-              : `<div class="status-pill offline" style="background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);"><span class="pulse-dot" style="background:#64748b;animation:none;"></span> Offline / Standby</div>`;
+            let statusBadge = '';
+            if (n.status === 'quarantined') {
+              statusBadge = `<div class="status-pill quarantined" style="background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);"><span class="pulse-dot" style="background:#ef4444;animation:none;"></span> ${getLang() === 'de' ? 'Quarantäne' : 'Quarantined'}</div>`;
+            } else if (isOnline) {
+              statusBadge = `<div class="status-pill online"><span class="pulse-dot"></span> Online</div>`;
+            } else if (n.status === 'stale') {
+              statusBadge = `<div class="status-pill stale" style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);"><span class="pulse-dot" style="background:#f59e0b;animation:none;"></span> ${getLang() === 'de' ? 'Träge / Stale' : 'Stale'}</div>`;
+            } else {
+              statusBadge = `<div class="status-pill offline" style="background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);"><span class="pulse-dot" style="background:#64748b;animation:none;"></span> Offline / Standby</div>`;
+            }
 
+            const inferenceReady = !!n.inference_ready;
+            const engineState = n.model_runtime_state || (n.model_runtime && n.model_runtime.state) || 'stopped';
+            const engineError = n.model_runtime_error || (n.model_runtime && n.model_runtime.last_error) || '';
+
+            let inferenceBadge = '';
+            if (inferenceReady) {
+              inferenceBadge = `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.35);color:#34d399;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:9999px;margin-top:6px;">🟢 ${getLang() === 'de' ? 'Inferenz bereit' : 'Inference ready'}</div>`;
+            } else if (isOnline) {
+              const reason = engineState === 'running' ? (getLang() === 'de' ? 'Kein Modell geladen' : 'No model loaded') : (getLang() === 'de' ? 'Runtime gestoppt' : 'Runtime stopped');
+              inferenceBadge = `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:9999px;margin-top:6px;" title="${escapeHtml(engineError || reason)}">🟡 ${getLang() === 'de' ? 'Inferenz nicht bereit' : 'Inference not ready'} (${escapeHtml(reason)})</div>`;
+            } else {
+              inferenceBadge = `<div style="display:inline-flex;align-items:center;gap:4px;background:rgba(100,116,139,0.2);border:1px solid rgba(100,116,139,0.3);color:#94a3b8;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:9999px;margin-top:6px;">⚪ ${getLang() === 'de' ? 'Inferenz inaktiv' : 'Inference inactive'}</div>`;
+            }
+
+            const tflopsVal = Number(n.tflops || 0);
+            const tflopsText = (tflopsVal > 0)
+              ? `${tflopsVal.toFixed(1)} TFLOPS`
+              : (n.compute_measurement === 'measuring'
+                  ? (getLang() === 'de' ? '⏳ Messung läuft...' : '⏳ Measuring...')
+                  : (getLang() === 'de' ? '– (Nicht gemessen)' : '– (Not measured)'));
+
+            const ver = n.software_version || n.version || '1.2.x';
+            let updateBadgeText = '';
+            if (n.update_status === 'UP_TO_DATE') {
+              updateBadgeText = `<span style="color:#34d399;">✓ ${getLang() === 'de' ? 'Aktuell' : 'Up to date'}</span>`;
+            } else if (n.update_status === 'UPDATE_AVAILABLE') {
+              updateBadgeText = `<span style="color:#38bdf8;">⬆️ ${getLang() === 'de' ? 'Update verfügbar' : 'Update available'}</span>`;
+            } else if (n.update_status === 'BLOCKED/OFFLINE') {
+              updateBadgeText = `<span style="color:#94a3b8;">${getLang() === 'de' ? 'Offline' : 'Offline'}</span>`;
+            } else {
+              updateBadgeText = `<span style="color:#f87171;">${escapeHtml(n.update_status || '–')}</span>`;
+            }
+
+            const lastHeartbeat = n.updated_at ? new Date(n.updated_at).toLocaleTimeString() : '–';
             const showDelete = !isOnline || Number(n.tflops || 0) === 0;
 
             const dPort = n.dashboard_port || 8080;
             const defaultLocalUrl = (n.candidate_local_urls && n.candidate_local_urls[0])
               || (n.network && n.network.lan_ips && n.network.lan_ips[0] ? `http://${n.network.lan_ips[0]}:${dPort}` : '');
 
+            const displayNameStr = (n.display_name && n.display_name !== n.node_id)
+              ? `${escapeHtml(n.display_name)} (${escapeHtml(n.node_id)})`
+              : escapeHtml(n.node_id);
+
             card.innerHTML = `
               <div>
                 <div class="node-card-header">
                   <div>
-                    <div class="node-id-title">${escapeHtml(n.node_id)}</div>
-                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${getLang() === 'de' ? 'Knoten-ID' : 'Node ID'} &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : (getLang() === 'de' ? 'Nicht erreichbar' : 'Unreachable')}</div>
+                    <div class="node-id-title">${displayNameStr}</div>
+                    <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${getLang() === 'de' ? 'Knoten-ID' : 'Node ID'}: ${escapeHtml(n.node_id)} &middot; ${isOnline ? (isMobile ? 'Mobile Node' : 'Live Stream') : (getLang() === 'de' ? 'Nicht erreichbar' : 'Unreachable')}</div>
+                    ${inferenceBadge}
                   </div>
                   ${statusBadge}
                 </div>
@@ -3976,7 +4038,19 @@ for chunk in stream:
                   </div>
                   <div class="node-spec-row">
                     <span>${getLang() === 'de' ? 'Rechenleistung:' : 'Compute capacity:'}</span>
-                    <strong>${isOnline ? (n.tflops || (isMobile ? 1.5 : 0)) : 0} TFLOPS</strong>
+                    <strong>${tflopsText}</strong>
+                  </div>
+                  <div class="node-spec-row">
+                    <span>${getLang() === 'de' ? 'Software-Version:' : 'Software Version:'}</span>
+                    <strong>v${escapeHtml(ver)} &middot; ${updateBadgeText}</strong>
+                  </div>
+                  <div class="node-spec-row">
+                    <span>${getLang() === 'de' ? 'Letzter Heartbeat:' : 'Last Heartbeat:'}</span>
+                    <strong>${lastHeartbeat}</strong>
+                  </div>
+                  <div class="node-spec-row">
+                    <span>${getLang() === 'de' ? 'Job-Routing:' : 'Job Routing:'}</span>
+                    <strong>${n.available_for_routing ? `<span style="color:#34d399;">✓ ${getLang() === 'de' ? 'Bereit' : 'Ready'}</span>` : `<span style="color:#94a3b8;">✗ ${getLang() === 'de' ? 'Gesperrt' : 'Blocked'}</span>`}</strong>
                   </div>
                   ${mobileDetails}
                 </div>

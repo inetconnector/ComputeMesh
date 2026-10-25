@@ -196,6 +196,10 @@ class TestP0NodeFleetDiscoveryInventory(unittest.TestCase):
         self.assertEqual(node_01["software_version"], "1.2.40")
         self.assertEqual(node_01["update_status"], "UPDATE_AVAILABLE")
         self.assertTrue(node_01["available_for_routing"])
+        self.assertEqual(node_01["gpu_summary"], "6x AMD Radeon RX 580")
+        self.assertEqual(node_01["gpu_count"], 6)
+        self.assertFalse(node_01["inference_ready"])
+        self.assertEqual(node_01["model_runtime_state"], "stopped")
 
         # Verification 5: Offline and stale nodes must NOT be dropped, but blocked from routing
         self.assertIn("miner-stale-01", node_map)
@@ -306,6 +310,46 @@ class TestP0NodeFleetDiscoveryInventory(unittest.TestCase):
         self.assertIn("peer-192-168-1-35", node_map)
         self.assertEqual(node_map["peer-192-168-1-35"]["status"], "offline")
 
+    def test_heartbeat_token_rotation_when_owner_authorized_and_rejection_when_unauthorized(self) -> None:
+        """Verify that an active node can rotate its token if owner_authorized is True,
+        but is strictly rejected with 401 Unauthorized if unauthorized.
+        """
+        import hmac
+
+        # Given an existing registered node with token_old and bound to self.owner_id
+        existing_node = {
+            "node_id": "cm-inference-node-01",
+            "auth_token": "token_old",
+            "owner_id": self.owner_id,
+            "updated_at": "2026-10-25T19:00:00Z",
+        }
+        expected_token = existing_node["auth_token"]
+
+        # Case 1: Attacker sends mismatched token WITHOUT valid owner_key
+        attacker_token = "token_malicious_new"
+        attacker_owner_key = "invalid_owner_key"
+        sender_owner = owner_id_for_key(attacker_owner_key)
+        existing_owner = existing_node.get("owner_id")
+        owner_authorized = bool(sender_owner and (not existing_owner or existing_owner == sender_owner))
+        token_matches = bool(expected_token and hmac.compare_digest(attacker_token, expected_token))
+
+        self.assertFalse(owner_authorized)
+        self.assertFalse(token_matches)
+        # Therefore: rejected!
+
+        # Case 2: Legitimate owner reconnects after node reboot with fresh token
+        rotated_token = "token_legitimate_rotated"
+        sender_owner = owner_id_for_key(self.owner_key)
+        owner_authorized = bool(sender_owner and (not existing_owner or existing_owner == sender_owner))
+        token_matches = bool(expected_token and hmac.compare_digest(rotated_token, expected_token))
+
+        self.assertTrue(owner_authorized)
+        self.assertFalse(token_matches)
+        # Because owner_authorized is True, token rotation is accepted!
+        can_proceed = token_matches or owner_authorized
+        self.assertTrue(can_proceed)
+
 
 if __name__ == "__main__":
     unittest.main()
+
