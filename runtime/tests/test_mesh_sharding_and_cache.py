@@ -3,7 +3,7 @@ import json
 import time
 import tempfile
 from pathlib import Path
-from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability
+from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability, DecentralizedShardFailover
 from runtime.distributed_model_cache import DistributedModelCache, OffHeapCacheManager
 from runtime.p2p_stream_federation import P2PStreamFederator
 
@@ -155,6 +155,43 @@ class TestOffHeapCacheManager(unittest.TestCase):
         self.assertEqual(manager.get_used_quota(), 0)
         self.assertIsNone(manager.read_chunk("chunk_1"))
 
+
+
+class TestDecentralizedShardFailover(unittest.TestCase):
+    def test_failover_and_quota_preservation(self):
+        cache_manager = OffHeapCacheManager(max_quota_bytes=1024 * 1024)
+        failover = DecentralizedShardFailover(cache_manager=cache_manager, heartbeat_timeout=0.1)
+
+        data = b"shard_data_replica"
+        chunk_id = "chunk_failover_1"
+
+        # Register peers
+        failover.register_heartbeat("peer-1", vram=8*1024**3, tflops=10.0, latency=5.0)
+        failover.register_heartbeat("peer-2", vram=8*1024**3, tflops=10.0, latency=10.0)
+
+        # Allocate replica
+        success = failover.allocate_shard_replica(chunk_id, "peer-1", data, replicas=["peer-2"])
+        self.assertTrue(success)
+        self.assertEqual(cache_manager.get_used_quota(), len(data))
+
+        # Check primary alive
+        active = failover.check_failover(chunk_id)
+        self.assertEqual(active, "peer-1")
+
+        # Simulate primary timeout
+        time.sleep(0.15)
+        # Refresh replica heartbeat
+        failover.register_heartbeat("peer-2", vram=8*1024**3, tflops=10.0, latency=10.0)
+
+        active_after_failover = failover.check_failover(chunk_id)
+        self.assertEqual(active_after_failover, "peer-2")
+        self.assertEqual(cache_manager.get_used_quota(), len(data)) # Quota preserved
+
+        # Simulate all peers timeout
+        time.sleep(0.15)
+        active_final = failover.check_failover(chunk_id)
+        self.assertIsNone(active_final)
+        self.assertEqual(cache_manager.get_used_quota(), 0) # Quota freed atomically
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,8 +5,24 @@ compute capacity (TFLOPS), network bandwidth, and model architectures.
 """
 from __future__ import annotations
 
+
+import time
+import threading
+import logging
+from runtime.distributed_model_cache import OffHeapCacheManager
 from dataclasses import dataclass, field
 from typing import Any, Sequence
+
+log = logging.getLogger("computemesh.runtime.dynamic_sharding")
+
+@dataclass
+class PeerCapabilityHeartbeat:
+    peer_id: str
+    last_heartbeat: float = field(default_factory=time.time)
+    vram_available: int = 0
+    tflops_available: float = 0.0
+    network_latency_ms: float = 0.0
+    status: str = "active"
 
 
 @dataclass
@@ -48,8 +64,11 @@ class ShardingPlan:
 class DynamicShardingEngine:
     """Engine for determining optimal tensor/layer shard distribution across heterogeneous mesh nodes."""
 
-    @staticmethod
+    failover_manager = None
+
+    @classmethod
     def calculate_sharding_plan(
+        cls,
         model_id: str,
         total_layers: int,
         model_vram_bytes: int,
@@ -59,6 +78,16 @@ class DynamicShardingEngine:
         enable_tensor_parallel: bool = False,
         min_bandwidth_mbps: float = 100.0,
     ) -> ShardingPlan:
+
+        if cls.failover_manager is not None:
+            import time
+            now = time.time()
+            with cls.failover_manager._lock:
+                for n in nodes:
+                    hb = cls.failover_manager._heartbeats.get(n.node_id)
+                    if hb and (now - hb.last_heartbeat) > cls.failover_manager.heartbeat_timeout:
+                        n.healthy = False
+
         healthy_nodes = [
             n for n in nodes
             if n.healthy and (n.vram_bytes - reserve_vram_bytes) > 0 and n.bandwidth_mbps >= min_bandwidth_mbps
@@ -162,3 +191,84 @@ class DynamicShardingEngine:
             estimated_pipeline_latency_ms=est_pipeline_latency,
             tensor_parallel_enabled=enable_tensor_parallel,
         )
+
+
+class DecentralizedShardFailover:
+    """Manages zero-drop failover and atomic quota preservation for model shards."""
+
+    def __init__(self, cache_manager: OffHeapCacheManager, heartbeat_timeout: float = 5.0):
+        self.cache_manager = cache_manager
+        self.heartbeat_timeout = heartbeat_timeout
+        self._lock = threading.Lock()
+        self._heartbeats: dict[str, PeerCapabilityHeartbeat] = {}
+        self._shard_replicas: dict[str, list[str]] = {} # chunk_id -> list of peer_ids
+        self._active_primary: dict[str, str] = {} # chunk_id -> primary peer_id
+
+    def register_heartbeat(self, peer_id: str, vram: int, tflops: float, latency: float) -> None:
+        with self._lock:
+            self._heartbeats[peer_id] = PeerCapabilityHeartbeat(
+                peer_id=peer_id,
+                last_heartbeat=time.time(),
+                vram_available=vram,
+                tflops_available=tflops,
+                network_latency_ms=latency,
+                status="active"
+            )
+
+    def allocate_shard_replica(self, chunk_id: str, primary_peer: str, data: bytes, replicas: list[str]) -> bool:
+        """Allocates a shard in the off-heap cache and registers primary and replica peers."""
+        if not self.cache_manager.allocate_chunk(chunk_id, data):
+            return False
+
+        with self._lock:
+            self._active_primary[chunk_id] = primary_peer
+            self._shard_replicas[chunk_id] = replicas
+
+        return True
+
+    def check_failover(self, chunk_id: str) -> str | None:
+        """Checks if the primary peer is dead and performs failover if necessary. Returns the new primary peer or None if failed."""
+        with self._lock:
+            if chunk_id not in self._active_primary:
+                return None
+
+            primary_peer = self._active_primary[chunk_id]
+            primary_hb = self._heartbeats.get(primary_peer)
+            now = time.time()
+
+            # Check if primary is alive
+            if primary_hb and (now - primary_hb.last_heartbeat) <= self.heartbeat_timeout and primary_hb.status == "active":
+                return primary_peer # Primary is still alive
+
+            # Primary is dead, perform failover
+            log.warning("Primary peer %s for chunk %s timed out. Initiating failover.", primary_peer, chunk_id)
+            if primary_hb:
+                primary_hb.status = "dead"
+
+            replicas = self._shard_replicas.get(chunk_id, [])
+            alive_replicas = []
+            for replica in replicas:
+                hb = self._heartbeats.get(replica)
+                if hb and (now - hb.last_heartbeat) <= self.heartbeat_timeout and hb.status == "active":
+                    alive_replicas.append((replica, hb))
+
+            if not alive_replicas:
+                log.error("All replicas for chunk %s have dropped out. Freeing atomic quota.", chunk_id)
+                # No replicas alive, free the chunk to preserve quota
+                self._active_primary.pop(chunk_id, None)
+                self._shard_replicas.pop(chunk_id, None)
+                # We need to call cache_manager.free_chunk without holding our lock to avoid deadlocks?
+                # Better to just free it since off-heap cache manager has its own lock.
+                pass
+            else:
+                # Select the best replica (e.g., lowest latency or highest VRAM)
+                alive_replicas.sort(key=lambda x: x[1].network_latency_ms)
+                new_primary = alive_replicas[0][0]
+                self._active_primary[chunk_id] = new_primary
+                log.info("Successfully failed over chunk %s to new primary %s.", chunk_id, new_primary)
+                return new_primary
+
+        # Free chunk if all replicas drop
+        if not alive_replicas:
+            self.cache_manager.free_chunk(chunk_id)
+            return None
