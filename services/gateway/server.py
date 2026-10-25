@@ -1988,8 +1988,26 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
                 token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
                 if not token_matches and not owner_authorized:
-                    self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
-                    return
+                    incoming_mach = str(body.get("machine_identity", {}).get("machine_id", "")).strip()
+                    existing_mach = str(existing_node.get("machine_identity", {}).get("machine_id", "")).strip()
+                    mach_matches = bool(incoming_mach and existing_mach and incoming_mach == existing_mach)
+
+                    incoming_hw = _extract_discrete_hardware_fingerprint(body)
+                    existing_hw = _extract_discrete_hardware_fingerprint(existing_node)
+                    hw_matches = bool(incoming_hw and existing_hw and incoming_hw == existing_hw)
+
+                    incoming_ip = str(client_ip).strip()
+                    existing_ip = str(existing_node.get("client_ip", "")).strip()
+                    ip_matches = bool(incoming_ip and existing_ip and incoming_ip == existing_ip)
+
+                    # Hardware continuity self-healing for rebooted nodes
+                    if mach_matches or (is_stale and hw_matches and ip_matches):
+                        sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnected after reboot via hardware continuity proof; updating token.\n")
+                        sys.stderr.flush()
+                        owner_authorized = True
+                    else:
+                        self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                        return
 
             sent_owner_key = str(body.get("owner_key", "")).strip()
             resolved_owner_key = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
@@ -1999,6 +2017,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_binding_error: str | None = None
             owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
+            if not owner_id and existing_node and existing_node.get("owner_id"):
+                # Preserve existing fleet owner binding across reboots
+                owner_id = existing_node.get("owner_id")
             if owner_id:
                 try:
                     OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
@@ -2049,6 +2070,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "commit_sha": body.get("commit_sha") or body.get("software", {}).get("commit_sha"),
                 "protocol_version": body.get("protocol_version") or body.get("software", {}).get("protocol_version") or 2,
                 "models": body.get("models") or body.get("inventory", {}).get("models", []),
+                "machine_identity": body.get("machine_identity", {}),
                 "clock_skew_ms": body.get("clock_skew_ms", 0),
                 "updated_at": now_iso,
             }

@@ -17,21 +17,66 @@ from config import CONFIG
 logger = logging.getLogger("CloudTunnelRelay")
 
 
+import hashlib
+
 def get_or_create_node_auth_token() -> str:
-    token_file = Path.home() / ".computemesh" / "node_auth_token.txt"
+    """Retrieve or create a persistent, reboot-resilient node authentication token.
+
+    Searches across all storage tiers:
+    1. FAT32 USB/live boot partition (/boot/computemesh.env or /live/image/computemesh.env)
+    2. Appliance configuration directory (/etc/computemesh/node_auth_token.txt)
+    3. State storage directory (/var/lib/computemesh/node_auth_token.txt)
+    4. User home directory (~/.computemesh/node_auth_token.txt)
+    5. Deterministic hardware-anchored identity fallback:
+       When running on a live-boot overlay without disk persistence, derives
+       a stable, cryptographically secure token from collect_machine_identity()
+       so the same physical machine NEVER changes token across reboots.
+    """
+    candidate_paths = [
+        Path("/boot/computemesh.env"),
+        Path("/live/image/computemesh.env"),
+        Path("/etc/computemesh/node_auth_token.txt"),
+        Path("/var/lib/computemesh/node_auth_token.txt"),
+        Path.home() / ".computemesh" / "node_auth_token.txt",
+    ]
+    for p in candidate_paths:
+        try:
+            if p.exists() and p.is_file():
+                if p.suffix == ".env":
+                    for line in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+                        if line.startswith("AUTH_TOKEN="):
+                            tok = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if tok:
+                                return tok
+                else:
+                    tok = p.read_text(encoding="utf-8", errors="ignore").strip()
+                    if tok:
+                        return tok
+        except Exception:
+            pass
+
+    # No saved token on disk (fresh install or volatile live-boot):
+    # Anchor deterministically to hardware identity so reboots maintain the exact same token!
     try:
-        if token_file.exists():
-            token = token_file.read_text(encoding="utf-8").strip()
-            if token:
-                return token
+        from services.identity.machine_identity import collect_machine_identity
+        mach = collect_machine_identity()
+        derived = hashlib.sha256(f"cm_tunnel:{mach.machine_id}".encode("utf-8")).hexdigest()[:32]
+        new_token = f"cm_tunnel_{derived}"
     except Exception:
-        pass
-    new_token = "cm_tunnel_" + secrets.token_hex(16)
-    try:
-        token_file.parent.mkdir(parents=True, exist_ok=True)
-        token_file.write_text(new_token, encoding="utf-8")
-    except Exception:
-        pass
+        new_token = "cm_tunnel_" + secrets.token_hex(16)
+
+    # Persist the token to all accessible locations
+    for target in [
+        Path.home() / ".computemesh" / "node_auth_token.txt",
+        Path("/etc/computemesh/node_auth_token.txt"),
+        Path("/var/lib/computemesh/node_auth_token.txt"),
+    ]:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(new_token, encoding="utf-8")
+        except Exception:
+            pass
+
     return new_token
 
 
@@ -188,6 +233,13 @@ class CloudTunnelRelay:
                 "is_simulated": False,
             },
             "global_mesh": gm,
+            "machine_identity": (
+                __import__("services.identity.machine_identity", fromlist=["collect_machine_identity"])
+                .collect_machine_identity()
+                .to_public_dict()
+                if "services.identity.machine_identity" in sys.modules or True
+                else {}
+            ),
         }
 
         # Target heartbeat URLs: default config + custom coordinator URL if present

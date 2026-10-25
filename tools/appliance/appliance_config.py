@@ -252,11 +252,21 @@ def save_system_config(config: ApplianceConfig, path: Path = DEFAULT_SYSTEM_CONF
     for env_target in [DEFAULT_BOOT_CONFIG, DEFAULT_LIVE_BOOT_CONFIG]:
         try:
             if env_target.parent.exists() and os.access(env_target.parent, os.W_OK):
+                existing_env = _parse_env_file(env_target)
+                auth_token_val = existing_env.get("AUTH_TOKEN") or ""
+                if not auth_token_val:
+                    try:
+                        from services.appliance_dashboard.tunnel_relay import get_or_create_node_auth_token
+                        auth_token_val = get_or_create_node_auth_token()
+                    except Exception:
+                        pass
                 content = f"""# ComputeMesh AI Inference Node Configuration
 NODE_NAME={config.rig_name}
 WALLET_PAYOUT_ADDRESS={config.payout_address}
 PROVIDER_ACCOUNT_ID={config.provider_account_id}
 COORDINATOR_URL={config.coordinator_url}
+OWNER_KEY={config.owner_key}
+AUTH_TOKEN={auth_token_val}
 VRAM_RESERVE_MB={config.vram_reserve_mb}
 POWER_MODE={config.power_mode}
 MAX_TEMP_C={config.max_temp_c}

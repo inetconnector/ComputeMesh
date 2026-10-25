@@ -139,12 +139,26 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         if not repo_src.exists():
             repo_src = Path("/var/www/vhosts/inetconnector.com/site2")
         
-        for subdir in ["tools", "services", "runtime", "protocol", "deploy"]:
+        for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps"]:
             src = repo_src / subdir
             if src.exists():
                 shutil.copytree(src, cm_target / subdir, dirs_exist_ok=True)
         if (repo_src / "config.py").exists():
             shutil.copy(repo_src / "config.py", cm_target / "config.py")
+
+        # Provision /etc/computemesh and /var/lib/computemesh state directories
+        (CHROOT_DIR / "etc" / "computemesh").mkdir(parents=True, exist_ok=True)
+        (CHROOT_DIR / "var" / "lib" / "computemesh").mkdir(parents=True, exist_ok=True)
+        if (repo_src / "deploy" / "systemd" / "computemesh-node.service").exists():
+            shutil.copy(
+                repo_src / "deploy" / "systemd" / "computemesh-node.service",
+                CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service",
+            )
+        if (repo_src / "deploy" / "systemd" / "provider.env.example").exists():
+            shutil.copy(
+                repo_src / "deploy" / "systemd" / "provider.env.example",
+                CHROOT_DIR / "etc" / "computemesh" / "provider.env.example",
+            )
 
         # Install launcher script
         bin_dir = cm_target / "bin"
