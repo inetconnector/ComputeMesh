@@ -1794,6 +1794,24 @@ class AgentSessionStore:
             })
             return self._session(self._require_session(connection, str(session_id)))
 
+    def update_metadata(self, session_id: str, updates: Mapping[str, Any]) -> AgentSession:
+        """Atomically update safe session metadata like title, pinned, archived, workspace, branch."""
+        allowed_keys = {"title", "pinned", "archived", "workspace", "branch", "model", "tags", "notes"}
+        clean_updates = {str(k): v for k, v in updates.items() if str(k) in allowed_keys}
+        if not clean_updates:
+            return self.get_session(session_id)
+        with self._transaction() as connection:
+            row = self._require_session(connection, str(session_id))
+            state = json.loads(str(row["state_json"]))
+            state.update(clean_updates)
+            timestamp = _now()
+            connection.execute(
+                "UPDATE agent_sessions SET state_json = ?, version = version + 1, updated_at = ? WHERE session_id = ?",
+                (_json(state), timestamp, str(session_id)),
+            )
+            self._append_event(connection, str(session_id), "session.metadata_updated", clean_updates)
+            return self._session(self._require_session(connection, str(session_id)))
+
     def recover_interrupted(self) -> list[str]:
         """Pause work left active after a process restart; never replay it blindly."""
         recovered: list[str] = []

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">ComputeMesh — Agent Workspace</title>
+  <link rel="stylesheet" href="/portal.css?v=5.2">
+  <link rel="stylesheet" href="/portal-business.css?v=5.1">
+  <style>
+    :root {
+      --agent-bg: #090d16;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --card-border-active: rgba(56, 189, 248, 0.6);
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-indigo: #818cf8;
+      --text-muted: #94a3b8;
+    }
+
+    body {
+      background-color: var(--agent-bg);
+      background-image: radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+                        radial-gradient(circle at 10% 80%, rgba(16, 185, 129, 0.08), transparent 50%);
+      color: #f8fafc;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+    }
+
+    /* Workspace 3-Column Layout */
+    .workspace-wrapper {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 1rem;
+      max-width: 1720px;
+      margin: 1rem auto 2rem auto;
+      padding: 0 1rem;
+      width: 100%;
+      height: calc(100vh - 170px);
+      min-height: 600px;
+    }
+
+    @media (max-width: 1200px) {
+      .workspace-wrapper {
+        grid-template-columns: 280px 1fr;
+      }
+      .inspector-column {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .workspace-wrapper {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .sidebar-column {
+        display: none;
+      }
+      .sidebar-column.mobile-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        background: #0b1120;
+      }
+    }
+
+    .workspace-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Workspace Config Bar */
+    .workspace-bar {
+      max-width: 1720px;
+      margin: 0.5rem auto;
+      padding: 0.5rem 1rem;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+
+    .config-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.75rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #cbd5e1;
+    }
+
+    .config-chip select, .config-chip input {
+      background: transparent;
+      border: none;
+      color: var(--accent-cyan);
+      font-weight: 600;
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .config-chip select option {
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
+    /* Left Sidebar: Session List */
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .sidebar-search {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      gap: 0.25rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 2px;
+      border-radius: 6px;
+    }
+
+    .sidebar-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .sidebar-tab.active {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent-cyan);
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .session-card {
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .session-card:hover {
+      background: rgba(56, 189, 248, 0.05);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .session-card.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: var(--accent-cyan);
+    }
+
+    .session-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .session-title {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .status-running { background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan); }
+    .status-ready { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); }
+    .status-paused { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+    .status-waiting_for_approval { background: rgba(244, 63, 94, 0.25); color: var(--accent-rose); animation: pulse 1.5s infinite; }
+    .status-completed { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .session-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Middle Column: Chat & Timeline */
+    .timeline-header {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .timeline-title-area {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      overflow: hidden;
+    }
+
+    .timeline-title-input {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.1rem;
+      outline: none;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      max-width: 400px;
+    }
+
+    .timeline-title-input:hover, .timeline-title-input:focus {
+      background: rgba(0, 0, 0, 0.3);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .timeline-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .timeline-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* Typed Timeline Cards */
+    .timeline-card {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .card-user {
+      border-color: rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .card-steering {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .card-tool {
+      border-color: rgba(129, 140, 248, 0.3);
+      background: rgba(15, 23, 42, 0.9);
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.82rem;
+    }
+
+    .card-terminal {
+      background: #070a12;
+      border-color: rgba(255, 255, 255, 0.12);
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.8rem;
+      color: #a7f3d0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .card-approval {
+      border: 1px solid var(--accent-rose);
+      background: rgba(244, 63, 94, 0.08);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .diff-block {
+      background: #070a12;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 0.5rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .diff-add { color: #34d399; background: rgba(52, 211, 153, 0.1); display: block; }
+    .diff-del { color: #f87171; background: rgba(248, 113, 113, 0.1); display: block; }
+
+    /* Composer Area */
+    .composer-area {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--card-border);
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .composer-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+    }
+
+    .mode-switch {
+      display: inline-flex;
+      gap: 0.25rem;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .mode-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent-cyan);
+    }
+
+    .mode-btn.steer.active {
+      background: rgba(245, 158, 11, 0.25);
+      color: var(--accent-amber);
+    }
+
+    .composer-input-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+
+    .composer-textarea {
+      flex: 1;
+      min-height: 60px;
+      max-height: 180px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.6rem 0.8rem;
+      resize: vertical;
+      outline: none;
+    }
+
+    .composer-textarea:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Right Column: Inspector */
+    .inspector-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .inspector-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      font-size: 0.85rem;
+    }
+
+    .inspector-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .kv-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.8rem;
+    }
+
+    .kv-key { color: var(--text-muted); }
+    .kv-val { color: #f8fafc; font-weight: 600; text-align: right; }
+
+    .artifact-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.65rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="site-header">
+    <div class="container nav-top-row">
+      <a href="/" class="brand">
+        <span class="brand-logo">Compute<span class="gradient-text">Mesh</span></span>
+        <span class="brand-badge pulse-badge"><span class="pulse-dot"></span> AGENT WORKSPACE</span>
+      </a>
+
+      <div class="nav-actions">
+        <div class="lang-switch">
+          <button id="lang-de-btn" class="lang-btn active" onclick="setLocale('de')">🇩🇪 DE</button>
+          <button id="lang-en-btn" class="lang-btn" onclick="setLocale('en')">🇬🇧 EN</button>
+        </div>
+        <a href="/fleet" class="btn btn-secondary btn-sm" id="nav-fleet-btn">🖥️ Flotte</a>
+        <a href="https://ai.inetconnector.com" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">💬 AI-Chat ↗</a>
+        <button class="btn btn-primary btn-sm" onclick="newSessionModal()" id="btn-new-task">+ Neue Aufgabe</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Workspace Configuration Context Bar -->
+  <div class="workspace-bar">
+    <div class="config-chip">
+      <span>📂 <strong id="lbl-workspace">Workspace:</strong></span>
+      <input type="text" id="cfg-workspace-path" value="/opt/computemesh" style="width: 200px;">
+    </div>
+    <div class="config-chip">
+      <span>🌿 <strong id="lbl-branch">Branch:</strong></span>
+      <span id="cfg-branch-name" style="color: var(--accent-cyan); font-weight: 600;">main</span>
+    </div>
+    <div class="config-chip">
+      <span>🖥️ <strong id="lbl-node">Node:</strong></span>
+      <select id="cfg-node-select">
+        <option value="auto">Auto-Router (Cluster)</option>
+        <option value="test-node-custom">test-node-custom (RTX 3080)</option>
+        <option value="cm-inference-node-01">cm-inference-node-01 (6x AMD Polaris)</option>
+      </select>
+    </div>
+    <div class="config-chip">
+      <span>🧠 <strong id="lbl-model">Model:</strong></span>
+      <select id="cfg-model-select">
+        <option value="qwen2.5:7b">qwen2.5:7b (Inference Ready)</option>
+        <option value="gemma3:4b">gemma3:4b (Local NVIDIA)</option>
+        <option value="deepseek-coder:6.7b">deepseek-coder:6.7b</option>
+      </select>
+    </div>
+    <div class="config-chip">
+      <span>🛡️ <strong id="lbl-policy">Policy:</strong></span>
+      <select id="cfg-policy-select">
+        <option value="interactive">Interaktiv (Approvals erforderlich)</option>
+        <option value="autonomous">Autonom (Standard Sandbox)</option>
+        <option value="readonly">Nur Lesen (Safe Mode)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 3-Column Main Workspace -->
+  <main class="workspace-wrapper">
+    <!-- Left Column: Session Sidebar -->
+    <aside class="workspace-panel sidebar-column">
+      <div class="sidebar-header">
+        <input type="text" id="sidebar-search-input" class="sidebar-search" placeholder="Sitzung suchen..." oninput="filterSessions(this.value)">
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" id="tab-active" onclick="switchSidebarTab('active')">Aktiv</button>
+          <button class="sidebar-tab" id="tab-pinned" onclick="switchSidebarTab('pinned')">Angeheftet</button>
+          <button class="sidebar-tab" id="tab-archived" onclick="switchSidebarTab('archived')">Archiv</button>
+        </div>
+      </div>
+      <div class="session-list" id="session-list-container">
+        <!-- Dynamic Session Cards Rendered Here -->
+      </div>
+    </aside>
+
+    <!-- Center Column: Active Session Timeline -->
+    <section class="workspace-panel timeline-column">
+      <div class="timeline-header">
+        <div class="timeline-title-area">
+          <input type="text" id="active-session-title" class="timeline-title-input" value="Lade Sitzung..." onchange="updateSessionTitle(this.value)">
+          <span id="active-session-badge" class="status-badge status-ready">BEREIT</span>
+        </div>
+        <div class="timeline-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-pause-session" onclick="controlSession('pause')" title="Pausieren">⏸️</button>
+          <button class="btn btn-secondary btn-sm" id="btn-resume-session" onclick="controlSession('resume')" title="Fortsetzen">▶️</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-session" onclick="controlSession('cancel')" title="Abbrechen">⏹️</button>
+          <button class="btn btn-secondary btn-sm" id="btn-pin-session" onclick="togglePinSession()" title="Anheften">📌</button>
+        </div>
+      </div>
+
+      <div class="timeline-body" id="timeline-container">
+        <!-- Real-time Timeline Cards Rendered Here -->
+      </div>
+
+      <!-- Composer & Steer Control -->
+      <div class="composer-area">
+        <div class="composer-mode-bar">
+          <div class="mode-switch">
+            <button class="mode-btn active" id="mode-queue-btn" onclick="setComposerMode('queue')">📥 Turn einreihen (Queue)</button>
+            <button class="mode-btn steer" id="mode-steer-btn" onclick="setComposerMode('steer')">⚡ Turn steuern (Steer)</button>
+          </div>
+          <span id="composer-hint" style="color: var(--text-muted); font-size: 0.75rem;">Normaler Folgeauftrag</span>
+        </div>
+        <div class="composer-input-wrapper">
+          <textarea id="composer-text" class="composer-textarea" placeholder="Anweisung oder Steuerung eingeben... (Strg+Enter zum Senden)" onkeydown="handleComposerKey(event)"></textarea>
+          <button class="btn btn-primary" id="btn-send-turn" onclick="submitTurn()" style="height: 60px; min-width: 90px;">Senden</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Inspector -->
+    <aside class="workspace-panel inspector-column">
+      <div class="inspector-header">
+        <span id="lbl-inspector">Inspektor &amp; Status</span>
+        <button class="btn btn-secondary btn-sm" onclick="refreshInspector()" title="Aktualisieren">🔄</button>
+      </div>
+      <div class="inspector-body">
+        <div class="inspector-section">
+          <span class="section-title" id="lbl-session-info">Sitzungsdetails</span>
+          <div class="kv-item"><span class="kv-key">ID</span><span class="kv-val" id="insp-session-id">-</span></div>
+          <div class="kv-item"><span class="kv-key">Turn ID</span><span class="kv-val" id="insp-turn-id">-</span></div>
+          <div class="kv-item"><span class="kv-key">Cursor</span><span class="kv-val" id="insp-cursor">0</span></div>
+          <div class="kv-item"><span class="kv-key">Agent Version</span><span class="kv-val" id="insp-version">v2</span></div>
+        </div>
+
+        <div class="inspector-section" id="section-approvals">
+          <span class="section-title" id="lbl-pending-approvals">Ausstehende Freigaben</span>
+          <div id="inspector-approvals-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <span style="color: var(--text-muted); font-size: 0.8rem;" id="lbl-no-approvals">Keine Freigaben ausstehend.</span>
+          </div>
+        </div>
+
+        <div class="inspector-section">
+          <span class="section-title" id="lbl-artifacts">Artefakte &amp; Exporte</span>
+          <div id="inspector-artifacts-list" style="display: flex; flex-direction: column; gap: 0.4rem;">
+            <span style="color: var(--text-muted); font-size: 0.8rem;" id="lbl-no-artifacts">Keine Artefakte erzeugt.</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // State management
+    let currentLocale = 'de';
+    let currentTab = 'active';
+    let composerMode = 'queue';
+    let activeSessionId = null;
+    let eventCursor = 0;
+    let pollTimer = null;
+    let allSessions = [];
+
+    const i18n = {
+      de: {
+        pageTitle: "ComputeMesh — Agent Workspace",
+        btnNewTask: "+ Neue Aufgabe",
+        navFleet: "🖥️ Flotte",
+        lblWorkspace: "Workspace:",
+        lblBranch: "Branch:",
+        lblNode: "Node:",
+        lblModel: "Model:",
+        lblPolicy: "Policy:",
+        tabActive: "Aktiv",
+        tabPinned: "Angeheftet",
+        tabArchived: "Archiv",
+        searchPlaceholder: "Sitzung suchen...",
+        modeQueue: "📥 Turn einreihen (Queue)",
+        modeSteer: "⚡ Turn steuern (Steer)",
+        hintQueue: "Normaler Folgeauftrag — wird nach aktuellem Schritt ausgeführt",
+        hintSteer: "Prioritätssteuerung — unterbricht und steuert den laufenden Agenten",
+        composerPlaceholder: "Anweisung oder Steuerung eingeben... (Strg+Enter zum Senden)",
+        btnSend: "Senden",
+        lblInspector: "Inspektor & Status",
+        lblSessionInfo: "Sitzungsdetails",
+        lblPendingApprovals: "Ausstehende Freigaben",
+        lblNoApprovals: "Keine Freigaben ausstehend.",
+        lblArtifacts: "Artefakte & Exporte",
+        lblNoArtifacts: "Keine Artefakte erzeugt.",
+        approveOnce: "Einmalig freigeben",
+        approveTurn: "Für gesamten Turn freigeben",
+        reject: "Ablehnen"
+      },
+      en: {
+        pageTitle: "ComputeMesh — Agent Workspace",
+        btnNewTask: "+ New Task",
+        navFleet: "🖥️ Fleet",
+        lblWorkspace: "Workspace:",
+        lblBranch: "Branch:",
+        lblNode: "Node:",
+        lblModel: "Model:",
+        lblPolicy: "Policy:",
+        tabActive: "Active",
+        tabPinned: "Pinned",
+        tabArchived: "Archived",
+        searchPlaceholder: "Search sessions...",
+        modeQueue: "📥 Queue Turn",
+        modeSteer: "⚡ Steer Turn",
+        hintQueue: "Standard queue — executed after current turn completes",
+        hintSteer: "Priority steering — interrupts and redirects active turn",
+        composerPlaceholder: "Enter instruction or priority steer... (Ctrl+Enter to send)",
+        btnSend: "Send",
+        lblInspector: "Inspector & Status",
+        lblSessionInfo: "Session Details",
+        lblPendingApprovals: "Pending Approvals",
+        lblNoApprovals: "No pending approvals.",
+        lblArtifacts: "Artifacts & Exports",
+        lblNoArtifacts: "No artifacts generated.",
+        approveOnce: "Approve Once",
+        approveTurn: "Approve Turn",
+        reject: "Reject"
+      }
+    };
+
+    function setLocale(loc) {
+      currentLocale = loc;
+      document.getElementById('lang-de-btn').classList.toggle('active', loc === 'de');
+      document.getElementById('lang-en-btn').classList.toggle('active', loc === 'en');
+      const t = i18n[loc];
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('btn-new-task').textContent = t.btnNewTask;
+      document.getElementById('lbl-workspace').textContent = t.lblWorkspace;
+      document.getElementById('lbl-branch').textContent = t.lblBranch;
+      document.getElementById('lbl-node').textContent = t.lblNode;
+      document.getElementById('lbl-model').textContent = t.lblModel;
+      document.getElementById('lbl-policy').textContent = t.lblPolicy;
+      document.getElementById('tab-active').textContent = t.tabActive;
+      document.getElementById('tab-pinned').textContent = t.tabPinned;
+      document.getElementById('tab-archived').textContent = t.tabArchived;
+      document.getElementById('sidebar-search-input').placeholder = t.searchPlaceholder;
+      document.getElementById('mode-queue-btn').textContent = t.modeQueue;
+      document.getElementById('mode-steer-btn').textContent = t.modeSteer;
+      document.getElementById('composer-text').placeholder = t.composerPlaceholder;
+      document.getElementById('btn-send-turn').textContent = t.btnSend;
+      document.getElementById('lbl-inspector').textContent = t.lblInspector;
+      document.getElementById('lbl-session-info').textContent = t.lblSessionInfo;
+      document.getElementById('lbl-pending-approvals').textContent = t.lblPendingApprovals;
+      document.getElementById('lbl-artifacts').textContent = t.lblArtifacts;
+      updateComposerHint();
+      renderSessions();
+    }
+
+    function setComposerMode(mode) {
+      composerMode = mode;
+      document.getElementById('mode-queue-btn').classList.toggle('active', mode === 'queue');
+      document.getElementById('mode-steer-btn').classList.toggle('active', mode === 'steer');
+      updateComposerHint();
+    }
+
+    function updateComposerHint() {
+      const t = i18n[currentLocale];
+      document.getElementById('composer-hint').textContent = composerMode === 'queue' ? t.hintQueue : t.hintSteer;
+    }
+
+    function switchSidebarTab(tab) {
+      currentTab = tab;
+      document.getElementById('tab-active').classList.toggle('active', tab === 'active');
+      document.getElementById('tab-pinned').classList.toggle('active', tab === 'pinned');
+      document.getElementById('tab-archived').classList.toggle('active', tab === 'archived');
+      renderSessions();
+    }
+
+    async function fetchWithAuth(url, options = {}) {
+      const token = localStorage.getItem('cm_auth_token') || 'local_dev_token';
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+      return fetch(url, { ...options, headers });
+    }
+
+    async function loadSessions() {
+      try {
+        const resp = await fetchWithAuth('/v1/agents/sessions?limit=100');
+        if (resp.ok) {
+          const data = await resp.json();
+          allSessions = data.sessions || [];
+          renderSessions();
+          if (!activeSessionId && allSessions.length > 0) {
+            selectSession(allSessions[0].session_id);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load sessions from gateway:', err);
+      }
+    }
+
+    function renderSessions() {
+      const container = document.getElementById('session-list-container');
+      const search = document.getElementById('sidebar-search-input').value.toLowerCase();
+      
+      let filtered = allSessions.filter(s => {
+        if (search && !((s.title || s.session_id).toLowerCase().includes(search))) return false;
+        if (currentTab === 'pinned') return s.pinned === true;
+        if (currentTab === 'archived') return s.archived === true;
+        return !s.archived;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center;">Keine Sitzungen gefunden.</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(s => {
+        const title = s.title || (s.agent_id + ' / ' + s.session_id.slice(-6));
+        const statusClass = `status-${s.status || 'ready'}`;
+        const activeClass = s.session_id === activeSessionId ? 'active' : '';
+        const dateStr = new Date((s.updated_at || s.created_at) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return `
+          <div class="session-card ${activeClass}" onclick="selectSession('${s.session_id}')">
+            <div class="session-card-header">
+              <span class="session-title">${escapeHtml(title)}</span>
+              <span class="status-badge ${statusClass}">${s.status}</span>
+            </div>
+            <div class="session-meta-row">
+              <span>${s.model || 'qwen2.5:7b'}</span>
+              <span>${dateStr}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function selectSession(sessionId) {
+      activeSessionId = sessionId;
+      eventCursor = 0;
+      renderSessions();
+
+      const session = allSessions.find(s => s.session_id === sessionId);
+      if (session) {
+        document.getElementById('active-session-title').value = session.title || session.session_id;
+        document.getElementById('active-session-badge').textContent = (session.status || 'READY').toUpperCase();
+        document.getElementById('active-session-badge').className = `status-badge status-${session.status || 'ready'}`;
+        document.getElementById('insp-session-id').textContent = session.session_id;
+      }
+
+      document.getElementById('timeline-container').innerHTML = '';
+      await pollEvents();
+      loadApprovals();
+      loadArtifacts();
+    }
+
+    async function pollEvents() {
+      if (!activeSessionId) return;
+      try {
+        const resp = await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/events?after_sequence=${eventCursor}&limit=50&wait_seconds=0`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.events && data.events.length > 0) {
+            appendEventsToTimeline(data.events);
+            eventCursor = data.next_sequence || eventCursor;
+            document.getElementById('insp-cursor').textContent = eventCursor;
+          }
+        }
+      } catch (err) {
+        console.warn('Poll events error:', err);
+      }
+
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollEvents, 3000);
+    }
+
+    function appendEventsToTimeline(events) {
+      const container = document.getElementById('timeline-container');
+      events.forEach(ev => {
+        const card = createTimelineCard(ev);
+        if (card) container.appendChild(card);
+      });
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function createTimelineCard(ev) {
+      const type = ev.event_type || '';
+      const payload = ev.payload || {};
+      const el = document.createElement('div');
+
+      if (type === 'turn.created') {
+        el.className = 'timeline-card card-user';
+        el.innerHTML = `
+          <div class="card-header"><span>USER INPUT</span><span>Turn ${ev.turn_id || ''}</span></div>
+          <div>${escapeHtml(payload.prompt || payload.message || 'Neue Aufgabe gestartet')}</div>
+        `;
+      } else if (type === 'turn.steered') {
+        el.className = 'timeline-card card-steering';
+        el.innerHTML = `
+          <div class="card-header"><span>⚡ PRIORITY STEER</span><span>Turn ${ev.turn_id || ''}</span></div>
+          <div>${escapeHtml(payload.content || 'Eingriff in laufenden Turn')}</div>
+        `;
+      } else if (type === 'tool.execution' || type === 'tool.called') {
+        el.className = 'timeline-card card-tool';
+        el.innerHTML = `
+          <div class="card-header"><span>🔧 TOOL: ${escapeHtml(payload.tool_name || 'execute')}</span><span>${payload.elapsed_seconds ? payload.elapsed_seconds.toFixed(2) + 's' : ''}</span></div>
+          <pre style="margin: 0;">${escapeHtml(JSON.stringify(payload.arguments || {}, null, 2))}</pre>
+        `;
+      } else if (type === 'terminal.output') {
+        el.className = 'timeline-card card-terminal';
+        el.textContent = payload.output || payload.stdout || '';
+      } else if (type === 'approval.requested') {
+        el.className = 'timeline-card card-approval';
+        el.innerHTML = `
+          <div class="card-header"><span style="color: var(--accent-rose);">⚠️ FREIGABE ERFORDERLICH</span><span>${payload.risk_level || 'HIGH'}</span></div>
+          <div><strong>Werkzeug:</strong> ${escapeHtml(payload.tool_name || '')}</div>
+          <div>${escapeHtml(payload.description || 'Aktion erfordert explizite Bestätigung.')}</div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <button class="btn btn-primary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'approved', 'once')">Einmalig freigeben</button>
+            <button class="btn btn-secondary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'approved', 'turn')">Für Turn freigeben</button>
+            <button class="btn btn-secondary btn-sm" onclick="resolveApproval('${payload.approval_id}', 'rejected', 'user_denied')" style="color: var(--accent-rose);">Ablehnen</button>
+          </div>
+        `;
+      } else {
+        el.className = 'timeline-card';
+        el.innerHTML = `
+          <div class="card-header"><span>${escapeHtml(type)}</span></div>
+          <div style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(JSON.stringify(payload))}</div>
+        `;
+      }
+      return el;
+    }
+
+    async function submitTurn() {
+      const text = document.getElementById('composer-text').value.trim();
+      if (!text || !activeSessionId) return;
+
+      const endpoint = composerMode === 'steer'
+        ? `/v1/agents/sessions/${activeSessionId}/steer`
+        : `/v1/agents/sessions/${activeSessionId}/turns`;
+
+      try {
+        const resp = await fetchWithAuth(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ input: text })
+        });
+        if (resp.ok) {
+          document.getElementById('composer-text').value = '';
+          pollEvents();
+        } else {
+          const err = await resp.json();
+          alert(`Fehler: ${err.message || 'Konnte Turn nicht senden'}`);
+        }
+      } catch (e) {
+        alert('Netzwerkfehler beim Senden des Turns');
+      }
+    }
+
+    function handleComposerKey(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        submitTurn();
+      }
+    }
+
+    async function controlSession(action) {
+      if (!activeSessionId) return;
+      await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/control`, {
+        method: 'POST',
+        body: JSON.stringify({ action: action })
+      });
+      loadSessions();
+    }
+
+    async function updateSessionTitle(title) {
+      if (!activeSessionId || !title.trim()) return;
+      await fetchWithAuth(`/v1/agents/sessions/${activeSessionId}/metadata`, {
+        method: 'POST',
+        body: JSON.stringify({ title: title.trim() })
+      });
+      loadSessions();
+    }
+
+    async function newSessionModal() {
+      const prompt = window.prompt(currentLocale === 'de' ? 'Beschreibe die neue Aufgabe:' : 'Describe the new task:');
+      if (!prompt) return;
+
+      const model = document.getElementById('cfg-model-select').value;
+      const workspace = document.getElementById('cfg-workspace-path').value;
+
+      try {
+        const resp = await fetchWithAuth('/v1/agents/sessions', {
+          method: 'POST',
+          body: JSON.stringify({
+            agent_id: 'codex_parity_agent',
+            model: model,
+            input: prompt,
+            title: prompt.slice(0, 40),
+            workspace: workspace
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          await loadSessions();
+          if (data.session && data.session.session_id) {
+            selectSession(data.session.session_id);
+          }
+        }
+      } catch (e) {
+        alert('Fehler beim Erstellen der Sitzung');
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSessions();
+    });
+  </script>
+</body>
+</html>

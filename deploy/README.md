@@ -7,12 +7,12 @@
 The repository provides the following canonical tooling:
 
 - **Windows Installer Builder (`deploy/windows/build_installer.py`):** Packages a self-contained Windows installer executable (`ComputeMesh-Setup-v{VERSION}.exe`) including required Python dependencies, Tcl/Tk runtime hooks, Windows service helpers, and firewall setup.
-- **NodeOS Live Appliance Builder (`deploy/appliance/build_real_live_appliance.py`):** Authoritative Debian 13 (Trixie) Live ISO and compressed raw disk image (`.img.xz`) builder. Bundles upstream llama.cpp built with `-DGGML_VULKAN=ON` (commit `29aaf1c27faa48292357cea2120d94114a545006`), AMD/NVIDIA runtime packages, `computemesh-node.service`, and an ext4 persistence partition (`/ union` in `persistence.conf`).
+- **NodeOS Live Appliance Builder (`deploy/appliance/build_real_live_appliance.py`):** Authoritative Debian 13 (Trixie) Live ISO and compressed raw disk image (`.img.xz`) builder. Outputs to a dedicated, decoupled staging directory (`COMPUTEMESH_IMAGE_STAGING_DIR`). Bundles upstream llama.cpp built with `-DGGML_VULKAN=ON` (commit `29aaf1c27faa48292357cea2120d94114a545006`), AMD/NVIDIA runtime packages, `computemesh-node.service`, and an ext4 persistence partition (`/ union` in `persistence.conf`).
 - **Linux Provider Package & Service (`deploy/systemd/`):** Hardened systemd unit and environment configuration templates with least-privilege sandboxing, automatic restarts, and unblocked SIGTERM shutdown.
 - **Unified Release Orchestrator (`tools/build_all_releases.py`):** Coordinates multi-platform build artifact generation across Windows, Linux, and NodeOS.
-- **Cryptographic Release Signer (`tools/security/release_signer.py`):** Computes SHA-256 digests and generates Ed25519 digital signatures for release artifacts, writing the signed release manifest to `portal/updates/version.json`.
-- **Plesk Portal Synchronization (`deploy/sync_plesk_portal.sh`):** Atomic rsync-based deployment to production webroots with rollback archive creation. **Explicitly protects the `downloads/` directory (`--exclude=downloads/`) to preserve released binaries, ISOs, and user data.**
-- **Production Deployment Script (`deploy/deploy_production.sh`):** Verifies release tags, artifact signatures, and deployment prerequisites before rolling out to production hosts.
+- **Cryptographic Release Signer (`tools/security/release_signer.py`):** Fail-closed signer that computes SHA-256 digests from verified files on disk and generates Ed25519 digital signatures with the official master key, writing the signed release manifest to `portal/updates/version.json`. Requires real files on disk without hardcoded fallbacks.
+- **Plesk Portal Synchronization (`deploy/sync_plesk_portal.sh`):** Requires an explicit, verified release tag argument (no untagged main), creates pre-deployment rollback archives, stages changes, and executes fail-closed healthchecks with automatic rollback on failure. **Explicitly protects the `downloads/` directory (`--exclude=downloads/`) to preserve released binaries, ISOs, and user data.**
+- **Production Deployment Script (`deploy/deploy_production.sh`):** Requires an explicit immutable release tag, verifies artifact signatures and pre-flight health, creates rollback snapshots, and performs fail-closed verification before rolling out to production hosts.
 
 ## Current Lab Setup
 

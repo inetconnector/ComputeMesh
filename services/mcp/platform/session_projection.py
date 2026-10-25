@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hmac
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from .session import AgentSession, AgentSessionStore, Approval, ApprovalStatus, EventPage
 
@@ -18,7 +18,7 @@ class SessionProjectionDenied(SessionProjectionError):
 
 @dataclass(frozen=True)
 class SessionProjection:
-    """A bounded public view that intentionally omits mutable session state."""
+    """A bounded public view that safely projects metadata without leaking secrets."""
 
     session_id: str
     agent_id: str
@@ -28,9 +28,16 @@ class SessionProjection:
     version: int
     created_at: float
     updated_at: float
+    title: str = ""
+    model: str = ""
+    workspace: str = ""
+    branch: str = ""
+    pinned: bool = False
+    archived: bool = False
 
     @classmethod
     def from_session(cls, session: AgentSession) -> "SessionProjection":
+        st = dict(session.state) if hasattr(session, "state") and isinstance(session.state, (dict, Mapping)) else {}
         return cls(
             session_id=session.session_id,
             agent_id=session.agent_id,
@@ -40,6 +47,12 @@ class SessionProjection:
             version=session.version,
             created_at=session.created_at,
             updated_at=session.updated_at,
+            title=str(st.get("title") or ""),
+            model=str(st.get("model") or ""),
+            workspace=str(st.get("workspace") or ""),
+            branch=str(st.get("branch") or ""),
+            pinned=bool(st.get("pinned", False)),
+            archived=bool(st.get("archived", False)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,6 +65,12 @@ class SessionProjection:
             "version": self.version,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "title": self.title,
+            "model": self.model,
+            "workspace": self.workspace,
+            "branch": self.branch,
+            "pinned": self.pinned,
+            "archived": self.archived,
         }
 
 

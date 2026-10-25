@@ -20,8 +20,9 @@ import sys
 BUILD_DIR = Path("/var/tmp/nodeos_live_build")
 CHROOT_DIR = BUILD_DIR / "chroot"
 ISO_DIR = BUILD_DIR / "iso_root"
-DEBIAN_MIRROR = "http://debian.anexia.at/debian"
-OUTPUT_DIR = Path("/var/www/vhosts/inetconnector.com/site2/downloads")
+# Staging directory for built appliance images (decoupled from live production webroot)
+STAGING_DIR = Path(os.environ.get("COMPUTEMESH_IMAGE_STAGING_DIR", str(BUILD_DIR / "staging")))
+OUTPUT_DIR = STAGING_DIR
 LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
@@ -53,6 +54,7 @@ def build_appliance() -> int:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CHROOT_DIR.mkdir(parents=True, exist_ok=True)
     ISO_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Debootstrap Base System
     print("\n[Step 1/6] Debootstrapping minimal Debian 13 (Trixie)...")
@@ -523,9 +525,11 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
 
     run(["xz", "-f", "-6", "-k", str(out_img)])
 
-    # Fix permissions
-    run(["chown", "-R", "inetconnector:psaserv", str(OUTPUT_DIR)])
-    run(["chmod", "644", str(out_iso), str(out_xz)])
+    # Set permissions on staged build outputs
+    try:
+        run(["chmod", "644", str(out_iso), str(out_xz)], check=False)
+    except Exception as exc:
+        print(f"Notice: Artifact permissions setup: {exc}")
 
     print("\n====================================================================")
     print(f"SUCCESS: True Debian Live NodeOS Image Generated!")

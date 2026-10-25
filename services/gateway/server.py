@@ -442,7 +442,7 @@ from services.gateway.security import (
 )
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
 from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
-from services.mcp.platform.session import AgentSessionStore, ApprovalStatus, SessionStateConflict
+from services.mcp.platform.session import AgentSessionStore, ApprovalStatus, SessionStateConflict, TurnStatus
 from services.mcp.platform.session_projection import (
     SessionProjectionDenied,
     project_approval,
@@ -750,7 +750,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_prefix is not None:
             relative = clean_path[len(agent_prefix):].strip("/").split("/") if clean_path[len(agent_prefix):].strip("/") else []
-            if len(relative) > 2 or (len(relative) == 2 and relative[1] not in {"events", "artifacts"}):
+            if len(relative) > 2 or (len(relative) == 2 and relative[1] not in {"events", "artifacts", "turns", "items"}):
                 self._send_error_response("Invalid agent session path", "invalid_request_error", HTTPStatus.NOT_FOUND)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -787,6 +787,28 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         "object": "agent_artifacts",
                         "session_id": session_id,
                         "artifacts": projected_refs,
+                    }
+                elif relative[1] == "turns":
+                    session_id = relative[0]
+                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    raw_limit = query.get("limit", ["100"])[0]
+                    turns = store.list_turns(session_id=session_id, limit=int(raw_limit))
+                    payload = {
+                        "schema_version": 2,
+                        "object": "agent_turns",
+                        "session_id": session_id,
+                        "turns": [turn.to_dict() for turn in turns],
+                    }
+                elif relative[1] == "items":
+                    session_id = relative[0]
+                    project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                    turn_filter = query.get("turn_id", [None])[0]
+                    items = store.list_items(session_id, turn_id=turn_filter)
+                    payload = {
+                        "schema_version": 2,
+                        "object": "agent_items",
+                        "session_id": session_id,
+                        "items": [item.to_dict() for item in items],
                     }
                 else:
                     def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -1580,7 +1602,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
         )
         if agent_session_prefix is not None:
             relative = clean_path[len(agent_session_prefix):].strip("/").split("/") if clean_path[len(agent_session_prefix):].strip("/") else []
-            if (relative and (len(relative) != 2 or relative[1] not in {"turns", "control"})) or not isinstance(body, dict):
+            if (relative and (len(relative) != 2 or relative[1] not in {"turns", "control", "steer", "metadata"})) or not isinstance(body, dict):
                 self._send_error_response("Invalid agent task path", "invalid_request_error", HTTPStatus.BAD_REQUEST)
                 return
             auth = self.auth_manager.authenticate_request(self.headers, getattr(self, "client_address", None), allow_teaser=False)
@@ -1620,6 +1642,61 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             "session": session_payload["session"],
                             "turn": turn_payload,
                         }, HTTPStatus.ACCEPTED if control.status.value == "requested" else HTTPStatus.OK)
+                        return
+                    if relative[1] == "steer":
+                        if input_items is None:
+                            raise ValueError("input is required for steer")
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        turn_id = str(body.get("turn_id") or "").strip()
+                        if not turn_id:
+                            # Auto-resolve currently active running turn
+                            active_turns = store.list_turns(
+                                statuses=[
+                                    TurnStatus.RUNNING,
+                                    TurnStatus.WAITING_FOR_TOOL,
+                                    TurnStatus.WAITING_FOR_APPROVAL,
+                                    TurnStatus.WAITING_FOR_SUBAGENTS,
+                                    TurnStatus.COMPACTING,
+                                    TurnStatus.RESUMING,
+                                ],
+                                session_id=session_id,
+                                limit=1,
+                            )
+                            if not active_turns:
+                                raise SessionStateConflict("no active turn found in session to steer")
+                            turn_id = active_turns[0].turn_id
+                        item = store.steer_turn(session_id, turn_id, input_items)
+                        session_payload = project_session(
+                            store,
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        turn_payload = store.get_turn(turn_id).to_dict()
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_steer",
+                            "session": session_payload["session"],
+                            "turn": turn_payload,
+                            "item": item.to_dict(),
+                        }, HTTPStatus.OK)
+                        return
+                    if relative[1] == "metadata":
+                        session_id = relative[0]
+                        project_session(store, session_id, principal_id=principal_id, is_admin=is_admin)
+                        store.update_metadata(session_id, body)
+                        session_payload = project_session(
+                            store,
+                            session_id,
+                            principal_id=principal_id,
+                            is_admin=is_admin,
+                        )
+                        self._send_json({
+                            "schema_version": 2,
+                            "object": "agent_session_metadata",
+                            "session": session_payload["session"],
+                        }, HTTPStatus.OK)
                         return
                     if input_items is None:
                         raise ValueError("input is required")
@@ -1661,6 +1738,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     deadline_at=body.get("deadline_at"),
                     routing=body.get("routing"),
                 )
+                metadata_updates = {
+                    k: body[k]
+                    for k in ("title", "workspace", "branch", "tags", "notes")
+                    if k in body and body[k]
+                }
+                if metadata_updates:
+                    store.update_metadata(session.session_id, metadata_updates)
                 self._send_json({
                     "schema_version": 1,
                     "object": "agent_task",

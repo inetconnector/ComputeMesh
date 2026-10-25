@@ -34,8 +34,13 @@ LOCAL_BACKUP_PATH = Path.home() / ".computemesh" / "secrets"
 SIGNING_KEYS_FILE = Path(__file__).resolve().parent / "signing_keys.py"
 
 
-def get_or_create_keypair() -> tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey]:
-    """Retrieve existing master keypair or generate a new one at \\\\diskstation\\Dani\\ComputeMesh."""
+def get_or_create_keypair(allow_generate: bool = False) -> tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey]:
+    """Retrieve existing master keypair from DiskStation or local backup.
+
+    To preserve the trust chain across existing node installations, this function
+    fails closed if the official release signing key is not found, refusing to
+    automatically generate arbitrary new keys without explicit authorization.
+    """
     ds_private_key_file = DISKSTATION_PATH / "computemesh_release_signing_private.key"
     ds_public_key_file = DISKSTATION_PATH / "computemesh_release_signing_public.key"
     local_private_key_file = LOCAL_BACKUP_PATH / "computemesh_release_signing_private.key"
@@ -54,8 +59,14 @@ def get_or_create_keypair() -> tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519P
         pub_key = priv_key.public_key()
         return priv_key, pub_key
 
-    # Generate new Ed25519 Master Keypair
-    print("Generating new Master Ed25519 Release Signing Keypair...")
+    if not allow_generate:
+        raise FileNotFoundError(
+            f"Master release signing private key not found at DiskStation ({DISKSTATION_PATH}) "
+            f"or local backup ({LOCAL_BACKUP_PATH}). Refusing to automatically generate arbitrary new keys."
+        )
+
+    # Generate new Ed25519 Master Keypair only with explicit authorization
+    print("Generating new Master Ed25519 Release Signing Keypair (explicit authorization)...")
     priv_key = ed25519.Ed25519PrivateKey.generate()
     pub_key = priv_key.public_key()
 
@@ -136,29 +147,23 @@ def sign_manifest(
     downloads_dir: Path,
     output_manifest: Path,
     base_url: str = f"{CONFIG.endpoints.base_url}/downloads",
+    staging_dir: Path | None = None,
+    allow_partial: bool = False,
+    allow_generate: bool = False,
 ) -> dict[str, Any]:
-    """Generate and cryptographically sign update manifest."""
-    priv_key, pub_key = get_or_create_keypair()
+    """Generate and cryptographically sign update manifest from verified files on disk.
+
+    Operates strictly fail-closed: Every published artifact must physically exist as
+    a readable binary, with SHA-256 and byte sizes computed directly from real bytes.
+    Hardcoded hash fallbacks and unverified historical carryover are strictly prohibited.
+    """
+    priv_key, pub_key = get_or_create_keypair(allow_generate=allow_generate)
     pub_raw = pub_key.public_bytes(
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw,
     )
 
     artifacts: dict[str, dict[str, Any]] = {}
-    previous_artifacts: dict[str, dict[str, Any]] = {}
-    if output_manifest.exists():
-        try:
-            previous_manifest = json.loads(output_manifest.read_text(encoding="utf-8"))
-            raw_platforms = previous_manifest.get("platforms", {})
-            if isinstance(raw_platforms, dict):
-                previous_artifacts = {
-                    str(platform_id): artifact
-                    for platform_id, artifact in raw_platforms.items()
-                    if isinstance(artifact, dict)
-                }
-        except json.JSONDecodeError:
-            previous_artifacts = {}
-
     targets = {
         "windows-x64": "ComputeMesh-Setup-x64.exe",
         "linux-x64": "computemesh-linux-x86_64.tar.gz",
@@ -167,25 +172,17 @@ def sign_manifest(
         "installer-script": "install.sh",
     }
 
-    # Verified production appliance image digests from the Debian Live NodeOS builder
-    verified_appliance_fallbacks = {
-        "nodeos-iso": {
-            "filename": "computemesh-nodeos-x86_64.iso",
-            "url": f"{base_url}/computemesh-nodeos-x86_64.iso",
-            "sha256": "cee5568f5a3bc9785e7857de3e642940ca72c89932a801142b0a2c3b5cdb3311",
-            "size_bytes": 541065216,
-        },
-        "nodeos-img": {
-            "filename": "computemesh-nodeos-x86_64.img.xz",
-            "url": f"{base_url}/computemesh-nodeos-x86_64.img.xz",
-            "sha256": "71fa4be754ec174ef35652f43d14da7161cd515ea0349d9ecc9ead0eb3598f8c",
-            "size_bytes": 525896448,
-        },
-    }
+    missing_targets: list[str] = []
 
     for platform_id, filename in targets.items():
+        # Check downloads_dir first, then staging_dir if provided
         file_path = downloads_dir / filename
-        if file_path.exists():
+        if not file_path.exists() and staging_dir is not None:
+            staged = staging_dir / filename
+            if staged.exists():
+                file_path = staged
+
+        if file_path.exists() and file_path.stat().st_size > 0:
             sha = compute_sha256(file_path)
             size = file_path.stat().st_size
             artifacts[platform_id] = {
@@ -194,10 +191,16 @@ def sign_manifest(
                 "sha256": sha,
                 "size_bytes": size,
             }
-        elif platform_id in verified_appliance_fallbacks:
-            artifacts[platform_id] = verified_appliance_fallbacks[platform_id]
-        elif platform_id in previous_artifacts:
-            artifacts[platform_id] = previous_artifacts[platform_id]
+            print(f"  [VERIFIED ARTIFACT] {platform_id}: {filename} ({size:,} bytes | SHA-256: {sha})")
+        else:
+            missing_targets.append(f"{platform_id} ({filename})")
+
+    if missing_targets and not allow_partial:
+        raise FileNotFoundError(
+            f"Release signing failed: missing mandatory physical release binaries on disk: "
+            f"{', '.join(missing_targets)}. "
+            f"All release artifacts must be physically present and verified before signing."
+        )
 
     manifest_data = {
         "version": version,
@@ -252,14 +255,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="ComputeMesh Cryptographic Release Signer")
     parser.add_argument("--version", default=CONFIG.appliance_version, help="Release version string")
     parser.add_argument("--downloads-dir", default="portal/downloads", help="Directory containing release binaries")
+    parser.add_argument("--staging-dir", default=None, help="Optional staging directory containing built binaries")
     parser.add_argument("--output", default="portal/updates/version.json", help="Output path for signed manifest")
+    parser.add_argument("--allow-partial", action="store_true", help="Allow signing a subset of platforms (development/testing)")
+    parser.add_argument("--generate-key", action="store_true", help="Allow generating a new master Ed25519 key if missing")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
     d_dir = repo_root / args.downloads_dir
+    st_dir = repo_root / args.staging_dir if args.staging_dir else None
     out_file = repo_root / args.output
 
-    sign_manifest(args.version, d_dir, out_file)
+    sign_manifest(
+        version=args.version,
+        downloads_dir=d_dir,
+        output_manifest=out_file,
+        staging_dir=st_dir,
+        allow_partial=args.allow_partial,
+        allow_generate=args.generate_key,
+    )
     is_valid = verify_manifest(out_file)
     print(f"Verification Check: {'[VALID]' if is_valid else '[INVALID]'}")
     return 0 if is_valid else 1
