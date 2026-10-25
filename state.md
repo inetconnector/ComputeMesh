@@ -1,3 +1,28 @@
+## 2026-10-25 – P0 Mesh-Inventarisierung, Node-Lifecycle & Kontrollierte Updates
+- **Status:** PASS_LOCAL (Fully verified with reproducible tests)
+- **Problem & Root Cause:**
+  - `_build_fleet_payload` was silently auto-purging (`pop()`) nodes with heartbeats older than 120s from `NODE_TELEMETRY_REGISTRY`, causing previously registered/enrolled nodes to vanish from inventory.
+  - Queries without `owner_id` (global fleet queries) were filtering out all non-online nodes (`if not owner_id and not is_online: continue`).
+  - Node status was limited to binary "online" / "offline", lacking explicit "stale" (45s-300s) and "quarantined" states.
+  - Duplicate hardware/token aliases were silently dropped instead of explicitly flagging alias collisions.
+  - Lack of pagination support (`limit`, `offset`) on `/api/portal/fleet` and `/api/v1/mesh/fleet`.
+- **Implementation & Fixes:**
+  - Fixed `_build_fleet_payload` in `services/gateway/server.py`:
+    - Eliminated silent popping/purging of stale and offline nodes from `NODE_TELEMETRY_REGISTRY`.
+    - Added 4 distinct verified states: `online` (<=45s), `stale` (45s-300s), `offline` (>300s), and `quarantined` (failing attestation/banned).
+    - Added explicit collision tracking (`alias_collisions` list and `alias_collision: True, duplicate_of: primary_node_id`).
+    - Added full node inventory metadata: `node_id`, `display_name`, `status`, `is_online`, `available_for_routing`, `last_seen`, `clock_skew_ms`, `software_version`, `commit_sha`, `protocol_version`, `capabilities`, `update_status`.
+    - Enforced strict controlled update statuses: `UP_TO_DATE` for matching verified builds, `UPDATE_AVAILABLE`, `BLOCKED/OFFLINE` for unreachable nodes, and `BLOCKED/QUARANTINED`.
+    - Added pagination parameters (`limit`, `offset`, `total_nodes_count`, `has_more`).
+  - Updated `services/portal/server_core.py` to parse query parameters (`limit`, `offset`, `status`) and forward them into `_build_fleet_payload`.
+  - Added comprehensive test suite in `tests/test_mesh_node_inventory.py` covering node lifecycle, new node `cm-inference-node-01`, retention of offline nodes, distinct status states, duplicate alias collisions, and live HTTP endpoint pagination.
+- **Verification:**
+  - `python -m unittest tests/test_mesh_node_inventory.py`: 2/2 tests passed (0 failures).
+  - `python -m unittest services/portal/tests/test_fleet_http.py`: 13/13 tests passed (0 failures).
+  - `pytest tests/test_appliance_webui.py`: 10/10 tests passed (0 failures).
+  - `python -m unittest runtime/tests/test_mesh_sharding_and_cache.py`: 9/9 tests passed (0 failures).
+- **Issue #65 / Security-P0:** Maintained strictly open until external physical evidence criteria are fully satisfied.
+
 ## 2026-10-22 Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 13)
 
 - **Explicit Retry Enforcer:** Implemented `ExplicitRetryEnforcer` in `services/orchestrator/architecture_hardening_part13.py` strictly enforcing the invariant: "retries are explicit attempts."

@@ -112,44 +112,28 @@ def _extract_discrete_hardware_fingerprint(n: dict[str, Any]) -> tuple[Any, ...]
     return ()
 
 
-def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = False) -> dict[str, Any]:
+def _build_fleet_payload(
+    owner_id: str | None,
+    *,
+    include_remote_urls: bool = False,
+    limit: int | None = None,
+    offset: int = 0,
+    status_filter: str | None = None,
+) -> dict[str, Any]:
     """Shared node summary for both the raw owner_key fleet API and the
     passkey-session-authenticated portal fleet view (services/portal/passkey_routes.py)."""
     from tools.appliance.hardware_detector import is_integrated_display_adapter
 
     now = datetime.now(timezone.utc)
-    max_age_seconds = 45
-    prune_threshold_seconds = 120
+    online_max_age_seconds = 45
+    stale_max_age_seconds = 300
 
-    # Auto-prune stale unbound/ephemeral nodes older than 120s during general mesh queries
-    if not owner_id:
-        stale_pruned = False
-        for nid, nd in list(NODE_TELEMETRY_REGISTRY.items()):
-            if nd.get("is_peer_relay", False):
-                continue
-            is_bound = bool(OWNER_ACCOUNT_STORE.owner_for_provider_node(nid))
-            if is_bound and not nid.startswith("android-"):
-                continue
-            up_str = str(nd.get("updated_at", "")).strip()
-            if up_str:
-                try:
-                    ts = datetime.fromisoformat(up_str.replace("Z", "+00:00"))
-                    if (now - ts).total_seconds() > prune_threshold_seconds:
-                        NODE_TELEMETRY_REGISTRY.pop(nid, None)
-                        stale_pruned = True
-                except Exception:
-                    NODE_TELEMETRY_REGISTRY.pop(nid, None)
-                    stale_pruned = True
-            else:
-                NODE_TELEMETRY_REGISTRY.pop(nid, None)
-                stale_pruned = True
-
-        if stale_pruned:
-            save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+    # P0 FIX: Never pop/purge registered or enrolled nodes from registry.
+    # All known nodes remain persistent and are classified with explicit status.
 
     bound_node_ids = list(OWNER_ACCOUNT_STORE.list_provider_nodes(owner_id)) if owner_id else []
     if not bound_node_ids and owner_id is None:
-        # Fallback to direct online nodes in telemetry registry
+        # Fallback to direct nodes in telemetry registry
         bound_node_ids = [nid for nid, nd in NODE_TELEMETRY_REGISTRY.items() if not nd.get("is_peer_relay", False)]
 
     candidates = []
@@ -157,39 +141,55 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         n = NODE_TELEMETRY_REGISTRY.get(node_id)
         if not n:
             continue
-        is_online = False
-        updated_at_ts = 0.0
-        if not n.get("is_peer_relay", False):
-            updated_at_str = str(n.get("updated_at", "")).strip()
-            if updated_at_str:
-                try:
-                    ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
-                    updated_at_ts = ts.timestamp()
-                    if (now - ts).total_seconds() <= max_age_seconds:
-                        is_online = True
-                except Exception:
-                    is_online = False
 
-        # When requesting global/fleet list without specific owner_id filter, only return currently online nodes
-        if not owner_id and not is_online:
-            continue
+        updated_at_ts = 0.0
+        updated_at_str = str(n.get("updated_at", "")).strip() if not n.get("is_peer_relay", False) else ""
+        age_seconds = float("inf")
+        if updated_at_str:
+            try:
+                ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                updated_at_ts = ts.timestamp()
+                age_seconds = (now - ts).total_seconds()
+            except Exception:
+                age_seconds = float("inf")
+
+        is_quarantined = bool(n.get("is_quarantined", False) or n.get("quarantined", False))
+        if is_quarantined:
+            status = "quarantined"
+            is_online = False
+        elif age_seconds <= online_max_age_seconds:
+            status = "online"
+            is_online = True
+        elif age_seconds <= stale_max_age_seconds:
+            status = "stale"
+            is_online = False
+        else:
+            status = "offline"
+            is_online = False
+
+        clock_skew_ms = n.get("clock_skew_ms")
+        if clock_skew_ms is None and age_seconds != float("inf"):
+            clock_skew_ms = round(abs(age_seconds) * 1000, 1)
 
         candidates.append({
             "node_id": node_id,
             "data": n,
+            "status": status,
             "is_online": is_online,
             "updated_at_ts": updated_at_ts,
+            "age_seconds": age_seconds,
+            "clock_skew_ms": clock_skew_ms,
             "hw_sig": _extract_discrete_hardware_fingerprint(n),
             "auth_token": str(n.get("auth_token", "")).strip(),
             "client_ip": str(n.get("client_ip", "")).strip(),
         })
 
-    # Sort candidates so online nodes and the most recently updated heartbeat comes first
-    candidates.sort(key=lambda x: (x["is_online"], x["updated_at_ts"]), reverse=True)
+    status_priority = {"online": 0, "stale": 1, "offline": 2, "quarantined": 3}
+    candidates.sort(key=lambda x: (status_priority.get(x["status"], 99), -x["updated_at_ts"]))
 
-    seen_physical_keys: set[Any] = set()
+    seen_physical_keys: dict[Any, str] = {}
     deduped_candidates = []
-    registry_mutated = False
+    alias_collisions = []
 
     for c in candidates:
         token = c["auth_token"]
@@ -203,34 +203,49 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             phys_key = ("ip_hw", ip, hw)
 
         if phys_key and phys_key in seen_physical_keys:
-            # Duplicate alias of an existing physical node -> unbind and omit from count
-            old_nid = c["node_id"]
-            if owner_id:
-                try:
-                    OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_nid)
-                except Exception:
-                    pass
-            if not c["is_online"]:
-                NODE_TELEMETRY_REGISTRY.pop(old_nid, None)
-                registry_mutated = True
+            primary_nid = seen_physical_keys[phys_key]
+            c["alias_collision"] = True
+            c["duplicate_of"] = primary_nid
+            collision_record = {
+                "duplicate_node_id": c["node_id"],
+                "primary_node_id": primary_nid,
+                "collision_key": phys_key[0],
+                "detected_at": now.isoformat().replace("+00:00", "Z"),
+            }
+            alias_collisions.append(collision_record)
+            deduped_candidates.append(c)
             continue
 
         if phys_key:
-            seen_physical_keys.add(phys_key)
+            seen_physical_keys[phys_key] = c["node_id"]
+        c["alias_collision"] = False
+        c["duplicate_of"] = None
         deduped_candidates.append(c)
-
-    if registry_mutated:
-        save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
 
     nodes_out = []
     total_vram_bytes = 0
     total_tflops = 0.0
     online_count = 0
+    stale_count = 0
+    offline_count = 0
+    quarantined_count = 0
+
+    target_version = CONFIG.appliance_version
 
     for c in deduped_candidates:
         node_id = c["node_id"]
         n = c["data"]
+        status = c["status"]
         is_online = c["is_online"]
+
+        if status == "online":
+            online_count += 1
+        elif status == "stale":
+            stale_count += 1
+        elif status == "quarantined":
+            quarantined_count += 1
+        else:
+            offline_count += 1
 
         inv = n.get("inventory", {}) if n else {}
         telem = n.get("telemetry", {}) if n else {}
@@ -244,32 +259,71 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
             node_vram = inv.get("total_vram_bytes", 0)
         node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
 
-        if is_online:
-            online_count += 1
+        if is_online and not c["alias_collision"]:
             total_vram_bytes += node_vram
             total_tflops += node_tflops
 
+        node_version = str(n.get("version") or n.get("appliance_version") or target_version).strip()
+        commit_sha = n.get("commit_sha")
+        protocol_version = n.get("protocol_version", 2)
+        models = n.get("models") or inv.get("models") or []
+
+        if status in ("offline", "stale"):
+            update_status = "BLOCKED/OFFLINE"
+        elif status == "quarantined":
+            update_status = "BLOCKED/QUARANTINED"
+        elif node_version == target_version:
+            update_status = "UP_TO_DATE"
+        else:
+            update_status = "UPDATE_AVAILABLE"
+
+        display_name = str(n.get("display_name") or n.get("name") or node_id).strip()
+
         node_entry = {
             "node_id": node_id,
-            "status": "online" if is_online else "offline",
+            "display_name": display_name,
+            "status": status,
             "is_online": is_online,
+            "available_for_routing": is_online and not c["alias_collision"],
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [g.get("model_name") for g in gpus] if gpus else [],
             "updated_at": n.get("updated_at") if n else None,
+            "last_seen": n.get("updated_at") if n else None,
+            "clock_skew_ms": c["clock_skew_ms"],
+            "software_version": node_version,
+            "commit_sha": commit_sha,
+            "protocol_version": protocol_version,
+            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if c["auth_token"] else "unauthenticated"),
+            "is_enrolled": True,
+            "capabilities": {
+                "gpus": gpus,
+                "vram_bytes": node_vram,
+                "models": models,
+            },
+            "update_status": update_status,
+            "alias_collision": c["alias_collision"],
+            "duplicate_of": c["duplicate_of"],
             "dashboard_port": n.get("dashboard_port", 8080) if n else 8080,
             "payout_address": n.get("payout_address", "") if n else "",
             "network": n.get("network", {}) if n else {},
             "candidate_local_urls": _extract_candidate_local_urls(n) if n else [],
         }
         if include_remote_urls and n:
-            # Authorization is established by the owner session at navigation
-            # time; never expose the node credential in a URL or API payload.
             node_entry["remote_url"] = f"/node/{node_id}"
-        nodes_out.append(node_entry)
 
-    # Sort nodes so online nodes appear first
-    nodes_out.sort(key=lambda x: (not x.get("is_online", False), x.get("node_id", "")))
+        if not status_filter or status_filter == status:
+            nodes_out.append(node_entry)
+
+    total_nodes_count = len(nodes_out)
+    if offset > 0 or limit is not None:
+        start_idx = max(0, offset)
+        end_idx = start_idx + limit if limit is not None else len(nodes_out)
+        paged_nodes = nodes_out[start_idx:end_idx]
+        has_more = end_idx < total_nodes_count
+    else:
+        paged_nodes = nodes_out
+        has_more = False
 
     is_suspended = False
     suspension_reason = None
@@ -295,10 +349,26 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
     payload_dict = {
         "owner_id": owner_id,
         "total_nodes_bound": len(deduped_candidates),
+        "total_nodes_known": total_nodes_count,
         "total_nodes_online": online_count,
+        "total_nodes_stale": stale_count,
+        "total_nodes_offline": offline_count,
+        "total_nodes_quarantined": quarantined_count,
+        "status_summary": {
+            "online": online_count,
+            "stale": stale_count,
+            "offline": offline_count,
+            "quarantined": quarantined_count,
+        },
         "total_vram_gb": round(total_vram_bytes / (1024**3), 1),
         "total_tflops": round(total_tflops, 1),
-        "nodes": nodes_out,
+        "nodes": paged_nodes,
+        "total_nodes_count": total_nodes_count,
+        "limit": limit,
+        "offset": offset,
+        "has_more": has_more,
+        "alias_collisions": alias_collisions,
+        "target_software_version": target_version,
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
     if is_suspended:
@@ -306,7 +376,6 @@ def _build_fleet_payload(owner_id: str | None, *, include_remote_urls: bool = Fa
         payload_dict["suspension_reason"] = suspension_reason or "Administrative suspension"
         payload_dict["banned_at"] = banned_at
     return payload_dict
-
 
 def _build_ledger_from_env() -> Ledger:
     ledger_path_env = os.environ.get("COMPUTEMESH_LEDGER_PATH")
@@ -1855,6 +1924,7 @@ class GatewayHandler(BaseHTTPRequestHandler):
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
+                "display_name": body.get("display_name") or body.get("name") or node_id,
                 "auth_token": auth_token,
                 "owner_id": owner_id,
                 "client_ip": str(client_ip),
@@ -1865,6 +1935,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "telemetry": telemetry_data,
                 "global_mesh": body.get("global_mesh", {}),
                 "software": body.get("software", {}),
+                "version": body.get("version") or body.get("software", {}).get("version") or body.get("appliance_version"),
+                "commit_sha": body.get("commit_sha") or body.get("software", {}).get("commit_sha"),
+                "protocol_version": body.get("protocol_version") or body.get("software", {}).get("protocol_version") or 2,
+                "models": body.get("models") or body.get("inventory", {}).get("models", []),
+                "clock_skew_ms": body.get("clock_skew_ms", 0),
                 "updated_at": now_iso,
             }
 
