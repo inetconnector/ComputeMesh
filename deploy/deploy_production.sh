@@ -19,8 +19,13 @@ echo "================================================================="
 RELEASE_TAG="${1:-}"
 if [ -z "${RELEASE_TAG}" ]; then
   echo "Error: Explicit release tag required as first parameter."
-  echo "Usage: $0 <release-tag> (e.g., $0 v1.2.185)"
+  echo "Usage: $0 <release-tag> (e.g., $0 v1.2.187)"
   echo "Deploying unreviewed branches or mutable 'latest' tags is strictly forbidden."
+  exit 1
+fi
+
+if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  echo "Error: Release tag '${RELEASE_TAG}' must follow semantic versioning (vX.Y.Z)."
   exit 1
 fi
 
@@ -53,16 +58,21 @@ rollback_deploy_and_exit() {
 
 echo "[1/8] Fetching release tag ${RELEASE_TAG} from origin..."
 git fetch origin --tags
-if ! git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null && ! git rev-parse -q --verify "${RELEASE_TAG}^{commit}" >/dev/null; then
-  echo "Error: Release ref '${RELEASE_TAG}' does not exist on origin or local tag index."
+if ! git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null; then
+  echo "Error: Release tag 'refs/tags/${RELEASE_TAG}' does not exist on origin or local tag index."
+  echo "Production deployment requires an explicit, annotated release tag."
   exit 1
 fi
 
 echo "Creating rollback snapshot before modifying deployment tree..."
-tar --exclude='portal/downloads' --exclude='data' --exclude='.git' -czf "${DEPLOY_BACKUP}" -C "${DEPLOY_DIR}" . 2>/dev/null || true
+if ! tar --exclude='portal/downloads' --exclude='data' --exclude='.git' -czf "${DEPLOY_BACKUP}" -C "${DEPLOY_DIR}" .; then
+  echo "Error: Deployment directory backup failed! Aborting before modifying files."
+  exit 1
+fi
+test -s "${DEPLOY_BACKUP}" || { echo "Error: Backup archive is empty!"; exit 1; }
 
 echo "Checking out verified release tag (${RELEASE_TAG})..."
-git checkout "${RELEASE_TAG}"
+git checkout "refs/tags/${RELEASE_TAG}"
 
 echo "[2/8] Synchronizing submodules..."
 if [ -f .gitmodules ]; then

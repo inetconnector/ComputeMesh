@@ -151,7 +151,7 @@ class TestWebUIStaticAssets(unittest.TestCase):
                 html,
                 f"service-worker update controls do not explicitly accept pointer input in {index}",
             )
-            revision = hashlib.md5(index.read_bytes()).hexdigest()
+            revision = hashlib.md5(index.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
             self.assertIn(
                 f'url:"./",revision:"{revision}"',
                 service_worker.read_text(encoding="utf-8"),
@@ -203,6 +203,14 @@ class TestApplianceWebUIIntegration(unittest.TestCase):
             self.assertIn("text/html", headers.get("content-type", ""))
             html = data.decode("utf-8")
             self.assertIn("ComputeMesh AI Studio", html)
+
+    def test_agent_workspace_static_index_served(self) -> None:
+        for path in ("/agent", "/agent/", "/agent.html"):
+            status, data, headers = self._get(path)
+            self.assertEqual(status, HTTPStatus.OK, f"Failed for {path}")
+            self.assertIn("text/html", headers.get("content-type", ""))
+            html = data.decode("utf-8")
+            self.assertIn("AGENT WORKSPACE", html)
 
     def test_webui_props_endpoint(self) -> None:
         status, data, _ = self._get("/webui/props")

@@ -70,7 +70,7 @@ class AutoUpdater:
         elif system == "linux":
             # Check if running inside NodeOS
             if Path("/etc/computemesh/nodeos_release").exists() or Path("/boot/computemesh.env").exists():
-                return "linux-x64"
+                return "nodeos-img"
             return "linux-x64"
         return "windows-x64"
 

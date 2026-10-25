@@ -55,7 +55,9 @@
 	}
 
 	function setAgentSessionPanelOpen(open) {
-		agentSessionPanelOpen = Boolean(open);
+		var useLegacy = false;
+		try { useLegacy = localStorage.getItem('cm_use_legacy_agent_popup') === '1'; } catch (_) {}
+		agentSessionPanelOpen = useLegacy && Boolean(open);
 		try { localStorage.setItem(AGENT_PANEL_OPEN_KEY, agentSessionPanelOpen ? '1' : '0'); } catch (_) {}
 		if (agentSessionPanel) agentSessionPanel.hidden = !agentSessionPanelOpen;
 		if (agentSessionToggle) {
@@ -695,7 +697,22 @@
 		agentSessionToggle.id = 'cm-agent-toggle';
 		agentSessionToggle.type = 'button';
 		agentSessionToggle.textContent = '✦ ' + agentPanelText('open');
-		agentSessionToggle.addEventListener('click', function () { setAgentSessionPanelOpen(!agentSessionPanelOpen); });
+		agentSessionToggle.addEventListener('click', function () {
+			var useLegacy = false;
+			try { useLegacy = localStorage.getItem('cm_use_legacy_agent_popup') === '1'; } catch (_) {}
+			if (useLegacy) {
+				setAgentSessionPanelOpen(!agentSessionPanelOpen);
+				return;
+			}
+			var targetUrl = '/agent';
+			if (agentSessionId) {
+				targetUrl += '?session_id=' + encodeURIComponent(agentSessionId);
+			}
+			if (selectedModel && selectedModel.id) {
+				targetUrl += (agentSessionId ? '&' : '?') + 'model=' + encodeURIComponent(selectedModel.id);
+			}
+			window.location.href = targetUrl;
+		});
 		document.body.appendChild(agentSessionToggle);
 		agentSessionPanel = document.createElement('section');
 		agentSessionPanel.id = 'cm-agent-session-panel';

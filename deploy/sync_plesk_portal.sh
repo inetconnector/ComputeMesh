@@ -27,8 +27,13 @@ echo "================================================================="
 RELEASE_TAG="${1:-}"
 if [ -z "${RELEASE_TAG}" ]; then
   echo "Error: Explicit release tag required as first parameter."
-  echo "Usage: $0 <release-tag> (e.g., $0 v1.2.185)"
+  echo "Usage: $0 <release-tag> (e.g., $0 v1.2.187)"
   echo "Silent fallbacks or unverified HEAD deployments are strictly prohibited."
+  exit 1
+fi
+
+if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  echo "Error: Release tag '${RELEASE_TAG}' must follow semantic versioning (vX.Y.Z)."
   exit 1
 fi
 
@@ -40,13 +45,14 @@ fi
 cd "${REPO_DIR}"
 git fetch origin --tags
 
-if ! git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null && ! git rev-parse -q --verify "${RELEASE_TAG}^{commit}" >/dev/null; then
-  echo "Error: Release ref '${RELEASE_TAG}' does not exist on origin or local tag index."
+if ! git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null; then
+  echo "Error: Release tag 'refs/tags/${RELEASE_TAG}' does not exist on origin or local tag index."
+  echo "Production deployment requires an explicit, annotated release tag."
   exit 1
 fi
 
 echo "[1/6] Checking out verified release tag (${RELEASE_TAG})..."
-git checkout "${RELEASE_TAG}"
+git checkout "refs/tags/${RELEASE_TAG}"
 
 PORTAL_SRC="${REPO_DIR}/portal"
 if [ ! -d "${PORTAL_SRC}" ]; then
@@ -80,7 +86,11 @@ rollback_and_exit() {
 echo "[2/6] Staging and synchronizing portal assets to site2 (${SITE2_DIR})..."
 if [ -d "${SITE2_DIR}" ]; then
   echo "Backing up site2 -> ${SITE2_BACKUP}..."
-  tar --exclude='downloads' --exclude='.git' -czf "${SITE2_BACKUP}" -C "${SITE2_DIR}" . 2>/dev/null || true
+  if ! tar --exclude='downloads' --exclude='.git' -czf "${SITE2_BACKUP}" -C "${SITE2_DIR}" .; then
+    echo "Error: Backup of site2 failed! Aborting before modifying production webroot."
+    exit 1
+  fi
+  test -s "${SITE2_BACKUP}" || { echo "Error: site2 backup archive is empty!"; exit 1; }
 
   rsync -av \
     --exclude='downloads' \
@@ -110,7 +120,11 @@ fi
 echo "[3/6] Staging and synchronizing portal assets to httpdocs (${HTTPDOCS_DIR})..."
 if [ -d "${HTTPDOCS_DIR}" ]; then
   echo "Backing up httpdocs -> ${HTTPDOCS_BACKUP}..."
-  tar --exclude='downloads' --exclude='.git' -czf "${HTTPDOCS_BACKUP}" -C "${HTTPDOCS_DIR}" . 2>/dev/null || true
+  if ! tar --exclude='downloads' --exclude='.git' -czf "${HTTPDOCS_BACKUP}" -C "${HTTPDOCS_DIR}" .; then
+    echo "Error: Backup of httpdocs failed! Aborting before modifying production webroot."
+    exit 1
+  fi
+  test -s "${HTTPDOCS_BACKUP}" || { echo "Error: httpdocs backup archive is empty!"; exit 1; }
 
   rsync -av \
     --exclude='downloads' \

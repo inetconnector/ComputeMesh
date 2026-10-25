@@ -33,6 +33,22 @@ class TestAutoUpdater(unittest.TestCase):
         self.assertEqual(AutoUpdater._parse_version("v1.2.5"), (1, 2, 5))
         self.assertTrue(AutoUpdater._parse_version("1.2.1") > AutoUpdater._parse_version("1.2.0"))
         self.assertFalse(AutoUpdater._parse_version("1.1.5") > AutoUpdater._parse_version("1.2.0"))
+        # Monotonic progression requirement: 1.2.187 > 1.2.186 > 1.2.185
+        v185 = AutoUpdater._parse_version("1.2.185")
+        v186 = AutoUpdater._parse_version("1.2.186")
+        v187 = AutoUpdater._parse_version("1.2.187")
+        self.assertTrue(v186 > v185)
+        self.assertTrue(v187 > v186)
+        self.assertTrue(v187 > v185)
+        self.assertFalse(v185 > v186)
+
+    def test_nodeos_platform_detection(self) -> None:
+        with patch("platform.system", return_value="Linux"):
+            with patch.object(Path, "exists", side_effect=lambda: True):
+                self.assertEqual(self.updater._get_platform_key(), "nodeos-img")
+        with patch("platform.system", return_value="Linux"):
+            with patch.object(Path, "exists", side_effect=lambda: False):
+                self.assertEqual(self.updater._get_platform_key(), "linux-x64")
 
     def test_signature_verification_success_and_tamper_detection(self) -> None:
         manifest_payload = {

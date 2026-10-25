@@ -294,13 +294,19 @@ class MeshTunnelServer:
                 return
 
             target_sock = socket.create_connection((self.target_host, self.target_port), timeout=5)
-            # Bidirectional pipe
-            t1 = threading.Thread(target=self._pipe, args=(client_ssl, target_sock, "c2t"), daemon=True)
-            t2 = threading.Thread(target=self._pipe, args=(target_sock, client_ssl, "t2c"), daemon=True)
+            stop_event = threading.Event()
+            t1 = threading.Thread(target=self._pipe, args=(client_ssl, target_sock, "c2t", stop_event), daemon=True)
+            t2 = threading.Thread(target=self._pipe, args=(target_sock, client_ssl, "t2c", stop_event), daemon=True)
             t1.start()
             t2.start()
-            t1.join()
-            t2.join()
+            while self._running and not stop_event.is_set():
+                t1.join(timeout=0.2)
+                t2.join(timeout=0.2)
+                if not t1.is_alive() or not t2.is_alive():
+                    stop_event.set()
+                    break
+            t1.join(timeout=1.0)
+            t2.join(timeout=1.0)
         except Exception as e:
             logger.debug(f"mTLS client session error: {e}")
         finally:
@@ -320,11 +326,17 @@ class MeshTunnelServer:
                 except Exception:
                     pass
 
-    def _pipe(self, src: socket.socket, dst: socket.socket, direction: str) -> None:
+    def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
         try:
-            while self._running:
-                n = src.recv_into(buf)
+            src.settimeout(0.5)
+            while self._running and not stop_event.is_set():
+                try:
+                    n = src.recv_into(buf)
+                except (socket.timeout, TimeoutError):
+                    continue
+                except OSError:
+                    break
                 if n == 0:
                     break
                 dst.sendall(buf[:n])
@@ -335,6 +347,7 @@ class MeshTunnelServer:
         except Exception:
             pass
         finally:
+            stop_event.set()
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
@@ -419,12 +432,19 @@ class MeshTunnelClient:
                 ssl_sock.close()
                 return
 
-            t1 = threading.Thread(target=self._pipe, args=(app_sock, ssl_sock, "a2s"), daemon=True)
-            t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a"), daemon=True)
+            stop_event = threading.Event()
+            t1 = threading.Thread(target=self._pipe, args=(app_sock, ssl_sock, "a2s", stop_event), daemon=True)
+            t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a", stop_event), daemon=True)
             t1.start()
             t2.start()
-            t1.join()
-            t2.join()
+            while self._running and not stop_event.is_set():
+                t1.join(timeout=0.2)
+                t2.join(timeout=0.2)
+                if not t1.is_alive() or not t2.is_alive():
+                    stop_event.set()
+                    break
+            t1.join(timeout=1.0)
+            t2.join(timeout=1.0)
         except Exception as e:
             logger.debug(f"mTLS app tunnel error: {e}")
         finally:
@@ -438,11 +458,17 @@ class MeshTunnelClient:
                 except Exception:
                     pass
 
-    def _pipe(self, src: socket.socket, dst: socket.socket, direction: str) -> None:
+    def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
         try:
-            while self._running:
-                n = src.recv_into(buf)
+            src.settimeout(0.5)
+            while self._running and not stop_event.is_set():
+                try:
+                    n = src.recv_into(buf)
+                except (socket.timeout, TimeoutError):
+                    continue
+                except OSError:
+                    break
                 if n == 0:
                     break
                 dst.sendall(buf[:n])
@@ -453,6 +479,7 @@ class MeshTunnelClient:
         except Exception:
             pass
         finally:
+            stop_event.set()
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)

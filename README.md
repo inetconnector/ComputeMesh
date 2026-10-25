@@ -135,8 +135,8 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - public live capacity counters based only on fresh authenticated node heartbeats;
 - **Active live mesh fleet (64 GB VRAM online):**
   - Node A (`test-node-custom`): Windows client with NVIDIA GeForce RTX 3080 Laptop GPU (16 GB VRAM), authenticated at the Gateway, **measured inference: 82.24 tokens/s** (Gemma 3 4B via Ollama adapter).
-  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.185 with 6x AMD Radeon Polaris GPUs (48 GB VRAM), authenticated via node tunnel, diagnosed for Vulkan llama-server and ext4 persistence.
-- **Unified test suite verification:** 887/887 tests passing across all 12 subsystems in `run_all_tests.py` plus 89 unit tests in ControlPlane (976 total).
+  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.187 with 6x AMD Radeon Polaris GPUs (48 GB VRAM), authenticated via node tunnel, diagnosed for Vulkan llama-server and ext4 persistence.
+- **Unified test suite verification:** 889/889 tests passing across all 12 subsystems in `run_all_tests.py` plus 89 unit tests in ControlPlane (978 total).
 - signed Windows and Linux clients with update checks;
 - a gateway that can receive AI requests;
 - an AI Studio web interface with API-key, passkey, magic-link and registration flows; magic-link requests use the gateway route, prevent duplicate submissions, time out clearly, and display readable API errors. Login emails use high-contrast, mail-client-compatible styling and include a wrapping fallback link. Native llama.cpp tools are reported as unavailable unless that optional server feature is enabled, while ComputeMesh MCP tools remain on their separate API;
@@ -166,9 +166,7 @@ ComputeMesh is currently a lab and pre-production system. It already includes:
 - security rules so protected jobs do not silently fall back to unsafe machines;
 - clear boundaries for what is still research and what is not yet a product promise.
 
-Current signed client/update channel: `v1.2.185` is the hardened dashboard/security branch. It removes node credentials from URLs, uses explicit node-token authorization for local actions, uses one-time enrollment tokens for QR pairing, bounds dashboard requests, includes bounded automatic private-LAN discovery, reports measured fan RPM separately from PWM duty, warns when model storage is too small or not persistent, lets an authenticated node follow the fleet owner key after a stale binding, provides model catalog fallbacks when local model runtimes are offline, enforces gateway fail-closed invariants, synchronizes Service Worker precache revisions, provides WebRTC P2P Mesh Fabric Resilience with CRC32 framing and dynamic mTLS fallback, enforces strict Model Catalog Fallback invariants, and provides Worker High-Availability with heartbeat lease tracking and fence-token split-brain protection. "Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1, 2, 3, 4 & 5)" phases have been implemented. Dynamic Peer-to-Peer Model Sharding & Distributed Off-Heap Cache Management phase has been implemented. Newly added UI text is kept in localized resources rather than hardcoded language-specific calls. Live deployment status is recorded in `state.md`.
-The portal-only code tag `v1.2.186` records the navigation rollout; it does
-not replace the signed NodeOS/installer channel above.
+Current signed client/update channel: `v1.2.187` is the strictly monotonic release succeeding `v1.2.186` and `v1.2.185`. It delivers: bidirectional mTLS tunnel deadlock and timeout fixes, deterministic Service Worker precache revisions (MD5 LF normalized), neutral resting action buttons with pink `:hover`/`:active` activation, full Codex-parity Agent Workspace integration (`/agent`) replacing the mini-popup, fail-closed auth token resolution without insecure fallback defaults, and hardened deployment rollback scripts. All 889 tests pass cleanly in `run_all_tests.py`. Live deployment status is recorded in `state.md`.
 
 The current working tree extends that mesh path for paired mobile clients: the
 Android WebUI contains the same model selector as the portal, refreshes LAN and

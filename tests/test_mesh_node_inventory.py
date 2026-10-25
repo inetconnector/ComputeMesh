@@ -17,6 +17,7 @@ from services.billing.owner_accounts import OwnerAccountStore
 from services.portal.server import PortalHandler
 from services.portal import passkey_routes
 from services.portal.fleet_accounts import FleetAccountStore
+from config import CONFIG
 
 PORT = 13028
 BASE = f"http://127.0.0.1:{PORT}"
@@ -64,7 +65,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
             "name": "CM Inference Node 01",
             "auth_token": "token_cm_01",
             "client_ip": "192.168.1.101",
-            "version": "1.2.185",
+            "version": CONFIG.appliance_version,
             "commit_sha": "0536423",
             "protocol_version": 2,
             "models": ["llama-3.2-3b-instruct", "mistral-7b-instruct"],
@@ -83,7 +84,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
             "name": "Primary Cluster Rig",
             "auth_token": "token_existing_pri",
             "client_ip": "192.168.1.102",
-            "version": "1.2.185",
+            "version": CONFIG.appliance_version,
             "commit_sha": "0536423",
             "protocol_version": 2,
             "models": ["llama-3.2-3b-instruct"],
@@ -183,7 +184,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
         # Assertion D: cm-inference-node-01 verification fields
         cm01 = node_map["cm-inference-node-01"]
         self.assertEqual(cm01["display_name"], "CM Inference Node 01")
-        self.assertEqual(cm01["software_version"], "1.2.185")
+        self.assertEqual(cm01["software_version"], CONFIG.appliance_version)
         self.assertEqual(cm01["commit_sha"], "0536423")
         self.assertEqual(cm01["capabilities"]["models"], ["llama-3.2-3b-instruct", "mistral-7b-instruct"])
         self.assertEqual(cm01["update_status"], "UP_TO_DATE")
@@ -211,7 +212,7 @@ class TestMeshNodeInventoryP0(unittest.TestCase):
             "node_id": "cm-inference-node-01",
             "name": "CM Inference Node 01",
             "auth_token": "token_http_01",
-            "version": "1.2.185",
+            "version": CONFIG.appliance_version,
             "commit_sha": "0536423",
             "updated_at": (now - timedelta(seconds=2)).isoformat().replace("+00:00", "Z"),
         }

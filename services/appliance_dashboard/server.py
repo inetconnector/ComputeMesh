@@ -307,6 +307,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
                 return
 
+        # Agent Workspace routes
+        if clean_path in ("/agent", "/agent.html") or req_path in ("/agent/",):
+            agent_target = _safe_resolve_portal_file("agent.html")
+            if agent_target and agent_target.exists():
+                data = agent_target.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self._send_cors_headers()
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
+        if req_path.startswith("/agent-workspace/"):
+            sub_rel = req_path.removeprefix("/agent-workspace/").lstrip("/\\")
+            target_f = _safe_resolve_portal_file(f"agent-workspace/{sub_rel}")
+            if target_f and target_f.exists():
+                suffix = target_f.suffix.lower()
+                ctype = "application/javascript; charset=utf-8" if suffix in (".js", ".mjs") else "text/css; charset=utf-8" if suffix == ".css" else "application/octet-stream"
+                data = target_f.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                self._send_cors_headers()
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
         if req_path.startswith("/webui/"):
             sub_rel = req_path.removeprefix("/webui/")
             target_f = _safe_resolve_portal_file(f"webui/{sub_rel}")

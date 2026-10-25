@@ -756,13 +756,19 @@
     }
 
     async function fetchWithAuth(url, options = {}) {
-      const token = localStorage.getItem('cm_auth_token') || 'local_dev_token';
+      let token = localStorage.getItem('cm_auth_token') || localStorage.getItem('cm_session_token') || localStorage.getItem('cm_api_key') || localStorage.getItem('apiKey');
+      if (!token) {
+        const cookieMatch = document.cookie.match(/(?:^|;\s*)cm_session=([^;]+)/);
+        if (cookieMatch) token = decodeURIComponent(cookieMatch[1]);
+      }
       const headers = {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         ...(options.headers || {})
       };
-      return fetch(url, { ...options, headers });
+      if (token && token.trim()) {
+        headers['Authorization'] = `Bearer ${token.trim()}`;
+      }
+      return fetch(url, { credentials: 'include', ...options, headers });
     }
 
     async function loadSessions() {
@@ -1004,5 +1010,13 @@
       loadSessions();
     });
   </script>
+  <script src="/agent-workspace/auth.js"></script>
+  <script src="/agent-workspace/i18n.js"></script>
+  <script src="/agent-workspace/state.js"></script>
+  <script src="/agent-workspace/sidebar.js"></script>
+  <script src="/agent-workspace/timeline.js"></script>
+  <script src="/agent-workspace/composer.js"></script>
+  <script src="/agent-workspace/inspector.js"></script>
+  <script src="/agent-workspace/app.js"></script>
 </body>
 </html>

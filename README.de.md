@@ -73,7 +73,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Live-Zähler für öffentliche Kapazität, die nur frische authentifizierte Node-Heartbeats zählen;
 - **Aktive Live-Mesh-Flotte (64 GB VRAM online):**
   - Node A (`test-node-custom`): Windows-Client mit NVIDIA GeForce RTX 3080 Laptop GPU (16 GB VRAM), authentifiziert am Gateway, **gemessene Inferenzleistung: 82,24 Token/s** (Gemma 3 4B via Ollama-Adapter).
-  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.185 mit 6x AMD Radeon Polaris GPUs (48 GB VRAM), authentifiziert via Node-Tunnel, diagnostiziert für Vulkan llama-server und ext4-Persistenz.
+  - Node B (`cm-inference-node-01`): Linux NodeOS 1.2.187 mit 6x AMD Radeon Polaris GPUs (48 GB VRAM), authentifiziert via Node-Tunnel, diagnostiziert für Vulkan llama-server und ext4-Persistenz.
 - serialisierte Appliance-Heartbeats: Beim Umbenennen einer Node bleibt die ID vom sofortigen Sync über den gesendeten Payload bis zum Rückgabewert konsistent, auch wenn der periodische Hintergrundprozess läuft;
 - signierte Windows- und Linux-Clients mit Update-Prüfung;
 - ein Gateway, über das KI-Anfragen angenommen werden können;
@@ -84,7 +84,7 @@ ComputeMesh ist heute ein Labor- und Vorproduktionssystem. Es gibt bereits:
 - Sicherheitsregeln, damit geschützte Jobs nicht einfach auf unsichere Rechner fallen;
 - klare Grenzen dafür, was noch Forschung ist und was noch nicht als Produkt versprochen wird.
 
-Aktueller signierter Client-/Update-Kanal: `v1.2.185` ist aus dem gehärteten Dashboard-Zweig gebaut. Node-Zugangsdaten stehen nicht mehr in URLs; Remote-Ansichten verwenden kurzlebige Owner-Sessions, das NodeOS kann das private LAN begrenzt automatisch nach weiteren Nodes durchsuchen, ein authentifizierter Node kann nach einer veralteten Zuordnung automatisch dem aktuell präsentierten Flotten-Key folgen, Modellkatalog-Fallbacks sind bei inaktiven lokalen Runtimes aktiv, setzt Fail-Closed-Gateway-Invarianten durch, Service Worker Precache-Revisionen sind synchronisiert, bietet WebRTC P2P Mesh Fabric Resilienz mit CRC32-Framing und dynamischem mTLS-Fallback, erzwingt strikte Modellkatalog-Invarianzprüfungen und bietet Worker High-Availability mit Heartbeat-Lease-Tracking und Fence-Token Split-Brain Schutz. "Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 1, 2, 3, 4 & 5)" umgesetzt (MeshCircuitBreaker, IdempotencyEnforcer, WorkloadAdmissionGate, StrictStateRecovery, PrivacyConstraintEvaluator, NodeLifecycleManager, ContentAddressedArtifactRegistry, PrivacyPreservingTelemetry, RuntimeSandbox, HardConstraintScheduler, AuditableBillingEventLogger, SplitPhasePerformanceModel). Alle 887 Tests der einheitlichen Testsuite bestehen fehlerfrei. Der Live-Stand steht in `state.md`.
+Aktueller signierter Client-/Update-Kanal: `v1.2.187` ist der strikt monotone Nachfolger von `v1.2.186` und `v1.2.185`. Er liefert: mTLS-Tunnel Deadlock- und Timeout-Korrektur, deterministische Service-Worker-Precache-Revisionen (LF-normalisiert), neutrale Ruhezustände für Aktionsschaltflächen mit rosa Aktivierung bei Hover/Active, vollständige Codex-Parität für den Agent Workspace (`/agent`) als Ersatz für das Mini-Popup, lückenlose Fail-Closed-Authentifizierung ohne Entwicklungs-Fallback und gehärtete Deployment-Rollback-Skripte. Alle 889 Tests der einheitlichen Testsuite bestehen fehlerfrei. Der Live-Stand steht in `state.md`.
 
 
 Der aktuelle Arbeitsstand erweitert diesen Mesh-Pfad für gekoppelte Mobilgeräte:
