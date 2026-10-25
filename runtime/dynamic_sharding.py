@@ -203,6 +203,8 @@ class DecentralizedShardFailover:
         self._heartbeats: dict[str, PeerCapabilityHeartbeat] = {}
         self._shard_replicas: dict[str, list[str]] = {} # chunk_id -> list of peer_ids
         self._active_primary: dict[str, str] = {} # chunk_id -> primary peer_id
+        self._corrupted_peers: dict[str, list[str]] = {} # chunk_id -> list of corrupted peer_ids
+        self._votes: dict[str, dict[str, dict[str, str]]] = {} # chunk_id -> proposed_state -> voter_id -> status
 
     def register_heartbeat(self, peer_id: str, vram: int, tflops: float, latency: float) -> None:
         with self._lock:
@@ -226,8 +228,47 @@ class DecentralizedShardFailover:
 
         return True
 
+    def submit_vote(self, voter_id: str, chunk_id: str, proposed_state: str) -> bool:
+        """Submits a vote for a proposed state (e.g., promotion, eviction) for a chunk. Returns True if a 2/3 Byzantine-tolerant quorum is reached."""
+        with self._lock:
+            if voter_id not in self._heartbeats or self._heartbeats[voter_id].status != "active":
+                return False
+
+            if chunk_id not in self._votes:
+                self._votes[chunk_id] = {}
+            if proposed_state not in self._votes[chunk_id]:
+                self._votes[chunk_id][proposed_state] = {}
+
+            self._votes[chunk_id][proposed_state][voter_id] = "voted"
+
+            now = time.time()
+            active_peers_count = sum(
+                1 for hb in self._heartbeats.values()
+                if (now - hb.last_heartbeat) <= self.heartbeat_timeout and hb.status == "active"
+            )
+
+            # Byzantine tolerance requires > 2/3 majority
+            votes_received = len(self._votes[chunk_id][proposed_state])
+            quorum_needed = (2 * active_peers_count // 3) + 1
+
+            if votes_received >= quorum_needed:
+                log.info("Byzantine quorum reached for chunk %s state %s (%d/%d active peers)", chunk_id, proposed_state, votes_received, active_peers_count)
+                # Clear votes after consensus to allow future votes
+                self._votes[chunk_id] = {}
+                return True
+            return False
+
+    def report_corrupted_replica(self, chunk_id: str, peer_id: str) -> None:
+        """Reports a corrupted replica (e.g., failed Merkle verification) to exclude it from being primary."""
+        with self._lock:
+            if chunk_id not in self._corrupted_peers:
+                self._corrupted_peers[chunk_id] = []
+            if peer_id not in self._corrupted_peers[chunk_id]:
+                self._corrupted_peers[chunk_id].append(peer_id)
+                log.warning("Peer %s reported as corrupted for chunk %s", peer_id, chunk_id)
+
     def check_failover(self, chunk_id: str) -> str | None:
-        """Checks if the primary peer is dead and performs failover if necessary. Returns the new primary peer or None if failed."""
+        """Checks if the primary peer is dead or corrupted and performs failover if necessary. Returns the new primary peer or None if failed."""
         with self._lock:
             if chunk_id not in self._active_primary:
                 return None
@@ -236,29 +277,32 @@ class DecentralizedShardFailover:
             primary_hb = self._heartbeats.get(primary_peer)
             now = time.time()
 
-            # Check if primary is alive
-            if primary_hb and (now - primary_hb.last_heartbeat) <= self.heartbeat_timeout and primary_hb.status == "active":
-                return primary_peer # Primary is still alive
+            corrupted_for_chunk = self._corrupted_peers.get(chunk_id, [])
 
-            # Primary is dead, perform failover
-            log.warning("Primary peer %s for chunk %s timed out. Initiating failover.", primary_peer, chunk_id)
-            if primary_hb:
+            # Check if primary is alive and NOT corrupted
+            if primary_hb and (now - primary_hb.last_heartbeat) <= self.heartbeat_timeout and primary_hb.status == "active" and primary_peer not in corrupted_for_chunk:
+                return primary_peer # Primary is still alive and healthy
+
+            # Primary is dead or corrupted, perform failover
+            reason = "corrupted" if primary_peer in corrupted_for_chunk else "timed out"
+            log.warning("Primary peer %s for chunk %s %s. Initiating failover.", primary_peer, chunk_id, reason)
+            if primary_hb and reason == "timed out":
                 primary_hb.status = "dead"
 
             replicas = self._shard_replicas.get(chunk_id, [])
             alive_replicas = []
             for replica in replicas:
+                if replica in corrupted_for_chunk:
+                    continue # Skip corrupted replicas
                 hb = self._heartbeats.get(replica)
                 if hb and (now - hb.last_heartbeat) <= self.heartbeat_timeout and hb.status == "active":
                     alive_replicas.append((replica, hb))
 
             if not alive_replicas:
-                log.error("All replicas for chunk %s have dropped out. Freeing atomic quota.", chunk_id)
-                # No replicas alive, free the chunk to preserve quota
+                log.error("All valid replicas for chunk %s have dropped out or corrupted. Freeing atomic quota.", chunk_id)
+                # No valid replicas alive, free the chunk to preserve quota
                 self._active_primary.pop(chunk_id, None)
                 self._shard_replicas.pop(chunk_id, None)
-                # We need to call cache_manager.free_chunk without holding our lock to avoid deadlocks?
-                # Better to just free it since off-heap cache manager has its own lock.
                 pass
             else:
                 # Select the best replica (e.g., lowest latency or highest VRAM)

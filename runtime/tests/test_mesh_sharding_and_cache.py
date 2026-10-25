@@ -83,10 +83,28 @@ class TestDistributedModelCache(unittest.TestCase):
         self.assertTrue(self.cache.pin_model_shard("pinned-model-1", True))
         integrity = self.cache.verify_shard_integrity("pinned-model-1")
         self.assertTrue(integrity["valid"])
+        self.assertTrue(integrity["merkle_valid"])
         self.assertEqual(len(integrity["missing_chunks"]), 0)
 
         missing = self.cache.get_missing_chunks("pinned-model-1", 3)
         self.assertIn(2, missing)
+
+    def test_merkle_verification_corrupted(self):
+        chunks = [(0, b"chunk_1"), (1, b"chunk_2")]
+        manifest = self.cache.register_model_shard("corrupted-model", total_size_bytes=100, chunks_data=chunks)
+
+        integrity = self.cache.verify_shard_integrity("corrupted-model")
+        self.assertTrue(integrity["valid"])
+        self.assertTrue(integrity["merkle_valid"])
+
+        # Corrupt the manifest's merkle root manually
+        manifest.merkle_root = "bad_root"
+        with self.cache._lock:
+            self.cache._manifests["corrupted-model"] = manifest
+
+        integrity_bad = self.cache.verify_shard_integrity("corrupted-model")
+        self.assertFalse(integrity_bad["valid"])
+        self.assertFalse(integrity_bad["merkle_valid"])
 
 
 class TestP2PStreamFederation(unittest.TestCase):
@@ -192,6 +210,52 @@ class TestDecentralizedShardFailover(unittest.TestCase):
         active_final = failover.check_failover(chunk_id)
         self.assertIsNone(active_final)
         self.assertEqual(cache_manager.get_used_quota(), 0) # Quota freed atomically
+
+    def test_byzantine_quorum_voting(self):
+        cache_manager = OffHeapCacheManager(max_quota_bytes=1024 * 1024)
+        failover = DecentralizedShardFailover(cache_manager=cache_manager, heartbeat_timeout=5.0)
+
+        # Register 4 active peers
+        failover.register_heartbeat("peer-1", vram=8*1024**3, tflops=10.0, latency=5.0)
+        failover.register_heartbeat("peer-2", vram=8*1024**3, tflops=10.0, latency=5.0)
+        failover.register_heartbeat("peer-3", vram=8*1024**3, tflops=10.0, latency=5.0)
+        failover.register_heartbeat("peer-4", vram=8*1024**3, tflops=10.0, latency=5.0)
+
+        # 4 peers: 2/3 is 2.66 -> requires 3 votes
+
+        # 1 vote
+        res = failover.submit_vote("peer-1", "chunk_v1", "promote")
+        self.assertFalse(res)
+
+        # 2 votes
+        res = failover.submit_vote("peer-2", "chunk_v1", "promote")
+        self.assertFalse(res)
+
+        # 3 votes -> quorum reached
+        res = failover.submit_vote("peer-3", "chunk_v1", "promote")
+        self.assertTrue(res)
+
+    def test_corrupted_replica_failover(self):
+        cache_manager = OffHeapCacheManager(max_quota_bytes=1024 * 1024)
+        failover = DecentralizedShardFailover(cache_manager=cache_manager, heartbeat_timeout=5.0)
+
+        chunk_id = "chunk_failover_corr"
+        data = b"shard_data_replica"
+
+        failover.register_heartbeat("peer-1", vram=8*1024**3, tflops=10.0, latency=5.0)
+        failover.register_heartbeat("peer-2", vram=8*1024**3, tflops=10.0, latency=10.0)
+
+        failover.allocate_shard_replica(chunk_id, "peer-1", data, replicas=["peer-2"])
+
+        # primary is peer-1
+        self.assertEqual(failover.check_failover(chunk_id), "peer-1")
+
+        # peer-1 gets corrupted
+        failover.report_corrupted_replica(chunk_id, "peer-1")
+
+        # checking failover should promote peer-2 since peer-1 is corrupted
+        new_primary = failover.check_failover(chunk_id)
+        self.assertEqual(new_primary, "peer-2")
 
 if __name__ == "__main__":
     unittest.main()
