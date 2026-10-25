@@ -14,6 +14,7 @@ import threading
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
+from multiprocessing import shared_memory
 
 log = logging.getLogger("computemesh.runtime.distributed_cache")
 
@@ -245,3 +246,80 @@ class DistributedModelCache:
 
 
 GLOBAL_DISTRIBUTED_MODEL_CACHE = DistributedModelCache()
+
+
+class OffHeapCacheManager:
+    """Manages decentralized off-heap caching using multiprocessing shared memory."""
+
+    def __init__(self, max_quota_bytes: int):
+        self.max_quota_bytes = max_quota_bytes
+        self._lock = threading.Lock()
+        self._used_quota = 0
+        self._chunks: dict[str, dict[str, Any]] = {}
+
+    def allocate_chunk(self, chunk_id: str, data: bytes) -> bool:
+        size = len(data)
+        with self._lock:
+            if chunk_id in self._chunks:
+                return False
+            if self._used_quota + size > self.max_quota_bytes:
+                return False
+            self._used_quota += size
+
+        try:
+            shm = shared_memory.SharedMemory(create=True, size=size)
+            shm.buf[:size] = data
+            with self._lock:
+                # Retain open shm handle to prevent Windows from releasing the named mapping early
+                self._chunks[chunk_id] = {"shm": shm, "shm_name": shm.name, "size": size}
+            return True
+        except Exception as e:
+            with self._lock:
+                self._used_quota -= size
+            log.warning("Failed to allocate off-heap memory for %s: %s", chunk_id, e)
+            return False
+
+    def read_chunk(self, chunk_id: str) -> bytes | None:
+        with self._lock:
+            if chunk_id not in self._chunks:
+                return None
+            info = self._chunks[chunk_id]
+            shm = info.get("shm")
+            size = info["size"]
+            if shm is not None:
+                return bytes(shm.buf[:size])
+            shm_name = info["shm_name"]
+
+        try:
+            shm = shared_memory.SharedMemory(name=shm_name)
+            data = bytes(shm.buf[:size])
+            shm.close()
+            return data
+        except Exception as e:
+            log.warning("Failed to read off-heap memory for %s: %s", chunk_id, e)
+            return None
+
+    def free_chunk(self, chunk_id: str) -> None:
+        with self._lock:
+            if chunk_id not in self._chunks:
+                return
+            info = self._chunks.pop(chunk_id)
+            shm = info.get("shm")
+            shm_name = info["shm_name"]
+            size = info["size"]
+            self._used_quota -= size
+
+        try:
+            if shm is not None:
+                shm.close()
+                shm.unlink()
+            else:
+                s = shared_memory.SharedMemory(name=shm_name)
+                s.close()
+                s.unlink()
+        except Exception as e:
+            log.warning("Failed to free off-heap memory for %s: %s", chunk_id, e)
+
+    def get_used_quota(self) -> int:
+        with self._lock:
+            return self._used_quota

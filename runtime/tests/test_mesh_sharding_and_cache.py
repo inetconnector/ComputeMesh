@@ -4,7 +4,7 @@ import time
 import tempfile
 from pathlib import Path
 from runtime.dynamic_sharding import DynamicShardingEngine, NodeShardCapability
-from runtime.distributed_model_cache import DistributedModelCache
+from runtime.distributed_model_cache import DistributedModelCache, OffHeapCacheManager
 from runtime.p2p_stream_federation import P2PStreamFederator
 
 class TestDynamicShardingEngine(unittest.TestCase):
@@ -128,6 +128,32 @@ class TestP2PStreamFederation(unittest.TestCase):
         metrics = federator.get_stream_metrics("stream-456")
         self.assertTrue(metrics["failover_occurred"])
         self.assertEqual(metrics["active_peer_id"], "peer-2")
+
+
+class TestOffHeapCacheManager(unittest.TestCase):
+    def test_allocate_and_read(self):
+        manager = OffHeapCacheManager(max_quota_bytes=1024 * 1024) # 1MB quota
+
+        # Test basic allocation
+        data = b"hello_off_heap"
+        success = manager.allocate_chunk("chunk_1", data)
+        self.assertTrue(success)
+        self.assertEqual(manager.get_used_quota(), len(data))
+
+        # Test read
+        read_data = manager.read_chunk("chunk_1")
+        self.assertEqual(read_data, data)
+
+        # Test atomic quota enforcement
+        large_data = b"A" * (1024 * 1024)
+        success_large = manager.allocate_chunk("chunk_2", large_data)
+        self.assertFalse(success_large) # Should fail due to quota
+        self.assertEqual(manager.get_used_quota(), len(data)) # Quota unchanged
+
+        # Test free
+        manager.free_chunk("chunk_1")
+        self.assertEqual(manager.get_used_quota(), 0)
+        self.assertIsNone(manager.read_chunk("chunk_1"))
 
 
 if __name__ == "__main__":
