@@ -183,3 +183,4 @@ Private merge commit `7cd2a7b015825b210a5df4992e9166244743215d` has the previous
 - v22: Handoff-Envelope compatibility contract (`PUBLIC_PIN`) created and integrated to ensure private orchestration plans couple to the Public Runtime exclusively via a documented, minimal signed envelope without importing private scores/secrets. Also documented actual benchmarks: 129.5 req/sec throughput, 4.252 ms dispatch latency; Restart and VRAM metrics remain NO DATA.
 
 - [x] Phase 87: Dynamic Peer Capability Heartbeats & Decentralized Shard Failover
+- [x] Phase 88: Decentralized Peer Consensus & Merkle Verification for Shard Replication

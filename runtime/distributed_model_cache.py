@@ -35,9 +35,29 @@ class CachedModelShardManifest:
     chunk_size_bytes: int
     total_chunks: int
     sha256_hash: str
+    merkle_root: str = ""
     chunks: list[ModelChunkMetadata] = field(default_factory=list)
     last_accessed: float = field(default_factory=time.time)
     is_pinned: bool = False
+
+
+def compute_merkle_root(chunk_hashes: list[str]) -> str:
+    """Computes a cryptographic Merkle root from a list of chunk hashes."""
+    if not chunk_hashes:
+        return ""
+    if len(chunk_hashes) == 1:
+        return chunk_hashes[0]
+
+    current_level = chunk_hashes[:]
+    while len(current_level) > 1:
+        next_level = []
+        for i in range(0, len(current_level), 2):
+            left = current_level[i]
+            right = current_level[i + 1] if i + 1 < len(current_level) else left
+            combined = left + right
+            next_level.append(hashlib.sha256(combined.encode()).hexdigest())
+        current_level = next_level
+    return current_level[0]
 
 
 class DistributedModelCache:
@@ -107,12 +127,17 @@ class DistributedModelCache:
                 overall_hasher.update(cb)
             sha256_hash = overall_hasher.hexdigest()
 
+        # Compute Merkle root from chunks
+        chunk_hashes = [m.sha256_hash for m in chunk_metas]
+        merkle_root = compute_merkle_root(chunk_hashes)
+
         manifest = CachedModelShardManifest(
             model_id=model_id,
             total_size_bytes=total_size_bytes,
             chunk_size_bytes=chunks_data[0][1].__len__() if chunks_data else 0,
             total_chunks=len(chunks_data),
             sha256_hash=sha256_hash,
+            merkle_root=merkle_root,
             chunks=chunk_metas,
             last_accessed=time.time(),
             is_pinned=is_pinned,
@@ -163,13 +188,21 @@ class DistributedModelCache:
                 if file_hash != chunk.sha256_hash:
                     corrupted_chunks.append(chunk.chunk_index)
 
-            is_valid = len(corrupted_chunks) == 0 and len(missing_chunks) == 0
+            # Verify Merkle root
+            chunk_hashes = [c.sha256_hash for c in manifest.chunks]
+            computed_merkle_root = compute_merkle_root(chunk_hashes)
+            merkle_valid = manifest.merkle_root == computed_merkle_root if manifest.merkle_root else True
+            if not merkle_valid:
+                log.warning("Merkle root mismatch for shard %s: expected %s, got %s", model_id, manifest.merkle_root, computed_merkle_root)
+
+            is_valid = len(corrupted_chunks) == 0 and len(missing_chunks) == 0 and merkle_valid
             return {
                 "valid": is_valid,
                 "model_id": model_id,
                 "total_chunks": manifest.total_chunks,
                 "missing_chunks": missing_chunks,
                 "corrupted_chunks": corrupted_chunks,
+                "merkle_valid": merkle_valid,
                 "verified_at": time.time(),
             }
 
