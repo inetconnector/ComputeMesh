@@ -584,7 +584,13 @@ class PortalHandler(BaseHTTPRequestHandler):
             facc_id = facc.account_id if facc else (account.account_id if account else None)
             derived_owner_id = owner_id_for_key(owner_key) if owner_key else None
             owner_id = facc_id or derived_owner_id
-            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True)
+            from urllib.parse import urlparse, parse_qs
+            _parsed = urlparse(self.path)
+            _qs = parse_qs(_parsed.query)
+            _limit = int(_qs["limit"][0]) if "limit" in _qs and _qs["limit"][0].isdigit() else None
+            _offset = int(_qs["offset"][0]) if "offset" in _qs and _qs["offset"][0].isdigit() else 0
+            _status_filter = _qs.get("status", [None])[0]
+            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True, limit=_limit, offset=_offset, status_filter=_status_filter)
 
             is_banned = False
             binfo = None
@@ -618,7 +624,13 @@ class PortalHandler(BaseHTTPRequestHandler):
             derived_owner_id = owner_id_for_key(owner_key)
             owner_id = facc_id or derived_owner_id
 
-            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True)
+            from urllib.parse import urlparse, parse_qs
+            _parsed = urlparse(self.path)
+            _qs = parse_qs(_parsed.query)
+            _limit = int(_qs["limit"][0]) if "limit" in _qs and _qs["limit"][0].isdigit() else None
+            _offset = int(_qs["offset"][0]) if "offset" in _qs and _qs["offset"][0].isdigit() else 0
+            _status_filter = _qs.get("status", [None])[0]
+            payload = _build_fleet_payload(derived_owner_id or facc_id, include_remote_urls=True, limit=_limit, offset=_offset, status_filter=_status_filter)
             is_banned = False
             binfo = None
             for check_id in filter(None, [facc_id, derived_owner_id, owner_id]):

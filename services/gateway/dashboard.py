@@ -139,8 +139,10 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
         except Exception:
             pass
 
-    if not urls:
-        urls.extend([f"http://localhost:{port}", f"http://127.0.0.1:{port}"])
+    for loopback in [f"http://localhost:{port}", f"http://127.0.0.1:{port}"]:
+        if loopback not in seen:
+            seen.add(loopback)
+            urls.append(loopback)
 
     return urls
 

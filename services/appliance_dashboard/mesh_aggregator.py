@@ -136,26 +136,28 @@ class MeshRegistryAggregator:
                             nodes = fleet_data.get("nodes", [])
                             for n in nodes:
                                 nid = str(n.get("node_id", "")).strip()
-                                if not nid or nid == local_nid or not n.get("is_online", False):
+                                if not nid or nid == local_nid:
                                     continue
-                                if nid in ("test-node-custom", "mifcom", "windows-laptop", "unnamed-node"):
-                                    continue
+
+                                is_online = bool(n.get("is_online", False))
+                                node_status = str(n.get("status") or ("online" if is_online else "offline"))
 
                                 gpus_list = n.get("gpus", [])
                                 vram_total = int(float(n.get("vram_gb", 0) or 0) * (1024**3))
-                                if not gpus_list and vram_total <= 0:
-                                    continue
 
                                 peer_dict = {
                                     "node_id": nid,
-                                    "status": "online",
+                                    "display_name": n.get("display_name") or nid,
+                                    "status": node_status,
+                                    "software_version": n.get("software_version") or n.get("version") or "unknown",
+                                    "update_status": n.get("update_status", "UNKNOWN"),
                                     "inventory": {
                                         "total_vram_bytes": vram_total,
                                         "gpus": [
                                             {
                                                 "vendor": "nvidia" if "nvidia" in str(g).lower() else ("amd" if "amd" in str(g).lower() else "unknown"),
                                                 "model_name": str(g),
-                                                "vram_bytes": vram_total // max(1, len(gpus_list)),
+                                                "vram_bytes": vram_total // max(1, len(gpus_list)) if gpus_list else vram_total,
                                                 "healthy": True,
                                             }
                                             for g in gpus_list
@@ -165,10 +167,10 @@ class MeshRegistryAggregator:
                                         "local_compute_tflops": float(n.get("tflops", 0.0) or 0.0),
                                         "tokens_processed": 0,
                                     },
-                                    "last_seen": now_ts,
+                                    "last_seen": now_ts if is_online else n.get("last_seen"),
                                 }
                                 peer_sig = _extract_discrete_gpu_signature(peer_dict)
-                                if local_sig and peer_sig == local_sig:
+                                if local_sig and peer_sig and peer_sig == local_sig:
                                     # Same hardware signature as local host — skip duplicate
                                     continue
 
@@ -177,14 +179,19 @@ class MeshRegistryAggregator:
             except Exception:
                 pass
 
-            # 3. Evict stale peer entries not seen for > 20 seconds
+            # 3. Update peer status without silently purging offline nodes
             with self._lock:
-                stale_keys = [
-                    k for k, v in self._peer_nodes.items()
-                    if now_ts - float(v.get("last_seen", 0) or 0) > 20.0
-                ]
-                for k in stale_keys:
-                    self._peer_nodes.pop(k, None)
+                for k, v in self._peer_nodes.items():
+                    # For direct polled nodes, update status based on last seen age
+                    last_seen_val = float(v.get("last_seen", 0) or 0)
+                    if last_seen_val > 0:
+                        age = now_ts - last_seen_val
+                        if age > 120.0:
+                            v["status"] = "offline"
+                        elif age > 20.0:
+                            v["status"] = "stale"
+                        else:
+                            v["status"] = "online"
 
             time.sleep(5)
 
@@ -227,19 +234,18 @@ class MeshRegistryAggregator:
                 p_nid = str(peer_data.get("node_id", "")).strip()
                 if not p_nid or p_nid in seen_nids:
                     continue
-                if p_nid in ("test-node-custom", "mifcom", "windows-laptop", "unnamed-node"):
-                    continue
 
                 p_sig = _extract_discrete_gpu_signature(peer_data)
-                if not p_sig:
-                    # Node has no discrete GPUs or VRAM
+                if p_sig and local_sig and p_sig == local_sig:
+                    # Exact duplicate hardware signature of local machine
                     continue
-                if p_sig in seen_signatures:
+                if p_sig and p_sig in seen_signatures:
                     # Exact same physical GPU hardware already represented in mesh
                     continue
 
                 seen_nids.add(p_nid)
-                seen_signatures.add(p_sig)
+                if p_sig:
+                    seen_signatures.add(p_sig)
                 nodes.append(peer_data)
 
         total_gpus = 0
@@ -251,6 +257,9 @@ class MeshRegistryAggregator:
         local_nid = str((local_status or getattr(self, "_local_status", {})).get("node_id", ""))
 
         for n in nodes:
+            node_status = n.get("status", "online")
+            is_online = (node_status == "online")
+
             inv = n.get("inventory", {})
             tel = n.get("telemetry", {})
             gpus = inv.get("gpus", [])
@@ -262,35 +271,51 @@ class MeshRegistryAggregator:
             if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0 and not is_integrated_display_adapter("unknown", inv.get("host_architecture", "")):
                 node_vram_bytes = inv.get("total_vram_bytes", 0)
 
-            total_gpus += len(healthy_gpus)
-            total_vram_bytes += node_vram_bytes
-
             tf = float(tel.get("local_compute_tflops", 0.0) or 0.0)
 
-            total_tflops += tf
-            total_tokens += int(tel.get("tokens_processed", 0) or 0)
+            # Only active online nodes contribute to cluster operational capacity
+            if is_online:
+                total_gpus += len(healthy_gpus)
+                total_vram_bytes += node_vram_bytes
+                total_tflops += tf
+                total_tokens += int(tel.get("tokens_processed", 0) or 0)
 
             current_nid = str(n.get("node_id", ""))
             is_local = (current_nid == local_nid) if (local_nid and current_nid) else False
 
             gpu_names = [f"{g.get('model_name', 'GPU')} ({round(g.get('vram_bytes', 0)/(1024**3), 1)} GB)" for g in healthy_gpus]
-            gpu_summary = ", ".join(gpu_names) if gpu_names else f"{len(healthy_gpus)} GPU(s)"
+            gpu_summary = ", ".join(gpu_names) if gpu_names else (f"{len(healthy_gpus)} GPU(s)" if healthy_gpus else "CPU-only")
 
             node_details.append({
                 "node_id": current_nid or "unnamed-node",
+                "display_name": n.get("display_name") or current_nid or "unnamed-node",
                 "is_local": is_local,
+                "status": node_status,
+                "is_online": is_online,
                 "gpus_count": len(healthy_gpus),
                 "gpu_summary": gpu_summary,
                 "vram_gb": round(node_vram_bytes / (1024**3), 1),
-                "tflops": round(tf, 1),
+                "tflops": round(tf, 1) if is_online else 0.0,
                 "tokens": tel.get("tokens_processed", 0),
+                "software_version": n.get("software_version") or n.get("version") or "unknown",
+                "last_seen": n.get("last_seen"),
+                "update_status": n.get("update_status", "UNKNOWN"),
             })
 
         vram_gb = round(total_vram_bytes / (1024**3), 1)
 
+        online_count = sum(1 for nd in node_details if nd.get("status") == "online")
+        stale_count = sum(1 for nd in node_details if nd.get("status") == "stale")
+        offline_count = sum(1 for nd in node_details if nd.get("status") == "offline")
+        quarantined_count = sum(1 for nd in node_details if nd.get("status") == "quarantined")
+
         return {
             "source": "authenticated_registry",
-            "total_nodes_online": len(nodes),
+            "total_nodes_registered": len(node_details),
+            "total_nodes_online": online_count,
+            "total_nodes_stale": stale_count,
+            "total_nodes_offline": offline_count,
+            "total_nodes_quarantined": quarantined_count,
             "total_gpus_active": total_gpus,
             "total_vram_gb": vram_gb,
             "total_vram_bytes": total_vram_bytes,
