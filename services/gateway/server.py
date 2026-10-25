@@ -98,13 +98,16 @@ def _extract_discrete_hardware_fingerprint(n: dict[str, Any]) -> tuple[Any, ...]
     from tools.appliance.hardware_detector import is_integrated_display_adapter
     discrete = []
     for g in gpus:
-        v = str(g.get("vendor", "")).strip().lower()
-        m = str(g.get("model_name", "")).strip()
-        vr = int(g.get("vram_bytes", 0) or 0)
-        if g.get("healthy", True) and not is_integrated_display_adapter(v, m):
-            discrete.append((v, m, vr))
+        if isinstance(g, dict):
+            v = str(g.get("vendor", "")).strip().lower()
+            m = str(g.get("model_name", "")).strip()
+            vr = int(g.get("vram_bytes", 0) or 0)
+            if g.get("healthy", True) and not is_integrated_display_adapter(v, m):
+                discrete.append((v, m, vr))
+        elif isinstance(g, str) and g.strip():
+            discrete.append(("gpu_name", g.strip()))
     if discrete:
-        discrete.sort()
+        discrete.sort(key=lambda x: str(x))
         return tuple(discrete)
     total_vr = int(inv.get("total_vram_bytes", 0) or 0)
     if total_vr > 0:
@@ -213,7 +216,6 @@ def _build_fleet_payload(
                 "detected_at": now.isoformat().replace("+00:00", "Z"),
             }
             alias_collisions.append(collision_record)
-            deduped_candidates.append(c)
             continue
 
         if phys_key:
@@ -252,10 +254,11 @@ def _build_fleet_payload(
         gpus = inv.get("gpus", []) if inv else []
         healthy_gpus = [
             g for g in gpus
-            if not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", ""))
+            if (isinstance(g, dict) and not is_integrated_display_adapter(g.get("vendor", "unknown"), g.get("model_name", "")))
+            or isinstance(g, str)
         ]
-        node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus)
-        if not healthy_gpus and inv.get("total_vram_bytes", 0) > 0:
+        node_vram = sum(g.get("vram_bytes", 0) for g in healthy_gpus if isinstance(g, dict))
+        if node_vram == 0 and inv.get("total_vram_bytes", 0) > 0:
             node_vram = inv.get("total_vram_bytes", 0)
         node_tflops = float(telem.get("local_compute_tflops", 0.0) or 0.0)
 
@@ -287,7 +290,7 @@ def _build_fleet_payload(
             "available_for_routing": is_online and not c["alias_collision"],
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
-            "gpus": [g.get("model_name") for g in gpus] if gpus else [],
+            "gpus": [(g.get("model_name") if isinstance(g, dict) else str(g)) for g in gpus] if gpus else [],
             "updated_at": n.get("updated_at") if n else None,
             "last_seen": n.get("updated_at") if n else None,
             "clock_skew_ms": c["clock_skew_ms"],
