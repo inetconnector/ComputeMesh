@@ -871,6 +871,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if os.environ.get("COMPUTEMESH_NODEOS", "").strip().lower() in {"1", "true", "yes", "on"}:
+        from tools.appliance.node_identity import NodeIdentityError, resolve_node_id
+
+        try:
+            args.node_id = resolve_node_id(args.node_id, require_enrolled=True)
+        except NodeIdentityError as exc:
+            raise ProviderAgentError(str(exc)) from exc
+
     profile = _load_json(args.profile)
     profile_revision = profile.get("profile_revision")
     if isinstance(profile_revision, bool) or not isinstance(profile_revision, int):

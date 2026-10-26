@@ -3,11 +3,11 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 import subprocess
 
 from tools.appliance.boot_preflight import PreflightError, run_preflight
-from tools.appliance.enroll import EnrollmentError, enroll
+from tools.appliance.enroll import EnrollmentError, _activate_nodeos_services, enroll
 from services.appliance_dashboard import tunnel_relay
 
 
@@ -192,6 +192,34 @@ class TestNodeOSRuntimeTools(unittest.TestCase):
             ):
                 run_preflight(env_path=env_path, require_hardware=True, ready_file=marker)
             self.assertEqual(marker.read_text(encoding="ascii"), "ready\n")
+
+    def test_enrollment_activation_runs_preflight_and_restarts_managed_units(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            root_path = Path(root)
+            provider_env = root_path / "provider.env"
+            marker = root_path / "node-preflight.ok"
+            with patch.dict(
+                os.environ,
+                {
+                    "COMPUTEMESH_NODEOS": "1",
+                    "COMPUTEMESH_NODEOS_PREFLIGHT_MARKER": str(marker),
+                },
+                clear=False,
+            ), patch("tools.appliance.boot_preflight.run_preflight") as run_preflight, patch(
+                "tools.appliance.enroll.subprocess.run",
+                return_value=subprocess.CompletedProcess(["systemctl"], 0, "", ""),
+            ) as systemctl_run:
+                _activate_nodeos_services(provider_env)
+
+            run_preflight.assert_called_once_with(env_path=provider_env, ready_file=marker)
+            self.assertEqual(
+                [call.args[0] for call in systemctl_run.call_args_list],
+                [
+                    ["systemctl", "restart", "computemesh-node-preflight.service"],
+                    ["systemctl", "restart", "computemesh-node.service"],
+                    ["systemctl", "restart", "computemesh-node-heartbeat.service"],
+                ],
+            )
 
 
 if __name__ == "__main__":

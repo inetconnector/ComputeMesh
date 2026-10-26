@@ -33,6 +33,11 @@ from tools.appliance.hardware_detector import (
     RigInventory,
     scan_rig_hardware_stable,
 )
+from tools.appliance.node_identity import (
+    dashboard_must_not_start_relay,
+    read_enrolled_node_id,
+    resolve_node_id,
+)
 from services.appliance_dashboard.template_loader import get_dashboard_html
 from services.appliance_dashboard.mesh_aggregator import (
     MeshRegistryAggregator,
@@ -109,6 +114,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
     _qr_rate_windows: dict[str, list[float]] = {}
 
     def _current_node_id(self) -> str:
+        enrolled = read_enrolled_node_id()
+        if enrolled is not None:
+            return enrolled
         configured = str(getattr(self.config, "rig_name", "") or "").strip()
         if configured and not (configured == "test-node-custom" and self.node_id != "test-node-custom"):
             return configured
@@ -501,7 +509,9 @@ def create_dashboard_server(
     if inventory is None:
         inventory = scan_rig_hardware_stable()
 
-    effective_node_id = config.rig_name or node_id or "cm-node"
+    effective_node_id = resolve_node_id(
+        fallback_node_id=str(config.rig_name or node_id or "cm-node").strip()
+    )
     DashboardHandler.config = config
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = effective_node_id
@@ -524,7 +534,10 @@ def create_dashboard_server(
         # Keep the local enrollment UI available on a fresh node, but do not
         # create a heartbeat identity on the transient overlay.  The dedicated
         # heartbeat service starts the same relay only after preflight.
-        if nodeos_provider_ready():
+        # On NodeOS the dedicated systemd heartbeat unit is the sole relay
+        # owner.  Starting another relay from the dashboard would create
+        # duplicate heartbeats and competing identity state.
+        if not dashboard_must_not_start_relay() and nodeos_provider_ready():
             start_cloud_tunnel_relay(node_id=effective_node_id)
     except Exception:
         pass

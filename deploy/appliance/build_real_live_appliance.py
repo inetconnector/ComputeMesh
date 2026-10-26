@@ -11,12 +11,15 @@ Automates the complete generation of a full Debian 13 (Trixie) Live USB system:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,32 +58,96 @@ def _validate_debian_mirror() -> str:
     return DEBIAN_MIRROR
 
 
-def _source_commit(repo_src: Path) -> str:
+def _git_text(repo_src: Path, *arguments: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(repo_src), "rev-parse", "HEAD"],
+        ["git", "-C", str(repo_src), *arguments],
         capture_output=True,
         text=True,
         check=True,
     )
-    commit = result.stdout.strip()
+    return result.stdout.strip()
+
+
+def _validate_commit(commit: str) -> str:
     if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit.lower()):
-        raise RuntimeError(f"invalid source commit from {repo_src}: {commit!r}")
+        raise RuntimeError(f"invalid source commit: {commit!r}")
     return commit
 
 
-def _provenance(repo_src: Path) -> dict[str, object]:
+def _resolve_source_repo(
+    source_repo: Path | str | None = None,
+    *,
+    expected_commit: str | None = None,
+) -> tuple[Path, str]:
+    """Resolve and attest one clean regular Git checkout for the build.
+
+    The default is this builder's own public checkout.  Operators may pass a
+    different regular checkout explicitly (including a WSL-mounted path), but
+    a dirty tree, a non-repository directory, a missing required source path,
+    or a revision mismatch is rejected before any image work starts.
+    """
+    configured = source_repo or os.environ.get("COMPUTEMESH_SOURCE_REPO", "").strip()
+    candidate = Path(configured) if configured else REPO_ROOT
+    candidate = candidate.expanduser().resolve()
+    if not candidate.is_dir():
+        raise RuntimeError(f"NodeOS source repository is not a directory: {candidate}")
+    try:
+        git_root = Path(_git_text(candidate, "rev-parse", "--show-toplevel")).resolve()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("NodeOS source path is not a regular Git checkout") from exc
+    if git_root != candidate:
+        raise RuntimeError("NodeOS source path must be the Git checkout root")
+
+    required = (
+        "apps",
+        "services",
+        "tools",
+        "runtime",
+        "deploy",
+        "protocol",
+        "portal",
+        "config.py",
+        "requirements.txt",
+    )
+    missing = [name for name in required if not (candidate / name).exists()]
+    if missing:
+        raise RuntimeError(f"NodeOS source checkout is incomplete: missing {', '.join(missing)}")
+
+    status = _git_text(candidate, "status", "--porcelain=v1", "--untracked-files=all")
+    if status:
+        raise RuntimeError("NodeOS source checkout must be clean before building")
+
+    commit = _validate_commit(_git_text(candidate, "rev-parse", "HEAD"))
+    requested = expected_commit or os.environ.get("COMPUTEMESH_EXPECTED_SOURCE_COMMIT", "").strip()
+    if requested:
+        requested = _validate_commit(requested)
+        if requested != commit:
+            raise RuntimeError(
+                f"NodeOS source commit mismatch: expected {requested}, found {commit}"
+            )
+    return candidate, commit
+
+
+def _source_commit(repo_src: Path) -> str:
+    return _validate_commit(_git_text(repo_src, "rev-parse", "HEAD"))
+
+
+def _provenance(repo_src: Path, source_commit: str | None = None) -> dict[str, object]:
+    commit = _validate_commit(source_commit or _source_commit(repo_src))
     return {
         "schema_version": 1,
         "artifact_kind": "nodeos",
-        "source_commit": _source_commit(repo_src),
+        "source_commit": commit,
+        "source_tree": _validate_commit(_git_text(repo_src, "rev-parse", f"{commit}^{{tree}}")),
+        "source_clean": True,
         "version": CONFIG.appliance_version,
         "llama_cpp_version": LLAMA_CPP_VERSION,
         "llama_cpp_commit": LLAMA_CPP_COMMIT,
     }
 
 
-def _write_provenance(repo_src: Path) -> dict[str, object]:
-    data = _provenance(repo_src)
+def _write_provenance(repo_src: Path, source_commit: str) -> dict[str, object]:
+    data = _provenance(repo_src, source_commit)
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
     marker = f"{PROVENANCE_PREFIX}{canonical}\n"
     (ISO_DIR / "computemesh-build-provenance.json").write_text(marker, encoding="utf-8")
@@ -88,6 +155,74 @@ def _write_provenance(repo_src: Path) -> dict[str, object]:
     provenance_path.parent.mkdir(parents=True, exist_ok=True)
     provenance_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return data
+
+
+def _copy_source_snapshot(repo_src: Path, source_commit: str, destination: Path) -> None:
+    """Copy only the attested Git commit, never the mutable working tree."""
+    paths = ("apps", "services", "tools", "runtime", "protocol", "deploy", "portal", "config.py", "requirements.txt")
+    archive_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="computemesh-source-", suffix=".tar", dir=BUILD_DIR, delete=False) as handle:
+            archive_path = Path(handle.name)
+            subprocess.run(
+                ["git", "-C", str(repo_src), "archive", "--format=tar", source_commit, "--", *paths],
+                stdout=handle,
+                check=True,
+            )
+        destination.mkdir(parents=True, exist_ok=True)
+        destination_root = destination.resolve()
+        with tarfile.open(archive_path, "r") as archive:
+            for member in archive.getmembers():
+                if not (member.isdir() or member.isreg()):
+                    raise RuntimeError("Git source archive contains an unsupported special file")
+                target = (destination / member.name).resolve()
+                if os.path.commonpath((str(destination_root), str(target))) != str(destination_root):
+                    raise RuntimeError("Git source archive contains an unsafe path")
+                archive.extract(member, destination)
+    except (OSError, tarfile.TarError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("cannot export the attested NodeOS source commit") from exc
+    finally:
+        if archive_path is not None:
+            archive_path.unlink(missing_ok=True)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_artifact_provenance(
+    output_dir: Path,
+    provenance: dict[str, object],
+    iso_path: Path,
+    image_path: Path,
+) -> Path:
+    report = {
+        **provenance,
+        "artifacts": {
+            "iso": {
+                "filename": iso_path.name,
+                "size_bytes": iso_path.stat().st_size,
+                "sha256": _sha256(iso_path),
+            },
+            "img_xz": {
+                "filename": image_path.name,
+                "size_bytes": image_path.stat().st_size,
+                "sha256": _sha256(image_path),
+            },
+        },
+    }
+    output = output_dir / "computemesh-nodeos-x86_64.provenance.json"
+    temporary = output.with_name(output.name + f".tmp.{os.getpid()}")
+    try:
+        temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return output
 
 
 def _render_module_launcher(module: str, arguments: str = '"$@"') -> str:
@@ -162,12 +297,21 @@ WantedBy=multi-user.target
 """
 
 
-def build_appliance(output_dir: Path | None = None) -> int:
+def build_appliance(
+    output_dir: Path | None = None,
+    *,
+    source_repo: Path | str | None = None,
+    expected_source_commit: str | None = None,
+) -> int:
     print("====================================================================")
     print("      Building Complete ComputeMesh Debian Live NodeOS Appliance    ")
     print("====================================================================")
 
     debian_mirror = _validate_debian_mirror()
+    repo_src, source_commit = _resolve_source_repo(
+        source_repo,
+        expected_commit=expected_source_commit,
+    )
 
     if BUILD_DIR.exists():
         print(f"Cleaning up previous build directory at {BUILD_DIR}...")
@@ -265,28 +409,17 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         (CHROOT_DIR / "var" / "lib" / "computemesh" / "evidence").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "var" / "lib" / "computemesh" / "agent-environments").mkdir(parents=True, exist_ok=True)
 
-        repo_src = Path("/root/ComputeMesh")
-        if not repo_src.exists():
-            repo_src = Path("/var/www/vhosts/inetconnector.com/site2")
-        if not repo_src.is_dir():
-            raise RuntimeError("NodeOS build source repository is unavailable")
-        provenance = _write_provenance(repo_src)
+        provenance = _write_provenance(repo_src, source_commit)
         print(
             "--> Build provenance: "
             f"source_commit={provenance['source_commit']} "
             f"version={provenance['version']}"
         )
-        
-        for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps", "portal"]:
-            src = repo_src / subdir
-            if src.exists():
-                shutil.copytree(src, cm_target / subdir, dirs_exist_ok=True)
-        if (repo_src / "config.py").exists():
-            shutil.copy(repo_src / "config.py", cm_target / "config.py")
-        runtime_requirements = repo_src / "requirements.txt"
+
+        _copy_source_snapshot(repo_src, source_commit, cm_target)
+        runtime_requirements = cm_target / "requirements.txt"
         if not runtime_requirements.is_file():
             raise RuntimeError("NodeOS build requires the repository requirements.txt")
-        shutil.copy(runtime_requirements, cm_target / "requirements.txt")
         # Install the declared runtime set into the image.  A dependency
         # failure is a build failure; the image must not boot with a partial
         # Python environment.
@@ -298,17 +431,17 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         # Provision /etc/computemesh and /var/lib/computemesh state directories
         (CHROOT_DIR / "etc" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "var" / "lib" / "computemesh").mkdir(parents=True, exist_ok=True)
-        if (repo_src / "deploy" / "systemd" / "computemesh-node.service").exists():
+        if (cm_target / "deploy" / "systemd" / "computemesh-node.service").exists():
             shutil.copy(
-                repo_src / "deploy" / "systemd" / "computemesh-node.service",
+                cm_target / "deploy" / "systemd" / "computemesh-node.service",
                 CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service",
             )
-        if (repo_src / "deploy" / "systemd" / "provider.env.example").exists():
+        if (cm_target / "deploy" / "systemd" / "provider.env.example").exists():
             shutil.copy(
-                repo_src / "deploy" / "systemd" / "provider.env.example",
+                cm_target / "deploy" / "systemd" / "provider.env.example",
                 CHROOT_DIR / "etc" / "computemesh" / "provider.env.example",
             )
-        enrollment_example = repo_src / "deploy" / "systemd" / "enrollment.example.json"
+        enrollment_example = cm_target / "deploy" / "systemd" / "enrollment.example.json"
         if enrollment_example.is_file():
             shutil.copy(
                 enrollment_example,
@@ -754,14 +887,45 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     os.replace(temp_iso, out_iso)
     os.replace(temp_xz, out_xz)
     temp_img.unlink(missing_ok=True)
+    provenance_report = _write_artifact_provenance(
+        final_output_dir,
+        provenance,
+        out_iso,
+        out_xz,
+    )
 
     print("\n====================================================================")
     print(f"SUCCESS: True Debian Live NodeOS Image Generated!")
     print(f"ISO File: {out_iso} ({out_iso.stat().st_size:,} bytes)")
     print(f"XZ File:  {out_xz} ({out_xz.stat().st_size:,} bytes)")
+    print(f"Provenance: {provenance_report}")
     print("====================================================================")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(build_appliance())
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--source-repo",
+        type=Path,
+        help="explicit regular Git checkout containing the public ComputeMesh source",
+    )
+    parser.add_argument(
+        "--expected-source-commit",
+        help="optional exact 40-character commit that must be built",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="isolated directory for the ISO, IMG.XZ and provenance report",
+    )
+    args = parser.parse_args()
+    sys.exit(
+        build_appliance(
+            output_dir=args.output_dir,
+            source_repo=args.source_repo,
+            expected_source_commit=args.expected_source_commit,
+        )
+    )

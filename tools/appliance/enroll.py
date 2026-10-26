@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import ssl
+import subprocess
 import sys
 import time
 from urllib.error import HTTPError, URLError
@@ -30,6 +31,49 @@ from tools.security.node_key_storage import (
 
 class EnrollmentError(RuntimeError):
     pass
+
+
+def _activate_nodeos_services(provider_env: Path) -> None:
+    """Run the existing preflight and hand control to systemd after enrollment."""
+    nodeos_mode = os.environ.get("COMPUTEMESH_NODEOS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not nodeos_mode:
+        return
+
+    marker = Path(
+        os.environ.get(
+            "COMPUTEMESH_NODEOS_PREFLIGHT_MARKER",
+            "/run/computemesh/node-preflight.ok",
+        )
+    )
+    try:
+        from tools.appliance.boot_preflight import run_preflight
+
+        run_preflight(env_path=provider_env, ready_file=marker)
+    except Exception as exc:  # noqa: BLE001 - enrollment diagnostics stay secret-free
+        raise EnrollmentError("enrollment completed but NodeOS preflight failed") from exc
+
+    for unit in (
+        "computemesh-node-preflight.service",
+        "computemesh-node.service",
+        "computemesh-node-heartbeat.service",
+    ):
+        try:
+            result = subprocess.run(
+                ["systemctl", "restart", unit],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise EnrollmentError("enrollment completed but NodeOS services could not be activated") from exc
+        if result.returncode != 0:
+            raise EnrollmentError("enrollment completed but a NodeOS service failed to start")
 
 
 def _atomic_write(path: Path, text: str, mode: int) -> None:
@@ -242,6 +286,7 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
         except Exception as exc:  # noqa: BLE001 - keep enrollment diagnostics secret-free
             raise EnrollmentError("provider credentials cannot be assigned to the provider service") from exc
     bundle_path.unlink()
+    _activate_nodeos_services(provider_env)
     return provider_env
 
 

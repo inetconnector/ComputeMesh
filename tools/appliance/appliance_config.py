@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import sys
