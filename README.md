@@ -1,5 +1,36 @@
 # ComputeMesh
 
+## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
+
+Der aktuelle lokale P0-Kandidat schließt fünf Integrationsfehler im echten
+Gateway-, Placement-, NodeOS- und Enrollment-Pfad:
+
+- Eine bereits registrierte Legacy-Node ohne Owner-/Ed25519-Bindung kann nicht
+  mehr durch einen fremden Owner-Key und eine selbst erzeugte Signatur
+  übernommen werden. Gültige bestehende Owner-Migrationen bleiben möglich;
+  eine ungebundene Legacy-Zeile benötigt einen expliziten Enrollmentnachweis.
+- Placement-Request-IDs werden in der vorhandenen SQLite-Lease-Schicht
+  unveränderlich an Tenant, Modell-/Artifact-Vertrag, Kandidaten und den
+  konkreten Node-Plan gebunden. Geänderte Retries werden fail-closed abgelehnt
+  und dürfen keine ursprüngliche Lease freigeben.
+- Preflight-/Enrollment-Launcher setzen ihr Arbeitsverzeichnis und
+  `PYTHONPATH` selbst; systemd wartet auf das bestehende Preflight und den
+  persistenten Mount. Der Dashboard-Prozess bleibt für lokale ErstEnrollment-
+  Bedienung verfügbar, während der Heartbeat erst nach erfolgreichem
+  Preflight startet.
+- POSIX-Schlüssel und Token bleiben owner-only und werden dem Dienstkonto
+  `computemesh` zugewiesen. Ein NodeOS-Prozess erzeugt keine neue Identität auf
+  einem ungeprüften Overlay.
+- HTTP-Enrollment und der persistente Provider-TLS-Kanal verlangen getrennte,
+  explizite Host-, Port-, Servername- und CA-Daten; ein HTTPS-443-Fallback wird
+  nicht mehr in den Provider-Kanal übernommen.
+
+Die lokalen Regressionen verwenden ausschließlich neu erzeugte Testidentitäten.
+Der öffentliche Code ist in `5bb69f9` und `1e1969b` auf Branch
+`codex/p0-auth-placement-20261026` committed. Diese Nachweise sind keine
+Hardware-, Produktions- oder Releasefreigabe: NodeOS-Boot, AMD-GPU-Inferenz,
+WAN/BFT-Abnahme und der native Windows-Security-Gate bleiben offen.
+
 ## P0 release-artifact provenance (2026-10-26, local development branch)
 
 NodeOS release builds now embed a secret-free provenance marker containing the

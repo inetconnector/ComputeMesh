@@ -1,3 +1,56 @@
+## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment
+
+- Branch: `codex/p0-auth-placement-20261026`. Vorheriger Public-HEAD war
+  `3691526915d2645b29fd39cdf5edccb8d4a2eed2`; die Codecommits dieses
+  Public-Submoduls sind `5bb69f9` und `1e1969b`.
+- Gateway-A: Der neue negative localhost-Test reproduziert die vorherige
+  Übernahme einer registrierten Legacy-Node ohne Owner-/Public-Key durch
+  fremden Token, Owner-Key und passende Ed25519-Signatur. Der aktive Pfad
+  verweigert nun fail-closed und ändert weder Registry noch Owner-Bindung.
+  Gebundene Owner-Migrationen bleiben über den vorhandenen Token-/Owner-
+  Vertrag möglich.
+- NodeOS-C/D/E: Launcher und systemd-Preflight verwenden einen festen
+  Modulpfad; Dashboard-UI und Heartbeat sind voneinander getrennt. Der
+  Heartbeat wartet auf Preflight/Readymarker, lädt provider.env unter
+  `computemesh`, und Enrollment verlangt einen expliziten separaten Provider-
+  TLS-Endpunkt. Schlüssel/Token werden nicht allgemein lesbar gemacht.
+- Lokale Nachweise: `python -m pytest tests/test_p0_node_reboot_reconnect.py
+  -q` = 13 passed; Public-NodeOS-Contract = 17 passed; Public Gateway/
+  Dashboard/Provider/Key-Gruppe = 53 passed, 13 subtests; `python -m
+  compileall -q services tools deploy apps tests` exit 0. Keine Image-Erzeugung,
+  Hardware-Abnahme, Enrollment gegen einen externen Dienst oder Produktion.
+
+## 2026-10-26 P0 Placement-Idempotenz gegen geänderte Aufträge
+
+- Ausgangs-HEAD: `14da95dc98f82ef570aab93e5c72f887b10353bc`; Ergebniscommit:
+  `9c77a7d` (`fix(placement): bind request content to lease idempotency`).
+- Der RED-Test in `tests/test_p0_placement_requires_auth.py` reproduzierte
+  gleiche Request-ID mit geändertem Modell/Digest, geändertem Node-Plan,
+  parallelen unterschiedlichen Retry-Inhalten und Tenant-Wechsel. Besonders
+  der alte Exception-Handler gab bei abweichender Node-Zusammenstellung die
+  ursprüngliche Lease frei.
+- `PlacementService` berechnet einen deterministischen SHA-256-Fingerprint
+  des echten privaten Auftrags und veröffentlichten Plans. `LeaseStore`
+  bindet ihn atomar in `decision_idempotency_bindings`; identische Retries
+  liefern dieselbe aktive Lease, abweichende Inhalte werden vor Gate/Quota
+  fail-closed abgelehnt. Die Cleanup-Logik kennt die Eigentümerschaft und
+  verwendet nie `release_decision()` für eine fremde gültige Reservation.
+  Ablauf/Release markieren die Bindung terminal und verhindern stille
+  Wiederbelebung.
+- RED: `python -m pytest tests/test_p0_placement_requires_auth.py -k
+  "request_id_cannot_be_reused_for_changed_model_or_artifact or
+  changed_node_plan_cannot_release_original_lease or
+  parallel_different_content_has_one_immutable_decision or
+  request_id_is_bound_to_tenant" -q` exit 1. GREEN: derselbe gezielte Befehl
+  = 4 passed; die vollständige Datei = 19 passed; die private Placement-/Auth-
+  Regressiongruppe = 76 passed. `python -m compileall -q services tools tests`
+  exit 0; Ruff fehlt lokal.
+- Der Parent zeigt nach dem nächsten Pin-Commit auf den neuen Public-HEAD.
+  Quota-/Lease-DB bleiben getrennt, daher ist ein Crash-/Mehrprozess-Nachweis
+  lokal, nicht automatisch ein verteilter Produktionsnachweis. Gesamtstatus:
+  `CODE_IMPLEMENTED`/`LOCAL_TEST_PASSED`, aber `RELEASE_NO_GO` wegen fehlender
+  Hardware-, Produktions- und nativer Windows-Security-Gate-Nachweise.
+
 ## 2026-10-25 – P0 Mesh-Inventarisierung, Node-Lifecycle & Kontrollierte Updates
 - **Status:** PASS_LOCAL (Fully verified with reproducible tests)
 - **Problem & Root Cause:**
