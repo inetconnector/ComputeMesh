@@ -1,0 +1,20 @@
+{
+  "control_url": "https://control.example.invalid",
+  "control_ca_file": "/etc/computemesh/control-ca.pem",
+  "provider_control": {
+    "host": "provider-control.example.invalid",
+    "port": 7443,
+    "server_hostname": "provider-control.example.invalid",
+    "ca_file": "/etc/computemesh/provider-control-ca.pem"
+  },
+  "node_id": "node_replace_me",
+  "auth_token": "<operator-issued-cm_tunnel_token>",
+  "enrollment_token": "<one-time-control-plane-enrollment-token>",
+  "private_key_path": "/var/lib/computemesh/node-ed25519.pem",
+  "provider_env_path": "/etc/computemesh/provider.env",
+  "profile_path": "/var/lib/computemesh/evidence/node_profile.json",
+  "prefill_path": "/var/lib/computemesh/evidence/prefill.json",
+  "decode_path": "/var/lib/computemesh/evidence/decode.json",
+  "llama_build_number": 0,
+  "llama_build_commit": "replace_me"
+}

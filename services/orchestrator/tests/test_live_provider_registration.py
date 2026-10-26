@@ -100,6 +100,20 @@ class LiveProviderRegistrationTests(unittest.TestCase):
         }
         SessionMessageContractValidator().validate("RuntimeAdvertisement", payload)
 
+    def test_runtime_advertisement_accepts_verified_inference_readiness(self):
+        payload = {
+            "schema_version": 1,
+            "node_id": "node-a",
+            "profile_revision": 3,
+            "runtime": "llama.cpp",
+            "llama_build_commit": "abcdef1",
+            "llama_build_number": 123,
+            "rpc": {"host": "10.0.0.2", "port": 50052},
+            "inference_state": "INFERENCE_READY",
+            "runtime_verified": True,
+        }
+        SessionMessageContractValidator().validate("RuntimeAdvertisement", payload)
+
     def test_profile_runtime_and_benchmarks_publish_schedulable_node(self):
         registry = LiveSharedRuntimeRegistry()
         registration = LiveProviderRegistration(registry)

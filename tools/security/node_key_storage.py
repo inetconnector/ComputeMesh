@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import ctypes
 from ctypes import wintypes
+import json
 import os
 from pathlib import Path
 import platform
@@ -188,8 +189,8 @@ def save_node_private_key(
     if platform.system().lower() != "windows":
         try:
             path.parent.chmod(0o700)
-        except OSError:
-            pass
+        except OSError as exc:
+            raise KeyStorageError(f"cannot secure private key directory: {path.parent}") from exc
 
     pem_bytes = key.private_bytes(
         serialization.Encoding.PEM,
@@ -197,7 +198,9 @@ def save_node_private_key(
         serialization.NoEncryption(),
     )
 
-    if protect_os and platform.system().lower() == "windows" and _HAS_DPAPI:
+    if protect_os and platform.system().lower() == "windows":
+        if not _HAS_DPAPI:
+            raise KeyProtectionError("Windows DPAPI is unavailable; refusing to persist an unprotected node key")
         protected_bytes = dpapi_protect(pem_bytes)
         b64_str = base64.b64encode(protected_bytes).decode("ascii")
         content = (DPAPI_ENVELOPE_PREFIX + b64_str + "\n").encode("ascii")
@@ -312,7 +315,45 @@ def _b64u_decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(padded.encode("ascii"))
 
 
-def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519PrivateKey, Path]:
+def secure_path_for_service(path: Path, username: str = "computemesh", *, mode: int = 0o600) -> None:
+    """Assign an existing credential path to exactly one POSIX service user.
+
+    The helper is intentionally POSIX-only.  Windows protection remains
+    delegated to DPAPI, while NodeOS enrollment uses the service account's
+    ownership and owner-only mode bits instead of broad readability.
+    """
+    path = _absolute_key_path(path)
+    if platform.system().lower() == "windows":
+        return
+    if not path.is_file():
+        raise KeyStorageError(f"service credential path is not a regular file: {path}")
+    try:
+        import pwd
+
+        account = pwd.getpwnam(username)
+        current_uid = os.geteuid()
+        if current_uid not in {0, account.pw_uid}:
+            raise KeyStorageError(
+                f"only root or {username} may assign service credential ownership: {path}"
+            )
+        os.chown(path, account.pw_uid, account.pw_gid)
+        os.chmod(path, mode)
+        os.chown(path.parent, account.pw_uid, account.pw_gid)
+        os.chmod(path.parent, 0o700)
+        _assert_posix_permissions(path)
+    except KeyStorageError:
+        raise
+    except (ImportError, KeyError, OSError) as exc:
+        raise KeyStorageError(
+            f"cannot assign credential to service user {username}: {path}"
+        ) from exc
+
+
+def get_or_create_node_private_key(
+    path: Path | None = None,
+    *,
+    allow_generate: bool = True,
+) -> tuple[Ed25519PrivateKey, Path]:
     """Retrieve an existing Ed25519 node private key or generate and persist a new one.
 
     Searches across authorized persistent storage tiers:
@@ -327,8 +368,12 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     """
     if path is not None:
         target_path = Path(path)
-        if target_path.exists() and target_path.is_file():
+        if os.path.lexists(os.fspath(target_path)):
+            if target_path.is_symlink() or not target_path.is_file():
+                raise KeyStorageError(f"key path is not a regular file: {target_path}")
             return load_node_private_key(target_path), target_path
+        if not allow_generate:
+            raise KeyStorageError("persistent node private key is missing; refusing identity rotation")
         # Generate at requested path
         key = Ed25519PrivateKey.generate()
         save_node_private_key(key, target_path)
@@ -337,7 +382,9 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     env_path_str = os.environ.get("COMPUTEMESH_NODE_KEY_PATH", "").strip()
     if env_path_str:
         p = Path(env_path_str)
-        if p.exists() and p.is_file():
+        if os.path.lexists(os.fspath(p)):
+            if p.is_symlink() or not p.is_file():
+                raise KeyStorageError(f"configured node key path is not a regular file: {p}")
             return load_node_private_key(p), p
 
     candidate_paths = [
@@ -347,11 +394,16 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     ]
 
     for p in candidate_paths:
-        try:
-            if p.exists() and p.is_file():
-                return load_node_private_key(p), p
-        except Exception:
-            pass
+        if os.path.lexists(os.fspath(p)):
+            if p.is_symlink() or not p.is_file():
+                raise KeyStorageError(f"node key path is not a regular file: {p}")
+            # An existing identity is authoritative.  Any mount, permission or
+            # parse failure must reach the caller instead of silently rotating
+            # to a new key.
+            return load_node_private_key(p), p
+
+    if not allow_generate:
+        raise KeyStorageError("persistent node private key is missing; refusing identity rotation")
 
     # No existing key found; determine optimal writable target path
     chosen_path: Path | None = None
@@ -373,16 +425,54 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     return key, chosen_path
 
 
+def _heartbeat_signing_message(
+    node_id: str,
+    auth_token: str,
+    timestamp: int,
+    *,
+    nonce: str = "",
+    previous_node_id: str = "",
+) -> bytes:
+    """Build the versioned heartbeat message without ambiguous field joins."""
+    if nonce or previous_node_id:
+        fields = json.dumps(
+            {
+                "auth_token": str(auth_token),
+                "node_id": str(node_id),
+                "nonce": str(nonce),
+                "previous_node_id": str(previous_node_id),
+                "timestamp": int(timestamp),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode("utf-8")
+    # Keep verification of the historical format available for already
+    # enrolled nodes.  The gateway requires the v2 nonce form for new key
+    # bindings and token-rotation proofs.
+    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+
+
 def sign_node_heartbeat(
     key: Ed25519PrivateKey,
     node_id: str,
     auth_token: str,
     timestamp: int,
+    *,
+    nonce: str = "",
+    previous_node_id: str = "",
 ) -> str:
     """Produces a canonical Ed25519 signature proving cryptographic possession of the node identity."""
     if not isinstance(key, Ed25519PrivateKey):
         raise TypeError("key must be an Ed25519PrivateKey")
-    message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+    message = _heartbeat_signing_message(
+        node_id,
+        auth_token,
+        timestamp,
+        nonce=nonce,
+        previous_node_id=previous_node_id,
+    )
     signature = key.sign(message)
     return _b64u(signature)
 
@@ -396,6 +486,8 @@ def verify_node_heartbeat(
     *,
     now: int | None = None,
     max_skew_seconds: int = 60,
+    nonce: str = "",
+    previous_node_id: str = "",
 ) -> bool:
     """Verifies that a heartbeat or reconnect request originates from the holder of the registered Ed25519 key.
 
@@ -405,7 +497,12 @@ def verify_node_heartbeat(
     3. Proper key length (32 bytes)
     """
     current_time = int(time.time()) if now is None else int(now)
-    if abs(current_time - int(timestamp)) > max_skew_seconds:
+    timestamp_int = int(timestamp)
+    nonce = str(nonce or "")
+    previous_node_id = str(previous_node_id or "")
+    if len(nonce) > 256 or len(previous_node_id) > 512:
+        return False
+    if abs(current_time - timestamp_int) > max_skew_seconds:
         return False
 
     try:
@@ -436,7 +533,13 @@ def verify_node_heartbeat(
         if len(sig_bytes) != 64:
             return False
 
-        message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+        message = _heartbeat_signing_message(
+            node_id,
+            auth_token,
+            timestamp_int,
+            nonce=nonce,
+            previous_node_id=previous_node_id,
+        )
         pub.verify(sig_bytes, message)
         return True
     except (InvalidSignature, ValueError, TypeError, Exception):

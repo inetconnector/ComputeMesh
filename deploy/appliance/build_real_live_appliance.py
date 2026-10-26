@@ -11,11 +11,22 @@ Automates the complete generation of a full Debian 13 (Trixie) Live USB system:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
+from urllib.parse import urlparse
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config import CONFIG
 
 BUILD_DIR = Path("/var/tmp/nodeos_live_build")
 CHROOT_DIR = BUILD_DIR / "chroot"
@@ -23,9 +34,22 @@ ISO_DIR = BUILD_DIR / "iso_root"
 # Staging directory for built appliance images (decoupled from live production webroot)
 STAGING_DIR = Path(os.environ.get("COMPUTEMESH_IMAGE_STAGING_DIR", str(BUILD_DIR / "staging")))
 OUTPUT_DIR = STAGING_DIR
+DEBIAN_MIRROR = os.environ.get("COMPUTEMESH_DEBIAN_MIRROR", "http://deb.debian.org/debian").strip()
+DEBIAN_KEYRING = os.environ.get(
+    "COMPUTEMESH_DEBIAN_KEYRING",
+    "/usr/share/keyrings/debian-archive-keyring.gpg",
+).strip()
 LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
+PROVENANCE_PREFIX = "COMPUTEMESH_BUILD_PROVENANCE_V1="
+PREFLIGHT_MARKER = "/run/computemesh/node-preflight.ok"
+
+
+def _rpc_build_enabled() -> bool:
+    """Do not ship the experimental plaintext RPC backend in standard images."""
+    return os.environ.get("COMPUTEMESH_ENABLE_RPC_EXPERIMENT", "0").strip().lower() in {"1", "true", "yes", "on"}
+
 
 
 def run(cmd: list[str], check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -37,10 +61,315 @@ def chroot_exec(cmd: str) -> None:
     run(["chroot", str(CHROOT_DIR), "/bin/bash", "-c", cmd])
 
 
-def build_appliance() -> int:
+def _validate_debian_mirror() -> str:
+    parsed = urlparse(DEBIAN_MIRROR)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError("COMPUTEMESH_DEBIAN_MIRROR must be an http(s) URL")
+    return DEBIAN_MIRROR
+
+
+def _validate_debian_keyring() -> Path:
+    """Require an explicit Debian archive keyring before debootstrap.
+
+    Debian's debootstrap otherwise continues with only a warning when the
+    host keyring is absent. That would make a successful image build
+    unauthenticated at the first package boundary, so fail closed here.
+    ``.gpg`` is commonly a symlink to the distro's current ``.pgp`` keyring;
+    ``is_file`` intentionally follows that managed symlink.
+    """
+    candidate = Path(DEBIAN_KEYRING).expanduser()
+    if not candidate.is_file() or candidate.stat().st_size == 0:
+        raise RuntimeError(
+            "COMPUTEMESH_DEBIAN_KEYRING must name a non-empty Debian archive keyring"
+        )
+    return candidate.resolve()
+
+
+def _git_command(repo_src: Path, *arguments: str) -> list[str]:
+    """Build a Git command that works for root-owned Linux/WSL builds.
+
+    A WSL build is often run as root while the checkout is owned by the
+    Windows user.  Git's safe-directory guard must be scoped to this exact
+    checkout; changing global Git configuration would hide unrelated
+    ownership problems and would make the build non-reproducible.
+    """
+    return [
+        "git",
+        "-c",
+        f"safe.directory={repo_src}",
+        "-C",
+        str(repo_src),
+        *arguments,
+    ]
+
+
+def _git_text(repo_src: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        _git_command(repo_src, *arguments),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _validate_commit(commit: str) -> str:
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit.lower()):
+        raise RuntimeError(f"invalid source commit: {commit!r}")
+    return commit
+
+
+def _resolve_source_repo(
+    source_repo: Path | str | None = None,
+    *,
+    expected_commit: str | None = None,
+) -> tuple[Path, str]:
+    """Resolve and attest one clean regular Git checkout for the build.
+
+    The default is this builder's own public checkout.  Operators may pass a
+    different regular checkout explicitly (including a WSL-mounted path), but
+    a dirty tree, a non-repository directory, a missing required source path,
+    or a revision mismatch is rejected before any image work starts.
+    """
+    configured = source_repo or os.environ.get("COMPUTEMESH_SOURCE_REPO", "").strip()
+    candidate = Path(configured) if configured else REPO_ROOT
+    candidate = candidate.expanduser().resolve()
+    if not candidate.is_dir():
+        raise RuntimeError(f"NodeOS source repository is not a directory: {candidate}")
+    try:
+        git_root = Path(_git_text(candidate, "rev-parse", "--show-toplevel")).resolve()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("NodeOS source path is not a regular Git checkout") from exc
+    if git_root != candidate:
+        raise RuntimeError("NodeOS source path must be the Git checkout root")
+
+    required = (
+        "apps",
+        "services",
+        "tools",
+        "runtime",
+        "deploy",
+        "protocol",
+        "portal",
+        "config.py",
+        "requirements.txt",
+    )
+    missing = [name for name in required if not (candidate / name).exists()]
+    if missing:
+        raise RuntimeError(f"NodeOS source checkout is incomplete: missing {', '.join(missing)}")
+
+    status = _git_text(candidate, "status", "--porcelain=v1", "--untracked-files=all")
+    if status:
+        raise RuntimeError("NodeOS source checkout must be clean before building")
+
+    commit = _validate_commit(_git_text(candidate, "rev-parse", "HEAD"))
+    requested = expected_commit or os.environ.get("COMPUTEMESH_EXPECTED_SOURCE_COMMIT", "").strip()
+    if requested:
+        requested = _validate_commit(requested)
+        if requested != commit:
+            raise RuntimeError(
+                f"NodeOS source commit mismatch: expected {requested}, found {commit}"
+            )
+    return candidate, commit
+
+
+def _source_commit(repo_src: Path) -> str:
+    return _validate_commit(_git_text(repo_src, "rev-parse", "HEAD"))
+
+
+def _provenance(repo_src: Path, source_commit: str | None = None) -> dict[str, object]:
+    commit = _validate_commit(source_commit or _source_commit(repo_src))
+    return {
+        "schema_version": 1,
+        "artifact_kind": "nodeos",
+        "source_commit": commit,
+        "source_tree": _validate_commit(_git_text(repo_src, "rev-parse", f"{commit}^{{tree}}")),
+        "source_clean": True,
+        "version": CONFIG.appliance_version,
+        "llama_cpp_version": LLAMA_CPP_VERSION,
+        "llama_cpp_commit": LLAMA_CPP_COMMIT,
+    }
+
+
+def _write_provenance(repo_src: Path, source_commit: str) -> dict[str, object]:
+    data = _provenance(repo_src, source_commit)
+    canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    marker = f"{PROVENANCE_PREFIX}{canonical}\n"
+    (ISO_DIR / "computemesh-build-provenance.json").write_text(marker, encoding="utf-8")
+    provenance_path = CHROOT_DIR / "usr" / "share" / "computemesh" / "build-provenance.json"
+    provenance_path.parent.mkdir(parents=True, exist_ok=True)
+    provenance_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return data
+
+
+def _copy_source_snapshot(repo_src: Path, source_commit: str, destination: Path) -> None:
+    """Copy only the attested Git commit, never the mutable working tree."""
+    paths = ("apps", "services", "tools", "runtime", "protocol", "deploy", "portal", "config.py", "requirements.txt")
+    archive_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="computemesh-source-", suffix=".tar", dir=BUILD_DIR, delete=False) as handle:
+            archive_path = Path(handle.name)
+            subprocess.run(
+                _git_command(repo_src, "archive", "--format=tar", source_commit, "--", *paths),
+                stdout=handle,
+                check=True,
+            )
+        destination.mkdir(parents=True, exist_ok=True)
+        destination_root = destination.resolve()
+        with tarfile.open(archive_path, "r") as archive:
+            for member in archive.getmembers():
+                if not (member.isdir() or member.isreg()):
+                    raise RuntimeError("Git source archive contains an unsupported special file")
+                target = (destination / member.name).resolve()
+                if os.path.commonpath((str(destination_root), str(target))) != str(destination_root):
+                    raise RuntimeError("Git source archive contains an unsafe path")
+                archive.extract(member, destination)
+    except (OSError, tarfile.TarError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("cannot export the attested NodeOS source commit") from exc
+    finally:
+        if archive_path is not None:
+            archive_path.unlink(missing_ok=True)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_artifact_provenance(
+    output_dir: Path,
+    provenance: dict[str, object],
+    iso_path: Path,
+    image_path: Path,
+) -> Path:
+    report = {
+        **provenance,
+        "artifacts": {
+            "iso": {
+                "filename": iso_path.name,
+                "size_bytes": iso_path.stat().st_size,
+                "sha256": _sha256(iso_path),
+            },
+            "img_xz": {
+                "filename": image_path.name,
+                "size_bytes": image_path.stat().st_size,
+                "sha256": _sha256(image_path),
+            },
+        },
+    }
+    output = output_dir / "computemesh-nodeos-x86_64.provenance.json"
+    temporary = output.with_name(output.name + f".tmp.{os.getpid()}")
+    try:
+        temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return output
+
+
+def _render_module_launcher(
+    module: str,
+    arguments: str = '"$@"',
+    *,
+    nodeos: bool = False,
+) -> str:
+    """Render a cwd-independent Python module launcher for the image."""
+    if not module or any(char not in "abcdefghijklmnopqrstuvwxyz0123456789._" for char in module):
+        raise ValueError("invalid appliance launcher module")
+    nodeos_environment = (
+        "export COMPUTEMESH_NODEOS=1\n"
+        f"export COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}\n"
+        if nodeos
+        else ""
+    )
+    return (
+        "#!/bin/sh\n"
+        "set -eu\n"
+        "cd /opt/computemesh\n"
+        "export PYTHONPATH=/opt/computemesh${PYTHONPATH:+:$PYTHONPATH}\n"
+        + nodeos_environment
+        + f"exec /usr/bin/python3 -m {module} {arguments}\n"
+    )
+
+
+def _render_preflight_unit() -> str:
+    return f"""[Unit]
+Description=ComputeMesh NodeOS enrollment, persistence and runtime preflight
+Wants=network-online.target
+After=network-online.target
+Before=computemesh-node.service computemesh-node-heartbeat.service
+RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/computemesh
+Environment=PYTHONPATH=/opt/computemesh
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}
+ExecStart=/opt/computemesh/bin/computemesh-node-preflight --ready-file {PREFLIGHT_MARKER}
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _render_heartbeat_unit() -> str:
+    return f"""[Unit]
+Description=ComputeMesh authenticated NodeOS heartbeat relay
+Requires=computemesh-node-preflight.service
+After=computemesh-node-preflight.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/computemesh/provider.env
+ConditionPathExists={PREFLIGHT_MARKER}
+RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh
+
+[Service]
+Type=simple
+User=computemesh
+Group=computemesh
+WorkingDirectory=/opt/computemesh
+EnvironmentFile=-/etc/computemesh/provider.env
+Environment=PYTHONPATH=/opt/computemesh
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}
+ExecStart=/usr/bin/python3 -m tools.appliance.heartbeat_relay
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/computemesh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def build_appliance(
+    output_dir: Path | None = None,
+    *,
+    source_repo: Path | str | None = None,
+    expected_source_commit: str | None = None,
+) -> int:
     print("====================================================================")
     print("      Building Complete ComputeMesh Debian Live NodeOS Appliance    ")
     print("====================================================================")
+
+    debian_mirror = _validate_debian_mirror()
+    debian_keyring = _validate_debian_keyring()
+    repo_src, source_commit = _resolve_source_repo(
+        source_repo,
+        expected_commit=expected_source_commit,
+    )
 
     if BUILD_DIR.exists():
         print(f"Cleaning up previous build directory at {BUILD_DIR}...")
@@ -54,7 +383,8 @@ def build_appliance() -> int:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CHROOT_DIR.mkdir(parents=True, exist_ok=True)
     ISO_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    final_output_dir = Path(output_dir) if output_dir is not None else OUTPUT_DIR
+    final_output_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Debootstrap Base System
     print("\n[Step 1/6] Debootstrapping minimal Debian 13 (Trixie)...")
@@ -62,10 +392,12 @@ def build_appliance() -> int:
         "debootstrap",
         "--arch=amd64",
         "--variant=minbase",
-        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc",
+        "--keyring",
+        str(debian_keyring),
+        "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers",
         "trixie",
         str(CHROOT_DIR),
-        DEBIAN_MIRROR,
+        debian_mirror,
     ])
 
     # 2. Configure Chroot & Install Kernel & Live-Boot
@@ -79,8 +411,8 @@ def build_appliance() -> int:
 
     try:
         # Configure sources.list for non-free & firmware
-        sources = f"""deb {DEBIAN_MIRROR} trixie main contrib non-free non-free-firmware
-deb {DEBIAN_MIRROR} trixie-updates main contrib non-free non-free-firmware
+        sources = f"""deb {debian_mirror} trixie main contrib non-free non-free-firmware
+deb {debian_mirror} trixie-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
 """
         (CHROOT_DIR / "etc" / "apt" / "sources.list").write_text(sources, encoding="utf-8")
@@ -111,18 +443,31 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
 
         # Build the production model runtime from one immutable upstream commit.
         # Vulkan is the common backend for supported AMD and NVIDIA NodeOS GPUs.
+        rpc_enabled = _rpc_build_enabled()
         chroot_exec("git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp")
         chroot_exec(f"git -C /tmp/llama.cpp checkout --detach {LLAMA_CPP_COMMIT}")
         chroot_exec(
             "cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -G Ninja "
-            "-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DLLAMA_CURL=OFF "
+            f"-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DGGML_RPC={'ON' if rpc_enabled else 'OFF'} "
+            "-DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF -DLLAMA_CURL=OFF "
             "-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
         )
-        chroot_exec("cmake --build /tmp/llama.cpp/build --target llama-server -j2")
+        targets = "llama-server ggml-rpc-server" if rpc_enabled else "llama-server"
+        chroot_exec(f"cmake --build /tmp/llama.cpp/build --target {targets} -j2")
         chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server")
+        # Install RPC as an opt-in binary. Never enable or publicly bind an
+        # unauthenticated upstream RPC daemon automatically on NodeOS.
+        if rpc_enabled:
+            chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/ggml-rpc-server /usr/local/bin/ggml-rpc-server")
+        # The new binaries must be immediately loadable in the image chroot.
+        # This also detects missing libggml/backend dependencies on a change
+        # to the pinned upstream CMake defaults, rather than failing on boot.
+        chroot_exec("ldd /usr/local/bin/llama-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
+        if rpc_enabled:
+            chroot_exec("ldd /usr/local/bin/llama-server /usr/local/bin/ggml-rpc-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
         (CHROOT_DIR / "usr" / "share" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "usr" / "share" / "computemesh" / "llama-cpp-build.txt").write_text(
-            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\n",
+            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\nrpc_binary_installed={int(rpc_enabled)}\n",
             encoding="ascii",
         )
         chroot_exec("rm -rf /tmp/llama.cpp")
@@ -134,30 +479,70 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         model_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "models"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_dir.chmod(0o700)
+        evidence_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "evidence"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        (evidence_dir / "EVIDENCE_REQUIRED.md").write_text(
+            """# ComputeMesh NodeOS evidence is required before enrollment
 
-        repo_src = Path("/root/ComputeMesh")
-        if not repo_src.exists():
-            repo_src = Path("/var/www/vhosts/inetconnector.com/site2")
-        
-        for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps"]:
-            src = repo_src / subdir
-            if src.exists():
-                shutil.copytree(src, cm_target / subdir, dirs_exist_ok=True)
-        if (repo_src / "config.py").exists():
-            shutil.copy(repo_src / "config.py", cm_target / "config.py")
+This directory intentionally contains no fabricated profile or performance
+numbers. Before enrollment, provision the three measured JSON documents named
+by the operator enrollment bundle:
+
+- `node_profile.json`: a local hardware/runtime inventory captured on this node;
+- `prefill.json`: an actual `llama_cpp_prefill` result from the selected GGUF;
+- `decode.json`: an actual `llama_cpp_decode` result from the same GGUF and
+  exact llama.cpp build.
+
+Use `tools/benchmark/benchmark.py` for the inventory and
+`tools/benchmark/llama_bench_adapter.py` with the real local `llama-bench` and
+GGUF for the two runtime results. Publish the resulting documents to
+persistent storage only after checking the model, profile revision, build
+commit, and SHA-256. `computemesh-enroll` validates all three documents before
+contacting the gateway. Missing, placeholder, mismatched, or unmeasured
+evidence stops enrollment with a diagnostic; it is never generated as a
+default.
+""",
+            encoding="utf-8",
+        )
+        (CHROOT_DIR / "var" / "lib" / "computemesh" / "agent-environments").mkdir(parents=True, exist_ok=True)
+
+        provenance = _write_provenance(repo_src, source_commit)
+        print(
+            "--> Build provenance: "
+            f"source_commit={provenance['source_commit']} "
+            f"version={provenance['version']}"
+        )
+
+        _copy_source_snapshot(repo_src, source_commit, cm_target)
+        runtime_requirements = cm_target / "requirements.txt"
+        if not runtime_requirements.is_file():
+            raise RuntimeError("NodeOS build requires the repository requirements.txt")
+        # Install the declared runtime set into the image.  A dependency
+        # failure is a build failure; the image must not boot with a partial
+        # Python environment.
+        chroot_exec(
+            "python3 -m pip install --no-cache-dir --break-system-packages "
+            "-r /opt/computemesh/requirements.txt"
+        )
 
         # Provision /etc/computemesh and /var/lib/computemesh state directories
         (CHROOT_DIR / "etc" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "var" / "lib" / "computemesh").mkdir(parents=True, exist_ok=True)
-        if (repo_src / "deploy" / "systemd" / "computemesh-node.service").exists():
+        if (cm_target / "deploy" / "systemd" / "computemesh-node.service").exists():
             shutil.copy(
-                repo_src / "deploy" / "systemd" / "computemesh-node.service",
+                cm_target / "deploy" / "systemd" / "computemesh-node.service",
                 CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service",
             )
-        if (repo_src / "deploy" / "systemd" / "provider.env.example").exists():
+        if (cm_target / "deploy" / "systemd" / "provider.env.example").exists():
             shutil.copy(
-                repo_src / "deploy" / "systemd" / "provider.env.example",
+                cm_target / "deploy" / "systemd" / "provider.env.example",
                 CHROOT_DIR / "etc" / "computemesh" / "provider.env.example",
+            )
+        enrollment_example = cm_target / "deploy" / "systemd" / "enrollment.example.json"
+        if enrollment_example.is_file():
+            shutil.copy(
+                enrollment_example,
+                CHROOT_DIR / "etc" / "computemesh" / "enrollment.example.json",
             )
 
         # Install launcher script
@@ -178,6 +563,48 @@ if __name__ == '__main__':
             encoding="utf-8",
         )
         chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node")
+
+        preflight_launcher = bin_dir / "computemesh-node-preflight"
+        preflight_launcher.write_text(
+            _render_module_launcher(
+                "tools.appliance.boot_preflight",
+                f"--ready-file {PREFLIGHT_MARKER} \"$@\"",
+            ),
+            encoding="utf-8",
+        )
+        enrollment_launcher = bin_dir / "computemesh-enroll"
+        enrollment_launcher.write_text(
+            _render_module_launcher("tools.appliance.enroll", nodeos=True),
+            encoding="utf-8",
+        )
+        chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node-preflight /opt/computemesh/bin/computemesh-enroll")
+
+        preflight_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-preflight.service"
+        preflight_unit.write_text(
+            _render_preflight_unit(),
+            encoding="utf-8",
+        )
+        heartbeat_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-heartbeat.service"
+        heartbeat_unit.write_text(_render_heartbeat_unit(), encoding="utf-8")
+        # The experimental upstream RPC daemon is strictly opt-in and binds
+        # only to loopback. Never enable it during image creation.
+        if rpc_enabled:
+            rpc_source = cm_target / "deploy" / "systemd" / "computemesh-rpc-worker.service"
+            if not rpc_source.is_file():
+                raise RuntimeError("NodeOS image lacks the protected RPC worker service contract")
+            shutil.copy(
+                rpc_source,
+                CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-rpc-worker.service",
+            )
+        node_override_dir = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service.d"
+        node_override_dir.mkdir(parents=True, exist_ok=True)
+        (node_override_dir / "10-preflight.conf").write_text(
+            """[Unit]
+Requires=computemesh-node-preflight.service
+After=computemesh-node-preflight.service
+""",
+            encoding="utf-8",
+        )
 
         # Install Kiosk Fullscreen Launcher
         kiosk_script = bin_dir / "start-kiosk.sh"
@@ -224,6 +651,8 @@ Wants=network-online.target
 Type=simple
 Environment=COMPUTEMESH_LLAMA_SERVER=/usr/local/bin/llama-server
 Environment=COMPUTEMESH_MODEL_DIR=/var/lib/computemesh/models
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER=/run/computemesh/node-preflight.ok
 ExecStart=/opt/computemesh/bin/computemesh-node --port 8080
 Restart=always
 RestartSec=5
@@ -293,10 +722,12 @@ WantedBy=multi-user.target
         chroot_exec("chmod 700 /var/lib/computemesh /etc/computemesh")
 
         # Enable services in chroot
+        chroot_exec("systemctl enable computemesh-node-preflight.service")
+        chroot_exec("systemctl enable computemesh-node-heartbeat.service")
         chroot_exec("systemctl enable computemesh-appliance.service")
         chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")
-        chroot_exec("systemctl enable computemesh-node.service || true")
+        chroot_exec("systemctl enable computemesh-node.service")
         chroot_exec("systemctl enable systemd-networkd")
         chroot_exec("systemctl enable systemd-resolved")
 
@@ -352,9 +783,9 @@ WantedBy=multi-user.target
     (ISO_DIR / "computemesh.env").write_text(
         """# ComputeMesh NodeOS USB Boot Configuration
 NODE_NAME=cm-node-provider
-WALLET_PAYOUT_ADDRESS=
-API_KEY=
-COORDINATOR_URL=https://mesh.inetconnector.com
+COORDINATOR_URL=https://control.example.invalid
+ENROLLMENT_BUNDLE=/etc/computemesh/enrollment.json
+PERSISTENCE_LABEL=persistence
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512
 ENABLE_DASHBOARD=true
@@ -383,7 +814,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
 """,
         encoding="utf-8",
     )
@@ -393,6 +824,8 @@ LABEL computemesh
     grub_dir.mkdir(parents=True, exist_ok=True)
     embedded_grub = """set default=0
 set timeout=3
+serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+terminal_output console serial
 insmod all_video
 insmod font
 insmod gfxterm
@@ -411,12 +844,12 @@ elif search --no-floppy --set=root --file /boot/vmlinuz; then
 fi
 
 menuentry "ComputeMesh NodeOS (AMD / NVIDIA Native Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components quiet splash console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 
 menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
-    linux /boot/vmlinuz boot=live components computemesh.autostart=1 persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 """
@@ -429,7 +862,7 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
         "part_gpt part_msdos fat iso9660 ext2 squash4 "
         "search search_fs_file search_label search_fs_uuid "
         "configfile test echo normal linux boot loadenv "
-        "gzio xzio zstd all_video font gfxterm video efi_gop efi_uga "
+        "gzio xzio zstd all_video font gfxterm video efi_gop "
         "sleep reboot halt gettext bufio"
     )
     run([
@@ -447,14 +880,20 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     run(["mmd", "-i", str(efi_img), "::/EFI/BOOT"])
     run(["mcopy", "-i", str(efi_img), str(bootx64), "::/EFI/BOOT/BOOTX64.EFI"])
 
-    out_iso = OUTPUT_DIR / "computemesh-nodeos-x86_64.iso"
-    out_img = OUTPUT_DIR / "computemesh-nodeos-x86_64.img"
-    out_xz = OUTPUT_DIR / "computemesh-nodeos-x86_64.img.xz"
+    out_iso = final_output_dir / "computemesh-nodeos-x86_64.iso"
+    out_img = final_output_dir / "computemesh-nodeos-x86_64.img"
+    out_xz = final_output_dir / "computemesh-nodeos-x86_64.img.xz"
+    temp_suffix = f".tmp.{os.getpid()}"
+    temp_iso = final_output_dir / f"computemesh-nodeos-x86_64.iso{temp_suffix}"
+    temp_img = final_output_dir / f"computemesh-nodeos-x86_64.img{temp_suffix}"
+    temp_xz = Path(str(temp_img) + ".xz")
+    for temporary in (temp_iso, temp_img, temp_xz):
+        temporary.unlink(missing_ok=True)
 
     mbr_bin = "/usr/lib/ISOLINUX/isohdpfx.bin"
     run([
         "xorriso", "-as", "mkisofs",
-        "-o", str(out_iso),
+        "-o", str(temp_iso),
         "-V", "COMPUTEMESH",
         "-r", "-J", "-joliet-long",
         "-isohybrid-mbr", mbr_bin,
@@ -508,15 +947,15 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     # fine on its own once the stick is unplugged for good.
     print("\nGenerating flashable .img with an ext4 persistence partition...")
     mib = 1024 * 1024
-    iso_size = out_iso.stat().st_size
+    iso_size = temp_iso.stat().st_size
     iso_size_aligned = -(-iso_size // mib) * mib  # round up to a MiB boundary
     persistence_size_mib = int(os.environ.get("COMPUTEMESH_PERSISTENCE_SIZE_MIB", str(DEFAULT_PERSISTENCE_SIZE_MIB)))
     if not 16384 <= persistence_size_mib <= 262144:
         raise RuntimeError("COMPUTEMESH_PERSISTENCE_SIZE_MIB must be between 16384 and 262144")
     total_size = iso_size_aligned + persistence_size_mib * mib
 
-    shutil.copyfile(out_iso, out_img)
-    with open(out_img, "ab") as f:
+    shutil.copyfile(temp_iso, temp_img)
+    with open(temp_img, "ab") as f:
         f.truncate(total_size)
 
     # sfdisk --append only adds a new partition entry; unlike some higher-
@@ -524,11 +963,11 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     # entries that make the ISO9660 content BIOS+UEFI bootable, which is
     # the part that must not be disturbed.
     sfdisk_input = f"{iso_size_aligned // 512},,L\n"  # start in 512B sectors, Linux type
-    subprocess.run(["sfdisk", "--append", "--no-reread", str(out_img)], input=sfdisk_input, text=True, check=True)
-    run(["partprobe", str(out_img)], check=False)
+    subprocess.run(["sfdisk", "--append", "--no-reread", str(temp_img)], input=sfdisk_input, text=True, check=True)
+    run(["partprobe", str(temp_img)], check=False)
 
     loop_dev = subprocess.run(
-        ["losetup", "--show", "-f", "-o", str(iso_size_aligned), "--sizelimit", str(persistence_size_mib * mib), str(out_img)],
+        ["losetup", "--show", "-f", "-o", str(iso_size_aligned), "--sizelimit", str(persistence_size_mib * mib), str(temp_img)],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
     try:
@@ -543,21 +982,59 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     finally:
         run(["losetup", "-d", loop_dev])
 
-    run(["xz", "-f", "-6", "-k", str(out_img)])
+    run(["xz", "-f", "-6", "-k", str(temp_img)])
 
     # Set permissions on staged build outputs
     try:
-        run(["chmod", "644", str(out_iso), str(out_xz)], check=False)
+        run(["chmod", "644", str(temp_iso), str(temp_xz)], check=False)
     except Exception as exc:
         print(f"Notice: Artifact permissions setup: {exc}")
+
+    # Do not expose partially written images to a release publisher.  The
+    # temporary files have already completed the full build and persistence
+    # formatting path before each atomic replacement below.
+    os.replace(temp_iso, out_iso)
+    os.replace(temp_xz, out_xz)
+    temp_img.unlink(missing_ok=True)
+    provenance_report = _write_artifact_provenance(
+        final_output_dir,
+        provenance,
+        out_iso,
+        out_xz,
+    )
 
     print("\n====================================================================")
     print(f"SUCCESS: True Debian Live NodeOS Image Generated!")
     print(f"ISO File: {out_iso} ({out_iso.stat().st_size:,} bytes)")
     print(f"XZ File:  {out_xz} ({out_xz.stat().st_size:,} bytes)")
+    print(f"Provenance: {provenance_report}")
     print("====================================================================")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(build_appliance())
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--source-repo",
+        type=Path,
+        help="explicit regular Git checkout containing the public ComputeMesh source",
+    )
+    parser.add_argument(
+        "--expected-source-commit",
+        help="optional exact 40-character commit that must be built",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="isolated directory for the ISO, IMG.XZ and provenance report",
+    )
+    args = parser.parse_args()
+    sys.exit(
+        build_appliance(
+            output_dir=args.output_dir,
+            source_repo=args.source_repo,
+            expected_source_commit=args.expected_source_commit,
+        )
+    )

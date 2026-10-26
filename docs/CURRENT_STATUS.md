@@ -16,6 +16,31 @@ Every statement below distinguishes between:
 
 A branch-local implementation or green CI is not a production confidentiality claim.
 
+The 2026-10-26 local development branch also contains fail-closed persistence
+hardening for provider private keys and tunnel tokens. It has focused local
+test evidence only; it is not merged public main, a hardware enrollment proof,
+or a production release.
+
+The same branch now requires verified local runtime evidence before a provider
+can advertise `INFERENCE_READY` or enter live inference placement. The model
+engine checks the selected llama.cpp binary, accelerator runtime, model digest,
+and health endpoint; the provider channel and gateway telemetry carry the
+result. Focused local tests pass, while AMD hardware, boot-media, and
+production acceptance remain unrun.
+
+The branch also hardens NodeOS release provenance. The appliance builder embeds
+the current public source commit and pinned llama.cpp metadata in the ISO and
+image, while the release builder rejects missing/stale/inconsistent images,
+promotes only validated staging outputs, and writes SHA-256 evidence. Release
+signing is blocked unless an operator explicitly approves it. Focused local
+contract tests pass; the Linux image build, physical boot and publication were
+not run.
+
+The legacy security-audit fixture now uses fresh local static catalog entries
+only for its billing test and restores the production-shaped catalog afterward.
+The checked-in historical update manifest is still cryptographically invalid;
+without an approved production signing key it remains a release blocker.
+
 ## What exists today
 
 ComputeMesh is an active pre-production distributed-inference system with real implementations for:

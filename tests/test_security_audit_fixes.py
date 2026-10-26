@@ -15,6 +15,7 @@ Verifies remediation of critical and high-priority vulnerabilities:
 12. Pre-inference balance reservation preventing unpaid compute execution.
 13. Dynamic API key revocation without process restart.
 """
+from dataclasses import replace
 from datetime import datetime, timezone
 import html
 import http.client
@@ -56,7 +57,7 @@ from services.gateway.auth import (
     extract_bearer_token,
     resolve_client_ip,
 )
-from services.gateway.catalog import AVAILABLE_MODELS
+import services.gateway.catalog as catalog_module
 from services.gateway.dashboard import (
     NODE_TELEMETRY_REGISTRY,
     render_node_remote_dashboard_html,
@@ -78,6 +79,15 @@ class TestSecurityAuditFixes(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.work_dir = Path(self.temp_dir.name)
+        self._catalog_models = catalog_module.AVAILABLE_MODELS
+        self._catalog_registry = catalog_module.LIVE_MODEL_REGISTRY
+        # This suite verifies billing/auth behavior without a model runtime.
+        # Use fresh local test catalog entries; production keeps the
+        # fail-closed unavailable-catalog behavior.
+        catalog_module.LIVE_MODEL_REGISTRY = None
+        catalog_module.AVAILABLE_MODELS = [
+            replace(model, available=True) for model in self._catalog_models
+        ]
         self.ledger = Ledger(storage_path=self.work_dir / "ledger.json")
         self.teaser_manager = TeaserQuotaManager(max_requests=5, max_tokens=1000, window_seconds=60)
         self.auth_manager = GatewayAuthManager(
@@ -134,6 +144,8 @@ class TestSecurityAuditFixes(unittest.TestCase):
         self.assertIn('fleet_download_error: "Download fehlgeschlagen ({status})"', portal_core)
 
     def tearDown(self) -> None:
+        catalog_module.AVAILABLE_MODELS = self._catalog_models
+        catalog_module.LIVE_MODEL_REGISTRY = self._catalog_registry
         self.temp_dir.cleanup()
 
     # 1. mTLS Peer Certificate Authentication

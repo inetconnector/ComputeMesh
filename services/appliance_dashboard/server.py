@@ -12,6 +12,7 @@ import hmac
 import io
 import json
 import logging
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -33,6 +34,10 @@ from tools.appliance.hardware_detector import (
     RigInventory,
     scan_rig_hardware_stable,
 )
+from tools.appliance.node_identity import (
+    read_enrolled_node_id,
+    resolve_node_id,
+)
 from services.appliance_dashboard.template_loader import get_dashboard_html
 from services.appliance_dashboard.mesh_aggregator import (
     MeshRegistryAggregator,
@@ -40,10 +45,11 @@ from services.appliance_dashboard.mesh_aggregator import (
 )
 from services.appliance_dashboard.tunnel_relay import (
     get_or_create_node_auth_token,
-    NODE_AUTH_TOKEN,
     CloudTunnelRelay,
     CLOUD_TUNNEL_RELAY,
+    rotate_node_auth_token,
 )
+from services.appliance_dashboard import tunnel_relay as _tunnel_relay
 from services.appliance_dashboard.inference_router import InferenceRouter
 from services.appliance_dashboard.fan_control_handler import FanControlHandler
 from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
@@ -69,6 +75,15 @@ ALLOWED_CORS_ORIGINS = {
     "http://127.0.0.1:3000",
 }
 FAN_SAFETY_CONTROLLER: Any = None
+
+
+def _mesh_poller_enabled() -> bool:
+    return os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
@@ -109,6 +124,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
     _qr_rate_windows: dict[str, list[float]] = {}
 
     def _current_node_id(self) -> str:
+        enrolled = read_enrolled_node_id()
+        if enrolled is not None:
+            return enrolled
         configured = str(getattr(self.config, "rig_name", "") or "").strip()
         if configured and not (configured == "test-node-custom" and self.node_id != "test-node-custom"):
             return configured
@@ -130,7 +148,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     break
 
         if supplied_token and (
-            hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip())
+            hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip())
             or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
         ):
             return True
@@ -501,7 +519,9 @@ def create_dashboard_server(
     if inventory is None:
         inventory = scan_rig_hardware_stable()
 
-    effective_node_id = config.rig_name or node_id or "cm-node"
+    effective_node_id = resolve_node_id(
+        fallback_node_id=str(config.rig_name or node_id or "cm-node").strip()
+    )
     DashboardHandler.config = config
     DashboardHandler.inventory = inventory
     DashboardHandler.node_id = effective_node_id
@@ -516,25 +536,32 @@ def create_dashboard_server(
     except Exception as exc:
         log.warning("Fan safety controller unavailable: %s", exc)
 
-    try:
-        from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
-        start_cloud_tunnel_relay(node_id=effective_node_id)
-    except Exception:
-        pass
+    # The dashboard is a UI/HTTP surface, not a heartbeat owner.  The
+    # platform-specific launcher (Windows/Linux tray or the NodeOS systemd
+    # heartbeat unit after preflight) owns exactly one relay instance.  Starting
+    # one here would race that owner and emit duplicate heartbeats.
 
     server_inst = None
     actual_port = port
-    for candidate_port in ([port] if port > 0 else []) + [8080, 8081, 8082, 8083, 8084]:
-        try:
-            server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
-            actual_port = server_inst.server_address[1]
-            break
-        except OSError:
-            continue
-
-    if server_inst is None:
+    if port == 0:
+        # Port zero is an explicit request for an OS-assigned ephemeral port.
+        # Never reinterpret it as the production service-port fallback: test
+        # harnesses, embedded callers and parallel local dashboards rely on
+        # collision-free allocation.
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
+    else:
+        for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
+            try:
+                server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
+                actual_port = server_inst.server_address[1]
+                break
+            except OSError:
+                continue
+
+        if server_inst is None:
+            server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
+            actual_port = server_inst.server_address[1]
 
     try:
         from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
@@ -543,10 +570,11 @@ def create_dashboard_server(
     except Exception:
         pass
 
-    try:
-        GLOBAL_MESH_AGGREGATOR.start()
-    except Exception:
-        pass
+    if _mesh_poller_enabled():
+        try:
+            GLOBAL_MESH_AGGREGATOR.start()
+        except Exception:
+            pass
 
     return server_inst, actual_port
 
@@ -558,7 +586,8 @@ def run_dashboard_server(
     inventory: RigInventory | None = None,
     node_id: str = "cm-inference-node-01",
 ) -> int:
-    GLOBAL_MESH_AGGREGATOR.start()
+    if _mesh_poller_enabled():
+        GLOBAL_MESH_AGGREGATOR.start()
     server, actual_port = create_dashboard_server(host, port, config, inventory, node_id)
     try:
         if sys.stdout is not None:

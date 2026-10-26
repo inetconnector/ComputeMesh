@@ -1,5 +1,183 @@
 # ComputeMesh
 
+## Current local P0 integration candidate (2026-10-26)
+
+This checkout is a local development candidate, not a published release. It
+is on `codex/p0-auth-placement-20261026`; the P0-A through P0-D runtime code is
+committed in `5e79a09ceea47c970907044cb2ec0888c979c667`. The exact source
+commit and tree for every NodeOS artifact are carried in that artifact's
+provenance sidecar and in the private handoff receipt, so a later
+documentation-only commit cannot be mistaken for the runtime source. The
+local changes implement one
+canonical enrolled Node ID across provider, heartbeat and dashboard paths,
+explicit authenticated rename/migration, serialized and single-owner
+heartbeat publication, controlled enrollment → preflight → provider/
+heartbeat activation, and a portable appliance builder for Linux/WSL.
+The dashboard is now an HTTP/UI surface only; the platform launcher or the
+NodeOS heartbeat unit owns the single relay instance.
+
+The builder attests the exact source commit and tree, requires a verified
+Debian archive keyring, keeps the llama.cpp pin at `v0.4.1`
+(`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free provenance,
+and writes SHA-256/size evidence for the final artifacts. A final Debian
+13/Trixie live image was built locally in isolated WSL2 from the clean public
+checkout. Debootstrap accepted the Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The immutable provenance sidecar
+is authoritative for the exact source commit/tree, artifact sizes and
+SHA-256 values; `xz -t`, BIOS/UEFI El Torito inspection, and a read-only ext4
+persistence mount passed with `persistence.conf` containing `/ union`.
+
+The same ISO was booted separately through BIOS and UEFI in isolated QEMU/TCG
+with 4096 MiB RAM, serial logs and a snapshot of the generated image. Both
+guests reached `basic.target`, started the local appliance service, exposed
+the local dashboard through host-only forwards (`18080` BIOS and `18081`
+UEFI), and returned HTTP 200. The serial logs ended at the `ttyS0` login
+prompt. This is `VM_BOOT_PASSED` for the unenrolled VM smoke test only; it is
+not physical GPU, enrollment, or production-release acceptance.
+
+Final local focused groups pass: NodeOS/identity/builder/enrollment `64`,
+provider/model/credits/sharding `68`, and Agent Workspace/UI/mesh/portal
+`79 passed, 5 skipped`. The versioned public suite reports `1783 passed,
+18 skipped, 42 subtests passed, 1 failed`; the only failure is the historical
+invalid Ed25519 signature in `portal/updates/version.json`, which remains
+`BLOCKED_SIGNING_AUTHORIZATION` because no signing key was used. The unified
+public harness reports `895 total, 894 passed, 1 failed, 0 errors`; it has the
+same single fixture failure. Physical NodeOS/GPU boot, real inference tokens,
+physical GPU inference, Windows Ollama enrollment/reconnect, multi-host
+networking and the native Windows NTFS TOCTOU gate remain open; the isolated
+unenrolled BIOS/UEFI VM boot is the only boot evidence. No push, merge,
+release, deployment or production credential was used; the overall status
+remains `RELEASE_NO_GO`.
+
+## P0 first-install enrollment and evidence contract (2026-10-26)
+
+The generated `computemesh-enroll` launcher sets `COMPUTEMESH_NODEOS=1`
+itself, so invoking it with `sudo` does not silently skip provider ownership,
+preflight, or controlled service activation. Enrollment now uses the
+side-effect-free `tools/security/node_auth_token_storage.py` after the gateway
+response and preserves retryability when durable token storage fails. The
+heartbeat relay reads the exact `COMPUTEMESH_NODE_PRIVATE_KEY` persisted in
+`provider.env`; missing, unreadable, relative, or switched keys fail closed.
+
+Enrollment and boot preflight validate the node-profile and both actual
+`llama_cpp_prefill`/`llama_cpp_decode` documents against the session schemas,
+positive measured values, one profile revision, one model, and one exact
+llama.cpp build. The builder installs an `EVIDENCE_REQUIRED.md` operator
+diagnostic and never fabricates profile or performance numbers. BIOS and UEFI
+boot entries now expose `ttyS0` with `console=ttyS0,115200n8` for isolated VM
+diagnostics. The fresh image and isolated BIOS/UEFI guest boot now have local
+evidence as described above. Physical GPU inference, enrollment, and release
+gates remain open; overall status is still `RELEASE_NO_GO`.
+
+## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
+
+Der aktuelle lokale P0-Kandidat schließt fünf Integrationsfehler im echten
+Gateway-, Placement-, NodeOS- und Enrollment-Pfad:
+
+- Eine bereits registrierte Legacy-Node ohne Owner-/Ed25519-Bindung kann nicht
+  mehr durch einen fremden Owner-Key und eine selbst erzeugte Signatur
+  übernommen werden. Gültige bestehende Owner-Migrationen bleiben möglich;
+  eine ungebundene Legacy-Zeile benötigt einen expliziten Enrollmentnachweis.
+- Placement-Request-IDs werden in der vorhandenen SQLite-Lease-Schicht
+  unveränderlich an Tenant, Modell-/Artifact-Vertrag, Kandidaten und den
+  konkreten Node-Plan gebunden. Geänderte Retries werden fail-closed abgelehnt
+  und dürfen keine ursprüngliche Lease freigeben.
+- Preflight-/Enrollment-Launcher setzen ihr Arbeitsverzeichnis und
+  `PYTHONPATH` selbst; systemd wartet auf das bestehende Preflight und den
+  persistenten Mount. Der Dashboard-Prozess bleibt für lokale ErstEnrollment-
+  Bedienung verfügbar, während der Heartbeat erst nach erfolgreichem
+  Preflight startet.
+- POSIX-Schlüssel und Token bleiben owner-only und werden dem Dienstkonto
+  `computemesh` zugewiesen. Ein NodeOS-Prozess erzeugt keine neue Identität auf
+  einem ungeprüften Overlay.
+- HTTP-Enrollment und der persistente Provider-TLS-Kanal verlangen getrennte,
+  explizite Host-, Port-, Servername- und CA-Daten; ein HTTPS-443-Fallback wird
+  nicht mehr in den Provider-Kanal übernommen.
+
+Die lokalen Regressionen verwenden ausschließlich neu erzeugte Testidentitäten.
+Der öffentliche Code ist in `5bb69f9` und `1e1969b` auf Branch
+`codex/p0-auth-placement-20261026` committed. Diese Nachweise sind keine
+Hardware-, Produktions- oder Releasefreigabe: NodeOS-Boot, AMD-GPU-Inferenz,
+WAN/BFT-Abnahme und der native Windows-Security-Gate bleiben offen.
+
+## P0 release-artifact provenance (2026-10-26, local development branch)
+
+NodeOS release builds now embed a secret-free provenance marker containing the
+public source commit, ComputeMesh version and pinned llama.cpp build. The
+release builder validates that marker in both the ISO and the compressed image
+before accepting an artifact, records SHA-256 and byte-size evidence in an
+atomically written sidecar, and promotes freshly built images from an isolated
+staging directory. Missing, stale or inconsistent images are rejected rather
+than silently reused. Manifest signing additionally requires explicit operator
+approval through `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; no signing key was
+used for this local change and no release was produced.
+
+The corresponding tests cover missing provenance, stale source commits and the
+signing approval gate. The real Debian/chroot/image build, physical boot,
+flashing and production publication remain separate gates.
+
+The legacy security-audit test now injects only fresh local static catalog
+entries when it tests billing behavior without a runtime. It does not alter the
+production catalog's unavailable-model fail-closed behavior. The checked-in
+historical update manifest still has an invalid signature and remains a
+release blocker; it was not re-signed locally.
+
+## P0 authenticated reconnect hardening (2026-10-26, local development branch)
+
+The gateway heartbeat path now fails closed for an existing legacy node that
+has no stored Ed25519 public key: an arbitrary caller-supplied key and
+signature cannot replace its token or bind the node. New signed heartbeats
+use a canonical v2 field set containing the node ID, token, timestamp, nonce
+and optional previous node ID. Nonces are retained in the registry and
+consumed atomically, so a parallel replay cannot win a second state update.
+First key binding, registered-key rotation, owner migration and node-ID alias
+retirement require the existing token, a registered key, or the existing
+owner/enrollment authorization. The appliance relay emits the v2 proof.
+
+The local security change is committed as `13db578`
+(`fix(security): fail-closed node reconnect identity`). It was verified with
+the real localhost gateway and local Ed25519 test identities; no production
+host, deployment, push or release was performed. Cross-shard BFT, NodeOS
+reboot, AMD-GPU inference and complete mesh E2E acceptance remain separate
+open gates.
+
+## P0 fail-closed node identity persistence (2026-10-26, local development)
+
+Node private-key and tunnel-token storage now fails closed when an existing
+identity cannot be read, protected, or atomically persisted. Symlink and
+non-regular paths are rejected; POSIX writes use restrictive permissions and
+atomic replacement; Windows does not silently fall back to plaintext when OS
+protection is unavailable. The relay also refuses to start without its
+persistent private key and no longer emits an unsigned heartbeat after a
+signing failure. Local tests use only fresh test identities and cover storage
+failure and relay startup failure. This is code/local-test evidence, not a
+hardware or production enrollment claim.
+
+## P0 NodeOS boot contract (2026-10-26, local development)
+
+The live appliance builder now validates its Debian mirror, fails on service
+enablement errors, embeds the real tty1 monitor, installs declared Python and
+portal runtime content, and wires a fail-closed preflight into the existing
+provider service. The preflight requires a provisioned provider environment,
+persistent Ed25519 key, CA, evidence files, ext4 `persistence` storage,
+`llama-server`, and a successful Vulkan probe. `computemesh-enroll` reuses the
+existing signed gateway heartbeat/enrollment path and writes provider
+configuration only after the enrollment response is accepted. No image was
+built, flashed, booted, or deployed on this Windows host; physical NodeOS and
+AMD/NVIDIA acceptance remain open.
+
+## P0 verified inference readiness (2026-10-26, local development)
+
+`ModelEngineService` now reports `INFERENCE_READY` only after the pinned
+`llama-server` binary, the selected accelerator runtime (including Vulkan,
+CUDA, or ROCm where applicable), the verified GGUF artifact and the health
+endpoint have all passed. The authenticated provider agent and live
+registration carry that status forward and fail closed for inference requests
+or placement when runtime verification is absent. The existing tunnel relay
+continues to publish the same engine status in `telemetry.model_runtime`.
+The local tests use injected test probes; no AMD hardware or production node
+was used, so physical inference acceptance remains open.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.

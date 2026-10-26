@@ -1,5 +1,67 @@
 # ComputeMesh
 
+## P0-Provenienz von Release-Artefakten (2026-10-26, lokale Entwicklung)
+
+NodeOS-Release-Builds betten jetzt einen geheimnisfreien Provenienzmarker mit
+öffentlichem Source-Commit, ComputeMesh-Version und gepinntem llama.cpp-Build
+ein. Der Release-Builder prüft diesen Marker in ISO und komprimiertem Image,
+bevor ein Artefakt akzeptiert wird, schreibt SHA-256-/Größen-Evidence atomar in
+eine Begleitdatei und übernimmt neue Images nur aus einem isolierten Staging-
+Verzeichnis. Fehlende, veraltete oder widersprüchliche Images werden nicht
+still wiederverwendet. Das Signieren des Manifests verlangt zusätzlich die
+explizite Betreiberfreigabe `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; für diese
+lokale Änderung wurde kein Signing-Key verwendet und kein Release erzeugt.
+
+Die Tests decken fehlende Provenienz, veraltete Source-Commits und die
+Signierfreigabe ab. Der echte Debian-/Chroot-/Image-Build, physischer Boot,
+Flashen und Produktionsveröffentlichung bleiben getrennte Gates.
+
+Der ältere Security-Audit-Test verwendet für die Billing-Prüfung ohne Runtime
+jetzt ausschließlich frische lokale statische Testmodelle. Das produktive
+Fail-Closed-Verhalten bei nicht verfügbaren Modellen bleibt unverändert. Das
+eingecheckte historische Update-Manifest besitzt weiterhin eine ungültige
+Signatur und bleibt ein Release-Blocker; lokal wurde es nicht neu signiert.
+
+## P0 Fail-Closed-Persistenz der Node-Identität (2026-10-26, lokale Entwicklung)
+
+Das Speichern und Laden des privaten Node-Schlüssels sowie des Tunnel-Tokens
+bricht jetzt ab, wenn eine vorhandene Identität nicht gelesen, geschützt oder
+atomar gespeichert werden kann. Symlink- und nichtreguläre Pfade werden
+abgelehnt; POSIX-Schreibvorgänge verwenden restriktive Berechtigungen und
+atomaren Austausch; unter Windows gibt es keinen stillen Klartext-Fallback,
+wenn der OS-Schutz fehlt. Das Relay startet nicht mehr ohne persistenten
+privaten Schlüssel und sendet nach einem Signaturfehler keinen unsignierten
+Heartbeat. Lokale Tests verwenden ausschließlich neu erzeugte Testidentitäten.
+Dies ist lokaler Code-/Test-Nachweis, keine Hardware- oder
+Produktionsfreigabe.
+
+## P0-NodeOS-Bootvertrag (2026-10-26, lokale Entwicklung)
+
+Der Live-Appliance-Builder validiert jetzt den Debian-Mirror, bricht bei
+Aktivierungsfehlern ab, bettet den echten tty1-Monitor ein, installiert die
+deklarierten Python-/Portal-Laufzeitdateien und verdrahtet einen fail-closed
+Preflight mit dem vorhandenen Provider-Service. Der Preflight verlangt eine
+provisionierte Provider-Umgebung, persistenten Ed25519-Schlüssel, CA,
+Evidence-Dateien, ext4-Persistence mit Label `persistence`, `llama-server`
+und einen erfolgreichen Vulkan-Test. `computemesh-enroll` verwendet den
+bestehenden signierten Gateway-Heartbeat-/Enrollment-Pfad und schreibt die
+Provider-Konfiguration erst nach positiver Antwort. Auf diesem Windows-Host
+wurde kein Image gebaut, geflasht, gebootet oder deployed; physische NodeOS-
+und AMD-/NVIDIA-Abnahme bleiben offen.
+
+## P0 verifizierte Inferenz-Bereitschaft (2026-10-26, lokale Entwicklung)
+
+`ModelEngineService` meldet `INFERENCE_READY` jetzt erst, wenn das gepinnte
+`llama-server`-Binary, die gewählte Beschleuniger-Runtime (einschließlich
+Vulkan, CUDA oder ROCm), das verifizierte GGUF-Artefakt und der Health-
+Endpunkt erfolgreich geprüft wurden. Der authentifizierte Provider-Agent und
+die Live-Registrierung führen diesen Status weiter und verweigern
+Inferenzanfragen beziehungsweise Placement ohne Runtime-Nachweis. Das
+bestehende Tunnel-Relay veröffentlicht denselben Engine-Status weiterhin in
+`telemetry.model_runtime`. Die lokalen Tests verwenden injizierte Test-Probes;
+AMD-Hardware und Produktions-Nodes wurden nicht verwendet, die physische
+Inferenzabnahme bleibt offen.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen (887/887 Tests bestanden).

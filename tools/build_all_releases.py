@@ -7,9 +7,14 @@ updates SHA-256 checksums, and signs version.json with the Master Ed25519 key.
 from __future__ import annotations
 
 import hashlib
+import json
+import lzma
+import os
 import shutil
+import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +27,161 @@ from deploy.windows.build_installer import build_windows_standalone_bundle
 VERSION = CONFIG.appliance_version
 DOWNLOADS_DIR = REPO_ROOT / "portal" / "downloads"
 UPDATES_DIR = REPO_ROOT / "portal" / "updates"
+NODEOS_ISO_NAME = "computemesh-nodeos-x86_64.iso"
+NODEOS_IMAGE_NAME = "computemesh-nodeos-x86_64.img.xz"
+NODEOS_PROVENANCE_NAME = "computemesh-nodeos-x86_64.provenance.json"
+PROVENANCE_PREFIX = b"COMPUTEMESH_BUILD_PROVENANCE_V1="
+
+
+class ReleaseBuildError(RuntimeError):
+    """Raised when a release input cannot be proved current and complete."""
+
+
+def _source_commit() -> str:
+    """Return the exact public source commit used by this release invocation."""
+    result = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    commit = result.stdout.strip()
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit.lower()):
+        raise ReleaseBuildError(f"git returned an invalid source commit: {commit!r}")
+    return commit
+
+
+def _expected_nodeos_provenance() -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "artifact_kind": "nodeos",
+        "source_commit": _source_commit(),
+        "version": VERSION,
+    }
+
+
+def _read_provenance_marker(path: Path, *, compressed: bool) -> dict[str, object]:
+    """Extract the bounded JSON marker from an ISO or an xz-compressed image."""
+    opener = lzma.open if compressed else open
+    tail = b""
+    with opener(path, "rb") as stream:
+        while True:
+            chunk = stream.read(1024 * 1024)
+            if not chunk:
+                break
+            data = tail + chunk
+            start = data.find(PROVENANCE_PREFIX)
+            if start >= 0:
+                end = data.find(b"\n", start)
+                if end >= 0:
+                    payload = data[start + len(PROVENANCE_PREFIX):end].strip()
+                    try:
+                        parsed = json.loads(payload.decode("utf-8"))
+                    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                        raise ValueError(f"invalid NodeOS provenance in {path.name}") from exc
+                    if not isinstance(parsed, dict):
+                        raise ValueError(f"NodeOS provenance in {path.name} is not an object")
+                    return parsed
+            tail = data[-8192:]
+    raise ValueError(f"NodeOS artifact {path.name} lacks build provenance")
+
+
+def _validate_nodeos_artifacts(
+    iso: Path,
+    image: Path,
+    expected: dict[str, object],
+) -> None:
+    """Reject missing, stale, or internally inconsistent NodeOS artifacts."""
+    for artifact in (iso, image):
+        if not artifact.is_file() or artifact.stat().st_size <= 0:
+            raise ValueError(f"NodeOS artifact missing or empty: {artifact}")
+
+    iso_provenance = _read_provenance_marker(iso, compressed=False)
+    image_provenance = _read_provenance_marker(image, compressed=True)
+    for name, provenance in ((iso.name, iso_provenance), (image.name, image_provenance)):
+        for key, expected_value in expected.items():
+            if provenance.get(key) != expected_value:
+                raise ValueError(
+                    f"NodeOS provenance mismatch for {name}: {key} "
+                    f"{provenance.get(key)!r} != {expected_value!r}"
+                )
+
+    comparable_keys = ("schema_version", "artifact_kind", "source_commit", "version")
+    if any(iso_provenance.get(key) != image_provenance.get(key) for key in comparable_keys):
+        raise ValueError("ISO and IMG.XZ contain inconsistent NodeOS provenance")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_nodeos_provenance_report(
+    iso: Path,
+    image: Path,
+    expected: dict[str, object],
+    output: Path,
+) -> None:
+    """Write a secret-free, atomically published provenance and digest report."""
+    report = {
+        **expected,
+        "artifacts": {
+            "iso": {
+                "filename": iso.name,
+                "size_bytes": iso.stat().st_size,
+                "sha256": _sha256(iso),
+            },
+            "img_xz": {
+                "filename": image.name,
+                "size_bytes": image.stat().st_size,
+                "sha256": _sha256(image),
+            },
+        },
+    }
+    temporary = output.with_name(output.name + ".tmp")
+    try:
+        temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, output)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _validate_nodeos_provenance_report(
+    iso: Path,
+    image: Path,
+    expected: dict[str, object],
+    report_path: Path,
+) -> None:
+    """Verify the persisted digest evidence before reusing existing images."""
+    if not report_path.is_file() or report_path.stat().st_size <= 0:
+        raise ValueError("NodeOS provenance digest report is missing")
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("NodeOS provenance digest report is invalid") from exc
+    if not isinstance(report, dict):
+        raise ValueError("NodeOS provenance digest report is not an object")
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            raise ValueError(f"NodeOS provenance report mismatch: {key}")
+
+    artifacts = report.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise ValueError("NodeOS provenance report lacks artifact digests")
+    for name, artifact in (("iso", iso), ("img_xz", image)):
+        entry = artifacts.get(name)
+        if not isinstance(entry, dict):
+            raise ValueError(f"NodeOS provenance report lacks {name} digest")
+        if entry.get("filename") != artifact.name:
+            raise ValueError(f"NodeOS provenance report filename mismatch for {name}")
+        if entry.get("size_bytes") != artifact.stat().st_size:
+            raise ValueError(f"NodeOS provenance report size mismatch for {name}")
+        if entry.get("sha256") != _sha256(artifact):
+            raise ValueError(f"NodeOS provenance report sha256 mismatch for {name}")
 
 
 def _exclude_linux_release_path(name: str) -> bool:
@@ -101,22 +261,60 @@ def build_windows_exe() -> Path:
 
 
 def check_or_build_nodeos_appliance() -> None:
-    """Ensure NodeOS ISO and IMG.XZ artifacts are present or built via canonical builder."""
+    """Ensure NodeOS artifacts match this source commit before publication."""
     print("\n[3/5] Checking / Building NodeOS Live Appliance...")
-    iso = DOWNLOADS_DIR / "computemesh-nodeos-x86_64.iso"
-    img = DOWNLOADS_DIR / "computemesh-nodeos-x86_64.img.xz"
-    if iso.exists() and img.exists():
-        print(f"--> Local NodeOS ISO present: {iso.stat().st_size:,} bytes")
-        print(f"--> Local NodeOS IMG.XZ present: {img.stat().st_size:,} bytes")
-        return
+    DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    iso = DOWNLOADS_DIR / NODEOS_ISO_NAME
+    image = DOWNLOADS_DIR / NODEOS_IMAGE_NAME
+    expected = _expected_nodeos_provenance()
 
-    if sys.platform.startswith("linux") and shutil.which("debootstrap") and shutil.which("xorriso"):
-        print("--> Linux build host with debootstrap & xorriso detected. Executing build_real_live_appliance.py...")
-        from deploy.appliance.build_real_live_appliance import build_appliance
-        build_appliance()
-    else:
-        print("--> Notice: NodeOS appliance build requires Linux host with debootstrap, chroot, and xorriso.")
-        print("    Release signer will bind authoritative verified Debian Live appliance image metadata.")
+    if iso.exists() or image.exists():
+        try:
+            _validate_nodeos_artifacts(iso, image, expected)
+            _validate_nodeos_provenance_report(
+                iso,
+                image,
+                expected,
+                DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME,
+            )
+        except (OSError, ValueError, lzma.LZMAError) as exc:
+            print(f"--> Existing NodeOS artifacts rejected: {exc}")
+        else:
+            print(f"--> Verified current NodeOS ISO: {iso.stat().st_size:,} bytes")
+            print(f"--> Verified current NodeOS IMG.XZ: {image.stat().st_size:,} bytes")
+            _write_nodeos_provenance_report(
+                iso, image, expected, DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME
+            )
+            return
+
+    if not (sys.platform.startswith("linux") and shutil.which("debootstrap") and shutil.which("xorriso")):
+        raise ReleaseBuildError(
+            "NodeOS artifacts are missing or stale and cannot be accepted; "
+            "a Linux host with debootstrap and xorriso is required to rebuild them"
+        )
+
+    print("--> Building NodeOS into an isolated staging directory...")
+    from deploy.appliance.build_real_live_appliance import build_appliance
+
+    with tempfile.TemporaryDirectory(prefix=".computemesh-nodeos-", dir=str(DOWNLOADS_DIR)) as raw_staging:
+        staging = Path(raw_staging)
+        build_appliance(output_dir=staging)
+        staged_iso = staging / NODEOS_ISO_NAME
+        staged_image = staging / NODEOS_IMAGE_NAME
+        try:
+            _validate_nodeos_artifacts(staged_iso, staged_image, expected)
+        except (OSError, ValueError, lzma.LZMAError) as exc:
+            raise ReleaseBuildError(f"fresh NodeOS staging failed provenance validation: {exc}") from exc
+
+        # Each target is replaced only after the complete staged pair has passed
+        # validation. os.replace is atomic for each file on the same filesystem.
+        os.replace(staged_iso, iso)
+        os.replace(staged_image, image)
+        _write_nodeos_provenance_report(
+            iso, image, expected, DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME
+        )
+        print(f"--> Promoted current NodeOS ISO: {iso.stat().st_size:,} bytes")
+        print(f"--> Promoted current NodeOS IMG.XZ: {image.stat().st_size:,} bytes")
 
 
 def copy_installer_script() -> Path:
@@ -134,6 +332,11 @@ def copy_installer_script() -> Path:
 def sign_and_verify_release() -> None:
     """Generate Ed25519 cryptographic signature for version.json and verify."""
     print("\n[5/5] Cryptographically Signing Release Manifest (version.json)...")
+    if os.environ.get("COMPUTEMESH_RELEASE_SIGNING_APPROVED") != "1":
+        raise ReleaseBuildError(
+            "release signing requires explicit COMPUTEMESH_RELEASE_SIGNING_APPROVED=1; "
+            "no signing key was used"
+        )
     from tools.security.release_signer import sign_manifest, verify_manifest
 
     manifest_file = UPDATES_DIR / "version.json"

@@ -85,6 +85,38 @@ class SystemActionsHandler:
         post_body: bytes,
         appliance_version: str,
     ) -> bool:
+        if req_path == "/api/action/rotate_node_token":
+            # A local token swap without gateway/fleet acknowledgement can
+            # disconnect the enrolled miner. Default-deny until coordinated
+            # per-node fleet rotation is implemented and verified. Emergency
+            # override is deliberately separate from the normal UI workflow.
+            if os.environ.get("COMPUTEMESH_ENABLE_EMERGENCY_NODE_TOKEN_ROTATION", "") != "1":
+                handler._send_json(
+                    {
+                        "status": "error",
+                        "code": "fleet_rotation_required",
+                        "message": (
+                            "Local token rotation is disabled. A coordinated "
+                            "fleet rotation is required; supervised emergency "
+                            "recovery needs an explicit operator override."
+                        ),
+                    },
+                    HTTPStatus.CONFLICT,
+                )
+                return True
+            try:
+                from services.appliance_dashboard.tunnel_relay import rotate_node_auth_token
+                new_token = rotate_node_auth_token()
+                handler._send_json({
+                    "status": "ok",
+                    "message": "Node token rotated. Store the new token securely; it is not shown in telemetry.",
+                    "node_token": new_token,
+                })
+            except Exception as exc:
+                log.exception("node token rotation failed")
+                handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return True
+
         if req_path == "/api/config":
             try:
                 data = json.loads(post_body.decode("utf-8"))
@@ -101,7 +133,44 @@ class SystemActionsHandler:
 
                 from tools.appliance.appliance_config import ApplianceConfig, save_system_config
                 updated_cfg = ApplianceConfig(**new_dict)
-                save_system_config(updated_cfg)
+                authorize_node_id_migration = False
+                migrated_node_id_from: str | None = None
+                migrated_node_id_to: str | None = None
+                if os.environ.get("COMPUTEMESH_NODEOS", "").strip().lower() in {"1", "true", "yes", "on"}:
+                    from tools.appliance.node_identity import (
+                        migrate_enrolled_node_id,
+                        read_enrolled_node_id,
+                    )
+
+                    enrolled_node_id = read_enrolled_node_id()
+                    if enrolled_node_id is not None:
+                        previous_node_id = enrolled_node_id
+                        requested_node_id = str(updated_cfg.rig_name or "").strip()
+                        if requested_node_id and requested_node_id != enrolled_node_id:
+                            # This route is already behind the dashboard node
+                            # authentication gate.  Persist the provider ID
+                            # only for this explicit, authenticated rename.
+                            migrate_enrolled_node_id(
+                                requested_node_id,
+                                previous_node_id=enrolled_node_id,
+                            )
+                            authorize_node_id_migration = True
+                            migrated_node_id_from = enrolled_node_id
+                            migrated_node_id_to = requested_node_id
+                try:
+                    save_system_config(updated_cfg)
+                except Exception:
+                    if migrated_node_id_from and migrated_node_id_to:
+                        try:
+                            migrate_enrolled_node_id(
+                                migrated_node_id_from,
+                                previous_node_id=migrated_node_id_to,
+                            )
+                        except Exception as rollback_exc:
+                            raise RuntimeError(
+                                "configuration save failed and node identity rollback failed"
+                            ) from rollback_exc
+                    raise
                 handler.__class__.config = updated_cfg
                 try:
                     from services.appliance_dashboard import server as dashboard_server
@@ -113,7 +182,11 @@ class SystemActionsHandler:
                 # Instantly synchronize across local mesh, lan discovery responder & coordinator webserver
                 try:
                     from services.appliance_dashboard.tunnel_relay import trigger_immediate_mesh_sync
-                    trigger_immediate_mesh_sync(updated_cfg=updated_cfg, previous_node_id=previous_node_id)
+                    trigger_immediate_mesh_sync(
+                        updated_cfg=updated_cfg,
+                        previous_node_id=previous_node_id,
+                        authorize_node_id_migration=authorize_node_id_migration,
+                    )
                 except Exception:
                     pass
 

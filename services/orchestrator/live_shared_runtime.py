@@ -42,6 +42,8 @@ class LiveNodeState:
     llama_build_number: int
     llama_build_commit: str
     models: tuple[dict[str, Any], ...] = ()
+    inference_state: str = "INFERENCE_NOT_READY"
+    runtime_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -91,6 +93,10 @@ class LiveSharedRuntimeRegistry:
             raise LiveSharedRuntimeError("live node profile/session identity mismatch")
         if state.llama_build_number < 1 or not state.llama_build_commit:
             raise LiveSharedRuntimeError("live node lacks concrete llama.cpp build identity")
+        if state.inference_state not in {"INFERENCE_READY", "INFERENCE_NOT_READY"}:
+            raise LiveSharedRuntimeError("live node has an invalid inference readiness state")
+        if state.inference_state == "INFERENCE_READY" and not state.runtime_verified:
+            raise LiveSharedRuntimeError("INFERENCE_READY requires verified runtime evidence")
         with self._lock:
             self._nodes[node_id] = state
 
@@ -235,10 +241,19 @@ class LiveSharedRuntimeRegistry:
             networks = dict(self._network)
             provider = self._placement_provider
 
-        nodes = [state for state in states if state.session.node_id and self.is_node_control_healthy(str(state.session.node_id))]
+        nodes = [
+            state
+            for state in states
+            if state.session.node_id
+            and state.inference_state == "INFERENCE_READY"
+            and state.runtime_verified
+            and self.is_node_control_healthy(str(state.session.node_id))
+        ]
         nodes.sort(key=lambda item: str(item.session.node_id))
         if len(nodes) < 2:
-            raise LiveSharedRuntimeError("fewer than two authenticated connected attestation-capable nodes are live")
+            raise LiveSharedRuntimeError(
+                "fewer than two authenticated connected attestation-capable nodes are INFERENCE_READY"
+            )
 
         if isinstance(provider, ReferencePlacementProvider):
             if not allow_experimental:

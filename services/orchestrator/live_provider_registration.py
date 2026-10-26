@@ -36,6 +36,8 @@ class _PartialNode:
     llama_build_number: int | None = None
     llama_build_commit: str | None = None
     models: tuple[dict[str, Any], ...] = ()
+    inference_state: str = "INFERENCE_NOT_READY"
+    runtime_verified: bool = False
 
 
 class LiveProviderRegistration:
@@ -85,6 +87,14 @@ class LiveProviderRegistration:
                 current.rpc_endpoint = RpcEndpoint(str(rpc["host"]), int(rpc["port"]))
                 current.llama_build_number = int(payload["llama_build_number"])
                 current.llama_build_commit = str(payload["llama_build_commit"])
+                inference_state = payload.get("inference_state", "INFERENCE_NOT_READY")
+                runtime_verified = payload.get("runtime_verified", False)
+                if inference_state not in {"INFERENCE_READY", "INFERENCE_NOT_READY"}:
+                    raise PersistentControlChannelError("runtime advertisement has an invalid inference state")
+                if inference_state == "INFERENCE_READY" and runtime_verified is not True:
+                    raise PersistentControlChannelError("INFERENCE_READY lacks verified runtime evidence")
+                current.inference_state = str(inference_state)
+                current.runtime_verified = bool(runtime_verified)
             elif envelope.message_type == "ModelCatalogueUpdate":
                 if payload["node_id"] != node_id:
                     raise PersistentControlChannelError("model catalogue node_id mismatch")
@@ -134,6 +144,8 @@ class LiveProviderRegistration:
                 llama_build_number=current.llama_build_number,
                 llama_build_commit=current.llama_build_commit,
                 models=current.models,
+                inference_state=current.inference_state,
+                runtime_verified=current.runtime_verified,
             )
         )
         if self.agent_node_admission is not None:

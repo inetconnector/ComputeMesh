@@ -12,6 +12,8 @@
     "runtime": {"const": "llama.cpp"},
     "llama_build_commit": {"type": "string", "minLength": 1, "maxLength": 128},
     "llama_build_number": {"type": "integer", "minimum": 1},
+    "inference_state": {"enum": ["INFERENCE_READY", "INFERENCE_NOT_READY"]},
+    "runtime_verified": {"type": "boolean"},
     "rpc": {
       "type": "object",
       "additionalProperties": false,

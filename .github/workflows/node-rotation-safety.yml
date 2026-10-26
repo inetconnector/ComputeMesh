@@ -1,0 +1,33 @@
+name: Node token rotation safety
+
+on:
+  push:
+    paths:
+      - "services/appliance_dashboard/system_actions.py"
+      - "services/appliance_dashboard/tests/test_rotation_gate.py"
+      - "tools/security/node_auth_token_storage.py"
+      - ".github/workflows/node-rotation-safety.yml"
+  pull_request:
+    paths:
+      - "services/appliance_dashboard/system_actions.py"
+      - "services/appliance_dashboard/tests/test_rotation_gate.py"
+      - "tools/security/node_auth_token_storage.py"
+      - ".github/workflows/node-rotation-safety.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  token-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m compileall -q services/appliance_dashboard/system_actions.py services/appliance_dashboard/tests/test_rotation_gate.py
+      - run: python -m unittest services.appliance_dashboard.tests.test_rotation_gate -v
+      - run: python -m unittest tools.security.tests.test_node_auth_token_storage -v

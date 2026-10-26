@@ -18,6 +18,7 @@ from tools.security.node_key_storage import (
     save_node_private_key,
     shred_node_key,
 )
+import tools.security.node_key_storage as node_key_storage
 
 
 class TestNodeKeyStorage(unittest.TestCase):
@@ -152,6 +153,16 @@ class TestNodeKeyStorage(unittest.TestCase):
         with self.assertRaises(KeyStorageError):
             save_node_private_key(self.key, link, protect_os=False)
         self.assertEqual(target.read_bytes(), b"must-not-be-overwritten")
+
+    def test_existing_candidate_load_error_is_not_replaced_by_a_new_identity(self) -> None:
+        key_path = self.root / "existing.key"
+        key_path.write_bytes(b"not-a-valid-private-key")
+        key_path.chmod(0o600)
+
+        with self.assertRaises(KeyStorageError):
+            node_key_storage.get_or_create_node_private_key(path=key_path)
+
+        self.assertEqual(key_path.read_bytes(), b"not-a-valid-private-key")
 
     def test_shred_node_key(self) -> None:
         key_path = self.root / "shred_me.pem"

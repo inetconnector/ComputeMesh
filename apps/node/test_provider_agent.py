@@ -94,10 +94,12 @@ def _agent(
     model_preparation_executor: object | None = None,
     environment_executor: object | None = None,
     enforce_inference_capacity: bool = False,
+    inference_ready: bool | None = None,
 ) -> ProviderAgent:
     tmp_path.mkdir(parents=True, exist_ok=True)
     key_path = tmp_path / "node.pem"
     _write_key(key_path)
+    advertised_ready = inference_executor is not None if inference_ready is None else inference_ready
     return ProviderAgent(
         node_id="node-a",
         private_key_path=key_path,
@@ -111,12 +113,15 @@ def _agent(
             rpc_port=50052,
             build_number=123,
             build_commit="abcdef1",
+            inference_state=("INFERENCE_READY" if advertised_ready else "INFERENCE_NOT_READY"),
+            runtime_verified=advertised_ready,
         ),
         gpu_promo_runner=gpu_promo_runner,  # type: ignore[arg-type]
         inference_executor=inference_executor,  # type: ignore[arg-type]
         model_preparation_executor=model_preparation_executor,  # type: ignore[arg-type]
         environment_executor=environment_executor,  # type: ignore[arg-type]
         enforce_inference_capacity=enforce_inference_capacity,
+        inference_readiness=(lambda: {"ready": True} if advertised_ready else {"ready": False}),
     )
 
 
@@ -257,6 +262,17 @@ def test_provider_agent_advertises_inference_only_with_explicit_runtime(tmp_path
         "output": "ok",
     })
     assert "inference_v1" in configured.capabilities
+
+
+def test_provider_agent_rejects_inference_without_verified_runtime_readiness(tmp_path: Path) -> None:
+    _assert_provider_error(
+        "INFERENCE_READY",
+        lambda: _agent(
+            tmp_path / "unverified",
+            inference_executor=lambda session, request: {"output": "not used"},
+            inference_ready=False,
+        ),
+    )
 
 
 class TestProviderAgentUnit(unittest.TestCase):

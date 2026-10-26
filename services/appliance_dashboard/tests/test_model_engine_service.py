@@ -36,6 +36,15 @@ def inventory() -> RigInventory:
 
 
 class TestModelEngineService(unittest.TestCase):
+    def test_stopped_engine_is_not_inference_ready(self) -> None:
+        service = ModelEngineService(model_root=Path(tempfile.mkdtemp()), inventory_provider=inventory)
+        try:
+            status = service.status()
+            self.assertFalse(status["ready"])
+            self.assertEqual(status["inference_state"], "INFERENCE_NOT_READY")
+        finally:
+            service.model_root.rmdir()
+
     def test_starts_verified_model_on_loopback_with_all_six_gpus(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -54,16 +63,36 @@ class TestModelEngineService(unittest.TestCase):
                 executable=str(root / "llama-server"),
                 process_factory=factory,
                 startup_timeout_seconds=0.2,
+                runtime_probe=lambda _binary, _plan: (True, "test-runtime"),
             )
             (root / "llama-server").write_bytes(b"binary")
             with patch.object(service, "_health", return_value=True):
                 status = service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
 
             self.assertTrue(status["ready"])
+            self.assertEqual(status["inference_state"], "INFERENCE_READY")
+            self.assertTrue(status["runtime_verified"])
             self.assertEqual(status["allocation"]["total_gpus"], 6)
             self.assertEqual(process.command[process.command.index("--host") + 1], "127.0.0.1")
             self.assertNotIn("--device", process.command)
             self.assertEqual(len(process.command[process.command.index("--tensor-split") + 1].split(",")), 6)
+
+    def test_health_endpoint_alone_cannot_mark_inference_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / "model.gguf"
+            artifact.write_bytes(b"GGUF" + b"x" * 64)
+            digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            service = ModelEngineService(
+                model_root=root,
+                inventory_provider=inventory,
+                executable=str(root / "llama-server"),
+                runtime_probe=lambda _binary, _plan: (False, "vulkan_runtime_unavailable"),
+            )
+            (root / "llama-server").write_bytes(b"binary")
+            with patch.object(service, "_health", return_value=True):
+                with self.assertRaisesRegex(ModelEngineError, "vulkan_runtime_unavailable"):
+                    service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
 
     def test_rejects_digest_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

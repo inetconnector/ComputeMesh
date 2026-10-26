@@ -11,6 +11,8 @@ Verifies:
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+import concurrent.futures
+from copy import deepcopy
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 import json
@@ -41,6 +43,7 @@ from tools.appliance.appliance_config import (
     save_system_config,
 )
 from services.appliance_dashboard.tunnel_relay import get_or_create_node_auth_token
+from services.appliance_dashboard.tunnel_relay import NodeAuthTokenStorageError
 from tools.security.node_key_storage import (
     get_or_create_node_private_key,
     sign_node_heartbeat,
@@ -137,6 +140,23 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         self.assertGreaterEqual(len(token_2), 10 + 48)
         self.assertNotEqual(token_1, token_2, "Tokens must be freshly randomized, not deterministic hardware hashes")
 
+    def test_token_storage_failure_does_not_return_an_unpersisted_identity(self) -> None:
+        token_file = self.temp_path / "unwritable" / "node_auth_token.txt"
+        with patch("services.appliance_dashboard.tunnel_relay._atomic_secure_text_write", side_effect=OSError("mount unavailable")):
+            with self.assertRaises(NodeAuthTokenStorageError):
+                get_or_create_node_auth_token(search_paths=[token_file])
+        self.assertFalse(token_file.exists())
+
+    def test_relay_does_not_continue_without_a_persistent_node_key(self) -> None:
+        with patch(
+            "tools.security.node_key_storage.get_or_create_node_private_key",
+            side_effect=RuntimeError("identity mount unavailable"),
+        ):
+            from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
+
+            with self.assertRaisesRegex(RuntimeError, "identity mount unavailable"):
+                CloudTunnelRelay(node_id="local-test-node", auth_token="local-test-token", autostart=False)
+
     def test_negative_security_hardware_spoofing_rejected_with_401(self) -> None:
         """S1 Gate: Verify fail-closed security: an attacker sending matching hardware_id,
         matching GPUs, and even matching client IP, but WITHOUT a cryptographic signature,
@@ -215,7 +235,14 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         )
         attacker_token = "attacker_token_hijack"
         now_ts = int(time.time())
-        attacker_sig = sign_node_heartbeat(attacker_key, self.node_id, attacker_token, now_ts)
+        attacker_nonce = "mismatched-key-nonce"
+        attacker_sig = sign_node_heartbeat(
+            attacker_key,
+            self.node_id,
+            attacker_token,
+            now_ts,
+            nonce=attacker_nonce,
+        )
 
         attacker_payload = {
             "node_id": self.node_id,
@@ -223,6 +250,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             "public_key": attacker_pub_bytes.hex(),
             "signature": attacker_sig,
             "timestamp": now_ts,
+            "nonce": attacker_nonce,
         }
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
@@ -240,6 +268,129 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
                 urllib.request.urlopen(req, timeout=5)
             self.assertEqual(ctx.exception.code, 401, "Mismatched key signature must be rejected with 401")
 
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_negative_security_legacy_node_cannot_bind_attacker_key(self) -> None:
+        """A legacy node without a stored key must not accept a caller-supplied key."""
+        now = datetime.now(timezone.utc)
+        client_ip = "192.168.1.27"
+        legacy_token = "legacy_token_still_registered"
+        NODE_TELEMETRY_REGISTRY[self.node_id] = {
+            "node_id": self.node_id,
+            "auth_token": legacy_token,
+            "owner_id": self.owner_id,
+            "client_ip": client_ip,
+            "updated_at": (now - timedelta(seconds=400)).isoformat().replace("+00:00", "Z"),
+        }
+
+        attacker_key = Ed25519PrivateKey.generate()
+        attacker_token = "attacker_token_for_legacy_takeover"
+        now_ts = int(time.time())
+        attacker_nonce = "legacy-takeover-nonce"
+        attacker_public_key = attacker_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        ).hex()
+        attacker_signature = sign_node_heartbeat(
+            attacker_key,
+            self.node_id,
+            attacker_token,
+            now_ts,
+            nonce=attacker_nonce,
+        )
+        attacker_payload = {
+            "node_id": self.node_id,
+            "auth_token": attacker_token,
+            "public_key": attacker_public_key,
+            "signature": attacker_signature,
+            "timestamp": now_ts,
+            "nonce": attacker_nonce,
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
+        server_port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{server_port}/api/v1/node/heartbeat",
+                data=json.dumps(attacker_payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "X-Forwarded-For": client_ip},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 401)
+            self.assertEqual(
+                NODE_TELEMETRY_REGISTRY[self.node_id]["auth_token"],
+                legacy_token,
+            )
+            self.assertNotEqual(
+                NODE_TELEMETRY_REGISTRY[self.node_id].get("public_key", ""),
+                attacker_public_key,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_negative_security_unbound_legacy_node_rejects_foreign_owner_and_key(self) -> None:
+        """A legacy registry row without owner/key state cannot be claimed by a caller."""
+        now = datetime.now(timezone.utc)
+        client_ip = "192.168.1.27"
+        legacy_token = "legacy-token-without-owner-or-key"
+        NODE_TELEMETRY_REGISTRY[self.node_id] = {
+            "node_id": self.node_id,
+            "auth_token": legacy_token,
+            "client_ip": client_ip,
+            "inventory": {"gpus": []},
+            "updated_at": (now - timedelta(seconds=400)).isoformat().replace("+00:00", "Z"),
+        }
+        before = deepcopy(NODE_TELEMETRY_REGISTRY[self.node_id])
+
+        attacker_key = Ed25519PrivateKey.generate()
+        attacker_owner_key = "cm_owner_foreign_unbound_legacy_key"
+        attacker_token = "foreign-token-without-authorization"
+        timestamp = int(time.time())
+        nonce = "unbound-legacy-claim-nonce"
+        attacker_public_key = attacker_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        ).hex()
+        payload = {
+            "node_id": self.node_id,
+            "auth_token": attacker_token,
+            "owner_key": attacker_owner_key,
+            "public_key": attacker_public_key,
+            "signature": sign_node_heartbeat(
+                attacker_key,
+                self.node_id,
+                attacker_token,
+                timestamp,
+                nonce=nonce,
+            ),
+            "timestamp": timestamp,
+            "nonce": nonce,
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
+        server_port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{server_port}/api/v1/node/heartbeat",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "X-Forwarded-For": client_ip},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 401)
+            self.assertEqual(NODE_TELEMETRY_REGISTRY[self.node_id], before)
+            self.assertIsNone(
+                gateway_server.OWNER_ACCOUNT_STORE.owner_for_provider_node(self.node_id)
+            )
         finally:
             server.shutdown()
             server.server_close()
@@ -264,7 +415,14 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         # Timestamp 300 seconds in the past
         expired_ts = int(time.time()) - 300
         new_token = "replayed_token_attempt"
-        expired_sig = sign_node_heartbeat(self.node_private_key, self.node_id, new_token, expired_ts)
+        expired_nonce = "expired-heartbeat-nonce"
+        expired_sig = sign_node_heartbeat(
+            self.node_private_key,
+            self.node_id,
+            new_token,
+            expired_ts,
+            nonce=expired_nonce,
+        )
 
         replay_payload = {
             "node_id": self.node_id,
@@ -272,6 +430,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             "public_key": self.node_public_key_hex,
             "signature": expired_sig,
             "timestamp": expired_ts,
+            "nonce": expired_nonce,
         }
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
@@ -289,6 +448,96 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
                 urllib.request.urlopen(req, timeout=5)
             self.assertEqual(ctx.exception.code, 401, "Replayed expired timestamp must be rejected with 401")
 
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_negative_security_parallel_replay_of_same_heartbeat_nonce_rejected(self) -> None:
+        """Only one concurrent request may consume a signed heartbeat nonce."""
+        old_token = "parallel-old-token"
+        new_token = "parallel-new-token"
+        nonce = "parallel-single-use-nonce"
+        NODE_TELEMETRY_REGISTRY[self.node_id] = {
+            "node_id": self.node_id,
+            "auth_token": old_token,
+            "public_key": self.node_public_key_hex,
+            "owner_id": self.owner_id,
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        timestamp = int(time.time())
+        payload = {
+            "node_id": self.node_id,
+            "auth_token": new_token,
+            "public_key": self.node_public_key_hex,
+            "signature": sign_node_heartbeat(
+                self.node_private_key,
+                self.node_id,
+                new_token,
+                timestamp,
+                nonce=nonce,
+            ),
+            "timestamp": timestamp,
+            "nonce": nonce,
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
+        server_port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+
+        def send_once() -> int:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{server_port}/api/v1/node/heartbeat",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    return response.status
+            except urllib.error.HTTPError as exc:
+                return exc.code
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                statuses = sorted(pool.map(lambda _item: send_once(), range(2)))
+            self.assertEqual(statuses, [200, 401])
+            self.assertEqual(NODE_TELEMETRY_REGISTRY[self.node_id]["auth_token"], new_token)
+            self.assertIn(nonce, NODE_TELEMETRY_REGISTRY[self.node_id]["heartbeat_nonces"])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_negative_security_token_cannot_reassign_existing_owner(self) -> None:
+        """A valid node bearer token cannot silently move a node to another owner."""
+        old_token = "owner-binding-token"
+        other_owner_key = "cm_owner_other_fleet_local_test"
+        NODE_TELEMETRY_REGISTRY[self.node_id] = {
+            "node_id": self.node_id,
+            "auth_token": old_token,
+            "owner_id": self.owner_id,
+            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
+        server_port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{server_port}/api/v1/node/heartbeat",
+                data=json.dumps(
+                    {
+                        "node_id": self.node_id,
+                        "auth_token": old_token,
+                        "owner_key": other_owner_key,
+                    }
+                ).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 403)
+            self.assertEqual(NODE_TELEMETRY_REGISTRY[self.node_id]["owner_id"], self.owner_id)
         finally:
             server.shutdown()
             server.server_close()
@@ -330,7 +579,14 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         # 2. Node reboots: presents new token, signed with its persistent Ed25519 private key
         new_token = "post_reboot_random_token_222"
         now_ts = int(time.time())
-        sig_b64u = sign_node_heartbeat(self.node_private_key, self.node_id, new_token, now_ts)
+        reconnect_nonce = "reconnect-heartbeat-nonce"
+        sig_b64u = sign_node_heartbeat(
+            self.node_private_key,
+            self.node_id,
+            new_token,
+            now_ts,
+            nonce=reconnect_nonce,
+        )
 
         reconnect_body = {
             "node_id": self.node_id,
@@ -339,6 +595,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             "public_key": self.node_public_key_hex,
             "signature": sig_b64u,
             "timestamp": now_ts,
+            "nonce": reconnect_nonce,
             "inventory": gpu_inventory,
             "telemetry": {"tokens_processed": 50},
         }
@@ -397,7 +654,14 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             # 1. Initial registration with public key
             initial_token = "initial_token_genesis"
             now_ts = int(time.time())
-            initial_sig = sign_node_heartbeat(self.node_private_key, self.node_id, initial_token, now_ts)
+            initial_nonce = "initial-heartbeat-nonce"
+            initial_sig = sign_node_heartbeat(
+                self.node_private_key,
+                self.node_id,
+                initial_token,
+                now_ts,
+                nonce=initial_nonce,
+            )
             init_body = {
                 "node_id": self.node_id,
                 "auth_token": initial_token,
@@ -405,6 +669,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
                 "public_key": self.node_public_key_hex,
                 "signature": initial_sig,
                 "timestamp": now_ts,
+                "nonce": initial_nonce,
                 "inventory": gpu_inv,
             }
             req = urllib.request.Request(
@@ -430,7 +695,14 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
                 # Node reboots: generates new high-entropy token and signs with persistent Ed25519 key
                 cycle_token = f"cycle_token_{cycle}_{int(time.time())}"
                 cycle_ts = int(time.time())
-                cycle_sig = sign_node_heartbeat(self.node_private_key, self.node_id, cycle_token, cycle_ts)
+                cycle_nonce = f"cycle-heartbeat-nonce-{cycle}"
+                cycle_sig = sign_node_heartbeat(
+                    self.node_private_key,
+                    self.node_id,
+                    cycle_token,
+                    cycle_ts,
+                    nonce=cycle_nonce,
+                )
 
                 heartbeat_payload = {
                     "node_id": self.node_id,
@@ -438,6 +710,7 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
                     "public_key": self.node_public_key_hex,
                     "signature": cycle_sig,
                     "timestamp": cycle_ts,
+                    "nonce": cycle_nonce,
                     "inventory": gpu_inv,
                 }
                 hb_req = urllib.request.Request(

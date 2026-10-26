@@ -1,3 +1,327 @@
+## 2026-10-26 P0 first-install enrollment, key binding and measured evidence
+
+The P0-A through P0-D runtime implementation is committed in
+`5e79a09ceea47c970907044cb2ec0888c979c667` on
+`codex/p0-auth-placement-20261026`. The exact source commit/tree of the final
+NodeOS artifact is intentionally taken from the clean checkout used by the
+builder and is authoritative only from the generated provenance sidecar and
+the private handoff receipt below; documentation-only commits must never be
+silently substituted for it. The branch is local and unpushed.
+
+- The image-generated `computemesh-enroll` launcher exports
+  `COMPUTEMESH_NODEOS=1` and the NodeOS preflight marker before executing the
+  Python module. Manual `sudo` invocation therefore follows the same
+  ownership, preflight and service activation branch as the systemd flow.
+- Enrollment imports only the new side-effect-free
+  `tools/security/node_auth_token_storage.py`; the dashboard relay is not
+  imported and no token is minted during enrollment-module import. The
+  gateway-issued token is atomically persisted, an identical retry is
+  idempotent, and a different existing token is rejected. The one-time bundle
+  is removed only after NodeOS activation succeeds, so an activation failure
+  remains retryable.
+- Enrollment validates measured profile, prefill and decode JSON before the
+  gateway request. The shared preflight validation requires the documented
+  session schemas, an enrolled node ID, positive profile revision and measured
+  throughput/counts, matching model, and matching exact llama.cpp build
+  identity. Empty or fabricated `{}` documents fail closed with a diagnostic.
+  The image contains `evidence/EVIDENCE_REQUIRED.md` instead of fabricated
+  evidence.
+- NodeOS relay construction resolves the private key from the persisted
+  provider environment and loads it with `allow_generate=False`. Provider and
+  relay therefore use the same public key; missing, unreadable, relative or
+  environment-switched key paths fail closed without rotation.
+- BIOS and UEFI boot entries include `console=ttyS0,115200n8` and a GRUB
+  serial terminal for deterministic isolated VM diagnostics.
+
+### Fresh NodeOS artifact and isolated VM receipt
+
+The final build was executed from the clean public checkout in an isolated
+WSL2 Ubuntu root environment; it is not a release or deployment. The builder
+was invoked with `--source-repo` pointing at this checkout and
+`--expected-source-commit` set to the exact `git rev-parse HEAD` value used for
+that build. The private handoff records that literal value and all artifact
+digests so the public documentation cannot become a false provenance source.
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit <FINAL_PUBLIC_HEAD> --output-dir <ISOLATED_OUTPUT_DIR>"
+```
+
+The build exited 0. Its generated provenance sidecar is authoritative for
+`source_commit`, `source_tree`, `source_clean`, llama.cpp commit, artifact
+sizes and SHA-256 values. `xz -t` and `xorriso -report_el_torito plain`
+passed; a decompressed copy mounted read-only with partition 3 as ext4 label
+`persistence`, and `persistence.conf` was exactly `/ union`. The embedded
+launcher contained `COMPUTEMESH_NODEOS=1`; the evidence directory contained
+only `EVIDENCE_REQUIRED.md`, with no fabricated measurements. The private
+receipt below contains the exact output path and digests.
+
+BIOS and UEFI were then tested separately with QEMU TCG, 4096 MiB RAM, two
+vCPUs, serial capture, a host-only dashboard forward, and `-snapshot`. BIOS
+used port 18080 and UEFI port 18081. Both serial logs recorded systemd
+`basic.target`, `computemesh-appliance.service`, `computemesh-console.service`
+and the `ttyS0` login prompt; each host health probe returned HTTP 200. The
+guest remained unenrolled, no production identity or credential was present,
+and the generated image was not modified. This supports
+`VM_BOOT_PASSED` only for the isolated unenrolled smoke test.
+
+Verification for the package:
+
+- RED: the new launcher, evidence, import-isolation, retry and key-binding
+  tests failed on the pre-change checkout; the combined initial RED run ended
+  with 7 failures.
+- GREEN: `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest deploy/appliance/tests/test_real_live_appliance_contract.py deploy/appliance/tests/test_nodeos_runtime_tools.py tools/appliance/tests/test_node_identity_contract.py tools/security/tests/test_node_key_storage.py tests/test_p0_node_reboot_reconnect.py -q` = `60 passed, 3 skipped`, exit 0.
+- `python -m compileall -q deploy/appliance/build_real_live_appliance.py tools/appliance/enroll.py tools/appliance/boot_preflight.py tools/appliance/node_identity.py services/appliance_dashboard/tunnel_relay.py tools/security/node_auth_token_storage.py` = exit 0.
+- `git diff --check` = exit 0 before commit.
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest apps deploy protocol services tests tools -q` = `1783 passed, 18 skipped, 42 subtests passed, 1 failed`, exit 1; the sole failure is the historical invalid Ed25519 fixture in `portal/updates/version.json` (`BLOCKED_SIGNING_AUTHORIZATION`).
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python run_all_tests.py` = `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same fixture is the only failure.
+- `python -m pytest --collect-only -q` = `2064 tests collected`, exit 1 on the four pre-existing native `llama.dll`/interactive Scratch collection errors; no exclusions were added.
+
+The earlier image and its runtime commit are historical only; the final
+artifact is accepted only when the release validator matches the current
+public HEAD in the generated provenance. No physical disk, production
+credential, external enrollment, push, merge or release was used. Overall
+status remains `RELEASE_NO_GO`.
+
+## 2026-10-26 P0 final local receipt: relay ownership, public regression and NodeOS image
+
+The public checkout remains on branch `codex/p0-auth-placement-20261026` and
+started this pass at `a49226c6633f6383c459e590e40ff04c5e619fb1`. The current
+clean code commit is
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`
+(`fix(appliance): keep dashboard outside heartbeat ownership`). It follows
+the earlier local identity, enrollment, builder, keyring, dashboard-port and
+portal-navigation commits. The branch is local and was not pushed.
+
+### Final implementation delta
+
+`services/appliance_dashboard/server.py` no longer starts a
+`CloudTunnelRelay` from `create_dashboard_server()`. The Windows/Linux
+launcher or the dedicated NodeOS systemd heartbeat unit is the sole relay
+owner. This prevents a dashboard start from racing a service/tray relay and
+emitting a second heartbeat. The new regression in
+`services/appliance_dashboard/tests/test_dashboard_server.py` was RED before
+the change and GREEN afterwards.
+
+The earlier changes in this pass remain active: `node_identity.py` makes the
+enrolled `COMPUTEMESH_NODE_ID` authoritative; rename/migration is explicit
+and rollback-safe; heartbeats are serialized and cross-process locked;
+enrollment persists provider.env/receipt, removes the one-time bundle, runs
+preflight and activates provider/heartbeat in order; the live builder requires
+a clean, exact Git source tree, a verified Debian archive keyring and emits
+secret-free source/artifact provenance.
+
+### Final NodeOS build receipt
+
+Build host: Windows 11 with WSL2 Ubuntu 26.04 LTS, kernel
+`6.6.87.2-microsoft-standard-WSL2`; executed as the isolated WSL root user.
+Output directory: `/var/tmp/computemesh-nodeos-output-2dde961`.
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit 2dde961cc5b03e94af9b3bff4d4cde1181439d07 --output-dir /var/tmp/computemesh-nodeos-output-2dde961"
+```
+
+Exit code was 0. Provenance records source tree
+`ce765c72fb46d088d74a9d882c392594ea56d55b`, version `1.2.189`, llama.cpp
+`v0.4.1` at commit
+`29aaf1c27faa48292357cea2120d94114a545006`, and `source_clean: true`.
+Debootstrap accepted the Debian Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`.
+
+- ISO: `computemesh-nodeos-x86_64.iso`, `836763648` bytes,
+  SHA-256 `f00dc33044cac2b61c5ae1536c219da3edc6ccb20770d1094753c08d7e2fb0fb`
+- IMG.XZ: `computemesh-nodeos-x86_64.img.xz`, `820002180` bytes,
+  SHA-256 `88d92283365c9053ef62fccdad6dac9d61bd1367a766cb636aeb2c19b128b147`
+- Provenance JSON SHA-256:
+  `3c0d1819066c4e060325a314b42dbbf686a52cf1eb8a61bf4648f507a1a768f1`
+
+`xz -t` and `file` passed. `xorriso -report_el_torito plain` found the BIOS
+ISOLINUX image and the UEFI GRUB image. A sparse decompression and read-only
+mount found partition 3 as ext4 label `persistence`, with
+`persistence.conf` exactly `/ union`; the raw verification file and loop
+device were removed afterwards. QEMU TCG with 1 GiB RAM was run for 45
+seconds with no display/serial console; it terminated by the safety timeout
+with no guest boot marker. Therefore `IMAGE_BUILD_PASSED` applies to the
+artifact only, not `VM_BOOT_PASSED`.
+
+### Final verification
+
+- RED identity import before implementation: `python -m pytest tools/appliance/tests/test_node_identity_contract.py -q` exited 2 on missing module.
+- RED keyring contract: `1 failed, 14 deselected`; GREEN keyring contracts: `2 passed, 13 deselected`.
+- RED dashboard relay-ownership contract: `1 failed, 7 deselected`; GREEN: `1 passed, 7 deselected`.
+- `python -m pytest tools/appliance/tests/test_node_identity_contract.py deploy/appliance/tests/test_real_live_appliance_contract.py deploy/appliance/tests/test_nodeos_runtime_tools.py apps/node/test_provider_service_template.py tests/test_immediate_config_sync.py tests/test_p0_node_reboot_reconnect.py services/appliance_dashboard/tests/test_dashboard_server.py services/orchestrator/tests/test_architecture_hardening_part13.py services/scheduler/tests/test_architecture_hardening_part6.py -q`: `64 passed`, exit 0.
+- Provider/model/credits/sharding group: `68 passed`, exit 0.
+- Agent Workspace/UI/mesh/portal group: `79 passed, 5 skipped`, exit 0.
+- `python -m pytest services/appliance_dashboard/tests/test_dashboard_server.py tests/test_immediate_config_sync.py services/appliance_dashboard/tests/test_dashboard_image_route.py tests/test_appliance_webui.py tests/test_appliance_mesh_sharding_endpoints.py -q`: `36 passed`, exit 0.
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest apps deploy protocol services tests tools -q`: `1775 passed, 18 skipped, 42 subtests passed, 1 failed`, exit 1. The sole failure is `TestSecurityAuditFixes.test_release_manifest_sha256_binary_integrity`, the historical invalid Ed25519 fixture in `portal/updates/version.json`; status `BLOCKED_SIGNING_AUTHORIZATION`.
+- `python run_all_tests.py`: `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same historical signature fixture is the only failure. The runner also emitted expected local connection-refused messages from tests that intentionally exercise unavailable mail/network paths.
+- `python -m compileall -q tools/appliance services/appliance_dashboard apps/node deploy/appliance deploy/windows runtime tools/security tests`: exit 0. `git diff --check`: exit 0. Ruff is not installed.
+- `python -m pytest --collect-only -q`: `2056 tests collected`, exit 1 on four collection errors: the ignored/native `runtime/sd_cpp_src/ggml/examples/python/test_tensor.py` requires an absent `llama.dll`, and the ignored `scratch/test_open_sheet.py`, `test_sidebar_click.py` and `test_sidebar_style.py` perform import-time browser/ADB calls against unavailable local devices. No exclusions were added.
+
+No production credentials, signing key, USB/physical disk, remote host,
+deployment, push or release was used. AMD-Polaris Vulkan mapping and real
+GGUF tokens, Windows Ollama provider enrollment/reconnect, physical reboot,
+multi-host/WAN BFT, and native Windows handle-based NTFS/TOCTOU publication
+remain `HARDWARE_NOT_RUN` or `BLOCKED_EXTERNAL`. Overall status:
+`RELEASE_NO_GO`.
+
+## 2026-10-26 P0 NodeOS identity, enrollment activation and portable image build
+
+This entry records the latest local work and supersedes earlier “no image was
+built” statements below. The public checkout started this pass at
+`a49226c6633f6383c459e590e40ff04c5e619fb1` on branch
+`codex/p0-auth-placement-20261026`; runtime code used for the verified image
+was completed at
+`df4e096dbd959416cd72ea07e09ea0044511d157`. The branch is local and has not
+been pushed. The documentation follow-up is intentionally separate from the
+runtime build commit because the image provenance names the exact code commit.
+
+### Implemented contracts
+
+- `tools/appliance/node_identity.py` is now the canonical NodeOS identity
+  resolver. Once `/etc/computemesh/provider.env` contains a valid
+  `COMPUTEMESH_NODE_ID`, that persisted value is authoritative. Provider,
+  heartbeat and dashboard code cannot silently replace it with `NODE_NAME`, a
+  hostname or another legacy config value. Pre-enrollment provider/heartbeat
+  startup fails closed instead of creating an identity on a transient overlay.
+- A rename is an explicit authenticated migration. It requires the previous
+  enrolled ID, validates the new ID, updates provider.env and the enrollment
+  receipt atomically with rollback, and is covered by negative and positive
+  tests. The NodeOS dashboard serves local enrollment UI but does not start a
+  second relay; the dedicated heartbeat service is the sole relay owner.
+- Heartbeats are serialized within a process and guarded by a cross-process
+  lock at `/var/lib/computemesh/node-heartbeat.lock`. A second relay cannot
+  publish a competing identity, and provider startup requires the same
+  enrolled ID plus the preflight marker.
+- Enrollment now persists the accepted provider environment and receipt,
+  removes the one-time bundle, runs preflight, and restarts preflight/node/
+  heartbeat in order. Any failure leaves a diagnostic and does not claim
+  readiness.
+- `deploy/appliance/build_real_live_appliance.py` accepts an explicit source
+  checkout, also supports `COMPUTEMESH_SOURCE_REPO`, rejects dirty/non-Git or
+  wrong-commit trees, verifies a local Debian archive keyring before
+  debootstrap, snapshots the exact attested commit with `git archive`, and
+  emits source/artifact provenance. WSL root builds use a checkout-scoped
+  `safe.directory` Git invocation; no Plesk or `/root/ComputeMesh` path is
+  required. The llama.cpp pin remains unchanged.
+
+### Local build evidence
+
+Build host: Windows 11 host with WSL2, Ubuntu 26.04 LTS (kernel
+`6.6.87.2-microsoft-standard-WSL2`), executed as the isolated WSL root user.
+The local WSL toolchain included debootstrap, xorriso, squashfs-tools,
+GRUB BIOS/UEFI, isolinux/syslinux, dosfstools, parted and QEMU. Command:
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit df4e096dbd959416cd72ea07e09ea0044511d157 --output-dir /var/tmp/computemesh-nodeos-output-df4e096"
+```
+
+Exit code was 0. Debootstrap reported a valid Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The build provenance reports
+source tree `44dc759165d2f37c38a6f21855d99449d7520439`, version `1.2.189`,
+llama.cpp commit `29aaf1c27faa48292357cea2120d94114a545006`, ISO SHA-256
+`d5e04835b408dba25c59c895ead9add8564d94361a72b21e7f85f4d3f8eec807`
+(`836763648` bytes), IMG.XZ SHA-256
+`1a0b26ddc3260085b5c35fe1d828dbfb019b0bd74d8dce291c4ba0c35182d6fa`
+(`820001216` bytes), and provenance sidecar SHA-256
+`dbec1520f9d8ad5eb1f3b332fa1e4656e57f9a970c6a7a57e073e035d7f70561`.
+`xz -t` passed. `xorriso -report_el_torito` found BIOS/ISOLINUX and UEFI
+GRUB images. A full read-only inspection of the decompressed image mounted
+the ext4 partition (`LABEL=persistence`, `TYPE=ext4`) and read
+`persistence.conf` as `/ union`.
+
+QEMU was started with the ISO, TCG acceleration, 1 GiB RAM and no display;
+it remained running until the 45-second safety timeout, but this headless
+configuration emitted no observable guest serial boot marker. Therefore no
+`VM_BOOT_PASSED` claim is made.
+
+### Verification and remaining gates
+
+- Focused integration command (poller disabled): `62 passed` in 23.20s,
+  exit 0. It covers identity, builder, enrollment ordering, provider,
+  reconnect, dashboard and the Windows SQLite/path regressions.
+- `python run_all_tests.py`: `892 total, 891 passed, 1 failed, 0 errors`,
+  exit 1 (111.01s). The only failure is the historical invalid Ed25519 signature in
+  `portal/updates/version.json`; status `BLOCKED_SIGNING_AUTHORIZATION`.
+- `python -m compileall -q tools/appliance services/appliance_dashboard
+  apps/node deploy/appliance deploy/windows runtime tools/security tests` and
+  `git diff --check` both exited 0. Ruff is not installed in this
+  WSL/Windows environment.
+- `python -m pytest --collect-only -q` reached `2053 tests collected` and
+  exited 1 on four collection errors in ignored/native or interactive files:
+  `runtime/sd_cpp_src/ggml/examples/python/test_tensor.py` requires an absent
+  `llama.dll`, while the three ignored `scratch/test_*.py` files perform
+  import-time browser/ADB calls and receive connection refusal. No exclusions
+  were added to hide these failures.
+- Provider/model/credit/sharding regression group: `68 passed` in 5.19s,
+  exit 0. Agent Workspace, approval, MCP hardening, WebUI and mesh endpoint
+  group: `73 passed` in 15.16s, exit 0.
+- The host-local Ollama development runtime reported version `0.40.5`; the
+  read-only model inventory was available and `ollama run gemma3:4b` produced
+  the requested `COMPUTEMESH_OLLAMA_SMOKE` output. This proves only a local
+  Ollama inference, not Windows provider enrollment, gateway reconnect or mesh
+  routing.
+- Physical AMD-Polaris detection, Vulkan device mapping, GGUF token
+  generation, Windows Ollama reconnect, cross-host BFT, WAN/multi-host
+  inference, production enrollment and native Windows handle-based NTFS
+  publication remain `HARDWARE_NOT_RUN`/`BLOCKED_EXTERNAL`. Overall status:
+  `IMAGE_BUILD_PASSED` for the local artifact only, `RELEASE_NO_GO` overall.
+
+## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment
+
+- Branch: `codex/p0-auth-placement-20261026`. Vorheriger Public-HEAD war
+  `3691526915d2645b29fd39cdf5edccb8d4a2eed2`; die Codecommits dieses
+  Public-Submoduls sind `5bb69f9` und `1e1969b`, die abschließende
+  Dokumentation ist in `1bffab2ec80e4a54066fd56f564f4535d90dff09`.
+- Gateway-A: Der neue negative localhost-Test reproduziert die vorherige
+  Übernahme einer registrierten Legacy-Node ohne Owner-/Public-Key durch
+  fremden Token, Owner-Key und passende Ed25519-Signatur. Der aktive Pfad
+  verweigert nun fail-closed und ändert weder Registry noch Owner-Bindung.
+  Gebundene Owner-Migrationen bleiben über den vorhandenen Token-/Owner-
+  Vertrag möglich.
+- NodeOS-C/D/E: Launcher und systemd-Preflight verwenden einen festen
+  Modulpfad; Dashboard-UI und Heartbeat sind voneinander getrennt. Der
+  Heartbeat wartet auf Preflight/Readymarker, lädt provider.env unter
+  `computemesh`, und Enrollment verlangt einen expliziten separaten Provider-
+  TLS-Endpunkt. Schlüssel/Token werden nicht allgemein lesbar gemacht.
+- Lokale Nachweise: `python -m pytest tests/test_p0_node_reboot_reconnect.py
+  -q` = 13 passed; Public-NodeOS-Contract = 17 passed; Public Gateway/
+  Dashboard/Provider/Key-Gruppe = 53 passed, 13 subtests; `python -m
+  compileall -q services tools deploy apps tests` exit 0. Keine Image-Erzeugung,
+  Hardware-Abnahme, Enrollment gegen einen externen Dienst oder Produktion.
+
+## 2026-10-26 P0 Placement-Idempotenz gegen geänderte Aufträge
+
+- Ausgangs-HEAD: `14da95dc98f82ef570aab93e5c72f887b10353bc`; Ergebniscommit:
+  `9c77a7d` (`fix(placement): bind request content to lease idempotency`).
+- Der RED-Test in `tests/test_p0_placement_requires_auth.py` reproduzierte
+  gleiche Request-ID mit geändertem Modell/Digest, geändertem Node-Plan,
+  parallelen unterschiedlichen Retry-Inhalten und Tenant-Wechsel. Besonders
+  der alte Exception-Handler gab bei abweichender Node-Zusammenstellung die
+  ursprüngliche Lease frei.
+- `PlacementService` berechnet einen deterministischen SHA-256-Fingerprint
+  des echten privaten Auftrags und veröffentlichten Plans. `LeaseStore`
+  bindet ihn atomar in `decision_idempotency_bindings`; identische Retries
+  liefern dieselbe aktive Lease, abweichende Inhalte werden vor Gate/Quota
+  fail-closed abgelehnt. Die Cleanup-Logik kennt die Eigentümerschaft und
+  verwendet nie `release_decision()` für eine fremde gültige Reservation.
+  Ablauf/Release markieren die Bindung terminal und verhindern stille
+  Wiederbelebung.
+- RED: `python -m pytest tests/test_p0_placement_requires_auth.py -k
+  "request_id_cannot_be_reused_for_changed_model_or_artifact or
+  changed_node_plan_cannot_release_original_lease or
+  parallel_different_content_has_one_immutable_decision or
+  request_id_is_bound_to_tenant" -q` exit 1. GREEN: derselbe gezielte Befehl
+  = 4 passed; die vollständige Datei = 19 passed; die private Placement-/Auth-
+  Regressiongruppe = 76 passed. `python -m compileall -q services tools tests`
+  exit 0; Ruff fehlt lokal.
+- Der Parent pinnt in diesem historischen Teilabschnitt den damaligen
+  Public-HEAD im lokalen Commit `9fa5edf`; der aktuelle Pin steht im neuesten
+  Eintrag am Dateianfang.
+  Quota-/Lease-DB bleiben getrennt, daher ist ein Crash-/Mehrprozess-Nachweis
+  lokal, nicht automatisch ein verteilter Produktionsnachweis. Gesamtstatus:
+  `CODE_IMPLEMENTED`/`LOCAL_TEST_PASSED`, aber `RELEASE_NO_GO` wegen fehlender
+  Hardware-, Produktions- und nativer Windows-Security-Gate-Nachweise.
+
 ## 2026-10-25 – P0 Mesh-Inventarisierung, Node-Lifecycle & Kontrollierte Updates
 - **Status:** PASS_LOCAL (Fully verified with reproducible tests)
 - **Problem & Root Cause:**
@@ -4286,3 +4610,150 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
 - Added `PeerCapabilityHeartbeat` to monitor active network nodes and resources.
 - Successfully integrated automatic failover switching and atomic quota preservation inside `runtime/dynamic_sharding.py`.
 - Verified functionality across the unified test suite.
+
+## 2026-10-26 P0 authenticated reconnect hardening
+
+- Branch: `codex/p0-auth-placement-20261026`; the public security code commit is
+  `13db578` (`fix(security): fail-closed node reconnect identity`). The public
+  working tree was clean after that code commit; the parent checkout may show
+  the submodule as modified until its final Gitlink is recorded.
+- Gateway data flow: `CloudTunnelRelay.perform_sync()` now signs a v2
+  heartbeat containing `node_id`, `auth_token`, `timestamp`, `nonce` and
+  `previous_node_id`. `GatewayHandler` verifies the proof, rejects an
+  unregistered key from taking over a legacy node, retains a bounded nonce
+  history, and commits token/key/alias state under a heartbeat lock.
+- Owner and identity invariants: first key binding needs proof of possession;
+  registered-key rotation needs owner/enrollment authorization plus proof;
+  existing owner bindings cannot be replaced by an unprovisioned owner; and a
+  token-authenticated node-ID change must name its existing alias.
+- Local evidence: `python -m pytest tests/test_p0_node_reboot_reconnect.py -q`
+  passed 10 tests; the focused gateway/node regression group passed 29 tests;
+  `python -m compileall -q services tools tests` passed. `ruff` was not
+  available in the local Python environment (`No module named ruff`).
+- Negative and concurrency coverage includes legacy-key takeover, mismatched
+  key, stale signature, same-nonce parallel replay and owner reassignment.
+  No production endpoint, deployment, push, release or hardware acceptance was
+  performed. Cross-shard BFT, NodeOS reboot, AMD-GPU inference and complete
+  mesh E2E remain open acceptance gates.
+
+## 2026-10-26 P0 durable node identity persistence (working tree)
+
+- The RED tests cover an atomic token-write failure and relay construction when
+  the identity mount is unavailable. Before the patch, token persistence
+  errors could be swallowed and a new token returned; relay key-load errors
+  could be converted into an empty-key/unsigned path.
+- `tools/security/node_key_storage.py` now propagates failures for existing
+  identity candidates, rejects symlink/non-regular paths, fails on POSIX parent
+  permission hardening errors, and refuses plaintext Windows fallback when OS
+  protection is requested but unavailable.
+- `services/appliance_dashboard/tunnel_relay.py` now uses bounded atomic
+  token-file writes with fsync and restrictive permissions, raises
+  `NodeAuthTokenStorageError` when persistence fails, requires the existing
+  private key during relay construction, and propagates signing failures.
+- Verification: `python -m pytest tools/security/tests/test_node_key_storage.py
+  tests/test_p0_node_reboot_reconnect.py -q` = 22 passed, 3 skipped, exit 0.
+  No production credentials, external host, tunnel or physical NodeOS was
+  accessed. The public working tree remains uncommitted until this package is
+  committed separately.
+
+## 2026-10-26 P0 NodeOS builder/preflight hardening (working tree)
+
+- RED command: `python -m pytest
+  deploy/appliance/tests/test_real_live_appliance_contract.py -q` exited 1
+  with four contract failures: undefined `DEBIAN_MIRROR`, suppressed node
+  service enablement, missing console monitor, and missing preflight/enrollment
+  contract.
+- `deploy/appliance/build_real_live_appliance.py` now declares and validates
+  `COMPUTEMESH_DEBIAN_MIRROR`, installs `requirements.txt`, copies `portal`,
+  creates real `computemesh-node-preflight.service` and drop-in dependency,
+  enables `computemesh-node.service` without `|| true`, and emits explicit
+  `persistence-label=persistence` boot arguments. The image template no longer
+  embeds a production coordinator or API-key placeholder.
+- Added `tools/appliance/console_monitor.py`,
+  `tools/appliance/boot_preflight.py`, `tools/appliance/enroll.py`, and the
+  secret-free `deploy/systemd/enrollment.example.json`. Enrollment uses the
+  existing signed gateway heartbeat and existing node key storage; it does not
+  create a parallel identity service. Credentials are read only from a local
+  operator bundle and never printed.
+- GREEN command: `python -m pytest deploy/appliance/tests/test_real_live_appliance_contract.py
+  deploy/appliance/tests/test_debian_live_builder.py
+  deploy/appliance/tests/test_nodeos_runtime_tools.py
+  apps/node/test_provider_service_template.py -q` = 12 passed, exit 0.
+- Not run: real debootstrap/chroot, package download, Vulkan device probe,
+  loop-device image creation, ISO/IMG boot, USB write, physical reboot,
+  production enrollment or external control-plane access. These remain
+  `NOT_RUN`/`BLOCKED_EXTERNAL`, not green hardware evidence.
+
+## 2026-10-26 P0 AMD/runtime inference readiness (working tree)
+
+- The RED regression first showed that a healthy HTTP endpoint alone could be
+  marked ready and that the provider/live registration contracts had no
+  readiness state. `services/appliance_dashboard/model_engine_service.py` now
+  probes the selected `llama-server --version` and the actual selected Vulkan,
+  CUDA, or ROCm runtime before starting a verified model; `status()` exposes
+  `INFERENCE_READY`, `runtime_verified`, and a non-secret detail code.
+- `apps/node/provider_agent.py` refuses to advertise or serve inference unless
+  the canonical NodeOS model manager reports verified readiness, and checks
+  that status before each request. `protocol/schemas/runtime_advertisement_payload.schema.json`,
+  `services/orchestrator/live_provider_registration.py`, and
+  `services/orchestrator/live_shared_runtime.py` carry the state and exclude
+  unverified nodes from inference placement. The existing tunnel relay already
+  forwards the engine status as `telemetry.model_runtime`.
+- RED commands: the initial engine/provider/live-readiness regression command
+  exited 1 with 5 failures (2 engine failures plus 3 propagation failures).
+  GREEN command:
+  `python -m pytest apps/node/test_provider_agent.py
+  services/orchestrator/tests/test_live_provider_registration.py
+  services/orchestrator/tests/test_live_shared_runtime.py
+  services/appliance_dashboard/tests/test_model_engine_service.py -q`
+  = 39 passed, exit 0. The broader focused inference/live group passed 67,
+  exit 0. No physical AMD Polaris probe or production provider was used.
+
+## 2026-10-26 P0 release artifact provenance (working tree)
+
+- `deploy/appliance/build_real_live_appliance.py` now derives a deterministic,
+  secret-free NodeOS provenance marker from the actual public Git HEAD,
+  ComputeMesh version and pinned llama.cpp commit. The marker is placed in the
+  ISO root and the runtime filesystem. Image outputs are written to temporary
+  names and atomically promoted only after the build completes.
+- `tools/build_all_releases.py` now rejects missing, stale or inconsistent
+  ISO/IMG.XZ provenance, rebuilds into an isolated staging directory when the
+  Linux prerequisites exist, atomically promotes validated outputs and writes
+  `computemesh-nodeos-x86_64.provenance.json` with sizes and SHA-256 digests.
+  Existing images are never accepted solely because their filenames exist.
+- Release manifest signing requires explicit
+  `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; no signing key was read or used.
+- RED: `python -m pytest tests/test_build_all_releases.py -q` first exited 1
+  during collection because the provenance validator did not exist; the
+  follow-up digest-report test likewise exited 1 until its validator was
+  implemented.
+- GREEN: `python -m pytest tests/test_build_all_releases.py
+  deploy/appliance/tests/test_real_live_appliance_contract.py
+  deploy/appliance/tests/test_nodeos_runtime_tools.py -q` = 14 passed, exit 0.
+  `python -m compileall -q tools/build_all_releases.py
+  deploy/appliance/build_real_live_appliance.py
+  tests/test_build_all_releases.py` and `git diff --check` both exited 0.
+- Existing artifacts must also have a matching atomically written digest
+  report; a test mutating image bytes after report creation is rejected by
+  SHA-256 mismatch even when the embedded source/version marker is unchanged.
+- Not run: debootstrap/chroot, package download, xorriso/loop-device image
+  creation, physical boot or flash, production signing, publication and
+  deployment. These remain `NOT_RUN`/`BLOCKED_EXTERNAL`/`RELEASE_NO_GO`.
+
+## 2026-10-26 P0 audit-test fixture and release boundary
+
+- `tests/test_security_audit_fixes.py` now replaces its catalog with fresh
+  local `available=True` entries only for the billing reservation test and
+  restores the original catalog/registry after each test. This repairs the
+  missing-runtime fixture without weakening production model availability.
+- The focused audit result is now 21 passed / 1 failed: the remaining failure
+  is the cryptographically invalid historical `portal/updates/version.json`.
+  Re-signing it would require the production signing key and was intentionally
+  not attempted. The public unified runner consequently reports 891/892 and
+  remains `RELEASE_NO_GO`.
+- The public branch's broad default Pytest collection still reports 17 errors
+  from nested import collisions, unavailable compiled/runtime modules and
+  scratch UI/device tests that perform work during import. No broad exclusion
+  was added; the explicit targeted suites and `run_all_tests.py` are the
+  supported local evidence paths.
+## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment

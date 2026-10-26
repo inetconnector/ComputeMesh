@@ -288,6 +288,98 @@ class TestDashboardServer(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_port_zero_uses_ephemeral_binding_instead_of_service_ports(self) -> None:
+        from services.appliance_dashboard import server as dashboard_server
+
+        bind_calls = []
+
+        class FakeServer:
+            def __init__(self, address, handler):
+                bind_calls.append(address)
+                self.server_address = (address[0], 49152)
+
+        with (
+            patch.object(dashboard_server, "ReusableThreadingHTTPServer", FakeServer),
+            patch("tools.appliance.fan_control.FanSafetyController"),
+            patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
+            patch.object(dashboard_server.GLOBAL_MESH_AGGREGATOR, "start"),
+        ):
+            server, actual_port = dashboard_server.create_dashboard_server(
+                host="127.0.0.1",
+                port=0,
+                config=ApplianceConfig(rig_name="test-ephemeral-node"),
+                inventory=RigInventory(
+                    schema_version=1,
+                    captured_at="2026-10-26T00:00:00Z",
+                    host_architecture="test",
+                    total_gpus=0,
+                    total_vram_bytes=0,
+                    gpus=[],
+                    pcie_riser_warning=False,
+                ),
+                node_id="test-ephemeral-node",
+            )
+
+        self.assertEqual(bind_calls, [("127.0.0.1", 0)])
+        self.assertEqual(actual_port, 49152)
+        self.assertIsInstance(server, FakeServer)
+
+    def test_disabled_mesh_poller_is_not_started_by_dashboard_factory(self) -> None:
+        from services.appliance_dashboard import server as dashboard_server
+
+        with (
+            patch.dict("os.environ", {"COMPUTEMESH_AUTOSTART_MESH_POLLER": "0"}),
+            patch("tools.appliance.fan_control.FanSafetyController"),
+            patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
+            patch.object(dashboard_server.GLOBAL_MESH_AGGREGATOR, "start") as start,
+        ):
+            server, _ = dashboard_server.create_dashboard_server(
+                host="127.0.0.1",
+                port=0,
+                config=ApplianceConfig(rig_name="test-no-poller-node"),
+                inventory=RigInventory(
+                    schema_version=1,
+                    captured_at="2026-10-26T00:00:00Z",
+                    host_architecture="test",
+                    total_gpus=0,
+                    total_vram_bytes=0,
+                    gpus=[],
+                    pcie_riser_warning=False,
+                ),
+                node_id="test-no-poller-node",
+            )
+
+        start.assert_not_called()
+        self.assertIsNotNone(server)
+
+    def test_dashboard_factory_never_starts_a_second_heartbeat_relay(self) -> None:
+        from services.appliance_dashboard import server as dashboard_server
+
+        with (
+            patch("services.appliance_dashboard.tunnel_relay.nodeos_provider_ready", return_value=True),
+            patch("services.appliance_dashboard.tunnel_relay.start_cloud_tunnel_relay") as start_relay,
+            patch("tools.appliance.fan_control.FanSafetyController"),
+            patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
+        ):
+            server, _ = dashboard_server.create_dashboard_server(
+                host="127.0.0.1",
+                port=0,
+                config=ApplianceConfig(rig_name="test-dashboard-no-relay"),
+                inventory=RigInventory(
+                    schema_version=1,
+                    captured_at="2026-10-26T00:00:00Z",
+                    host_architecture="test",
+                    total_gpus=0,
+                    total_vram_bytes=0,
+                    gpus=[],
+                    pcie_riser_warning=False,
+                ),
+                node_id="test-dashboard-no-relay",
+            )
+
+        start_relay.assert_not_called()
+        server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

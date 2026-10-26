@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import sys
+import threading
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -52,6 +53,8 @@ def _resolve_owner_account_store_path() -> Path:
 
 
 OWNER_ACCOUNT_STORE = OwnerAccountStore(_resolve_owner_account_store_path())
+_NODE_HEARTBEAT_LOCK = threading.RLock()
+_MAX_HEARTBEAT_NONCE_HISTORY = 256
 
 
 def owner_id_for_key(owner_key: str) -> str | None:
@@ -65,6 +68,76 @@ def owner_id_for_key(owner_key: str) -> str | None:
     if not cleaned:
         return None
     return "acct_" + hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
+
+
+def _heartbeat_nonce_history(node_data: dict[str, Any] | None) -> list[str]:
+    if not isinstance(node_data, dict):
+        return []
+    raw = node_data.get("heartbeat_nonces", [])
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()][-_MAX_HEARTBEAT_NONCE_HISTORY:]
+
+
+def _commit_heartbeat_record(
+    *,
+    node_id: str,
+    auth_token: str,
+    previous_node_id: str,
+    incoming_public_key: str,
+    nonce: str,
+    record: dict[str, Any],
+    owner_id: str | None,
+) -> tuple[bool, str | None]:
+    """Atomically apply a heartbeat, replay check, and explicit alias retirement."""
+    with _NODE_HEARTBEAT_LOCK:
+        aliases = [
+            old_id
+            for old_id, old_node in NODE_TELEMETRY_REGISTRY.items()
+            if old_id != node_id
+            and old_node.get("auth_token") == auth_token
+            and not old_node.get("is_peer_relay", False)
+        ]
+        if aliases and (not previous_node_id or previous_node_id not in aliases):
+            return False, "explicit previous_node_id is required to rename an authenticated node"
+
+        if previous_node_id and previous_node_id != node_id:
+            previous = NODE_TELEMETRY_REGISTRY.get(previous_node_id)
+            if previous is not None:
+                if previous.get("auth_token") != auth_token:
+                    return False, "previous_node_id does not match the authenticated node"
+                previous_pub = str(previous.get("public_key", "")).strip()
+                if previous_pub and incoming_public_key and previous_pub.lower() != incoming_public_key.lower():
+                    return False, "public key does not match the authenticated previous node"
+
+        current = NODE_TELEMETRY_REGISTRY.get(node_id)
+        current_history = _heartbeat_nonce_history(current)
+        alias_histories = [
+            _heartbeat_nonce_history(NODE_TELEMETRY_REGISTRY.get(alias))
+            for alias in aliases
+        ]
+        if nonce and (
+            nonce in current_history
+            or any(nonce in history for history in alias_histories)
+        ):
+            return False, "heartbeat nonce replay detected"
+
+        history = current_history
+        if nonce:
+            history = (history + [nonce])[-_MAX_HEARTBEAT_NONCE_HISTORY:]
+        committed = dict(record)
+        committed["heartbeat_nonces"] = history
+        committed["previous_node_id"] = previous_node_id
+
+        for old_id in aliases:
+            old_node = NODE_TELEMETRY_REGISTRY.pop(old_id, None)
+            old_owner_id = str((old_node or {}).get("owner_id", "")).strip() or owner_id
+            if old_owner_id:
+                OWNER_ACCOUNT_STORE.unbind_provider_node(old_owner_id, old_id)
+
+        NODE_TELEMETRY_REGISTRY[node_id] = committed
+        save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+    return True, None
 
 
 def _validate_client_tools(value: Any) -> list[dict[str, Any]] | None:
@@ -1965,68 +2038,166 @@ class GatewayHandler(BaseHTTPRequestHandler):
             sys.stderr.write(f"[HEARTBEAT] node_id={node_id} client={client_ip}\n")
             sys.stderr.flush()
 
+            raw_nonce = body.get("nonce", "")
+            if raw_nonce is None:
+                raw_nonce = ""
+            if not isinstance(raw_nonce, str) or len(raw_nonce.strip()) > 256:
+                self._send_error_response("nonce is invalid", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            heartbeat_nonce = raw_nonce.strip()
+            raw_previous_node_id = body.get("previous_node_id", "")
+            if raw_previous_node_id is None:
+                raw_previous_node_id = ""
+            if not isinstance(raw_previous_node_id, str) or len(raw_previous_node_id.strip()) > 512:
+                self._send_error_response("previous_node_id is invalid", "invalid_request_error", HTTPStatus.BAD_REQUEST)
+                return
+            previous_node_id = raw_previous_node_id.strip()
+            incoming_pub = str(body.get("public_key", "")).strip()
+            incoming_sig = str(body.get("signature", "")).strip()
+            incoming_ts = body.get("timestamp")
+
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
+            existing_owner_id = ""
             if existing_node:
-                expected_token = str(existing_node.get("auth_token", "")).strip()
-                updated_at_str = str(existing_node.get("updated_at", "")).strip()
-                is_stale = False
-                if updated_at_str:
-                    try:
-                        ts = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
-                        if (datetime.now(timezone.utc) - ts).total_seconds() > 300:
-                            is_stale = True
-                    except Exception:
-                        is_stale = True
+                existing_owner_id = str(existing_node.get("owner_id", "")).strip()
+                if not existing_owner_id:
+                    existing_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id) or ""
 
-                owner_authorized = False
-                sent_owner_key_pre = str(body.get("owner_key", "")).strip()
-                if sent_owner_key_pre:
-                    sender_owner = owner_id_for_key(sent_owner_key_pre)
-                    existing_owner = existing_node.get("owner_id")
-                    if sender_owner and (not existing_owner or existing_owner == sender_owner):
+            sent_owner_key_pre = str(body.get("owner_key", "")).strip()
+            owner_authorized = False
+            if sent_owner_key_pre:
+                sender_owner = owner_id_for_key(sent_owner_key_pre)
+                if sender_owner and (
+                    (existing_node is None and not existing_owner_id)
+                    or (
+                        existing_node is not None
+                        and bool(existing_owner_id)
+                        and hmac.compare_digest(existing_owner_id, sender_owner)
+                    )
+                ):
+                    owner_authorized = True
+
+            expected_token = str(existing_node.get("auth_token", "")).strip() if existing_node else ""
+            token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
+            enrollment_owner_key = ""
+            if existing_node and not token_matches and not owner_authorized:
+                enrollment_token = str(body.get("enrollment_token", "")).strip()
+                if enrollment_token:
+                    enrollment_owner_key = FLEET_ACCOUNT_STORE.verify_and_consume_enrollment_token(enrollment_token) or ""
+                    enrollment_owner_id = owner_id_for_key(enrollment_owner_key)
+                    if enrollment_owner_id and (
+                        not existing_owner_id
+                        or hmac.compare_digest(existing_owner_id, enrollment_owner_id)
+                    ):
                         owner_authorized = True
 
-                token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
-                if not token_matches and not owner_authorized:
-                    # Cryptographic Proof of Possession:
-                    # Require a valid Ed25519 signature over canonical signing string
-                    # using the node's registered public key.
-                    # Hardware attributes (machine_id, GPU models, IP) are purely inventory metadata
-                    # and are NEVER accepted as an authentication substitute!
-                    incoming_pub = str(body.get("public_key", "")).strip()
-                    incoming_sig = str(body.get("signature", "")).strip()
-                    incoming_ts = body.get("timestamp")
-                    registered_pub = str(existing_node.get("public_key", "")).strip()
+            incoming_proof_valid = False
+            crypto_authorized = False
+            if incoming_pub and incoming_sig and incoming_ts is not None and heartbeat_nonce:
+                try:
+                    from tools.security.node_key_storage import verify_node_heartbeat
 
-                    crypto_authorized = False
-                    if incoming_pub and incoming_sig and incoming_ts is not None:
-                        # If the node already has a registered public key, incoming key MUST match it
-                        pub_to_verify = registered_pub if registered_pub else incoming_pub
-                        if registered_pub and incoming_pub.lower() != registered_pub.lower():
-                            sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnect rejected: public key mismatch with registered key.\n")
-                        else:
-                            try:
-                                from tools.security.node_key_storage import verify_node_heartbeat
-                                if verify_node_heartbeat(
-                                    pub_to_verify,
-                                    node_id,
-                                    auth_token,
-                                    int(incoming_ts),
-                                    incoming_sig,
-                                ):
-                                    crypto_authorized = True
-                                    sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnected via verified Ed25519 proof of possession; updating token.\n")
-                                    sys.stderr.flush()
-                            except Exception as verif_exc:
-                                sys.stderr.write(f"[HEARTBEAT] Node {node_id} verification error: {verif_exc}\n")
-
+                    incoming_proof_valid = verify_node_heartbeat(
+                        incoming_pub,
+                        node_id,
+                        auth_token,
+                        int(incoming_ts),
+                        incoming_sig,
+                        nonce=heartbeat_nonce,
+                        previous_node_id=previous_node_id,
+                    )
+                    # A key that is not already registered cannot bootstrap a
+                    # legacy node on its own.  It may bind only with the
+                    # existing bearer token or an explicit owner/enrollment
+                    # authorization.  For a new node there is no existing
+                    # identity to take over.
+                    crypto_authorized = incoming_proof_valid and (
+                        not existing_node
+                        or token_matches
+                        or bool(registered_pub)
+                        or owner_authorized
+                    )
                     if crypto_authorized:
-                        owner_authorized = True
-                    else:
-                        self._send_error_response("Unauthorized: auth_token mismatch and invalid cryptographic proof for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                        sys.stderr.write(
+                            f"[HEARTBEAT] Node {node_id} presented verified Ed25519 proof; updating authenticated state.\n"
+                        )
+                        sys.stderr.flush()
+                except Exception as verif_exc:
+                    sys.stderr.write(f"[HEARTBEAT] Node {node_id} verification error: {verif_exc}\n")
+
+            if existing_node and not token_matches and not owner_authorized and not crypto_authorized:
+                self._send_error_response(
+                    "Unauthorized: auth_token mismatch and no valid enrollment or cryptographic proof",
+                    "unauthorized",
+                    HTTPStatus.UNAUTHORIZED,
+                )
+                return
+
+            # A public key is state, not caller-supplied metadata.  Bind it only
+            # on a proof signed by that key; rotate a registered key only with
+            # the existing owner/enrollment authorization and a proof by the new key.
+            if incoming_pub:
+                if registered_pub:
+                    if incoming_pub.lower() != registered_pub.lower() and not (
+                        owner_authorized and incoming_proof_valid
+                    ):
+                        self._send_error_response(
+                            "Unauthorized: public key rotation requires owner authorization and proof of possession",
+                            "unauthorized",
+                            HTTPStatus.UNAUTHORIZED,
+                        )
                         return
+                elif not incoming_proof_valid:
+                    self._send_error_response(
+                        "Unauthorized: first public-key binding requires proof of possession",
+                        "unauthorized",
+                        HTTPStatus.UNAUTHORIZED,
+                    )
+                    return
+
+            # A token-authenticated rename must name the prior registry entry;
+            # a caller may not silently retire an arbitrary node-id alias.
+            with _NODE_HEARTBEAT_LOCK:
+                aliases = [
+                    old_id
+                    for old_id, old_node in NODE_TELEMETRY_REGISTRY.items()
+                    if old_id != node_id
+                    and old_node.get("auth_token") == auth_token
+                    and not old_node.get("is_peer_relay", False)
+                ]
+                if aliases and (not previous_node_id or previous_node_id not in aliases):
+                    self._send_error_response(
+                        "Unauthorized: previous_node_id is required for node-id changes",
+                        "unauthorized",
+                        HTTPStatus.UNAUTHORIZED,
+                    )
+                    return
+                if previous_node_id and previous_node_id != node_id:
+                    previous = NODE_TELEMETRY_REGISTRY.get(previous_node_id)
+                    if previous is not None:
+                        if previous.get("auth_token") != auth_token:
+                            self._send_error_response(
+                                "Unauthorized: previous_node_id does not match the authenticated node",
+                                "unauthorized",
+                                HTTPStatus.UNAUTHORIZED,
+                            )
+                            return
+                        previous_pub = str(previous.get("public_key", "")).strip()
+                        if previous_pub and incoming_pub and previous_pub.lower() != incoming_pub.lower():
+                            self._send_error_response(
+                                "Unauthorized: public key does not match previous node identity",
+                                "unauthorized",
+                                HTTPStatus.UNAUTHORIZED,
+                            )
+                            return
 
             sent_owner_key = str(body.get("owner_key", "")).strip()
+            # A one-time enrollment/migration proof is authoritative for the
+            # owner identity.  Never let an unrelated owner_key supplied in
+            # the same request override the owner bound by that proof.
+            if enrollment_owner_key:
+                sent_owner_key = enrollment_owner_key
             resolved_owner_key = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
             active_owner_key = resolved_owner_key or sent_owner_key
             key_rotated = bool(resolved_owner_key and resolved_owner_key != sent_owner_key)
@@ -2034,9 +2205,48 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_binding_error: str | None = None
             owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
-            if not owner_id and existing_node and existing_node.get("owner_id"):
+            if existing_node and not existing_owner_id and owner_id and not enrollment_owner_key:
+                # A node bearer token proves possession of the node credential,
+                # not possession of a newly submitted fleet-owner credential.
+                # Legacy rows without a durable owner binding therefore need a
+                # one-time enrollment/migration proof before an owner can be
+                # created or attached.  Do this check before touching the
+                # durable owner store or the telemetry registry.
+                self._send_error_response(
+                    "Owner binding for a legacy node requires explicit enrollment authorization",
+                    "forbidden",
+                    HTTPStatus.FORBIDDEN,
+                )
+                return
+            if existing_node and existing_owner_id and owner_id and not hmac.compare_digest(owner_id, existing_owner_id):
+                # A node bearer token may follow an already provisioned fleet
+                # owner during an intentional migration, but it may not
+                # create an arbitrary owner identity as part of that move.
+                # New owner accounts must therefore already exist in the
+                # durable owner store (or use the explicit enrollment path).
+                reassignment_authorized = bool(
+                    (
+                        enrollment_owner_key
+                        and hmac.compare_digest(
+                            owner_id,
+                            owner_id_for_key(enrollment_owner_key),
+                        )
+                    )
+                    or (
+                        token_matches
+                        and OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                    )
+                )
+                if not reassignment_authorized:
+                    self._send_error_response(
+                        "Owner reassignment requires an authenticated provisioned owner",
+                        "forbidden",
+                        HTTPStatus.FORBIDDEN,
+                    )
+                    return
+            if not owner_id and existing_owner_id:
                 # Preserve existing fleet owner binding across reboots
-                owner_id = existing_node.get("owner_id")
+                owner_id = existing_owner_id
             if owner_id:
                 try:
                     OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
@@ -2051,13 +2261,6 @@ class GatewayHandler(BaseHTTPRequestHandler):
                         owner_binding_error = str(rebind_exc)
                         owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
 
-            # If the same physical client (same auth_token) renamed its node_id, retire the previous alias
-            for old_id, old_node in list(NODE_TELEMETRY_REGISTRY.items()):
-                if old_id != node_id and old_node.get("auth_token") == auth_token and not old_node.get("is_peer_relay", False):
-                    NODE_TELEMETRY_REGISTRY.pop(old_id, None)
-                    if owner_id:
-                        OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, old_id)
-
             now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             existing_tokens = int(existing_node.get("telemetry", {}).get("tokens_processed", 0) or 0) if existing_node else 0
             incoming_tokens = int(body.get("telemetry", {}).get("tokens_processed", 0) or 0)
@@ -2070,23 +2273,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
             telemetry_data["earnings_cm"] = provider_payable_micro
 
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
-            incoming_pub = str(body.get("public_key", "")).strip()
-            incoming_sig = str(body.get("signature", "")).strip()
-            incoming_ts = body.get("timestamp")
-            registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
             final_pub = registered_pub
-            if not final_pub and incoming_pub:
-                if incoming_sig and incoming_ts is not None:
-                    try:
-                        from tools.security.node_key_storage import verify_node_heartbeat
-                        if verify_node_heartbeat(incoming_pub, node_id, auth_token, int(incoming_ts), incoming_sig):
-                            final_pub = incoming_pub
-                    except Exception:
-                        pass
-                elif not existing_node:
-                    final_pub = incoming_pub
+            if incoming_pub and incoming_proof_valid:
+                final_pub = incoming_pub
 
-            NODE_TELEMETRY_REGISTRY[node_id] = {
+            heartbeat_record = {
                 "node_id": node_id,
                 "display_name": body.get("display_name") or body.get("name") or node_id,
                 "auth_token": auth_token,
@@ -2108,6 +2299,22 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 "clock_skew_ms": body.get("clock_skew_ms", 0),
                 "updated_at": now_iso,
             }
+            committed, commit_error = _commit_heartbeat_record(
+                node_id=node_id,
+                auth_token=auth_token,
+                previous_node_id=previous_node_id,
+                incoming_public_key=incoming_pub,
+                nonce=heartbeat_nonce,
+                record=heartbeat_record,
+                owner_id=owner_id,
+            )
+            if not committed:
+                self._send_error_response(
+                    f"Unauthorized: {commit_error or 'heartbeat state transition rejected'}",
+                    "unauthorized",
+                    HTTPStatus.UNAUTHORIZED,
+                )
+                return
 
             # Register discovered cluster peers (e.g. LAN miners or secondary appliances)
             # Deliberately do not set updated_at=now_iso for relayed peers so they do not falsely appear as direct online nodes

@@ -16,6 +16,32 @@ Jede Aussage unten unterscheidet zwischen:
 
 Eine branch-lokale Implementierung oder grüne CI ist keine Produktionsaussage über Vertraulichkeit.
 
+Der lokale Entwicklungsbranch vom 26.10.2026 enthält zusätzlich fail-closed
+Härtung für Provider-Privatschlüssel und Tunnel-Tokens. Dafür liegt nur
+gezielte lokale Test-Evidence vor; es ist weder öffentlicher `main`, noch ein
+Hardware-Enrolment-Nachweis oder ein Produktionsrelease.
+
+Derselbe Branch verlangt nun verifizierte lokale Runtime-Evidence, bevor ein
+Provider `INFERENCE_READY` ankündigen oder in das Live-Inferenz-Placement
+gelangen darf. Die Model-Engine prüft llama.cpp-Binary, Beschleuniger-Runtime,
+Modelldigest und Health-Endpunkt; Provider-Kanal und Gateway-Telemetrie führen
+das Ergebnis weiter. Gezielte lokale Tests bestehen; AMD-Hardware, Bootmedium
+und Produktionsabnahme wurden nicht ausgeführt.
+
+Der Branch härtet außerdem die Provenienz von NodeOS-Release-Artefakten. Der
+Appliance-Builder bettet öffentlichen Source-Commit und gepinnte llama.cpp-
+Metadaten in ISO und Image ein; der Release-Builder lehnt fehlende, veraltete
+oder inkonsistente Images ab, übernimmt nur validiertes Staging und schreibt
+SHA-256-Evidence. Das Signieren bleibt ohne ausdrückliche Betreiberfreigabe
+gesperrt. Lokale Vertrags-/Provenienztests bestehen; Linux-Image-Build,
+physischer Boot und Veröffentlichung wurden nicht ausgeführt.
+
+Die ältere Security-Audit-Fixture verwendet für ihren Billing-Test jetzt nur
+frische lokale statische Testmodelle und stellt den produktionsnahen Katalog
+danach wieder her. Das eingecheckte historische Update-Manifest ist weiterhin
+kryptografisch ungültig; ohne freigegebenen produktiven Signing-Key bleibt es
+ein Release-Blocker.
+
 ## Was heute tatsächlich existiert
 
 ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:

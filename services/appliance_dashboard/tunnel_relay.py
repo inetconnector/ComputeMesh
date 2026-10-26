@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from functools import wraps
 from pathlib import Path
 import secrets
 import sys
@@ -13,66 +14,110 @@ from typing import Any
 import urllib.request
 
 from config import CONFIG
+from tools.appliance.node_identity import (
+    NodeIdentityError,
+    dashboard_must_not_start_relay,
+    is_nodeos_mode,
+    migrate_enrolled_node_id,
+    read_enrolled_node_id,
+    resolve_enrolled_private_key_path,
+    resolve_node_id,
+)
 
 logger = logging.getLogger("CloudTunnelRelay")
 
 
+def _serialize_sync_call(method):
+    """Keep the entire heartbeat construction and network send single-flight."""
+
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._sync_lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
+
+
+from tools.security import node_auth_token_storage as _node_auth_storage
+from tools.security.node_auth_token_storage import (
+    NodeAuthTokenStorageError,
+    atomic_secure_text_write as _atomic_secure_text_write,
+    default_node_auth_paths as _default_node_auth_paths,
+    read_existing_node_auth_token as _read_existing_node_auth_token,
+    rotate_node_auth_token as _rotate_node_auth_token,
+)
+
+
+def _nodeos_mode() -> bool:
+    return is_nodeos_mode()
+
+
+def nodeos_provider_ready() -> bool:
+    """Return true only after the durable NodeOS preflight marker exists."""
+    if not _nodeos_mode():
+        return True
+    marker = Path(
+        os.environ.get(
+            "COMPUTEMESH_NODEOS_PREFLIGHT_MARKER",
+            "/run/computemesh/node-preflight.ok",
+        )
+    )
+    provider_env = Path(
+        os.environ.get("COMPUTEMESH_PROVIDER_ENV", "/etc/computemesh/provider.env")
+    )
+    return marker.is_file() and not marker.is_symlink() and provider_env.is_file() and not provider_env.is_symlink()
+
+
 def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str:
-    """Retrieve or create a persistent node authentication token using high-entropy random secrets.
+    """Compatibility wrapper retaining the old dashboard import contract."""
+    return _node_auth_storage.get_or_create_node_auth_token(
+        search_paths,
+        atomic_writer=_atomic_secure_text_write,
+    )
 
-    Searches across authorized permissioned storage tiers:
-    1. State storage directory (/var/lib/computemesh/node_auth_token.txt)
-    2. User home directory (~/.computemesh/node_auth_token.txt)
-    3. Appliance configuration directory (/etc/computemesh/node_auth_token.txt)
 
-    Security Boundaries:
-    - Never derives secrets deterministically from machine/hardware identifiers.
-    - Never persists secrets to FAT32 boot partitions (/boot or /live/image).
-    - Enforces strict 0600 file permissions on POSIX.
-    """
-    if search_paths is None:
-        candidate_paths = [
-            Path("/var/lib/computemesh/node_auth_token.txt"),
-            Path.home() / ".computemesh" / "node_auth_token.txt",
-            Path("/etc/computemesh/node_auth_token.txt"),
-        ]
-        persist_targets = candidate_paths
-    else:
-        candidate_paths = search_paths
-        persist_targets = search_paths
+def persist_node_auth_token(token: str, path: Path | None = None) -> Path:
+    """Compatibility wrapper for callers outside the enrollment module."""
+    return _node_auth_storage.persist_node_auth_token(
+        token,
+        path,
+        atomic_writer=_atomic_secure_text_write,
+    )
 
-    for p in candidate_paths:
-        try:
-            if p.exists() and p.is_file():
-                tok = p.read_text(encoding="utf-8", errors="ignore").strip()
-                if tok:
-                    return tok
-        except Exception:
-            pass
 
-    # Generate a cryptographically secure random token with high entropy
-    new_token = "cm_tunnel_" + secrets.token_hex(24)
+def _load_import_token() -> str:
+    existing = _read_existing_node_auth_token()
+    if existing is not None:
+        return existing
+    if _nodeos_mode():
+        # The dashboard remains available for local enrollment, but it must
+        # not mint a credential before the persistent provider preflight.
+        return ""
+    return get_or_create_node_auth_token()
 
-    # Persist the token to accessible permissioned storage locations
-    for target in persist_targets:
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(new_token, encoding="utf-8")
-            if sys.platform != "win32":
-                try:
-                    os.chmod(target, 0o600)
-                except OSError:
-                    pass
-        except Exception:
-            pass
 
+NODE_AUTH_TOKEN = _load_import_token()
+
+
+def rotate_node_auth_token() -> str:
+    """Rotate the local node token and update the live relay atomically."""
+    global NODE_AUTH_TOKEN
+    _path, new_token = _rotate_node_auth_token()
+    NODE_AUTH_TOKEN = new_token
+    relay = globals().get("CLOUD_TUNNEL_RELAY")
+    if relay is not None:
+        relay.auth_token = new_token
+        relay.wake_now()
     return new_token
 
 
-NODE_AUTH_TOKEN = get_or_create_node_auth_token()
-
-
 def get_default_node_id() -> str:
+    # An enrolled provider.env is authoritative.  Do not let a boot template,
+    # mutable dashboard config, or hostname create a second identity after a
+    # reboot.
+    persisted = read_enrolled_node_id()
+    if persisted is not None:
+        return persisted
     try:
         from tools.appliance.appliance_config import load_appliance_config
         cfg = load_appliance_config()
@@ -94,25 +139,47 @@ def get_default_node_id() -> str:
 
 class CloudTunnelRelay:
     def __init__(self, node_id: str | None = None, auth_token: str | None = None, *, autostart: bool = True) -> None:
-        self.node_id = node_id or get_default_node_id()
-        self.auth_token = auth_token or NODE_AUTH_TOKEN
-        self._running = True
-        self._sync_lock = threading.Lock()
-        self._wake_event = threading.Event()
-        try:
-            from tools.security.node_key_storage import get_or_create_node_private_key
-            from cryptography.hazmat.primitives import serialization
-            self._private_key, self._key_path = get_or_create_node_private_key()
-            raw_pub = self._private_key.public_key().public_bytes(
-                serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw,
+        if _nodeos_mode() and not nodeos_provider_ready():
+            raise NodeAuthTokenStorageError(
+                "NodeOS provider preflight is not ready; refusing to start heartbeat identity"
             )
-            self.public_key_hex = raw_pub.hex()
-        except Exception as exc:
-            logger.warning("Failed to initialize Ed25519 node identity: %s", exc)
-            self._private_key = None
-            self._key_path = None
-            self.public_key_hex = ""
+        try:
+            configured_node_id = node_id or get_default_node_id()
+            self.node_id = resolve_node_id(configured_node_id)
+        except NodeIdentityError as exc:
+            raise NodeAuthTokenStorageError(str(exc)) from exc
+        self.auth_token = auth_token or NODE_AUTH_TOKEN
+        if not self.auth_token:
+            self.auth_token = get_or_create_node_auth_token()
+        self._running = True
+        # perform_sync retains an inner compatibility lock around the local
+        # collection section; RLock lets the outer call-wide guard hold the
+        # lock through payload signing and all network sends as well.
+        self._sync_lock = threading.RLock()
+        self._wake_event = threading.Event()
+        from tools.security.node_key_storage import get_or_create_node_private_key
+        from cryptography.hazmat.primitives import serialization
+        try:
+            if _nodeos_mode():
+                enrolled_key_path = resolve_enrolled_private_key_path()
+                self._private_key, self._key_path = get_or_create_node_private_key(
+                    path=enrolled_key_path,
+                    allow_generate=False,
+                )
+            else:
+                self._private_key, self._key_path = get_or_create_node_private_key(
+                    allow_generate=True,
+                )
+        except NodeIdentityError as exc:
+            raise NodeAuthTokenStorageError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - fail closed without exposing key details
+            message = str(exc).strip() or "persistent enrolled node private key is unavailable"
+            raise NodeAuthTokenStorageError(message) from exc
+        raw_pub = self._private_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+        self.public_key_hex = raw_pub.hex()
         try:
             from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
@@ -132,7 +199,14 @@ class CloudTunnelRelay:
         # Peak values inferred from a product name are not measurements.
         return 0.0
 
-    def perform_sync(self, updated_cfg: Any = None, previous_node_id: str | None = None) -> dict[str, Any]:
+    @_serialize_sync_call
+    def perform_sync(
+        self,
+        updated_cfg: Any = None,
+        previous_node_id: str | None = None,
+        *,
+        authorize_node_id_migration: bool = False,
+    ) -> dict[str, Any]:
         """Performs a synchronous heartbeat and mesh sync to the coordinator."""
         with self._sync_lock:
             from tools.appliance.appliance_config import load_appliance_config
@@ -144,14 +218,41 @@ class CloudTunnelRelay:
                 cfg_now = updated_cfg
                 eff_name = str(getattr(updated_cfg, "rig_name", "") or "").strip()
                 if eff_name:
-                    self.node_id = eff_name
+                    persisted_node_id = read_enrolled_node_id()
+                    if persisted_node_id is not None and eff_name != persisted_node_id:
+                        if not authorize_node_id_migration or previous_node_id != persisted_node_id:
+                            raise NodeAuthTokenStorageError(
+                                "enrolled node identity changes require an authorized migration"
+                            )
+                        try:
+                            migrate_enrolled_node_id(
+                                eff_name,
+                                previous_node_id=persisted_node_id,
+                            )
+                        except NodeIdentityError as exc:
+                            raise NodeAuthTokenStorageError(str(exc)) from exc
+                    try:
+                        self.node_id = resolve_node_id(eff_name)
+                    except NodeIdentityError as exc:
+                        raise NodeAuthTokenStorageError(str(exc)) from exc
             else:
                 try:
                     cfg_now = load_appliance_config()
-                    if getattr(cfg_now, "rig_name", "") and getattr(cfg_now, "rig_name", "").strip():
-                        self.node_id = getattr(cfg_now, "rig_name", "").strip()
                 except Exception:
                     cfg_now = None
+
+            configured_node_id = (
+                str(getattr(cfg_now, "rig_name", "") or "").strip()
+                if cfg_now
+                else self.node_id
+            ) or self.node_id
+            try:
+                self.node_id = resolve_node_id(
+                    configured_node_id,
+                    require_enrolled=_nodeos_mode(),
+                )
+            except NodeIdentityError as exc:
+                raise NodeAuthTokenStorageError(str(exc)) from exc
 
             owner_key = str(getattr(cfg_now, "owner_key", "") or "").strip() if cfg_now else ""
             payout_address = str(getattr(cfg_now, "payout_address", "") or "").strip() if cfg_now else ""
@@ -213,13 +314,16 @@ class CloudTunnelRelay:
             lan_ips = []
 
         now_ts = int(time.time())
-        sig_b64u = ""
-        if getattr(self, "_private_key", None) is not None:
-            try:
-                from tools.security.node_key_storage import sign_node_heartbeat
-                sig_b64u = sign_node_heartbeat(self._private_key, self.node_id, self.auth_token, now_ts)
-            except Exception as sig_exc:
-                logger.warning("Failed to sign node heartbeat: %s", sig_exc)
+        heartbeat_nonce = secrets.token_urlsafe(18)
+        from tools.security.node_key_storage import sign_node_heartbeat
+        sig_b64u = sign_node_heartbeat(
+            self._private_key,
+            self.node_id,
+            self.auth_token,
+            now_ts,
+            nonce=heartbeat_nonce,
+            previous_node_id=previous_node_id or "",
+        )
 
         payload: dict[str, Any] = {
             "node_id": self.node_id,
@@ -230,6 +334,7 @@ class CloudTunnelRelay:
             "public_key": getattr(self, "public_key_hex", ""),
             "signature": sig_b64u,
             "timestamp": now_ts,
+            "nonce": heartbeat_nonce,
             "dashboard_port": dash_port,
             "network": {
                 "dashboard_port": dash_port,
@@ -334,27 +439,53 @@ class CloudTunnelRelay:
             self._wake_event.wait(timeout=5.0)
             self._wake_event.clear()
 
+    def stop(self) -> None:
+        self._running = False
+        self._wake_event.set()
+        thread = self._thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+
 
 CLOUD_TUNNEL_RELAY: CloudTunnelRelay | None = None
 
 
 def start_cloud_tunnel_relay(node_id: str | None = None, auth_token: str | None = None) -> CloudTunnelRelay:
     global CLOUD_TUNNEL_RELAY
+    if _nodeos_mode() and not nodeos_provider_ready():
+        raise NodeAuthTokenStorageError(
+            "NodeOS provider preflight is not ready; heartbeat relay is disabled"
+        )
     if CLOUD_TUNNEL_RELAY is None:
         CLOUD_TUNNEL_RELAY = CloudTunnelRelay(node_id=node_id, auth_token=auth_token)
+    elif node_id:
+        try:
+            requested = resolve_node_id(node_id)
+        except NodeIdentityError as exc:
+            raise NodeAuthTokenStorageError(str(exc)) from exc
+        if requested != CLOUD_TUNNEL_RELAY.node_id:
+            raise NodeAuthTokenStorageError(
+                "a second relay cannot use a different node identity"
+            )
     return CLOUD_TUNNEL_RELAY
 
 
-def trigger_immediate_mesh_sync(updated_cfg: Any = None, previous_node_id: str | None = None) -> dict[str, Any]:
+def trigger_immediate_mesh_sync(
+    updated_cfg: Any = None,
+    previous_node_id: str | None = None,
+    *,
+    authorize_node_id_migration: bool = False,
+) -> dict[str, Any]:
     """Expedites zero-delay mesh, LAN discovery, and coordinator synchronization."""
     global CLOUD_TUNNEL_RELAY
     relay = CLOUD_TUNNEL_RELAY
     if relay is None:
         node_id = getattr(updated_cfg, "rig_name", "") if updated_cfg else None
         relay = start_cloud_tunnel_relay(node_id=node_id)
-    if updated_cfg and getattr(updated_cfg, "rig_name", "") and getattr(updated_cfg, "rig_name", "").strip():
-        relay.node_id = getattr(updated_cfg, "rig_name", "").strip()
-
-    res = relay.perform_sync(updated_cfg=updated_cfg, previous_node_id=previous_node_id)
+    res = relay.perform_sync(
+        updated_cfg=updated_cfg,
+        previous_node_id=previous_node_id,
+        authorize_node_id_migration=authorize_node_id_migration,
+    )
     relay.wake_now()
     return res
