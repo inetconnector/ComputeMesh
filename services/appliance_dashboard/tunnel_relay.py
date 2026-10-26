@@ -213,11 +213,19 @@ class CloudTunnelRelay:
             lan_ips = []
 
         now_ts = int(time.time())
+        heartbeat_nonce = secrets.token_urlsafe(18)
         sig_b64u = ""
         if getattr(self, "_private_key", None) is not None:
             try:
                 from tools.security.node_key_storage import sign_node_heartbeat
-                sig_b64u = sign_node_heartbeat(self._private_key, self.node_id, self.auth_token, now_ts)
+                sig_b64u = sign_node_heartbeat(
+                    self._private_key,
+                    self.node_id,
+                    self.auth_token,
+                    now_ts,
+                    nonce=heartbeat_nonce,
+                    previous_node_id=previous_node_id or "",
+                )
             except Exception as sig_exc:
                 logger.warning("Failed to sign node heartbeat: %s", sig_exc)
 
@@ -230,6 +238,7 @@ class CloudTunnelRelay:
             "public_key": getattr(self, "public_key_hex", ""),
             "signature": sig_b64u,
             "timestamp": now_ts,
+            "nonce": heartbeat_nonce,
             "dashboard_port": dash_port,
             "network": {
                 "dashboard_port": dash_port,

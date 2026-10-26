@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import ctypes
 from ctypes import wintypes
+import json
 import os
 from pathlib import Path
 import platform
@@ -373,16 +374,54 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     return key, chosen_path
 
 
+def _heartbeat_signing_message(
+    node_id: str,
+    auth_token: str,
+    timestamp: int,
+    *,
+    nonce: str = "",
+    previous_node_id: str = "",
+) -> bytes:
+    """Build the versioned heartbeat message without ambiguous field joins."""
+    if nonce or previous_node_id:
+        fields = json.dumps(
+            {
+                "auth_token": str(auth_token),
+                "node_id": str(node_id),
+                "nonce": str(nonce),
+                "previous_node_id": str(previous_node_id),
+                "timestamp": int(timestamp),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        return f"ComputeMesh.NodeHeartbeat.v2:{fields}".encode("utf-8")
+    # Keep verification of the historical format available for already
+    # enrolled nodes.  The gateway requires the v2 nonce form for new key
+    # bindings and token-rotation proofs.
+    return f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+
+
 def sign_node_heartbeat(
     key: Ed25519PrivateKey,
     node_id: str,
     auth_token: str,
     timestamp: int,
+    *,
+    nonce: str = "",
+    previous_node_id: str = "",
 ) -> str:
     """Produces a canonical Ed25519 signature proving cryptographic possession of the node identity."""
     if not isinstance(key, Ed25519PrivateKey):
         raise TypeError("key must be an Ed25519PrivateKey")
-    message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+    message = _heartbeat_signing_message(
+        node_id,
+        auth_token,
+        timestamp,
+        nonce=nonce,
+        previous_node_id=previous_node_id,
+    )
     signature = key.sign(message)
     return _b64u(signature)
 
@@ -396,6 +435,8 @@ def verify_node_heartbeat(
     *,
     now: int | None = None,
     max_skew_seconds: int = 60,
+    nonce: str = "",
+    previous_node_id: str = "",
 ) -> bool:
     """Verifies that a heartbeat or reconnect request originates from the holder of the registered Ed25519 key.
 
@@ -405,7 +446,12 @@ def verify_node_heartbeat(
     3. Proper key length (32 bytes)
     """
     current_time = int(time.time()) if now is None else int(now)
-    if abs(current_time - int(timestamp)) > max_skew_seconds:
+    timestamp_int = int(timestamp)
+    nonce = str(nonce or "")
+    previous_node_id = str(previous_node_id or "")
+    if len(nonce) > 256 or len(previous_node_id) > 512:
+        return False
+    if abs(current_time - timestamp_int) > max_skew_seconds:
         return False
 
     try:
@@ -436,7 +482,13 @@ def verify_node_heartbeat(
         if len(sig_bytes) != 64:
             return False
 
-        message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+        message = _heartbeat_signing_message(
+            node_id,
+            auth_token,
+            timestamp_int,
+            nonce=nonce,
+            previous_node_id=previous_node_id,
+        )
         pub.verify(sig_bytes, message)
         return True
     except (InvalidSignature, ValueError, TypeError, Exception):
