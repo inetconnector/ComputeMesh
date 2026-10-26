@@ -315,7 +315,45 @@ def _b64u_decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(padded.encode("ascii"))
 
 
-def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519PrivateKey, Path]:
+def secure_path_for_service(path: Path, username: str = "computemesh", *, mode: int = 0o600) -> None:
+    """Assign an existing credential path to exactly one POSIX service user.
+
+    The helper is intentionally POSIX-only.  Windows protection remains
+    delegated to DPAPI, while NodeOS enrollment uses the service account's
+    ownership and owner-only mode bits instead of broad readability.
+    """
+    path = _absolute_key_path(path)
+    if platform.system().lower() == "windows":
+        return
+    if not path.is_file():
+        raise KeyStorageError(f"service credential path is not a regular file: {path}")
+    try:
+        import pwd
+
+        account = pwd.getpwnam(username)
+        current_uid = os.geteuid()
+        if current_uid not in {0, account.pw_uid}:
+            raise KeyStorageError(
+                f"only root or {username} may assign service credential ownership: {path}"
+            )
+        os.chown(path, account.pw_uid, account.pw_gid)
+        os.chmod(path, mode)
+        os.chown(path.parent, account.pw_uid, account.pw_gid)
+        os.chmod(path.parent, 0o700)
+        _assert_posix_permissions(path)
+    except KeyStorageError:
+        raise
+    except (ImportError, KeyError, OSError) as exc:
+        raise KeyStorageError(
+            f"cannot assign credential to service user {username}: {path}"
+        ) from exc
+
+
+def get_or_create_node_private_key(
+    path: Path | None = None,
+    *,
+    allow_generate: bool = True,
+) -> tuple[Ed25519PrivateKey, Path]:
     """Retrieve an existing Ed25519 node private key or generate and persist a new one.
 
     Searches across authorized persistent storage tiers:
@@ -334,6 +372,8 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
             if target_path.is_symlink() or not target_path.is_file():
                 raise KeyStorageError(f"key path is not a regular file: {target_path}")
             return load_node_private_key(target_path), target_path
+        if not allow_generate:
+            raise KeyStorageError("persistent node private key is missing; refusing identity rotation")
         # Generate at requested path
         key = Ed25519PrivateKey.generate()
         save_node_private_key(key, target_path)
@@ -361,6 +401,9 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
             # parse failure must reach the caller instead of silently rotating
             # to a new key.
             return load_node_private_key(p), p
+
+    if not allow_generate:
+        raise KeyStorageError("persistent node private key is missing; refusing identity rotation")
 
     # No existing key found; determine optimal writable target path
     chosen_path: Path | None = None

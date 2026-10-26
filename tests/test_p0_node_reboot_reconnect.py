@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 import concurrent.futures
+from copy import deepcopy
 from http import HTTPStatus
 from http.server import ThreadingHTTPServer
 import json
@@ -329,6 +330,66 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
             self.assertNotEqual(
                 NODE_TELEMETRY_REGISTRY[self.node_id].get("public_key", ""),
                 attacker_public_key,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_negative_security_unbound_legacy_node_rejects_foreign_owner_and_key(self) -> None:
+        """A legacy registry row without owner/key state cannot be claimed by a caller."""
+        now = datetime.now(timezone.utc)
+        client_ip = "192.168.1.27"
+        legacy_token = "legacy-token-without-owner-or-key"
+        NODE_TELEMETRY_REGISTRY[self.node_id] = {
+            "node_id": self.node_id,
+            "auth_token": legacy_token,
+            "client_ip": client_ip,
+            "inventory": {"gpus": []},
+            "updated_at": (now - timedelta(seconds=400)).isoformat().replace("+00:00", "Z"),
+        }
+        before = deepcopy(NODE_TELEMETRY_REGISTRY[self.node_id])
+
+        attacker_key = Ed25519PrivateKey.generate()
+        attacker_owner_key = "cm_owner_foreign_unbound_legacy_key"
+        attacker_token = "foreign-token-without-authorization"
+        timestamp = int(time.time())
+        nonce = "unbound-legacy-claim-nonce"
+        attacker_public_key = attacker_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        ).hex()
+        payload = {
+            "node_id": self.node_id,
+            "auth_token": attacker_token,
+            "owner_key": attacker_owner_key,
+            "public_key": attacker_public_key,
+            "signature": sign_node_heartbeat(
+                attacker_key,
+                self.node_id,
+                attacker_token,
+                timestamp,
+                nonce=nonce,
+            ),
+            "timestamp": timestamp,
+            "nonce": nonce,
+        }
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GatewayHandler)
+        server_port = server.server_address[1]
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{server_port}/api/v1/node/heartbeat",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "X-Forwarded-For": client_ip},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 401)
+            self.assertEqual(NODE_TELEMETRY_REGISTRY[self.node_id], before)
+            self.assertIsNone(
+                gateway_server.OWNER_ACCOUNT_STORE.owner_for_provider_node(self.node_id)
             )
         finally:
             server.shutdown()

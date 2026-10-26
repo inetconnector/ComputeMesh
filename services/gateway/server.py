@@ -2069,8 +2069,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if sent_owner_key_pre:
                 sender_owner = owner_id_for_key(sent_owner_key_pre)
                 if sender_owner and (
-                    not existing_owner_id
-                    or hmac.compare_digest(existing_owner_id, sender_owner)
+                    (existing_node is None and not existing_owner_id)
+                    or (
+                        existing_node is not None
+                        and bool(existing_owner_id)
+                        and hmac.compare_digest(existing_owner_id, sender_owner)
+                    )
                 ):
                     owner_authorized = True
 
@@ -2189,7 +2193,10 @@ class GatewayHandler(BaseHTTPRequestHandler):
                             return
 
             sent_owner_key = str(body.get("owner_key", "")).strip()
-            if not sent_owner_key and enrollment_owner_key:
+            # A one-time enrollment/migration proof is authoritative for the
+            # owner identity.  Never let an unrelated owner_key supplied in
+            # the same request override the owner bound by that proof.
+            if enrollment_owner_key:
                 sent_owner_key = enrollment_owner_key
             resolved_owner_key = FLEET_ACCOUNT_STORE.resolve_latest_owner_key(sent_owner_key) if sent_owner_key else ""
             active_owner_key = resolved_owner_key or sent_owner_key
@@ -2198,6 +2205,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
             owner_binding_error: str | None = None
             owner_rebound = False
             owner_id = owner_id_for_key(active_owner_key)
+            if existing_node and not existing_owner_id and owner_id and not enrollment_owner_key:
+                # A node bearer token proves possession of the node credential,
+                # not possession of a newly submitted fleet-owner credential.
+                # Legacy rows without a durable owner binding therefore need a
+                # one-time enrollment/migration proof before an owner can be
+                # created or attached.  Do this check before touching the
+                # durable owner store or the telemetry registry.
+                self._send_error_response(
+                    "Owner binding for a legacy node requires explicit enrollment authorization",
+                    "forbidden",
+                    HTTPStatus.FORBIDDEN,
+                )
+                return
             if existing_node and existing_owner_id and owner_id and not hmac.compare_digest(owner_id, existing_owner_id):
                 # A node bearer token may follow an already provisioned fleet
                 # owner during an intentional migration, but it may not
@@ -2205,8 +2225,17 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 # New owner accounts must therefore already exist in the
                 # durable owner store (or use the explicit enrollment path).
                 reassignment_authorized = bool(
-                    token_matches
-                    and OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                    (
+                        enrollment_owner_key
+                        and hmac.compare_digest(
+                            owner_id,
+                            owner_id_for_key(enrollment_owner_key),
+                        )
+                    )
+                    or (
+                        token_matches
+                        and OWNER_ACCOUNT_STORE.get_owner(owner_id) is not None
+                    )
                 )
                 if not reassignment_authorized:
                     self._send_error_response(

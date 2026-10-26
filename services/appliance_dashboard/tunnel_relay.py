@@ -21,6 +21,56 @@ class NodeAuthTokenStorageError(RuntimeError):
     """Raised when the persistent node token cannot be read or durably stored."""
 
 
+def _default_node_auth_paths() -> list[Path]:
+    configured = os.environ.get("COMPUTEMESH_NODE_AUTH_TOKEN_PATH", "").strip()
+    paths = [Path(configured)] if configured else []
+    paths.extend(
+        [
+            Path("/var/lib/computemesh/node_auth_token.txt"),
+            Path.home() / ".computemesh" / "node_auth_token.txt",
+            Path("/etc/computemesh/node_auth_token.txt"),
+        ]
+    )
+    return paths
+
+
+def _read_existing_node_auth_token(search_paths: list[Path] | None = None) -> str | None:
+    for raw_path in search_paths or _default_node_auth_paths():
+        path = Path(raw_path)
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise NodeAuthTokenStorageError(f"node token path is not a regular file: {path}")
+        if not path.exists():
+            continue
+        try:
+            token = path.read_text(encoding="utf-8").strip()
+        except Exception as exc:
+            raise NodeAuthTokenStorageError(f"cannot read persistent node token: {path}") from exc
+        if not token or not token.startswith("cm_tunnel_") or not token[10:].isalnum():
+            raise NodeAuthTokenStorageError(f"persistent node token is invalid: {path}")
+        return token
+    return None
+
+
+def _nodeos_mode() -> bool:
+    return os.environ.get("COMPUTEMESH_NODEOS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def nodeos_provider_ready() -> bool:
+    """Return true only after the durable NodeOS preflight marker exists."""
+    if not _nodeos_mode():
+        return True
+    marker = Path(
+        os.environ.get(
+            "COMPUTEMESH_NODEOS_PREFLIGHT_MARKER",
+            "/run/computemesh/node-preflight.ok",
+        )
+    )
+    provider_env = Path(
+        os.environ.get("COMPUTEMESH_PROVIDER_ENV", "/etc/computemesh/provider.env")
+    )
+    return marker.is_file() and not marker.is_symlink() and provider_env.is_file() and not provider_env.is_symlink()
+
+
 def _atomic_secure_text_write(path: Path, value: str) -> None:
     """Write one node credential atomically without accepting a failed persist."""
     path = Path(path)
@@ -69,29 +119,16 @@ def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str
     - Never persists secrets to FAT32 boot partitions (/boot or /live/image).
     - Enforces strict 0600 file permissions on POSIX.
     """
-    if search_paths is None:
-        candidate_paths = [
-            Path("/var/lib/computemesh/node_auth_token.txt"),
-            Path.home() / ".computemesh" / "node_auth_token.txt",
-            Path("/etc/computemesh/node_auth_token.txt"),
-        ]
-        persist_targets = candidate_paths
-    else:
-        candidate_paths = search_paths
-        persist_targets = search_paths
+    candidate_paths = [Path(path) for path in (search_paths or _default_node_auth_paths())]
+    existing = _read_existing_node_auth_token(candidate_paths)
+    if existing is not None:
+        return existing
+    persist_targets = candidate_paths
 
-    for p in candidate_paths:
-        p = Path(p)
-        if p.is_symlink() or (p.exists() and not p.is_file()):
-            raise NodeAuthTokenStorageError(f"node token path is not a regular file: {p}")
-        if p.exists():
-            try:
-                tok = p.read_text(encoding="utf-8").strip()
-            except Exception as exc:
-                raise NodeAuthTokenStorageError(f"cannot read persistent node token: {p}") from exc
-            if not tok or not tok.startswith("cm_tunnel_") or not tok[10:].isalnum():
-                raise NodeAuthTokenStorageError(f"persistent node token is invalid: {p}")
-            return tok
+    if _nodeos_mode():
+        raise NodeAuthTokenStorageError(
+            "persistent node token is missing on NodeOS; refusing to generate a new identity"
+        )
 
     # Generate a cryptographically secure random token with high entropy
     new_token = "cm_tunnel_" + secrets.token_hex(24)
@@ -110,7 +147,35 @@ def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str
     raise NodeAuthTokenStorageError("cannot persist node authentication token") from last_error
 
 
-NODE_AUTH_TOKEN = get_or_create_node_auth_token()
+def persist_node_auth_token(token: str, path: Path | None = None) -> Path:
+    """Persist the enrollment-issued token without silently replacing an identity."""
+    token = str(token).strip()
+    if not token.startswith("cm_tunnel_") or not token[10:].isalnum():
+        raise NodeAuthTokenStorageError("node authentication token has an invalid format")
+    target = Path(path) if path is not None else _default_node_auth_paths()[0]
+    if str(target).startswith(("/boot", "/live", "/run/live")):
+        raise NodeAuthTokenStorageError("node authentication token must be stored on persistent storage")
+    existing = _read_existing_node_auth_token([target])
+    if existing is not None:
+        if existing != token:
+            raise NodeAuthTokenStorageError("persistent node authentication token would be replaced")
+        return target
+    _atomic_secure_text_write(target, token)
+    return target
+
+
+def _load_import_token() -> str:
+    existing = _read_existing_node_auth_token()
+    if existing is not None:
+        return existing
+    if _nodeos_mode():
+        # The dashboard remains available for local enrollment, but it must
+        # not mint a credential before the persistent provider preflight.
+        return ""
+    return get_or_create_node_auth_token()
+
+
+NODE_AUTH_TOKEN = _load_import_token()
 
 
 def get_default_node_id() -> str:
@@ -135,14 +200,22 @@ def get_default_node_id() -> str:
 
 class CloudTunnelRelay:
     def __init__(self, node_id: str | None = None, auth_token: str | None = None, *, autostart: bool = True) -> None:
+        if _nodeos_mode() and not nodeos_provider_ready():
+            raise NodeAuthTokenStorageError(
+                "NodeOS provider preflight is not ready; refusing to start heartbeat identity"
+            )
         self.node_id = node_id or get_default_node_id()
         self.auth_token = auth_token or NODE_AUTH_TOKEN
+        if not self.auth_token:
+            self.auth_token = get_or_create_node_auth_token()
         self._running = True
         self._sync_lock = threading.Lock()
         self._wake_event = threading.Event()
         from tools.security.node_key_storage import get_or_create_node_private_key
         from cryptography.hazmat.primitives import serialization
-        self._private_key, self._key_path = get_or_create_node_private_key()
+        self._private_key, self._key_path = get_or_create_node_private_key(
+            allow_generate=not _nodeos_mode()
+        )
         raw_pub = self._private_key.public_key().public_bytes(
             serialization.Encoding.Raw,
             serialization.PublicFormat.Raw,
@@ -373,12 +446,23 @@ class CloudTunnelRelay:
             self._wake_event.wait(timeout=5.0)
             self._wake_event.clear()
 
+    def stop(self) -> None:
+        self._running = False
+        self._wake_event.set()
+        thread = self._thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+
 
 CLOUD_TUNNEL_RELAY: CloudTunnelRelay | None = None
 
 
 def start_cloud_tunnel_relay(node_id: str | None = None, auth_token: str | None = None) -> CloudTunnelRelay:
     global CLOUD_TUNNEL_RELAY
+    if _nodeos_mode() and not nodeos_provider_ready():
+        raise NodeAuthTokenStorageError(
+            "NodeOS provider preflight is not ready; heartbeat relay is disabled"
+        )
     if CLOUD_TUNNEL_RELAY is None:
         CLOUD_TUNNEL_RELAY = CloudTunnelRelay(node_id=node_id, auth_token=auth_token)
     return CLOUD_TUNNEL_RELAY

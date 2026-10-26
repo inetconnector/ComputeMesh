@@ -517,8 +517,15 @@ def create_dashboard_server(
         log.warning("Fan safety controller unavailable: %s", exc)
 
     try:
-        from services.appliance_dashboard.tunnel_relay import start_cloud_tunnel_relay
-        start_cloud_tunnel_relay(node_id=effective_node_id)
+        from services.appliance_dashboard.tunnel_relay import (
+            nodeos_provider_ready,
+            start_cloud_tunnel_relay,
+        )
+        # Keep the local enrollment UI available on a fresh node, but do not
+        # create a heartbeat identity on the transient overlay.  The dedicated
+        # heartbeat service starts the same relay only after preflight.
+        if nodeos_provider_ready():
+            start_cloud_tunnel_relay(node_id=effective_node_id)
     except Exception:
         pass
 
