@@ -4,6 +4,9 @@ Documentation=https://github.com/inetconnector/ComputeMesh/tree/main/apps/node
 Wants=network-online.target
 After=network-online.target
 ConditionPathExists=/etc/computemesh/provider.env
+ConditionPathExists=/run/computemesh/node-preflight.ok
+Requires=computemesh-node-preflight.service
+RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
@@ -15,10 +18,13 @@ WorkingDirectory=/opt/computemesh
 EnvironmentFile=-/etc/computemesh/provider.env
 Environment=PYTHONPATH=/opt/computemesh
 Environment=PYTHONUNBUFFERED=1
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER=/run/computemesh/node-preflight.ok
 ExecStart=/usr/bin/python3 -m apps.node.provider_agent \
   --control-host ${COMPUTEMESH_CONTROL_HOST} \
   --control-port ${COMPUTEMESH_CONTROL_PORT} \
   --ca-file ${COMPUTEMESH_CONTROL_CA_FILE} \
+  --server-hostname ${COMPUTEMESH_CONTROL_SERVER_HOSTNAME} \
   --node-id ${COMPUTEMESH_NODE_ID} \
   --private-key ${COMPUTEMESH_NODE_PRIVATE_KEY} \
   --profile ${COMPUTEMESH_NODE_PROFILE} \

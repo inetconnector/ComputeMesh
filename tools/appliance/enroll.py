@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import ssl
 import sys
@@ -20,7 +21,11 @@ from urllib.request import Request, urlopen
 
 from cryptography.hazmat.primitives import serialization
 
-from tools.security.node_key_storage import get_or_create_node_private_key, sign_node_heartbeat
+from tools.security.node_key_storage import (
+    get_or_create_node_private_key,
+    secure_path_for_service,
+    sign_node_heartbeat,
+)
 
 
 class EnrollmentError(RuntimeError):
@@ -52,6 +57,61 @@ def _require_text(bundle: dict[str, object], name: str, *, max_length: int = 512
     return value.strip()
 
 
+def _provider_control_endpoint(
+    bundle: dict[str, object],
+    enrollment_url: str,
+    *,
+    enrollment_scheme: str,
+) -> tuple[str, int, str, Path]:
+    raw = bundle.get("provider_control")
+    if raw is None:
+        aliases = {
+            "host": bundle.get("provider_control_host"),
+            "port": bundle.get("provider_control_port"),
+            "server_hostname": bundle.get("provider_control_server_hostname"),
+            "ca_file": bundle.get("provider_control_ca_file"),
+        }
+        if not all(value is not None for value in aliases.values()):
+            raise EnrollmentError(
+                "enrollment bundle must provide a separate provider_control endpoint"
+            )
+        raw = aliases
+    if not isinstance(raw, dict):
+        raise EnrollmentError("provider_control must be an object")
+    host = raw.get("host")
+    server_hostname = raw.get("server_hostname")
+    if not isinstance(host, str) or not 1 <= len(host.strip()) <= 253:
+        raise EnrollmentError("provider_control host is invalid")
+    if not isinstance(server_hostname, str) or not 1 <= len(server_hostname.strip()) <= 253:
+        raise EnrollmentError("provider_control server_hostname is invalid")
+    raw_port = raw.get("port")
+    if isinstance(raw_port, bool):
+        raise EnrollmentError("provider_control port is invalid")
+    try:
+        port = int(raw_port)
+    except (TypeError, ValueError) as exc:
+        raise EnrollmentError("provider_control port is invalid") from exc
+    if not 1 <= port <= 65535:
+        raise EnrollmentError("provider_control port is invalid")
+    ca_value = raw.get("ca_file")
+    if not isinstance(ca_value, str) or not ca_value.strip():
+        raise EnrollmentError("provider_control ca_file is invalid")
+    ca_file = Path(ca_value.strip())
+    if ca_file.is_symlink() or not ca_file.is_file():
+        raise EnrollmentError("provider control CA file is unavailable")
+
+    parsed = urlparse(enrollment_url)
+    enrollment_port = parsed.port or (443 if enrollment_scheme == "https" else 80)
+    if parsed.hostname and host.strip().lower() == parsed.hostname.lower() and port == enrollment_port:
+        raise EnrollmentError("provider_control endpoint must be distinct from the enrollment endpoint")
+    return host.strip(), port, server_hostname.strip(), ca_file
+
+
+def _reject_live_path(path: Path, description: str) -> None:
+    if str(path).startswith(("/boot", "/live", "/run/live")):
+        raise EnrollmentError(f"{description} must be stored on persistent storage")
+
+
 def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path:
     if bundle_path.is_symlink() or not bundle_path.is_file():
         raise EnrollmentError("enrollment bundle is missing or symlinked")
@@ -75,10 +135,20 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
     ca_file = Path(_require_text(bundle, "control_ca_file", max_length=1024))
     if ca_file.is_symlink() or not ca_file.is_file():
         raise EnrollmentError("control-plane CA file is unavailable")
+    provider_host, provider_port, provider_server_hostname, provider_ca_file = _provider_control_endpoint(
+        bundle,
+        control_url,
+        enrollment_scheme=parsed.scheme,
+    )
     key_path = Path(bundle.get("private_key_path", "/var/lib/computemesh/node-ed25519.pem"))
-    if str(key_path).startswith(("/boot", "/live", "/run/live")):
-        raise EnrollmentError("private key must be stored on persistent storage")
+    _reject_live_path(key_path, "private key")
     private_key, _ = get_or_create_node_private_key(path=key_path)
+    nodeos_mode = os.environ.get("COMPUTEMESH_NODEOS", "").strip().lower() in {"1", "true", "yes", "on"}
+    if nodeos_mode:
+        try:
+            secure_path_for_service(key_path, "computemesh", mode=0o600)
+        except Exception as exc:  # noqa: BLE001 - do not leak path/credential details
+            raise EnrollmentError("private key cannot be assigned to the provider service") from exc
     public_key = private_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
     timestamp = int(time.time())
     nonce = f"enroll-{timestamp}-{node_id}"
@@ -112,19 +182,30 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
         raise EnrollmentError("control-plane rejected enrollment")
 
     provider_env = Path(str(bundle.get("provider_env_path", "/etc/computemesh/provider.env")))
-    control_host = parsed.hostname or ""
-    control_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    _reject_live_path(provider_env, "provider environment")
+    node_auth_token_path = Path(
+        str(bundle.get("node_auth_token_path", "/var/lib/computemesh/node_auth_token.txt"))
+    )
+    _reject_live_path(node_auth_token_path, "node authentication token")
+    from services.appliance_dashboard.tunnel_relay import persist_node_auth_token
+
+    try:
+        persisted_token_path = persist_node_auth_token(auth_token, node_auth_token_path)
+    except Exception as exc:  # noqa: BLE001 - keep enrollment diagnostics secret-free
+        raise EnrollmentError("node authentication token cannot be persisted") from exc
     profile = str(bundle.get("profile_path", "/var/lib/computemesh/evidence/node_profile.json"))
     prefill = str(bundle.get("prefill_path", "/var/lib/computemesh/evidence/prefill.json"))
     decode = str(bundle.get("decode_path", "/var/lib/computemesh/evidence/decode.json"))
     env_text = "\n".join(
         (
             "# Generated by computemesh-enroll; credentials are not stored here.",
-            f"COMPUTEMESH_CONTROL_HOST={control_host}",
-            f"COMPUTEMESH_CONTROL_PORT={control_port}",
-            f"COMPUTEMESH_CONTROL_CA_FILE={ca_file}",
+            f"COMPUTEMESH_CONTROL_HOST={provider_host}",
+            f"COMPUTEMESH_CONTROL_PORT={provider_port}",
+            f"COMPUTEMESH_CONTROL_SERVER_HOSTNAME={provider_server_hostname}",
+            f"COMPUTEMESH_CONTROL_CA_FILE={provider_ca_file}",
             f"COMPUTEMESH_NODE_ID={node_id}",
             f"COMPUTEMESH_NODE_PRIVATE_KEY={key_path}",
+            f"COMPUTEMESH_NODE_AUTH_TOKEN_PATH={persisted_token_path}",
             f"COMPUTEMESH_NODE_PROFILE={profile}",
             f"COMPUTEMESH_NODE_PREFILL={prefill}",
             f"COMPUTEMESH_NODE_DECODE={decode}",
@@ -137,13 +218,29 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
             "",
         )
     )
-    _atomic_write(provider_env, env_text, 0o640)
+    _atomic_write(provider_env, env_text, 0o600)
     receipt = provider_env.parent / "enrollment.receipt.json"
     _atomic_write(
         receipt,
-        json.dumps({"node_id": node_id, "public_key": public_key, "control_host": control_host}, sort_keys=True) + "\n",
-        0o640,
+        json.dumps(
+            {
+                "node_id": node_id,
+                "public_key": public_key,
+                "provider_control_host": provider_host,
+                "provider_control_port": provider_port,
+                "provider_control_server_hostname": provider_server_hostname,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        0o600,
     )
+    if nodeos_mode:
+        try:
+            for path in (persisted_token_path, provider_env, receipt):
+                secure_path_for_service(path, "computemesh", mode=0o600)
+        except Exception as exc:  # noqa: BLE001 - keep enrollment diagnostics secret-free
+            raise EnrollmentError("provider credentials cannot be assigned to the provider service") from exc
     bundle_path.unlink()
     return provider_env
 

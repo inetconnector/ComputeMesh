@@ -1,10 +1,17 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 import unittest
+import tempfile
 
 from deploy.appliance.build_real_live_appliance import (
     DEFAULT_PERSISTENCE_SIZE_MIB,
     LLAMA_CPP_COMMIT,
     LLAMA_CPP_VERSION,
+    _render_heartbeat_unit,
+    _render_module_launcher,
+    _render_preflight_unit,
 )
 
 
@@ -45,6 +52,38 @@ class TestRealLiveApplianceContract(unittest.TestCase):
         self.assertIn("persistence-label=persistence", text)
         self.assertIn('"portal"', text)
         self.assertIn("requirements.txt", text)
+
+    def test_generated_module_launchers_are_importable_from_an_arbitrary_cwd(self) -> None:
+        text = self._source()
+        self.assertIn("cd /opt/computemesh", text)
+        self.assertIn("Environment=PYTHONPATH=/opt/computemesh", text)
+        repo_root = Path(__file__).resolve().parents[3]
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(repo_root)
+        with tempfile.TemporaryDirectory() as cwd:
+            for module in ("tools.appliance.boot_preflight", "tools.appliance.enroll"):
+                result = subprocess.run(
+                    [sys.executable, "-m", module, "--help"],
+                    cwd=cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rendered_systemd_contract_has_mounts_environment_and_preflight_order(self) -> None:
+        preflight = _render_preflight_unit()
+        heartbeat = _render_heartbeat_unit()
+        self.assertIn("WorkingDirectory=/opt/computemesh", preflight)
+        self.assertIn("Environment=PYTHONPATH=/opt/computemesh", preflight)
+        self.assertIn("--ready-file /run/computemesh/node-preflight.ok", preflight)
+        self.assertIn("RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh", preflight)
+        self.assertIn("Requires=computemesh-node-preflight.service", heartbeat)
+        self.assertIn("EnvironmentFile=-/etc/computemesh/provider.env", heartbeat)
+        self.assertIn("User=computemesh", heartbeat)
+        self.assertIn("ConditionPathExists=/run/computemesh/node-preflight.ok", heartbeat)
+        self.assertTrue(_render_module_launcher("tools.appliance.enroll").startswith("#!/bin/sh\nset -eu\ncd /opt/computemesh\n"))
 
 
 if __name__ == "__main__":

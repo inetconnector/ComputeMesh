@@ -36,6 +36,7 @@ LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
 PROVENANCE_PREFIX = "COMPUTEMESH_BUILD_PROVENANCE_V1="
+PREFLIGHT_MARKER = "/run/computemesh/node-preflight.ok"
 
 
 def run(cmd: list[str], check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -87,6 +88,78 @@ def _write_provenance(repo_src: Path) -> dict[str, object]:
     provenance_path.parent.mkdir(parents=True, exist_ok=True)
     provenance_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return data
+
+
+def _render_module_launcher(module: str, arguments: str = '"$@"') -> str:
+    """Render a cwd-independent Python module launcher for the image."""
+    if not module or any(char not in "abcdefghijklmnopqrstuvwxyz0123456789._" for char in module):
+        raise ValueError("invalid appliance launcher module")
+    return (
+        "#!/bin/sh\n"
+        "set -eu\n"
+        "cd /opt/computemesh\n"
+        "export PYTHONPATH=/opt/computemesh${PYTHONPATH:+:$PYTHONPATH}\n"
+        f"exec /usr/bin/python3 -m {module} {arguments}\n"
+    )
+
+
+def _render_preflight_unit() -> str:
+    return f"""[Unit]
+Description=ComputeMesh NodeOS enrollment, persistence and runtime preflight
+Wants=network-online.target
+After=network-online.target
+Before=computemesh-node.service computemesh-node-heartbeat.service
+RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/computemesh
+Environment=PYTHONPATH=/opt/computemesh
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}
+ExecStart=/opt/computemesh/bin/computemesh-node-preflight --ready-file {PREFLIGHT_MARKER}
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _render_heartbeat_unit() -> str:
+    return f"""[Unit]
+Description=ComputeMesh authenticated NodeOS heartbeat relay
+Requires=computemesh-node-preflight.service
+After=computemesh-node-preflight.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/computemesh/provider.env
+ConditionPathExists={PREFLIGHT_MARKER}
+RequiresMountsFor=/opt/computemesh /etc/computemesh /var/lib/computemesh
+
+[Service]
+Type=simple
+User=computemesh
+Group=computemesh
+WorkingDirectory=/opt/computemesh
+EnvironmentFile=-/etc/computemesh/provider.env
+Environment=PYTHONPATH=/opt/computemesh
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}
+ExecStart=/usr/bin/python3 -m tools.appliance.heartbeat_relay
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/computemesh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
 
 
 def build_appliance(output_dir: Path | None = None) -> int:
@@ -263,40 +336,26 @@ if __name__ == '__main__':
 
         preflight_launcher = bin_dir / "computemesh-node-preflight"
         preflight_launcher.write_text(
-            """#!/bin/sh
-exec /usr/bin/python3 -m tools.appliance.boot_preflight
-""",
+            _render_module_launcher(
+                "tools.appliance.boot_preflight",
+                f"--ready-file {PREFLIGHT_MARKER} \"$@\"",
+            ),
             encoding="utf-8",
         )
         enrollment_launcher = bin_dir / "computemesh-enroll"
         enrollment_launcher.write_text(
-            """#!/bin/sh
-exec /usr/bin/python3 -m tools.appliance.enroll "$@"
-""",
+            _render_module_launcher("tools.appliance.enroll"),
             encoding="utf-8",
         )
         chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node-preflight /opt/computemesh/bin/computemesh-enroll")
 
         preflight_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-preflight.service"
         preflight_unit.write_text(
-            """[Unit]
-Description=ComputeMesh NodeOS enrollment, persistence and runtime preflight
-Wants=network-online.target
-After=network-online.target
-Before=computemesh-node.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/computemesh/bin/computemesh-node-preflight
-RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-""",
+            _render_preflight_unit(),
             encoding="utf-8",
         )
+        heartbeat_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-heartbeat.service"
+        heartbeat_unit.write_text(_render_heartbeat_unit(), encoding="utf-8")
         node_override_dir = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service.d"
         node_override_dir.mkdir(parents=True, exist_ok=True)
         (node_override_dir / "10-preflight.conf").write_text(
@@ -352,6 +411,8 @@ Wants=network-online.target
 Type=simple
 Environment=COMPUTEMESH_LLAMA_SERVER=/usr/local/bin/llama-server
 Environment=COMPUTEMESH_MODEL_DIR=/var/lib/computemesh/models
+Environment=COMPUTEMESH_NODEOS=1
+Environment=COMPUTEMESH_NODEOS_PREFLIGHT_MARKER=/run/computemesh/node-preflight.ok
 ExecStart=/opt/computemesh/bin/computemesh-node --port 8080
 Restart=always
 RestartSec=5
@@ -422,6 +483,7 @@ WantedBy=multi-user.target
 
         # Enable services in chroot
         chroot_exec("systemctl enable computemesh-node-preflight.service")
+        chroot_exec("systemctl enable computemesh-node-heartbeat.service")
         chroot_exec("systemctl enable computemesh-appliance.service")
         chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")

@@ -1,6 +1,12 @@
 {
   "control_url": "https://control.example.invalid",
   "control_ca_file": "/etc/computemesh/control-ca.pem",
+  "provider_control": {
+    "host": "provider-control.example.invalid",
+    "port": 7443,
+    "server_hostname": "provider-control.example.invalid",
+    "ca_file": "/etc/computemesh/provider-control-ca.pem"
+  },
   "node_id": "node_replace_me",
   "auth_token": "<operator-issued-cm_tunnel_token>",
   "enrollment_token": "<one-time-control-plane-enrollment-token>",
