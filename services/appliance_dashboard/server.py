@@ -12,6 +12,7 @@ import hmac
 import io
 import json
 import logging
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -74,6 +75,15 @@ ALLOWED_CORS_ORIGINS = {
     "http://127.0.0.1:3000",
 }
 FAN_SAFETY_CONTROLLER: Any = None
+
+
+def _mesh_poller_enabled() -> bool:
+    return os.environ.get("COMPUTEMESH_AUTOSTART_MESH_POLLER", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
 
 
 def _safe_resolve_portal_file(filename: str) -> Path | None:
@@ -544,17 +554,25 @@ def create_dashboard_server(
 
     server_inst = None
     actual_port = port
-    for candidate_port in ([port] if port > 0 else []) + [8080, 8081, 8082, 8083, 8084]:
-        try:
-            server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
-            actual_port = server_inst.server_address[1]
-            break
-        except OSError:
-            continue
-
-    if server_inst is None:
+    if port == 0:
+        # Port zero is an explicit request for an OS-assigned ephemeral port.
+        # Never reinterpret it as the production service-port fallback: test
+        # harnesses, embedded callers and parallel local dashboards rely on
+        # collision-free allocation.
         server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
         actual_port = server_inst.server_address[1]
+    else:
+        for candidate_port in [port, 8080, 8081, 8082, 8083, 8084]:
+            try:
+                server_inst = ReusableThreadingHTTPServer((host, candidate_port), DashboardHandler)
+                actual_port = server_inst.server_address[1]
+                break
+            except OSError:
+                continue
+
+        if server_inst is None:
+            server_inst = ReusableThreadingHTTPServer((host, 0), DashboardHandler)
+            actual_port = server_inst.server_address[1]
 
     try:
         from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
@@ -563,10 +581,11 @@ def create_dashboard_server(
     except Exception:
         pass
 
-    try:
-        GLOBAL_MESH_AGGREGATOR.start()
-    except Exception:
-        pass
+    if _mesh_poller_enabled():
+        try:
+            GLOBAL_MESH_AGGREGATOR.start()
+        except Exception:
+            pass
 
     return server_inst, actual_port
 
@@ -578,7 +597,8 @@ def run_dashboard_server(
     inventory: RigInventory | None = None,
     node_id: str = "cm-inference-node-01",
 ) -> int:
-    GLOBAL_MESH_AGGREGATOR.start()
+    if _mesh_poller_enabled():
+        GLOBAL_MESH_AGGREGATOR.start()
     server, actual_port = create_dashboard_server(host, port, config, inventory, node_id)
     try:
         if sys.stdout is not None:
