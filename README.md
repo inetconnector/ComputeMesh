@@ -26,7 +26,9 @@ provenance sidecar SHA-256 is
 `xz -t`, ISO BIOS/UEFI El Torito inspection, and a read-only ext4 persistence
 mount passed; `persistence.conf` contains `/ union`.
 
-Local focused tests pass (`62 passed`); the full public harness reports
+Local focused tests pass (`62 passed`); provider/model and Agent Workspace
+regression groups pass (`68` and `73` tests respectively); the full public
+harness reports
 `891/892` because the historical `portal/updates/version.json` Ed25519
 fixture has an invalid signature and cannot be repaired without authorized
 signing material. Physical NodeOS/GPU boot, real inference tokens, Windows

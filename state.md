@@ -86,6 +86,14 @@ configuration emitted no observable guest serial boot marker. Therefore no
   `llama.dll`, while the three ignored `scratch/test_*.py` files perform
   import-time browser/ADB calls and receive connection refusal. No exclusions
   were added to hide these failures.
+- Provider/model/credit/sharding regression group: `68 passed` in 5.19s,
+  exit 0. Agent Workspace, approval, MCP hardening, WebUI and mesh endpoint
+  group: `73 passed` in 15.16s, exit 0.
+- The host-local Ollama development runtime reported version `0.40.5`; the
+  read-only model inventory was available and `ollama run gemma3:4b` produced
+  the requested `COMPUTEMESH_OLLAMA_SMOKE` output. This proves only a local
+  Ollama inference, not Windows provider enrollment, gateway reconnect or mesh
+  routing.
 - Physical AMD-Polaris detection, Vulkan device mapping, GGUF token
   generation, Windows Ollama reconnect, cross-host BFT, WAN/multi-host
   inference, production enrollment and native Windows handle-based NTFS
