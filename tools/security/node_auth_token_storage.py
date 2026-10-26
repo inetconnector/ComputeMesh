@@ -146,3 +146,24 @@ def persist_node_auth_token(
         return target
     (atomic_writer or atomic_secure_text_write)(target, value)
     return target
+
+
+def rotate_node_auth_token(
+    path: Path | None = None,
+    *,
+    token_factory: Callable[[], str] | None = None,
+    atomic_writer: Callable[[Path, str], None] | None = None,
+) -> tuple[Path, str]:
+    """Replace the persistent token atomically and return the new value once.
+
+    Rotation is deliberately separate from enrollment persistence: enrollment
+    must be idempotent, while an authenticated operator explicitly requests a
+    replacement after compromise. The token is never returned by telemetry.
+    """
+    target = Path(path) if path is not None else default_node_auth_paths()[0]
+    if str(target).startswith(_LIVE_PATH_PREFIXES):
+        raise NodeAuthTokenStorageError("node authentication token must be stored on persistent storage")
+    factory = token_factory or (lambda: TOKEN_PREFIX + secrets.token_hex(24))
+    value = validate_node_auth_token(factory())
+    (atomic_writer or atomic_secure_text_write)(target, value)
+    return target, value

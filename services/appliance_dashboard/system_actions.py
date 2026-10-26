@@ -85,6 +85,20 @@ class SystemActionsHandler:
         post_body: bytes,
         appliance_version: str,
     ) -> bool:
+        if req_path == "/api/action/rotate_node_token":
+            try:
+                from services.appliance_dashboard.tunnel_relay import rotate_node_auth_token
+                new_token = rotate_node_auth_token()
+                handler._send_json({
+                    "status": "ok",
+                    "message": "Node token rotated. Store the new token securely; it is not shown in telemetry.",
+                    "node_token": new_token,
+                })
+            except Exception as exc:
+                log.exception("node token rotation failed")
+                handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return True
+
         if req_path == "/api/config":
             try:
                 data = json.loads(post_body.decode("utf-8"))

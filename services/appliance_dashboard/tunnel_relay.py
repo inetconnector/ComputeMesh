@@ -44,6 +44,7 @@ from tools.security.node_auth_token_storage import (
     atomic_secure_text_write as _atomic_secure_text_write,
     default_node_auth_paths as _default_node_auth_paths,
     read_existing_node_auth_token as _read_existing_node_auth_token,
+    rotate_node_auth_token as _rotate_node_auth_token,
 )
 
 
@@ -96,6 +97,18 @@ def _load_import_token() -> str:
 
 
 NODE_AUTH_TOKEN = _load_import_token()
+
+
+def rotate_node_auth_token() -> str:
+    """Rotate the local node token and update the live relay atomically."""
+    global NODE_AUTH_TOKEN
+    _path, new_token = _rotate_node_auth_token()
+    NODE_AUTH_TOKEN = new_token
+    relay = globals().get("CLOUD_TUNNEL_RELAY")
+    if relay is not None:
+        relay.auth_token = new_token
+        relay.wake_now()
+    return new_token
 
 
 def get_default_node_id() -> str:

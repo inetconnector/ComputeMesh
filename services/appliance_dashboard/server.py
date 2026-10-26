@@ -45,10 +45,11 @@ from services.appliance_dashboard.mesh_aggregator import (
 )
 from services.appliance_dashboard.tunnel_relay import (
     get_or_create_node_auth_token,
-    NODE_AUTH_TOKEN,
     CloudTunnelRelay,
     CLOUD_TUNNEL_RELAY,
+    rotate_node_auth_token,
 )
+from services.appliance_dashboard import tunnel_relay as _tunnel_relay
 from services.appliance_dashboard.inference_router import InferenceRouter
 from services.appliance_dashboard.fan_control_handler import FanControlHandler
 from services.appliance_dashboard.model_manager_handler import ModelManagerHandler
@@ -147,7 +148,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     break
 
         if supplied_token and (
-            hmac.compare_digest(supplied_token.strip(), NODE_AUTH_TOKEN.strip())
+            hmac.compare_digest(supplied_token.strip(), _tunnel_relay.NODE_AUTH_TOKEN.strip())
             or hmac.compare_digest(supplied_token.strip(), DASHBOARD_SESSION_TOKEN.strip())
         ):
             return True

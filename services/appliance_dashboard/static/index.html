@@ -1073,6 +1073,7 @@
         <div class="btn-row">
           <button class="btn btn-primary" id="btn-save-config" onclick="saveConfiguration()">💾 Save & Apply Configuration</button>
           <button class="btn btn-secondary" id="ota-update-button" onclick="checkAndApplyOTAUpdate()">🛡️ Check Signed Update</button>
+          <button class="btn btn-secondary" id="btn-rotate-node-token" onclick="rotateNodeToken()">🔐 Node-Token rotieren</button>
           <button class="btn btn-secondary linux-only" id="btn-os-upgrade" onclick="runOSUpgrade()">📦 OS System Upgrade (Debian)</button>
           <button class="btn btn-secondary" id="btn-restart-daemon" onclick="restartDaemon()">🔄 Restart AI Daemon</button>
           <button class="btn btn-danger linux-only" id="btn-reboot-node" onclick="rebootNode()">⚡ Reboot Node</button>
@@ -2189,6 +2190,26 @@
         }
       } catch (e) {
         showToast('Update-Prüfung fehlgeschlagen: ' + e, false);
+      }
+    }
+
+    async function rotateNodeToken() {
+      if (!confirm('Den bisherigen Node-Token sofort ungültig machen und einen neuen Token ausstellen?')) return;
+      const button = document.getElementById('btn-rotate-node-token');
+      if (button) button.disabled = true;
+      try {
+        const res = await apiFetch('/api/action/rotate_node_token', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.node_token) throw new Error(data.message || 'Rotation fehlgeschlagen');
+        dashboardAuthToken = data.node_token;
+        sessionStorage.setItem('computemesh.nodeAuthToken', dashboardAuthToken);
+        await navigator.clipboard?.writeText(data.node_token).catch(() => {});
+        alert('Node-Token erfolgreich rotiert. Die laufende Dashboard-Sitzung wurde auf den neuen Token umgestellt. Der Token wird nicht in der Telemetrie angezeigt.');
+        showToast('✓ Node-Token rotiert');
+      } catch (e) {
+        showToast('Token-Rotation fehlgeschlagen: ' + e, false);
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
