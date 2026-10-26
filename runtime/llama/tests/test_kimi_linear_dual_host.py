@@ -65,6 +65,19 @@ class KimiDualHostTests(unittest.TestCase):
                     expected_runtime_commit="abcdef0",
                 )
 
+    def test_nodeos_packages_opt_in_rpc_without_auto_start(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        builder = (root / "deploy/appliance/build_real_live_appliance.py").read_text(encoding="utf-8")
+        worker = (root / "deploy/systemd/computemesh-rpc-worker.service").read_text(encoding="utf-8")
+        self.assertIn("-DGGML_RPC=ON", builder)
+        self.assertIn("-DBUILD_SHARED_LIBS=OFF", builder)
+        self.assertIn("--target llama-server ggml-rpc-server", builder)
+        self.assertIn("rpc_worker_unit_source", builder.replace("rpc_source", "rpc_worker_unit_source"))
+        self.assertNotIn("systemctl enable computemesh-rpc-worker", builder)
+        self.assertIn("127.0.0.1", worker)
+        self.assertNotIn("0.0.0.0", worker)
+        self.assertIn("ConditionPathExists=/run/computemesh/node-preflight.ok", worker)
+
     def test_existing_rpc_runner_builds_seven_device_offload(self) -> None:
         devices = ("CUDA0",) + tuple(f"RPC{i}" for i in range(6))
         plan = SpikePlan(
