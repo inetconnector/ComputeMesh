@@ -4399,14 +4399,19 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   Existing images are never accepted solely because their filenames exist.
 - Release manifest signing requires explicit
   `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; no signing key was read or used.
-- RED: `python -m pytest tests/test_build_all_releases.py -q` exited 1 during
-  collection because the provenance validator did not exist.
+- RED: `python -m pytest tests/test_build_all_releases.py -q` first exited 1
+  during collection because the provenance validator did not exist; the
+  follow-up digest-report test likewise exited 1 until its validator was
+  implemented.
 - GREEN: `python -m pytest tests/test_build_all_releases.py
   deploy/appliance/tests/test_real_live_appliance_contract.py
-  deploy/appliance/tests/test_nodeos_runtime_tools.py -q` = 13 passed, exit 0.
+  deploy/appliance/tests/test_nodeos_runtime_tools.py -q` = 14 passed, exit 0.
   `python -m compileall -q tools/build_all_releases.py
   deploy/appliance/build_real_live_appliance.py
   tests/test_build_all_releases.py` and `git diff --check` both exited 0.
+- Existing artifacts must also have a matching atomically written digest
+  report; a test mutating image bytes after report creation is rejected by
+  SHA-256 mismatch even when the embedded source/version marker is unchanged.
 - Not run: debootstrap/chroot, package download, xorriso/loop-device image
   creation, physical boot or flash, production signing, publication and
   deployment. These remain `NOT_RUN`/`BLOCKED_EXTERNAL`/`RELEASE_NO_GO`.

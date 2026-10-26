@@ -8,7 +8,9 @@ from unittest import mock
 from tools.build_all_releases import (
     ReleaseBuildError,
     _exclude_linux_release_path,
+    _write_nodeos_provenance_report,
     _validate_nodeos_artifacts,
+    _validate_nodeos_provenance_report,
     sign_and_verify_release,
 )
 
@@ -78,6 +80,31 @@ class TestBuildAllReleases(unittest.TestCase):
             os.environ.pop("COMPUTEMESH_RELEASE_SIGNING_APPROVED", None)
             with self.assertRaisesRegex(ReleaseBuildError, "explicit"):
                 sign_and_verify_release()
+
+    def test_existing_nodeos_artifacts_require_matching_digest_report(self) -> None:
+        expected = {
+            "schema_version": 1,
+            "artifact_kind": "nodeos",
+            "source_commit": "d" * 40,
+            "version": "1.2.189",
+        }
+        marker = b"COMPUTEMESH_BUILD_PROVENANCE_V1=" + (
+            '{"artifact_kind":"nodeos","schema_version":1,'
+            '"source_commit":"' + "d" * 40 + '","version":"1.2.189"}'
+        ).encode("ascii")
+        with TemporaryDirectory() as root:
+            root_path = Path(root)
+            iso = root_path / "node.iso"
+            image = root_path / "node.img.xz"
+            report = root_path / "node.provenance.json"
+            iso.write_bytes(marker + b"\niso")
+            image.write_bytes(lzma.compress(marker + b"\nimage"))
+            _validate_nodeos_artifacts(iso, image, expected)
+            _write_nodeos_provenance_report(iso, image, expected, report)
+
+            image.write_bytes(lzma.compress(marker + b"\ntampered"))
+            with self.assertRaisesRegex(ValueError, "sha256"):
+                _validate_nodeos_provenance_report(iso, image, expected, report)
 
 
 if __name__ == "__main__":

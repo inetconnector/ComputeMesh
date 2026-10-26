@@ -150,6 +150,40 @@ def _write_nodeos_provenance_report(
             temporary.unlink()
 
 
+def _validate_nodeos_provenance_report(
+    iso: Path,
+    image: Path,
+    expected: dict[str, object],
+    report_path: Path,
+) -> None:
+    """Verify the persisted digest evidence before reusing existing images."""
+    if not report_path.is_file() or report_path.stat().st_size <= 0:
+        raise ValueError("NodeOS provenance digest report is missing")
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("NodeOS provenance digest report is invalid") from exc
+    if not isinstance(report, dict):
+        raise ValueError("NodeOS provenance digest report is not an object")
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            raise ValueError(f"NodeOS provenance report mismatch: {key}")
+
+    artifacts = report.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise ValueError("NodeOS provenance report lacks artifact digests")
+    for name, artifact in (("iso", iso), ("img_xz", image)):
+        entry = artifacts.get(name)
+        if not isinstance(entry, dict):
+            raise ValueError(f"NodeOS provenance report lacks {name} digest")
+        if entry.get("filename") != artifact.name:
+            raise ValueError(f"NodeOS provenance report filename mismatch for {name}")
+        if entry.get("size_bytes") != artifact.stat().st_size:
+            raise ValueError(f"NodeOS provenance report size mismatch for {name}")
+        if entry.get("sha256") != _sha256(artifact):
+            raise ValueError(f"NodeOS provenance report sha256 mismatch for {name}")
+
+
 def _exclude_linux_release_path(name: str) -> bool:
     """Return whether a repository path is local/generated release input."""
     parts = Path(name).parts
@@ -237,6 +271,12 @@ def check_or_build_nodeos_appliance() -> None:
     if iso.exists() or image.exists():
         try:
             _validate_nodeos_artifacts(iso, image, expected)
+            _validate_nodeos_provenance_report(
+                iso,
+                image,
+                expected,
+                DOWNLOADS_DIR / NODEOS_PROVENANCE_NAME,
+            )
         except (OSError, ValueError, lzma.LZMAError) as exc:
             print(f"--> Existing NodeOS artifacts rejected: {exc}")
         else:
