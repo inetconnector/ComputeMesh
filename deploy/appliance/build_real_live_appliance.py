@@ -264,16 +264,28 @@ def _write_artifact_provenance(
     return output
 
 
-def _render_module_launcher(module: str, arguments: str = '"$@"') -> str:
+def _render_module_launcher(
+    module: str,
+    arguments: str = '"$@"',
+    *,
+    nodeos: bool = False,
+) -> str:
     """Render a cwd-independent Python module launcher for the image."""
     if not module or any(char not in "abcdefghijklmnopqrstuvwxyz0123456789._" for char in module):
         raise ValueError("invalid appliance launcher module")
+    nodeos_environment = (
+        "export COMPUTEMESH_NODEOS=1\n"
+        f"export COMPUTEMESH_NODEOS_PREFLIGHT_MARKER={PREFLIGHT_MARKER}\n"
+        if nodeos
+        else ""
+    )
     return (
         "#!/bin/sh\n"
         "set -eu\n"
         "cd /opt/computemesh\n"
         "export PYTHONPATH=/opt/computemesh${PYTHONPATH:+:$PYTHONPATH}\n"
-        f"exec /usr/bin/python3 -m {module} {arguments}\n"
+        + nodeos_environment
+        + f"exec /usr/bin/python3 -m {module} {arguments}\n"
     )
 
 
@@ -448,7 +460,31 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         model_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "models"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_dir.chmod(0o700)
-        (CHROOT_DIR / "var" / "lib" / "computemesh" / "evidence").mkdir(parents=True, exist_ok=True)
+        evidence_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "evidence"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        (evidence_dir / "EVIDENCE_REQUIRED.md").write_text(
+            """# ComputeMesh NodeOS evidence is required before enrollment
+
+This directory intentionally contains no fabricated profile or performance
+numbers. Before enrollment, provision the three measured JSON documents named
+by the operator enrollment bundle:
+
+- `node_profile.json`: a local hardware/runtime inventory captured on this node;
+- `prefill.json`: an actual `llama_cpp_prefill` result from the selected GGUF;
+- `decode.json`: an actual `llama_cpp_decode` result from the same GGUF and
+  exact llama.cpp build.
+
+Use `tools/benchmark/benchmark.py` for the inventory and
+`tools/benchmark/llama_bench_adapter.py` with the real local `llama-bench` and
+GGUF for the two runtime results. Publish the resulting documents to
+persistent storage only after checking the model, profile revision, build
+commit, and SHA-256. `computemesh-enroll` validates all three documents before
+contacting the gateway. Missing, placeholder, mismatched, or unmeasured
+evidence stops enrollment with a diagnostic; it is never generated as a
+default.
+""",
+            encoding="utf-8",
+        )
         (CHROOT_DIR / "var" / "lib" / "computemesh" / "agent-environments").mkdir(parents=True, exist_ok=True)
 
         provenance = _write_provenance(repo_src, source_commit)
@@ -519,7 +555,7 @@ if __name__ == '__main__':
         )
         enrollment_launcher = bin_dir / "computemesh-enroll"
         enrollment_launcher.write_text(
-            _render_module_launcher("tools.appliance.enroll"),
+            _render_module_launcher("tools.appliance.enroll", nodeos=True),
             encoding="utf-8",
         )
         chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node-preflight /opt/computemesh/bin/computemesh-enroll")
@@ -749,7 +785,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
 """,
         encoding="utf-8",
     )
@@ -759,6 +795,8 @@ LABEL computemesh
     grub_dir.mkdir(parents=True, exist_ok=True)
     embedded_grub = """set default=0
 set timeout=3
+serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+terminal_output console serial
 insmod all_video
 insmod font
 insmod gfxterm
@@ -777,12 +815,12 @@ elif search --no-floppy --set=root --file /boot/vmlinuz; then
 fi
 
 menuentry "ComputeMesh NodeOS (AMD / NVIDIA Native Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components quiet splash console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 
 menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
-    linux /boot/vmlinuz boot=live components computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components console=tty0 console=ttyS0,115200n8 systemd.show_status=1 computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 """

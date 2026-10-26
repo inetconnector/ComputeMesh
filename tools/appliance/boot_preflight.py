@@ -2,17 +2,102 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 
+from protocol.session_contracts import SessionMessageContractError, SessionMessageContractValidator
 from tools.security.node_key_storage import load_node_private_key
 
 
 class PreflightError(RuntimeError):
     pass
+
+
+def _load_evidence_document(path: Path, label: str) -> dict[str, object]:
+    if path.is_symlink() or not path.is_file():
+        raise PreflightError(f"measured runtime evidence is missing: {label}")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise PreflightError(f"measured runtime evidence is unreadable: {label}") from exc
+    if not isinstance(document, dict):
+        raise PreflightError(f"measured runtime evidence must be a JSON object: {label}")
+    return document
+
+
+def validate_node_evidence(
+    *,
+    node_id: str,
+    profile_path: Path,
+    prefill_path: Path,
+    decode_path: Path,
+) -> int:
+    """Validate measured profile and llama.cpp evidence without inventing data."""
+    profile = _load_evidence_document(profile_path, "node profile")
+    prefill = _load_evidence_document(prefill_path, "llama.cpp prefill benchmark")
+    decode = _load_evidence_document(decode_path, "llama.cpp decode benchmark")
+    validator = SessionMessageContractValidator()
+    try:
+        validator.validate("NodeProfileUpdate", profile)
+        validator.validate("BenchmarkReport", prefill)
+        validator.validate("BenchmarkReport", decode)
+    except (KeyError, SessionMessageContractError) as exc:
+        raise PreflightError("measured runtime evidence does not satisfy the session contract") from exc
+
+    if profile.get("node_id") != node_id:
+        raise PreflightError("measured node profile belongs to a different node identity")
+    revision = profile.get("profile_revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+        raise PreflightError("measured node profile has no usable positive profile revision")
+    if not profile.get("benchmark_refs"):
+        raise PreflightError("measured node profile has no inventory evidence reference")
+
+    expected = (
+        (prefill, "llama_cpp_prefill", "prefill_tokens_per_second_avg", "prompt_tokens"),
+        (decode, "llama_cpp_decode", "decode_tokens_per_second_avg", "generated_tokens"),
+    )
+    build_identity: tuple[object, object] | None = None
+    model_name: object | None = None
+    for document, benchmark_name, throughput_key, count_key in expected:
+        if document.get("profile_revision") != revision:
+            raise PreflightError("measured benchmark profile revision does not match node profile")
+        if document.get("benchmark_name") != benchmark_name:
+            raise PreflightError(f"measured evidence is not a {benchmark_name} result")
+        metrics = document.get("metrics")
+        if not isinstance(metrics, dict):
+            raise PreflightError("measured benchmark has no metrics")
+        throughput = metrics.get(throughput_key)
+        count = metrics.get(count_key)
+        if isinstance(throughput, bool) or not isinstance(throughput, (int, float)) or throughput <= 0:
+            raise PreflightError(f"measured benchmark lacks positive {throughput_key}")
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise PreflightError(f"measured benchmark lacks positive {count_key}")
+        current_build = (metrics.get("llama_build_number"), metrics.get("llama_build_commit"))
+        if (
+            isinstance(current_build[0], bool)
+            or not isinstance(current_build[0], (int, str))
+            or not str(current_build[0]).strip()
+            or not isinstance(current_build[1], str)
+            or len(current_build[1]) != 40
+            or any(char not in "0123456789abcdefABCDEF" for char in current_build[1])
+        ):
+            raise PreflightError("measured benchmark is not bound to an exact llama.cpp build")
+        if build_identity is None:
+            build_identity = current_build
+        elif current_build != build_identity:
+            raise PreflightError("prefill and decode evidence use different llama.cpp builds")
+        current_model = metrics.get("model_name")
+        if not isinstance(current_model, str) or not current_model.strip():
+            raise PreflightError("measured benchmark is not bound to a model artifact")
+        if model_name is None:
+            model_name = current_model
+        elif current_model != model_name:
+            raise PreflightError("prefill and decode evidence use different model artifacts")
+    return revision
 
 
 def _clear_ready_marker(path: Path | None) -> None:
@@ -130,9 +215,12 @@ def run_preflight(
     token = token_path.read_text(encoding="utf-8").strip()
     if not token.startswith("cm_tunnel_") or not token[10:].isalnum():
         raise PreflightError("persistent node authentication token is invalid")
-    for name in ("COMPUTEMESH_NODE_PROFILE", "COMPUTEMESH_NODE_PREFILL", "COMPUTEMESH_NODE_DECODE"):
-        if not Path(env[name]).is_file():
-            raise PreflightError("enrolled node evidence file is unavailable")
+    validate_node_evidence(
+        node_id=env["COMPUTEMESH_NODE_ID"],
+        profile_path=Path(env["COMPUTEMESH_NODE_PROFILE"]),
+        prefill_path=Path(env["COMPUTEMESH_NODE_PREFILL"]),
+        decode_path=Path(env["COMPUTEMESH_NODE_DECODE"]),
+    )
     if shutil.which("llama-server") is None or shutil.which("vulkaninfo") is None:
         raise PreflightError("llama-server and vulkaninfo are required")
     try:

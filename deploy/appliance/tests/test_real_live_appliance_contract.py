@@ -173,6 +173,20 @@ class TestRealLiveApplianceContract(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_manual_enrollment_launcher_forces_nodeos_mode_without_inherited_environment(self) -> None:
+        launcher = _render_module_launcher("tools.appliance.enroll", nodeos=True)
+        self.assertIn("export COMPUTEMESH_NODEOS=1", launcher)
+        self.assertIn(
+            "export COMPUTEMESH_NODEOS_PREFLIGHT_MARKER=/run/computemesh/node-preflight.ok",
+            launcher,
+        )
+        self.assertIn("exec /usr/bin/python3 -m tools.appliance.enroll", launcher)
+
+    def test_boot_contract_exposes_console_for_isolated_vm_diagnostics(self) -> None:
+        source = self._source()
+        self.assertIn("console=ttyS0,115200n8", source)
+        self.assertIn("serial --unit=0 --speed=115200", source)
+
     def test_rendered_systemd_contract_has_mounts_environment_and_preflight_order(self) -> None:
         preflight = _render_preflight_unit()
         heartbeat = _render_heartbeat_unit()

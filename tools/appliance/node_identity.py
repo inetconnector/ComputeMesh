@@ -122,6 +122,33 @@ def resolve_node_id(
     raise NodeIdentityError("no node identity is available")
 
 
+def resolve_enrolled_private_key_path(path: Path | str | None = None) -> Path:
+    """Return the private key path persisted by enrollment.
+
+    NodeOS never falls back to the generic key-store search order.  The
+    provider environment is the enrollment record, and an already exported
+    key path is accepted only when it names that exact record.
+    """
+    env_path = provider_env_path(path)
+    if read_enrolled_node_id(env_path) is None:
+        raise NodeIdentityError("node is not enrolled; persisted provider identity is required")
+    values = _parse_env(env_path)
+    raw_key_path = values.get("COMPUTEMESH_NODE_PRIVATE_KEY", "").strip()
+    if not raw_key_path:
+        raise NodeIdentityError("persisted provider identity lacks COMPUTEMESH_NODE_PRIVATE_KEY")
+    key_path = Path(raw_key_path)
+    if not key_path.is_absolute():
+        raise NodeIdentityError("persisted node private key path must be absolute")
+    if str(key_path).startswith(("/boot", "/live", "/run/live")):
+        raise NodeIdentityError("persisted node private key must remain on persistent storage")
+    configured = os.environ.get("COMPUTEMESH_NODE_PRIVATE_KEY", "").strip()
+    if configured:
+        configured_path = Path(configured)
+        if configured_path.absolute() != key_path.absolute():
+            raise NodeIdentityError("exported node private key does not match persisted provider identity")
+    return key_path
+
+
 def _atomic_text_write(path: Path, content: str, mode: int = 0o600) -> None:
     if path.is_symlink() or path.parent.is_symlink():
         raise NodeIdentityError("refusing symlinked identity path")

@@ -20,6 +20,7 @@ from tools.appliance.node_identity import (
     is_nodeos_mode,
     migrate_enrolled_node_id,
     read_enrolled_node_id,
+    resolve_enrolled_private_key_path,
     resolve_node_id,
 )
 
@@ -37,38 +38,13 @@ def _serialize_sync_call(method):
     return wrapped
 
 
-class NodeAuthTokenStorageError(RuntimeError):
-    """Raised when the persistent node token cannot be read or durably stored."""
-
-
-def _default_node_auth_paths() -> list[Path]:
-    configured = os.environ.get("COMPUTEMESH_NODE_AUTH_TOKEN_PATH", "").strip()
-    paths = [Path(configured)] if configured else []
-    paths.extend(
-        [
-            Path("/var/lib/computemesh/node_auth_token.txt"),
-            Path.home() / ".computemesh" / "node_auth_token.txt",
-            Path("/etc/computemesh/node_auth_token.txt"),
-        ]
-    )
-    return paths
-
-
-def _read_existing_node_auth_token(search_paths: list[Path] | None = None) -> str | None:
-    for raw_path in search_paths or _default_node_auth_paths():
-        path = Path(raw_path)
-        if path.is_symlink() or (path.exists() and not path.is_file()):
-            raise NodeAuthTokenStorageError(f"node token path is not a regular file: {path}")
-        if not path.exists():
-            continue
-        try:
-            token = path.read_text(encoding="utf-8").strip()
-        except Exception as exc:
-            raise NodeAuthTokenStorageError(f"cannot read persistent node token: {path}") from exc
-        if not token or not token.startswith("cm_tunnel_") or not token[10:].isalnum():
-            raise NodeAuthTokenStorageError(f"persistent node token is invalid: {path}")
-        return token
-    return None
+from tools.security import node_auth_token_storage as _node_auth_storage
+from tools.security.node_auth_token_storage import (
+    NodeAuthTokenStorageError,
+    atomic_secure_text_write as _atomic_secure_text_write,
+    default_node_auth_paths as _default_node_auth_paths,
+    read_existing_node_auth_token as _read_existing_node_auth_token,
+)
 
 
 def _nodeos_mode() -> bool:
@@ -91,97 +67,21 @@ def nodeos_provider_ready() -> bool:
     return marker.is_file() and not marker.is_symlink() and provider_env.is_file() and not provider_env.is_symlink()
 
 
-def _atomic_secure_text_write(path: Path, value: str) -> None:
-    """Write one node credential atomically without accepting a failed persist."""
-    path = Path(path)
-    if path.is_symlink() or path.parent.is_symlink():
-        raise NodeAuthTokenStorageError(f"refusing symlinked node token path: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if sys.platform != "win32":
-        path.parent.chmod(0o700)
-
-    temp_path = path.with_name(f"{path.name}.tmp.{secrets.token_hex(8)}")
-    fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(value)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-        if sys.platform != "win32":
-            os.chmod(path, 0o600)
-            dir_fd = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
-    except Exception as exc:
-        try:
-            temp_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        if isinstance(exc, NodeAuthTokenStorageError):
-            raise
-        raise NodeAuthTokenStorageError(f"cannot durably persist node token: {path}") from exc
-
-
 def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str:
-    """Retrieve or create a persistent node authentication token using high-entropy random secrets.
-
-    Searches across authorized permissioned storage tiers:
-    1. State storage directory (/var/lib/computemesh/node_auth_token.txt)
-    2. User home directory (~/.computemesh/node_auth_token.txt)
-    3. Appliance configuration directory (/etc/computemesh/node_auth_token.txt)
-
-    Security Boundaries:
-    - Never derives secrets deterministically from machine/hardware identifiers.
-    - Never persists secrets to FAT32 boot partitions (/boot or /live/image).
-    - Enforces strict 0600 file permissions on POSIX.
-    """
-    candidate_paths = [Path(path) for path in (search_paths or _default_node_auth_paths())]
-    existing = _read_existing_node_auth_token(candidate_paths)
-    if existing is not None:
-        return existing
-    persist_targets = candidate_paths
-
-    if _nodeos_mode():
-        raise NodeAuthTokenStorageError(
-            "persistent node token is missing on NodeOS; refusing to generate a new identity"
-        )
-
-    # Generate a cryptographically secure random token with high entropy
-    new_token = "cm_tunnel_" + secrets.token_hex(24)
-
-    # Persist the token to one accessible permissioned storage location.  A
-    # failed write is not success: returning this value would rotate identity
-    # on every reboot and orphan the node at the coordinator.
-    last_error: Exception | None = None
-    for target in persist_targets:
-        try:
-            _atomic_secure_text_write(Path(target), new_token)
-            return new_token
-        except Exception as exc:
-            last_error = exc
-
-    raise NodeAuthTokenStorageError("cannot persist node authentication token") from last_error
+    """Compatibility wrapper retaining the old dashboard import contract."""
+    return _node_auth_storage.get_or_create_node_auth_token(
+        search_paths,
+        atomic_writer=_atomic_secure_text_write,
+    )
 
 
 def persist_node_auth_token(token: str, path: Path | None = None) -> Path:
-    """Persist the enrollment-issued token without silently replacing an identity."""
-    token = str(token).strip()
-    if not token.startswith("cm_tunnel_") or not token[10:].isalnum():
-        raise NodeAuthTokenStorageError("node authentication token has an invalid format")
-    target = Path(path) if path is not None else _default_node_auth_paths()[0]
-    if str(target).startswith(("/boot", "/live", "/run/live")):
-        raise NodeAuthTokenStorageError("node authentication token must be stored on persistent storage")
-    existing = _read_existing_node_auth_token([target])
-    if existing is not None:
-        if existing != token:
-            raise NodeAuthTokenStorageError("persistent node authentication token would be replaced")
-        return target
-    _atomic_secure_text_write(target, token)
-    return target
+    """Compatibility wrapper for callers outside the enrollment module."""
+    return _node_auth_storage.persist_node_auth_token(
+        token,
+        path,
+        atomic_writer=_atomic_secure_text_write,
+    )
 
 
 def _load_import_token() -> str:
@@ -246,9 +146,22 @@ class CloudTunnelRelay:
         self._wake_event = threading.Event()
         from tools.security.node_key_storage import get_or_create_node_private_key
         from cryptography.hazmat.primitives import serialization
-        self._private_key, self._key_path = get_or_create_node_private_key(
-            allow_generate=not _nodeos_mode()
-        )
+        try:
+            if _nodeos_mode():
+                enrolled_key_path = resolve_enrolled_private_key_path()
+                self._private_key, self._key_path = get_or_create_node_private_key(
+                    path=enrolled_key_path,
+                    allow_generate=False,
+                )
+            else:
+                self._private_key, self._key_path = get_or_create_node_private_key(
+                    allow_generate=True,
+                )
+        except NodeIdentityError as exc:
+            raise NodeAuthTokenStorageError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - fail closed without exposing key details
+            message = str(exc).strip() or "persistent enrolled node private key is unavailable"
+            raise NodeAuthTokenStorageError(message) from exc
         raw_pub = self._private_key.public_key().public_bytes(
             serialization.Encoding.Raw,
             serialization.PublicFormat.Raw,
