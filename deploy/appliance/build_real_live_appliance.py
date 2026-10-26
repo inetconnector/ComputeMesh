@@ -58,9 +58,27 @@ def _validate_debian_mirror() -> str:
     return DEBIAN_MIRROR
 
 
+def _git_command(repo_src: Path, *arguments: str) -> list[str]:
+    """Build a Git command that works for root-owned Linux/WSL builds.
+
+    A WSL build is often run as root while the checkout is owned by the
+    Windows user.  Git's safe-directory guard must be scoped to this exact
+    checkout; changing global Git configuration would hide unrelated
+    ownership problems and would make the build non-reproducible.
+    """
+    return [
+        "git",
+        "-c",
+        f"safe.directory={repo_src}",
+        "-C",
+        str(repo_src),
+        *arguments,
+    ]
+
+
 def _git_text(repo_src: Path, *arguments: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(repo_src), *arguments],
+        _git_command(repo_src, *arguments),
         capture_output=True,
         text=True,
         check=True,
@@ -165,7 +183,7 @@ def _copy_source_snapshot(repo_src: Path, source_commit: str, destination: Path)
         with tempfile.NamedTemporaryFile(prefix="computemesh-source-", suffix=".tar", dir=BUILD_DIR, delete=False) as handle:
             archive_path = Path(handle.name)
             subprocess.run(
-                ["git", "-C", str(repo_src), "archive", "--format=tar", source_commit, "--", *paths],
+                _git_command(repo_src, "archive", "--format=tar", source_commit, "--", *paths),
                 stdout=handle,
                 check=True,
             )
