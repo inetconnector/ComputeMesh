@@ -11,12 +11,19 @@ Automates the complete generation of a full Debian 13 (Trixie) Live USB system:
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 from urllib.parse import urlparse
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config import CONFIG
 
 BUILD_DIR = Path("/var/tmp/nodeos_live_build")
 CHROOT_DIR = BUILD_DIR / "chroot"
@@ -28,6 +35,7 @@ DEBIAN_MIRROR = os.environ.get("COMPUTEMESH_DEBIAN_MIRROR", "http://deb.debian.o
 LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
+PROVENANCE_PREFIX = "COMPUTEMESH_BUILD_PROVENANCE_V1="
 
 
 def run(cmd: list[str], check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -46,7 +54,42 @@ def _validate_debian_mirror() -> str:
     return DEBIAN_MIRROR
 
 
-def build_appliance() -> int:
+def _source_commit(repo_src: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo_src), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    commit = result.stdout.strip()
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit.lower()):
+        raise RuntimeError(f"invalid source commit from {repo_src}: {commit!r}")
+    return commit
+
+
+def _provenance(repo_src: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "artifact_kind": "nodeos",
+        "source_commit": _source_commit(repo_src),
+        "version": CONFIG.appliance_version,
+        "llama_cpp_version": LLAMA_CPP_VERSION,
+        "llama_cpp_commit": LLAMA_CPP_COMMIT,
+    }
+
+
+def _write_provenance(repo_src: Path) -> dict[str, object]:
+    data = _provenance(repo_src)
+    canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    marker = f"{PROVENANCE_PREFIX}{canonical}\n"
+    (ISO_DIR / "computemesh-build-provenance.json").write_text(marker, encoding="utf-8")
+    provenance_path = CHROOT_DIR / "usr" / "share" / "computemesh" / "build-provenance.json"
+    provenance_path.parent.mkdir(parents=True, exist_ok=True)
+    provenance_path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return data
+
+
+def build_appliance(output_dir: Path | None = None) -> int:
     print("====================================================================")
     print("      Building Complete ComputeMesh Debian Live NodeOS Appliance    ")
     print("====================================================================")
@@ -65,7 +108,8 @@ def build_appliance() -> int:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     CHROOT_DIR.mkdir(parents=True, exist_ok=True)
     ISO_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    final_output_dir = Path(output_dir) if output_dir is not None else OUTPUT_DIR
+    final_output_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Debootstrap Base System
     print("\n[Step 1/6] Debootstrapping minimal Debian 13 (Trixie)...")
@@ -151,6 +195,14 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         repo_src = Path("/root/ComputeMesh")
         if not repo_src.exists():
             repo_src = Path("/var/www/vhosts/inetconnector.com/site2")
+        if not repo_src.is_dir():
+            raise RuntimeError("NodeOS build source repository is unavailable")
+        provenance = _write_provenance(repo_src)
+        print(
+            "--> Build provenance: "
+            f"source_commit={provenance['source_commit']} "
+            f"version={provenance['version']}"
+        )
         
         for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps", "portal"]:
             src = repo_src / subdir
@@ -524,14 +576,20 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     run(["mmd", "-i", str(efi_img), "::/EFI/BOOT"])
     run(["mcopy", "-i", str(efi_img), str(bootx64), "::/EFI/BOOT/BOOTX64.EFI"])
 
-    out_iso = OUTPUT_DIR / "computemesh-nodeos-x86_64.iso"
-    out_img = OUTPUT_DIR / "computemesh-nodeos-x86_64.img"
-    out_xz = OUTPUT_DIR / "computemesh-nodeos-x86_64.img.xz"
+    out_iso = final_output_dir / "computemesh-nodeos-x86_64.iso"
+    out_img = final_output_dir / "computemesh-nodeos-x86_64.img"
+    out_xz = final_output_dir / "computemesh-nodeos-x86_64.img.xz"
+    temp_suffix = f".tmp.{os.getpid()}"
+    temp_iso = final_output_dir / f"computemesh-nodeos-x86_64.iso{temp_suffix}"
+    temp_img = final_output_dir / f"computemesh-nodeos-x86_64.img{temp_suffix}"
+    temp_xz = Path(str(temp_img) + ".xz")
+    for temporary in (temp_iso, temp_img, temp_xz):
+        temporary.unlink(missing_ok=True)
 
     mbr_bin = "/usr/lib/ISOLINUX/isohdpfx.bin"
     run([
         "xorriso", "-as", "mkisofs",
-        "-o", str(out_iso),
+        "-o", str(temp_iso),
         "-V", "COMPUTEMESH",
         "-r", "-J", "-joliet-long",
         "-isohybrid-mbr", mbr_bin,
@@ -585,15 +643,15 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     # fine on its own once the stick is unplugged for good.
     print("\nGenerating flashable .img with an ext4 persistence partition...")
     mib = 1024 * 1024
-    iso_size = out_iso.stat().st_size
+    iso_size = temp_iso.stat().st_size
     iso_size_aligned = -(-iso_size // mib) * mib  # round up to a MiB boundary
     persistence_size_mib = int(os.environ.get("COMPUTEMESH_PERSISTENCE_SIZE_MIB", str(DEFAULT_PERSISTENCE_SIZE_MIB)))
     if not 16384 <= persistence_size_mib <= 262144:
         raise RuntimeError("COMPUTEMESH_PERSISTENCE_SIZE_MIB must be between 16384 and 262144")
     total_size = iso_size_aligned + persistence_size_mib * mib
 
-    shutil.copyfile(out_iso, out_img)
-    with open(out_img, "ab") as f:
+    shutil.copyfile(temp_iso, temp_img)
+    with open(temp_img, "ab") as f:
         f.truncate(total_size)
 
     # sfdisk --append only adds a new partition entry; unlike some higher-
@@ -601,11 +659,11 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     # entries that make the ISO9660 content BIOS+UEFI bootable, which is
     # the part that must not be disturbed.
     sfdisk_input = f"{iso_size_aligned // 512},,L\n"  # start in 512B sectors, Linux type
-    subprocess.run(["sfdisk", "--append", "--no-reread", str(out_img)], input=sfdisk_input, text=True, check=True)
-    run(["partprobe", str(out_img)], check=False)
+    subprocess.run(["sfdisk", "--append", "--no-reread", str(temp_img)], input=sfdisk_input, text=True, check=True)
+    run(["partprobe", str(temp_img)], check=False)
 
     loop_dev = subprocess.run(
-        ["losetup", "--show", "-f", "-o", str(iso_size_aligned), "--sizelimit", str(persistence_size_mib * mib), str(out_img)],
+        ["losetup", "--show", "-f", "-o", str(iso_size_aligned), "--sizelimit", str(persistence_size_mib * mib), str(temp_img)],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
     try:
@@ -620,13 +678,20 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     finally:
         run(["losetup", "-d", loop_dev])
 
-    run(["xz", "-f", "-6", "-k", str(out_img)])
+    run(["xz", "-f", "-6", "-k", str(temp_img)])
 
     # Set permissions on staged build outputs
     try:
-        run(["chmod", "644", str(out_iso), str(out_xz)], check=False)
+        run(["chmod", "644", str(temp_iso), str(temp_xz)], check=False)
     except Exception as exc:
         print(f"Notice: Artifact permissions setup: {exc}")
+
+    # Do not expose partially written images to a release publisher.  The
+    # temporary files have already completed the full build and persistence
+    # formatting path before each atomic replacement below.
+    os.replace(temp_iso, out_iso)
+    os.replace(temp_xz, out_xz)
+    temp_img.unlink(missing_ok=True)
 
     print("\n====================================================================")
     print(f"SUCCESS: True Debian Live NodeOS Image Generated!")

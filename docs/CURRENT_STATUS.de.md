@@ -28,6 +28,14 @@ Modelldigest und Health-Endpunkt; Provider-Kanal und Gateway-Telemetrie führen
 das Ergebnis weiter. Gezielte lokale Tests bestehen; AMD-Hardware, Bootmedium
 und Produktionsabnahme wurden nicht ausgeführt.
 
+Der Branch härtet außerdem die Provenienz von NodeOS-Release-Artefakten. Der
+Appliance-Builder bettet öffentlichen Source-Commit und gepinnte llama.cpp-
+Metadaten in ISO und Image ein; der Release-Builder lehnt fehlende, veraltete
+oder inkonsistente Images ab, übernimmt nur validiertes Staging und schreibt
+SHA-256-Evidence. Das Signieren bleibt ohne ausdrückliche Betreiberfreigabe
+gesperrt. Lokale Vertrags-/Provenienztests bestehen; Linux-Image-Build,
+physischer Boot und Veröffentlichung wurden nicht ausgeführt.
+
 ## Was heute tatsächlich existiert
 
 ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:

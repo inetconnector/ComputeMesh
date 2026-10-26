@@ -1,5 +1,21 @@
 # ComputeMesh
 
+## P0 release-artifact provenance (2026-10-26, local development branch)
+
+NodeOS release builds now embed a secret-free provenance marker containing the
+public source commit, ComputeMesh version and pinned llama.cpp build. The
+release builder validates that marker in both the ISO and the compressed image
+before accepting an artifact, records SHA-256 and byte-size evidence in an
+atomically written sidecar, and promotes freshly built images from an isolated
+staging directory. Missing, stale or inconsistent images are rejected rather
+than silently reused. Manifest signing additionally requires explicit operator
+approval through `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; no signing key was
+used for this local change and no release was produced.
+
+The corresponding tests cover missing provenance, stale source commits and the
+signing approval gate. The real Debian/chroot/image build, physical boot,
+flashing and production publication remain separate gates.
+
 ## P0 authenticated reconnect hardening (2026-10-26, local development branch)
 
 The gateway heartbeat path now fails closed for an existing legacy node that

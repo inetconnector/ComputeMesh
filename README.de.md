@@ -1,5 +1,21 @@
 # ComputeMesh
 
+## P0-Provenienz von Release-Artefakten (2026-10-26, lokale Entwicklung)
+
+NodeOS-Release-Builds betten jetzt einen geheimnisfreien Provenienzmarker mit
+öffentlichem Source-Commit, ComputeMesh-Version und gepinntem llama.cpp-Build
+ein. Der Release-Builder prüft diesen Marker in ISO und komprimiertem Image,
+bevor ein Artefakt akzeptiert wird, schreibt SHA-256-/Größen-Evidence atomar in
+eine Begleitdatei und übernimmt neue Images nur aus einem isolierten Staging-
+Verzeichnis. Fehlende, veraltete oder widersprüchliche Images werden nicht
+still wiederverwendet. Das Signieren des Manifests verlangt zusätzlich die
+explizite Betreiberfreigabe `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; für diese
+lokale Änderung wurde kein Signing-Key verwendet und kein Release erzeugt.
+
+Die Tests decken fehlende Provenienz, veraltete Source-Commits und die
+Signierfreigabe ab. Der echte Debian-/Chroot-/Image-Build, physischer Boot,
+Flashen und Produktionsveröffentlichung bleiben getrennte Gates.
+
 ## P0 Fail-Closed-Persistenz der Node-Identität (2026-10-26, lokale Entwicklung)
 
 Das Speichern und Laden des privaten Node-Schlüssels sowie des Tunnel-Tokens

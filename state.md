@@ -4384,3 +4384,29 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   services/appliance_dashboard/tests/test_model_engine_service.py -q`
   = 39 passed, exit 0. The broader focused inference/live group passed 67,
   exit 0. No physical AMD Polaris probe or production provider was used.
+
+## 2026-10-26 P0 release artifact provenance (working tree)
+
+- `deploy/appliance/build_real_live_appliance.py` now derives a deterministic,
+  secret-free NodeOS provenance marker from the actual public Git HEAD,
+  ComputeMesh version and pinned llama.cpp commit. The marker is placed in the
+  ISO root and the runtime filesystem. Image outputs are written to temporary
+  names and atomically promoted only after the build completes.
+- `tools/build_all_releases.py` now rejects missing, stale or inconsistent
+  ISO/IMG.XZ provenance, rebuilds into an isolated staging directory when the
+  Linux prerequisites exist, atomically promotes validated outputs and writes
+  `computemesh-nodeos-x86_64.provenance.json` with sizes and SHA-256 digests.
+  Existing images are never accepted solely because their filenames exist.
+- Release manifest signing requires explicit
+  `COMPUTEMESH_RELEASE_SIGNING_APPROVED=1`; no signing key was read or used.
+- RED: `python -m pytest tests/test_build_all_releases.py -q` exited 1 during
+  collection because the provenance validator did not exist.
+- GREEN: `python -m pytest tests/test_build_all_releases.py
+  deploy/appliance/tests/test_real_live_appliance_contract.py
+  deploy/appliance/tests/test_nodeos_runtime_tools.py -q` = 13 passed, exit 0.
+  `python -m compileall -q tools/build_all_releases.py
+  deploy/appliance/build_real_live_appliance.py
+  tests/test_build_all_releases.py` and `git diff --check` both exited 0.
+- Not run: debootstrap/chroot, package download, xorriso/loop-device image
+  creation, physical boot or flash, production signing, publication and
+  deployment. These remain `NOT_RUN`/`BLOCKED_EXTERNAL`/`RELEASE_NO_GO`.
