@@ -4286,3 +4286,28 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
 - Added `PeerCapabilityHeartbeat` to monitor active network nodes and resources.
 - Successfully integrated automatic failover switching and atomic quota preservation inside `runtime/dynamic_sharding.py`.
 - Verified functionality across the unified test suite.
+
+## 2026-10-26 P0 authenticated reconnect hardening
+
+- Branch: `codex/p0-auth-placement-20261026`; the public security code commit is
+  `13db578` (`fix(security): fail-closed node reconnect identity`). The public
+  working tree was clean after that code commit; the parent checkout may show
+  the submodule as modified until its final Gitlink is recorded.
+- Gateway data flow: `CloudTunnelRelay.perform_sync()` now signs a v2
+  heartbeat containing `node_id`, `auth_token`, `timestamp`, `nonce` and
+  `previous_node_id`. `GatewayHandler` verifies the proof, rejects an
+  unregistered key from taking over a legacy node, retains a bounded nonce
+  history, and commits token/key/alias state under a heartbeat lock.
+- Owner and identity invariants: first key binding needs proof of possession;
+  registered-key rotation needs owner/enrollment authorization plus proof;
+  existing owner bindings cannot be replaced by an unprovisioned owner; and a
+  token-authenticated node-ID change must name its existing alias.
+- Local evidence: `python -m pytest tests/test_p0_node_reboot_reconnect.py -q`
+  passed 10 tests; the focused gateway/node regression group passed 29 tests;
+  `python -m compileall -q services tools tests` passed. `ruff` was not
+  available in the local Python environment (`No module named ruff`).
+- Negative and concurrency coverage includes legacy-key takeover, mismatched
+  key, stale signature, same-nonce parallel replay and owner reassignment.
+  No production endpoint, deployment, push, release or hardware acceptance was
+  performed. Cross-shard BFT, NodeOS reboot, AMD-GPU inference and complete
+  mesh E2E remain open acceptance gates.

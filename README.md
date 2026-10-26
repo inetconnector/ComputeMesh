@@ -1,5 +1,24 @@
 # ComputeMesh
 
+## P0 authenticated reconnect hardening (2026-10-26, local development branch)
+
+The gateway heartbeat path now fails closed for an existing legacy node that
+has no stored Ed25519 public key: an arbitrary caller-supplied key and
+signature cannot replace its token or bind the node. New signed heartbeats
+use a canonical v2 field set containing the node ID, token, timestamp, nonce
+and optional previous node ID. Nonces are retained in the registry and
+consumed atomically, so a parallel replay cannot win a second state update.
+First key binding, registered-key rotation, owner migration and node-ID alias
+retirement require the existing token, a registered key, or the existing
+owner/enrollment authorization. The appliance relay emits the v2 proof.
+
+The local security change is committed as `13db578`
+(`fix(security): fail-closed node reconnect identity`). It was verified with
+the real localhost gateway and local Ed25519 test identities; no production
+host, deployment, push or release was performed. Cross-shard BFT, NodeOS
+reboot, AMD-GPU inference and complete mesh E2E acceptance remain separate
+open gates.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.
