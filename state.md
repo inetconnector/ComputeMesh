@@ -1,3 +1,84 @@
+## 2026-10-26 P0 final local receipt: relay ownership, public regression and NodeOS image
+
+The public checkout remains on branch `codex/p0-auth-placement-20261026` and
+started this pass at `a49226c6633f6383c459e590e40ff04c5e619fb1`. The current
+clean code commit is
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`
+(`fix(appliance): keep dashboard outside heartbeat ownership`). It follows
+the earlier local identity, enrollment, builder, keyring, dashboard-port and
+portal-navigation commits. The branch is local and was not pushed.
+
+### Final implementation delta
+
+`services/appliance_dashboard/server.py` no longer starts a
+`CloudTunnelRelay` from `create_dashboard_server()`. The Windows/Linux
+launcher or the dedicated NodeOS systemd heartbeat unit is the sole relay
+owner. This prevents a dashboard start from racing a service/tray relay and
+emitting a second heartbeat. The new regression in
+`services/appliance_dashboard/tests/test_dashboard_server.py` was RED before
+the change and GREEN afterwards.
+
+The earlier changes in this pass remain active: `node_identity.py` makes the
+enrolled `COMPUTEMESH_NODE_ID` authoritative; rename/migration is explicit
+and rollback-safe; heartbeats are serialized and cross-process locked;
+enrollment persists provider.env/receipt, removes the one-time bundle, runs
+preflight and activates provider/heartbeat in order; the live builder requires
+a clean, exact Git source tree, a verified Debian archive keyring and emits
+secret-free source/artifact provenance.
+
+### Final NodeOS build receipt
+
+Build host: Windows 11 with WSL2 Ubuntu 26.04 LTS, kernel
+`6.6.87.2-microsoft-standard-WSL2`; executed as the isolated WSL root user.
+Output directory: `/var/tmp/computemesh-nodeos-output-2dde961`.
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit 2dde961cc5b03e94af9b3bff4d4cde1181439d07 --output-dir /var/tmp/computemesh-nodeos-output-2dde961"
+```
+
+Exit code was 0. Provenance records source tree
+`ce765c72fb46d088d74a9d882c392594ea56d55b`, version `1.2.189`, llama.cpp
+`v0.4.1` at commit
+`29aaf1c27faa48292357cea2120d94114a545006`, and `source_clean: true`.
+Debootstrap accepted the Debian Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`.
+
+- ISO: `computemesh-nodeos-x86_64.iso`, `836763648` bytes,
+  SHA-256 `f00dc33044cac2b61c5ae1536c219da3edc6ccb20770d1094753c08d7e2fb0fb`
+- IMG.XZ: `computemesh-nodeos-x86_64.img.xz`, `820002180` bytes,
+  SHA-256 `88d92283365c9053ef62fccdad6dac9d61bd1367a766cb636aeb2c19b128b147`
+- Provenance JSON SHA-256:
+  `3c0d1819066c4e060325a314b42dbbf686a52cf1eb8a61bf4648f507a1a768f1`
+
+`xz -t` and `file` passed. `xorriso -report_el_torito plain` found the BIOS
+ISOLINUX image and the UEFI GRUB image. A sparse decompression and read-only
+mount found partition 3 as ext4 label `persistence`, with
+`persistence.conf` exactly `/ union`; the raw verification file and loop
+device were removed afterwards. QEMU TCG with 1 GiB RAM was run for 45
+seconds with no display/serial console; it terminated by the safety timeout
+with no guest boot marker. Therefore `IMAGE_BUILD_PASSED` applies to the
+artifact only, not `VM_BOOT_PASSED`.
+
+### Final verification
+
+- RED identity import before implementation: `python -m pytest tools/appliance/tests/test_node_identity_contract.py -q` exited 2 on missing module.
+- RED keyring contract: `1 failed, 14 deselected`; GREEN keyring contracts: `2 passed, 13 deselected`.
+- RED dashboard relay-ownership contract: `1 failed, 7 deselected`; GREEN: `1 passed, 7 deselected`.
+- `python -m pytest tools/appliance/tests/test_node_identity_contract.py deploy/appliance/tests/test_real_live_appliance_contract.py deploy/appliance/tests/test_nodeos_runtime_tools.py apps/node/test_provider_service_template.py tests/test_immediate_config_sync.py tests/test_p0_node_reboot_reconnect.py services/appliance_dashboard/tests/test_dashboard_server.py services/orchestrator/tests/test_architecture_hardening_part13.py services/scheduler/tests/test_architecture_hardening_part6.py -q`: `64 passed`, exit 0.
+- Provider/model/credits/sharding group: `68 passed`, exit 0.
+- Agent Workspace/UI/mesh/portal group: `79 passed, 5 skipped`, exit 0.
+- `python -m pytest services/appliance_dashboard/tests/test_dashboard_server.py tests/test_immediate_config_sync.py services/appliance_dashboard/tests/test_dashboard_image_route.py tests/test_appliance_webui.py tests/test_appliance_mesh_sharding_endpoints.py -q`: `36 passed`, exit 0.
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest apps deploy protocol services tests tools -q`: `1775 passed, 18 skipped, 42 subtests passed, 1 failed`, exit 1. The sole failure is `TestSecurityAuditFixes.test_release_manifest_sha256_binary_integrity`, the historical invalid Ed25519 fixture in `portal/updates/version.json`; status `BLOCKED_SIGNING_AUTHORIZATION`.
+- `python run_all_tests.py`: `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same historical signature fixture is the only failure. The runner also emitted expected local connection-refused messages from tests that intentionally exercise unavailable mail/network paths.
+- `python -m compileall -q tools/appliance services/appliance_dashboard apps/node deploy/appliance deploy/windows runtime tools/security tests`: exit 0. `git diff --check`: exit 0. Ruff is not installed.
+
+No production credentials, signing key, USB/physical disk, remote host,
+deployment, push or release was used. AMD-Polaris Vulkan mapping and real
+GGUF tokens, Windows Ollama provider enrollment/reconnect, physical reboot,
+multi-host/WAN BFT, and native Windows handle-based NTFS/TOCTOU publication
+remain `HARDWARE_NOT_RUN` or `BLOCKED_EXTERNAL`. Overall status:
+`RELEASE_NO_GO`.
+
 ## 2026-10-26 P0 NodeOS identity, enrollment activation and portable image build
 
 This entry records the latest local work and supersedes earlier “no image was

@@ -3,38 +3,43 @@
 ## Current local P0 integration candidate (2026-10-26)
 
 This checkout is a local development candidate, not a published release. It
-is on `codex/p0-auth-placement-20261026`; the NodeOS runtime code used for the
-local image build is committed at
-`df4e096dbd959416cd72ea07e09ea0044511d157`. The local commits in this pass
-implement one canonical enrolled Node ID across provider, heartbeat and
-dashboard paths, serialize heartbeat publication, activate preflight/provider/
-heartbeat after successful enrollment, and make the appliance builder work
-from a validated clean Git checkout on Linux or WSL.
+is on `codex/p0-auth-placement-20261026`; the current public code commit is
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`. The local changes implement one
+canonical enrolled Node ID across provider, heartbeat and dashboard paths,
+explicit authenticated rename/migration, serialized and single-owner
+heartbeat publication, controlled enrollment → preflight → provider/
+heartbeat activation, and a portable appliance builder for Linux/WSL.
+The dashboard is now an HTTP/UI surface only; the platform launcher or the
+NodeOS heartbeat unit owns the single relay instance.
 
 The builder attests the exact source commit and tree, requires a verified
 Debian archive keyring, keeps the llama.cpp pin at `v0.4.1`
 (`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free provenance,
 and writes SHA-256/size evidence for the final artifacts. A real Debian
-13/Trixie live image was built locally in isolated WSL2; debootstrap accepted
-the Release signature with key ID `41587F7DB8C774BCCF131416762F67A0B2C39DE4`.
-The resulting ISO is 836,763,648 bytes with SHA-256
-`d5e04835b408dba25c59c895ead9add8564d94361a72b21e7f85f4d3f8eec807`; the
-compressed 64-GiB image is 820,001,216 bytes with SHA-256
-`1a0b26ddc3260085b5c35fe1d828dbfb019b0bd74d8dce291c4ba0c35182d6fa`; the
+13/Trixie live image was built locally in isolated WSL2 from source commit
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`, source tree
+`ce765c72fb46d088d74a9d882c392594ea56d55b`. Debootstrap accepted the Release
+signature with key ID `41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The ISO is
+836,763,648 bytes with SHA-256
+`f00dc33044cac2b61c5ae1536c219da3edc6ccb20770d1094753c08d7e2fb0fb`; the
+compressed 64-GiB image is 820,002,180 bytes with SHA-256
+`88d92283365c9053ef62fccdad6dac9d61bd1367a766cb636aeb2c19b128b147`; the
 provenance sidecar SHA-256 is
-`dbec1520f9d8ad5eb1f3b332fa1e4656e57f9a970c6a7a57e073e035d7f70561`.
+`3c0d1819066c4e060325a314b42dbbf686a52cf1eb8a61bf4648f507a1a768f1`.
 `xz -t`, ISO BIOS/UEFI El Torito inspection, and a read-only ext4 persistence
 mount passed; `persistence.conf` contains `/ union`.
 
-Local focused tests pass (`62 passed`); provider/model and Agent Workspace
-regression groups pass (`68` and `73` tests respectively); the full public
-harness reports
-`891/892` because the historical `portal/updates/version.json` Ed25519
-fixture has an invalid signature and cannot be repaired without authorized
-signing material. Physical NodeOS/GPU boot, real inference tokens, Windows
-Ollama, multi-host networking and the native Windows NTFS TOCTOU gate remain
-open. No push, merge, release, deployment or production credential was used;
-the overall status remains `RELEASE_NO_GO`.
+Final local focused groups pass: NodeOS/identity/builder/enrollment `64`,
+provider/model/credits/sharding `68`, and Agent Workspace/UI/mesh/portal
+`79 passed, 5 skipped`. The versioned public suite reports `1775 passed,
+18 skipped, 42 subtests passed, 1 failed`; the only failure is the historical
+invalid Ed25519 signature in `portal/updates/version.json`, which remains
+`BLOCKED_SIGNING_AUTHORIZATION` because no signing key was used. The unified
+public harness reports `895 total, 894 passed, 1 failed, 0 errors`; it has the
+same single fixture failure. Physical NodeOS/GPU boot, real inference tokens,
+Windows Ollama enrollment/reconnect, multi-host networking and the native
+Windows NTFS TOCTOU gate remain open. No push, merge, release, deployment or
+production credential was used; the overall status remains `RELEASE_NO_GO`.
 
 ## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
 
