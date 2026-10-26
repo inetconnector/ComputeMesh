@@ -36,6 +36,11 @@ signing is blocked unless an operator explicitly approves it. Focused local
 contract tests pass; the Linux image build, physical boot and publication were
 not run.
 
+The legacy security-audit fixture now uses fresh local static catalog entries
+only for its billing test and restores the production-shaped catalog afterward.
+The checked-in historical update manifest is still cryptographically invalid;
+without an approved production signing key it remains a release blocker.
+
 ## What exists today
 
 ComputeMesh is an active pre-production distributed-inference system with real implementations for:

@@ -16,6 +16,12 @@ The corresponding tests cover missing provenance, stale source commits and the
 signing approval gate. The real Debian/chroot/image build, physical boot,
 flashing and production publication remain separate gates.
 
+The legacy security-audit test now injects only fresh local static catalog
+entries when it tests billing behavior without a runtime. It does not alter the
+production catalog's unavailable-model fail-closed behavior. The checked-in
+historical update manifest still has an invalid signature and remains a
+release blocker; it was not re-signed locally.
+
 ## P0 authenticated reconnect hardening (2026-10-26, local development branch)
 
 The gateway heartbeat path now fails closed for an existing legacy node that

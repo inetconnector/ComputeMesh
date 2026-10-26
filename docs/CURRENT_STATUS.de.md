@@ -36,6 +36,12 @@ SHA-256-Evidence. Das Signieren bleibt ohne ausdrückliche Betreiberfreigabe
 gesperrt. Lokale Vertrags-/Provenienztests bestehen; Linux-Image-Build,
 physischer Boot und Veröffentlichung wurden nicht ausgeführt.
 
+Die ältere Security-Audit-Fixture verwendet für ihren Billing-Test jetzt nur
+frische lokale statische Testmodelle und stellt den produktionsnahen Katalog
+danach wieder her. Das eingecheckte historische Update-Manifest ist weiterhin
+kryptografisch ungültig; ohne freigegebenen produktiven Signing-Key bleibt es
+ein Release-Blocker.
+
 ## Was heute tatsächlich existiert
 
 ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:

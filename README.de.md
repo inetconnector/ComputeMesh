@@ -16,6 +16,12 @@ Die Tests decken fehlende Provenienz, veraltete Source-Commits und die
 Signierfreigabe ab. Der echte Debian-/Chroot-/Image-Build, physischer Boot,
 Flashen und Produktionsveröffentlichung bleiben getrennte Gates.
 
+Der ältere Security-Audit-Test verwendet für die Billing-Prüfung ohne Runtime
+jetzt ausschließlich frische lokale statische Testmodelle. Das produktive
+Fail-Closed-Verhalten bei nicht verfügbaren Modellen bleibt unverändert. Das
+eingecheckte historische Update-Manifest besitzt weiterhin eine ungültige
+Signatur und bleibt ein Release-Blocker; lokal wurde es nicht neu signiert.
+
 ## P0 Fail-Closed-Persistenz der Node-Identität (2026-10-26, lokale Entwicklung)
 
 Das Speichern und Laden des privaten Node-Schlüssels sowie des Tunnel-Tokens

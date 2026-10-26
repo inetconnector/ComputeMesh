@@ -4410,3 +4410,20 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
 - Not run: debootstrap/chroot, package download, xorriso/loop-device image
   creation, physical boot or flash, production signing, publication and
   deployment. These remain `NOT_RUN`/`BLOCKED_EXTERNAL`/`RELEASE_NO_GO`.
+
+## 2026-10-26 P0 audit-test fixture and release boundary
+
+- `tests/test_security_audit_fixes.py` now replaces its catalog with fresh
+  local `available=True` entries only for the billing reservation test and
+  restores the original catalog/registry after each test. This repairs the
+  missing-runtime fixture without weakening production model availability.
+- The focused audit result is now 21 passed / 1 failed: the remaining failure
+  is the cryptographically invalid historical `portal/updates/version.json`.
+  Re-signing it would require the production signing key and was intentionally
+  not attempted. The public unified runner consequently reports 891/892 and
+  remains `RELEASE_NO_GO`.
+- The public branch's broad default Pytest collection still reports 17 errors
+  from nested import collisions, unavailable compiled/runtime modules and
+  scratch UI/device tests that perform work during import. No broad exclusion
+  was added; the explicit targeted suites and `run_all_tests.py` are the
+  supported local evidence paths.
