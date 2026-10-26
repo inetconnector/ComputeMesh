@@ -441,14 +441,17 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         chroot_exec(f"git -C /tmp/llama.cpp checkout --detach {LLAMA_CPP_COMMIT}")
         chroot_exec(
             "cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -G Ninja "
-            "-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DLLAMA_CURL=OFF "
+            "-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DGGML_RPC=ON -DLLAMA_CURL=OFF "
             "-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
         )
-        chroot_exec("cmake --build /tmp/llama.cpp/build --target llama-server -j2")
+        chroot_exec("cmake --build /tmp/llama.cpp/build --target llama-server ggml-rpc-server -j2")
         chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server")
+        # Install RPC as an opt-in binary. Never enable or publicly bind an
+        # unauthenticated upstream RPC daemon automatically on NodeOS.
+        chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/ggml-rpc-server /usr/local/bin/ggml-rpc-server")
         (CHROOT_DIR / "usr" / "share" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "usr" / "share" / "computemesh" / "llama-cpp-build.txt").write_text(
-            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\n",
+            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\nrpc_binary_installed=1\n",
             encoding="ascii",
         )
         chroot_exec("rm -rf /tmp/llama.cpp")
