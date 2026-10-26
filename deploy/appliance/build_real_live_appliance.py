@@ -570,6 +570,15 @@ if __name__ == '__main__':
         )
         heartbeat_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-heartbeat.service"
         heartbeat_unit.write_text(_render_heartbeat_unit(), encoding="utf-8")
+        # The experimental upstream RPC daemon is strictly opt-in and binds
+        # only to loopback. Never enable it during image creation.
+        rpc_source = cm_target / "deploy" / "systemd" / "computemesh-rpc-worker.service"
+        if not rpc_source.is_file():
+            raise RuntimeError("NodeOS image lacks the protected RPC worker service contract")
+        shutil.copy(
+            rpc_source,
+            CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-rpc-worker.service",
+        )
         node_override_dir = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service.d"
         node_override_dir.mkdir(parents=True, exist_ok=True)
         (node_override_dir / "10-preflight.conf").write_text(
