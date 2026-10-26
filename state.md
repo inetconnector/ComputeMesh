@@ -75,6 +75,9 @@ Verification for the package:
 - GREEN: `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest deploy/appliance/tests/test_real_live_appliance_contract.py deploy/appliance/tests/test_nodeos_runtime_tools.py tools/appliance/tests/test_node_identity_contract.py tools/security/tests/test_node_key_storage.py tests/test_p0_node_reboot_reconnect.py -q` = `60 passed, 3 skipped`, exit 0.
 - `python -m compileall -q deploy/appliance/build_real_live_appliance.py tools/appliance/enroll.py tools/appliance/boot_preflight.py tools/appliance/node_identity.py services/appliance_dashboard/tunnel_relay.py tools/security/node_auth_token_storage.py` = exit 0.
 - `git diff --check` = exit 0 before commit.
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest apps deploy protocol services tests tools -q` = `1783 passed, 18 skipped, 42 subtests passed, 1 failed`, exit 1; the sole failure is the historical invalid Ed25519 fixture in `portal/updates/version.json` (`BLOCKED_SIGNING_AUTHORIZATION`).
+- `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python run_all_tests.py` = `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same fixture is the only failure.
+- `python -m pytest --collect-only -q` = `2064 tests collected`, exit 1 on the four pre-existing native `llama.dll`/interactive Scratch collection errors; no exclusions were added.
 
 The earlier image attested runtime commit
 `2dde961cc5b03e94af9b3bff4d4cde1181439d07`; the receipt above is the fresh

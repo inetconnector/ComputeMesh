@@ -42,15 +42,17 @@ not physical GPU, enrollment, or production-release acceptance.
 
 Final local focused groups pass: NodeOS/identity/builder/enrollment `64`,
 provider/model/credits/sharding `68`, and Agent Workspace/UI/mesh/portal
-`79 passed, 5 skipped`. The versioned public suite reports `1775 passed,
+`79 passed, 5 skipped`. The versioned public suite reports `1783 passed,
 18 skipped, 42 subtests passed, 1 failed`; the only failure is the historical
 invalid Ed25519 signature in `portal/updates/version.json`, which remains
 `BLOCKED_SIGNING_AUTHORIZATION` because no signing key was used. The unified
 public harness reports `895 total, 894 passed, 1 failed, 0 errors`; it has the
 same single fixture failure. Physical NodeOS/GPU boot, real inference tokens,
-Windows Ollama enrollment/reconnect, multi-host networking and the native
-Windows NTFS TOCTOU gate remain open. No push, merge, release, deployment or
-production credential was used; the overall status remains `RELEASE_NO_GO`.
+physical GPU inference, Windows Ollama enrollment/reconnect, multi-host
+networking and the native Windows NTFS TOCTOU gate remain open; the isolated
+unenrolled BIOS/UEFI VM boot is the only boot evidence. No push, merge,
+release, deployment or production credential was used; the overall status
+remains `RELEASE_NO_GO`.
 
 ## P0 first-install enrollment and evidence contract (2026-10-26)
 
