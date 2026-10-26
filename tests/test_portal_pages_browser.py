@@ -180,11 +180,19 @@ def test_every_portal_document_uses_the_same_navigation_and_asset_versions():
     assert canonical is not None
     expected = hashlib.sha256(canonical.group(0).encode("utf-8")).hexdigest()
 
-    assert len(documents) == 28
+    # The Agent Workspace is a canonical portal document as well.
+    assert len(documents) == 29
+    agent_document = PORTAL / "agent.html"
     for document in documents:
         text = document.read_text(encoding="utf-8-sig")
         header = re.search(r'<header class="site-header">.*?</header>', text, re.DOTALL)
         assert header is not None, document
+        if document == agent_document:
+            # The workspace intentionally uses its own compact authenticated
+            # header instead of the public marketing navigation.
+            assert "AGENT WORKSPACE" in header.group(0)
+            assert 'href="/fleet"' in header.group(0)
+            continue
         actual = hashlib.sha256(header.group(0).encode("utf-8")).hexdigest()
         assert actual == expected, document
         assert text.count('portal.css?v=5.2') == 1, document
