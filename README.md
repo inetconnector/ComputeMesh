@@ -5,24 +5,28 @@
 This checkout is a local development candidate, not a published release. It
 is on `codex/p0-auth-placement-20261026`; the NodeOS runtime code used for the
 local image build is committed at
-`fd7cf7c50e2f958be2cd5ac49f6994e2f38e6f1f`. The local commits in this pass
+`df4e096dbd959416cd72ea07e09ea0044511d157`. The local commits in this pass
 implement one canonical enrolled Node ID across provider, heartbeat and
 dashboard paths, serialize heartbeat publication, activate preflight/provider/
 heartbeat after successful enrollment, and make the appliance builder work
 from a validated clean Git checkout on Linux or WSL.
 
-The builder attests the exact source commit and tree, keeps the llama.cpp pin
-at `v0.4.1` (`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free
-provenance, and writes SHA-256/size evidence for the final artifacts. A real
-Debian 13/Trixie live image was built locally in isolated WSL2. The resulting
-ISO is 836,763,648 bytes with SHA-256
-`e645378baa5905512b0b2393ccf7ce7094e2497dc02fa98a117cc487607aebcd`; the
-compressed 64-GiB image is 820,000,488 bytes with SHA-256
-`1d730b454a59ea251fb99268bae97c748896bdefcf5404eb09d5e9e97d3970ba`.
-The ext4 persistence partition was inspected read-only and contains
-`persistence.conf` with `/ union`.
+The builder attests the exact source commit and tree, requires a verified
+Debian archive keyring, keeps the llama.cpp pin at `v0.4.1`
+(`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free provenance,
+and writes SHA-256/size evidence for the final artifacts. A real Debian
+13/Trixie live image was built locally in isolated WSL2; debootstrap accepted
+the Release signature with key ID `41587F7DB8C774BCCF131416762F67A0B2C39DE4`.
+The resulting ISO is 836,763,648 bytes with SHA-256
+`d5e04835b408dba25c59c895ead9add8564d94361a72b21e7f85f4d3f8eec807`; the
+compressed 64-GiB image is 820,001,216 bytes with SHA-256
+`1a0b26ddc3260085b5c35fe1d828dbfb019b0bd74d8dce291c4ba0c35182d6fa`; the
+provenance sidecar SHA-256 is
+`dbec1520f9d8ad5eb1f3b332fa1e4656e57f9a970c6a7a57e073e035d7f70561`.
+`xz -t`, ISO BIOS/UEFI El Torito inspection, and a read-only ext4 persistence
+mount passed; `persistence.conf` contains `/ union`.
 
-Local focused tests pass (`61 passed`); the full public harness reports
+Local focused tests pass (`62 passed`); the full public harness reports
 `891/892` because the historical `portal/updates/version.json` Ed25519
 fixture has an invalid signature and cannot be repaired without authorized
 signing material. Physical NodeOS/GPU boot, real inference tokens, Windows
