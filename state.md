@@ -4331,3 +4331,31 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   No production credentials, external host, tunnel or physical NodeOS was
   accessed. The public working tree remains uncommitted until this package is
   committed separately.
+
+## 2026-10-26 P0 NodeOS builder/preflight hardening (working tree)
+
+- RED command: `python -m pytest
+  deploy/appliance/tests/test_real_live_appliance_contract.py -q` exited 1
+  with four contract failures: undefined `DEBIAN_MIRROR`, suppressed node
+  service enablement, missing console monitor, and missing preflight/enrollment
+  contract.
+- `deploy/appliance/build_real_live_appliance.py` now declares and validates
+  `COMPUTEMESH_DEBIAN_MIRROR`, installs `requirements.txt`, copies `portal`,
+  creates real `computemesh-node-preflight.service` and drop-in dependency,
+  enables `computemesh-node.service` without `|| true`, and emits explicit
+  `persistence-label=persistence` boot arguments. The image template no longer
+  embeds a production coordinator or API-key placeholder.
+- Added `tools/appliance/console_monitor.py`,
+  `tools/appliance/boot_preflight.py`, `tools/appliance/enroll.py`, and the
+  secret-free `deploy/systemd/enrollment.example.json`. Enrollment uses the
+  existing signed gateway heartbeat and existing node key storage; it does not
+  create a parallel identity service. Credentials are read only from a local
+  operator bundle and never printed.
+- GREEN command: `python -m pytest deploy/appliance/tests/test_real_live_appliance_contract.py
+  deploy/appliance/tests/test_debian_live_builder.py
+  deploy/appliance/tests/test_nodeos_runtime_tools.py
+  apps/node/test_provider_service_template.py -q` = 12 passed, exit 0.
+- Not run: real debootstrap/chroot, package download, Vulkan device probe,
+  loop-device image creation, ISO/IMG boot, USB write, physical reboot,
+  production enrollment or external control-plane access. These remain
+  `NOT_RUN`/`BLOCKED_EXTERNAL`, not green hardware evidence.

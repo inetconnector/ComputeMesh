@@ -16,6 +16,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from urllib.parse import urlparse
 
 BUILD_DIR = Path("/var/tmp/nodeos_live_build")
 CHROOT_DIR = BUILD_DIR / "chroot"
@@ -23,6 +24,7 @@ ISO_DIR = BUILD_DIR / "iso_root"
 # Staging directory for built appliance images (decoupled from live production webroot)
 STAGING_DIR = Path(os.environ.get("COMPUTEMESH_IMAGE_STAGING_DIR", str(BUILD_DIR / "staging")))
 OUTPUT_DIR = STAGING_DIR
+DEBIAN_MIRROR = os.environ.get("COMPUTEMESH_DEBIAN_MIRROR", "http://deb.debian.org/debian").strip()
 LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
@@ -37,10 +39,19 @@ def chroot_exec(cmd: str) -> None:
     run(["chroot", str(CHROOT_DIR), "/bin/bash", "-c", cmd])
 
 
+def _validate_debian_mirror() -> str:
+    parsed = urlparse(DEBIAN_MIRROR)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError("COMPUTEMESH_DEBIAN_MIRROR must be an http(s) URL")
+    return DEBIAN_MIRROR
+
+
 def build_appliance() -> int:
     print("====================================================================")
     print("      Building Complete ComputeMesh Debian Live NodeOS Appliance    ")
     print("====================================================================")
+
+    debian_mirror = _validate_debian_mirror()
 
     if BUILD_DIR.exists():
         print(f"Cleaning up previous build directory at {BUILD_DIR}...")
@@ -65,7 +76,7 @@ def build_appliance() -> int:
         "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc",
         "trixie",
         str(CHROOT_DIR),
-        DEBIAN_MIRROR,
+        debian_mirror,
     ])
 
     # 2. Configure Chroot & Install Kernel & Live-Boot
@@ -79,8 +90,8 @@ def build_appliance() -> int:
 
     try:
         # Configure sources.list for non-free & firmware
-        sources = f"""deb {DEBIAN_MIRROR} trixie main contrib non-free non-free-firmware
-deb {DEBIAN_MIRROR} trixie-updates main contrib non-free non-free-firmware
+        sources = f"""deb {debian_mirror} trixie main contrib non-free non-free-firmware
+deb {debian_mirror} trixie-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
 """
         (CHROOT_DIR / "etc" / "apt" / "sources.list").write_text(sources, encoding="utf-8")
@@ -134,17 +145,30 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         model_dir = CHROOT_DIR / "var" / "lib" / "computemesh" / "models"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_dir.chmod(0o700)
+        (CHROOT_DIR / "var" / "lib" / "computemesh" / "evidence").mkdir(parents=True, exist_ok=True)
+        (CHROOT_DIR / "var" / "lib" / "computemesh" / "agent-environments").mkdir(parents=True, exist_ok=True)
 
         repo_src = Path("/root/ComputeMesh")
         if not repo_src.exists():
             repo_src = Path("/var/www/vhosts/inetconnector.com/site2")
         
-        for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps"]:
+        for subdir in ["tools", "services", "runtime", "protocol", "deploy", "apps", "portal"]:
             src = repo_src / subdir
             if src.exists():
                 shutil.copytree(src, cm_target / subdir, dirs_exist_ok=True)
         if (repo_src / "config.py").exists():
             shutil.copy(repo_src / "config.py", cm_target / "config.py")
+        runtime_requirements = repo_src / "requirements.txt"
+        if not runtime_requirements.is_file():
+            raise RuntimeError("NodeOS build requires the repository requirements.txt")
+        shutil.copy(runtime_requirements, cm_target / "requirements.txt")
+        # Install the declared runtime set into the image.  A dependency
+        # failure is a build failure; the image must not boot with a partial
+        # Python environment.
+        chroot_exec(
+            "python3 -m pip install --no-cache-dir --break-system-packages "
+            "-r /opt/computemesh/requirements.txt"
+        )
 
         # Provision /etc/computemesh and /var/lib/computemesh state directories
         (CHROOT_DIR / "etc" / "computemesh").mkdir(parents=True, exist_ok=True)
@@ -158,6 +182,12 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
             shutil.copy(
                 repo_src / "deploy" / "systemd" / "provider.env.example",
                 CHROOT_DIR / "etc" / "computemesh" / "provider.env.example",
+            )
+        enrollment_example = repo_src / "deploy" / "systemd" / "enrollment.example.json"
+        if enrollment_example.is_file():
+            shutil.copy(
+                enrollment_example,
+                CHROOT_DIR / "etc" / "computemesh" / "enrollment.example.json",
             )
 
         # Install launcher script
@@ -178,6 +208,52 @@ if __name__ == '__main__':
             encoding="utf-8",
         )
         chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node")
+
+        preflight_launcher = bin_dir / "computemesh-node-preflight"
+        preflight_launcher.write_text(
+            """#!/bin/sh
+exec /usr/bin/python3 -m tools.appliance.boot_preflight
+""",
+            encoding="utf-8",
+        )
+        enrollment_launcher = bin_dir / "computemesh-enroll"
+        enrollment_launcher.write_text(
+            """#!/bin/sh
+exec /usr/bin/python3 -m tools.appliance.enroll "$@"
+""",
+            encoding="utf-8",
+        )
+        chroot_exec("chmod +x /opt/computemesh/bin/computemesh-node-preflight /opt/computemesh/bin/computemesh-enroll")
+
+        preflight_unit = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node-preflight.service"
+        preflight_unit.write_text(
+            """[Unit]
+Description=ComputeMesh NodeOS enrollment, persistence and runtime preflight
+Wants=network-online.target
+After=network-online.target
+Before=computemesh-node.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/computemesh/bin/computemesh-node-preflight
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+""",
+            encoding="utf-8",
+        )
+        node_override_dir = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service.d"
+        node_override_dir.mkdir(parents=True, exist_ok=True)
+        (node_override_dir / "10-preflight.conf").write_text(
+            """[Unit]
+Requires=computemesh-node-preflight.service
+After=computemesh-node-preflight.service
+""",
+            encoding="utf-8",
+        )
 
         # Install Kiosk Fullscreen Launcher
         kiosk_script = bin_dir / "start-kiosk.sh"
@@ -293,10 +369,11 @@ WantedBy=multi-user.target
         chroot_exec("chmod 700 /var/lib/computemesh /etc/computemesh")
 
         # Enable services in chroot
+        chroot_exec("systemctl enable computemesh-node-preflight.service")
         chroot_exec("systemctl enable computemesh-appliance.service")
         chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")
-        chroot_exec("systemctl enable computemesh-node.service || true")
+        chroot_exec("systemctl enable computemesh-node.service")
         chroot_exec("systemctl enable systemd-networkd")
         chroot_exec("systemctl enable systemd-resolved")
 
@@ -352,9 +429,9 @@ WantedBy=multi-user.target
     (ISO_DIR / "computemesh.env").write_text(
         """# ComputeMesh NodeOS USB Boot Configuration
 NODE_NAME=cm-node-provider
-WALLET_PAYOUT_ADDRESS=
-API_KEY=
-COORDINATOR_URL=https://mesh.inetconnector.com
+COORDINATOR_URL=https://control.example.invalid
+ENROLLMENT_BUNDLE=/etc/computemesh/enrollment.json
+PERSISTENCE_LABEL=persistence
 AUTO_UPDATE=true
 VRAM_RESERVE_MB=512
 ENABLE_DASHBOARD=true
@@ -383,7 +460,7 @@ TIMEOUT 30
 LABEL computemesh
   MENU LABEL ^ComputeMesh NodeOS Live (AMD / NVIDIA Multi-GPU)
   KERNEL /boot/vmlinuz
-  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
+  APPEND initrd=/boot/initrd.img boot=live components quiet splash computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
 """,
         encoding="utf-8",
     )
@@ -411,12 +488,12 @@ elif search --no-floppy --set=root --file /boot/vmlinuz; then
 fi
 
 menuentry "ComputeMesh NodeOS (AMD / NVIDIA Native Multi-GPU)" {
-    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components quiet splash computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 
 menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
-    linux /boot/vmlinuz boot=live components computemesh.autostart=1 persistence live-media-timeout=8
+    linux /boot/vmlinuz boot=live components computemesh.autostart=1 persistence persistence-label=persistence live-media-timeout=8
     initrd /boot/initrd.img
 }
 """

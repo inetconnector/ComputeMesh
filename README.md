@@ -31,6 +31,19 @@ signing failure. Local tests use only fresh test identities and cover storage
 failure and relay startup failure. This is code/local-test evidence, not a
 hardware or production enrollment claim.
 
+## P0 NodeOS boot contract (2026-10-26, local development)
+
+The live appliance builder now validates its Debian mirror, fails on service
+enablement errors, embeds the real tty1 monitor, installs declared Python and
+portal runtime content, and wires a fail-closed preflight into the existing
+provider service. The preflight requires a provisioned provider environment,
+persistent Ed25519 key, CA, evidence files, ext4 `persistence` storage,
+`llama-server`, and a successful Vulkan probe. `computemesh-enroll` reuses the
+existing signed gateway heartbeat/enrollment path and writes provider
+configuration only after the enrollment response is accepted. No image was
+built, flashed, booted, or deployed on this Windows host; physical NodeOS and
+AMD/NVIDIA acceptance remain open.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.

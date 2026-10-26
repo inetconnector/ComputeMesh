@@ -13,6 +13,20 @@ Heartbeat. Lokale Tests verwenden ausschließlich neu erzeugte Testidentitäten.
 Dies ist lokaler Code-/Test-Nachweis, keine Hardware- oder
 Produktionsfreigabe.
 
+## P0-NodeOS-Bootvertrag (2026-10-26, lokale Entwicklung)
+
+Der Live-Appliance-Builder validiert jetzt den Debian-Mirror, bricht bei
+Aktivierungsfehlern ab, bettet den echten tty1-Monitor ein, installiert die
+deklarierten Python-/Portal-Laufzeitdateien und verdrahtet einen fail-closed
+Preflight mit dem vorhandenen Provider-Service. Der Preflight verlangt eine
+provisionierte Provider-Umgebung, persistenten Ed25519-Schlüssel, CA,
+Evidence-Dateien, ext4-Persistence mit Label `persistence`, `llama-server`
+und einen erfolgreichen Vulkan-Test. `computemesh-enroll` verwendet den
+bestehenden signierten Gateway-Heartbeat-/Enrollment-Pfad und schreibt die
+Provider-Konfiguration erst nach positiver Antwort. Auf diesem Windows-Host
+wurde kein Image gebaut, geflasht, gebootet oder deployed; physische NodeOS-
+und AMD-/NVIDIA-Abnahme bleiben offen.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen (887/887 Tests bestanden).
