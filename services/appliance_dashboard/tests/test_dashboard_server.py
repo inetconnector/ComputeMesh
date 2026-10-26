@@ -303,7 +303,6 @@ class TestDashboardServer(unittest.TestCase):
             patch("tools.appliance.fan_control.FanSafetyController"),
             patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
             patch.object(dashboard_server.GLOBAL_MESH_AGGREGATOR, "start"),
-            patch.object(dashboard_server, "dashboard_must_not_start_relay", return_value=True),
         ):
             server, actual_port = dashboard_server.create_dashboard_server(
                 host="127.0.0.1",
@@ -333,7 +332,6 @@ class TestDashboardServer(unittest.TestCase):
             patch("tools.appliance.fan_control.FanSafetyController"),
             patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
             patch.object(dashboard_server.GLOBAL_MESH_AGGREGATOR, "start") as start,
-            patch.object(dashboard_server, "dashboard_must_not_start_relay", return_value=True),
         ):
             server, _ = dashboard_server.create_dashboard_server(
                 host="127.0.0.1",
@@ -353,6 +351,34 @@ class TestDashboardServer(unittest.TestCase):
 
         start.assert_not_called()
         self.assertIsNotNone(server)
+
+    def test_dashboard_factory_never_starts_a_second_heartbeat_relay(self) -> None:
+        from services.appliance_dashboard import server as dashboard_server
+
+        with (
+            patch("services.appliance_dashboard.tunnel_relay.nodeos_provider_ready", return_value=True),
+            patch("services.appliance_dashboard.tunnel_relay.start_cloud_tunnel_relay") as start_relay,
+            patch("tools.appliance.fan_control.FanSafetyController"),
+            patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"),
+        ):
+            server, _ = dashboard_server.create_dashboard_server(
+                host="127.0.0.1",
+                port=0,
+                config=ApplianceConfig(rig_name="test-dashboard-no-relay"),
+                inventory=RigInventory(
+                    schema_version=1,
+                    captured_at="2026-10-26T00:00:00Z",
+                    host_architecture="test",
+                    total_gpus=0,
+                    total_vram_bytes=0,
+                    gpus=[],
+                    pcie_riser_warning=False,
+                ),
+                node_id="test-dashboard-no-relay",
+            )
+
+        start_relay.assert_not_called()
+        server.server_close()
 
 
 if __name__ == "__main__":

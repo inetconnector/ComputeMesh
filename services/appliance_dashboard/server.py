@@ -35,7 +35,6 @@ from tools.appliance.hardware_detector import (
     scan_rig_hardware_stable,
 )
 from tools.appliance.node_identity import (
-    dashboard_must_not_start_relay,
     read_enrolled_node_id,
     resolve_node_id,
 )
@@ -536,21 +535,10 @@ def create_dashboard_server(
     except Exception as exc:
         log.warning("Fan safety controller unavailable: %s", exc)
 
-    try:
-        from services.appliance_dashboard.tunnel_relay import (
-            nodeos_provider_ready,
-            start_cloud_tunnel_relay,
-        )
-        # Keep the local enrollment UI available on a fresh node, but do not
-        # create a heartbeat identity on the transient overlay.  The dedicated
-        # heartbeat service starts the same relay only after preflight.
-        # On NodeOS the dedicated systemd heartbeat unit is the sole relay
-        # owner.  Starting another relay from the dashboard would create
-        # duplicate heartbeats and competing identity state.
-        if not dashboard_must_not_start_relay() and nodeos_provider_ready():
-            start_cloud_tunnel_relay(node_id=effective_node_id)
-    except Exception:
-        pass
+    # The dashboard is a UI/HTTP surface, not a heartbeat owner.  The
+    # platform-specific launcher (Windows/Linux tray or the NodeOS systemd
+    # heartbeat unit after preflight) owns exactly one relay instance.  Starting
+    # one here would race that owner and emit duplicate heartbeats.
 
     server_inst = None
     actual_port = port
