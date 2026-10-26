@@ -71,6 +71,7 @@ artifact only, not `VM_BOOT_PASSED`.
 - `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest apps deploy protocol services tests tools -q`: `1775 passed, 18 skipped, 42 subtests passed, 1 failed`, exit 1. The sole failure is `TestSecurityAuditFixes.test_release_manifest_sha256_binary_integrity`, the historical invalid Ed25519 fixture in `portal/updates/version.json`; status `BLOCKED_SIGNING_AUTHORIZATION`.
 - `python run_all_tests.py`: `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same historical signature fixture is the only failure. The runner also emitted expected local connection-refused messages from tests that intentionally exercise unavailable mail/network paths.
 - `python -m compileall -q tools/appliance services/appliance_dashboard apps/node deploy/appliance deploy/windows runtime tools/security tests`: exit 0. `git diff --check`: exit 0. Ruff is not installed.
+- `python -m pytest --collect-only -q`: `2056 tests collected`, exit 1 on four collection errors: the ignored/native `runtime/sd_cpp_src/ggml/examples/python/test_tensor.py` requires an absent `llama.dll`, and the ignored `scratch/test_open_sheet.py`, `test_sidebar_click.py` and `test_sidebar_style.py` perform import-time browser/ADB calls against unavailable local devices. No exclusions were added.
 
 No production credentials, signing key, USB/physical disk, remote host,
 deployment, push or release was used. AMD-Polaris Vulkan mapping and real
