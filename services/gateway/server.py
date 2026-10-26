@@ -1988,25 +1988,42 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
                 token_matches = bool(expected_token and hmac.compare_digest(auth_token, expected_token))
                 if not token_matches and not owner_authorized:
-                    incoming_mach = str(body.get("machine_identity", {}).get("machine_id", "")).strip()
-                    existing_mach = str(existing_node.get("machine_identity", {}).get("machine_id", "")).strip()
-                    mach_matches = bool(incoming_mach and existing_mach and incoming_mach == existing_mach)
+                    # Cryptographic Proof of Possession:
+                    # Require a valid Ed25519 signature over canonical signing string
+                    # using the node's registered public key.
+                    # Hardware attributes (machine_id, GPU models, IP) are purely inventory metadata
+                    # and are NEVER accepted as an authentication substitute!
+                    incoming_pub = str(body.get("public_key", "")).strip()
+                    incoming_sig = str(body.get("signature", "")).strip()
+                    incoming_ts = body.get("timestamp")
+                    registered_pub = str(existing_node.get("public_key", "")).strip()
 
-                    incoming_hw = _extract_discrete_hardware_fingerprint(body)
-                    existing_hw = _extract_discrete_hardware_fingerprint(existing_node)
-                    hw_matches = bool(incoming_hw and existing_hw and incoming_hw == existing_hw)
+                    crypto_authorized = False
+                    if incoming_pub and incoming_sig and incoming_ts is not None:
+                        # If the node already has a registered public key, incoming key MUST match it
+                        pub_to_verify = registered_pub if registered_pub else incoming_pub
+                        if registered_pub and incoming_pub.lower() != registered_pub.lower():
+                            sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnect rejected: public key mismatch with registered key.\n")
+                        else:
+                            try:
+                                from tools.security.node_key_storage import verify_node_heartbeat
+                                if verify_node_heartbeat(
+                                    pub_to_verify,
+                                    node_id,
+                                    auth_token,
+                                    int(incoming_ts),
+                                    incoming_sig,
+                                ):
+                                    crypto_authorized = True
+                                    sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnected via verified Ed25519 proof of possession; updating token.\n")
+                                    sys.stderr.flush()
+                            except Exception as verif_exc:
+                                sys.stderr.write(f"[HEARTBEAT] Node {node_id} verification error: {verif_exc}\n")
 
-                    incoming_ip = str(client_ip).strip()
-                    existing_ip = str(existing_node.get("client_ip", "")).strip()
-                    ip_matches = bool(incoming_ip and existing_ip and incoming_ip == existing_ip)
-
-                    # Hardware continuity self-healing for rebooted nodes
-                    if mach_matches or (is_stale and hw_matches and ip_matches):
-                        sys.stderr.write(f"[HEARTBEAT] Node {node_id} reconnected after reboot via hardware continuity proof; updating token.\n")
-                        sys.stderr.flush()
+                    if crypto_authorized:
                         owner_authorized = True
                     else:
-                        self._send_error_response("Unauthorized: auth_token mismatch for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                        self._send_error_response("Unauthorized: auth_token mismatch and invalid cryptographic proof for active node", "unauthorized", HTTPStatus.UNAUTHORIZED)
                         return
 
             sent_owner_key = str(body.get("owner_key", "")).strip()
@@ -2053,10 +2070,27 @@ class GatewayHandler(BaseHTTPRequestHandler):
             telemetry_data["earnings_cm"] = provider_payable_micro
 
             dash_port = int(body.get("dashboard_port") or body.get("network", {}).get("dashboard_port") or 8080)
+            incoming_pub = str(body.get("public_key", "")).strip()
+            incoming_sig = str(body.get("signature", "")).strip()
+            incoming_ts = body.get("timestamp")
+            registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
+            final_pub = registered_pub
+            if not final_pub and incoming_pub:
+                if incoming_sig and incoming_ts is not None:
+                    try:
+                        from tools.security.node_key_storage import verify_node_heartbeat
+                        if verify_node_heartbeat(incoming_pub, node_id, auth_token, int(incoming_ts), incoming_sig):
+                            final_pub = incoming_pub
+                    except Exception:
+                        pass
+                elif not existing_node:
+                    final_pub = incoming_pub
+
             NODE_TELEMETRY_REGISTRY[node_id] = {
                 "node_id": node_id,
                 "display_name": body.get("display_name") or body.get("name") or node_id,
                 "auth_token": auth_token,
+                "public_key": final_pub,
                 "owner_id": owner_id,
                 "client_ip": str(client_ip),
                 "dashboard_port": dash_port,

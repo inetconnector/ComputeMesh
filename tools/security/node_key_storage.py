@@ -16,10 +16,15 @@ from pathlib import Path
 import platform
 import secrets
 import stat
+import time
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 DPAPI_ENVELOPE_PREFIX = "cm-dpapi-v1:"
 
@@ -294,3 +299,145 @@ def shred_node_key(path: Path) -> bool:
         return True
     except OSError as exc:
         raise KeyStorageError(f"failed to securely shred key file {path}: {exc}") from exc
+
+
+def _b64u(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _b64u_decode(value: str) -> bytes:
+    if not isinstance(value, str) or not value:
+        raise ValueError("base64url value must be non-empty")
+    padded = value + "=" * ((4 - len(value) % 4) % 4)
+    return base64.urlsafe_b64decode(padded.encode("ascii"))
+
+
+def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519PrivateKey, Path]:
+    """Retrieve an existing Ed25519 node private key or generate and persist a new one.
+
+    Searches across authorized persistent storage tiers:
+    1. Explicit path parameter or COMPUTEMESH_NODE_KEY_PATH environment variable
+    2. /var/lib/computemesh/node_identity.key (standard POSIX daemon location)
+    3. ~/.computemesh/node_identity.key (user runtime location)
+    4. /etc/computemesh/node_identity.key (appliance system location)
+
+    If no key file exists, generates a fresh Ed25519 keypair and securely persists
+    it with strict 0600 permissions (or DPAPI on Windows). Never stores private
+    keys on FAT32/boot partitions.
+    """
+    if path is not None:
+        target_path = Path(path)
+        if target_path.exists() and target_path.is_file():
+            return load_node_private_key(target_path), target_path
+        # Generate at requested path
+        key = Ed25519PrivateKey.generate()
+        save_node_private_key(key, target_path)
+        return key, target_path
+
+    env_path_str = os.environ.get("COMPUTEMESH_NODE_KEY_PATH", "").strip()
+    if env_path_str:
+        p = Path(env_path_str)
+        if p.exists() and p.is_file():
+            return load_node_private_key(p), p
+
+    candidate_paths = [
+        Path("/var/lib/computemesh/node_identity.key"),
+        Path.home() / ".computemesh" / "node_identity.key",
+        Path("/etc/computemesh/node_identity.key"),
+    ]
+
+    for p in candidate_paths:
+        try:
+            if p.exists() and p.is_file():
+                return load_node_private_key(p), p
+        except Exception:
+            pass
+
+    # No existing key found; determine optimal writable target path
+    chosen_path: Path | None = None
+    if platform.system().lower() != "windows" and os.geteuid() == 0 if hasattr(os, "geteuid") else False:
+        for p in [Path("/var/lib/computemesh/node_identity.key"), Path("/etc/computemesh/node_identity.key")]:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                if os.access(p.parent, os.W_OK):
+                    chosen_path = p
+                    break
+            except Exception:
+                pass
+
+    if chosen_path is None:
+        chosen_path = Path.home() / ".computemesh" / "node_identity.key"
+
+    key = Ed25519PrivateKey.generate()
+    save_node_private_key(key, chosen_path)
+    return key, chosen_path
+
+
+def sign_node_heartbeat(
+    key: Ed25519PrivateKey,
+    node_id: str,
+    auth_token: str,
+    timestamp: int,
+) -> str:
+    """Produces a canonical Ed25519 signature proving cryptographic possession of the node identity."""
+    if not isinstance(key, Ed25519PrivateKey):
+        raise TypeError("key must be an Ed25519PrivateKey")
+    message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+    signature = key.sign(message)
+    return _b64u(signature)
+
+
+def verify_node_heartbeat(
+    public_key: bytes | str | Ed25519PublicKey,
+    node_id: str,
+    auth_token: str,
+    timestamp: int,
+    signature_b64u: str,
+    *,
+    now: int | None = None,
+    max_skew_seconds: int = 60,
+) -> bool:
+    """Verifies that a heartbeat or reconnect request originates from the holder of the registered Ed25519 key.
+
+    Enforces:
+    1. Timestamp freshness within max_skew_seconds (prevents replay attacks)
+    2. Valid Ed25519 signature over canonical signing message
+    3. Proper key length (32 bytes)
+    """
+    current_time = int(time.time()) if now is None else int(now)
+    if abs(current_time - int(timestamp)) > max_skew_seconds:
+        return False
+
+    try:
+        if isinstance(public_key, Ed25519PublicKey):
+            pub = public_key
+        elif isinstance(public_key, bytes):
+            if len(public_key) == 32:
+                pub = Ed25519PublicKey.from_public_bytes(public_key)
+            else:
+                # Try hex decode
+                raw = bytes.fromhex(public_key.decode("ascii"))
+                if len(raw) != 32:
+                    return False
+                pub = Ed25519PublicKey.from_public_bytes(raw)
+        elif isinstance(public_key, str):
+            clean = public_key.strip()
+            if len(clean) == 64 and all(c in "0123456789abcdefABCDEF" for c in clean):
+                raw = bytes.fromhex(clean)
+            else:
+                raw = _b64u_decode(clean)
+            if len(raw) != 32:
+                return False
+            pub = Ed25519PublicKey.from_public_bytes(raw)
+        else:
+            return False
+
+        sig_bytes = _b64u_decode(signature_b64u)
+        if len(sig_bytes) != 64:
+            return False
+
+        message = f"ComputeMesh.NodeHeartbeat.v1:{node_id}:{auth_token}:{timestamp}".encode("utf-8")
+        pub.verify(sig_bytes, message)
+        return True
+    except (InvalidSignature, ValueError, TypeError, Exception):
+        return False

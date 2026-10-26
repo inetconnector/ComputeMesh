@@ -33,13 +33,17 @@ class TestAutoUpdater(unittest.TestCase):
         self.assertEqual(AutoUpdater._parse_version("v1.2.5"), (1, 2, 5))
         self.assertTrue(AutoUpdater._parse_version("1.2.1") > AutoUpdater._parse_version("1.2.0"))
         self.assertFalse(AutoUpdater._parse_version("1.1.5") > AutoUpdater._parse_version("1.2.0"))
-        # Monotonic progression requirement: 1.2.187 > 1.2.186 > 1.2.185
+        # Monotonic progression requirement: 1.2.189 > 1.2.188 > 1.2.187 > 1.2.186 > 1.2.185
         v185 = AutoUpdater._parse_version("1.2.185")
         v186 = AutoUpdater._parse_version("1.2.186")
         v187 = AutoUpdater._parse_version("1.2.187")
+        v188 = AutoUpdater._parse_version("1.2.188")
+        v189 = AutoUpdater._parse_version("1.2.189")
         self.assertTrue(v186 > v185)
         self.assertTrue(v187 > v186)
-        self.assertTrue(v187 > v185)
+        self.assertTrue(v188 > v187)
+        self.assertTrue(v189 > v188)
+        self.assertTrue(v189 > v185)
         self.assertFalse(v185 > v186)
 
     def test_nodeos_platform_detection(self) -> None:

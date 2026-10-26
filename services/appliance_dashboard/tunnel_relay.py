@@ -17,63 +17,52 @@ from config import CONFIG
 logger = logging.getLogger("CloudTunnelRelay")
 
 
-import hashlib
+def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str:
+    """Retrieve or create a persistent node authentication token using high-entropy random secrets.
 
-def get_or_create_node_auth_token() -> str:
-    """Retrieve or create a persistent, reboot-resilient node authentication token.
+    Searches across authorized permissioned storage tiers:
+    1. State storage directory (/var/lib/computemesh/node_auth_token.txt)
+    2. User home directory (~/.computemesh/node_auth_token.txt)
+    3. Appliance configuration directory (/etc/computemesh/node_auth_token.txt)
 
-    Searches across all storage tiers:
-    1. FAT32 USB/live boot partition (/boot/computemesh.env or /live/image/computemesh.env)
-    2. Appliance configuration directory (/etc/computemesh/node_auth_token.txt)
-    3. State storage directory (/var/lib/computemesh/node_auth_token.txt)
-    4. User home directory (~/.computemesh/node_auth_token.txt)
-    5. Deterministic hardware-anchored identity fallback:
-       When running on a live-boot overlay without disk persistence, derives
-       a stable, cryptographically secure token from collect_machine_identity()
-       so the same physical machine NEVER changes token across reboots.
+    Security Boundaries:
+    - Never derives secrets deterministically from machine/hardware identifiers.
+    - Never persists secrets to FAT32 boot partitions (/boot or /live/image).
+    - Enforces strict 0600 file permissions on POSIX.
     """
-    candidate_paths = [
-        Path("/boot/computemesh.env"),
-        Path("/live/image/computemesh.env"),
-        Path("/etc/computemesh/node_auth_token.txt"),
-        Path("/var/lib/computemesh/node_auth_token.txt"),
-        Path.home() / ".computemesh" / "node_auth_token.txt",
-    ]
+    if search_paths is None:
+        candidate_paths = [
+            Path("/var/lib/computemesh/node_auth_token.txt"),
+            Path.home() / ".computemesh" / "node_auth_token.txt",
+            Path("/etc/computemesh/node_auth_token.txt"),
+        ]
+        persist_targets = candidate_paths
+    else:
+        candidate_paths = search_paths
+        persist_targets = search_paths
+
     for p in candidate_paths:
         try:
             if p.exists() and p.is_file():
-                if p.suffix == ".env":
-                    for line in p.read_text(encoding="utf-8", errors="ignore").splitlines():
-                        if line.startswith("AUTH_TOKEN="):
-                            tok = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            if tok:
-                                return tok
-                else:
-                    tok = p.read_text(encoding="utf-8", errors="ignore").strip()
-                    if tok:
-                        return tok
+                tok = p.read_text(encoding="utf-8", errors="ignore").strip()
+                if tok:
+                    return tok
         except Exception:
             pass
 
-    # No saved token on disk (fresh install or volatile live-boot):
-    # Anchor deterministically to hardware identity so reboots maintain the exact same token!
-    try:
-        from services.identity.machine_identity import collect_machine_identity
-        mach = collect_machine_identity()
-        derived = hashlib.sha256(f"cm_tunnel:{mach.machine_id}".encode("utf-8")).hexdigest()[:32]
-        new_token = f"cm_tunnel_{derived}"
-    except Exception:
-        new_token = "cm_tunnel_" + secrets.token_hex(16)
+    # Generate a cryptographically secure random token with high entropy
+    new_token = "cm_tunnel_" + secrets.token_hex(24)
 
-    # Persist the token to all accessible locations
-    for target in [
-        Path.home() / ".computemesh" / "node_auth_token.txt",
-        Path("/etc/computemesh/node_auth_token.txt"),
-        Path("/var/lib/computemesh/node_auth_token.txt"),
-    ]:
+    # Persist the token to accessible permissioned storage locations
+    for target in persist_targets:
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(new_token, encoding="utf-8")
+            if sys.platform != "win32":
+                try:
+                    os.chmod(target, 0o600)
+                except OSError:
+                    pass
         except Exception:
             pass
 
@@ -110,6 +99,20 @@ class CloudTunnelRelay:
         self._running = True
         self._sync_lock = threading.Lock()
         self._wake_event = threading.Event()
+        try:
+            from tools.security.node_key_storage import get_or_create_node_private_key
+            from cryptography.hazmat.primitives import serialization
+            self._private_key, self._key_path = get_or_create_node_private_key()
+            raw_pub = self._private_key.public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            self.public_key_hex = raw_pub.hex()
+        except Exception as exc:
+            logger.warning("Failed to initialize Ed25519 node identity: %s", exc)
+            self._private_key = None
+            self._key_path = None
+            self.public_key_hex = ""
         try:
             from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
@@ -209,12 +212,24 @@ class CloudTunnelRelay:
             net_ifaces = []
             lan_ips = []
 
+        now_ts = int(time.time())
+        sig_b64u = ""
+        if getattr(self, "_private_key", None) is not None:
+            try:
+                from tools.security.node_key_storage import sign_node_heartbeat
+                sig_b64u = sign_node_heartbeat(self._private_key, self.node_id, self.auth_token, now_ts)
+            except Exception as sig_exc:
+                logger.warning("Failed to sign node heartbeat: %s", sig_exc)
+
         payload: dict[str, Any] = {
             "node_id": self.node_id,
             "previous_node_id": previous_node_id or "",
             "auth_token": self.auth_token,
             "owner_key": owner_key,
             "payout_address": payout_address,
+            "public_key": getattr(self, "public_key_hex", ""),
+            "signature": sig_b64u,
+            "timestamp": now_ts,
             "dashboard_port": dash_port,
             "network": {
                 "dashboard_port": dash_port,

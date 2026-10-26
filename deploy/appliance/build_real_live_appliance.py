@@ -287,10 +287,16 @@ WantedBy=multi-user.target
             encoding="utf-8",
         )
 
+        # Ensure daemon service user computemesh exists and state directories are secured (0700)
+        chroot_exec("id -u computemesh >/dev/null 2>&1 || useradd -r -s /bin/false -d /var/lib/computemesh -m computemesh")
+        chroot_exec("chown -R computemesh:computemesh /var/lib/computemesh /etc/computemesh")
+        chroot_exec("chmod 700 /var/lib/computemesh /etc/computemesh")
+
         # Enable services in chroot
         chroot_exec("systemctl enable computemesh-appliance.service")
         chroot_exec("systemctl enable computemesh-kiosk.service")
         chroot_exec("systemctl enable computemesh-console.service")
+        chroot_exec("systemctl enable computemesh-node.service || true")
         chroot_exec("systemctl enable systemd-networkd")
         chroot_exec("systemctl enable systemd-resolved")
 
