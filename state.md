@@ -1,9 +1,11 @@
 ## 2026-10-26 P0 first-install enrollment, key binding and measured evidence
 
-The public code commit for this package is
-`5e79a09ceea47c970907044cb2ec0888c979c667`
-(`fix(nodeos): complete first-install enrollment contracts`) on
-`codex/p0-auth-placement-20261026`. It is local and unpushed.
+The runtime source commit for this package is
+`962fc0b9c6910b69455f3e8e226ba930abc6c7b4` on
+`codex/p0-auth-placement-20261026`; it contains the code commit
+`5e79a09ceea47c970907044cb2ec0888c979c667` and the local documentation
+follow-up. It is local and unpushed. A later documentation-only commit does
+not change the runtime source attested by the image.
 
 - The image-generated `computemesh-enroll` launcher exports
   `COMPUTEMESH_NODEOS=1` and the NodeOS preflight marker before executing the
@@ -30,6 +32,41 @@ The public code commit for this package is
 - BIOS and UEFI boot entries include `console=ttyS0,115200n8` and a GRUB
   serial terminal for deterministic isolated VM diagnostics.
 
+### Fresh NodeOS artifact and isolated VM receipt
+
+The following build was executed after the P0-A through P0-D code commit from
+an isolated WSL2 Ubuntu root environment; it is not a release or deployment:
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit 962fc0b9c6910b69455f3e8e226ba930abc6c7b4 --output-dir /var/tmp/computemesh-nodeos-output-962fc0b"
+```
+
+The build exited 0 and its provenance reports `source_clean: true`, source
+tree `3ad8208d9f1a6f58898deaa5af4865d031ae468b`, version `1.2.189`, and
+llama.cpp `v0.4.1` at
+`29aaf1c27faa48292357cea2120d94114a545006`. The ISO is
+`836763648` bytes with SHA-256
+`1e3696b77957cbb0090f1b9ee86c207c299af7bcac341f73d7f89af32fd53e0b`; the
+IMG.XZ is `820000732` bytes with SHA-256
+`384f3cfa16261a3f3690bcbd33aeed790f1c08d1d38afaabddbf31ea97f19bd8`; the
+provenance JSON has SHA-256
+`1d44e54359119fbb5c9853bda9370154df62a0efdce8f61ebe3a3a01089bd993`.
+`xz -t` exited 0. `xorriso -report_el_torito plain` found distinct BIOS
+ISOLINUX and UEFI GRUB entries. A decompressed copy mounted read-only with
+partition 3 as ext4 label `persistence`; `persistence.conf` was exactly
+`/ union`. The embedded launcher contained `COMPUTEMESH_NODEOS=1` and the
+evidence directory contained only `EVIDENCE_REQUIRED.md`, with no fabricated
+measurements.
+
+BIOS and UEFI were then tested separately with QEMU TCG, 4096 MiB RAM, two
+vCPUs, serial capture, a host-only dashboard forward, and `-snapshot`. BIOS
+used port 18080 and UEFI port 18081. Both serial logs recorded systemd
+`basic.target`, `computemesh-appliance.service`, `computemesh-console.service`
+and the `ttyS0` login prompt; each host health probe returned HTTP 200. The
+guest remained unenrolled, no production identity or credential was present,
+and the generated image was not modified. This supports
+`VM_BOOT_PASSED` only for the isolated unenrolled smoke test.
+
 Verification for the package:
 
 - RED: the new launcher, evidence, import-isolation, retry and key-binding
@@ -39,12 +76,11 @@ Verification for the package:
 - `python -m compileall -q deploy/appliance/build_real_live_appliance.py tools/appliance/enroll.py tools/appliance/boot_preflight.py tools/appliance/node_identity.py services/appliance_dashboard/tunnel_relay.py tools/security/node_auth_token_storage.py` = exit 0.
 - `git diff --check` = exit 0 before commit.
 
-The previously built image still attests source commit
-`2dde961cc5b03e94af9b3bff4d4cde1181439d07`; a fresh clean image from
-`5e79a09ceea47c970907044cb2ec0888c979c667` is required before any new image
-or VM status is reported. No physical disk, production credential, external
-enrollment, push, merge or release was used. Overall status remains
-`RELEASE_NO_GO`.
+The earlier image attested runtime commit
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`; the receipt above is the fresh
+artifact from the corrected runtime source and supersedes that image for local
+verification. No physical disk, production credential, external enrollment,
+push, merge or release was used. Overall status remains `RELEASE_NO_GO`.
 
 ## 2026-10-26 P0 final local receipt: relay ownership, public regression and NodeOS image
 

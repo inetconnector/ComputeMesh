@@ -3,8 +3,10 @@
 ## Current local P0 integration candidate (2026-10-26)
 
 This checkout is a local development candidate, not a published release. It
-is on `codex/p0-auth-placement-20261026`; the current public code commit is
-`5e79a09ceea47c970907044cb2ec0888c979c667`. The local changes implement one
+is on `codex/p0-auth-placement-20261026`; the runtime source commit used for
+the fresh local NodeOS artifact is
+`962fc0b9c6910b69455f3e8e226ba930abc6c7b4` (a documentation-only follow-up
+may have a newer public HEAD). The local changes implement one
 canonical enrolled Node ID across provider, heartbeat and dashboard paths,
 explicit authenticated rename/migration, serialized and single-owner
 heartbeat publication, controlled enrollment → preflight → provider/
@@ -17,17 +19,26 @@ Debian archive keyring, keeps the llama.cpp pin at `v0.4.1`
 (`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free provenance,
 and writes SHA-256/size evidence for the final artifacts. A real Debian
 13/Trixie live image was built locally in isolated WSL2 from source commit
-`2dde961cc5b03e94af9b3bff4d4cde1181439d07`, source tree
-`ce765c72fb46d088d74a9d882c392594ea56d55b`. Debootstrap accepted the Release
-signature with key ID `41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The ISO is
-836,763,648 bytes with SHA-256
-`f00dc33044cac2b61c5ae1536c219da3edc6ccb20770d1094753c08d7e2fb0fb`; the
-compressed 64-GiB image is 820,002,180 bytes with SHA-256
-`88d92283365c9053ef62fccdad6dac9d61bd1367a766cb636aeb2c19b128b147`; the
+`962fc0b9c6910b69455f3e8e226ba930abc6c7b4`, source tree
+`3ad8208d9f1a6f58898deaa5af4865d031ae468b`, with `source_clean: true`.
+Debootstrap accepted the Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The ISO is 836,763,648 bytes
+with SHA-256
+`1e3696b77957cbb0090f1b9ee86c207c299af7bcac341f73d7f89af32fd53e0b`; the
+compressed 64-GiB image is 820,000,732 bytes with SHA-256
+`384f3cfa16261a3f3690bcbd33aeed790f1c08d1d38afaabddbf31ea97f19bd8`; the
 provenance sidecar SHA-256 is
-`3c0d1819066c4e060325a314b42dbbf686a52cf1eb8a61bf4648f507a1a768f1`.
+`1d44e54359119fbb5c9853bda9370154df62a0efdce8f61ebe3a3a01089bd993`.
 `xz -t`, ISO BIOS/UEFI El Torito inspection, and a read-only ext4 persistence
 mount passed; `persistence.conf` contains `/ union`.
+
+The same ISO was booted separately through BIOS and UEFI in isolated QEMU/TCG
+with 4096 MiB RAM, serial logs and a snapshot of the generated image. Both
+guests reached `basic.target`, started the local appliance service, exposed
+the local dashboard through host-only forwards (`18080` BIOS and `18081`
+UEFI), and returned HTTP 200. The serial logs ended at the `ttyS0` login
+prompt. This is `VM_BOOT_PASSED` for the unenrolled VM smoke test only; it is
+not physical GPU, enrollment, or production-release acceptance.
 
 Final local focused groups pass: NodeOS/identity/builder/enrollment `64`,
 provider/model/credits/sharding `68`, and Agent Workspace/UI/mesh/portal
@@ -57,9 +68,9 @@ positive measured values, one profile revision, one model, and one exact
 llama.cpp build. The builder installs an `EVIDENCE_REQUIRED.md` operator
 diagnostic and never fabricates profile or performance numbers. BIOS and UEFI
 boot entries now expose `ttyS0` with `console=ttyS0,115200n8` for isolated VM
-diagnostics. These changes are code/local-test evidence only; the fresh image
-build and guest boot remain separate acceptance steps, and overall status is
-still `RELEASE_NO_GO`.
+diagnostics. The fresh image and isolated BIOS/UEFI guest boot now have local
+evidence as described above. Physical GPU inference, enrollment, and release
+gates remain open; overall status is still `RELEASE_NO_GO`.
 
 ## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
 
