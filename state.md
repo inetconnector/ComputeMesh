@@ -4359,3 +4359,28 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   loop-device image creation, ISO/IMG boot, USB write, physical reboot,
   production enrollment or external control-plane access. These remain
   `NOT_RUN`/`BLOCKED_EXTERNAL`, not green hardware evidence.
+
+## 2026-10-26 P0 AMD/runtime inference readiness (working tree)
+
+- The RED regression first showed that a healthy HTTP endpoint alone could be
+  marked ready and that the provider/live registration contracts had no
+  readiness state. `services/appliance_dashboard/model_engine_service.py` now
+  probes the selected `llama-server --version` and the actual selected Vulkan,
+  CUDA, or ROCm runtime before starting a verified model; `status()` exposes
+  `INFERENCE_READY`, `runtime_verified`, and a non-secret detail code.
+- `apps/node/provider_agent.py` refuses to advertise or serve inference unless
+  the canonical NodeOS model manager reports verified readiness, and checks
+  that status before each request. `protocol/schemas/runtime_advertisement_payload.schema.json`,
+  `services/orchestrator/live_provider_registration.py`, and
+  `services/orchestrator/live_shared_runtime.py` carry the state and exclude
+  unverified nodes from inference placement. The existing tunnel relay already
+  forwards the engine status as `telemetry.model_runtime`.
+- RED commands: the initial engine/provider/live-readiness regression command
+  exited 1 with 5 failures (2 engine failures plus 3 propagation failures).
+  GREEN command:
+  `python -m pytest apps/node/test_provider_agent.py
+  services/orchestrator/tests/test_live_provider_registration.py
+  services/orchestrator/tests/test_live_shared_runtime.py
+  services/appliance_dashboard/tests/test_model_engine_service.py -q`
+  = 39 passed, exit 0. The broader focused inference/live group passed 67,
+  exit 0. No physical AMD Polaris probe or production provider was used.

@@ -21,6 +21,13 @@ Härtung für Provider-Privatschlüssel und Tunnel-Tokens. Dafür liegt nur
 gezielte lokale Test-Evidence vor; es ist weder öffentlicher `main`, noch ein
 Hardware-Enrolment-Nachweis oder ein Produktionsrelease.
 
+Derselbe Branch verlangt nun verifizierte lokale Runtime-Evidence, bevor ein
+Provider `INFERENCE_READY` ankündigen oder in das Live-Inferenz-Placement
+gelangen darf. Die Model-Engine prüft llama.cpp-Binary, Beschleuniger-Runtime,
+Modelldigest und Health-Endpunkt; Provider-Kanal und Gateway-Telemetrie führen
+das Ergebnis weiter. Gezielte lokale Tests bestehen; AMD-Hardware, Bootmedium
+und Produktionsabnahme wurden nicht ausgeführt.
+
 ## Was heute tatsächlich existiert
 
 ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:

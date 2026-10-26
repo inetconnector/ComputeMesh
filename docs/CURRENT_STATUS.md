@@ -21,6 +21,13 @@ hardening for provider private keys and tunnel tokens. It has focused local
 test evidence only; it is not merged public main, a hardware enrollment proof,
 or a production release.
 
+The same branch now requires verified local runtime evidence before a provider
+can advertise `INFERENCE_READY` or enter live inference placement. The model
+engine checks the selected llama.cpp binary, accelerator runtime, model digest,
+and health endpoint; the provider channel and gateway telemetry carry the
+result. Focused local tests pass, while AMD hardware, boot-media, and
+production acceptance remain unrun.
+
 ## What exists today
 
 ComputeMesh is an active pre-production distributed-inference system with real implementations for:

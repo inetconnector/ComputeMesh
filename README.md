@@ -44,6 +44,18 @@ configuration only after the enrollment response is accepted. No image was
 built, flashed, booted, or deployed on this Windows host; physical NodeOS and
 AMD/NVIDIA acceptance remain open.
 
+## P0 verified inference readiness (2026-10-26, local development)
+
+`ModelEngineService` now reports `INFERENCE_READY` only after the pinned
+`llama-server` binary, the selected accelerator runtime (including Vulkan,
+CUDA, or ROCm where applicable), the verified GGUF artifact and the health
+endpoint have all passed. The authenticated provider agent and live
+registration carry that status forward and fail closed for inference requests
+or placement when runtime verification is absent. The existing tunnel relay
+continues to publish the same engine status in `telemetry.model_runtime`.
+The local tests use injected test probes; no AMD hardware or production node
+was used, so physical inference acceptance remains open.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.

@@ -67,7 +67,14 @@ def session(node_id: str, *, expires_in: timedelta = timedelta(minutes=10)) -> S
     )
 
 
-def live_node(node_id: str, gpu_memory: int, rpc_port: int, *, session_override=None) -> LiveNodeState:
+def live_node(
+    node_id: str,
+    gpu_memory: int,
+    rpc_port: int,
+    *,
+    session_override=None,
+    inference_ready: bool = True,
+) -> LiveNodeState:
     captured = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return LiveNodeState(
         session=session_override or session(node_id),
@@ -77,6 +84,8 @@ def live_node(node_id: str, gpu_memory: int, rpc_port: int, *, session_override=
         rpc_endpoint=RpcEndpoint("127.0.0.1", rpc_port),
         llama_build_number=999,
         llama_build_commit="abcdef1234567",
+        inference_state=("INFERENCE_READY" if inference_ready else "INFERENCE_NOT_READY"),
+        runtime_verified=inference_ready,
     )
 
 
@@ -119,6 +128,26 @@ class LiveSharedRuntimeTests(unittest.TestCase):
         self.assertEqual(live.worker_rpc.text(), "127.0.0.1:50052")
         self.assertEqual(tuple(endpoint.text() for endpoint in live.worker_rpcs), ("127.0.0.1:50052",))
         self.assertTrue(live.trial_plan.bundle_id.startswith("live:"))
+
+    def test_unverified_nodes_are_not_schedulable(self):
+        registry = configured_registry()
+        registry.register_node(live_node("node-a", 10_000_000_000, 50051, inference_ready=False))
+        registry.register_node(live_node("node-b", 6_000_000_000, 50052, inference_ready=False))
+        registry.register_network_result(
+            "node-a",
+            "node-b",
+            bench(
+                "tcp_network_path",
+                "net-live",
+                3,
+                local_node_id="node-a",
+                peer_node_id="node-b",
+                peer_binding="computemesh_ed25519_session_v1",
+            ),
+        )
+        registry.register_model(LiveModelState("test-model", manifest(layer_count=32), Path("/models/model.gguf")))
+        with self.assertRaisesRegex(LiveSharedRuntimeError, "INFERENCE_READY"):
+            registry.build_execution_plan("test-model", allow_experimental=True)
 
     def test_production_provider_receives_full_pool_once_and_selects_pair_privately(self):
         provider = _GlobalProvider()
@@ -173,6 +202,8 @@ class LiveSharedRuntimeTests(unittest.TestCase):
             rpc_endpoint=b.rpc_endpoint,
             llama_build_number=1000,
             llama_build_commit=b.llama_build_commit,
+            inference_state=b.inference_state,
+            runtime_verified=b.runtime_verified,
         )
         registry.register_node(a)
         registry.register_node(b)

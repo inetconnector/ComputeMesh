@@ -25,6 +25,9 @@ class ModelEngineError(RuntimeError):
     """Raised when a model cannot be started or stopped safely."""
 
 
+RuntimeProbe = Callable[[str, MultiGpuPlan], tuple[bool, str]]
+
+
 @dataclass(frozen=True)
 class EngineModel:
     model_id: str
@@ -55,6 +58,7 @@ class ModelEngineService:
         port: int = 8081,
         startup_timeout_seconds: float = 90.0,
         process_factory: Callable[..., subprocess.Popen[Any]] = subprocess.Popen,
+        runtime_probe: RuntimeProbe | None = None,
     ) -> None:
         self.model_root = model_root.resolve()
         self.inventory_provider = inventory_provider
@@ -63,12 +67,15 @@ class ModelEngineService:
         self.port = int(port)
         self.startup_timeout_seconds = float(startup_timeout_seconds)
         self._process_factory = process_factory
+        self._runtime_probe = runtime_probe or self._probe_runtime
         self._lock = threading.RLock()
         self._process: subprocess.Popen[Any] | None = None
         self._model: EngineModel | None = None
         self._plan: MultiGpuPlan | None = None
         self._started_at = 0.0
         self._last_error = ""
+        self._runtime_verified = False
+        self._runtime_detail = "not_checked"
 
     def _resolve_model(self, model: EngineModel) -> EngineModel:
         try:
@@ -111,6 +118,67 @@ class ModelEngineService:
         except Exception:
             return False
 
+    @staticmethod
+    def _probe_runtime(binary: str, plan: MultiGpuPlan) -> tuple[bool, str]:
+        """Prove the selected binary and the actual accelerator runtime execute."""
+        try:
+            version = subprocess.run(
+                [binary, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return (False, "llama_server_runtime_unavailable")
+        if version.returncode != 0:
+            return (False, "llama_server_version_probe_failed")
+
+        backends = {allocation.driver_backend.lower() for allocation in plan.allocations}
+        if "vulkan" in backends:
+            vulkaninfo = os.environ.get("COMPUTEMESH_VULKANINFO", "vulkaninfo")
+            if shutil.which(vulkaninfo) is None:
+                return (False, "vulkan_runtime_unavailable")
+            try:
+                probe = subprocess.run(
+                    [vulkaninfo, "--summary"],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return (False, "vulkan_runtime_probe_failed")
+            if probe.returncode != 0:
+                return (False, "vulkan_runtime_probe_failed")
+        if "cuda" in backends:
+            nvidia_smi = os.environ.get("COMPUTEMESH_NVIDIA_SMI", "nvidia-smi")
+            if shutil.which(nvidia_smi) is None:
+                return (False, "cuda_runtime_unavailable")
+            try:
+                probe = subprocess.run(
+                    [nvidia_smi, "--query-gpu=name", "--format=csv,noheader"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return (False, "cuda_runtime_probe_failed")
+            if probe.returncode != 0 or not probe.stdout.strip():
+                return (False, "cuda_runtime_probe_failed")
+        if "rocm" in backends:
+            rocm_probe = os.environ.get("COMPUTEMESH_ROCMINFO", "rocminfo")
+            if shutil.which(rocm_probe) is None:
+                return (False, "rocm_runtime_unavailable")
+            try:
+                probe = subprocess.run([rocm_probe], capture_output=True, text=True, timeout=20, check=False)
+            except (OSError, subprocess.SubprocessError):
+                return (False, "rocm_runtime_probe_failed")
+            if probe.returncode != 0:
+                return (False, "rocm_runtime_probe_failed")
+        return (True, "runtime_verified")
+
     def start(self, model: EngineModel, *, context_size: int = 4096) -> dict[str, Any]:
         verified = self._resolve_model(model)
         if not 128 <= int(context_size) <= 131_072:
@@ -128,8 +196,14 @@ class ModelEngineService:
             if verified.size_bytes > usable_vram:
                 raise ModelEngineError("model weights exceed the configured aggregate VRAM budget")
 
+            binary = self._binary()
+            runtime_ok, runtime_detail = self._runtime_probe(binary, plan)
+            if not runtime_ok:
+                self._last_error = runtime_detail
+                raise ModelEngineError(runtime_detail)
+
             command = build_llama_server_command(
-                self._binary(),
+                binary,
                 str(verified.path),
                 plan,
                 host=self.host,
@@ -150,6 +224,8 @@ class ModelEngineService:
                 )
             except Exception:
                 log_handle.close()
+                self._runtime_verified = False
+                self._runtime_detail = runtime_detail
                 raise
             log_handle.close()
 
@@ -158,6 +234,8 @@ class ModelEngineService:
             self._plan = plan
             self._started_at = time.time()
             self._last_error = ""
+            self._runtime_verified = True
+            self._runtime_detail = runtime_detail
 
         deadline = time.monotonic() + self.startup_timeout_seconds
         while time.monotonic() < deadline:
@@ -186,17 +264,23 @@ class ModelEngineService:
             self._model = None
             self._plan = None
             self._started_at = 0.0
+            self._runtime_verified = False
+            self._runtime_detail = "not_checked"
         return self.status()
 
     def status(self) -> dict[str, Any]:
         with self._lock:
             running = self._process is not None and self._process.poll() is None
             healthy = running and self._health(timeout=0.5)
+            ready = bool(healthy and self._runtime_verified)
             model = self._model
             plan = self._plan
             return {
-                "state": "ready" if healthy else ("starting" if running else "stopped"),
-                "ready": bool(healthy),
+                "state": "ready" if ready else ("starting" if running else "stopped"),
+                "ready": ready,
+                "inference_state": "INFERENCE_READY" if ready else "INFERENCE_NOT_READY",
+                "runtime_verified": bool(self._runtime_verified),
+                "runtime_detail": self._runtime_detail,
                 "model_id": model.model_id if model else "",
                 "model_sha256": model.sha256 if model else "",
                 "model_size_bytes": model.size_bytes if model else 0,

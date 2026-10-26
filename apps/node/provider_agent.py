@@ -235,6 +235,38 @@ def _managed_model_cancel_callback(endpoint: str) -> Callable[[], None] | None:
     return engine.stop
 
 
+def _local_model_engine_readiness() -> dict[str, Any]:
+    """Read the canonical NodeOS engine status without exposing credentials."""
+    try:
+        from services.appliance_dashboard.model_manager import get_model_manager
+
+        raw = get_model_manager().status().get("engine", {})
+    except Exception:
+        return {
+            "inference_state": "INFERENCE_NOT_READY",
+            "runtime_verified": False,
+            "ready": False,
+        }
+    if not isinstance(raw, Mapping):
+        return {
+            "inference_state": "INFERENCE_NOT_READY",
+            "runtime_verified": False,
+            "ready": False,
+        }
+    ready = (
+        raw.get("inference_state") == "INFERENCE_READY"
+        and raw.get("runtime_verified") is True
+        and raw.get("ready") is True
+        and isinstance(raw.get("model_id"), str)
+        and bool(raw.get("model_id"))
+    )
+    return {
+        "inference_state": "INFERENCE_READY" if ready else "INFERENCE_NOT_READY",
+        "runtime_verified": bool(ready),
+        "ready": bool(ready),
+    }
+
+
 def _load_private_key(path: Path) -> Ed25519PrivateKey:
     if path.is_symlink() or not path.is_file():
         raise ProviderAgentError("node private key must be an existing non-symlink file")
@@ -326,6 +358,7 @@ class ProviderAgent:
         model_preparation_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Mapping[str, Any]] | None = None,
         environment_executor: Callable[[SessionSnapshot, Mapping[str, Any]], Mapping[str, Any]] | None = None,
         enforce_inference_capacity: bool = False,
+        inference_readiness: Callable[[], Mapping[str, Any]] | None = None,
     ) -> None:
         if not node_id or len(node_id) > 128:
             raise ValueError("invalid node_id")
@@ -348,6 +381,7 @@ class ProviderAgent:
         self.model_preparation_executor = model_preparation_executor
         self.environment_executor = environment_executor
         self.enforce_inference_capacity = bool(enforce_inference_capacity)
+        self._inference_readiness = inference_readiness or _local_model_engine_readiness
         self._inference_handler = (
             make_inference_request_handler(inference_executor)
             if inference_executor is not None
@@ -391,6 +425,14 @@ class ProviderAgent:
             },
         )
         contracts.validate("RuntimeAdvertisement", self.runtime_advertisement)
+        if inference_executor is not None:
+            if (
+                self.runtime_advertisement.get("inference_state") != "INFERENCE_READY"
+                or self.runtime_advertisement.get("runtime_verified") is not True
+            ):
+                raise ProviderAgentError(
+                    "inference runtime must be advertised only after INFERENCE_READY and runtime verification"
+                )
         contracts.validate("BenchmarkReport", self.prefill)
         contracts.validate("BenchmarkReport", self.decode)
         for report in self.network_reports:
@@ -652,6 +694,8 @@ class ProviderAgent:
         if message_type == "InferenceRequest":
             if self._inference_handler is None:
                 raise ProviderAgentError("inference runtime is not configured on this node")
+            if not self._inference_readiness().get("ready", False):
+                raise ProviderAgentError("inference runtime is no longer INFERENCE_READY")
             self._require_inference_capacity(payload)
             try:
                 return self._inference_handler(message_type, payload, session, cancel_event)
@@ -717,6 +761,8 @@ class ProviderAgent:
     ) -> Iterator[Mapping[str, Any]]:
         if self._inference_stream_handler is None:
             raise ProviderAgentError("inference streaming runtime is not configured on this node")
+        if not self._inference_readiness().get("ready", False):
+            raise ProviderAgentError("inference runtime is no longer INFERENCE_READY")
         self._require_inference_capacity(payload)
         return self._inference_stream_handler(message_type, payload, session, cancel_event)
 
@@ -729,6 +775,8 @@ def _runtime_document(
     rpc_port: int,
     build_number: int,
     build_commit: str,
+    inference_state: str = "INFERENCE_NOT_READY",
+    runtime_verified: bool = False,
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -737,6 +785,8 @@ def _runtime_document(
         "runtime": "llama.cpp",
         "llama_build_commit": build_commit,
         "llama_build_number": build_number,
+        "inference_state": inference_state,
+        "runtime_verified": bool(runtime_verified),
         "rpc": {"host": rpc_host, "port": rpc_port},
     }
 
@@ -835,6 +885,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.inference_endpoint
         else None
     )
+    readiness = _local_model_engine_readiness() if inference_backend is not None else {
+        "inference_state": "INFERENCE_NOT_READY",
+        "runtime_verified": False,
+        "ready": False,
+    }
+    if inference_backend is not None and not readiness["ready"]:
+        raise ProviderAgentError(
+            "configured inference endpoint is not backed by a verified INFERENCE_READY NodeOS model engine"
+        )
     model_preparation_executor = None
     if args.model_preparation_manifest is not None:
         try:
@@ -866,6 +925,8 @@ def main(argv: list[str] | None = None) -> int:
             rpc_port=args.rpc_port,
             build_number=args.llama_build_number,
             build_commit=args.llama_build_commit,
+            inference_state=str(readiness["inference_state"]),
+            runtime_verified=bool(readiness["runtime_verified"]),
         ),
         models=models,
         network_reports=tuple(_load_json(path) for path in args.network_report),

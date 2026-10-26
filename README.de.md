@@ -27,6 +27,19 @@ Provider-Konfiguration erst nach positiver Antwort. Auf diesem Windows-Host
 wurde kein Image gebaut, geflasht, gebootet oder deployed; physische NodeOS-
 und AMD-/NVIDIA-Abnahme bleiben offen.
 
+## P0 verifizierte Inferenz-Bereitschaft (2026-10-26, lokale Entwicklung)
+
+`ModelEngineService` meldet `INFERENCE_READY` jetzt erst, wenn das gepinnte
+`llama-server`-Binary, die gewählte Beschleuniger-Runtime (einschließlich
+Vulkan, CUDA oder ROCm), das verifizierte GGUF-Artefakt und der Health-
+Endpunkt erfolgreich geprüft wurden. Der authentifizierte Provider-Agent und
+die Live-Registrierung führen diesen Status weiter und verweigern
+Inferenzanfragen beziehungsweise Placement ohne Runtime-Nachweis. Das
+bestehende Tunnel-Relay veröffentlicht denselben Engine-Status weiterhin in
+`telemetry.model_runtime`. Die lokalen Tests verwenden injizierte Test-Probes;
+AMD-Hardware und Produktions-Nodes wurden nicht verwendet, die physische
+Inferenzabnahme bleibt offen.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen (887/887 Tests bestanden).
