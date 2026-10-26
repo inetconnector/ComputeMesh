@@ -46,6 +46,12 @@ PROVENANCE_PREFIX = "COMPUTEMESH_BUILD_PROVENANCE_V1="
 PREFLIGHT_MARKER = "/run/computemesh/node-preflight.ok"
 
 
+def _rpc_build_enabled() -> bool:
+    """Do not ship the experimental plaintext RPC backend in standard images."""
+    return os.environ.get("COMPUTEMESH_ENABLE_RPC_EXPERIMENT", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+
 def run(cmd: list[str], check: bool = True, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     print(f"--> Running: {' '.join(cmd)}")
     return subprocess.run(cmd, check=check, cwd=cwd, text=True)
@@ -437,26 +443,31 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
 
         # Build the production model runtime from one immutable upstream commit.
         # Vulkan is the common backend for supported AMD and NVIDIA NodeOS GPUs.
+        rpc_enabled = _rpc_build_enabled()
         chroot_exec("git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp")
         chroot_exec(f"git -C /tmp/llama.cpp checkout --detach {LLAMA_CPP_COMMIT}")
         chroot_exec(
             "cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build -G Ninja "
-            "-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DGGML_RPC=ON "
+            f"-DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON -DGGML_RPC={'ON' if rpc_enabled else 'OFF'} "
             "-DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF -DLLAMA_CURL=OFF "
             "-DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON"
         )
-        chroot_exec("cmake --build /tmp/llama.cpp/build --target llama-server ggml-rpc-server -j2")
+        targets = "llama-server ggml-rpc-server" if rpc_enabled else "llama-server"
+        chroot_exec(f"cmake --build /tmp/llama.cpp/build --target {targets} -j2")
         chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server")
         # Install RPC as an opt-in binary. Never enable or publicly bind an
         # unauthenticated upstream RPC daemon automatically on NodeOS.
-        chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/ggml-rpc-server /usr/local/bin/ggml-rpc-server")
+        if rpc_enabled:
+            chroot_exec("install -m 0755 /tmp/llama.cpp/build/bin/ggml-rpc-server /usr/local/bin/ggml-rpc-server")
         # The new binaries must be immediately loadable in the image chroot.
         # This also detects missing libggml/backend dependencies on a change
         # to the pinned upstream CMake defaults, rather than failing on boot.
-        chroot_exec("ldd /usr/local/bin/llama-server /usr/local/bin/ggml-rpc-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
+        chroot_exec("ldd /usr/local/bin/llama-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
+        if rpc_enabled:
+    chroot_exec("ldd /usr/local/bin/llama-server /usr/local/bin/ggml-rpc-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
         (CHROOT_DIR / "usr" / "share" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "usr" / "share" / "computemesh" / "llama-cpp-build.txt").write_text(
-            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\nrpc_binary_installed=1\n",
+            f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\nrpc_binary_installed={int(rpc_enabled)}\n",
             encoding="ascii",
         )
         chroot_exec("rm -rf /tmp/llama.cpp")
@@ -577,13 +588,14 @@ if __name__ == '__main__':
         heartbeat_unit.write_text(_render_heartbeat_unit(), encoding="utf-8")
         # The experimental upstream RPC daemon is strictly opt-in and binds
         # only to loopback. Never enable it during image creation.
-        rpc_source = cm_target / "deploy" / "systemd" / "computemesh-rpc-worker.service"
-        if not rpc_source.is_file():
-            raise RuntimeError("NodeOS image lacks the protected RPC worker service contract")
-        shutil.copy(
-            rpc_source,
-            CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-rpc-worker.service",
-        )
+        if rpc_enabled:
+            rpc_source = cm_target / "deploy" / "systemd" / "computemesh-rpc-worker.service"
+            if not rpc_source.is_file():
+                raise RuntimeError("NodeOS image lacks the protected RPC worker service contract")
+            shutil.copy(
+                rpc_source,
+                CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-rpc-worker.service",
+            )
         node_override_dir = CHROOT_DIR / "etc" / "systemd" / "system" / "computemesh-node.service.d"
         node_override_dir.mkdir(parents=True, exist_ok=True)
         (node_override_dir / "10-preflight.conf").write_text(

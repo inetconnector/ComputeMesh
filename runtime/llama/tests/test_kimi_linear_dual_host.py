@@ -9,6 +9,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from runtime.llama.kimi_linear_dual_host import (
     KimiDualHostError,
@@ -69,15 +70,26 @@ class KimiDualHostTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[3]
         builder = (root / "deploy/appliance/build_real_live_appliance.py").read_text(encoding="utf-8")
         worker = (root / "deploy/systemd/computemesh-rpc-worker.service").read_text(encoding="utf-8")
-        self.assertIn("-DGGML_RPC=ON", builder)
+        self.assertIn("COMPUTEMESH_ENABLE_RPC_EXPERIMENT", builder)
+        self.assertIn("DGGML_RPC={", builder)
         self.assertIn("-DBUILD_SHARED_LIBS=OFF", builder)
-        self.assertIn("--target llama-server ggml-rpc-server", builder)
+        self.assertIn('targets = "llama-server ggml-rpc-server" if rpc_enabled else "llama-server"', builder)
         self.assertIn('rpc_source = cm_target / "deploy" / "systemd" / "computemesh-rpc-worker.service"', builder)
-        self.assertIn("shutil.copy(\n            rpc_source,", builder)
+        self.assertIn("if rpc_enabled:\n            rpc_source =", builder)
+        self.assertIn("shutil.copy(\n                rpc_source,", builder)
         self.assertNotIn("systemctl enable computemesh-rpc-worker", builder)
         self.assertIn("127.0.0.1", worker)
         self.assertNotIn("0.0.0.0", worker)
         self.assertIn("ConditionPathExists=/run/computemesh/node-preflight.ok", worker)
+
+    def test_rpc_build_is_disabled_by_default(self) -> None:
+        from deploy.appliance.build_real_live_appliance import _rpc_build_enabled
+        with patch.dict("os.environ", {"COMPUTEMESH_ENABLE_RPC_EXPERIMENT": "0"}):
+            self.assertFalse(_rpc_build_enabled())
+        with patch.dict("os.environ", {"COMPUTEMESH_ENABLE_RPC_EXPERIMENT": "1"}):
+            self.assertTrue(_rpc_build_enabled())
+        with patch.dict("os.environ", {"COMPUTEMESH_ENABLE_RPC_EXPERIMENT": "invalid"}):
+            self.assertFalse(_rpc_build_enabled())
 
     def test_existing_rpc_runner_builds_seven_device_offload(self) -> None:
         devices = ("CUDA0",) + tuple(f"RPC{i}" for i in range(6))

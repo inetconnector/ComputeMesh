@@ -15,7 +15,7 @@
 ## Vorbereitung
 
 1. NodeOS-Hardwareabnahme: sechs separate Radeon/Vulkan-GPUs und stabile PCI-/VRAM-Zuordnung wirklich messen. `vulkaninfo --summary` und `llama-server --list-devices` getrennt dokumentieren.
-2. Das neue NodeOS-Image mit `-DGGML_RPC=ON` bauen und prüfen, dass `/usr/local/bin/ggml-rpc-server` vorhanden ist. Eine erfolgreiche Builder-Codeänderung ist **noch kein** erfolgreicher Image-Build.
+2. Nur für den isolierten RPC-Versuch den NodeOS-Image-Build mit `COMPUTEMESH_ENABLE_RPC_EXPERIMENT=1` ausführen (aktiviert `-DGGML_RPC=ON`). Der Standardbuild bleibt ohne RPC-Worker. Anschließend Image bauen und prüfen, dass `/usr/local/bin/ggml-rpc-server` vorhanden ist. Eine erfolgreiche Builder-Codeänderung ist **noch kein** erfolgreicher Image-Build.
 3. Auf dem NodeOS-Miner in einer autorisierten lokalen Administrationssitzung nur den Loopback-Worker starten:
    `/usr/local/bin/ggml-rpc-server --host 127.0.0.1 --port 50052`
    Keine `0.0.0.0`-Bindung und keine öffentliche Firewallfreigabe.
