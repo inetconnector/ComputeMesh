@@ -86,6 +86,24 @@ class SystemActionsHandler:
         appliance_version: str,
     ) -> bool:
         if req_path == "/api/action/rotate_node_token":
+            # A local token swap without gateway/fleet acknowledgement can
+            # disconnect the enrolled miner. Default-deny until coordinated
+            # per-node fleet rotation is implemented and verified. Emergency
+            # override is deliberately separate from the normal UI workflow.
+            if os.environ.get("COMPUTEMESH_ENABLE_EMERGENCY_NODE_TOKEN_ROTATION", "") != "1":
+                handler._send_json(
+                    {
+                        "status": "error",
+                        "code": "fleet_rotation_required",
+                        "message": (
+                            "Local token rotation is disabled. A coordinated "
+                            "fleet rotation is required; supervised emergency "
+                            "recovery needs an explicit operator override."
+                        ),
+                    },
+                    HTTPStatus.CONFLICT,
+                )
+                return True
             try:
                 from services.appliance_dashboard.tunnel_relay import rotate_node_auth_token
                 new_token = rotate_node_auth_token()
