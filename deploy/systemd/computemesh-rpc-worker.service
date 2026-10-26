@@ -1,0 +1,33 @@
+[Unit]
+Description=ComputeMesh opt-in llama.cpp Vulkan RPC lab worker (loopback only)
+Documentation=https://github.com/inetconnector/ComputeMesh/blob/main/runtime/llama/README.md
+Requires=computemesh-node-preflight.service
+After=computemesh-node-preflight.service
+RequiresMountsFor=/opt/computemesh /var/lib/computemesh
+ConditionPathExists=/run/computemesh/node-preflight.ok
+ConditionPathExists=/usr/local/bin/ggml-rpc-server
+
+[Service]
+Type=simple
+User=computemesh
+Group=computemesh
+WorkingDirectory=/opt/computemesh
+Environment=COMPUTEMESH_NODEOS=1
+ExecStart=/usr/local/bin/ggml-rpc-server --host 127.0.0.1 --port 50052
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/computemesh
+RestrictAddressFamilies=AF_INET AF_UNIX
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+# Deliberately not enabled by the image builder: the operator must first
+# authenticate a private loopback tunnel and reserve GPU capacity.
+[Install]
+WantedBy=multi-user.target
