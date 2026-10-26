@@ -41,6 +41,12 @@ class TestRealLiveApplianceContract(unittest.TestCase):
     def test_builder_declares_and_validates_debian_mirror(self) -> None:
         self.assertRegex(self._source(), r"DEBIAN_MIRROR\s*=")
 
+    def test_builder_requires_a_verified_debian_archive_keyring(self) -> None:
+        text = self._source()
+        self.assertIn("COMPUTEMESH_DEBIAN_KEYRING", text)
+        self.assertIn("debian-archive-keyring.gpg", text)
+        self.assertIn('"--keyring"', text)
+
     def test_vulkan_builder_declares_spirv_headers(self) -> None:
         self.assertIn("spirv-headers", self._source())
 

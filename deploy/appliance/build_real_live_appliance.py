@@ -35,6 +35,10 @@ ISO_DIR = BUILD_DIR / "iso_root"
 STAGING_DIR = Path(os.environ.get("COMPUTEMESH_IMAGE_STAGING_DIR", str(BUILD_DIR / "staging")))
 OUTPUT_DIR = STAGING_DIR
 DEBIAN_MIRROR = os.environ.get("COMPUTEMESH_DEBIAN_MIRROR", "http://deb.debian.org/debian").strip()
+DEBIAN_KEYRING = os.environ.get(
+    "COMPUTEMESH_DEBIAN_KEYRING",
+    "/usr/share/keyrings/debian-archive-keyring.gpg",
+).strip()
 LLAMA_CPP_VERSION = "v0.4.1"
 LLAMA_CPP_COMMIT = "29aaf1c27faa48292357cea2120d94114a545006"
 DEFAULT_PERSISTENCE_SIZE_MIB = 65536
@@ -56,6 +60,23 @@ def _validate_debian_mirror() -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise RuntimeError("COMPUTEMESH_DEBIAN_MIRROR must be an http(s) URL")
     return DEBIAN_MIRROR
+
+
+def _validate_debian_keyring() -> Path:
+    """Require an explicit Debian archive keyring before debootstrap.
+
+    Debian's debootstrap otherwise continues with only a warning when the
+    host keyring is absent. That would make a successful image build
+    unauthenticated at the first package boundary, so fail closed here.
+    ``.gpg`` is commonly a symlink to the distro's current ``.pgp`` keyring;
+    ``is_file`` intentionally follows that managed symlink.
+    """
+    candidate = Path(DEBIAN_KEYRING).expanduser()
+    if not candidate.is_file() or candidate.stat().st_size == 0:
+        raise RuntimeError(
+            "COMPUTEMESH_DEBIAN_KEYRING must name a non-empty Debian archive keyring"
+        )
+    return candidate.resolve()
 
 
 def _git_command(repo_src: Path, *arguments: str) -> list[str]:
@@ -326,6 +347,7 @@ def build_appliance(
     print("====================================================================")
 
     debian_mirror = _validate_debian_mirror()
+    debian_keyring = _validate_debian_keyring()
     repo_src, source_commit = _resolve_source_repo(
         source_repo,
         expected_commit=expected_source_commit,
@@ -352,6 +374,8 @@ def build_appliance(
         "debootstrap",
         "--arch=amd64",
         "--variant=minbase",
+        "--keyring",
+        str(debian_keyring),
         "--include=systemd,systemd-sysv,udev,kmod,iproute2,isc-dhcp-client,curl,wget,ca-certificates,sudo,pciutils,usbutils,python3,python3-pip,lm-sensors,mesa-vulkan-drivers,vulkan-tools,libvulkan1,firmware-linux-free,fdisk,gdisk,parted,efibootmgr,git,cmake,ninja-build,build-essential,pkg-config,libvulkan-dev,glslc,spirv-headers",
         "trixie",
         str(CHROOT_DIR),
