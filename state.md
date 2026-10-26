@@ -2,7 +2,8 @@
 
 - Branch: `codex/p0-auth-placement-20261026`. Vorheriger Public-HEAD war
   `3691526915d2645b29fd39cdf5edccb8d4a2eed2`; die Codecommits dieses
-  Public-Submoduls sind `5bb69f9` und `1e1969b`.
+  Public-Submoduls sind `5bb69f9` und `1e1969b`, die abschließende
+  Dokumentation ist in `1bffab2ec80e4a54066fd56f564f4535d90dff09`.
 - Gateway-A: Der neue negative localhost-Test reproduziert die vorherige
   Übernahme einer registrierten Legacy-Node ohne Owner-/Public-Key durch
   fremden Token, Owner-Key und passende Ed25519-Signatur. Der aktive Pfad
@@ -45,7 +46,7 @@
   = 4 passed; die vollständige Datei = 19 passed; die private Placement-/Auth-
   Regressiongruppe = 76 passed. `python -m compileall -q services tools tests`
   exit 0; Ruff fehlt lokal.
-- Der Parent zeigt nach dem nächsten Pin-Commit auf den neuen Public-HEAD.
+- Der Parent pinnt den neuen Public-HEAD im lokalen Commit `9fa5edf`.
   Quota-/Lease-DB bleiben getrennt, daher ist ein Crash-/Mehrprozess-Nachweis
   lokal, nicht automatisch ein verteilter Produktionsnachweis. Gesamtstatus:
   `CODE_IMPLEMENTED`/`LOCAL_TEST_PASSED`, aber `RELEASE_NO_GO` wegen fehlender
