@@ -41,6 +41,9 @@ class TestRealLiveApplianceContract(unittest.TestCase):
     def test_builder_declares_and_validates_debian_mirror(self) -> None:
         self.assertRegex(self._source(), r"DEBIAN_MIRROR\s*=")
 
+    def test_vulkan_builder_declares_spirv_headers(self) -> None:
+        self.assertIn("spirv-headers", self._source())
+
     def test_builder_has_no_server_specific_source_checkout_fallbacks(self) -> None:
         source = self._source()
         self.assertNotIn("/root/ComputeMesh", source)
