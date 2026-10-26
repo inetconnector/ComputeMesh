@@ -19,6 +19,18 @@ host, deployment, push or release was performed. Cross-shard BFT, NodeOS
 reboot, AMD-GPU inference and complete mesh E2E acceptance remain separate
 open gates.
 
+## P0 fail-closed node identity persistence (2026-10-26, local development)
+
+Node private-key and tunnel-token storage now fails closed when an existing
+identity cannot be read, protected, or atomically persisted. Symlink and
+non-regular paths are rejected; POSIX writes use restrictive permissions and
+atomic replacement; Windows does not silently fall back to plaintext when OS
+protection is unavailable. The relay also refuses to start without its
+persistent private key and no longer emits an unsigned heartbeat after a
+signing failure. Local tests use only fresh test identities and cover storage
+failure and relay startup failure. This is code/local-test evidence, not a
+hardware or production enrollment claim.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen.

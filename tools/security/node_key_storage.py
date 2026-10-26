@@ -189,8 +189,8 @@ def save_node_private_key(
     if platform.system().lower() != "windows":
         try:
             path.parent.chmod(0o700)
-        except OSError:
-            pass
+        except OSError as exc:
+            raise KeyStorageError(f"cannot secure private key directory: {path.parent}") from exc
 
     pem_bytes = key.private_bytes(
         serialization.Encoding.PEM,
@@ -198,7 +198,9 @@ def save_node_private_key(
         serialization.NoEncryption(),
     )
 
-    if protect_os and platform.system().lower() == "windows" and _HAS_DPAPI:
+    if protect_os and platform.system().lower() == "windows":
+        if not _HAS_DPAPI:
+            raise KeyProtectionError("Windows DPAPI is unavailable; refusing to persist an unprotected node key")
         protected_bytes = dpapi_protect(pem_bytes)
         b64_str = base64.b64encode(protected_bytes).decode("ascii")
         content = (DPAPI_ENVELOPE_PREFIX + b64_str + "\n").encode("ascii")
@@ -328,7 +330,9 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     """
     if path is not None:
         target_path = Path(path)
-        if target_path.exists() and target_path.is_file():
+        if os.path.lexists(os.fspath(target_path)):
+            if target_path.is_symlink() or not target_path.is_file():
+                raise KeyStorageError(f"key path is not a regular file: {target_path}")
             return load_node_private_key(target_path), target_path
         # Generate at requested path
         key = Ed25519PrivateKey.generate()
@@ -338,7 +342,9 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     env_path_str = os.environ.get("COMPUTEMESH_NODE_KEY_PATH", "").strip()
     if env_path_str:
         p = Path(env_path_str)
-        if p.exists() and p.is_file():
+        if os.path.lexists(os.fspath(p)):
+            if p.is_symlink() or not p.is_file():
+                raise KeyStorageError(f"configured node key path is not a regular file: {p}")
             return load_node_private_key(p), p
 
     candidate_paths = [
@@ -348,11 +354,13 @@ def get_or_create_node_private_key(path: Path | None = None) -> tuple[Ed25519Pri
     ]
 
     for p in candidate_paths:
-        try:
-            if p.exists() and p.is_file():
-                return load_node_private_key(p), p
-        except Exception:
-            pass
+        if os.path.lexists(os.fspath(p)):
+            if p.is_symlink() or not p.is_file():
+                raise KeyStorageError(f"node key path is not a regular file: {p}")
+            # An existing identity is authoritative.  Any mount, permission or
+            # parse failure must reach the caller instead of silently rotating
+            # to a new key.
+            return load_node_private_key(p), p
 
     # No existing key found; determine optimal writable target path
     chosen_path: Path | None = None

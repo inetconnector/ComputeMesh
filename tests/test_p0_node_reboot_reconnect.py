@@ -42,6 +42,7 @@ from tools.appliance.appliance_config import (
     save_system_config,
 )
 from services.appliance_dashboard.tunnel_relay import get_or_create_node_auth_token
+from services.appliance_dashboard.tunnel_relay import NodeAuthTokenStorageError
 from tools.security.node_key_storage import (
     get_or_create_node_private_key,
     sign_node_heartbeat,
@@ -137,6 +138,23 @@ class TestP0CryptographicNodeRebootSecurity(unittest.TestCase):
         self.assertTrue(token_2.startswith("cm_tunnel_"))
         self.assertGreaterEqual(len(token_2), 10 + 48)
         self.assertNotEqual(token_1, token_2, "Tokens must be freshly randomized, not deterministic hardware hashes")
+
+    def test_token_storage_failure_does_not_return_an_unpersisted_identity(self) -> None:
+        token_file = self.temp_path / "unwritable" / "node_auth_token.txt"
+        with patch("services.appliance_dashboard.tunnel_relay._atomic_secure_text_write", side_effect=OSError("mount unavailable")):
+            with self.assertRaises(NodeAuthTokenStorageError):
+                get_or_create_node_auth_token(search_paths=[token_file])
+        self.assertFalse(token_file.exists())
+
+    def test_relay_does_not_continue_without_a_persistent_node_key(self) -> None:
+        with patch(
+            "tools.security.node_key_storage.get_or_create_node_private_key",
+            side_effect=RuntimeError("identity mount unavailable"),
+        ):
+            from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
+
+            with self.assertRaisesRegex(RuntimeError, "identity mount unavailable"):
+                CloudTunnelRelay(node_id="local-test-node", auth_token="local-test-token", autostart=False)
 
     def test_negative_security_hardware_spoofing_rejected_with_401(self) -> None:
         """S1 Gate: Verify fail-closed security: an attacker sending matching hardware_id,

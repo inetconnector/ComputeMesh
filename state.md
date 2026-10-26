@@ -4311,3 +4311,23 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   No production endpoint, deployment, push, release or hardware acceptance was
   performed. Cross-shard BFT, NodeOS reboot, AMD-GPU inference and complete
   mesh E2E remain open acceptance gates.
+
+## 2026-10-26 P0 durable node identity persistence (working tree)
+
+- The RED tests cover an atomic token-write failure and relay construction when
+  the identity mount is unavailable. Before the patch, token persistence
+  errors could be swallowed and a new token returned; relay key-load errors
+  could be converted into an empty-key/unsigned path.
+- `tools/security/node_key_storage.py` now propagates failures for existing
+  identity candidates, rejects symlink/non-regular paths, fails on POSIX parent
+  permission hardening errors, and refuses plaintext Windows fallback when OS
+  protection is requested but unavailable.
+- `services/appliance_dashboard/tunnel_relay.py` now uses bounded atomic
+  token-file writes with fsync and restrictive permissions, raises
+  `NodeAuthTokenStorageError` when persistence fails, requires the existing
+  private key during relay construction, and propagates signing failures.
+- Verification: `python -m pytest tools/security/tests/test_node_key_storage.py
+  tests/test_p0_node_reboot_reconnect.py -q` = 22 passed, 3 skipped, exit 0.
+  No production credentials, external host, tunnel or physical NodeOS was
+  accessed. The public working tree remains uncommitted until this package is
+  committed separately.

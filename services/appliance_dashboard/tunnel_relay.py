@@ -17,6 +17,45 @@ from config import CONFIG
 logger = logging.getLogger("CloudTunnelRelay")
 
 
+class NodeAuthTokenStorageError(RuntimeError):
+    """Raised when the persistent node token cannot be read or durably stored."""
+
+
+def _atomic_secure_text_write(path: Path, value: str) -> None:
+    """Write one node credential atomically without accepting a failed persist."""
+    path = Path(path)
+    if path.is_symlink() or path.parent.is_symlink():
+        raise NodeAuthTokenStorageError(f"refusing symlinked node token path: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if sys.platform != "win32":
+        path.parent.chmod(0o700)
+
+    temp_path = path.with_name(f"{path.name}.tmp.{secrets.token_hex(8)}")
+    fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(value)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        if sys.platform != "win32":
+            os.chmod(path, 0o600)
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+    except Exception as exc:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        if isinstance(exc, NodeAuthTokenStorageError):
+            raise
+        raise NodeAuthTokenStorageError(f"cannot durably persist node token: {path}") from exc
+
+
 def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str:
     """Retrieve or create a persistent node authentication token using high-entropy random secrets.
 
@@ -42,31 +81,33 @@ def get_or_create_node_auth_token(search_paths: list[Path] | None = None) -> str
         persist_targets = search_paths
 
     for p in candidate_paths:
-        try:
-            if p.exists() and p.is_file():
-                tok = p.read_text(encoding="utf-8", errors="ignore").strip()
-                if tok:
-                    return tok
-        except Exception:
-            pass
+        p = Path(p)
+        if p.is_symlink() or (p.exists() and not p.is_file()):
+            raise NodeAuthTokenStorageError(f"node token path is not a regular file: {p}")
+        if p.exists():
+            try:
+                tok = p.read_text(encoding="utf-8").strip()
+            except Exception as exc:
+                raise NodeAuthTokenStorageError(f"cannot read persistent node token: {p}") from exc
+            if not tok or not tok.startswith("cm_tunnel_") or not tok[10:].isalnum():
+                raise NodeAuthTokenStorageError(f"persistent node token is invalid: {p}")
+            return tok
 
     # Generate a cryptographically secure random token with high entropy
     new_token = "cm_tunnel_" + secrets.token_hex(24)
 
-    # Persist the token to accessible permissioned storage locations
+    # Persist the token to one accessible permissioned storage location.  A
+    # failed write is not success: returning this value would rotate identity
+    # on every reboot and orphan the node at the coordinator.
+    last_error: Exception | None = None
     for target in persist_targets:
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(new_token, encoding="utf-8")
-            if sys.platform != "win32":
-                try:
-                    os.chmod(target, 0o600)
-                except OSError:
-                    pass
-        except Exception:
-            pass
+            _atomic_secure_text_write(Path(target), new_token)
+            return new_token
+        except Exception as exc:
+            last_error = exc
 
-    return new_token
+    raise NodeAuthTokenStorageError("cannot persist node authentication token") from last_error
 
 
 NODE_AUTH_TOKEN = get_or_create_node_auth_token()
@@ -99,20 +140,14 @@ class CloudTunnelRelay:
         self._running = True
         self._sync_lock = threading.Lock()
         self._wake_event = threading.Event()
-        try:
-            from tools.security.node_key_storage import get_or_create_node_private_key
-            from cryptography.hazmat.primitives import serialization
-            self._private_key, self._key_path = get_or_create_node_private_key()
-            raw_pub = self._private_key.public_key().public_bytes(
-                serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw,
-            )
-            self.public_key_hex = raw_pub.hex()
-        except Exception as exc:
-            logger.warning("Failed to initialize Ed25519 node identity: %s", exc)
-            self._private_key = None
-            self._key_path = None
-            self.public_key_hex = ""
+        from tools.security.node_key_storage import get_or_create_node_private_key
+        from cryptography.hazmat.primitives import serialization
+        self._private_key, self._key_path = get_or_create_node_private_key()
+        raw_pub = self._private_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+        self.public_key_hex = raw_pub.hex()
         try:
             from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
             start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
@@ -214,20 +249,15 @@ class CloudTunnelRelay:
 
         now_ts = int(time.time())
         heartbeat_nonce = secrets.token_urlsafe(18)
-        sig_b64u = ""
-        if getattr(self, "_private_key", None) is not None:
-            try:
-                from tools.security.node_key_storage import sign_node_heartbeat
-                sig_b64u = sign_node_heartbeat(
-                    self._private_key,
-                    self.node_id,
-                    self.auth_token,
-                    now_ts,
-                    nonce=heartbeat_nonce,
-                    previous_node_id=previous_node_id or "",
-                )
-            except Exception as sig_exc:
-                logger.warning("Failed to sign node heartbeat: %s", sig_exc)
+        from tools.security.node_key_storage import sign_node_heartbeat
+        sig_b64u = sign_node_heartbeat(
+            self._private_key,
+            self.node_id,
+            self.auth_token,
+            now_ts,
+            nonce=heartbeat_nonce,
+            previous_node_id=previous_node_id or "",
+        )
 
         payload: dict[str, Any] = {
             "node_id": self.node_id,

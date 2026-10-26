@@ -16,6 +16,11 @@ Jede Aussage unten unterscheidet zwischen:
 
 Eine branch-lokale Implementierung oder grüne CI ist keine Produktionsaussage über Vertraulichkeit.
 
+Der lokale Entwicklungsbranch vom 26.10.2026 enthält zusätzlich fail-closed
+Härtung für Provider-Privatschlüssel und Tunnel-Tokens. Dafür liegt nur
+gezielte lokale Test-Evidence vor; es ist weder öffentlicher `main`, noch ein
+Hardware-Enrolment-Nachweis oder ein Produktionsrelease.
+
 ## Was heute tatsächlich existiert
 
 ComputeMesh ist ein aktives Pre-Production-System für verteilte Inferenz mit realen Implementierungen für:

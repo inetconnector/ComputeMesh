@@ -1,5 +1,18 @@
 # ComputeMesh
 
+## P0 Fail-Closed-Persistenz der Node-Identität (2026-10-26, lokale Entwicklung)
+
+Das Speichern und Laden des privaten Node-Schlüssels sowie des Tunnel-Tokens
+bricht jetzt ab, wenn eine vorhandene Identität nicht gelesen, geschützt oder
+atomar gespeichert werden kann. Symlink- und nichtreguläre Pfade werden
+abgelehnt; POSIX-Schreibvorgänge verwenden restriktive Berechtigungen und
+atomaren Austausch; unter Windows gibt es keinen stillen Klartext-Fallback,
+wenn der OS-Schutz fehlt. Das Relay startet nicht mehr ohne persistenten
+privaten Schlüssel und sendet nach einem Signaturfehler keinen unsignierten
+Heartbeat. Lokale Tests verwenden ausschließlich neu erzeugte Testidentitäten.
+Dies ist lokaler Code-/Test-Nachweis, keine Hardware- oder
+Produktionsfreigabe.
+
 ## Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung Teil 8 (2026-10-21)
 
 - Architektur-Härtung Teil 8 (Model & Shard Manifest Invariants) implementiert und dokumentiert. GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und erfolgreich über Inetconnector Local Bridge / lokale Test-Suite nachgewiesen (887/887 Tests bestanden).

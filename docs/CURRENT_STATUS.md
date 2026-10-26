@@ -16,6 +16,11 @@ Every statement below distinguishes between:
 
 A branch-local implementation or green CI is not a production confidentiality claim.
 
+The 2026-10-26 local development branch also contains fail-closed persistence
+hardening for provider private keys and tunnel tokens. It has focused local
+test evidence only; it is not merged public main, a hardware enrollment proof,
+or a production release.
+
 ## What exists today
 
 ComputeMesh is an active pre-production distributed-inference system with real implementations for:
