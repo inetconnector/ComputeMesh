@@ -1,3 +1,86 @@
+## 2026-10-26 P0 NodeOS identity, enrollment activation and portable image build
+
+This entry records the latest local work and supersedes earlier “no image was
+built” statements below. The public checkout started this pass at
+`a49226c6633f6383c459e590e40ff04c5e619fb1` on branch
+`codex/p0-auth-placement-20261026`; runtime code was completed at
+`fd7cf7c50e2f958be2cd5ac49f6994e2f38e6f1f`. The branch is local and has not
+been pushed. The documentation follow-up is intentionally separate from the
+runtime build commit because the image provenance names the exact code commit.
+
+### Implemented contracts
+
+- `tools/appliance/node_identity.py` is now the canonical NodeOS identity
+  resolver. Once `/etc/computemesh/provider.env` contains a valid
+  `COMPUTEMESH_NODE_ID`, that persisted value is authoritative. Provider,
+  heartbeat and dashboard code cannot silently replace it with `NODE_NAME`, a
+  hostname or another legacy config value. Pre-enrollment provider/heartbeat
+  startup fails closed instead of creating an identity on a transient overlay.
+- A rename is an explicit authenticated migration. It requires the previous
+  enrolled ID, validates the new ID, updates provider.env and the enrollment
+  receipt atomically with rollback, and is covered by negative and positive
+  tests. The NodeOS dashboard serves local enrollment UI but does not start a
+  second relay; the dedicated heartbeat service is the sole relay owner.
+- Heartbeats are serialized within a process and guarded by a cross-process
+  lock at `/var/lib/computemesh/node-heartbeat.lock`. A second relay cannot
+  publish a competing identity, and provider startup requires the same
+  enrolled ID plus the preflight marker.
+- Enrollment now persists the accepted provider environment and receipt,
+  removes the one-time bundle, runs preflight, and restarts preflight/node/
+  heartbeat in order. Any failure leaves a diagnostic and does not claim
+  readiness.
+- `deploy/appliance/build_real_live_appliance.py` accepts an explicit source
+  checkout, also supports `COMPUTEMESH_SOURCE_REPO`, rejects dirty/non-Git or
+  wrong-commit trees, snapshots the exact attested commit with `git archive`,
+  and emits source/artifact provenance. WSL root builds use a checkout-scoped
+  `safe.directory` Git invocation; no Plesk or `/root/ComputeMesh` path is
+  required. The llama.cpp pin remains unchanged.
+
+### Local build evidence
+
+Build host: Windows 11 host with WSL2, Ubuntu 26.04 LTS (kernel
+`6.6.87.2-microsoft-standard-WSL2`), executed as the isolated WSL root user.
+The local WSL toolchain included debootstrap, xorriso, squashfs-tools,
+GRUB BIOS/UEFI, isolinux/syslinux, dosfstools, parted and QEMU. Command:
+
+```text
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit fd7cf7c50e2f958be2cd5ac49f6994e2f38e6f1f --output-dir /var/tmp/computemesh-nodeos-output-fd7cf7c"
+```
+
+Exit code was 0. The build provenance reports source tree
+`8ed6fd438f38d566393cf37ea432ad853bf9bcec`, version `1.2.189`, llama.cpp
+commit `29aaf1c27faa48292357cea2120d94114a545006`, ISO SHA-256
+`e645378baa5905512b0b2393ccf7ce7094e2497dc02fa98a117cc487607aebcd`
+(`836763648` bytes), IMG.XZ SHA-256
+`1d730b454a59ea251fb99268bae97c748896bdefcf5404eb09d5e9e97d3970ba`
+(`820000488` bytes), and provenance sidecar SHA-256
+`f1fca322f726988059dd5184eee21eb51aed5e4109c01aee5273f9cf0f59f121`.
+`xz -t` passed. `xorriso -report_el_torito` found BIOS/ISOLINUX and UEFI
+GRUB images. A full read-only inspection of the decompressed image mounted
+the ext4 partition and read `persistence.conf` as `/ union`.
+
+QEMU was started with the ISO, TCG acceleration, 1 GiB RAM and no display;
+it remained running until the 45-second safety timeout, but this headless
+configuration emitted no observable guest serial boot marker. Therefore no
+`VM_BOOT_PASSED` claim is made.
+
+### Verification and remaining gates
+
+- Focused integration command (poller disabled): `61 passed` in 24.95s,
+  exit 0. It covers identity, builder, enrollment ordering, provider,
+  reconnect, dashboard and the Windows SQLite/path regressions.
+- `python run_all_tests.py`: `892 total, 891 passed, 1 failed, 0 errors`,
+  exit 1. The only failure is the historical invalid Ed25519 signature in
+  `portal/updates/version.json`; status `BLOCKED_SIGNING_AUTHORIZATION`.
+- `python -m compileall -q` over the modified runtime/tests: exit 0;
+  `git diff --check`: exit 0. Ruff is not installed in this WSL/Windows
+  environment.
+- Physical AMD-Polaris detection, Vulkan device mapping, GGUF token
+  generation, Windows Ollama reconnect, cross-host BFT, WAN/multi-host
+  inference, production enrollment and native Windows handle-based NTFS
+  publication remain `HARDWARE_NOT_RUN`/`BLOCKED_EXTERNAL`. Overall status:
+  `IMAGE_BUILD_PASSED` for the local artifact only, `RELEASE_NO_GO` overall.
+
 ## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment
 
 - Branch: `codex/p0-auth-placement-20261026`. Vorheriger Public-HEAD war
@@ -46,7 +129,9 @@
   = 4 passed; die vollständige Datei = 19 passed; die private Placement-/Auth-
   Regressiongruppe = 76 passed. `python -m compileall -q services tools tests`
   exit 0; Ruff fehlt lokal.
-- Der Parent pinnt den neuen Public-HEAD im lokalen Commit `9fa5edf`.
+- Der Parent pinnt in diesem historischen Teilabschnitt den damaligen
+  Public-HEAD im lokalen Commit `9fa5edf`; der aktuelle Pin steht im neuesten
+  Eintrag am Dateianfang.
   Quota-/Lease-DB bleiben getrennt, daher ist ein Crash-/Mehrprozess-Nachweis
   lokal, nicht automatisch ein verteilter Produktionsnachweis. Gesamtstatus:
   `CODE_IMPLEMENTED`/`LOCAL_TEST_PASSED`, aber `RELEASE_NO_GO` wegen fehlender
@@ -4486,3 +4571,4 @@ GitHub Actions CI durch Spending-Limit blockiert; Verifikation vollständig und 
   scratch UI/device tests that perform work during import. No broad exclusion
   was added; the explicit targeted suites and `run_all_tests.py` are the
   supported local evidence paths.
+## 2026-10-26 P0 abschließende Integrationshärtung: Auth, Placement, NodeOS und Enrollment

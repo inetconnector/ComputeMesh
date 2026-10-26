@@ -1,5 +1,35 @@
 # ComputeMesh
 
+## Current local P0 integration candidate (2026-10-26)
+
+This checkout is a local development candidate, not a published release. It
+is on `codex/p0-auth-placement-20261026`; the NodeOS runtime code used for the
+local image build is committed at
+`fd7cf7c50e2f958be2cd5ac49f6994e2f38e6f1f`. The local commits in this pass
+implement one canonical enrolled Node ID across provider, heartbeat and
+dashboard paths, serialize heartbeat publication, activate preflight/provider/
+heartbeat after successful enrollment, and make the appliance builder work
+from a validated clean Git checkout on Linux or WSL.
+
+The builder attests the exact source commit and tree, keeps the llama.cpp pin
+at `v0.4.1` (`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free
+provenance, and writes SHA-256/size evidence for the final artifacts. A real
+Debian 13/Trixie live image was built locally in isolated WSL2. The resulting
+ISO is 836,763,648 bytes with SHA-256
+`e645378baa5905512b0b2393ccf7ce7094e2497dc02fa98a117cc487607aebcd`; the
+compressed 64-GiB image is 820,000,488 bytes with SHA-256
+`1d730b454a59ea251fb99268bae97c748896bdefcf5404eb09d5e9e97d3970ba`.
+The ext4 persistence partition was inspected read-only and contains
+`persistence.conf` with `/ union`.
+
+Local focused tests pass (`61 passed`); the full public harness reports
+`891/892` because the historical `portal/updates/version.json` Ed25519
+fixture has an invalid signature and cannot be repaired without authorized
+signing material. Physical NodeOS/GPU boot, real inference tokens, Windows
+Ollama, multi-host networking and the native Windows NTFS TOCTOU gate remain
+open. No push, merge, release, deployment or production credential was used;
+the overall status remains `RELEASE_NO_GO`.
+
 ## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
 
 Der aktuelle lokale P0-Kandidat schließt fünf Integrationsfehler im echten
