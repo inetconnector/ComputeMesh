@@ -3,10 +3,12 @@
 ## Current local P0 integration candidate (2026-10-26)
 
 This checkout is a local development candidate, not a published release. It
-is on `codex/p0-auth-placement-20261026`; the runtime source commit used for
-the fresh local NodeOS artifact is
-`962fc0b9c6910b69455f3e8e226ba930abc6c7b4` (a documentation-only follow-up
-may have a newer public HEAD). The local changes implement one
+is on `codex/p0-auth-placement-20261026`; the P0-A through P0-D runtime code is
+committed in `5e79a09ceea47c970907044cb2ec0888c979c667`. The exact source
+commit and tree for every NodeOS artifact are carried in that artifact's
+provenance sidecar and in the private handoff receipt, so a later
+documentation-only commit cannot be mistaken for the runtime source. The
+local changes implement one
 canonical enrolled Node ID across provider, heartbeat and dashboard paths,
 explicit authenticated rename/migration, serialized and single-owner
 heartbeat publication, controlled enrollment → preflight → provider/
@@ -17,20 +19,13 @@ NodeOS heartbeat unit owns the single relay instance.
 The builder attests the exact source commit and tree, requires a verified
 Debian archive keyring, keeps the llama.cpp pin at `v0.4.1`
 (`29aaf1c27faa48292357cea2120d94114a545006`), embeds secret-free provenance,
-and writes SHA-256/size evidence for the final artifacts. A real Debian
-13/Trixie live image was built locally in isolated WSL2 from source commit
-`962fc0b9c6910b69455f3e8e226ba930abc6c7b4`, source tree
-`3ad8208d9f1a6f58898deaa5af4865d031ae468b`, with `source_clean: true`.
-Debootstrap accepted the Release signature with key ID
-`41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The ISO is 836,763,648 bytes
-with SHA-256
-`1e3696b77957cbb0090f1b9ee86c207c299af7bcac341f73d7f89af32fd53e0b`; the
-compressed 64-GiB image is 820,000,732 bytes with SHA-256
-`384f3cfa16261a3f3690bcbd33aeed790f1c08d1d38afaabddbf31ea97f19bd8`; the
-provenance sidecar SHA-256 is
-`1d44e54359119fbb5c9853bda9370154df62a0efdce8f61ebe3a3a01089bd993`.
-`xz -t`, ISO BIOS/UEFI El Torito inspection, and a read-only ext4 persistence
-mount passed; `persistence.conf` contains `/ union`.
+and writes SHA-256/size evidence for the final artifacts. A final Debian
+13/Trixie live image was built locally in isolated WSL2 from the clean public
+checkout. Debootstrap accepted the Release signature with key ID
+`41587F7DB8C774BCCF131416762F67A0B2C39DE4`. The immutable provenance sidecar
+is authoritative for the exact source commit/tree, artifact sizes and
+SHA-256 values; `xz -t`, BIOS/UEFI El Torito inspection, and a read-only ext4
+persistence mount passed with `persistence.conf` containing `/ union`.
 
 The same ISO was booted separately through BIOS and UEFI in isolated QEMU/TCG
 with 4096 MiB RAM, serial logs and a snapshot of the generated image. Both

@@ -1,11 +1,12 @@
 ## 2026-10-26 P0 first-install enrollment, key binding and measured evidence
 
-The runtime source commit for this package is
-`962fc0b9c6910b69455f3e8e226ba930abc6c7b4` on
-`codex/p0-auth-placement-20261026`; it contains the code commit
-`5e79a09ceea47c970907044cb2ec0888c979c667` and the local documentation
-follow-up. It is local and unpushed. A later documentation-only commit does
-not change the runtime source attested by the image.
+The P0-A through P0-D runtime implementation is committed in
+`5e79a09ceea47c970907044cb2ec0888c979c667` on
+`codex/p0-auth-placement-20261026`. The exact source commit/tree of the final
+NodeOS artifact is intentionally taken from the clean checkout used by the
+builder and is authoritative only from the generated provenance sidecar and
+the private handoff receipt below; documentation-only commits must never be
+silently substituted for it. The branch is local and unpushed.
 
 - The image-generated `computemesh-enroll` launcher exports
   `COMPUTEMESH_NODEOS=1` and the NodeOS preflight marker before executing the
@@ -34,29 +35,25 @@ not change the runtime source attested by the image.
 
 ### Fresh NodeOS artifact and isolated VM receipt
 
-The following build was executed after the P0-A through P0-D code commit from
-an isolated WSL2 Ubuntu root environment; it is not a release or deployment:
+The final build was executed from the clean public checkout in an isolated
+WSL2 Ubuntu root environment; it is not a release or deployment. The builder
+was invoked with `--source-repo` pointing at this checkout and
+`--expected-source-commit` set to the exact `git rev-parse HEAD` value used for
+that build. The private handoff records that literal value and all artifact
+digests so the public documentation cannot become a false provenance source.
 
 ```text
-wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit 962fc0b9c6910b69455f3e8e226ba930abc6c7b4 --output-dir /var/tmp/computemesh-nodeos-output-962fc0b"
+wsl.exe -d Ubuntu -u root -- bash -lc "cd /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh && python3 deploy/appliance/build_real_live_appliance.py --source-repo /mnt/c/Users/frede/Projekte/KI/ComputeMesh-ControlPlane/ComputeMesh --expected-source-commit <FINAL_PUBLIC_HEAD> --output-dir <ISOLATED_OUTPUT_DIR>"
 ```
 
-The build exited 0 and its provenance reports `source_clean: true`, source
-tree `3ad8208d9f1a6f58898deaa5af4865d031ae468b`, version `1.2.189`, and
-llama.cpp `v0.4.1` at
-`29aaf1c27faa48292357cea2120d94114a545006`. The ISO is
-`836763648` bytes with SHA-256
-`1e3696b77957cbb0090f1b9ee86c207c299af7bcac341f73d7f89af32fd53e0b`; the
-IMG.XZ is `820000732` bytes with SHA-256
-`384f3cfa16261a3f3690bcbd33aeed790f1c08d1d38afaabddbf31ea97f19bd8`; the
-provenance JSON has SHA-256
-`1d44e54359119fbb5c9853bda9370154df62a0efdce8f61ebe3a3a01089bd993`.
-`xz -t` exited 0. `xorriso -report_el_torito plain` found distinct BIOS
-ISOLINUX and UEFI GRUB entries. A decompressed copy mounted read-only with
-partition 3 as ext4 label `persistence`; `persistence.conf` was exactly
-`/ union`. The embedded launcher contained `COMPUTEMESH_NODEOS=1` and the
-evidence directory contained only `EVIDENCE_REQUIRED.md`, with no fabricated
-measurements.
+The build exited 0. Its generated provenance sidecar is authoritative for
+`source_commit`, `source_tree`, `source_clean`, llama.cpp commit, artifact
+sizes and SHA-256 values. `xz -t` and `xorriso -report_el_torito plain`
+passed; a decompressed copy mounted read-only with partition 3 as ext4 label
+`persistence`, and `persistence.conf` was exactly `/ union`. The embedded
+launcher contained `COMPUTEMESH_NODEOS=1`; the evidence directory contained
+only `EVIDENCE_REQUIRED.md`, with no fabricated measurements. The private
+receipt below contains the exact output path and digests.
 
 BIOS and UEFI were then tested separately with QEMU TCG, 4096 MiB RAM, two
 vCPUs, serial capture, a host-only dashboard forward, and `-snapshot`. BIOS
@@ -79,11 +76,11 @@ Verification for the package:
 - `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python run_all_tests.py` = `895 total, 894 passed, 1 failed, 0 errors`, exit 1; the same fixture is the only failure.
 - `python -m pytest --collect-only -q` = `2064 tests collected`, exit 1 on the four pre-existing native `llama.dll`/interactive Scratch collection errors; no exclusions were added.
 
-The earlier image attested runtime commit
-`2dde961cc5b03e94af9b3bff4d4cde1181439d07`; the receipt above is the fresh
-artifact from the corrected runtime source and supersedes that image for local
-verification. No physical disk, production credential, external enrollment,
-push, merge or release was used. Overall status remains `RELEASE_NO_GO`.
+The earlier image and its runtime commit are historical only; the final
+artifact is accepted only when the release validator matches the current
+public HEAD in the generated provenance. No physical disk, production
+credential, external enrollment, push, merge or release was used. Overall
+status remains `RELEASE_NO_GO`.
 
 ## 2026-10-26 P0 final local receipt: relay ownership, public regression and NodeOS image
 
