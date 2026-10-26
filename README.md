@@ -4,7 +4,7 @@
 
 This checkout is a local development candidate, not a published release. It
 is on `codex/p0-auth-placement-20261026`; the current public code commit is
-`2dde961cc5b03e94af9b3bff4d4cde1181439d07`. The local changes implement one
+`5e79a09ceea47c970907044cb2ec0888c979c667`. The local changes implement one
 canonical enrolled Node ID across provider, heartbeat and dashboard paths,
 explicit authenticated rename/migration, serialized and single-owner
 heartbeat publication, controlled enrollment → preflight → provider/
@@ -40,6 +40,26 @@ same single fixture failure. Physical NodeOS/GPU boot, real inference tokens,
 Windows Ollama enrollment/reconnect, multi-host networking and the native
 Windows NTFS TOCTOU gate remain open. No push, merge, release, deployment or
 production credential was used; the overall status remains `RELEASE_NO_GO`.
+
+## P0 first-install enrollment and evidence contract (2026-10-26)
+
+The generated `computemesh-enroll` launcher sets `COMPUTEMESH_NODEOS=1`
+itself, so invoking it with `sudo` does not silently skip provider ownership,
+preflight, or controlled service activation. Enrollment now uses the
+side-effect-free `tools/security/node_auth_token_storage.py` after the gateway
+response and preserves retryability when durable token storage fails. The
+heartbeat relay reads the exact `COMPUTEMESH_NODE_PRIVATE_KEY` persisted in
+`provider.env`; missing, unreadable, relative, or switched keys fail closed.
+
+Enrollment and boot preflight validate the node-profile and both actual
+`llama_cpp_prefill`/`llama_cpp_decode` documents against the session schemas,
+positive measured values, one profile revision, one model, and one exact
+llama.cpp build. The builder installs an `EVIDENCE_REQUIRED.md` operator
+diagnostic and never fabricates profile or performance numbers. BIOS and UEFI
+boot entries now expose `ttyS0` with `console=ttyS0,115200n8` for isolated VM
+diagnostics. These changes are code/local-test evidence only; the fresh image
+build and guest boot remain separate acceptance steps, and overall status is
+still `RELEASE_NO_GO`.
 
 ## P0 abschließende Integrationshärtung (2026-10-26, lokaler Entwicklungsbranch)
 

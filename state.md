@@ -1,3 +1,51 @@
+## 2026-10-26 P0 first-install enrollment, key binding and measured evidence
+
+The public code commit for this package is
+`5e79a09ceea47c970907044cb2ec0888c979c667`
+(`fix(nodeos): complete first-install enrollment contracts`) on
+`codex/p0-auth-placement-20261026`. It is local and unpushed.
+
+- The image-generated `computemesh-enroll` launcher exports
+  `COMPUTEMESH_NODEOS=1` and the NodeOS preflight marker before executing the
+  Python module. Manual `sudo` invocation therefore follows the same
+  ownership, preflight and service activation branch as the systemd flow.
+- Enrollment imports only the new side-effect-free
+  `tools/security/node_auth_token_storage.py`; the dashboard relay is not
+  imported and no token is minted during enrollment-module import. The
+  gateway-issued token is atomically persisted, an identical retry is
+  idempotent, and a different existing token is rejected. The one-time bundle
+  is removed only after NodeOS activation succeeds, so an activation failure
+  remains retryable.
+- Enrollment validates measured profile, prefill and decode JSON before the
+  gateway request. The shared preflight validation requires the documented
+  session schemas, an enrolled node ID, positive profile revision and measured
+  throughput/counts, matching model, and matching exact llama.cpp build
+  identity. Empty or fabricated `{}` documents fail closed with a diagnostic.
+  The image contains `evidence/EVIDENCE_REQUIRED.md` instead of fabricated
+  evidence.
+- NodeOS relay construction resolves the private key from the persisted
+  provider environment and loads it with `allow_generate=False`. Provider and
+  relay therefore use the same public key; missing, unreadable, relative or
+  environment-switched key paths fail closed without rotation.
+- BIOS and UEFI boot entries include `console=ttyS0,115200n8` and a GRUB
+  serial terminal for deterministic isolated VM diagnostics.
+
+Verification for the package:
+
+- RED: the new launcher, evidence, import-isolation, retry and key-binding
+  tests failed on the pre-change checkout; the combined initial RED run ended
+  with 7 failures.
+- GREEN: `COMPUTEMESH_AUTOSTART_MESH_POLLER=0 python -m pytest deploy/appliance/tests/test_real_live_appliance_contract.py deploy/appliance/tests/test_nodeos_runtime_tools.py tools/appliance/tests/test_node_identity_contract.py tools/security/tests/test_node_key_storage.py tests/test_p0_node_reboot_reconnect.py -q` = `60 passed, 3 skipped`, exit 0.
+- `python -m compileall -q deploy/appliance/build_real_live_appliance.py tools/appliance/enroll.py tools/appliance/boot_preflight.py tools/appliance/node_identity.py services/appliance_dashboard/tunnel_relay.py tools/security/node_auth_token_storage.py` = exit 0.
+- `git diff --check` = exit 0 before commit.
+
+The previously built image still attests source commit
+`2dde961cc5b03e94af9b3bff4d4cde1181439d07`; a fresh clean image from
+`5e79a09ceea47c970907044cb2ec0888c979c667` is required before any new image
+or VM status is reported. No physical disk, production credential, external
+enrollment, push, merge or release was used. Overall status remains
+`RELEASE_NO_GO`.
+
 ## 2026-10-26 P0 final local receipt: relay ownership, public regression and NodeOS image
 
 The public checkout remains on branch `codex/p0-auth-placement-20261026` and
