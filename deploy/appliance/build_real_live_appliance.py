@@ -464,7 +464,7 @@ deb http://security.debian.org/debian-security trixie-security main contrib non-
         # to the pinned upstream CMake defaults, rather than failing on boot.
         chroot_exec("ldd /usr/local/bin/llama-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
         if rpc_enabled:
-    chroot_exec("ldd /usr/local/bin/llama-server /usr/local/bin/ggml-rpc-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
+            chroot_exec("ldd /usr/local/bin/llama-server /usr/local/bin/ggml-rpc-server | grep -F 'not found' && exit 1 || test \"${PIPESTATUS[0]}\" = 0")
         (CHROOT_DIR / "usr" / "share" / "computemesh").mkdir(parents=True, exist_ok=True)
         (CHROOT_DIR / "usr" / "share" / "computemesh" / "llama-cpp-build.txt").write_text(
             f"version={LLAMA_CPP_VERSION}\ncommit={LLAMA_CPP_COMMIT}\nbackend=vulkan\nrpc_binary_installed={int(rpc_enabled)}\n",
