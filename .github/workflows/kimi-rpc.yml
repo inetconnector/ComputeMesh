@@ -1,0 +1,35 @@
+name: Kimi RPC opt-in checks
+
+on:
+  push:
+    paths:
+      - "runtime/llama/**"
+      - "deploy/appliance/**"
+      - "deploy/systemd/computemesh-rpc-worker.service"
+      - ".github/workflows/kimi-rpc.yml"
+  pull_request:
+    paths:
+      - "runtime/llama/**"
+      - "deploy/appliance/**"
+      - "deploy/systemd/computemesh-rpc-worker.service"
+      - ".github/workflows/kimi-rpc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  opt-in-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m compileall -q runtime/llama/kimi_linear_dual_host.py deploy/appliance/build_real_live_appliance.py
+      - run: python -m unittest runtime.llama.tests.test_kimi_linear_dual_host -v
+      - run: python -m unittest runtime.llama.tests.test_rpc_spike -v
+      - run: python -m unittest deploy.appliance.tests.test_real_live_appliance_contract -v
