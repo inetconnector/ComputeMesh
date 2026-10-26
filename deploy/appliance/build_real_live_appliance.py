@@ -771,7 +771,7 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
         "part_gpt part_msdos fat iso9660 ext2 squash4 "
         "search search_fs_file search_label search_fs_uuid "
         "configfile test echo normal linux boot loadenv "
-        "gzio xzio zstd all_video font gfxterm video efi_gop efi_uga "
+        "gzio xzio zstd all_video font gfxterm video efi_gop "
         "sleep reboot halt gettext bufio"
     )
     run([

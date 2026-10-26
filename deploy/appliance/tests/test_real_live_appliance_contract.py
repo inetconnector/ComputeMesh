@@ -44,6 +44,11 @@ class TestRealLiveApplianceContract(unittest.TestCase):
     def test_vulkan_builder_declares_spirv_headers(self) -> None:
         self.assertIn("spirv-headers", self._source())
 
+    def test_uefi_builder_uses_available_gop_module(self) -> None:
+        source = self._source()
+        self.assertIn("efi_gop", source)
+        self.assertNotIn("efi_uga", source)
+
     def test_builder_has_no_server_specific_source_checkout_fallbacks(self) -> None:
         source = self._source()
         self.assertNotIn("/root/ComputeMesh", source)
