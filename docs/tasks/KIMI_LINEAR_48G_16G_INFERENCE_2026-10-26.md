@@ -1,3 +1,5 @@
+> **STATUSAKTUALISIERUNG 2026-10-28:** Der opt-in Kimi/RPC-Quellcode ist nach Public PR #138 im `main`-Commit `f1ba057a6f0d9c49ae052f0d0e1086c3181ad734` enthalten; der unten genannte Entwicklungsbranch ist historische Herkunft. **Keine** reale gemeinsame CUDA-Laptop-/Vulkan-Miner-Kimi-Inferenz nachgewiesen; `HARDWARE_NOT_RUN`, `RELEASE_NO_GO`. Die konkreten Testschritte bleiben gültiger experimenteller Arbeitsauftrag.
+
 # Kimi-Linear 48B-A3B — erster echter 48+16-GiB-Zwei-Rechner-Versuch
 
 **Status:** opt-in Entwicklungsintegration auf `codex/kimi-linear-dual-host-20261026`. Kein produktiver Freigabenachweis. Physische Polaris- und CUDA/RPC-Inferenz sind **NOT_RUN**. `RELEASE_NO_GO`.
