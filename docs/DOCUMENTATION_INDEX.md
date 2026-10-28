@@ -1,9 +1,11 @@
+> **Code-Architekturstand 2026-10-28:** [CODE_STRUCTURE.md](CODE_STRUCTURE.md) zeigt die Zuständigkeiten von API, Provider, Miner, Kimi, Android, Windows und Portal. Die 54 ungleichen Website-Kopien sowie die Android-WebUI-Abweichung sind **noch nicht** bereinigt; ein maschinenlesbares SHA-Inventar und AR01–AR10 liegen im privaten ControlPlane-Repository. Diese Ergänzung ist kein vollständiger Re-Audit aller älteren Dokumente.
+
 # ComputeMesh documentation index
 
 **Audit date:** 2026-08-27  
 **Purpose:** authoritative map of the public documentation surface after the full documentation audit.
 
-`docs/CURRENT_STATUS.md` (and `docs/CURRENT_STATUS.de.md`) is the current public-safe status source. Historical plans/ADRs are not silently rewritten into present-tense implementation claims; component READMEs describe the nearest actual implementation. Private production-policy state belongs in the private `ComputeMesh-ControlPlane/STATE.md` and must not be copied here.
+`docs/CURRENT_STATUS.md` (and `docs/CURRENT_STATUS.de.md`) is the current public-safe status source. Historical plans/ADRs are not silently rewritten into present-tense implementation claims; component READMEs describe the nearest actual implementation. Private production-policy state belongs in the private `ComputeMesh-ControlPlane/state.md` and must not be copied here.
 
 ## Authority levels
 
