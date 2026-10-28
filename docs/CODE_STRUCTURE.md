@@ -1,6 +1,6 @@
 # ComputeMesh code map — public runtime and clients
 
-**Source:** public `main`, inspected 2026-10-28. **Status:** architecture/navigation guidance, not production-release approval. For current product readiness consult [CURRENT_STATUS.md](CURRENT_STATUS.md). For code ownership and release gates use the private master plan where authorized.
+**Source:** public `main`, inspected 2026-10-28. **Status:** architecture/navigation guidance, not production-release approval. **CI/Builds:** ausschließlich über autorisierte Local Bridge; GitHub Actions wurden aus `main` entfernt und unter `docs/archive/retired-github-actions-2026-10-28/` archiviert. For current product readiness consult [CURRENT_STATUS.md](CURRENT_STATUS.md). For code ownership and release gates use the private master plan where authorized.
 
 ## Where developers start
 
@@ -19,7 +19,7 @@
 | Windows provider/runtime setup | `setup/`, `deploy/windows/` | installer, NTFS, token/identity, update/rollback tests |
 | Dedicated desktop end-user experience | `apps/desktop/` | **planned**; do not conflate with existing provider installer |
 | Model inventory and package manifests | `models/`, `protocol/schemas/` | model hash and schema checks |
-| CI / build / deployment | `.github/workflows/`, `deploy/` | protected, signed version and test/approval receipts |
+| Build / Test / Deployment | autorisierte Local Bridge Tasks und `deploy/` | getrennte saubere Testkopien, gebundene Runner-Receipts, freigegebener signierter Release-Tag |
 | Unit/integration/e2e evidence | `tests/`, component tests | exact commands, source SHA, reproducible receipt |
 
 ## Runtime boundaries
@@ -50,4 +50,4 @@ The private `ComputeMesh-ControlPlane/portal_inetconnector` currently mirrors 16
 - Consolidate obsolete launchers and imports one module at a time under CI.
 - Complete hardware, Windows native security, Android device, signature and Kimi two-host evidence **before** `RELEASE_GO`.
 
-Current project status remains **`RELEASE_NO_GO`**. Historical plans may document past successes; do not infer present production behavior without current source/build/device receipts.
+No GitHub-hosted workflow or Android Release action is to be reintroduced. Missing Android/Windows/NodeOS Local Bridge build tasks must be approved and explicitly registered. Current project status remains **`RELEASE_NO_GO`**. Historical plans may document past successes; do not infer present production behavior without current source/build/device receipts.
