@@ -1,3 +1,5 @@
+> **STATUSHINWEIS 2026-10-28:** Dieses Dokument trägt einen älteren Stichtag und enthält spätere Branch-Notizen. Aktueller Stand der öffentlichen Quellintegration: `main` bei `f1ba057a6f0d9c49ae052f0d0e1086c3181ad734` (PR #138 inklusive Kimi/RPC opt-in integriert). Branch-lokale Aussagen unten sind historische Entwicklungshinweise und dürfen nicht als derzeit noch ungemergte Änderungen oder als reale Hardware-/Produktionsfreigabe gelesen werden. Physische Kimi- und Miner-Inferenz, Release-Signing, Fleet-Rotation und Windows-Security-Gate bleiben unbestätigt; **RELEASE_NO_GO**. Der private Gesamtprojekt-SSOT verbleibt in `ComputeMesh-ControlPlane/state.md`.
+
 # ComputeMesh current public status
 
 **Current as of:** 2026-09-03
