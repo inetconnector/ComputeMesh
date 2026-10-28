@@ -1,0 +1,30 @@
+# Public runtime and client ownership. Protected branch settings must separately require reviews.
+* @inetconnector
+
+# Wire compatibility and security contracts
+/protocol/ @inetconnector
+/services/identity/ @inetconnector
+/services/gateway/ @inetconnector
+/services/orchestrator/ @inetconnector
+/services/attestation/ @inetconnector
+/runtime/ @inetconnector
+
+# Install, releases and reproducible appliances
+/.github/workflows/ @inetconnector
+/deploy/ @inetconnector
+/setup/ @inetconnector
+/tools/appliance/ @inetconnector
+/tools/security/ @inetconnector
+
+# Clients and product website
+/portal/ @inetconnector
+/apps/android/ @inetconnector
+/apps/node/ @inetconnector
+/apps/desktop/ @inetconnector
+
+# Security documentation and current status
+/SECURITY.md @inetconnector
+/THREAT_MODEL.md @inetconnector
+/docs/CURRENT_STATUS.md @inetconnector
+/docs/CURRENT_STATUS.de.md @inetconnector
+/docs/CODE_STRUCTURE.md @inetconnector
