@@ -706,10 +706,14 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
             from services.gateway.server import owner_id_for_key
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
             from services.mcp.tool_registry import ToolRegistry
             from services.mcp.config import get_mcp_config
@@ -1432,10 +1436,14 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
             from services.gateway.server import owner_id_for_key
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled_tools = body.get("disabled_tools", [])
             if not isinstance(disabled_tools, list):
                 disabled_tools = []
