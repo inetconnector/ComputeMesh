@@ -74,7 +74,7 @@ def mobile_heartbeat(
             return {"error": "mobile node fleet mismatch"}, HTTPStatus.FORBIDDEN
         try:
             OWNER_ACCOUNT_STORE.ensure_owner(owner_id)
-            OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id)
+            OWNER_ACCOUNT_STORE.bind_provider_node(owner_id, node_id, clear_unbound=True)
         except OwnerAccountStoreError:
             return {"error": "mobile node owner binding denied"}, HTTPStatus.FORBIDDEN
 
