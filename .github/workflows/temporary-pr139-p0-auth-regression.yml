@@ -1,0 +1,34 @@
+name: Temporary PR139 P0 Auth And MCP Regression
+on:
+  push:
+    branches:
+      - release/portal-platform-sync-20261028
+
+permissions:
+  contents: read
+
+jobs:
+  p0-owner-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH: /tmp/pr139-auth-owner.db
+      COMPUTEMESH_ACCOUNTING_DB_PATH: /tmp/pr139-auth-accounting.db
+      COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: /tmp/pr139-auth-fleet.db
+      COMPUTEMESH_MODEL_STORAGE_DIR: /tmp/pr139-auth-models
+    steps:
+      - name: Checkout exact PR SHA with no saved credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify Git source identity
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install test dependencies
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt pytest
+      - name: Python compile all changed security modules
+        run: python3 -m py_compile services/mcp/builtin/python_sandbox.py services/gateway/server.py services/portal/server_core.py services/portal/tests/test_fleet_http.py services/mcp/tests/test_python_sandbox_disabled.py
+      - name: Check Python interpreter is disabled
+        run: python3 -m unittest services.mcp.tests.test_python_sandbox_disabled -v
+      - name: Check HTTP session, owner and QR security end-to-end
+        run: python3 -m pytest -q services/portal/tests/test_fleet_http.py services/portal/tests/test_mobile_device_enrollment.py
