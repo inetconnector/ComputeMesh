@@ -98,6 +98,11 @@ class TestFleetHttp(unittest.TestCase):
                 )
                 self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
                 self.assertIn("authentication", error["error"])
+                # An untrusted key must not silently create a privileged
+                # account as a side effect of HTTP authentication.
+                self.assertIsNone(
+                    self.fleet_store.get_account_by_owner_key(forged["X-Owner-Key"])
+                )
 
         account = self.fleet_store.create_account("mcp-settings-owner@example.invalid")
         session = self.fleet_store.create_session(account.account_id)
