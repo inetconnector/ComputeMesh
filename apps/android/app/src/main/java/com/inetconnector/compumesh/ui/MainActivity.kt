@@ -2,7 +2,6 @@ package com.inetconnector.compumesh.ui
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebView
 import android.widget.Toast
@@ -97,7 +96,17 @@ class MainActivity : ComponentActivity() {
                     onStartNode = { startNodeService() },
                     onStopNode = { stopNodeService() },
                     onSaveFleetConfig = { key, gateway ->
-                        if (key.startsWith("cmenroll_")) resolveEnrollmentToken(key, gateway) else saveFleetConfig(key, gateway)
+                        when {
+                            key.startsWith("cmenroll_") -> {
+                                resolveEnrollmentToken(key, EnrollmentLinkPolicy.TRUSTED_GATEWAY)
+                            }
+                            key.isBlank() || key == ownerKeyState.value -> saveFleetConfig(key, gateway)
+                            else -> Toast.makeText(
+                                this@MainActivity,
+                                "Flottenkopplung nur über den QR-Code aus dem ComputeMesh-Cockpit",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 )
                 if (pendingUpdate != null) {
@@ -179,28 +188,28 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handlePairingIntent(intent: Intent?) {
-        val uri: Uri? = intent?.data
-        if (uri != null) {
-            val ownerKey = uri.getQueryParameter("owner_key") ?: uri.getQueryParameter("key") ?: ""
-            val enrollmentToken = uri.getQueryParameter("enrollment_token") ?: ""
-            val gateway = uri.getQueryParameter("gateway") ?: "https://mesh.inetconnector.com"
-
-            if (enrollmentToken.isNotBlank()) {
-                resolveEnrollmentToken(enrollmentToken, gateway)
-            } else if (ownerKey.isNotBlank()) {
-                saveFleetConfig(ownerKey, gateway)
-                Toast.makeText(this, "✓ Erfolgreich mit ComputeMesh Flotte gekoppelt!", Toast.LENGTH_LONG).show()
-                startNodeService()
-            }
+        val payload = intent?.data?.toString() ?: return
+        val enrollmentToken = EnrollmentLinkPolicy.tokenFromQr(payload)
+        if (enrollmentToken == null) {
+            Toast.makeText(this, "Ungültiger ComputeMesh-Pairing-Link", Toast.LENGTH_LONG).show()
+            return
         }
+        resolveEnrollmentToken(enrollmentToken, EnrollmentLinkPolicy.TRUSTED_GATEWAY)
     }
 
     private fun resolveEnrollmentToken(token: String, gateway: String) {
+        // No QR token may be posted to a gateway controlled by the scanned data.
+        if (gateway != EnrollmentLinkPolicy.TRUSTED_GATEWAY ||
+            !Regex("cmenroll_[A-Za-z0-9_-]{20,64}").matches(token)) {
+            Toast.makeText(this, "Ungültiger Pairing-Code oder Gateway", Toast.LENGTH_LONG).show()
+            return
+        }
         lifecycleScope.launch {
             try {
                 val ownerKey = withContext(Dispatchers.IO) {
                     val endpoint = URL("${gateway.trimEnd('/')}/api/portal/fleet/enrollment/consume")
                     val connection = endpoint.openConnection() as HttpURLConnection
+                    connection.instanceFollowRedirects = false
                     connection.requestMethod = "POST"
                     connection.doOutput = true
                     connection.setRequestProperty("Content-Type", "application/json")
