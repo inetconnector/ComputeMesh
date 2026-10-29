@@ -1,0 +1,55 @@
+name: Temporary PR139 Full Source Security Tests
+on:
+  push:
+    branches:
+      - release/portal-platform-sync-20261028
+
+permissions:
+  contents: read
+
+jobs:
+  full-python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPUTEMESH_INFERENCE_BACKEND: synthetic
+      COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: "1"
+      COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG: "1"
+      COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH: /tmp/pr139-full-owner.db
+      COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: /tmp/pr139-full-fleet.db
+      COMPUTEMESH_ACCOUNTING_DB_PATH: /tmp/pr139-full-accounting.db
+      COMPUTEMESH_MODEL_STORAGE_DIR: /tmp/pr139-full-models
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install declared source dependencies
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt pytest
+      - name: Compile repository
+        run: python3 -m compileall -q apps deploy models protocol runtime sdk services setup tests tools
+      - name: Complete public Python regression
+        run: python3 run_all_tests.py
+      - name: Mobile and fleet HTTP coverage
+        run: python3 -m pytest -q services/portal/tests/test_mobile_device_enrollment.py services/portal/tests/test_fleet_http.py
+
+  signed-release-negative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install cryptographic test dependency
+        run: python3 -m pip install --disable-pip-version-check cryptography
+      - name: Execute real Ed25519 synthetic fixture negative checks
+        run: python3 -m unittest tools.release.tests.test_signed_portal_bundle -v
+      - name: No release approval or artifact publishing
+        run: echo 'Test-only ephemeral signing key, no production release signing or deploy'
