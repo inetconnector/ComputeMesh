@@ -76,7 +76,6 @@ fun parseQrPayload(raw: String, fallbackGateway: String = EnrollmentLinkPolicy.T
 
 @Composable
 fun QrCameraScannerDialog(
-    currentGateway: String,
     onCodeScanned: (QrPairResult) -> Unit,
     onDismiss: () -> Unit
 ) {
