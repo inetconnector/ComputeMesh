@@ -375,7 +375,9 @@ def _build_fleet_payload(
             "display_name": display_name,
             "status": status,
             "is_online": is_online,
-            "available_for_routing": is_online and not c["alias_collision"],
+            # Mobile heartbeat proves device presence, not that a tested
+            # inference runtime is ready for paid fleet scheduling.
+            "available_for_routing": is_online and not c["alias_collision"] and not n.get("mobile_device", False),
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [(g.get("model_name") if isinstance(g, dict) else str(g)) for g in gpus] if gpus else [],
@@ -392,7 +394,7 @@ def _build_fleet_payload(
             "software_version": node_version,
             "commit_sha": commit_sha,
             "protocol_version": protocol_version,
-            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if c["auth_token"] else "unauthenticated"),
+            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if (c["auth_token"] or n.get("mobile_device", False)) else "unauthenticated"),
             "is_enrolled": True,
             "capabilities": {
                 "gpus": gpus,
