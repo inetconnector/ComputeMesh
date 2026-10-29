@@ -2456,6 +2456,23 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             account = session_account_from_headers(self.headers)
             owner_key = str(body.get("owner_key", "")).strip()
+            mobile_owner_account = FLEET_ACCOUNT_STORE.active_mobile_device_account(node_id)
+            if mobile_owner_account is not None:
+                # The telemetry registry is ephemeral; device credentials and
+                # ownership are durable. Revoke the device even if the gateway
+                # restarted and its in-memory node card disappeared.
+                if account is None and owner_key:
+                    account = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+                if account is None or account.account_id != mobile_owner_account:
+                    self._send_error_response("Not authorized for mobile device", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, mobile_owner_account, node_id,
+                )
+                self._send_json(data, status)
+                return
+
             if account is not None:
                 owner_id = owner_id_for_key(account.owner_key)
             elif owner_key:
