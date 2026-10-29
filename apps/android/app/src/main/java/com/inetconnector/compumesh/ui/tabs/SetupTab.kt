@@ -203,7 +203,6 @@ fun SetupTab(
 
     if (showQrCameraScanner) {
         QrCameraScannerDialog(
-            currentGateway = gatewayUrlInput,
             onCodeScanned = { result ->
                 showQrCameraScanner = false
                 gatewayUrlInput = result.gatewayUrl
