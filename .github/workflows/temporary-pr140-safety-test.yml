@@ -46,7 +46,7 @@ jobs:
       - name: Verify checkout
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Install declared test dependencies
-        run: python3 -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt
+        run: python3 -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt pytest
       - name: Compile repository Python source
         run: python3 -m compileall -q apps deploy models protocol runtime sdk services setup tests tools
       - name: Full ComputeMesh Python regression (fail closed)
