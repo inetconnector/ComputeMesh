@@ -721,4 +721,4 @@ and Adaptive Video Stream Compression.
 - Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 7) implemented with 100% test verification (Stateful Idempotency and Capacity Lease Management).
 - Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 12) implemented with 100% test verification.
 - Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 13) implemented with 100% test verification.
-- Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 14) implemented with 100% test verification.
+- Vertiefte Architekturoptimierungen, Fehlertoleranz und Invarianten-Härtung (Teil 14): Entwurf mit fail-closed Regressionstests; vollständige CI, produktive Verdrahtung und unabhängige Freigabe noch nicht verifiziert.
