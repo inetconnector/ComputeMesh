@@ -10,6 +10,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 
 from services.portal.server import PortalHandler
 from services.portal import passkey_routes
@@ -308,6 +309,51 @@ class TestFleetHttp(unittest.TestCase):
             headers=headers,
         )
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+
+    def test_mobile_device_survives_authorized_owner_key_rotation(self) -> None:
+        account = self.fleet_store.create_account("mobile-rotate@example.invalid")
+        session = self.fleet_store.create_session(account.account_id)
+        cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={session}"
+        node = "android-rotation-test-1"
+        qr = self.fleet_store.create_enrollment_token(
+            account.account_id, scope="mobile_device",
+        )
+        status, enrolled, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment/consume",
+            {"enrollment_token": qr, "node_id": node},
+        )
+        self.assertEqual(status, HTTPStatus.CREATED)
+        auth = {"Authorization": "Bearer " + enrolled["device_token"]}
+        now = int(time.time())
+        heartbeat = {"node_id": node, "timestamp": now}
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "mobile-rotation-nonce-0001"},
+            headers=auth,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+
+        with patch.object(passkey_routes, "send_security_alert", return_value=None):
+            status, rotated, _ = self._post(
+                "/api/auth/owner_key/rotate", {}, cookie=cookie,
+            )
+        self.assertEqual(status, HTTPStatus.OK)
+        new_owner_key = rotated["owner_key"]
+        self.assertNotEqual(account.owner_key, new_owner_key)
+        expected_owner_id = gateway_server_module.owner_id_for_key(new_owner_key)
+        self.assertEqual(
+            self.owner_store.owner_for_provider_node(node), expected_owner_id,
+        )
+        self.assertEqual(NODE_TELEMETRY_REGISTRY[node]["owner_id"], expected_owner_id)
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "mobile-rotation-nonce-0002"},
+            headers=auth,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node), account.account_id,
+        )
 
     def test_mobile_qr_cannot_take_over_existing_legacy_node(self) -> None:
         account = self.fleet_store.create_account("mobile-conflict@example.invalid")
