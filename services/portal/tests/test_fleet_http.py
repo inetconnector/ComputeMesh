@@ -271,8 +271,10 @@ class TestFleetHttp(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.FORBIDDEN)
 
+        # Removing the phone through the normal Fleet UI route must revoke
+        # the stored credential, not merely delete visible telemetry.
         status, revoked, _ = self._post(
-            "/api/portal/fleet/mobile/revoke", {"node_id": node}, cookie=cookie,
+            "/api/portal/fleet/unbind_node", {"node_id": node}, cookie=cookie,
         )
         self.assertEqual(status, HTTPStatus.OK)
         self.assertEqual(revoked["status"], "revoked")
