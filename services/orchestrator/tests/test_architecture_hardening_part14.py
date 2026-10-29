@@ -144,5 +144,28 @@ class TestArchitectureHardeningPart14(unittest.TestCase):
             ).fetchone(), (300,)
         )
 
+    def test_reloaded_enforcer_does_not_overwrite_billing_receipt(self) -> None:
+        original = BillingNeutralityEnforcer(self.db)
+        original.record_execution_billing(
+            "job-restarted", "exec-original", False, False, 120
+        )
+        restarted = BillingNeutralityEnforcer(self.db)
+        restarted.record_execution_billing(
+            "job-restarted", "exec-original", False, False, 120
+        )
+        with self.assertRaisesRegex(BillingNeutralityError, "immutable"):
+            restarted.record_execution_billing(
+                "job-restarted", "exec-original", False, False, 240
+            )
+        self.assertEqual(
+            self.db.execute(
+                "SELECT amount_billed FROM job_billing "
+                "WHERE job_id = ? AND execution_id = ?",
+                ("job-restarted", "exec-original"),
+            ).fetchone(),
+            (120,),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
