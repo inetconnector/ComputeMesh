@@ -1064,6 +1064,9 @@ class PortalHandler(BaseHTTPRequestHandler):
                 return
 
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node and existing_node.get("mobile_device"):
+                self._send_json({"error": "mobile nodes require device-scoped heartbeat"}, HTTPStatus.FORBIDDEN)
+                return
             if existing_node:
                 expected_token = str(existing_node.get("auth_token", "")).strip()
                 updated_at_str = str(existing_node.get("updated_at", "")).strip()
@@ -1317,6 +1320,39 @@ class PortalHandler(BaseHTTPRequestHandler):
         if clean_path == "/api/auth/passkeys/rename":
             data, status, cookie = self.passkey_handler.rename_passkey(self.headers, body)
             self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(
+                self.headers, scope="mobile_device",
+            )
+            self._send_json(data, status, set_cookie=cookie, credentialed=True)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment/consume":
+            from services.portal.mobile_device_auth import enroll_mobile_device
+            data, status = enroll_mobile_device(FLEET_ACCOUNT_STORE, body)
+            self._send_json(data, status, credentialed=True)
+            return
+
+        if clean_path == "/api/v1/mobile/heartbeat":
+            from services.portal.mobile_device_auth import mobile_heartbeat
+            data, status = mobile_heartbeat(
+                FLEET_ACCOUNT_STORE, body, self.headers.get("Authorization", ""),
+            )
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/revoke":
+            from services.portal.mobile_device_auth import revoke_mobile_device
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_json({"error": "fleet session required"}, HTTPStatus.UNAUTHORIZED, credentialed=True)
+                return
+            data, status = revoke_mobile_device(
+                FLEET_ACCOUNT_STORE, account.account_id, body.get("node_id", ""),
+            )
+            self._send_json(data, status, credentialed=True)
             return
 
         if clean_path == "/api/portal/fleet/enrollment_token":
