@@ -1055,6 +1055,11 @@ class PortalHandler(BaseHTTPRequestHandler):
 
         if clean_path == "/api/v1/node/heartbeat":
             node_id = str(body.get("node_id", "")).strip()
+            # Android identities must use the mobile-specific credential DB,
+            # even after a restart before their telemetry registry is loaded.
+            if node_id.startswith("android-"):
+                self._send_json({"error": "Android nodes require the scoped mobile heartbeat"}, HTTPStatus.FORBIDDEN)
+                return
             auth_token = str(body.get("auth_token", "")).strip()
             if not node_id or not NODE_ID_REGEX.match(node_id):
                 self._send_json({"error": "Valid node_id is required"}, HTTPStatus.BAD_REQUEST)
