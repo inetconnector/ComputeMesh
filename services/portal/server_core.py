@@ -690,7 +690,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -1420,7 +1425,12 @@ class PortalHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
