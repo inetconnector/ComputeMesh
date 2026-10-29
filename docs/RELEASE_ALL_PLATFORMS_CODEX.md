@@ -52,7 +52,8 @@ Create reproducible release builds and a provenance report with SHA256 and exact
 - Linux `computemesh-linux-x86_64.tar.gz`, `install.sh`.
 - NodeOS `computemesh-nodeos-x86_64.iso`, `computemesh-nodeos-x86_64.img.xz`, `computemesh-nodeos-runtime-x86_64.tar.gz`, verified boot/provenance.
 - Make the website show the actual installed/applicable versions and give only working download links; do not advertise a non-existing APK or unsupported image.
-- Sign `portal/updates/version.json` using the **existing trusted release key** in protected coordinator, no new keys and no faked hash/signature. Signature is a gate; no partial release manifests.
+- Sign `portal/updates/version.json` using the **existing trusted release key** in protected coordinator, no new keys and no faked hash/signature. Signature is a gate; no partial release manifests. The signed `platforms` map must cover **all** mandatory Windows, Linux, NodeOS (including runtime), Android APK, Android AAB, and Android JSON metadata artifacts. Verify the actual bytes, exact size, SHA-256, and canonical download URL before signing; the Android JSON metadata must agree with the independently signed APK/AAB entries.
+- `tools/release/verify_portal_bundle.py` validates trusted Ed25519 manifest signature, hashes, file sizes and Android metadata consistency only. Its `verified=true` receipt explicitly has `production_release_approved=false`; it does **not** verify production APK signing certificate, device/NodeOS boot, QR pairing, physical Kimi inference or actual Plesk deployment. Independently validate APK certificate using a pinned, trusted `apksigner` execution and operator-attested evidence. No certificate proof means no release even when this Python script passes.
 
 ## 5. Create and publish ONE immutable tag
 
