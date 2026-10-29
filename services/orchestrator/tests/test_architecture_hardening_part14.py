@@ -47,6 +47,15 @@ class TestArchitectureHardeningPart14(unittest.TestCase):
         enforcer.enforce_settlement_prerequisites(job_id)
 
 
+    def test_missing_job_cannot_create_reconciliation_record(self) -> None:
+        enforcer = AmbiguousCompletionEnforcer(self.db)
+        with self.assertRaisesRegex(AmbiguousCompletionError, "no recorded completion"):
+            enforcer.reconcile_completion("never-completed")
+        self.assertEqual(
+            self.db.execute("SELECT COUNT(*) FROM completion_status").fetchone()[0],
+            0,
+        )
+
     def test_re_marking_resets_reconciliation(self) -> None:
         enforcer = AmbiguousCompletionEnforcer(self.db)
         job_id = "job_remark_1"
