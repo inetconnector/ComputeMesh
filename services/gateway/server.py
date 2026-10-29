@@ -1962,6 +1962,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
+        if clean_path == "/api/portal/fleet/mobile/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(
+                self.headers, scope="mobile_device",
+            )
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment/consume":
+            from services.portal.mobile_device_auth import enroll_mobile_device
+            data, status = enroll_mobile_device(FLEET_ACCOUNT_STORE, body)
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/v1/mobile/heartbeat":
+            from services.portal.mobile_device_auth import mobile_heartbeat
+            data, status = mobile_heartbeat(
+                FLEET_ACCOUNT_STORE, body, self.headers.get("Authorization", ""),
+            )
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/revoke":
+            from services.portal.mobile_device_auth import revoke_mobile_device
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_error_response("Fleet session required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            data, status = revoke_mobile_device(
+                FLEET_ACCOUNT_STORE, account.account_id, body.get("node_id", ""),
+            )
+            self._send_json(data, status)
+            return
+
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
@@ -2057,6 +2090,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             incoming_ts = body.get("timestamp")
 
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node and existing_node.get("mobile_device"):
+                self._send_error_response(
+                    "Mobile nodes require the authenticated mobile heartbeat route",
+                    "forbidden", HTTPStatus.FORBIDDEN,
+                )
+                return
             registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
             existing_owner_id = ""
             if existing_node:
