@@ -240,7 +240,7 @@ class MainActivity : ComponentActivity() {
                 MeshNodeService.gatewayUrl = EnrollmentLinkPolicy.TRUSTED_GATEWAY
                 ownerKeyState.value = "paired-device"
                 gatewayUrlState.value = EnrollmentLinkPolicy.TRUSTED_GATEWAY
-                Toast.makeText(this@MainActivity, getString(R.string.pairing_succeeded), Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "QR-Berechtigung gespeichert. Online-Status erst nach Gateway-Heartbeat bestätigt.", Toast.LENGTH_LONG).show()
                 startNodeService()
             } catch (error: Throwable) {
                 Toast.makeText(
