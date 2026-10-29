@@ -2058,6 +2058,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         if clean_path in ("/api/v1/node/heartbeat", "/api/node/heartbeat", "/v1/node/heartbeat"):
             node_id = str(body.get("node_id", "")).strip()
+            # Android identities must use the mobile-specific credential DB,
+            # even after a restart before their telemetry registry is loaded.
+            if node_id.startswith("android-"):
+                self._send_error_response("Android nodes require scoped mobile heartbeat", "forbidden", HTTPStatus.FORBIDDEN)
+                return
             auth_token = str(body.get("auth_token", "")).strip()
             if not node_id:
                 self._send_error_response("Valid node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
