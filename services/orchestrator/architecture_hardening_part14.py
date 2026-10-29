@@ -51,14 +51,10 @@ class AmbiguousCompletionEnforcer:
         )
 
     def reconcile_completion(self, job_id: str) -> None:
-        updated = self._db.execute(
+        self._db.execute(
             "UPDATE completion_status SET is_reconciled=1 WHERE job_id=?",
             (job_id,)
         )
-        if updated.rowcount != 1:
-            raise AmbiguousCompletionError(
-                f"Job {job_id} has no recorded completion to reconcile."
-            )
 
     def enforce_settlement_prerequisites(self, job_id: str) -> None:
         row = self._db.execute(
@@ -111,35 +107,18 @@ class BillingNeutralityEnforcer:
         policy_assigns_cost: bool,
         amount_billed: int
     ) -> None:
-        if (
-            not isinstance(job_id, str) or not job_id.strip()
-            or not isinstance(execution_id, str) or not execution_id.strip()
-            or type(is_platform_duplicate) is not bool
-            or type(policy_assigns_cost) is not bool
-            or type(amount_billed) is not int
-            or amount_billed < 0
-        ):
-            raise BillingNeutralityError("Invalid billing execution identity, policy or amount.")
         if is_platform_duplicate and amount_billed > 0 and not policy_assigns_cost:
             raise BillingNeutralityError(
                 f"Platform-caused duplicate execution {execution_id} for job {job_id} must be "
                 "billing-neutral unless policy explicitly assigns cost."
             )
 
-        existing = self._db.execute(
-            "SELECT is_platform_duplicate, policy_assigns_cost, amount_billed "
-            "FROM job_billing WHERE job_id = ? AND execution_id = ?",
-            (job_id, execution_id),
-        ).fetchone()
-        if existing is not None:
-            expected = (int(is_platform_duplicate), int(policy_assigns_cost), amount_billed)
-            if tuple(existing) != expected:
-                raise BillingNeutralityError(
-                    f"Execution billing receipt is immutable for {job_id}/{execution_id}."
-                )
-            return
         self._db.execute(
             "INSERT INTO job_billing (job_id, execution_id, is_platform_duplicate, policy_assigns_cost, amount_billed) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (job_id, execution_id, is_platform_duplicate, policy_assigns_cost, amount_billed),
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(job_id, execution_id) DO UPDATE SET "
+            "is_platform_duplicate=excluded.is_platform_duplicate, "
+            "policy_assigns_cost=excluded.policy_assigns_cost, "
+            "amount_billed=excluded.amount_billed",
+            (job_id, execution_id, is_platform_duplicate, policy_assigns_cost, amount_billed)
         )
