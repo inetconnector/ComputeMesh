@@ -271,6 +271,28 @@ class TestFleetHttp(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.FORBIDDEN)
 
+        # Model a gateway reboot / registry eviction. The device must
+        # remain revocable through the durable fleet-device DB alone.
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node),
+            account.account_id,
+        )
+        self.assertEqual(
+            self.owner_store.owner_for_provider_node(node),
+            gateway_server_module.owner_id_for_key(account.owner_key),
+        )
+        NODE_TELEMETRY_REGISTRY.clear()
+        outsider = self.fleet_store.create_account("mobile-outsider@example.invalid")
+        outsider_session = self.fleet_store.create_session(outsider.account_id)
+        status, _, _ = self._post(
+            "/api/portal/fleet/unbind_node", {"node_id": node},
+            cookie=f"{passkey_routes.SESSION_COOKIE_NAME}={outsider_session}",
+        )
+        self.assertEqual(status, HTTPStatus.FORBIDDEN)
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node), account.account_id
+        )
+
         # Removing the phone through the normal Fleet UI route must revoke
         # the stored credential, not merely delete visible telemetry.
         status, revoked, _ = self._post(
@@ -278,6 +300,8 @@ class TestFleetHttp(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.OK)
         self.assertEqual(revoked["status"], "revoked")
+        self.assertIsNone(self.fleet_store.active_mobile_device_account(node))
+        self.assertIsNone(self.owner_store.owner_for_provider_node(node))
         status, _, _ = self._post(
             "/api/v1/mobile/heartbeat",
             {**heartbeat, "nonce": "http-mobile-nonce-00003"},
