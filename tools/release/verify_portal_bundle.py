@@ -23,6 +23,11 @@ REQUIRED = {
     "nodeos-img": "computemesh-nodeos-x86_64.img.xz",
     "nodeos-runtime-x64": "computemesh-nodeos-runtime-x86_64.tar.gz",
     "installer-script": "install.sh",
+    # Android metadata is itself a signed artifact. Trusting its editable
+    # production_signed flag or APK hashes without this binding is unsafe.
+    "android-apk": "ComputeMesh-Android.apk",
+    "android-aab": "ComputeMesh-Android.aab",
+    "android-release-metadata": "ComputeMesh-Android.json",
 }
 ANDROID_FILES = ("ComputeMesh-Android.apk", "ComputeMesh-Android.aab", "ComputeMesh-Android.json")
 TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+(?:-rc\.\d+)?)$")
@@ -60,7 +65,7 @@ def valid_artifact(
     if target.is_symlink() or not target.is_file():
         raise ReleaseGateError(f"missing artifact: {filename}")
     actual_size = target.stat().st_size
-    if not isinstance(size, int) or size <= 0 or size != actual_size:
+    if type(size) is not int or size <= 0 or size != actual_size:
         raise ReleaseGateError(f"size mismatch: {filename}")
     if not isinstance(digest, str) or not HEX_RE.fullmatch(digest.lower()):
         raise ReleaseGateError(f"invalid SHA256: {filename}")
@@ -116,14 +121,20 @@ def verify_release(root: Path, tag: str, *, artifacts_dir: Path | None = None) -
     android_version = android.get("version_name", android.get("version"))
     if not isinstance(android_version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", android_version):
         raise ReleaseGateError("Android version is missing/invalid")
-    checked["android-apk"] = valid_artifact(
-        downloads, ANDROID_FILES[0],
-        android.get("apk_sha256"), android.get("apk_size"), android.get("url"),
-    )
-    checked["android-aab"] = valid_artifact(
-        downloads, ANDROID_FILES[1],
-        android.get("aab_sha256"), android.get("aab_size"), android.get("aab_url"),
-    )
+    # The signed top-level Ed25519 manifest is authoritative. The separate
+    # Android JSON is useful for clients but must agree byte-for-byte with
+    # the signed APK/AAB inventory; otherwise it could redirect a download.
+    for platform, hash_key, size_key, url_key in (
+        ("android-apk", "apk_sha256", "apk_size", "url"),
+        ("android-aab", "aab_sha256", "aab_size", "aab_url"),
+    ):
+        pinned = checked[platform]
+        if (android.get(hash_key) != pinned["sha256"]
+                or android.get(size_key) != pinned["size_bytes"]
+                or android.get(url_key) != pinned["url"]):
+            raise ReleaseGateError(
+                f"Android metadata does not match signed artifact: {platform}"
+            )
     # Two accepted routes to /downloads must display identical version/links.
     if (portal / "downloads.html").read_bytes() != (downloads / "index.html").read_bytes():
         raise ReleaseGateError("downloads.html and downloads/index.html have diverged")
