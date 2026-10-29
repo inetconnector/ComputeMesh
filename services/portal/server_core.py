@@ -1279,6 +1279,20 @@ class PortalHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Owner authorization is required for this node"}, HTTPStatus.FORBIDDEN)
                 return
 
+            # Removing a mobile node must revoke its durable device secret,
+            # not just remove its current registry row (which would re-enrol
+            # on the next authenticated heartbeat).
+            if node_data and node_data.get("mobile_device"):
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                if account is None:
+                    self._send_json({"error": "authenticated fleet account required"}, HTTPStatus.FORBIDDEN)
+                    return
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, account.account_id, node_id,
+                )
+                self._send_json(data, status)
+                return
+
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
             if unbound and node_id in NODE_TELEMETRY_REGISTRY:
                 NODE_TELEMETRY_REGISTRY.pop(node_id, None)
