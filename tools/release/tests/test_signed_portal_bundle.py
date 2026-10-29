@@ -116,6 +116,12 @@ class TestSignedPortalBundle(unittest.TestCase):
         self.assertTrue(receipt["verified"])
         self.assertEqual(set(receipt["artifacts"]), set(REQUIRED))
         self.assertEqual(receipt["tag"], self.TAG)
+        self.assertEqual(
+            receipt["verification_scope"], "signed_manifest_and_artifact_bytes_only"
+        )
+        self.assertFalse(receipt["android_signing_certificate_independently_verified"])
+        self.assertFalse(receipt["physical_device_e2e_verified"])
+        self.assertFalse(receipt["production_release_approved"])
 
     def test_modified_unsigned_android_metadata_is_rejected(self) -> None:
         self.metadata["apk_size"] += 1
