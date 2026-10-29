@@ -46,12 +46,30 @@ class TestArchitectureHardeningPart14(unittest.TestCase):
         # Settlement should pass
         enforcer.enforce_settlement_prerequisites(job_id)
 
-    def test_no_completion_settlement(self) -> None:
+    def test_no_completion_settlement_must_fail_closed(self) -> None:
         enforcer = AmbiguousCompletionEnforcer(self.db)
-        job_id = "job_unknown_1"
+        with self.assertRaisesRegex(AmbiguousCompletionError, "no verified completion"):
+            enforcer.enforce_settlement_prerequisites("job_unknown_1")
 
-        # Settlement should pass (or not raise) when no completion info is known
-        enforcer.enforce_settlement_prerequisites(job_id)
+    def test_reconciliation_without_completion_is_denied(self) -> None:
+        enforcer = AmbiguousCompletionEnforcer(self.db)
+        with self.assertRaisesRegex(AmbiguousCompletionError, "no recorded completion"):
+            enforcer.reconcile_completion("job_never_completed")
+
+    def test_repeated_completion_invalidates_old_reconciliation(self) -> None:
+        enforcer = AmbiguousCompletionEnforcer(self.db)
+        job = "job_repeated_attempt"
+        enforcer.mark_completion(job, is_ambiguous=True)
+        enforcer.reconcile_completion(job)
+        enforcer.enforce_settlement_prerequisites(job)
+
+        # Re-marking the same ID represents a new uncertain event, not
+        # automatic proof that the previous reconciliation applies.
+        enforcer.mark_completion(job, is_ambiguous=True)
+        with self.assertRaisesRegex(AmbiguousCompletionError, "must be reconciled"):
+            enforcer.enforce_settlement_prerequisites(job)
+        enforcer.reconcile_completion(job)
+        enforcer.enforce_settlement_prerequisites(job)
 
     def test_silent_corruption(self) -> None:
         enforcer = SilentCorruptionEnforcer()
