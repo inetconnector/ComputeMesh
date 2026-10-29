@@ -87,6 +87,47 @@ class TestFleetHttp(unittest.TestCase):
         except urllib.error.HTTPError as exc:
             return exc.code, exc
 
+    def test_mcp_settings_require_real_fleet_identity_not_arbitrary_owner_string(self) -> None:
+        forged = {"X-Owner-Key": "cm_owner_attacker_chosen_string"}
+        for route in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
+            with self.subTest(route=route):
+                status, _ = self._get(route, headers=forged)
+                self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+                status, error, _ = self._post(
+                    route, {"disabled_tools": ["get_git_status"]}, headers=forged
+                )
+                self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+                self.assertIn("authentication", error["error"])
+
+        account = self.fleet_store.create_account("mcp-settings-owner@example.invalid")
+        session = self.fleet_store.create_session(account.account_id)
+        cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={session}"
+
+        status, response = self._get("/api/portal/fleet/mcp_settings", cookie=cookie)
+        self.assertEqual(status, HTTPStatus.OK)
+        info = json.loads(response.read().decode("utf-8"))
+        owner_id = gateway_server_module.owner_id_for_key(account.owner_key)
+        self.assertEqual(info["owner_id"], owner_id)
+
+        status, updated, _ = self._post(
+            "/api/portal/fleet/mcp_settings",
+            {"disabled_tools": ["get_git_status"]},
+            cookie=cookie,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(updated["owner_id"], owner_id)
+        self.assertEqual(updated["disabled_tools"], ["get_git_status"])
+
+        status, response = self._get(
+            "/api/v1/mesh/fleet/mcp_settings",
+            headers={"X-Owner-Key": account.owner_key},
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.read().decode("utf-8"))["disabled_tools"],
+            ["get_git_status"],
+        )
+
     def test_fleet_page_served(self) -> None:
         status, resp = self._get("/fleet")
         self.assertEqual(status, 200)
