@@ -31,10 +31,14 @@ fun SetupTab(
 
     val cleanActiveGateway = currentGatewayUrl.trim().trimEnd('/')
     val isLanConnected = cleanActiveGateway.isNotBlank() && cleanActiveGateway != "https://mesh.inetconnector.com"
-    val isFleetBound = currentOwnerKey.isNotBlank()
+    // A saved QR credential is NOT evidence that the gateway has accepted
+    // a heartbeat. Do not mark the fleet connected on QR redemption alone.
+    val isQrSaved = currentOwnerKey == "paired-device"
+    val isFleetBound = currentOwnerKey.isNotBlank() && !isQrSaved
     val isCoupled = isFleetBound || isLanConnected
 
     val pairingBadgeText = when {
+        isQrSaved -> "QR-Berechtigung gespeichert"
         isFleetBound && isLanConnected -> "✓ Flotte & LAN gekoppelt"
         isLanConnected -> "✓ LAN Node verbunden"
         isFleetBound -> "✓ Flotte gekoppelt"
@@ -42,6 +46,7 @@ fun SetupTab(
     }
 
     val pairingStatusSubtitle = when {
+        isQrSaved -> "Geräteberechtigung eingerichtet. Heartbeat und Online-Status müssen vom Gateway gesondert bestätigt werden."
         isFleetBound && isLanConnected -> "Gekoppelt mit ComputeMesh Flotte • Inferenz über lokales LAN Gateway ($currentGatewayUrl)"
         isLanConnected -> "Verbunden mit lokalem Inferenz-Knoten ($currentGatewayUrl). Telemetrie & Inferenz laufen direkt über dein Heimnetzwerk."
         isFleetBound -> "Gekoppelt mit ComputeMesh Flotte für Telemetrie & Earnings."
