@@ -153,7 +153,15 @@ def verify_release(root: Path, tag: str, *, artifacts_dir: Path | None = None) -
         "portal_version": manifest["version"],
         "android_version": android_version,
         "artifacts": checked,
+        # This tool proves byte integrity and an Ed25519-trusted manifest.
+        # It cannot prove APK signer identity, OS boot, real QR pairing,
+        # physical inference, or approval to publish. Those are separate
+        # operator-owned gates and must never be inferred from "verified".
         "verified": True,
+        "verification_scope": "signed_manifest_and_artifact_bytes_only",
+        "android_signing_certificate_independently_verified": False,
+        "physical_device_e2e_verified": False,
+        "production_release_approved": False,
     }
 
 
