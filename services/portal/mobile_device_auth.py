@@ -111,20 +111,29 @@ def mobile_heartbeat(
 def revoke_mobile_device(
     store: FleetAccountStore, account_id: str, node_id: str,
 ) -> tuple[dict, HTTPStatus]:
-    """Explicit authenticated per-owner mobile revocation, never a fleet-wide delete."""
+    """Permanently revoke one tenant's credential and remove durable binding."""
     if not isinstance(node_id, str) or not node_id.startswith("android-"):
         return {"error": "invalid mobile device"}, HTTPStatus.BAD_REQUEST
-    if not store.revoke_mobile_device(account_id, node_id):
-        return {"error": "mobile device is absent or already revoked"}, HTTPStatus.NOT_FOUND
 
     from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY, save_node_telemetry_registry
-    from services.gateway.server import OWNER_ACCOUNT_STORE, _NODE_HEARTBEAT_LOCK
+    from services.gateway.server import (
+        OWNER_ACCOUNT_STORE, _NODE_HEARTBEAT_LOCK, owner_id_for_key,
+    )
+    # Serialize with mobile_heartbeat. Revoke the database credential BEFORE
+    # deleting telemetry so an in-flight valid heartbeat cannot re-register.
     with _NODE_HEARTBEAT_LOCK:
+        if not store.revoke_mobile_device(account_id, node_id):
+            return {"error": "mobile device is absent or already revoked"}, HTTPStatus.NOT_FOUND
+
+        account = store.get_account(account_id)
+        current_owner_id = owner_id_for_key(account.owner_key) if account else None
+        bound_owner_id = OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
+        if bound_owner_id and current_owner_id and bound_owner_id == current_owner_id:
+            OWNER_ACCOUNT_STORE.unbind_provider_node(bound_owner_id, node_id)
+
         existing = NODE_TELEMETRY_REGISTRY.get(node_id)
         if existing and existing.get("mobile_device"):
-            owner_id = str(existing.get("owner_id", ""))
             NODE_TELEMETRY_REGISTRY.pop(node_id, None)
-            if owner_id:
-                OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)
             save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
+
     return {"status": "revoked", "node_id": node_id}, HTTPStatus.OK
