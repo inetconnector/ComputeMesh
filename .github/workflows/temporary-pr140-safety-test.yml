@@ -1,0 +1,29 @@
+name: Temporary PR140 Security Unit Tests
+
+on:
+  push:
+    branches:
+      - jules-9136794293772510248-f6a6c14b-new
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-part14:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR code without persisted token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify checked out source SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Python environment
+        run: python3 --version
+      - name: Compile targeted source and tests
+        run: python3 -m py_compile services/orchestrator/architecture_hardening_part14.py services/orchestrator/tests/test_architecture_hardening_part14.py
+      - name: Run real SQLite-backed architecture hardening tests
+        run: python3 -m unittest services.orchestrator.tests.test_architecture_hardening_part14 -v
