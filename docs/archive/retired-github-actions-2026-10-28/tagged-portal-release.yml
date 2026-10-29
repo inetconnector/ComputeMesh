@@ -1,0 +1,147 @@
+name: ComputeMesh tagged website + all client installers (verification only)
+
+# Nothing deploys on a push or on tag creation. Codex first creates and
+# verifies the immutable tag and its signed, provenance-checked release assets.
+# This workflow packages a validated site for a separate approved Plesk deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable Git tag whose GitHub release contains ALL platform binaries
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portal-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  verified-website-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out exactly the requested tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm immutable tag and commit
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]
+          git tag --points-at HEAD | grep -Fx "$RELEASE_TAG"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+
+      - name: Install verification dependencies
+        run: |
+          python3 -m pip install --disable-pip-version-check cryptography pytest qrcode
+
+      - name: Compile and test device-security and portal contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q services/portal tools/appliance tools/release
+          python3 -m pytest -q             services/portal/tests/test_device_pairing.py             services/portal/tests/test_mobile_qr_contract.py             tools/appliance/tests/test_device_pairing_client.py             services/appliance_dashboard/tests/test_unified_portal_ux_contract.py
+          node --check portal/portal-core.js
+          node --check portal/portal.js
+          node --check portal/portal-reference.js
+
+      - name: Test Android sources (not a release APK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Android unit, lint, debug build
+        working-directory: apps/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+
+      - name: Require Android signing-certificate pin
+        shell: bash
+        env:
+          EXPECTED_CERT: ${{ secrets.COMPUTEMESH_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_CERT" || { echo "::error::Android production signing certificate SHA256 pin missing"; exit 1; }
+          sdkmanager 'build-tools;34.0.0'
+          echo "APKSIGNER=$ANDROID_HOME/build-tools/34.0.0/apksigner" >> "$GITHUB_ENV"
+
+      - name: Download exact assets of the requested GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/verified-downloads"
+          gh release download "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --dir "$RUNNER_TEMP/verified-downloads"
+          test -s "$RUNNER_TEMP/verified-downloads/ComputeMesh-Android.apk"
+          test -s "$RUNNER_TEMP/verified-downloads/ComputeMesh-Android.aab"
+          test -s "$RUNNER_TEMP/verified-downloads/ComputeMesh-Android.json"
+
+      - name: Verify Android APK against trusted signing fingerprint
+        shell: bash
+        env:
+          EXPECTED_CERT: ${{ secrets.COMPUTEMESH_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/verified-downloads/ComputeMesh-Android.apk"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/android-certificate.txt"
+          python3 - <<'PY'
+          import os, pathlib, re
+          lines = pathlib.Path(os.environ["RUNNER_TEMP"], "android-certificate.txt").read_text()
+          found = re.search(r"Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F]+)", lines)
+          want = re.sub(r"[^0-9a-f]", "", os.environ["EXPECTED_CERT"].lower())
+          if not found or len(want) != 64 or found.group(1).lower() != want:
+              raise SystemExit("ERROR: Android release signing fingerprint mismatch")
+          print("Verified: Android production certificate fingerprint")
+          PY
+
+      - name: Verify platform hashes, signed manifest, and download links
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          python3 tools/release/check_portal_routes.py --portal portal --artifacts-dir "$RUNNER_TEMP/verified-downloads" --output "$RUNNER_TEMP/portal-link-report.json"
+          python3 tools/release/verify_portal_bundle.py --repo-root . --tag "$RELEASE_TAG" --artifacts-dir "$RUNNER_TEMP/verified-downloads" --output "$RUNNER_TEMP/release-index.json"
+
+      - name: Assemble staged website (no deployment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/site-bundle"
+          cp -a portal "$RUNNER_TEMP/site-bundle/portal"
+          find "$RUNNER_TEMP/verified-downloads" -maxdepth 1 -type f -exec cp {} "$RUNNER_TEMP/site-bundle/portal/downloads/" \;
+          cp "$RUNNER_TEMP/release-index.json" "$RUNNER_TEMP/site-bundle/release-index.json"
+          cd "$RUNNER_TEMP/site-bundle"
+          tar -czf "$GITHUB_WORKSPACE/computemesh-website-verified.tar.gz" portal release-index.json
+
+      - name: Upload verified bundle for Codex/Plesk review
+        uses: actions/upload-artifact@v4
+        with:
+          name: computemesh-web-${{ inputs.release_tag }}
+          path: computemesh-website-verified.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Confirmation
+        run: echo "Verified bundle ready for controlled deployment; NOTHING deployed automatically."
