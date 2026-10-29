@@ -103,5 +103,37 @@ class TestArchitectureHardeningPart14(unittest.TestCase):
                 job_id, execution_id="exec_4", is_platform_duplicate=True, policy_assigns_cost=False, amount_billed=100
             )
 
+    def test_billing_neutrality_rejects_invalid_inputs_without_mutation(self) -> None:
+        enforcer = BillingNeutralityEnforcer(self.db)
+        rejected = (
+            ("exec-negative", False, False, -1),
+            ("exec-bool", False, False, True),
+            ("exec-double", False, False, 1.25),
+            ("exec-policy-string", True, "yes", 10),
+            ("exec-duplicate-string", "false", False, 10),
+        )
+        for execution_id, is_duplicate, policy, amount in rejected:
+            with self.subTest(execution_id=execution_id):
+                with self.assertRaises(BillingNeutralityError):
+                    enforcer.record_execution_billing(
+                        "job-reject", execution_id, is_duplicate, policy, amount
+                    )
+        self.assertEqual(
+            self.db.execute("SELECT COUNT(*) FROM job_billing").fetchone()[0], 0
+        )
+
+    def test_execution_billing_is_idempotent_and_conflict_safe(self) -> None:
+        enforcer = BillingNeutralityEnforcer(self.db)
+        enforcer.record_execution_billing("job-a", "exec-a", False, False, 300)
+        enforcer.record_execution_billing("job-a", "exec-a", False, False, 300)
+        with self.assertRaisesRegex(BillingNeutralityError, "immutable"):
+            enforcer.record_execution_billing("job-a", "exec-a", False, False, 500)
+        self.assertEqual(
+            self.db.execute(
+                "SELECT amount_billed FROM job_billing "
+                "WHERE job_id='job-a' AND execution_id='exec-a'"
+            ).fetchone(), (300,)
+        )
+
 if __name__ == "__main__":
     unittest.main()
