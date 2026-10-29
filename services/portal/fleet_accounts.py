@@ -626,6 +626,19 @@ class FleetAccountStore:
             ).fetchone()
             return FleetAccount(**dict(account)) if account else None
 
+    def active_mobile_device_account(self, node_id: str) -> str | None:
+        """Resolve a mobile device by durable ownership, even after server restart."""
+        if not isinstance(node_id, str) or not re.fullmatch(
+            r"android-[a-zA-Z0-9_.-]{3,56}", node_id
+        ):
+            return None
+        with self._connection() as conn:
+            record = conn.execute(
+                "SELECT account_id FROM fleet_mobile_devices "
+                "WHERE node_id = ? AND revoked = 0", (node_id,),
+            ).fetchone()
+            return str(record["account_id"]) if record else None
+
     def revoke_mobile_device(self, account_id: str, node_id: str) -> bool:
         """A device cannot revoke/modify another tenant's credential."""
         with self._connection() as conn:
