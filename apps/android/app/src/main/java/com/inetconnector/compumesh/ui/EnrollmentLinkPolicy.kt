@@ -9,6 +9,10 @@ object EnrollmentLinkPolicy {
     const val TRUSTED_GATEWAY = "https://mesh.inetconnector.com"
     private val tokenPattern = Regex("cmenroll_[A-Za-z0-9_-]{20,64}")
 
+    // Legacy fleet credentials must never be delivered to an arbitrary LAN
+    // or QR-specified inference host. Local inference uses no Owner Key.
+    fun mayTransmitOwnerKey(gateway: String): Boolean = gateway == TRUSTED_GATEWAY
+
     fun tokenFromQr(raw: String): String? {
         val candidate = raw.trim()
         if (candidate.length > 2048 || candidate.isEmpty()) return null
