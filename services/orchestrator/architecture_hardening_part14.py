@@ -51,10 +51,14 @@ class AmbiguousCompletionEnforcer:
         )
 
     def reconcile_completion(self, job_id: str) -> None:
-        self._db.execute(
+        updated = self._db.execute(
             "UPDATE completion_status SET is_reconciled=1 WHERE job_id=?",
             (job_id,)
         )
+        if updated.rowcount != 1:
+            raise AmbiguousCompletionError(
+                f"Job {job_id} has no recorded completion to reconcile."
+            )
 
     def enforce_settlement_prerequisites(self, job_id: str) -> None:
         row = self._db.execute(
