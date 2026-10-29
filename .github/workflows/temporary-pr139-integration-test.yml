@@ -15,10 +15,10 @@ jobs:
       COMPUTEMESH_INFERENCE_BACKEND: synthetic
       COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE: "1"
       COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG: "1"
-      COMPUTEMESH_ACCOUNTING_DB_PATH: ${{ runner.temp }}/computemesh-accounting-test.db
-      COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH: ${{ runner.temp }}/computemesh-owners-test.db
-      COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: ${{ runner.temp }}/computemesh-fleet-test.db
-      COMPUTEMESH_MODEL_STORAGE_DIR: ${{ runner.temp }}/computemesh-models-test
+      COMPUTEMESH_ACCOUNTING_DB_PATH: /tmp/computemesh-accounting-pr139.db
+      COMPUTEMESH_OWNER_ACCOUNTS_DB_PATH: /tmp/computemesh-owners-pr139.db
+      COMPUTEMESH_FLEET_ACCOUNTS_DB_PATH: /tmp/computemesh-fleet-pr139.db
+      COMPUTEMESH_MODEL_STORAGE_DIR: /tmp/computemesh-models-pr139
     steps:
       - name: Checkout exact source, do not persist credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
