@@ -34,6 +34,19 @@ class EnrollmentLinkPolicyTest {
     }
 
     @Test
+    fun onlyTheCanonicalTlsGatewayMayReceiveALegacyOwnerCredential() {
+        assertEquals(true, EnrollmentLinkPolicy.mayTransmitOwnerKey("https://mesh.inetconnector.com"))
+        listOf(
+            "http://mesh.inetconnector.com",
+            "https://mesh.inetconnector.com.evil.test",
+            "https://mesh.inetconnector.com:443",
+            "http://127.0.0.1:8080",
+            "https://example.org",
+            ""
+        ).forEach { assertEquals(false, EnrollmentLinkPolicy.mayTransmitOwnerKey(it)) }
+    }
+
+    @Test
     fun rejectsMasterKeysSecretsAndInvalidTokenLinks() {
         val rejected = listOf(
             "inet-master-secret",
