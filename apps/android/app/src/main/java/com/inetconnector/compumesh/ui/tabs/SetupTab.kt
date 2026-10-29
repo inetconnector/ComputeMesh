@@ -10,14 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.ui.QrCameraScannerDialog
-import com.inetconnector.compumesh.ui.parseQrPayload
 import com.inetconnector.compumesh.ui.theme.*
 
 @Composable
@@ -26,11 +24,9 @@ fun SetupTab(
     currentGatewayUrl: String,
     onSaveFleetConfig: (String, String) -> Unit
 ) {
-    var ownerKeyInput by remember(currentOwnerKey) { mutableStateOf(currentOwnerKey) }
     var gatewayUrlInput by remember(currentGatewayUrl) { mutableStateOf(currentGatewayUrl) }
     var directTrafficOnly by remember { mutableStateOf(true) }
     var showQrCameraScanner by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
     val cleanActiveGateway = currentGatewayUrl.trim().trimEnd('/')
@@ -135,50 +131,11 @@ fun SetupTab(
         }
 
         item {
-            // Manual Key Input
-            OutlinedTextField(
-                value = ownerKeyInput,
-                onValueChange = { input ->
-                    val clean = input.trim()
-                    if (clean.startsWith("http://") || clean.startsWith("https://") || clean.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))) {
-                        val url = if (clean.startsWith("http://") || clean.startsWith("https://")) clean else "http://$clean"
-                        ownerKeyInput = ""
-                        gatewayUrlInput = url
-                        onSaveFleetConfig("", url)
-                        Toast.makeText(context, "Inferenz-Gateway aktualisiert: $url", Toast.LENGTH_SHORT).show()
-                    } else {
-                        ownerKeyInput = input
-                        onSaveFleetConfig(input, gatewayUrlInput)
-                    }
-                },
-                label = { Text("Owner Key / Flotten-Secret (Optional für Cloud)") },
-                placeholder = { Text("inet-... oder owner_...") },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    focusedBorderColor = CyanAccent,
-                    unfocusedBorderColor = CardSurfaceBorder,
-                    focusedContainerColor = CardSurface,
-                    unfocusedContainerColor = CardSurface
-                ),
-                trailingIcon = {
-                    IconButton(onClick = {
-                        val clip = clipboardManager.getText()?.text
-                        if (!clip.isNullOrBlank()) {
-                            val parsed = parseQrPayload(clip.toString(), gatewayUrlInput)
-                            ownerKeyInput = parsed.ownerKey
-                            if (parsed.gatewayUrl.isNotBlank()) {
-                                gatewayUrlInput = parsed.gatewayUrl
-                            }
-                            onSaveFleetConfig(parsed.ownerKey, parsed.gatewayUrl)
-                            Toast.makeText(context, "Konfiguration aus Zwischenablage übernommen!", Toast.LENGTH_SHORT).show()
-                        }
-                    }) {
-                        Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = CyanAccent)
-                    }
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+            Text(
+                "Flottenanmeldung nur per Kamera-QR-Code aus deinem ComputeMesh-Cockpit. " +
+                    "Master-/Owner-Keys werden hier nicht eingegeben.",
+                color = TextSecondary,
+                fontSize = 12.sp
             )
         }
 
@@ -187,7 +144,7 @@ fun SetupTab(
                 value = gatewayUrlInput,
                 onValueChange = { input ->
                     gatewayUrlInput = input
-                    onSaveFleetConfig(ownerKeyInput, input)
+                    onSaveFleetConfig(currentOwnerKey, input)
                 },
                 label = { Text("Control-Plane Gateway / Inferenz-Endpunkt") },
                 placeholder = { Text("https://mesh.inetconnector.com oder http://192.168.1.x:8080") },
@@ -203,7 +160,7 @@ fun SetupTab(
                     if (gatewayUrlInput != "https://mesh.inetconnector.com" && gatewayUrlInput.isNotBlank()) {
                         IconButton(onClick = {
                             gatewayUrlInput = "https://mesh.inetconnector.com"
-                            onSaveFleetConfig(ownerKeyInput, "https://mesh.inetconnector.com")
+                            onSaveFleetConfig(currentOwnerKey, "https://mesh.inetconnector.com")
                             Toast.makeText(context, "Auf Standard Cloud-Gateway zurückgesetzt", Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = AmberWarning)
@@ -249,10 +206,8 @@ fun SetupTab(
             currentGateway = gatewayUrlInput,
             onCodeScanned = { result ->
                 showQrCameraScanner = false
-                val pairingKey = result.enrollmentToken.ifBlank { result.ownerKey }
-                ownerKeyInput = pairingKey
                 gatewayUrlInput = result.gatewayUrl
-                onSaveFleetConfig(pairingKey, result.gatewayUrl)
+                onSaveFleetConfig(result.enrollmentToken, result.gatewayUrl)
                 Toast.makeText(
                     context,
                     context.getString(
