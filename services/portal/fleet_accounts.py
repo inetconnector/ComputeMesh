@@ -559,9 +559,16 @@ class FleetAccountStore:
                 return None
             if now > datetime.fromisoformat(str(record["expires_at"]).replace("Z", "+00:00")):
                 return None
-            if conn.execute(
-                "SELECT 1 FROM fleet_mobile_devices WHERE node_id = ?", (node_id,),
-            ).fetchone():
+            existing = conn.execute(
+                "SELECT account_id, revoked FROM fleet_mobile_devices WHERE node_id = ?",
+                (node_id,),
+            ).fetchone()
+            # A revoked handset may pair again only with a fresh, single-use
+            # QR issued to the *same* fleet. Cross-tenant takeovers fail closed.
+            if existing and (
+                not bool(existing["revoked"])
+                or str(existing["account_id"]) != str(record["account_id"])
+            ):
                 return None
             credential = "cm_mobile_" + secrets.token_hex(32)
             digest = hashlib.sha256(credential.encode("ascii")).hexdigest()
@@ -572,11 +579,24 @@ class FleetAccountStore:
             )
             if updated.rowcount != 1:
                 return None
-            conn.execute(
-                "INSERT INTO fleet_mobile_devices(node_id, account_id, credential_sha256, created_at) "
-                "VALUES(?, ?, ?, ?)",
-                (node_id, record["account_id"], digest, utc_now()),
-            )
+            if existing:
+                conn.execute(
+                    "UPDATE fleet_mobile_devices "
+                    "SET credential_sha256 = ?, created_at = ?, last_seen_at = NULL, revoked = 0 "
+                    "WHERE node_id = ? AND account_id = ? AND revoked = 1",
+                    (digest, utc_now(), node_id, record["account_id"]),
+                )
+                # Any old replay history belongs to the revoked credential.
+                conn.execute(
+                    "DELETE FROM fleet_mobile_heartbeat_nonces WHERE node_id = ?",
+                    (node_id,),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO fleet_mobile_devices(node_id, account_id, credential_sha256, created_at) "
+                    "VALUES(?, ?, ?, ?)",
+                    (node_id, record["account_id"], digest, utc_now()),
+                )
             return credential
 
     def authenticate_mobile_heartbeat(
