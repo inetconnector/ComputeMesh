@@ -10,7 +10,7 @@
 
 ## 0. Preflight, backups and scope
 
-Read `PRODUCT_RELEASE_QR_ONLY_GATE.md`, `UX_UNIFIED_PORTAL_IMPLEMENTATION.md`, `CODEX_WINDOWS_MESH_REPORT.md`, current `portal/` and Android + API sources in Windows checkout. Read the 3 new release-gate files in PR #139. Inventory the existing private and public main heads, commit ancestry, CI policies, release signature, product runtime and the actual Plesk deploy. Require current actual GitHub SHA in every report. No new artificial Owner-Key, no replacement release-signing key. Do not reveal secrets in reports.
+Read `PRODUCT_RELEASE_QR_ONLY_GATE.md`, `UX_UNIFIED_PORTAL_IMPLEMENTATION.md`, `CODEX_WINDOWS_MESH_REPORT.md`, current `portal/` and Android + API sources in Windows checkout. Read both release-gate scripts in PR #139 (`tools/release/verify_portal_bundle.py` and `tools/release/check_portal_routes.py`). The former tagged GitHub Actions proposal is retained strictly as an inactive historical reference under `docs/archive/retired-github-actions-2026-10-28/`; do not reactivate it. Inventory the existing private and public main heads, commit ancestry, CI policies, release signature, product runtime and the actual Plesk deploy. Require current actual GitHub SHA in every report. No new artificial Owner-Key, no replacement release-signing key. Do not reveal secrets in reports.
 
 A previous preflight returned:
 - `RELEASE_OP_REJECTED: only main allowed; branch is codex/kimi-nodeos-ota-20261027`
@@ -60,7 +60,11 @@ After merging and final source/build verification, create an annotated semver ta
 
 Tag GitHub Release must contain **all** signed installer files, signed version manifest, provenance/sha256 receipts and website source SHA. Re-fetch exact assets and independently hash and signature-verify. Failure means no public deployment and no altered stable tag.
 
-Trigger `tagged-portal-release.yml` on main with that tag. It MUST pass link/onclick, Android build, Android signature pin, signed updater manifest, individual downloaded binary SHA/size, live gateway pairing tests and identity/owner integration tests. It emits `computemesh-website-verified.tar.gz`, a revision-identified deploy bundle. If the GitHub Action cannot run until available assets exist: first create a draft release and attach artifacts, then run the verifier. Do not publish "latest" before verified.
+Do **not** run GitHub Actions or register a new active `.github/workflows/` release job. The previous proposal is preserved for audit in `docs/archive/retired-github-actions-2026-10-28/tagged-portal-release.yml` but is not an executable release route.
+
+Once the independent, operator-controlled Local Bridge and clean exact-tag snapshot meet the trust, source-hash and credential-isolation requirements of [private issue #86](https://github.com/inetconnector/ComputeMesh-ControlPlane/issues/86), run its **allowlisted, immutable and independently approved** release verifier. This must perform the static link/onclick audit, Android build and production signing-certificate verification, signed updater-manifest check, all binary SHA-256/size validations, genuine device-pairing/gateway contract tests and version/identity consistency. Tests that require live services or physical devices remain separate gates; a static script must not report them as passed.
+
+Only after those gates PASS may the trusted operator assemble a source-SHA-bound `computemesh-website-verified.tar.gz` staging bundle and record its SHA-256, exact tag commit, verified manifests, test receipts and build provenance. A GitHub draft release may temporarily hold signed, operator-vetted release assets, but not make them public or mark "latest" before verification. No fallback to an untrusted host script, owner key in environment logs, or unsigned assets if the protected runner is unavailable.
 
 ## 6. Codex deploys to Plesk only from verified tag bundle
 
