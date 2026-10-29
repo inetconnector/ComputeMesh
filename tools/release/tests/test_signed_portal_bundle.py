@@ -131,8 +131,18 @@ class TestSignedPortalBundle(unittest.TestCase):
         ):
             self._verify()
 
-    def test_modified_android_apk_is_rejected(self) -> None:
+    def test_modified_android_apk_with_different_size_is_rejected(self) -> None:
         (self.downloads / "ComputeMesh-Android.apk").write_bytes(b"tampered-apk")
+        with self.assertRaisesRegex(
+            ReleaseGateError, "size mismatch: ComputeMesh-Android.apk"
+        ):
+            self._verify()
+
+    def test_modified_android_apk_with_same_size_is_rejected_by_hash(self) -> None:
+        path = self.downloads / "ComputeMesh-Android.apk"
+        original = path.read_bytes()
+        path.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        self.assertEqual(path.stat().st_size, len(original))
         with self.assertRaisesRegex(
             ReleaseGateError, "SHA256 mismatch: ComputeMesh-Android.apk"
         ):
