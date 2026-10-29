@@ -24,6 +24,7 @@ import com.inetconnector.compumesh.R
 import com.inetconnector.compumesh.p2p.DirectLanDiscovery
 import com.inetconnector.compumesh.server.LocalChatServer
 import com.inetconnector.compumesh.service.MeshNodeService
+import com.inetconnector.compumesh.service.MobileCredentialStore
 import com.inetconnector.compumesh.update.AndroidUpdateChecker
 import com.inetconnector.compumesh.update.AndroidUpdateInfo
 import com.inetconnector.compumesh.ui.components.ComputeMeshMainScreen
@@ -67,13 +68,14 @@ class MainActivity : ComponentActivity() {
 
         // Restore saved fleet credentials
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedKey = prefs.getString(PREF_OWNER_KEY, "") ?: ""
+        // Older builds stored a shared owner key in ordinary app preferences.
+        // Never restore or send it from this QR-only client.
+        prefs.edit().remove(PREF_OWNER_KEY).apply()
         val savedGateway = prefs.getString(PREF_GATEWAY_URL, "https://mesh.inetconnector.com") ?: "https://mesh.inetconnector.com"
-        MeshNodeService.ownerKey = if (
-            EnrollmentLinkPolicy.mayTransmitOwnerKey(savedGateway.trimEnd('/'))
-        ) savedKey else ""
+        MeshNodeService.ownerKey = ""
+        MeshNodeService.deviceToken = MobileCredentialStore.load(this)
         MeshNodeService.gatewayUrl = savedGateway
-        ownerKeyState.value = savedKey
+        ownerKeyState.value = if (MeshNodeService.deviceToken.isNotBlank()) "paired-device" else ""
         gatewayUrlState.value = savedGateway
 
         // Handle possible deep link QR code pairing on launch
@@ -208,8 +210,8 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             try {
-                val ownerKey = withContext(Dispatchers.IO) {
-                    val endpoint = URL("${gateway.trimEnd('/')}/api/portal/fleet/enrollment/consume")
+                val deviceToken = withContext(Dispatchers.IO) {
+                    val endpoint = URL("${gateway.trimEnd('/')}/api/portal/fleet/mobile/enrollment/consume")
                     val connection = endpoint.openConnection() as HttpURLConnection
                     connection.instanceFollowRedirects = false
                     connection.requestMethod = "POST"
@@ -217,14 +219,27 @@ class MainActivity : ComponentActivity() {
                     connection.setRequestProperty("Content-Type", "application/json")
                     connection.connectTimeout = 6000
                     connection.readTimeout = 6000
-                    connection.outputStream.use { it.write(JSONObject().put("enrollment_token", token).toString().toByteArray()) }
+                    connection.outputStream.use {
+                        it.write(
+                            JSONObject().put("enrollment_token", token)
+                                .put("node_id", MeshNodeService.getOrCreateNodeId(this@MainActivity))
+                                .toString().toByteArray(Charsets.UTF_8)
+                        )
+                    }
                     if (connection.responseCode !in 200..299) {
                         error(getString(R.string.enrollment_failed_http, connection.responseCode))
                     }
-                    JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).optString("owner_key")
+                    JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).optString("device_token")
                 }
-                if (ownerKey.isBlank()) error(getString(R.string.owner_key_missing))
-                saveFleetConfig(ownerKey, gateway)
+                if (!Regex("cm_mobile_[a-f0-9]{64}").matches(deviceToken)) {
+                    error("Mobile device enrollment response invalid")
+                }
+                MobileCredentialStore.save(this@MainActivity, deviceToken)
+                MeshNodeService.deviceToken = deviceToken
+                MeshNodeService.ownerKey = ""
+                MeshNodeService.gatewayUrl = EnrollmentLinkPolicy.TRUSTED_GATEWAY
+                ownerKeyState.value = "paired-device"
+                gatewayUrlState.value = EnrollmentLinkPolicy.TRUSTED_GATEWAY
                 Toast.makeText(this@MainActivity, getString(R.string.pairing_succeeded), Toast.LENGTH_LONG).show()
                 startNodeService()
             } catch (error: Throwable) {
@@ -255,11 +270,11 @@ class MainActivity : ComponentActivity() {
             else -> cleanKey
         }
 
-        MeshNodeService.ownerKey = if (
-            EnrollmentLinkPolicy.mayTransmitOwnerKey(effectiveGateway)
-        ) effectiveKey else ""
+        // A LAN inference gateway is not the mobile device's enrollment
+        // authority. Do not revive master fleet keys from free-text inputs.
+        MeshNodeService.ownerKey = ""
         MeshNodeService.gatewayUrl = effectiveGateway
-        ownerKeyState.value = effectiveKey
+        ownerKeyState.value = if (MeshNodeService.deviceToken.isNotBlank()) "paired-device" else ""
         gatewayUrlState.value = effectiveGateway
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
