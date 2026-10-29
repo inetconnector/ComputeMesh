@@ -87,6 +87,26 @@ class TestMobileDeviceCredentials(unittest.TestCase):
         # Revocation never allows a second QR to silently take over old ID.
         self.assertIsNone(self.store.consume_mobile_enrollment(self.issue(account=self.b), self.node))
 
+    def test_revoked_device_requires_new_same_tenant_qr_to_repair(self) -> None:
+        original = self.store.consume_mobile_enrollment(self.issue(), self.node)
+        self.assertIsNotNone(original)
+        self.assertTrue(self.store.revoke_mobile_device(self.a.account_id, self.node))
+        self.assertIsNone(self.store.active_mobile_device_account(self.node))
+        self.assertIsNone(self.store.consume_mobile_enrollment(self.issue(account=self.b), self.node))
+
+        replacement = self.store.consume_mobile_enrollment(self.issue(), self.node)
+        self.assertRegex(replacement, r"^cm_mobile_[a-f0-9]{64}$")
+        self.assertNotEqual(original, replacement)
+        self.assertEqual(self.store.active_mobile_device_account(self.node), self.a.account_id)
+        now = int(time.time())
+        self.assertIsNone(self.store.authenticate_mobile_heartbeat(
+            self.node, original, "old-device-token-nonce-0001", now,
+        ))
+        self.assertIsNotNone(self.store.authenticate_mobile_heartbeat(
+            self.node, replacement, "new-device-token-nonce-0002", now,
+        ))
+        self.assertIsNone(self.store.consume_mobile_enrollment(self.issue(), self.node))
+
     def test_one_qr_can_enroll_only_one_mobile_under_concurrency(self) -> None:
         qr = self.issue()
         node_ids = ["android-parallel-a0000", "android-parallel-b0000"]
