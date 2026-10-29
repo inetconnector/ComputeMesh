@@ -167,24 +167,24 @@
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="feature-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue);">🪟</div>
-            <span class="status-pill online" data-i18n="dl_win_status">v1.2.189 &bull; 64-Bit</span>
+            <span class="status-pill online" data-i18n="dl_win_status">Windows x64 &bull; Release-Version prüfen</span>
           </div>
           <h3 data-i18n="dl_win_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Windows System-Tray-Client</h3>
           <p data-i18n="dl_win_desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
-            Vollautomatischer Windows-Hintergrunddienst mit System-Tray-Steuerung, GPU-Erkennung, automatischer Modell-Allokation und WebUI-Dashboard.
+            Windows-Hintergrunddienst für GPU-Erkennung und Rechenaufträge. Die zentrale Verwaltung erfolgt über dein ComputeMesh-Konto im Browser.
           </p>
           <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.8; margin-bottom: 1.5rem; list-style-position: inside;">
             <li data-i18n="dl_win_feature_cuda">Unterstützt NVIDIA CUDA &amp; AMD ROCm/Vulkan</li>
-            <li data-i18n="dl_win_feature_webui">Integrierter WebUI-AI-Studio-Server (Port 8080)</li>
+            <li data-i18n="dl_win_feature_webui">Lokale technische API (Port automatisch gewählt; keine manuelle Einrichtung nötig)</li>
             <li data-i18n="dl_win_feature_lan">Zero-Config-LAN-Autodiscovery (UDP 13379)</li>
           </ul>
         </div>
         <div>
           <a href="/downloads/ComputeMesh-Setup-x64.exe" class="btn btn-primary" data-i18n="dl_win_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
-            ⬇️ ComputeMesh (.exe) herunterladen
+            ComputeMesh (.exe) herunterladen
           </a>
           <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 0.5rem;">
-            <span data-i18n="dl_win_platforms">Windows 10 / 11 (x64) &bull; Signiert &amp; verifiziert</span>
+            <span data-i18n="dl_win_platforms">Windows 10 / 11 (x64) &bull; Version und SHA-256 im Release-Manifest prüfen</span>
           </div>
         </div>
       </div>
@@ -194,11 +194,11 @@
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="feature-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">📱</div>
-            <span class="status-pill online" data-i18n="dl_android_status">v1.2.164 &bull; Produktionssigniert</span>
+            <span class="status-pill online" data-i18n="dl_android_status">Android &bull; Veröffentlichtes APK (QR-Update ausstehend)</span>
           </div>
           <h3 data-i18n="dl_android_title" style="font-size: 1.4rem; margin-bottom: 0.5rem;">Android-Client &amp; mobiler Knoten</h3>
           <p data-i18n="dl_android_desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
-            Greife von unterwegs auf deine privaten Cluster zu, nutze die AI Studio WebUI nativ am Smartphone oder stelle mobile NPU-Ressourcen bereit.
+            Nutze den mobilen KI-Chat und lokale Funktionen. Die neue sichere QR-Kopplung ist in Entwicklung und noch nicht in der veröffentlichten APK freigeschaltet.
           </p>
           <ul style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.8; margin-bottom: 1.5rem; list-style-position: inside;">
             <li data-i18n="dl_android_feature_webui">Eingebettete mobile AI-Studio-WebUI</li>
@@ -208,7 +208,7 @@
         </div>
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
           <a href="/downloads/ComputeMesh-Android.apk" class="btn btn-emerald" data-i18n="dl_android_btn" style="width: 100%; text-align: center; text-decoration: none; font-weight: 600;">
-            ⬇️ APK direkt herunterladen (v1.2.164)
+            ⬇️ Verfügbare Android-APK herunterladen
           </a>
           <a href="https://play.google.com/store/apps/developer?id=InetConnector.com" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="width: 100%; text-align: center; text-decoration: none;">
             <span data-i18n="dl_android_store_btn">Google Play Store öffnen ↗</span>
@@ -228,7 +228,7 @@
             Für dedizierte Mining-Rigs, Ubuntu-Server, Debian und HiveOS-Cluster. Automatische CUDA-Treiber-Erkennung und Headless-Dienst.
           </p>
           <div style="background: #060911; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: 0.75rem; font-family: var(--font-mono); font-size: 0.8rem; color: #38bdf8; margin-bottom: 1.5rem; word-break: break-all;">
-            curl -fsSL https://mesh.inetconnector.com/downloads/install.sh | bash
+            Installationsskript zuerst prüfen, dann gezielt ausführen. Kein ungeprüftes curl | bash.
           </div>
         </div>
         <div>
@@ -248,7 +248,7 @@
         <span>🛡️</span> <span data-i18n="dl_security_title">Kryptografische Signierung &amp; Hash-Verifikation</span>
       </h3>
       <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
-        <span data-i18n="dl_security_desc">Alle offiziellen Binärdateien werden mit dem privaten InetConnector Master-Release-Key signiert. Prüfe die Integrität jedes Downloads mit den bereitgestellten SHA-256-Checksummen und den `ComputeMesh-Android.json`-Manifesten.</span>
+        <span data-i18n="dl_security_desc">Prüfe Version, Dateigröße und SHA-256 vor der Installation. Die <a href="/updates/version.json" target="_blank" rel="noopener noreferrer">Release-Metadaten für Windows und Linux</a> enthalten Hashes. Für die Android-APK muss ein gültiges signiertes Release-Manifest vorliegen; ohne diesen Nachweis keine neue QR-Version installieren.</span>
       </p>
     </div>
   </main>

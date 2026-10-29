@@ -10,9 +10,11 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 
 from services.portal.server import PortalHandler
 from services.portal import passkey_routes
+from services.portal import server_core as portal_server_core
 from services.portal.fleet_accounts import FleetAccountStore
 from services.gateway.dashboard import NODE_TELEMETRY_REGISTRY
 import services.gateway.server as gateway_server_module
@@ -38,8 +40,10 @@ class TestFleetHttp(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.original_fleet_store = passkey_routes.FLEET_ACCOUNT_STORE
+        self.original_portal_store = portal_server_core.FLEET_ACCOUNT_STORE
         self.fleet_store = FleetAccountStore(Path(self.tmp_dir.name) / "fleet.db")
         passkey_routes.FLEET_ACCOUNT_STORE = self.fleet_store
+        portal_server_core.FLEET_ACCOUNT_STORE = self.fleet_store
 
         self.original_owner_store = gateway_server_module.OWNER_ACCOUNT_STORE
         self.owner_store = OwnerAccountStore(Path(self.tmp_dir.name) / "owners.db")
@@ -49,6 +53,7 @@ class TestFleetHttp(unittest.TestCase):
 
     def tearDown(self) -> None:
         passkey_routes.FLEET_ACCOUNT_STORE = self.original_fleet_store
+        portal_server_core.FLEET_ACCOUNT_STORE = self.original_portal_store
         gateway_server_module.OWNER_ACCOUNT_STORE = self.original_owner_store
         NODE_TELEMETRY_REGISTRY.clear()
         self.tmp_dir.cleanup()
@@ -81,6 +86,52 @@ class TestFleetHttp(unittest.TestCase):
             return resp.status, resp
         except urllib.error.HTTPError as exc:
             return exc.code, exc
+
+    def test_mcp_settings_require_real_fleet_identity_not_arbitrary_owner_string(self) -> None:
+        forged = {"X-Owner-Key": "cm_owner_attacker_chosen_string"}
+        for route in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
+            with self.subTest(route=route):
+                status, _ = self._get(route, headers=forged)
+                self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+                status, error, _ = self._post(
+                    route, {"disabled_tools": ["get_git_status"]}, headers=forged
+                )
+                self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+                self.assertIn("authentication", error["error"])
+                # An untrusted key must not silently create a privileged
+                # account as a side effect of HTTP authentication.
+                self.assertIsNone(
+                    self.fleet_store.get_account_by_owner_key(forged["X-Owner-Key"])
+                )
+
+        account = self.fleet_store.create_account("mcp-settings-owner@example.invalid")
+        session = self.fleet_store.create_session(account.account_id)
+        cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={session}"
+
+        status, response = self._get("/api/portal/fleet/mcp_settings", cookie=cookie)
+        self.assertEqual(status, HTTPStatus.OK)
+        info = json.loads(response.read().decode("utf-8"))
+        owner_id = gateway_server_module.owner_id_for_key(account.owner_key)
+        self.assertEqual(info["owner_id"], owner_id)
+
+        status, updated, _ = self._post(
+            "/api/portal/fleet/mcp_settings",
+            {"disabled_tools": ["get_git_status"]},
+            cookie=cookie,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(updated["owner_id"], owner_id)
+        self.assertEqual(updated["disabled_tools"], ["get_git_status"])
+
+        status, response = self._get(
+            "/api/v1/mesh/fleet/mcp_settings",
+            headers={"X-Owner-Key": account.owner_key},
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.read().decode("utf-8"))["disabled_tools"],
+            ["get_git_status"],
+        )
 
     def test_fleet_page_served(self) -> None:
         status, resp = self._get("/fleet")
@@ -207,6 +258,163 @@ class TestFleetHttp(unittest.TestCase):
         data = json.loads(resp.read().decode("utf-8"))
         self.assertIn("enrollment_token", data)
         self.assertTrue(data["enrollment_token"].startswith("cmenroll_"))
+
+    def test_mobile_qr_exchange_heartbeat_replay_and_revocation(self) -> None:
+        account = self.fleet_store.create_account("mobile-owner@example.invalid")
+        session = self.fleet_store.create_session(account.account_id)
+        cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={session}"
+        node = "android-http-phone-a001"
+
+        status, issued, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment_token", {}, cookie=cookie,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        qr = issued["enrollment_token"]
+        status, enrolled, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment/consume",
+            {"enrollment_token": qr, "node_id": node},
+        )
+        self.assertEqual(status, HTTPStatus.CREATED)
+        self.assertNotIn("owner_key", enrolled)
+        credential = enrolled["device_token"]
+        self.assertTrue(credential.startswith("cm_mobile_"))
+        status, _, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment/consume",
+            {"enrollment_token": qr, "node_id": "android-http-phone-b002"},
+        )
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+        status, _, _ = self._post(
+            "/api/portal/fleet/enrollment/consume", {"enrollment_token": qr},
+        )
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+
+        now = int(time.time())
+        heartbeat = {"node_id": node, "nonce": "http-mobile-nonce-00001",
+                     "timestamp": now, "inventory": {"battery_level": 60}}
+        headers = {"Authorization": "Bearer " + credential}
+        status, response, _ = self._post(
+            "/api/v1/mobile/heartbeat", heartbeat, headers=headers,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(response["mobile_device"])
+        self.assertEqual(
+            NODE_TELEMETRY_REGISTRY[node]["owner_id"],
+            gateway_server_module.owner_id_for_key(account.owner_key),
+        )
+        self.assertEqual(NODE_TELEMETRY_REGISTRY[node]["auth_token"], "")
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat", heartbeat, headers=headers,
+        )
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "http-mobile-nonce-00002", "owner_key": account.owner_key},
+            headers=headers,
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        status, _, _ = self._post(
+            "/api/v1/node/heartbeat",
+            {"node_id": node, "auth_token": "cm_tunnel_" + "a" * 32},
+        )
+        self.assertEqual(status, HTTPStatus.FORBIDDEN)
+
+        # Model a gateway reboot / registry eviction. The device must
+        # remain revocable through the durable fleet-device DB alone.
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node),
+            account.account_id,
+        )
+        self.assertEqual(
+            self.owner_store.owner_for_provider_node(node),
+            gateway_server_module.owner_id_for_key(account.owner_key),
+        )
+        NODE_TELEMETRY_REGISTRY.clear()
+        outsider = self.fleet_store.create_account("mobile-outsider@example.invalid")
+        outsider_session = self.fleet_store.create_session(outsider.account_id)
+        status, _, _ = self._post(
+            "/api/portal/fleet/unbind_node", {"node_id": node},
+            cookie=f"{passkey_routes.SESSION_COOKIE_NAME}={outsider_session}",
+        )
+        self.assertEqual(status, HTTPStatus.FORBIDDEN)
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node), account.account_id
+        )
+
+        # Removing the phone through the normal Fleet UI route must revoke
+        # the stored credential, not merely delete visible telemetry.
+        status, revoked, _ = self._post(
+            "/api/portal/fleet/unbind_node", {"node_id": node}, cookie=cookie,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(revoked["status"], "revoked")
+        self.assertIsNone(self.fleet_store.active_mobile_device_account(node))
+        self.assertIsNone(self.owner_store.owner_for_provider_node(node))
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "http-mobile-nonce-00003"},
+            headers=headers,
+        )
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+
+    def test_mobile_device_survives_authorized_owner_key_rotation(self) -> None:
+        account = self.fleet_store.create_account("mobile-rotate@example.invalid")
+        session = self.fleet_store.create_session(account.account_id)
+        cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={session}"
+        node = "android-rotation-test-1"
+        qr = self.fleet_store.create_enrollment_token(
+            account.account_id, scope="mobile_device",
+        )
+        status, enrolled, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment/consume",
+            {"enrollment_token": qr, "node_id": node},
+        )
+        self.assertEqual(status, HTTPStatus.CREATED)
+        auth = {"Authorization": "Bearer " + enrolled["device_token"]}
+        now = int(time.time())
+        heartbeat = {"node_id": node, "timestamp": now}
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "mobile-rotation-nonce-0001"},
+            headers=auth,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+
+        with patch.object(passkey_routes, "send_security_alert", return_value=None):
+            status, rotated, _ = self._post(
+                "/api/auth/owner_key/rotate", {}, cookie=cookie,
+            )
+        self.assertEqual(status, HTTPStatus.OK)
+        new_owner_key = rotated["owner_key"]
+        self.assertNotEqual(account.owner_key, new_owner_key)
+        expected_owner_id = gateway_server_module.owner_id_for_key(new_owner_key)
+        self.assertEqual(
+            self.owner_store.owner_for_provider_node(node), expected_owner_id,
+        )
+        self.assertEqual(NODE_TELEMETRY_REGISTRY[node]["owner_id"], expected_owner_id)
+        status, _, _ = self._post(
+            "/api/v1/mobile/heartbeat",
+            {**heartbeat, "nonce": "mobile-rotation-nonce-0002"},
+            headers=auth,
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(
+            self.fleet_store.active_mobile_device_account(node), account.account_id,
+        )
+
+    def test_mobile_qr_cannot_take_over_existing_legacy_node(self) -> None:
+        account = self.fleet_store.create_account("mobile-conflict@example.invalid")
+        qr = self.fleet_store.create_enrollment_token(
+            account.account_id, scope="mobile_device",
+        )
+        node = "android-conflict-node-01"
+        NODE_TELEMETRY_REGISTRY[node] = {"node_id": node, "auth_token": "legacy"}
+        status, _, _ = self._post(
+            "/api/portal/fleet/mobile/enrollment/consume",
+            {"enrollment_token": qr, "node_id": node},
+        )
+        self.assertEqual(status, HTTPStatus.CONFLICT)
+        self.assertNotIn("credential", str(NODE_TELEMETRY_REGISTRY[node]))
+        self.assertFalse(self.fleet_store.revoke_mobile_device(account.account_id, node))
 
     def test_stale_and_offline_nodes_are_filtered_from_vram_aggregation(self) -> None:
         owner_key = "cm_owner_telemetry_test_key"

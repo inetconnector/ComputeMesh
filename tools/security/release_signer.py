@@ -169,7 +169,14 @@ def sign_manifest(
         "linux-x64": "computemesh-linux-x86_64.tar.gz",
         "nodeos-iso": "computemesh-nodeos-x86_64.iso",
         "nodeos-img": "computemesh-nodeos-x86_64.img.xz",
+        "nodeos-runtime-x64": "computemesh-nodeos-runtime-x86_64.tar.gz",
         "installer-script": "install.sh",
+        # These must be signed with the same trusted manifest as desktop and
+        # NodeOS. The Android metadata file alone is not a trust anchor:
+        # its hashes and production_signed flag are otherwise editable.
+        "android-apk": "ComputeMesh-Android.apk",
+        "android-aab": "ComputeMesh-Android.aab",
+        "android-release-metadata": "ComputeMesh-Android.json",
     }
 
     missing_targets: list[str] = []

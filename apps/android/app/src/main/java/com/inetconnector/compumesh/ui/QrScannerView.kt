@@ -3,7 +3,6 @@ package com.inetconnector.compumesh.ui
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,7 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.inetconnector.compumesh.R
@@ -55,7 +53,6 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.inetconnector.compumesh.ui.theme.*
-import org.json.JSONObject
 import java.util.concurrent.Executors
 
 data class QrPairResult(
@@ -65,55 +62,20 @@ data class QrPairResult(
 )
 
 /**
- * Parses raw barcode string (URI, JSON, or raw string) into OwnerKey & Gateway.
+ * Only the authenticated fleet portal's one-time QR link is a pairing
+ * credential. A raw Owner Key, JSON blob, IP address or foreign URL is not.
  */
-fun parseQrPayload(raw: String, fallbackGateway: String = "https://mesh.inetconnector.com"): QrPairResult {
-    val trimmed = raw.trim()
-    try {
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            val json = JSONObject(trimmed)
-            val key = json.optString("owner_key", json.optString("key", ""))
-            val gateway = json.optString("gateway", json.optString("gateway_url", fallbackGateway))
-            val enrollment = json.optString("enrollment_token", "")
-            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
-        }
-    } catch (_: Throwable) {}
-
-    try {
-        if (trimmed.startsWith("computemesh://") || trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-            val uri = Uri.parse(trimmed)
-            val fragmentParams = uri.fragment?.let { fragment ->
-                android.net.Uri.parse("https://local.invalid/?$fragment")
-            }
-            val key = fragmentParams?.getQueryParameter("owner_key")
-                ?: uri.getQueryParameter("owner_key")
-                ?: uri.getQueryParameter("key")
-                ?: uri.getQueryParameter("secret")
-                ?: ""
-            val enrollment = uri.getQueryParameter("enrollment_token") ?: ""
-            val gateway = uri.getQueryParameter("gateway")
-                ?: uri.getQueryParameter("gateway_url")
-                ?: if ((trimmed.startsWith("http://") || trimmed.startsWith("https://")) && !trimmed.contains("?")) trimmed else fallbackGateway
-
-            return QrPairResult(ownerKey = key, gatewayUrl = gateway.ifBlank { fallbackGateway }, enrollmentToken = enrollment)
-        }
-    } catch (_: Throwable) {}
-
-    // Direct URL or IP:Port string (e.g. http://192.168.1.94:8080/ or 192.168.1.94:8080)
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        return QrPairResult(ownerKey = "", gatewayUrl = trimmed)
-    }
-    if (trimmed.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/?.*$"""))) {
-        return QrPairResult(ownerKey = "", gatewayUrl = "http://$trimmed")
-    }
-
-    // Direct key string (e.g. inet-... or owner_...)
-    return QrPairResult(ownerKey = trimmed, gatewayUrl = fallbackGateway)
+@Suppress("UNUSED_PARAMETER")
+fun parseQrPayload(raw: String, fallbackGateway: String = EnrollmentLinkPolicy.TRUSTED_GATEWAY): QrPairResult {
+    return QrPairResult(
+        ownerKey = "",
+        gatewayUrl = EnrollmentLinkPolicy.TRUSTED_GATEWAY,
+        enrollmentToken = EnrollmentLinkPolicy.tokenFromQr(raw).orEmpty()
+    )
 }
 
 @Composable
 fun QrCameraScannerDialog(
-    currentGateway: String,
     onCodeScanned: (QrPairResult) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -123,7 +85,6 @@ fun QrCameraScannerDialog(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
-    var showManualInputDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -156,11 +117,16 @@ fun QrCameraScannerDialog(
             if (hasCameraPermission) {
                 CameraPreviewWithScanner(
                     onBarcodeFound = { rawValue ->
-                        val result = parseQrPayload(rawValue, currentGateway)
-                        onCodeScanned(result)
+                        val result = parseQrPayload(rawValue)
+                        if (result.enrollmentToken.isBlank()) {
+                            Toast.makeText(context, "Nur gültige ComputeMesh QR-Pairing-Codes zulässig", Toast.LENGTH_SHORT).show()
+                            false
+                        } else {
+                            onCodeScanned(result)
+                            true
+                        }
                     },
-                    onClose = onDismiss,
-                    onOpenManualInput = { showManualInputDialog = true }
+                    onClose = onDismiss
                 )
             } else {
                 // Permission Denied / Fallback View
@@ -200,10 +166,6 @@ fun QrCameraScannerDialog(
                     ) {
                         Text("Berechtigung anfordern", color = DeepVoidBg, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(onClick = { showManualInputDialog = true }) {
-                        Text("Oder Key manuell eingeben / einfügen", color = CyanAccent)
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(onClick = onDismiss) {
                         Text("Schließen", color = TextSecondary)
@@ -211,17 +173,7 @@ fun QrCameraScannerDialog(
                 }
             }
 
-            // Fallback / Manual Input Sub-Dialog
-            if (showManualInputDialog) {
-                ManualPairingDialog(
-                    currentGateway = currentGateway,
-                    onDismiss = { showManualInputDialog = false },
-                    onConfirm = { result ->
-                        showManualInputDialog = false
-                        onCodeScanned(result)
-                    }
-                )
-            }
+
         }
     }
 }
@@ -229,9 +181,8 @@ fun QrCameraScannerDialog(
 @OptIn(ExperimentalGetImage::class)
 @Composable
 private fun CameraPreviewWithScanner(
-    onBarcodeFound: (String) -> Unit,
-    onClose: () -> Unit,
-    onOpenManualInput: () -> Unit
+    onBarcodeFound: (String) -> Boolean,
+    onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -303,7 +254,9 @@ private fun CameraPreviewWithScanner(
                                         if (!raw.isNullOrBlank() && !hasScanned) {
                                             hasScanned = true
                                             previewView.post {
-                                                onBarcodeFound(raw)
+                                                if (!onBarcodeFound(raw)) {
+                                                    hasScanned = false
+                                                }
                                             }
                                             break
                                         }
@@ -406,19 +359,6 @@ private fun CameraPreviewWithScanner(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onOpenManualInput,
-                colors = ButtonDefaults.buttonColors(containerColor = CardSurface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CardSurfaceBorder),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().height(46.dp)
-            ) {
-                Icon(Icons.Default.ContentPaste, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("📋 Code manuell eingeben / einfügen", color = TextPrimary, fontSize = 13.sp)
-            }
         }
     }
 }
@@ -479,87 +419,3 @@ private fun ScannerOverlay(laserProgress: Float) {
     }
 }
 
-@Composable
-fun ManualPairingDialog(
-    currentGateway: String,
-    onDismiss: () -> Unit,
-    onConfirm: (QrPairResult) -> Unit
-) {
-    var inputText by remember { mutableStateOf("") }
-    val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = CyanAccent)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Flotten-Key / Link eingeben", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "Füge den Pairing-Link (computemesh://pair?...) oder den Owner-Key aus dem PC Cockpit ein:",
-                    color = TextSecondary,
-                    fontSize = 13.sp
-                )
-
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                        placeholder = { Text(stringResource(R.string.pairing_link_placeholder), color = TextMuted, fontSize = 12.sp) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = CyanAccent,
-                        unfocusedBorderColor = CardSurfaceBorder,
-                        focusedContainerColor = DeepVoidBg,
-                        unfocusedContainerColor = DeepVoidBg
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Button(
-                    onClick = {
-                        val clip = clipboardManager.getText()?.text
-                        if (!clip.isNullOrBlank()) {
-                            inputText = clip.trim()
-                            Toast.makeText(context, "Text aus Zwischenablage eingefügt!", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = CardSurfaceBorder),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.ContentPaste, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Aus Zwischenablage einfügen", color = TextPrimary, fontSize = 12.sp)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (inputText.isNotBlank()) {
-                        val result = parseQrPayload(inputText, currentGateway)
-                        onConfirm(result)
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Koppeln", color = DeepVoidBg, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen", color = TextSecondary)
-            }
-        },
-        containerColor = CardSurface,
-        shape = RoundedCornerShape(16.dp)
-    )
-}

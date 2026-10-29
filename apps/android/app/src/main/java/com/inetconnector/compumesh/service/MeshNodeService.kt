@@ -46,7 +46,9 @@ class MeshNodeService : Service() {
             get() = _nodeId.ifBlank { "android-device" }
             set(value) { _nodeId = value }
 
+        // Legacy property retained for UI compatibility only; never sent.
         var ownerKey: String = ""
+        var deviceToken: String = ""
         var gatewayUrl: String = "https://mesh.inetconnector.com"
 
         fun getOrCreateNodeId(context: Context): String {
@@ -80,6 +82,8 @@ class MeshNodeService : Service() {
     override fun onCreate() {
         super.onCreate()
         getOrCreateNodeId(this)
+        deviceToken = MobileCredentialStore.load(this)
+        ownerKey = ""
         batteryGuard = BatteryPolicyGuard(this)
         engine = MiniCpmEngine.getInstance(this)
         createNotificationChannel()
@@ -107,10 +111,8 @@ class MeshNodeService : Service() {
                     val guardStatus = batteryGuard.getStatus()
                     val payload = JSONObject().apply {
                         put("node_id", nodeId)
-                        put("auth_token", "cm_mobile_" + nodeId.replace("-", "_"))
-                        if (ownerKey.isNotBlank()) {
-                            put("owner_key", ownerKey)
-                        }
+                        put("nonce", UUID.randomUUID().toString())
+                        put("timestamp", System.currentTimeMillis() / 1000L)
                         put("inventory", JSONObject().apply {
                             put("schema_version", 1)
                             put("host_architecture", "android_arm64")
@@ -137,7 +139,12 @@ class MeshNodeService : Service() {
                         })
                     }
 
-                    sendHeartbeat(payload)
+                    // Device auth is possible only after the QR exchange.
+                    // Never leak its credential to an arbitrary LAN gateway.
+                    if (deviceToken.isNotBlank() &&
+                        gatewayUrl.trimEnd('/') == "https://mesh.inetconnector.com") {
+                        sendHeartbeat(payload)
+                    }
                     updateNotification(guardStatus.isComputePermitted, guardStatus.restrictionReason)
                 } catch (e: Exception) {
                     Log.e(TAG, "Heartbeat failed", e)
@@ -148,9 +155,13 @@ class MeshNodeService : Service() {
     }
 
     private fun sendHeartbeat(payload: JSONObject) {
-        val url = URL("$gatewayUrl/api/v1/node/heartbeat")
+        if (gatewayUrl.trimEnd('/') != "https://mesh.inetconnector.com" ||
+            !Regex("cm_mobile_[a-f0-9]{64}").matches(deviceToken)) return
+        val url = URL("https://mesh.inetconnector.com/api/v1/mobile/heartbeat")
         val conn = (url.openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = false
             requestMethod = "POST"
+            setRequestProperty("Authorization", "Bearer $deviceToken")
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("User-Agent", "ComputeMesh-Android-Node/1.2")
             doOutput = true
@@ -167,9 +178,8 @@ class MeshNodeService : Service() {
             val resp = conn.inputStream.bufferedReader().use { it.readText() }
             try {
                 val json = JSONObject(resp)
-                if (json.has("tokens_processed")) {
-                    totalTokensProcessed = json.getLong("tokens_processed")
-                }
+                // Telemetry success is not a proof of inference completion
+                // or of any earnings. Accounting never follows client claims.
             } catch (_: Exception) {}
         }
         conn.disconnect()

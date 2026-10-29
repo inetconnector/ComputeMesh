@@ -1,0 +1,93 @@
+# Codex: Entire ComputeMesh product release from GitHub main + immutable tag to live website
+
+**Requested release outcome:** All current, working features and URLs of the ComputeMesh website, Android, Windows and Linux/NodeOS are synchronized in GitHub **main** and published to the website by **one verified tag**, never copied from an arbitrary Windows working directory.
+
+**Repos (verified 2026-10-28):**
+- Public binary/web/source: https://github.com/inetconnector/ComputeMesh ; default branch **main**, not master.
+- Private control plane: https://github.com/inetconnector/ComputeMesh-ControlPlane ; default branch **main**, not master.
+- Public release infrastructure draft PR: https://github.com/inetconnector/ComputeMesh/pull/139, branch `release/portal-platform-sync-20261028`.
+- Current Windows checkout: `C:\Users\frede\Projekte\KI\ComputeMesh-ControlPlane\ComputeMesh`, branch `codex/kimi-nodeos-ota-20261027`, with many unrelated pending changes; DO NOT reset, stash, git-clean, blindly push or bulk-stage.
+
+## 0. Preflight, backups and scope
+
+Read `PRODUCT_RELEASE_QR_ONLY_GATE.md`, `UX_UNIFIED_PORTAL_IMPLEMENTATION.md`, `CODEX_WINDOWS_MESH_REPORT.md`, current `portal/` and Android + API sources in Windows checkout. Read both release-gate scripts in PR #139 (`tools/release/verify_portal_bundle.py` and `tools/release/check_portal_routes.py`). The former tagged GitHub Actions proposal is retained strictly as an inactive historical reference under `docs/archive/retired-github-actions-2026-10-28/`; do not reactivate it. Inventory the existing private and public main heads, commit ancestry, CI policies, release signature, product runtime and the actual Plesk deploy. Require current actual GitHub SHA in every report. No new artificial Owner-Key, no replacement release-signing key. Do not reveal secrets in reports.
+
+A previous preflight returned:
+- `RELEASE_OP_REJECTED: only main allowed; branch is codex/kimi-nodeos-ota-20261027`
+- `RELEASE_OP_REJECTED: public HEAD mismatch`.
+**Fix by clean reviewed integration, not bypassing preflights.**
+
+## 1. One simple, functioning website
+
+All pages in `portal/` must be checked (home, fleet, downloads and its index.html mirror, status, pricing, docs, models, marketplace, security, terms, privacy, imprint, contact, playground, webui, agent workspace, API login/registration, mobile). No broken internal links, no undefined onclick handlers, no duplicate IDs, no blank/dead buttons, no ignored API failures. Test responsive/mobile and desktop DE/EN.
+
+The only normal fleet UI is `/fleet`: my computers, add device, revenue. Windows is a background node agent; miner uses NodeOS. Android pairs QR-ONLY from website `Meine Rechner > Handy > QR`, using short-lived one-use token, never an Owner-Key. Do not collapse "QR approved", "heartbeat accepted", "online", "inference ready", or payout to one fake status.
+
+Remove or neutralize misleading claims like "all systems operational", fixed "v1.2.164" Android and fixed localhost:8080. Validate current live content by fetching origin URL after each staging deploy. Check compatibility with `portal-core.js`, `portal.js`, `portal-reference.js` and the page-specific inline scripts. `portal/downloads.html` and `portal/downloads/index.html` must be identical. Audit `portal/webui/` key propagation; do not ship with master Owner-Key copied to JS-readable cookies.
+
+Static gate: `python tools/release/check_portal_routes.py --portal portal --artifacts-dir <staged_downloads>`. This validates first-party links and onclick functions; external domains must also be checked independently with real network requests (handle legitimate anti-bot/redirects as INCONCLUSIVE, not PASS).
+
+## 2. Security and real component tests
+
+- Existierende HTTP- und Backend-Regressionen: `services/portal/tests/test_fleet_http.py`, `services/portal/tests/test_fleet_accounts.py`, `tools/appliance/tests/test_node_identity_contract.py`; dazu Android-JVM-Unit-Tests `apps/android/app/src/test/java/com/inetconnector/compumesh/ui/EnrollmentLinkPolicyTest.kt` und die übrigen Gateway-/Owner-Rotationsgates. Die früher genannten Dateien `test_device_pairing.py`, `test_mobile_qr_contract.py` und `test_device_pairing_client.py` existieren nicht: niemals behaupten, sie seien ausgeführt oder bestanden.
+- Android `apps/android/gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`, plus real QR scan on Android with signed heartbeat, AOSP minSdk 29, expiring/replayed QR, revoked device and app restart. Check AndroidKeyStore and crypto canonical message interoperability with Python. Pure JVM QR policy code is separately validated, but **an Android build and physical scan are not yet proven**.
+- **P0 mobile QR implementation (still NOT release-validated):** The portal's mobile QR path now requests `/api/portal/fleet/mobile/enrollment_token`; Android redeems only via `/api/portal/fleet/mobile/enrollment/consume` with its node ID; `FleetAccountStore` atomically binds a single-use mobile-scoped QR to a unique 256-bit per-device bearer token, stores only SHA-256, and accepts bounded-clock, unique nonces in the separate `/api/v1/mobile/heartbeat`. Both public HTTP handlers use the same store and helper. Android encrypts the scoped token with AndroidKeyStore AES-GCM; no owner key or predictable node-auth value is sent from the new heartbeat. The normal fleet unbind route revokes mobile credentials, and the old node-heartbeat route refuses all `android-` node IDs. Legacy server/NodeOS enrollment remains separately scoped.
+- **Mobile credential lifecycle regression additions:** A device removed through the ordinary fleet UI must be revocable after the HTTP telemetry registry has been cleared by a gateway restart. Durable ownership is authoritative; a different fleet account may not revoke it. A revoked phone can obtain a **new**, random credential only using a new QR code issued to the **same** account; the old credential and cross-tenant QR stay invalid. The next authenticated heartbeat clears the old durable unbound marker. Account owner-key rotation must migrate the mobile binding and preserve the device-scoped token, proven by an HTTP regression with external alert dispatch mocked. No automatic future PR merge just because these source tests were added.
+- **Mandatory tests not yet run:** `services/portal/tests/test_mobile_device_enrollment.py` (scope isolation, single redemption under concurrency, durable replay rejection, per-device auth, expiration and cross-tenant revoke) and `services/portal/tests/test_fleet_http.py` (end-to-end localhost Portal HTTP QR issue/consume/heartbeat/replay/generic-unbind and legacy collision), plus Android JUnit `EnrollmentLinkPolicyTest.kt`, full backend pytest suite, Android build/lint, actual phone-to-server QR scan and verified gateway heartbeat.
+- **Additional release blockers:** Device token uses a random 256-bit TLS bearer (not a signed proof-of-possession key); require explicit threat-model acceptance or upgrade to device-bound private-key signatures if strong anti-exfiltration proof is necessary. Validate mobile ownership across fleet-owner rotation, multi-process gateway/registry persistence, account revocation, authentication rate limiting, physical device logout/re-pairing and rollback. No paid routing from mobile presence-only heartbeat, no implied earnings or inferred inference capability. The legacy NodeOS route still has separate Owner-Key compatibility; mobile QR no longer enters that route. Old Android clients using legacy heartbeat will need a deliberate compatible upgrade/migration. `RELEASE_NO_GO` until proven on real hardware and in signed release artifacts.
+- Windows Node and OpenAI tunnel: `127.0.0.1:8080` remains tunnel; ComputeMesh binds its own `8081` port; node ID `cm-win-mifcom-rtx3080` and GPU validated; no untrusted localhost token transmissions.
+- Linux/NodeOS six RX470: boot, persistence, key and GPU inventory, signer, runtime, secure pairing, actual gateway accepted heartbeat; **no** claim of true inference without inference.
+- Full project compile, lint, unit and API integration. Check image-generation, billing and KYC routes only with permitted test data; no live payments to test.
+- Distinguish PASS, FAIL, SKIP, BLOCKED. No tests reported from a previous commit as testing current dirty files.
+
+## 3. Integrate to GitHub main properly
+
+- Separate dedicated clean worktree starting at exact remote `origin/main` for each public/private repository, no mutation of original dirty checkout.
+- Extract and review only intended application/website/QR/backend changes, preserve foreign work and private secrets. Use reviewed PRs with normal CI, resolve conflicts deliberately, then merge into `main` **only after gate PASS**.
+- Include PR #139 release verification files in public main (may need debugging before merge).
+- Do not push arbitrary binaries or private settings into Git and do not skip branch-protection rules.
+- Confirm `origin/main` immutable SHA after merge. This SHA will be the release source root, no silent follow-latest deployment.
+
+## 4. Build ALL platforms from the approved source
+
+Create reproducible release builds and a provenance report with SHA256 and exact version:
+- Windows `ComputeMesh-Setup-x64.exe`, tested EXE with rollback.
+- Android signed `ComputeMesh-Android.apk`, `ComputeMesh-Android.aab`, and `ComputeMesh-Android.json`, with verified production certificate fingerprint; QR-only functionality must match.
+- Linux `computemesh-linux-x86_64.tar.gz`, `install.sh`.
+- NodeOS `computemesh-nodeos-x86_64.iso`, `computemesh-nodeos-x86_64.img.xz`, `computemesh-nodeos-runtime-x86_64.tar.gz`, verified boot/provenance.
+- Make the website show the actual installed/applicable versions and give only working download links; do not advertise a non-existing APK or unsupported image.
+- Sign `portal/updates/version.json` using the **existing trusted release key** in protected coordinator, no new keys and no faked hash/signature. Signature is a gate; no partial release manifests. The signed `platforms` map must cover **all** mandatory Windows, Linux, NodeOS (including runtime), Android APK, Android AAB, and Android JSON metadata artifacts. Verify the actual bytes, exact size, SHA-256, and canonical download URL before signing; the Android JSON metadata must agree with the independently signed APK/AAB entries.
+- `tools/release/verify_portal_bundle.py` validates trusted Ed25519 manifest signature, hashes, file sizes and Android metadata consistency only. Its `verified=true` receipt explicitly has `production_release_approved=false`; it does **not** verify production APK signing certificate, device/NodeOS boot, QR pairing, physical Kimi inference or actual Plesk deployment. Independently validate APK certificate using a pinned, trusted `apksigner` execution and operator-attested evidence. No certificate proof means no release even when this Python script passes.
+
+## 5. Create and publish ONE immutable tag
+
+After merging and final source/build verification, create an annotated semver tag `vX.Y.Z` on exact public main commit (use the next approved version; do not reuse existing tags). Private controlplane must record the corresponding pinned public commit in its main. There is NO branch called master on these repositories.
+
+Tag GitHub Release must contain **all** signed installer files, signed version manifest, provenance/sha256 receipts and website source SHA. Re-fetch exact assets and independently hash and signature-verify. Failure means no public deployment and no altered stable tag.
+
+Do **not** run GitHub Actions or register a new active `.github/workflows/` release job. The previous proposal is preserved for audit in `docs/archive/retired-github-actions-2026-10-28/tagged-portal-release.yml` but is not an executable release route.
+
+Once the independent, operator-controlled Local Bridge and clean exact-tag snapshot meet the trust, source-hash and credential-isolation requirements of [private issue #86](https://github.com/inetconnector/ComputeMesh-ControlPlane/issues/86), run its **allowlisted, immutable and independently approved** release verifier. This must perform the static link/onclick audit, Android build and production signing-certificate verification, signed updater-manifest check, all binary SHA-256/size validations, genuine device-pairing/gateway contract tests and version/identity consistency. Tests that require live services or physical devices remain separate gates; a static script must not report them as passed.
+
+Only after those gates PASS may the trusted operator assemble a source-SHA-bound `computemesh-website-verified.tar.gz` staging bundle and record its SHA-256, exact tag commit, verified manifests, test receipts and build provenance. A GitHub draft release may temporarily hold signed, operator-vetted release assets, but not make them public or mark "latest" before verification. No fallback to an untrusted host script, owner key in environment logs, or unsigned assets if the protected runner is unavailable.
+
+## 6. Codex deploys to Plesk only from verified tag bundle
+
+Use existing approved `computemesh-plesk-*` task paths, not ad-hoc unreviewed scripts. Upload to a **staging** destination first, test all clean URLs and session/cookie flows using desktop/mobile, check Android QR display under CSP, simulate pair + heartbeat only using designated test fleet, and compare all binary HTTP Download hashes to the tag manifest. Confirm no PHP/Apache/nginx rewrite collision. Verify service-worker/cache headers and version.json availability.
+
+Once green, back up live public_html, perform atomic swap of verified portal bundle and download files, clear only the relevant cache, run live smoke checks for 200/302 expected, file SHA, QR-to-account E2E, gateway online and security headers; auto-roll back on regressions. DO NOT deploy a new gateway backend or set `COMPUTEMESH_ENABLE_DEVICE_PAIRING=1` until signed QR end-to-end tests have passed in staging and admin authorization is checked.
+
+## 7. Exact output / no invented result
+
+Write `RELEASE_ALL_PLATFORMS_REPORT.md` with:
+- both main SHAs, PRs, tag and actual release URL;
+- tested commands and exit codes, service/OS/GPU E2E evidence;
+- every installer actual version/bytes/SHA/signature and direct tested URL;
+- link audit result and all external links not reliably verified;
+- live site HTTP status and validated download digest after cache clear;
+- feature flags, backend version, portal commit, Android version, NodeOS version, Windows version;
+- rollback backup location and any remaining failures.
+
+Flags: `git_main_synced`, `release_tag_created`, `all_platform_artifacts_verified`, `release_signature_valid`, `android_qr_e2e_passed`, `nodeos_e2e_passed`, `website_link_audit_passed`, `plesk_staging_passed`, `production_deployed`, `production_rollback_ready` with boolean and evidence. If any P0 absent, `production_deployed=false` and give the precise blocker. Do not say 'done' for file edits or theoretical tests.
+
+**Authorization:** The user requested main/tag synchronization and Codex deployment after tests. Do not ask for a separate trivial confirmation for each step. Never reveal or rotate confidential keys. The original Windows EXE and miner remain untouched until their own tests and backups are ready.

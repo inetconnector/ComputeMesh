@@ -375,7 +375,9 @@ def _build_fleet_payload(
             "display_name": display_name,
             "status": status,
             "is_online": is_online,
-            "available_for_routing": is_online and not c["alias_collision"],
+            # Mobile heartbeat proves device presence, not that a tested
+            # inference runtime is ready for paid fleet scheduling.
+            "available_for_routing": is_online and not c["alias_collision"] and not n.get("mobile_device", False),
             "vram_gb": round(node_vram / (1024**3), 1),
             "tflops": round(node_tflops, 1) if is_online else 0.0,
             "gpus": [(g.get("model_name") if isinstance(g, dict) else str(g)) for g in gpus] if gpus else [],
@@ -392,7 +394,7 @@ def _build_fleet_payload(
             "software_version": node_version,
             "commit_sha": commit_sha,
             "protocol_version": protocol_version,
-            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if c["auth_token"] else "unauthenticated"),
+            "auth_status": "quarantined" if status == "quarantined" else ("authenticated" if (c["auth_token"] or n.get("mobile_device", False)) else "unauthenticated"),
             "is_enrolled": True,
             "capabilities": {
                 "gpus": gpus,
@@ -1454,7 +1456,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -1469,10 +1476,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
             all_tools = [t.name for t in self.inference_engine.tool_registry.list_tools(is_owner=True)]
             enabled_tools = [t for t in all_tools if t not in disabled]
@@ -1962,6 +1973,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
             return
 
+        if clean_path == "/api/portal/fleet/mobile/enrollment_token":
+            data, status, cookie = self.passkey_handler.create_enrollment_token(
+                self.headers, scope="mobile_device",
+            )
+            self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/enrollment/consume":
+            from services.portal.mobile_device_auth import enroll_mobile_device
+            data, status = enroll_mobile_device(FLEET_ACCOUNT_STORE, body)
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/v1/mobile/heartbeat":
+            from services.portal.mobile_device_auth import mobile_heartbeat
+            data, status = mobile_heartbeat(
+                FLEET_ACCOUNT_STORE, body, self.headers.get("Authorization", ""),
+            )
+            self._send_json(data, status)
+            return
+
+        if clean_path == "/api/portal/fleet/mobile/revoke":
+            from services.portal.mobile_device_auth import revoke_mobile_device
+            account = session_account_from_headers(self.headers)
+            if account is None:
+                self._send_error_response("Fleet session required", "unauthorized", HTTPStatus.UNAUTHORIZED)
+                return
+            data, status = revoke_mobile_device(
+                FLEET_ACCOUNT_STORE, account.account_id, body.get("node_id", ""),
+            )
+            self._send_json(data, status)
+            return
+
         if clean_path == "/api/portal/fleet/enrollment_token":
             data, status, cookie = self.passkey_handler.create_enrollment_token(self.headers)
             self._send_json(data, status, extra_headers={"Set-Cookie": cookie} if cookie else None)
@@ -1987,7 +2031,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
 
         if clean_path in ("/api/portal/fleet/mcp_settings", "/api/v1/mesh/fleet/mcp_settings"):
-            account = session_account_from_headers(self.headers)
+            # Resolve session cookies without invoking the legacy auto-create
+            # path for arbitrary X-Owner-Key/Bearer header values. Raw owner
+            # keys below must already belong to an existing fleet account.
+            account = session_account_from_headers(
+                {"Cookie": self.headers.get("Cookie", "")}
+            )
             owner_key = ""
             if account is not None:
                 owner_key = account.owner_key
@@ -2002,10 +2051,14 @@ class GatewayHandler(BaseHTTPRequestHandler):
             if not owner_key and account is None:
                 self._send_json({"error": "not signed in"}, HTTPStatus.UNAUTHORIZED)
                 return
-            owner_id = owner_id_for_key(owner_key)
-            if not owner_id:
-                self._send_json({"error": "invalid owner key"}, HTTPStatus.UNAUTHORIZED)
+            # Only an actual, authenticated fleet account may enumerate
+            # owner-only tools or change MCP policy. Never hash an arbitrary
+            # claimant-supplied string into an authorization identity.
+            verified_account = account or FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+            if verified_account is None:
+                self._send_json({"error": "valid fleet authentication required"}, HTTPStatus.UNAUTHORIZED)
                 return
+            owner_id = owner_id_for_key(verified_account.owner_key)
             disabled_tools = body.get("disabled_tools", [])
             if not isinstance(disabled_tools, list):
                 disabled_tools = []
@@ -2025,6 +2078,11 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
         if clean_path in ("/api/v1/node/heartbeat", "/api/node/heartbeat", "/v1/node/heartbeat"):
             node_id = str(body.get("node_id", "")).strip()
+            # Android identities must use the mobile-specific credential DB,
+            # even after a restart before their telemetry registry is loaded.
+            if node_id.startswith("android-"):
+                self._send_error_response("Android nodes require scoped mobile heartbeat", "forbidden", HTTPStatus.FORBIDDEN)
+                return
             auth_token = str(body.get("auth_token", "")).strip()
             if not node_id:
                 self._send_error_response("Valid node_id is required", "invalid_request_error", HTTPStatus.BAD_REQUEST)
@@ -2057,6 +2115,12 @@ class GatewayHandler(BaseHTTPRequestHandler):
             incoming_ts = body.get("timestamp")
 
             existing_node = NODE_TELEMETRY_REGISTRY.get(node_id)
+            if existing_node and existing_node.get("mobile_device"):
+                self._send_error_response(
+                    "Mobile nodes require the authenticated mobile heartbeat route",
+                    "forbidden", HTTPStatus.FORBIDDEN,
+                )
+                return
             registered_pub = str(existing_node.get("public_key", "")).strip() if existing_node else ""
             existing_owner_id = ""
             if existing_node:
@@ -2410,6 +2474,23 @@ class GatewayHandler(BaseHTTPRequestHandler):
 
             account = session_account_from_headers(self.headers)
             owner_key = str(body.get("owner_key", "")).strip()
+            mobile_owner_account = FLEET_ACCOUNT_STORE.active_mobile_device_account(node_id)
+            if mobile_owner_account is not None:
+                # The telemetry registry is ephemeral; device credentials and
+                # ownership are durable. Revoke the device even if the gateway
+                # restarted and its in-memory node card disappeared.
+                if account is None and owner_key:
+                    account = FLEET_ACCOUNT_STORE.get_account_by_owner_key(owner_key)
+                if account is None or account.account_id != mobile_owner_account:
+                    self._send_error_response("Not authorized for mobile device", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, mobile_owner_account, node_id,
+                )
+                self._send_json(data, status)
+                return
+
             if account is not None:
                 owner_id = owner_id_for_key(account.owner_key)
             elif owner_key:
@@ -2423,6 +2504,20 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 stored_owner_id = str(node_data.get("owner_id", "")).strip() or OWNER_ACCOUNT_STORE.owner_for_provider_node(node_id)
             if not owner_id or not stored_owner_id or not hmac.compare_digest(owner_id, stored_owner_id):
                 self._send_error_response("Owner authorization is required for this node.", "forbidden", HTTPStatus.FORBIDDEN)
+                return
+
+            # Removing a mobile node must revoke its durable device secret,
+            # not just remove its current registry row (which would re-enrol
+            # on the next authenticated heartbeat).
+            if node_data and node_data.get("mobile_device"):
+                from services.portal.mobile_device_auth import revoke_mobile_device
+                if account is None:
+                    self._send_error_response("Authenticated fleet account required", "forbidden", HTTPStatus.FORBIDDEN)
+                    return
+                data, status = revoke_mobile_device(
+                    FLEET_ACCOUNT_STORE, account.account_id, node_id,
+                )
+                self._send_json(data, status)
                 return
 
             unbound = OWNER_ACCOUNT_STORE.unbind_provider_node(owner_id, node_id)

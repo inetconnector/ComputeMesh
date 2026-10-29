@@ -11,9 +11,11 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
+import hmac
 from pathlib import Path
 import re
 import secrets
+import time
 import sqlite3
 from typing import Any
 
@@ -145,7 +147,24 @@ class FleetAccountStore:
                     account_id TEXT NOT NULL REFERENCES fleet_accounts(account_id),
                     created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
-                    used INTEGER NOT NULL DEFAULT 0
+                    used INTEGER NOT NULL DEFAULT 0,
+                    scope TEXT NOT NULL DEFAULT 'legacy_node'
+                );
+                CREATE TABLE IF NOT EXISTS fleet_mobile_devices (
+                    node_id TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL REFERENCES fleet_accounts(account_id),
+                    credential_sha256 TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_seen_at TEXT,
+                    revoked INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_fleet_mobile_devices_account
+                    ON fleet_mobile_devices(account_id);
+                CREATE TABLE IF NOT EXISTS fleet_mobile_heartbeat_nonces (
+                    node_id TEXT NOT NULL REFERENCES fleet_mobile_devices(node_id),
+                    nonce TEXT NOT NULL,
+                    created_at_unix INTEGER NOT NULL,
+                    PRIMARY KEY(node_id, nonce)
                 );
 
                 CREATE TABLE IF NOT EXISTS fleet_audit_log (
@@ -189,6 +208,10 @@ class FleetAccountStore:
                 """
             )
             # Safe schema migration for existing databases
+            try:
+                conn.execute("ALTER TABLE fleet_enrollment_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'legacy_node'")
+            except sqlite3.OperationalError:
+                pass
             try:
                 conn.execute("ALTER TABLE fleet_passkeys ADD COLUMN nickname TEXT NOT NULL DEFAULT ''")
             except sqlite3.OperationalError:
@@ -468,35 +491,183 @@ class FleetAccountStore:
 
     # -- enrollment tokens --------------------------------------------------
 
-    def create_enrollment_token(self, account_id: str, ttl_minutes: int = ENROLLMENT_TOKEN_TTL_MINUTES) -> str:
+    def create_enrollment_token(
+        self, account_id: str, ttl_minutes: int = ENROLLMENT_TOKEN_TTL_MINUTES,
+        *, scope: str = "legacy_node",
+    ) -> str:
+        if scope not in {"legacy_node", "mobile_device"}:
+            raise FleetAccountStoreError("invalid enrollment scope")
         token = "cmenroll_" + secrets.token_urlsafe(20)
         now = datetime.now(timezone.utc)
         expires = (now + timedelta(minutes=ttl_minutes)).isoformat().replace("+00:00", "Z")
         with self._connection() as conn:
             conn.execute(
-                "INSERT INTO fleet_enrollment_tokens(token, account_id, created_at, expires_at, used) VALUES(?, ?, ?, ?, 0)",
-                (token, account_id, utc_now(), expires),
+                "INSERT INTO fleet_enrollment_tokens(token, account_id, created_at, expires_at, used, scope) "
+                "VALUES(?, ?, ?, ?, 0, ?)",
+                (token, account_id, utc_now(), expires, scope),
             )
         return token
 
     def verify_and_consume_enrollment_token(self, token: str) -> str | None:
-        """Verifies enrollment token and returns owner_key if valid."""
+        """Legacy NodeOS enrollment only; mobile QR tokens cannot expose owner keys."""
         raw = str(token or "").strip()
         if not raw:
             return None
         with self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
-                "SELECT account_id, expires_at, used FROM fleet_enrollment_tokens WHERE token = ?",
-                (raw,),
+                "SELECT account_id, expires_at, used FROM fleet_enrollment_tokens "
+                "WHERE token = ? AND scope = 'legacy_node'", (raw,),
             ).fetchone()
             if row is None or row["used"]:
                 return None
-            conn.execute("UPDATE fleet_enrollment_tokens SET used = 1 WHERE token = ?", (raw,))
             expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
             if datetime.now(timezone.utc) > expires_at:
                 return None
-            account = conn.execute("SELECT owner_key FROM fleet_accounts WHERE account_id = ?", (row["account_id"],)).fetchone()
-            return str(account["owner_key"]) if account else None
+            account = conn.execute(
+                "SELECT owner_key FROM fleet_accounts WHERE account_id = ?",
+                (row["account_id"],),
+            ).fetchone()
+            if not account:
+                return None
+            updated = conn.execute(
+                "UPDATE fleet_enrollment_tokens SET used = 1 WHERE token = ? AND used = 0",
+                (raw,),
+            )
+            return str(account["owner_key"]) if updated.rowcount == 1 else None
+
+    def consume_mobile_enrollment(self, enrollment_token: str, node_id: str) -> str | None:
+        """Atomically exchange a mobile-scoped QR for one 256-bit device credential.
+
+        Only its hash is persisted. Never returns or copies the fleet owner key.
+        No implicit device reassignment or other-node credential reuse.
+        """
+        if not re.fullmatch(r"android-[a-zA-Z0-9_.-]{3,56}", str(node_id or "")):
+            return None
+        raw = str(enrollment_token or "").strip()
+        if not re.fullmatch(r"cmenroll_[A-Za-z0-9_-]{20,64}", raw):
+            return None
+        now = datetime.now(timezone.utc)
+        with self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            record = conn.execute(
+                "SELECT account_id, expires_at FROM fleet_enrollment_tokens "
+                "WHERE token = ? AND scope = 'mobile_device' AND used = 0",
+                (raw,),
+            ).fetchone()
+            if not record:
+                return None
+            if now > datetime.fromisoformat(str(record["expires_at"]).replace("Z", "+00:00")):
+                return None
+            existing = conn.execute(
+                "SELECT account_id, revoked FROM fleet_mobile_devices WHERE node_id = ?",
+                (node_id,),
+            ).fetchone()
+            # A revoked handset may pair again only with a fresh, single-use
+            # QR issued to the *same* fleet. Cross-tenant takeovers fail closed.
+            if existing and (
+                not bool(existing["revoked"])
+                or str(existing["account_id"]) != str(record["account_id"])
+            ):
+                return None
+            credential = "cm_mobile_" + secrets.token_hex(32)
+            digest = hashlib.sha256(credential.encode("ascii")).hexdigest()
+            updated = conn.execute(
+                "UPDATE fleet_enrollment_tokens SET used = 1 "
+                "WHERE token = ? AND scope = 'mobile_device' AND used = 0",
+                (raw,),
+            )
+            if updated.rowcount != 1:
+                return None
+            if existing:
+                conn.execute(
+                    "UPDATE fleet_mobile_devices "
+                    "SET credential_sha256 = ?, created_at = ?, last_seen_at = NULL, revoked = 0 "
+                    "WHERE node_id = ? AND account_id = ? AND revoked = 1",
+                    (digest, utc_now(), node_id, record["account_id"]),
+                )
+                # Any old replay history belongs to the revoked credential.
+                conn.execute(
+                    "DELETE FROM fleet_mobile_heartbeat_nonces WHERE node_id = ?",
+                    (node_id,),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO fleet_mobile_devices(node_id, account_id, credential_sha256, created_at) "
+                    "VALUES(?, ?, ?, ?)",
+                    (node_id, record["account_id"], digest, utc_now()),
+                )
+            return credential
+
+    def authenticate_mobile_heartbeat(
+        self, node_id: str, credential: str, nonce: str, timestamp: int,
+    ) -> FleetAccount | None:
+        """Durable per-device auth with bounded clock skew and replay rejection."""
+        if (not isinstance(node_id, str)
+                or not re.fullmatch(r"android-[a-zA-Z0-9_.-]{3,56}", node_id)
+                or not isinstance(credential, str)
+                or not re.fullmatch(r"cm_mobile_[a-f0-9]{64}", credential)
+                or not isinstance(nonce, str)
+                or not re.fullmatch(r"[a-zA-Z0-9_-]{16,80}", nonce)
+                or type(timestamp) is not int):
+            return None
+        now = int(time.time())
+        if abs(now - timestamp) > 120:
+            return None
+        digest = hashlib.sha256(credential.encode("ascii")).hexdigest()
+        with self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT account_id, credential_sha256 FROM fleet_mobile_devices "
+                "WHERE node_id = ? AND revoked = 0", (node_id,),
+            ).fetchone()
+            if not row or not hmac.compare_digest(row["credential_sha256"], digest):
+                return None
+            # Only retain replay entries while their timestamp could be in the
+            # accepted 120-second window, even after process restart.
+            conn.execute(
+                "DELETE FROM fleet_mobile_heartbeat_nonces WHERE created_at_unix < ?",
+                (now - 300,),
+            )
+            try:
+                conn.execute(
+                    "INSERT INTO fleet_mobile_heartbeat_nonces(node_id, nonce, created_at_unix) "
+                    "VALUES(?, ?, ?)", (node_id, nonce, now),
+                )
+            except sqlite3.IntegrityError:
+                return None
+            conn.execute(
+                "UPDATE fleet_mobile_devices SET last_seen_at = ? WHERE node_id = ?",
+                (utc_now(), node_id),
+            )
+            account = conn.execute(
+                "SELECT * FROM fleet_accounts WHERE account_id = ?",
+                (row["account_id"],),
+            ).fetchone()
+            return FleetAccount(**dict(account)) if account else None
+
+    def active_mobile_device_account(self, node_id: str) -> str | None:
+        """Resolve a mobile device by durable ownership, even after server restart."""
+        if not isinstance(node_id, str) or not re.fullmatch(
+            r"android-[a-zA-Z0-9_.-]{3,56}", node_id
+        ):
+            return None
+        with self._connection() as conn:
+            record = conn.execute(
+                "SELECT account_id FROM fleet_mobile_devices "
+                "WHERE node_id = ? AND revoked = 0", (node_id,),
+            ).fetchone()
+            return str(record["account_id"]) if record else None
+
+    def revoke_mobile_device(self, account_id: str, node_id: str) -> bool:
+        """A device cannot revoke/modify another tenant's credential."""
+        with self._connection() as conn:
+            changed = conn.execute(
+                "UPDATE fleet_mobile_devices SET revoked = 1 "
+                "WHERE account_id = ? AND node_id = ? AND revoked = 0",
+                (account_id, node_id),
+            )
+            return changed.rowcount == 1
 
     # -- sessions -------------------------------------------------------------
 
