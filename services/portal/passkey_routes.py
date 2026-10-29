@@ -470,12 +470,16 @@ class PasskeyAuthHandler:
 
     # -- Enrollment Tokens & Audit Log --------------------------------------
 
-    def create_enrollment_token(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
+    def create_enrollment_token(
+        self, headers: Any, *, scope: str = "legacy_node",
+    ) -> tuple[dict[str, Any], HTTPStatus, str | None]:
         account = session_account_from_headers(headers)
         if account is None:
             return {"error": "not authenticated"}, HTTPStatus.UNAUTHORIZED, None
 
-        token = FLEET_ACCOUNT_STORE.create_enrollment_token(account.account_id, ttl_minutes=30)
+        token = FLEET_ACCOUNT_STORE.create_enrollment_token(
+            account.account_id, ttl_minutes=30, scope=scope,
+        )
         return {"enrollment_token": token, "expires_in_minutes": 30}, HTTPStatus.OK, None
 
     def get_audit_log(self, headers: Any) -> tuple[dict[str, Any], HTTPStatus, str | None]:
