@@ -69,7 +69,9 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedKey = prefs.getString(PREF_OWNER_KEY, "") ?: ""
         val savedGateway = prefs.getString(PREF_GATEWAY_URL, "https://mesh.inetconnector.com") ?: "https://mesh.inetconnector.com"
-        MeshNodeService.ownerKey = savedKey
+        MeshNodeService.ownerKey = if (
+            EnrollmentLinkPolicy.mayTransmitOwnerKey(savedGateway.trimEnd('/'))
+        ) savedKey else ""
         MeshNodeService.gatewayUrl = savedGateway
         ownerKeyState.value = savedKey
         gatewayUrlState.value = savedGateway
@@ -253,7 +255,9 @@ class MainActivity : ComponentActivity() {
             else -> cleanKey
         }
 
-        MeshNodeService.ownerKey = effectiveKey
+        MeshNodeService.ownerKey = if (
+            EnrollmentLinkPolicy.mayTransmitOwnerKey(effectiveGateway)
+        ) effectiveKey else ""
         MeshNodeService.gatewayUrl = effectiveGateway
         ownerKeyState.value = effectiveKey
         gatewayUrlState.value = effectiveGateway
