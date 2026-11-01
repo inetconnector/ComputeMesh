@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+from urllib.parse import quote, urlsplit
 from typing import Any, Dict, List, Optional
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
@@ -101,6 +102,55 @@ def format_tool_content_if_json(content: str) -> str:
                 f"| **📡 Datenquelle** | `{data.get('source', 'Open-Meteo')}` |"
             )
             return res.strip()
+
+        # Unverified search snippets must never use the "best price" or
+        # "purchase recommendation" formatter for verified merchant offers.
+        # Treat product names, errors and merchant snippets as untrusted Markdown.
+        def safe_cell(value: Any) -> str:
+            plain = " ".join(str(value).splitlines())
+            for mark in ("\\", "|", "`", "*", "_", "[", "]", "<", ">"):
+                plain = plain.replace(mark, "\\" + mark)
+            return plain
+
+        if data.get("data_quality") == "no_live_offers":
+            name = safe_cell(data.get("product_name") or data.get("query", "Produkt"))
+            if data.get("status") in ("invalid_query", "invalid_argument", "unsupported"):
+                reason = safe_cell(data.get("error") or "Ungültige oder nicht unterstützte Anfrage.")
+                return f"### 🛍️ Preisrecherche: {name}\n\n{reason}"
+            return (
+                f"### 🛍️ Preisrecherche: {name}\n\n"
+                "Keine aktuellen Preisangaben gefunden. Es wurden **keine** "
+                "Händlerangebote, Preise, Verfügbarkeiten oder Bewertungen erfunden."
+            )
+
+        if data.get("data_quality") == "search_snippet_unverified":
+            name = safe_cell(data.get("product_name") or data.get("query", "Produkt"))
+            lines = [
+                f"### 🛍️ Suchtreffer mit Preis-Hinweisen: {name}\n",
+                "**Nicht verifiziert:** Die Angaben stammen aus Suchtreffern, "
+                "nicht aus bestätigten Händlerangeboten. Versand und Verfügbarkeit "
+                "können abweichen. **Keine Kaufempfehlung oder bestätigter Bestpreis.**\n",
+                "| Händler laut Suchtreffer | Preis-Hinweis (ohne unbekannten Versand) | Versand | Verfügbarkeit | Quelle |",
+                "| :--- | ---: | :--- | :--- | :--- |",
+            ]
+            for offer in data.get("offers", []):
+                if not isinstance(offer, dict) or not isinstance(offer.get("price"), (int, float)):
+                    continue
+                merchant = safe_cell(offer.get("merchant") or "Unbekannt")
+                price = offer["price"]
+                shipping = safe_cell(offer.get("shipping") or "Unbekannt")
+                available = safe_cell(offer.get("availability") or "Nicht verifiziert")
+                url = offer.get("url")
+                link = "Keine Quelle"
+                if isinstance(url, str):
+                    try:
+                        parsed = urlsplit(url)
+                        if parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password:
+                            link = f"[Suchtreffer]({quote(url, safe='/:?&=%#@+,-._~')})"
+                    except ValueError:
+                        pass
+                lines.append(f"| {merchant} | {price:,.2f} € | {shipping} | {available} | {link} |")
+            return "\n".join(lines).strip()
 
         if "price_comparison" in data or ("best_price" in data and "offers" in data and isinstance(data.get("offers"), list)):
             p_name = data.get("product_name") or data.get("product") or data.get("query", "Produkt")
@@ -1574,5 +1624,4 @@ def format_tool_content_if_json(content: str) -> str:
     except Exception:
         pass
     return str(content or "")
-
 
