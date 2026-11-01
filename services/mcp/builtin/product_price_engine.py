@@ -7,6 +7,7 @@ Never represent simulated offers or unverified snippets as live merchant quotes.
 from __future__ import annotations
 
 import html
+import math
 import re
 import urllib.parse
 import urllib.request
@@ -95,7 +96,7 @@ def parse_numeric_price(price_str: str) -> float | None:
 
     try:
         val = float(cleaned)
-        return round(val, 2) if val >= 0 else 0.0
+        return round(val, 2) if math.isfinite(val) and val >= 0 else 0.0
     except ValueError:
         return 0.0
 
@@ -337,7 +338,26 @@ def search_product_prices(
         return {"error": "Suchbegriff für Produktvergleich darf nicht leer sein."}
 
     # 1. Check live search
-    offers = fetch_live_shopping_offers(clean_query, timeout=timeout)
+    raw_offers = fetch_live_shopping_offers(clean_query, timeout=timeout)
+    # The fetcher is not a source of verified offers. Validate even mocked or
+    # upstream-supplied results before any numeric aggregation or display.
+    offers: list[dict[str, Any]] = []
+    if isinstance(raw_offers, list):
+        for item in raw_offers:
+            if not isinstance(item, dict):
+                continue
+            value = item.get("price")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            try:
+                amount = float(value)
+            except (OverflowError, ValueError):
+                continue
+            if not math.isfinite(amount) or amount <= 0:
+                continue
+            if not isinstance(item.get("url"), str) or _safe_offer_host(item["url"]) is None:
+                continue
+            offers.append({**item, "price": round(amount, 2)})
 
     # No live-search result is preferable to presenting invented market data.
     # Retain the existing response keys for callers, but use nulls for unknown
