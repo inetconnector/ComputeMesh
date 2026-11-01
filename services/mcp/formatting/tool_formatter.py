@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
@@ -172,11 +173,15 @@ def format_tool_content_if_json(content: str) -> str:
                 "| Händler laut Suchtreffer | Preis-Hinweis (ohne unbekannten Versand) | Versand | Verfügbarkeit | Quelle |",
                 "| :--- | ---: | :--- | :--- | :--- |",
             ]
-            for offer in data.get("offers", []):
-                if not isinstance(offer, dict) or not isinstance(offer.get("price"), (int, float)):
+            candidate_offers = data.get("offers")
+            for offer in candidate_offers if isinstance(candidate_offers, list) else []:
+                if not isinstance(offer, dict):
+                    continue
+                price = offer.get("price")
+                if (isinstance(price, bool) or not isinstance(price, (int, float))
+                        or not math.isfinite(price) or price <= 0):
                     continue
                 merchant = safe_cell(offer.get("merchant") or "Unbekannt")
-                price = offer["price"]
                 shipping = safe_cell(offer.get("shipping") or "Unbekannt")
                 available = safe_cell(offer.get("availability") or "Nicht verifiziert")
                 url = offer.get("url")
