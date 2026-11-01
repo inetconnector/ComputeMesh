@@ -66,7 +66,8 @@ class TestProductPriceEngine(unittest.TestCase):
                     self.assertIsNone(result["best_price"])
                     self.assertFalse(result["price_comparison"])
                     display = format_tool_content_if_json(json.dumps(result))
-                    self.assertIn(result["error"], display)
+                    # Untrusted tool errors are escaped before Markdown rendering.
+                    self.assertIn(result["error"].replace("_", r"\_"), display)
             fetch.assert_not_called()
 
     def test_search_response_limit_fails_closed(self):
