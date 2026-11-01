@@ -55,6 +55,45 @@ def _convert_data_uris_to_static_files(text: str) -> str:
     return pattern.sub(_replacer, text)
 
 
+def _safe_unverified_snippet_link(value: Any) -> str | None:
+    """Accept only explicit HTTPS DNS hostnames for unverified snippet links.
+
+    Never make localhost/private-IP/credential URLs clickable. Purely textual
+    checks do not prove the remote host is safe; no network request is made.
+    """
+    if not isinstance(value, str) or not value or value != value.strip():
+        return None
+    if "\\" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        return None
+    try:
+        target = urlsplit(value)
+        host = target.hostname
+        port = target.port
+    except ValueError:
+        return None
+    if (target.scheme != "https" or not host
+            or target.username is not None or target.password is not None
+            or port not in (None, 443)):
+        return None
+    hostname = host.lower().rstrip(".")
+    if hostname != host.lower() or len(hostname) > 253:
+        return None
+    if not re.fullmatch(r"[a-z0-9-]+(?:\\.[a-z0-9-]+)+", hostname):
+        return None
+    labels = hostname.split(".")
+    if any(label.startswith("-") or label.endswith("-") or len(label) > 63 for label in labels):
+        return None
+    if all(label.isdecimal() for label in labels):
+        return None  # Dotted numeric IPs are not merchant DNS names.
+    if hostname.endswith((
+        ".localhost", ".local", ".internal", ".lan", ".home.arpa",
+        ".corp", ".cluster.local", ".test", ".invalid", ".example",
+    )):
+        return None
+    # Escape Markdown delimiters in path/query rather than trusting snippets.
+    return f"[Suchtreffer]({quote(value, safe='/:?&=%#@+,-._~')})"
+
+
 def format_tool_content_if_json(content: str) -> str:
     """Format a few common raw JSON tool responses for direct user display."""
     content = _convert_data_uris_to_static_files(format_reasoning_and_thinking_blocks(content))
@@ -141,14 +180,10 @@ def format_tool_content_if_json(content: str) -> str:
                 shipping = safe_cell(offer.get("shipping") or "Unbekannt")
                 available = safe_cell(offer.get("availability") or "Nicht verifiziert")
                 url = offer.get("url")
-                link = "Keine Quelle"
-                if isinstance(url, str):
-                    try:
-                        parsed = urlsplit(url)
-                        if parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password:
-                            link = f"[Suchtreffer]({quote(url, safe='/:?&=%#@+,-._~')})"
-                    except ValueError:
-                        pass
+                # Only render a link when the hostname is unambiguously
+                # public-looking. This is display safety, NOT DNS or SSRF
+                # authorization for fetching the unverified result.
+                link = _safe_unverified_snippet_link(url) or "Keine Quelle"
                 lines.append(f"| {merchant} | {price:,.2f} € | {shipping} | {available} | {link} |")
             return "\n".join(lines).strip()
 
