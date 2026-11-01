@@ -326,6 +326,45 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertEqual(hits[0]["price"], 199.0)
         self.assertFalse(hits[0]["verified"])
 
+    def test_internal_dns_suffixes_are_rejected_before_snippet_ingestion(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
+
+        blocked = (
+            "https://shop.local/item",
+            "https://shop.lan/item",
+            "https://shop.home.arpa/item",
+            "https://shop.internal/item",
+            "https://shop.corp/item",
+            "https://shop.test/item",
+            "https://shop.example/item",
+            "https://shop.onion/item",
+        )
+        for url in blocked:
+            with self.subTest(url=url):
+                self.assertEqual(extract_merchant_name(url), "Online-Händler")
+
+        parts = [
+            (
+                '<a class="result__a" href="' + url + '">Gerät 219 €</a>'
+                '<a class="result__snippet" href="#">Preisangabe</a>'
+            )
+            for url in blocked
+        ]
+        parts.append(
+            '<a class="result__a" href="https://shop.example.org/item">Gerät 219 €</a>'
+            '<a class="result__snippet" href="#">Preisangabe</a>'
+        )
+        with patch(
+            "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+        ) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = (
+                "".join(parts).encode("utf-8")
+            )
+            hits = fetch_live_shopping_offers("Gerät")
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["url"], "https://shop.example.org/item")
+        self.assertFalse(hits[0]["verified"])
+
     def test_unverified_and_empty_results_escape_untrusted_markdown(self):
         for status, details in (
             ("unavailable", {}),
