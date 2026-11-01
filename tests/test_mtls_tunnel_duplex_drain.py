@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 import unittest
 
 from runtime.network.mesh_transport import MeshTunnelClient, MeshTunnelServer
@@ -64,6 +65,58 @@ class TestMtlsTunnelDuplexDrain(unittest.TestCase):
                 self.assertEqual(writer.shutdown_calls, [socket.SHUT_WR])
                 self.assertEqual(getattr(tunnel, counter), 5)
                 self.assertFalse(stop.is_set(), "clean EOF must allow reply to drain")
+
+    def test_delayed_reverse_data_survives_half_close_on_socketpairs(self) -> None:
+        # No external network needed; use kernel socket pairs to exercise
+        # simultaneous real recv_into/sendall and TCP-style half-close.
+        for tunnel_class, forward, reverse in (
+            (MeshTunnelServer, "c2t", "t2c"),
+            (MeshTunnelClient, "a2s", "s2a"),
+        ):
+            with self.subTest(tunnel=tunnel_class.__name__):
+                app_end, tunnel_app_end = socket.socketpair()
+                tunnel_echo_end, echo_end = socket.socketpair()
+                stop = threading.Event()
+                tunnel = object.__new__(tunnel_class)
+                tunnel._running = True
+                tunnel.total_bytes_sent = 0
+                tunnel.total_bytes_received = 0
+                outgoing = threading.Thread(
+                    target=tunnel._pipe,
+                    args=(tunnel_app_end, tunnel_echo_end, forward, stop),
+                    daemon=True,
+                )
+                incoming = threading.Thread(
+                    target=tunnel._pipe,
+                    args=(tunnel_echo_end, tunnel_app_end, reverse, stop),
+                    daemon=True,
+                )
+                try:
+                    app_end.settimeout(2.0)
+                    echo_end.settimeout(2.0)
+                    outgoing.start()
+                    incoming.start()
+                    app_end.sendall(b"PING")
+                    app_end.shutdown(socket.SHUT_WR)
+                    self.assertEqual(echo_end.recv(16), b"PING")
+                    # The request has ended; reverse traffic is delayed.
+                    time.sleep(0.06)
+                    echo_end.sendall(b"ECHO:PING")
+                    echo_end.shutdown(socket.SHUT_WR)
+                    self.assertEqual(app_end.recv(64), b"ECHO:PING")
+                    outgoing.join(timeout=2.0)
+                    incoming.join(timeout=2.0)
+                    self.assertFalse(outgoing.is_alive())
+                    self.assertFalse(incoming.is_alive())
+                    self.assertFalse(stop.is_set(), "graceful EOF must not abort")
+                finally:
+                    stop.set()
+                    for sock in (app_end, tunnel_app_end, tunnel_echo_end, echo_end):
+                        sock.close()
+                    if outgoing.ident is not None:
+                        outgoing.join(timeout=1.0)
+                    if incoming.ident is not None:
+                        incoming.join(timeout=1.0)
 
     def test_socket_read_error_aborts_both_directions(self) -> None:
         for tunnel_class, direction in (
