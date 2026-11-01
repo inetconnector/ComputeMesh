@@ -177,9 +177,14 @@ def format_tool_content_if_json(content: str) -> str:
             for offer in candidate_offers if isinstance(candidate_offers, list) else []:
                 if not isinstance(offer, dict):
                     continue
-                price = offer.get("price")
-                if (isinstance(price, bool) or not isinstance(price, (int, float))
-                        or not math.isfinite(price) or price <= 0):
+                raw_price = offer.get("price")
+                if isinstance(raw_price, bool) or not isinstance(raw_price, (int, float)):
+                    continue
+                try:
+                    price = float(raw_price)
+                except (OverflowError, ValueError):
+                    continue
+                if not math.isfinite(price) or price <= 0:
                     continue
                 merchant = safe_cell(offer.get("merchant") or "Unbekannt")
                 shipping = safe_cell(offer.get("shipping") or "Unbekannt")
