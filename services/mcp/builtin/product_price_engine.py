@@ -353,11 +353,31 @@ def search_product_prices(
                 amount = float(value)
             except (OverflowError, ValueError):
                 continue
-            if not math.isfinite(amount) or amount <= 0:
+            if not math.isfinite(amount) or not 5.0 <= amount <= 25_000.0:
+                continue
+            if item.get("currency", "EUR") != "EUR":
                 continue
             if not isinstance(item.get("url"), str) or _safe_offer_host(item["url"]) is None:
                 continue
-            offers.append({**item, "price": round(amount, 2)})
+            # Return an explicit schema: never propagate upstream claims such
+            # as verified stock, shipping costs, ratings or synthetic savings.
+            shipping_hint = item.get("shipping")
+            offers.append({
+                "merchant": str(item.get("merchant") or "Unbekannt")[:120],
+                "title": str(item.get("title") or "")[:70],
+                "price": round(amount, 2),
+                "currency": "EUR",
+                "shipping": (
+                    "0,00 € (laut Suchtreffer)"
+                    if shipping_hint == "0,00 € (laut Suchtreffer)"
+                    else "Unbekannt"
+                ),
+                "availability": "Nicht verifiziert",
+                "url": item["url"],
+                "source": "search_snippet_unverified",
+                "verified": False,
+                "total_price": None,
+            })
 
     # No live-search result is preferable to presenting invented market data.
     # Retain the existing response keys for callers, but use nulls for unknown
