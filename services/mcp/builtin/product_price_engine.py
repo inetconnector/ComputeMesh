@@ -409,15 +409,8 @@ def search_product_prices(
             "category": category or "Allgemein",
         }
 
-    # Shipping cost is unknown unless the snippet explicitly mentions free shipping.
-    # Do not invent total costs or merchant star ratings.
-    for o in offers:
-        p = float(o.get("price", 0.0))
-        # Even snippet-based "free shipping" is unconfirmed; total cost remains unknown.
-        o["total_price"] = None
-        o.pop("rating", None)
-        o["source"] = "search_snippet_unverified"
-        o["verified"] = False
+    # Every offer has already been normalized to the explicit unverified
+    # schema. No downstream field may reintroduce stock or shipping claims.
 
     # Sort only by the extracted product price; shipping may be unknown.
     offers.sort(key=lambda x: float(x.get("price", 999999.0)))
