@@ -111,7 +111,11 @@ def _safe_offer_host(url: str) -> str | None:
     if (parsed.scheme != "https" or parsed.username is not None
             or parsed.password is not None or not host or "\\" in url
             or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", host)
-            or host.endswith((".localhost", ".local", ".internal", ".invalid", ".test"))
+            or host.endswith((
+                ".localhost", ".local", ".localdomain", ".internal",
+                ".lan", ".home.arpa", ".corp", ".cluster.local",
+                ".invalid", ".test", ".example", ".onion",
+            ))
             or host in ("localhost", "127.0.0.1", "0.0.0.0")):
         return None
     # Prevent raw IPs, private/public alike, from being treated as a merchant website.
