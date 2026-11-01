@@ -259,6 +259,51 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertIn("Keine Quelle", formatted)
         self.assertNotIn("[Suchtreffer](javascript:", formatted)
 
+    def test_unverified_snippet_links_reject_internal_and_ambiguous_urls(self):
+        # Displaying a URL is not authorization to fetch it. Reject link targets
+        # that could be local, malformed or carry embedded credentials.
+        blocked_urls = (
+            "https://localhost/admin",
+            "https://127.0.0.1/admin",
+            "https://192.168.1.1/private",
+            "https://[::1]/private",
+            "https://shop.local/internal",
+            "https://shop.internal/status",
+            "https://shop.example.org:8443/private",
+            "https://user:password@shop.example.org/order",
+            "https://shop.example.org@127.0.0.1/",
+            "http://shop.example.org/item",
+            "javascript:alert(1)",
+            "https://shop.example.org\\@127.0.0.1/",
+        )
+        for url in blocked_urls:
+            with self.subTest(url=url):
+                data = {
+                    "status": "unverified",
+                    "data_quality": "search_snippet_unverified",
+                    "product_name": "Example item",
+                    "offers": [{"merchant": "Example Shop", "price": 123.0, "url": url}],
+                }
+                rendered = format_tool_content_if_json(json.dumps(data))
+                self.assertIn("Keine Quelle", rendered)
+                self.assertNotIn("[Suchtreffer](", rendered)
+
+        valid_data = {
+            "status": "unverified",
+            "data_quality": "search_snippet_unverified",
+            "product_name": "Example item",
+            "offers": [{
+                "merchant": "Example Shop",
+                "price": 123.0,
+                "url": "https://shop.example.org/item?color=blue",
+            }],
+        }
+        valid_rendered = format_tool_content_if_json(json.dumps(valid_data))
+        self.assertIn(
+            "[Suchtreffer](https://shop.example.org/item?color=blue)",
+            valid_rendered,
+        )
+
     def test_product_price_formatter_table(self):
         sample_data = {
             "price_comparison": True,
