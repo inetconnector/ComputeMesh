@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/Dockerfile.cm-test" <<'EOF'
-          FROM python:3.11.18-slim-bookworm
+          FROM python:3.11.18-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
           RUN python -m pip install --no-cache-dir pytest==9.0.2 cryptography==46.0.4
           ENV PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
           USER 10001:10001
