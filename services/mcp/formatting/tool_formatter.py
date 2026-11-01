@@ -78,7 +78,7 @@ def _safe_unverified_snippet_link(value: Any) -> str | None:
     hostname = host.lower().rstrip(".")
     if hostname != host.lower() or len(hostname) > 253:
         return None
-    if not re.fullmatch(r"[a-z0-9-]+(?:\\.[a-z0-9-]+)+", hostname):
+    if not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", hostname):
         return None
     labels = hostname.split(".")
     if any(label.startswith("-") or label.endswith("-") or len(label) > 63 for label in labels):
