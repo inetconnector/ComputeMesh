@@ -341,6 +341,8 @@ class TestProductPriceEngine(unittest.TestCase):
             "https://shop.example/item",
             "https://shop.onion/item",
             "https://shop.example.org./item",
+            "https://-shop.example.org/item",
+            "https://shop-.example.org/item",
         )
         for url in blocked:
             with self.subTest(url=url):
@@ -418,6 +420,8 @@ class TestProductPriceEngine(unittest.TestCase):
             "https://shop.onion/hidden",
             "https://shop.localdomain/admin",
             "https://shop.example.org./item",
+            "https://-shop.example.org/item",
+            "https://shop-.example.org/item",
             "https://shop.example.org:8443/private",
             "https://user:password@shop.example.org/order",
             "https://shop.example.org@127.0.0.1/",
