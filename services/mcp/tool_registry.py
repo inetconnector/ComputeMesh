@@ -839,12 +839,12 @@ class ToolRegistry:
             )
             self.register_tool(
                 "search_product_prices",
-                "Führt einen Live-Produkt- und Preisvergleich über Online-Händler, Marktplätze und Shops durch und ermittelt den Bestpreis, Durchschnittspreis und Ersparnispotenziale.",
+                "Sucht unverifizierte EUR-Preis-Hinweise in deutschen Web-Suchtreffern. Keine bestätigten Händlerangebote, Bestpreise, Versandkosten, Lagerbestände oder Kaufempfehlungen; Ergebnis kann leer sein.",
                 schema({
                     "query": {"type": "string", "description": "Name oder Modell des Produkts (z. B. 'iPhone 16 Pro 256GB', 'RTX 4090')."},
                     "category": {"type": "string", "description": "Optionale Kategorie (z. B. 'Smartphones', 'Hardware')."},
                     "max_offers": {"type": "integer", "description": "Maximal 1-10 Händlerangebote.", "default": 6},
-                    "country": {"type": "string", "description": "Ländercode für Shopping (z. B. 'DE', 'AT', 'CH').", "default": "DE"},
+                    "country": {"type": "string", "enum": ["DE"], "description": "Nur Deutschland (DE) mit EUR-Preis-Hinweisen wird derzeit unterstützt.", "default": "DE"},
                 }, ["query"]),
                 search_product_prices,
                 source="builtin_shopping",
