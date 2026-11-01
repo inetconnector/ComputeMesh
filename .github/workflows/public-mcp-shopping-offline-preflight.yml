@@ -39,6 +39,7 @@ jobs:
             --security-opt no-new-privileges \
             --pids-limit 128 --memory 2g --cpus 2 \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
+            --tmpfs /src/data:rw,nosuid,nodev,mode=1777,size=128m \
             --user 10001:10001 \
             --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/computemesh-ci-node-token.txt \
             --env HOME=/tmp \
