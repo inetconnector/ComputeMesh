@@ -39,10 +39,10 @@ jobs:
             --security-opt no-new-privileges \
             --pids-limit 128 --memory 2g --cpus 2 \
             --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=128m \
-            --tmpfs /src/data:rw,nosuid,nodev,mode=1777,size=128m \
+            --tmpfs /work:rw,nosuid,nodev,mode=1777,size=768m \
             --user 10001:10001 \
             --env COMPUTEMESH_NODE_AUTH_TOKEN_PATH=/tmp/computemesh-ci-node-token.txt \
             --env HOME=/tmp \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src,readonly" \
-            --workdir /src cm-mcp-offline:ci \
-            python -m pytest -q -p no:cacheprovider services/mcp/tests/test_product_price_engine.py
+            --workdir /work cm-mcp-offline:ci \
+            sh -ec 'cp -R /src/. /work/; python -m pytest -q -p no:cacheprovider services/mcp/tests/test_product_price_engine.py'
