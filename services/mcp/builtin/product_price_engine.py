@@ -105,11 +105,12 @@ def _safe_offer_host(url: str) -> str | None:
     """Only permit direct HTTPS, public-looking DNS URLs without embedded credentials."""
     try:
         parsed = urllib.parse.urlsplit(url)
-        host = (parsed.hostname or "").lower().rstrip(".")
+        host = (parsed.hostname or "").lower()
     except (TypeError, ValueError):
         return None
     if (parsed.scheme != "https" or parsed.username is not None
-            or parsed.password is not None or not host or "\\" in url
+            or parsed.password is not None or not host or host.endswith(".")
+            or "\\" in url
             or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", host)
             or host.endswith((
                 ".localhost", ".local", ".localdomain", ".internal",
