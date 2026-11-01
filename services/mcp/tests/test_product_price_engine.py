@@ -304,6 +304,12 @@ class TestProductPriceEngine(unittest.TestCase):
             valid_rendered,
         )
 
+        # A closing parenthesis from an untrusted URL must not break Markdown.
+        valid_data["offers"][0]["url"] = "https://shop.example.org/a)"
+        escaped_link = format_tool_content_if_json(json.dumps(valid_data))
+        self.assertIn("[Suchtreffer](https://shop.example.org/a%29)", escaped_link)
+        self.assertNotIn("[Suchtreffer](https://shop.example.org/a))", escaped_link)
+
     def test_product_price_formatter_table(self):
         sample_data = {
             "price_comparison": True,
