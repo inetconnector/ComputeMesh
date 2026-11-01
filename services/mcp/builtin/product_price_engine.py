@@ -1,18 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Industrial-grade Real-time Product & Price Comparison Engine.
-Aggregates and normalizes product offers, merchant prices, shipping costs,
-and calculates best deals, price spans, and savings.
+Product search-snippet price extraction with explicit uncertainty.
+Never represent simulated offers or unverified snippets as live merchant quotes.
 """
 
 from __future__ import annotations
 
 import html
-import json
 import re
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ComputeMesh/1.2"
 
@@ -46,14 +44,14 @@ MERCHANT_DOMAINS = {
 # Pre-compiled regexes for price extraction
 PRICE_REGEXES = [
     # Format: 1.199,00 € or 1199,99 EUR or 1.199 €
-    re.compile(r'(?:ab\s+|preis\s*:\s*|nur\s*|für\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})\s*(?:€|eur|euro)', re.IGNORECASE),
+    re.compile(r'(?<!\d)(?:ab\s+|preis\s*:\s*|nur\s*|für\s*)?(\d{1,5}(?:\.\d{3})*,\d{2})\s*(?:€|eur|euro)', re.IGNORECASE),
     # Format: 1,199.00 $ or $1,199.00 or $1199
     re.compile(r'(?:\$|usd)\s*(\d{1,3}(?:,\d{3})*\.\d{2})', re.IGNORECASE),
     re.compile(r'(\d{1,3}(?:,\d{3})*\.\d{2})\s*(?:\$|usd)', re.IGNORECASE),
     # Format: 1199 € or 1.199 € (without decimals)
     re.compile(r'(\d{1,3}(?:\.\d{3})+|\d{2,5})\s*(?:€|eur|euro)', re.IGNORECASE),
     # Format: € 1199,00
-    re.compile(r'(?:€|eur)\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', re.IGNORECASE),
+    re.compile(r'(?:€|eur)\s*(\d{1,5}(?:\.\d{3})*(?:,\d{2})?)(?!\d)', re.IGNORECASE),
 ]
 
 
@@ -66,7 +64,7 @@ def clean_html_text(raw_html: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def parse_numeric_price(price_str: str) -> Optional[float]:
+def parse_numeric_price(price_str: str) -> float | None:
     """Parses arbitrary European/US price strings into float."""
     if not price_str:
         return 0.0
@@ -102,33 +100,68 @@ def parse_numeric_price(price_str: str) -> Optional[float]:
         return 0.0
 
 
-def extract_merchant_name(url: str, title: str = "", snippet: str = "") -> str:
-    """Extracts a clean merchant name from URL or text."""
-    domain = ""
+def _safe_offer_host(url: str) -> str | None:
+    """Only permit direct HTTPS, public-looking DNS URLs without embedded credentials."""
     try:
-        parsed = urllib.parse.urlparse(url)
-        domain = parsed.netloc.lower()
-    except Exception:
-        domain = ""
+        parsed = urllib.parse.urlsplit(url)
+        host = (parsed.hostname or "").lower().rstrip(".")
+    except (TypeError, ValueError):
+        return None
+    if (parsed.scheme != "https" or parsed.username is not None
+            or parsed.password is not None or not host or "\\" in url
+            or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", host)
+            or host.endswith((".localhost", ".local", ".internal", ".invalid", ".test"))
+            or host in ("localhost", "127.0.0.1", "0.0.0.0")):
+        return None
+    # Prevent raw IPs, private/public alike, from being treated as a merchant website.
+    if all(part.isdigit() for part in host.split(".")):
+        return None
+    try:
+        if parsed.port is not None and parsed.port != 443:
+            return None
+    except ValueError:
+        return None
+    return host
 
-    for key, name in MERCHANT_DOMAINS.items():
-        if key in domain:
-            return name
 
-    # Fallback to domain root
-    if domain:
-        clean_dom = domain.replace("www.", "").split(".")[0].capitalize()
-        return clean_dom
+# Exact registered domains, not substring matching: "amazon.de.evil.com" is not Amazon.
+_MERCHANT_HOSTS = {
+    "amazon.de": "Amazon.de",
+    "mindfactory.de": "Mindfactory.de",
+    "mediamarkt.de": "MediaMarkt.de",
+    "saturn.de": "Saturn.de",
+    "cyberport.de": "Cyberport.de",
+    "otto.de": "Otto.de",
+    "alternate.de": "Alternate.de",
+    "notebooksbilliger.de": "Notebooksbilliger.de",
+    "galaxus.de": "Galaxus.de",
+    "caseking.de": "Caseking.de",
+    "conrad.de": "Conrad Electronic",
+    "expert.de": "Expert.de",
+    "euronics.de": "Euronics.de",
+    "coolblue.de": "Coolblue.de",
+    "reichelt.de": "Reichelt Elektronik",
+    "ebay.de": "eBay.de",
+    "idealo.de": "Idealo Partner",
+    "geizhals.de": "Geizhals Partner",
+    "apple.com": "Apple Store",
+    "samsung.com": "Samsung Online Shop",
+    "sony.de": "Sony Store",
+    "dyson.de": "Dyson Store",
+}
 
-    # Check title / snippet
-    for key, name in MERCHANT_DOMAINS.items():
-        if key in title.lower() or key in snippet.lower():
-            return name
 
-    return "Online-Händler"
+def extract_merchant_name(url: str, title: str = "", snippet: str = "") -> str:
+    """Identify a shop only from the validated destination host, not search text."""
+    host = _safe_offer_host(url)
+    if host is None:
+        return "Online-Händler"
+    for suffix, merchant in _MERCHANT_HOSTS.items():
+        if host == suffix or host.endswith("." + suffix):
+            return merchant
+    return host
 
-
-def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[str, Any]]:
+def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> list[dict[str, Any]]:
     """
     Fetches real-time shopping offers from DuckDuckGo HTML and e-commerce shopping engines.
     """
@@ -144,12 +177,16 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
         },
     )
 
-    offers: List[Dict[str, Any]] = []
+    offers: list[dict[str, Any]] = []
     seen_merchants = set()
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            content = resp.read().decode("utf-8", errors="ignore")
+            # Bound untrusted HTML size; avoid memory amplification on oversized responses.
+            content_bytes = resp.read(2_000_001)
+            if len(content_bytes) > 2_000_000:
+                return []
+            content = content_bytes.decode("utf-8", errors="ignore")
 
         item_re = re.compile(
             r'(?is)<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>.*?<a[^>]+class="result__snippet"[^>]*>(.*?)</a>'
@@ -164,13 +201,19 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
                 if "uddg" in qs and qs["uddg"]:
                     target_url = qs["uddg"][0]
 
+            # A search engine can return a redirect to a non-web or local URI.
+            # Never emit a merchant link to an unvalidated destination.
+            if _safe_offer_host(target_url) is None:
+                continue
+
             title = clean_html_text(raw_title)
             snippet = clean_html_text(raw_snippet)
             combined_text = f"{title} {snippet}"
 
             # Extract price
             found_price = None
-            for p_re in PRICE_REGEXES:
+            for p_re in (PRICE_REGEXES[0], *PRICE_REGEXES[3:]):
+                # USD snippets cannot be compared as EUR without a verified exchange rate.
                 m_p = p_re.search(combined_text)
                 if m_p:
                     p_str = m_p.group(1)
@@ -185,13 +228,13 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
                     continue
                 seen_merchants.add(merchant)
 
-                # Shipping & Availability heuristics
-                shipping_str = "0,00 € (Kostenlos)" if "kostenlos" in combined_text.lower() or "versandkostenfrei" in combined_text.lower() or "amazon" in merchant.lower() else "3,99 €"
-                avail_str = "🟢 Sofort lieferbar"
-                if "auf lager" in combined_text.lower() or "sofort" in combined_text.lower() or "lieferbar" in combined_text.lower():
-                    avail_str = "🟢 Auf Lager"
-                elif "nur noch" in combined_text.lower():
-                    avail_str = "🟡 Geringer Bestand"
+                # Search snippets are not verified merchant stock or shipping quotes.
+                shipping_str = (
+                    "0,00 € (laut Suchtreffer)"
+                    if "kostenlos" in combined_text.lower() or "versandkostenfrei" in combined_text.lower()
+                    else "Unbekannt"
+                )
+                avail_str = "Nicht verifiziert"
 
                 offers.append({
                     "merchant": merchant,
@@ -201,6 +244,8 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
                     "shipping": shipping_str,
                     "availability": avail_str,
                     "url": target_url,
+                    "source": "search_snippet_unverified",
+                    "verified": False,
                 })
 
             if len(offers) >= 8:
@@ -211,96 +256,30 @@ def fetch_live_shopping_offers(query: str, timeout: float = 6.0) -> List[Dict[st
     return offers
 
 
-def get_curated_benchmark_offers(query: str) -> List[Dict[str, Any]]:
+def get_curated_benchmark_offers(query: str) -> list[dict[str, Any]]:
+    """Retired compatibility endpoint: synthetic offers are not market quotes.
+
+    The former hard-coded merchant names, in-stock statements and prices were
+    indistinguishable from real offers. Preserve the symbol for old callers,
+    but return no invented pricing or availability data.
     """
-    Returns high-accuracy benchmark offers for well-known popular tech, smartphone, and hardware products
-    to ensure instant sub-second response times and realistic market pricing.
-    """
-    q_lower = query.lower()
-    
-    # iPhone 16 Pro / Pro Max / iPhone 16
-    if "iphone 16 pro" in q_lower:
-        base_p = 1179.00 if "256" in q_lower else 1079.00
-        if "max" in q_lower:
-            base_p += 150.00
-        return [
-            {"merchant": "Mindfactory", "price": base_p, "currency": "EUR", "shipping": "0,00 € (Kostenlos)", "availability": "🟢 Sofort lieferbar", "url": "https://www.mindfactory.de"},
-            {"merchant": "Amazon.de", "price": base_p + 20.0, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Auf Lager", "url": "https://www.amazon.de"},
-            {"merchant": "MediaMarkt", "price": base_p + 45.0, "currency": "EUR", "shipping": "4,99 €", "availability": "🟢 Auf Lager", "url": "https://www.mediamarkt.de"},
-            {"merchant": "Cyberport", "price": base_p + 60.0, "currency": "EUR", "shipping": "5,99 €", "availability": "🟢 Auf Lager", "url": "https://www.cyberport.de"},
-            {"merchant": "Otto.de", "price": base_p + 90.0, "currency": "EUR", "shipping": "2,95 €", "availability": "🟡 2-3 Werktage", "url": "https://www.otto.de"},
-            {"merchant": "Apple Store (UVP)", "price": base_p + 140.0, "currency": "EUR", "shipping": "0,00 € (Kostenlos)", "availability": "🟢 Auf Lager", "url": "https://www.apple.com/de"},
-        ]
-
-    # Samsung Galaxy S24 / S24 Ultra
-    if "s24" in q_lower or "galaxy s24" in q_lower:
-        base_p = 1149.00 if "ultra" in q_lower else 749.00
-        return [
-            {"merchant": "Amazon.de", "price": base_p, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Sofort lieferbar", "url": "https://www.amazon.de"},
-            {"merchant": "Mindfactory", "price": base_p + 15.0, "currency": "EUR", "shipping": "4,99 €", "availability": "🟢 Auf Lager", "url": "https://www.mindfactory.de"},
-            {"merchant": "MediaMarkt", "price": base_p + 39.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.mediamarkt.de"},
-            {"merchant": "Galaxus", "price": base_p + 50.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.galaxus.de"},
-            {"merchant": "Samsung Online Shop (UVP)", "price": base_p + 120.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.samsung.com/de"},
-        ]
-
-    # NVIDIA RTX 4090 / RTX 4080
-    if "4090" in q_lower or "rtx 4090" in q_lower:
-        base_p = 1749.00
-        return [
-            {"merchant": "Mindfactory", "price": base_p, "currency": "EUR", "shipping": "0,00 € (Kostenlos)", "availability": "🟢 Sofort lieferbar", "url": "https://www.mindfactory.de"},
-            {"merchant": "Alternate", "price": base_p + 35.0, "currency": "EUR", "shipping": "6,99 €", "availability": "🟢 Auf Lager", "url": "https://www.alternate.de"},
-            {"merchant": "Caseking", "price": base_p + 50.0, "currency": "EUR", "shipping": "5,99 €", "availability": "🟢 Auf Lager", "url": "https://www.caseking.de"},
-            {"merchant": "Notebooksbilliger", "price": base_p + 79.0, "currency": "EUR", "shipping": "4,99 €", "availability": "🟢 Auf Lager", "url": "https://www.notebooksbilliger.de"},
-            {"merchant": "Amazon.de", "price": base_p + 110.0, "currency": "EUR", "shipping": "Kostenlos", "availability": "🟢 Auf Lager", "url": "https://www.amazon.de"},
-        ]
-
-    # Sony WH-1000XM5 / XM4
-    if "wh-1000xm5" in q_lower or "xm5" in q_lower or "sony kopfhörer" in q_lower:
-        base_p = 279.00
-        return [
-            {"merchant": "Amazon.de", "price": base_p, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Sofort lieferbar", "url": "https://www.amazon.de"},
-            {"merchant": "MediaMarkt", "price": base_p + 10.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.mediamarkt.de"},
-            {"merchant": "Saturn", "price": base_p + 10.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.saturn.de"},
-            {"merchant": "Coolblue", "price": base_p + 20.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.coolblue.de"},
-            {"merchant": "Sony Store (UVP)", "price": 379.00, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.sony.de"},
-        ]
-
-    # PlayStation 5 / PS5 Pro
-    if "ps5" in q_lower or "playstation 5" in q_lower:
-        base_p = 749.00 if "pro" in q_lower else 449.00
-        return [
-            {"merchant": "Amazon.de", "price": base_p, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Sofort lieferbar", "url": "https://www.amazon.de"},
-            {"merchant": "MediaMarkt", "price": base_p + 10.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.mediamarkt.de"},
-            {"merchant": "Otto.de", "price": base_p + 25.0, "currency": "EUR", "shipping": "2,95 €", "availability": "🟢 Auf Lager", "url": "https://www.otto.de"},
-            {"merchant": "Saturn", "price": base_p + 30.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.saturn.de"},
-            {"merchant": "Sony PlayStation Direct", "price": base_p + 50.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://direct.playstation.com"},
-        ]
-
-    # Dyson V15 / V12 Staubsauger
-    if "dyson" in q_lower and ("v15" in q_lower or "v12" in q_lower or "staubsauger" in q_lower):
-        base_p = 569.00
-        return [
-            {"merchant": "MediaMarkt", "price": base_p, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Sofort lieferbar", "url": "https://www.mediamarkt.de"},
-            {"merchant": "Amazon.de", "price": base_p + 19.0, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Auf Lager", "url": "https://www.amazon.de"},
-            {"merchant": "Saturn", "price": base_p + 20.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.saturn.de"},
-            {"merchant": "Otto.de", "price": base_p + 45.0, "currency": "EUR", "shipping": "2,95 €", "availability": "🟢 Auf Lager", "url": "https://www.otto.de"},
-            {"merchant": "Dyson Online Shop (UVP)", "price": 699.00, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": "https://www.dyson.de"},
-        ]
-
     return []
 
 
 def search_product_prices(
     query: str,
-    category: Optional[str] = None,
+    category: str | None = None,
     max_offers: int = 6,
     country: str = "DE",
-    country_code: Optional[str] = None,
+    country_code: str | None = None,
     sort_by: str = "price_asc",
     timeout: float = 6.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
-    Performs real-time price comparison and merchant offer search for products.
+    Extracts unverified EUR price hints from German-language web search snippets.
+
+    Not a verified live merchant-price API. Never claim stock, shipping, best
+    total price, savings, or seller identity without independent verification.
 
     Args:
         query: Name or keywords of the product (e.g. 'iPhone 16 Pro 256GB', 'RTX 4090').
@@ -315,7 +294,42 @@ def search_product_prices(
         Structured price comparison data with best price, average price, savings, and merchant offers.
     """
     effective_country = country_code or country or "DE"
-    clean_query = (query or "").strip().rstrip("?.!")
+    if not isinstance(effective_country, str) or effective_country.upper() != "DE":
+        return {
+            "status": "unsupported", "data_quality": "no_live_offers",
+            "price_comparison": False, "offers": [], "total_offers": 0,
+            "best_price": None, "best_deal": None,
+            "error": "Nur Deutschland (DE) wird unterstützt; Fremdwährungen und Auslandsangebote sind nicht verifiziert.",
+        }
+    if not isinstance(query, str) or not query.strip() or len(query) > 240:
+        return {
+            "status": "invalid_query", "data_quality": "no_live_offers",
+            "price_comparison": False, "offers": [], "total_offers": 0,
+            "best_price": None, "best_deal": None,
+            "error": "Produkt-Suchbegriff muss 1 bis 240 Zeichen enthalten.",
+        }
+    if isinstance(max_offers, bool) or not isinstance(max_offers, int) or not 1 <= max_offers <= 10:
+        return {
+            "status": "invalid_argument", "data_quality": "no_live_offers",
+            "price_comparison": False, "offers": [], "total_offers": 0,
+            "best_price": None, "best_deal": None,
+            "error": "max_offers muss eine ganze Zahl zwischen 1 und 10 sein.",
+        }
+    if sort_by != "price_asc":
+        return {
+            "status": "unsupported", "data_quality": "no_live_offers",
+            "price_comparison": False, "offers": [], "total_offers": 0,
+            "best_price": None, "best_deal": None,
+            "error": "Nur Sortierung nach Suchtrefferpreis (price_asc) unterstützt.",
+        }
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1.0 <= float(timeout) <= 15.0:
+        return {
+            "status": "invalid_argument", "data_quality": "no_live_offers",
+            "price_comparison": False, "offers": [], "total_offers": 0,
+            "best_price": None, "best_deal": None,
+            "error": "timeout muss zwischen 1 und 15 Sekunden liegen.",
+        }
+    clean_query = query.strip().rstrip("?.!")
     clean_query = re.sub(r"^(?:das|ein|eine|einen|der|die|den|dem|für|fuer|von)\s+", "", clean_query, flags=re.IGNORECASE).strip()
     clean_query = re.sub(r"(?:\s+durch|\s+durchführen|\s+machen)?\s*(?:und\s+zeige.*|und\s+stelle.*|und\s+bereite.*|in\s+einer\s+tabelle.*|tabelle.*|im\s+vergleich.*|kaufen.*|online.*|am\s+günstigsten.*)$", "", clean_query, flags=re.IGNORECASE).strip()
     clean_query = re.sub(r"\s+", " ", clean_query).strip()
@@ -325,38 +339,49 @@ def search_product_prices(
     # 1. Check live search
     offers = fetch_live_shopping_offers(clean_query, timeout=timeout)
 
-    # 2. Check curated benchmarks if live offers are sparse (< 3)
-    if len(offers) < 3:
-        benchmarks = get_curated_benchmark_offers(clean_query)
-        if benchmarks:
-            # Merge or replace
-            existing_merchants = {o["merchant"] for o in offers}
-            for b in benchmarks:
-                if b["merchant"] not in existing_merchants:
-                    offers.append(b)
-
-    # Fallback to simulated representative market offers if no web offers returned
+    # No live-search result is preferable to presenting invented market data.
+    # Retain the existing response keys for callers, but use nulls for unknown
+    # prices instead of implying zero-cost or synthetic merchant inventory.
     if not offers:
-        base_val = 199.00
-        offers = [
-            {"merchant": "Amazon.de", "price": base_val, "currency": "EUR", "shipping": "Kostenlos mit Prime", "availability": "🟢 Auf Lager", "url": f"https://www.amazon.de/s?k={urllib.parse.quote(clean_query)}"},
-            {"merchant": "MediaMarkt.de", "price": base_val + 10.0, "currency": "EUR", "shipping": "0,00 €", "availability": "🟢 Auf Lager", "url": f"https://www.mediamarkt.de/de/search.html?query={urllib.parse.quote(clean_query)}"},
-            {"merchant": "Mindfactory.de", "price": base_val - 5.0, "currency": "EUR", "shipping": "4,99 €", "availability": "🟢 Sofort lieferbar", "url": "https://www.mindfactory.de"},
-            {"merchant": "Cyberport.de", "price": base_val + 20.0, "currency": "EUR", "shipping": "5,99 €", "availability": "🟢 Auf Lager", "url": "https://www.cyberport.de"},
-            {"merchant": "Otto.de", "price": base_val + 35.0, "currency": "EUR", "shipping": "2,95 €", "availability": "🟡 2-3 Werktage", "url": f"https://www.otto.de/suche/{urllib.parse.quote(clean_query)}"},
-        ]
+        prod_title = clean_query.title()
+        return {
+            "status": "unavailable",
+            "data_quality": "no_live_offers",
+            "error": "Keine aktuellen Preisangaben in Suchtreffern gefunden; Händlerpreise und Verfügbarkeit sind nicht bestätigt.",
+            "product_name": prod_title,
+            "product": prod_title,
+            "query": clean_query,
+            "price_comparison": False,
+            "best_price": None,
+            "best_merchant": None,
+            "best_deal": None,
+            "currency": "EUR",
+            "average_price": None,
+            "max_price": None,
+            "max_savings_val": None,
+            "savings_max": None,
+            "max_savings_percent": None,
+            "savings_percent": None,
+            "offers_count": 0,
+            "total_offers": 0,
+            "offers": [],
+            "country": effective_country,
+            "category": category or "Allgemein",
+        }
 
-    # Calculate total price (price + numeric shipping if any) for sorting
+    # Shipping cost is unknown unless the snippet explicitly mentions free shipping.
+    # Do not invent total costs or merchant star ratings.
     for o in offers:
         p = float(o.get("price", 0.0))
-        sh_num = parse_numeric_price(str(o.get("shipping", "0.0"))) or 0.0
-        o["total_price"] = round(p + sh_num, 2)
-        if "rating" not in o:
-            o["rating"] = 4.8 if "amazon" in str(o.get("merchant", "")).lower() else 4.7
+        # Even snippet-based "free shipping" is unconfirmed; total cost remains unknown.
+        o["total_price"] = None
+        o.pop("rating", None)
+        o["source"] = "search_snippet_unverified"
+        o["verified"] = False
 
-    # Sort offers by price ascending
-    offers.sort(key=lambda x: float(x.get("total_price", x.get("price", 999999.0))))
-    offers = offers[:max(1, min(int(max_offers or 6), 10))]
+    # Sort only by the extracted product price; shipping may be unknown.
+    offers.sort(key=lambda x: float(x.get("price", 999999.0)))
+    offers = offers[:max_offers]
 
     for idx, o in enumerate(offers, 1):
         o["rank"] = idx
@@ -365,26 +390,36 @@ def search_product_prices(
     best_p = min(prices) if prices else 0.0
     max_p = max(prices) if prices else 0.0
     avg_p = round(sum(prices) / len(prices), 2) if prices else 0.0
-    savings_val = round(max_p - best_p, 2)
-    savings_pct = round((savings_val / max_p) * 100, 1) if max_p > 0 else 0.0
+    # A difference between unverified snippet prices is not verified savings.
+    savings_val = None
+    savings_pct = None
 
-    best_merchant = offers[0].get("merchant", "Top-Händler") if offers else "Händler"
-    best_deal = offers[0] if offers else None
+    # Leave the conventional "best" fields empty so consumers which ignore
+    # data_quality cannot silently display unverified values as confirmed offers.
+    best_merchant = None
+    best_deal = None
 
     # Derive clean title
     prod_title = clean_query.title()
 
     return {
+        "status": "unverified",
+        "data_quality": "search_snippet_unverified",
+        "pricing_excludes_unverified_shipping": True,
         "product_name": prod_title,
         "product": prod_title,
         "query": clean_query,
-        "price_comparison": True,
-        "best_price": best_p,
+        "price_comparison": False,
+        "best_price": None,
         "best_merchant": best_merchant,
         "best_deal": best_deal,
+        "unverified_lowest_price": best_p,
+        "unverified_highest_price": max_p,
+        "unverified_average_price": avg_p,
         "currency": offers[0].get("currency", "EUR") if offers else "EUR",
-        "average_price": avg_p,
-        "max_price": max_p,
+        "average_price": None,
+        "max_price": None,
+        "unverified_price_range": round(max_p - best_p, 2),
         "max_savings_val": savings_val,
         "savings_max": savings_val,
         "max_savings_percent": savings_pct,
