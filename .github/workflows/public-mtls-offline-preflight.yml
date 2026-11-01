@@ -46,4 +46,4 @@ jobs:
             --workdir /src cm-test-offline:ci \
             python -m pytest -q -p no:cacheprovider \
               tests/test_mtls_tunnel_duplex_drain.py \
-              tests/test_security_audit_fixes.py::TestSecurityAuditFixes::test_mtls_peer_certificate_verification_and_node_id_check
+              tests/test_mtls_tunnel_credentials.py
