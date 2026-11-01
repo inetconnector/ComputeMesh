@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import quote, urlsplit
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote, urlsplit
 
 from .reasoning_formatter import format_reasoning_and_thinking_blocks
 
