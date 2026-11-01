@@ -156,6 +156,9 @@ class TestProductPriceEngine(unittest.TestCase):
             {**safe, "price": 0},
             {**safe, "price": 10 ** 400},
             {**safe, "price": "219.0"},
+            {**safe, "price": 1.0},
+            {**safe, "price": 25_001.0},
+            {**safe, "currency": "USD"},
             {**safe, "url": "https://127.0.0.1/admin"},
             {**safe, "url": "javascript:alert(1)"},
             {**safe, "url": ""},
@@ -174,6 +177,10 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertEqual(result["offers"][0]["price"], 219.0)
         self.assertFalse(result["offers"][0]["verified"])
         self.assertNotIn("verified", safe, "do not mutate untrusted upstream dict")
+        self.assertEqual(result["offers"][0]["availability"], "Nicht verifiziert")
+        self.assertEqual(result["offers"][0]["shipping"], "Unbekannt")
+        self.assertNotIn("stock", result["offers"][0])
+        self.assertNotIn("rating", result["offers"][0])
 
         with patch(
             "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
@@ -183,6 +190,36 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertEqual(empty_result["status"], "unavailable")
         self.assertEqual(empty_result["offers"], [])
         self.assertIsNone(empty_result["best_price"])
+
+    def test_upstream_stock_and_ratings_claims_never_survive_normalization(self):
+        unverified = {
+            "merchant": "Example Merchant",
+            "price": 99.0,
+            "url": "https://shop.example.org/item",
+            "currency": "EUR",
+            "availability": "Auf Lager",
+            "shipping": "0,00 €",
+            "rating": 5.0,
+            "stock": 999,
+            "verified": True,
+            "best_price": 99.0,
+            "savings_percent": 99.0,
+        }
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
+            return_value=[unverified],
+        ):
+            result = search_product_prices("Beispielartikel", country_code="DE")
+        self.assertEqual(result["status"], "unverified")
+        self.assertIsNone(result["best_price"])
+        self.assertIsNone(result["savings_percent"])
+        offer = result["offers"][0]
+        self.assertFalse(offer["verified"])
+        self.assertEqual(offer["availability"], "Nicht verifiziert")
+        self.assertEqual(offer["shipping"], "Unbekannt")
+        for claim in ("rating", "stock", "best_price", "savings_percent"):
+            self.assertNotIn(claim, offer)
+        self.assertTrue(unverified["verified"], "do not mutate upstream objects")
 
     def test_formatter_omits_nan_infinite_bool_and_huge_numeric_hints(self):
         data = {
