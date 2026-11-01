@@ -3,6 +3,8 @@
 
 import json
 import unittest
+from unittest.mock import patch
+
 from services.mcp.builtin.product_price_engine import (
     search_product_prices,
     parse_numeric_price,
@@ -26,29 +28,236 @@ class TestProductPriceEngine(unittest.TestCase):
         self.assertEqual(extract_merchant_name("https://mindfactory.de/product_info.php/123"), "Mindfactory.de")
         self.assertEqual(extract_merchant_name("https://www.mediamarkt.de/de/product/123"), "MediaMarkt.de")
         self.assertEqual(extract_merchant_name(""), "Online-Händler")
+        # The destination hostname must not be confused with a merchant's name.
+        self.assertEqual(
+            extract_merchant_name("https://amazon.de.evil.example.org/item"),
+            "amazon.de.evil.example.org",
+        )
+        self.assertEqual(
+            extract_merchant_name("javascript:alert(1)", "Amazon genuine sale"),
+            "Online-Händler",
+        )
 
-    def test_search_product_prices_benchmark(self):
-        res = search_product_prices("iPhone 16 Pro", country_code="DE")
-        self.assertIn("product", res)
-        self.assertIn("offers", res)
-        self.assertTrue(res["total_offers"] > 0)
-        self.assertTrue(res["best_price"] > 0)
-        self.assertIsNotNone(res["best_deal"])
-        self.assertEqual(res["currency"], "EUR")
+    def test_invalid_input_never_launches_search(self):
+        bad_cases = (
+            ({"query": ""}, "invalid_query"),
+            ({"query": "x" * 241}, "invalid_query"),
+            ({"query": ["not a string"]}, "invalid_query"),
+            ({"query": "Laptop", "max_offers": True}, "invalid_argument"),
+            ({"query": "Laptop", "max_offers": 0}, "invalid_argument"),
+            ({"query": "Laptop", "max_offers": 11}, "invalid_argument"),
+            ({"query": "Laptop", "max_offers": "5"}, "invalid_argument"),
+            ({"query": "Laptop", "timeout": 0}, "invalid_argument"),
+            ({"query": "Laptop", "timeout": 99}, "invalid_argument"),
+            ({"query": "Laptop", "country_code": "CH"}, "unsupported"),
+            ({"query": "Laptop", "country_code": "AT"}, "unsupported"),
+            ({"query": "Laptop", "sort_by": "rating"}, "unsupported"),
+        )
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers"
+        ) as fetch:
+            for arguments, expected_status in bad_cases:
+                with self.subTest(arguments=arguments):
+                    result = search_product_prices(**arguments)
+                    self.assertEqual(result["status"], expected_status)
+                    self.assertEqual(result["offers"], [])
+                    self.assertIsNone(result["best_price"])
+                    self.assertFalse(result["price_comparison"])
+                    display = format_tool_content_if_json(json.dumps(result))
+                    self.assertIn(result["error"], display)
+            fetch.assert_not_called()
 
-        # Verify sorted ascending by total price
-        prices = [offer["total_price"] for offer in res["offers"]]
-        self.assertEqual(prices, sorted(prices))
+    def test_search_response_limit_fails_closed(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
 
-        # Check best deal matches first offer
-        self.assertEqual(res["best_deal"]["merchant"], res["offers"][0]["merchant"])
+        with patch(
+            "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+        ) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = b"x" * 2_000_001
+            hits = fetch_live_shopping_offers("Gerät")
+            self.assertEqual(hits, [])
+            mock_open.return_value.__enter__.return_value.read.assert_called_once_with(2_000_001)
 
-    def test_search_product_prices_fallback_generic(self):
-        res = search_product_prices("Spezial Custom Gadget XYZ 9999", country_code="DE")
-        self.assertIn("product", res)
-        self.assertIn("offers", res)
-        self.assertTrue(len(res["offers"]) >= 1)
-        self.assertTrue(res["best_price"] > 0)
+    def test_tool_description_never_claims_live_verified_prices(self):
+        registry = ToolRegistry()
+        tool = registry.get_tool("search_product_prices")
+        self.assertIsNotNone(tool)
+        self.assertIn("unverifizierte", tool.description)
+        self.assertNotIn("Bestpreis, Durchschnittspreis und Ersparnispotenziale", tool.description)
+        self.assertEqual(tool.parameters["properties"]["country"]["enum"], ["DE"])
+
+    def test_unverified_search_snippets_are_not_confirmed_offers(self):
+        search_hit = {
+            "merchant": "Example Shop",
+            "price": 199.0,
+            "currency": "EUR",
+            "shipping": "Unbekannt",
+            "availability": "Nicht verifiziert",
+            "url": "https://example.org/item",
+        }
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
+            return_value=[search_hit],
+        ):
+            res = search_product_prices("Beispielgerät", country_code="DE")
+        self.assertEqual(res["status"], "unverified")
+        self.assertEqual(res["data_quality"], "search_snippet_unverified")
+        self.assertFalse(res["price_comparison"])
+        # Fields normally used for verified quotations must not carry estimates.
+        self.assertIsNone(res["best_price"])
+        self.assertIsNone(res["best_deal"])
+        self.assertIsNone(res["best_merchant"])
+        self.assertIsNone(res["average_price"])
+        self.assertEqual(res["unverified_lowest_price"], 199.0)
+        self.assertEqual(res["total_offers"], 1)
+        self.assertEqual(res["offers"][0]["price"], 199.0)
+        self.assertIsNone(res["offers"][0]["total_price"])
+        self.assertFalse(res["offers"][0]["verified"])
+        self.assertNotIn("rating", res["offers"][0])
+        self.assertIsNone(res["savings_max"])
+        rendered = format_tool_content_if_json(json.dumps(res))
+        self.assertIn("Nicht verifiziert", rendered)
+        self.assertIn("Example Shop", rendered)
+        self.assertNotIn("Kaufempfehlung:", rendered)
+        self.assertNotIn("🏆 **Bestpreis:**", rendered)
+
+
+    def test_four_digit_euro_prices_are_not_truncated(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
+
+        for title, expected in (
+            ("Produkt 1199,99 EUR", 1199.99),
+            ("Produkt € 2499,00", 2499.0),
+        ):
+            html_page = (
+                '<a class="result__a" href="https://example.org/p">' + title + "</a>"
+                '<a class="result__snippet" href="#">Artikel</a>'
+            ).encode("utf-8")
+            with self.subTest(title=title), patch(
+                "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+            ) as mock_open:
+                mock_open.return_value.__enter__.return_value.read.return_value = html_page
+                hits = fetch_live_shopping_offers("Produkt")
+                self.assertEqual(len(hits), 1)
+                self.assertEqual(hits[0]["price"], expected)
+
+    def test_legacy_benchmark_helper_returns_no_fabricated_shops(self):
+        from services.mcp.builtin.product_price_engine import get_curated_benchmark_offers
+
+        for query in ("iPhone 16 Pro", "Samsung Galaxy S24 Ultra", "RTX 4090"):
+            with self.subTest(query=query):
+                self.assertEqual(get_curated_benchmark_offers(query), [])
+
+    def test_no_results_never_fabricate_benchmarks_or_generic_merchants(self):
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
+            return_value=[],
+        ):
+            for query in ("iPhone 16 Pro", "Spezial Custom Gadget XYZ 9999"):
+                with self.subTest(query=query):
+                    res = search_product_prices(query, country_code="DE")
+                    self.assertEqual(res["status"], "unavailable")
+                    self.assertEqual(res["data_quality"], "no_live_offers")
+                    self.assertFalse(res["price_comparison"])
+                    self.assertEqual(res["offers"], [])
+                    self.assertEqual(res["total_offers"], 0)
+                    self.assertIsNone(res["best_price"])
+                    self.assertIsNone(res["best_deal"])
+                    self.assertIsNone(res["average_price"])
+                    rendered = format_tool_content_if_json(json.dumps(res))
+                    self.assertIn("Keine aktuellen Preisangaben", rendered)
+                    self.assertNotIn("Kaufempfehlung", rendered)
+
+    def test_scraper_leaves_stock_shipping_and_rating_unconfirmed(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
+
+        html_snippet = (
+            '<a class="result__a" href="https://example.org/item">Gerät 219 €</a>'
+            '<a class="result__snippet" href="https://example.org/item">Top Gerät</a>'
+        ).encode("utf-8")
+        with patch(
+            "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+        ) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = html_snippet
+            hits = fetch_live_shopping_offers("Gerät")
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["price"], 219.0)
+        self.assertEqual(hits[0]["shipping"], "Unbekannt")
+        self.assertEqual(hits[0]["availability"], "Nicht verifiziert")
+        self.assertFalse(hits[0]["verified"])
+        self.assertNotIn("rating", hits[0])
+
+    def test_usd_snippets_are_not_silently_relabelled_as_eur(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
+
+        html_snippet = (
+            '<a class="result__a" href="https://example.org/item">Device $1,299.00</a>'
+            '<a class="result__snippet" href="https://example.org/item">Sale</a>'
+        ).encode("utf-8")
+        with patch(
+            "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+        ) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = html_snippet
+            hits = fetch_live_shopping_offers("Device")
+        self.assertEqual(hits, [])
+
+
+    def test_scraper_ignores_unsafe_url_and_unknown_merchant_identity(self):
+        from services.mcp.builtin.product_price_engine import fetch_live_shopping_offers
+
+        html_snippet = (
+            '<a class="result__a" href="javascript:alert(1)">Fake Gerät 179 €</a>'
+            '<a class="result__snippet" href="#">Fake</a>'
+            '<a class="result__a" href="https://amazon.de.evil.example.org/item">'
+            'Fake Gerät 199 €</a>'
+            '<a class="result__snippet" href="#">Angebot</a>'
+        ).encode("utf-8")
+        with patch(
+            "services.mcp.builtin.product_price_engine.urllib.request.urlopen"
+        ) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = html_snippet
+            hits = fetch_live_shopping_offers("Fake Gerät")
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["merchant"], "amazon.de.evil.example.org")
+        self.assertEqual(hits[0]["price"], 199.0)
+        self.assertFalse(hits[0]["verified"])
+
+    def test_unverified_and_empty_results_escape_untrusted_markdown(self):
+        for status, details in (
+            ("unavailable", {}),
+            ("invalid_query", {"error": "Invalid [click](https://evil.example.org)"}),
+        ):
+            with self.subTest(status=status):
+                data = {
+                    "status": status,
+                    "data_quality": "no_live_offers",
+                    "product_name": "Unsafe [CLICK](https://evil.example.org)",
+                    **details,
+                }
+                rendered = format_tool_content_if_json(json.dumps(data))
+                self.assertIn(r"\[CLICK\]", rendered)
+                self.assertNotIn("[CLICK](https://evil.example.org)", rendered)
+                if "error" in details:
+                    self.assertIn(r"\[click\]", rendered)
+                    self.assertNotIn("[click](https://evil.example.org)", rendered)
+
+    def test_untrusted_merchant_text_cannot_break_markdown_table(self):
+        data = {
+            "status": "unverified",
+            "data_quality": "search_snippet_unverified",
+            "product_name": "Phone",
+            "offers": [{
+                "merchant": "Fake | [CLICK](https://evil.example.org)",
+                "price": 123.0,
+                "shipping": "Unbekannt",
+                "availability": "Nicht verifiziert",
+                "url": "javascript:alert(1)",
+            }],
+        }
+        formatted = format_tool_content_if_json(json.dumps(data))
+        self.assertIn(r"Fake \| \[CLICK\]", formatted)
+        self.assertIn("Keine Quelle", formatted)
+        self.assertNotIn("[Suchtreffer](javascript:", formatted)
 
     def test_product_price_formatter_table(self):
         sample_data = {
