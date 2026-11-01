@@ -340,7 +340,16 @@ def search_product_prices(
     clean_query = re.sub(r"(?:\s+durch|\s+durchführen|\s+machen)?\s*(?:und\s+zeige.*|und\s+stelle.*|und\s+bereite.*|in\s+einer\s+tabelle.*|tabelle.*|im\s+vergleich.*|kaufen.*|online.*|am\s+günstigsten.*)$", "", clean_query, flags=re.IGNORECASE).strip()
     clean_query = re.sub(r"\s+", " ", clean_query).strip()
     if not clean_query:
-        return {"error": "Suchbegriff für Produktvergleich darf nicht leer sein."}
+        return {
+            "status": "invalid_query",
+            "data_quality": "no_live_offers",
+            "price_comparison": False,
+            "offers": [],
+            "total_offers": 0,
+            "best_price": None,
+            "best_deal": None,
+            "error": "Suchbegriff für Produktvergleich darf nicht leer sein.",
+        }
 
     # 1. Check live search
     raw_offers = fetch_live_shopping_offers(clean_query, timeout=timeout)
