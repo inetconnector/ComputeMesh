@@ -119,6 +119,13 @@ def _safe_offer_host(url: str) -> str | None:
             ))
             or host in ("localhost", "127.0.0.1", "0.0.0.0")):
         return None
+    # Reject invalid DNS label boundaries/length before a URL reaches a
+    # consumer. This remains a lexical check, not a DNS/SSRF clearance.
+    if len(host) > 253 or any(
+        len(label) > 63 or label.startswith("-") or label.endswith("-")
+        for label in host.split(".")
+    ):
+        return None
     # Prevent raw IPs, private/public alike, from being treated as a merchant website.
     if all(part.isdigit() for part in host.split(".")):
         return None
