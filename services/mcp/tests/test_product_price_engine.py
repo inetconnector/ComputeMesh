@@ -141,6 +141,73 @@ class TestProductPriceEngine(unittest.TestCase):
                 self.assertEqual(len(hits), 1)
                 self.assertEqual(hits[0]["price"], expected)
 
+    def test_invalid_upstream_prices_never_become_offer_hints(self):
+        safe = {
+            "merchant": "Example Shop",
+            "price": 219.0,
+            "url": "https://shop.example.org/product",
+        }
+        bad = [
+            {**safe, "price": True},
+            {**safe, "price": float("nan")},
+            {**safe, "price": float("inf")},
+            {**safe, "price": float("-inf")},
+            {**safe, "price": -2},
+            {**safe, "price": 0},
+            {**safe, "price": 10 ** 400},
+            {**safe, "price": "219.0"},
+            {**safe, "url": "https://127.0.0.1/admin"},
+            {**safe, "url": "javascript:alert(1)"},
+            {**safe, "url": ""},
+            {"merchant": "No URL", "price": 219.0},
+            "invalid upstream value",
+            None,
+        ]
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
+            return_value=bad + [safe],
+        ):
+            result = search_product_prices("Beispielgerät", country_code="DE")
+        self.assertEqual(result["status"], "unverified")
+        self.assertEqual(result["total_offers"], 1)
+        self.assertEqual(result["unverified_lowest_price"], 219.0)
+        self.assertEqual(result["offers"][0]["price"], 219.0)
+        self.assertFalse(result["offers"][0]["verified"])
+        self.assertNotIn("verified", safe, "do not mutate untrusted upstream dict")
+
+        with patch(
+            "services.mcp.builtin.product_price_engine.fetch_live_shopping_offers",
+            return_value=bad,
+        ):
+            empty_result = search_product_prices("Beispielgerät", country_code="DE")
+        self.assertEqual(empty_result["status"], "unavailable")
+        self.assertEqual(empty_result["offers"], [])
+        self.assertIsNone(empty_result["best_price"])
+
+    def test_formatter_omits_nan_infinite_bool_and_huge_numeric_hints(self):
+        data = {
+            "status": "unverified",
+            "data_quality": "search_snippet_unverified",
+            "product_name": "Beispielgerät",
+            "offers": [
+                {"merchant": "Safe", "price": 219.0, "url": "https://shop.example.org/item"},
+                {"merchant": "Bool", "price": True},
+                {"merchant": "NaN", "price": float("nan")},
+                {"merchant": "Infinity", "price": float("inf")},
+                {"merchant": "Giant", "price": 10 ** 400},
+                {"merchant": "Zero", "price": 0},
+                {"merchant": "Negative", "price": -1},
+                {"merchant": "String", "price": "1.0"},
+                "malformed",
+            ],
+        }
+        rendered = format_tool_content_if_json(json.dumps(data))
+        self.assertIn("Safe", rendered)
+        self.assertIn("219.00 €", rendered)
+        for invalid in ("Bool", "NaN", "Infinity", "Giant", "Zero", "Negative", "String"):
+            self.assertNotIn("| " + invalid + " |", rendered)
+        self.assertEqual(rendered.count("[Suchtreffer]("), 1)
+
     def test_legacy_benchmark_helper_returns_no_fabricated_shops(self):
         from services.mcp.builtin.product_price_engine import get_curated_benchmark_offers
 
