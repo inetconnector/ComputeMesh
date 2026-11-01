@@ -299,12 +299,20 @@ class MeshTunnelServer:
             t2 = threading.Thread(target=self._pipe, args=(target_sock, client_ssl, "t2c", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close in one direction must not discard the
+            # reverse-direction response. Give it a bounded drain window.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
         except Exception as e:
@@ -336,6 +344,7 @@ class MeshTunnelServer:
                 except (socket.timeout, TimeoutError):
                     continue
                 except OSError:
+                    stop_event.set()  # Transport error, not a graceful EOF.
                     break
                 if n == 0:
                     break
@@ -345,9 +354,10 @@ class MeshTunnelServer:
                 else:
                     self.total_bytes_sent += n
         except Exception:
-            pass
+            stop_event.set()  # Abort both directions on a forwarding error.
         finally:
-            stop_event.set()
+            # Graceful EOF half-closes only the plain-TCP destination.
+            # Leave SSL open until the return traffic has drained.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
@@ -437,12 +447,20 @@ class MeshTunnelClient:
             t2 = threading.Thread(target=self._pipe, args=(ssl_sock, app_sock, "s2a", stop_event), daemon=True)
             t1.start()
             t2.start()
+            # A clean half-close in one direction must not discard the
+            # reverse-direction response. Give it a bounded drain window.
+            drain_deadline = None
             while self._running and not stop_event.is_set():
-                t1.join(timeout=0.2)
-                t2.join(timeout=0.2)
-                if not t1.is_alive() or not t2.is_alive():
-                    stop_event.set()
+                t1.join(timeout=0.05)
+                t2.join(timeout=0.05)
+                if not t1.is_alive() and not t2.is_alive():
                     break
+                if not t1.is_alive() or not t2.is_alive():
+                    if drain_deadline is None:
+                        drain_deadline = time.monotonic() + 2.0
+                    elif time.monotonic() >= drain_deadline:
+                        break
+            stop_event.set()
             t1.join(timeout=1.0)
             t2.join(timeout=1.0)
         except Exception as e:
@@ -468,6 +486,7 @@ class MeshTunnelClient:
                 except (socket.timeout, TimeoutError):
                     continue
                 except OSError:
+                    stop_event.set()  # Transport error, not a graceful EOF.
                     break
                 if n == 0:
                     break
@@ -477,9 +496,10 @@ class MeshTunnelClient:
                 else:
                     self.total_bytes_received += n
         except Exception:
-            pass
+            stop_event.set()  # Abort both directions on a forwarding error.
         finally:
-            stop_event.set()
+            # Graceful EOF half-closes only the plain-TCP destination.
+            # Leave SSL open until the return traffic has drained.
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
