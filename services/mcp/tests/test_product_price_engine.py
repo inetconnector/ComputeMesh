@@ -41,6 +41,8 @@ class TestProductPriceEngine(unittest.TestCase):
     def test_invalid_input_never_launches_search(self):
         bad_cases = (
             ({"query": ""}, "invalid_query"),
+            ({"query": "?"}, "invalid_query"),
+            ({"query": "..."}, "invalid_query"),
             ({"query": "x" * 241}, "invalid_query"),
             ({"query": ["not a string"]}, "invalid_query"),
             ({"query": "Laptop", "max_offers": True}, "invalid_argument"),
