@@ -88,7 +88,8 @@ def _safe_unverified_snippet_link(value: Any) -> str | None:
         return None  # Dotted numeric IPs are not merchant DNS names.
     if hostname.endswith((
         ".localhost", ".local", ".internal", ".lan", ".home.arpa",
-        ".corp", ".cluster.local", ".test", ".invalid", ".example",
+        ".corp", ".cluster.local", ".localdomain", ".onion",
+        ".test", ".invalid", ".example",
     )):
         return None
     # Escape Markdown delimiters in path/query rather than trusting snippets.
