@@ -62,13 +62,17 @@ class TestMtlsCredentialBoundary(unittest.TestCase):
             )
             try:
                 server_port = server.start()
-                for creds, expect_reply in ((allowed_creds, True), (blocked_creds, False)):
-                    with self.subTest(node=creds.node_id):
+                for creds, expected_server, expect_reply in (
+                    (allowed_creds, "server_trusted", True),
+                    (blocked_creds, "server_trusted", False),
+                    (allowed_creds, "server_wrong", False),
+                ):
+                    with self.subTest(node=creds.node_id, expected_server=expected_server):
                         client = MeshTunnelClient(
                             remote_tunnel_host="127.0.0.1",
                             remote_tunnel_port=server_port,
                             client_creds=creds,
-                            expected_server_node_id="server_trusted",
+                            expected_server_node_id=expected_server,
                         )
                         try:
                             local_port = client.start()
