@@ -179,9 +179,8 @@ def enroll(bundle_path: Path, *, allow_insecure_localhost: bool = False) -> Path
     enrollment_token = _require_text(bundle, "enrollment_token", max_length=256)
     control_url = _require_text(bundle, "control_url", max_length=2048).rstrip("/")
     parsed = urlparse(control_url)
-    if parsed.scheme != "https":
-        if not allow_insecure_localhost or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-            raise EnrollmentError("enrollment requires HTTPS; insecure mode is localhost-only")
+    if parsed.scheme != "https" and (not allow_insecure_localhost or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}):
+        raise EnrollmentError("enrollment requires HTTPS; insecure mode is localhost-only")
     ca_file = Path(_require_text(bundle, "control_ca_file", max_length=1024))
     if ca_file.is_symlink() or not ca_file.is_file():
         raise EnrollmentError("control-plane CA file is unavailable")

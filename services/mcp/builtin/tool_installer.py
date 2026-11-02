@@ -84,7 +84,7 @@ def install_dev_tool(tool_name: str, package_manager: str | None = None) -> dict
     try:
         proc = subprocess.run(
             cmd,
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=60.0,
             shell=True,

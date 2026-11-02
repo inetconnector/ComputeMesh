@@ -44,7 +44,7 @@ def run_project_tests(
     try:
         proc = subprocess.run(
             cmd,
-            cwd=work_dir,
+            check=False, cwd=work_dir,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,

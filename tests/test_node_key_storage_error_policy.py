@@ -20,9 +20,8 @@ def test_unexpected_decoder_error_propagates(tmp_path: Path) -> None:
     key_file = tmp_path / "unexpected-decoder.key"
     key_file.write_bytes(b"not-valid-base64-data-longer-than-32")
     key_file.chmod(0o600)
-    with patch.object(storage.base64, "b64decode", side_effect=RuntimeError("decoder malfunction")):
-        with pytest.raises(RuntimeError, match="decoder malfunction"):
-            storage.load_node_private_key(key_file)
+    with patch.object(storage.base64, "b64decode", side_effect=RuntimeError("decoder malfunction")), pytest.raises(RuntimeError, match="decoder malfunction"):
+        storage.load_node_private_key(key_file)
 
 
 def test_unexpected_root_path_error_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -31,10 +30,9 @@ def test_unexpected_root_path_error_propagates(monkeypatch: pytest.MonkeyPatch) 
         patch.object(storage.platform, "system", return_value="Linux"),
         patch.object(storage.os, "geteuid", return_value=0, create=True),
         patch.object(storage.os.path, "lexists", return_value=False),
-        patch.object(storage.Path, "mkdir", side_effect=RuntimeError("broken path policy")),
+        patch.object(storage.Path, "mkdir", side_effect=RuntimeError("broken path policy")),pytest.raises(RuntimeError, match="broken path policy")
     ):
-        with pytest.raises(RuntimeError, match="broken path policy"):
-            storage.get_or_create_node_private_key(allow_generate=True)
+        storage.get_or_create_node_private_key(allow_generate=True)
 
 
 def test_unwritable_root_candidate_uses_existing_home_fallback(

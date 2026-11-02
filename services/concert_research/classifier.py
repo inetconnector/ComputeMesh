@@ -259,9 +259,8 @@ def classify_live_music(
         return (True, 0.90)
 
     # Known live music venues
-    if any(k in venue.lower() for k in ("b-hof", "posthalle", "cairo", "immerhin", "zauberberg", "keller z87", "disharmonie")):
-        if not any(p.search(title) for p in PARTY_PATTERNS):
-            return (True, 0.82)
+    if any(k in venue.lower() for k in ("b-hof", "posthalle", "cairo", "immerhin", "zauberberg", "keller z87", "disharmonie")) and not any(p.search(title) for p in PARTY_PATTERNS):
+        return (True, 0.82)
 
     if primary_category == "concert":
         return (True, 0.85)

@@ -50,16 +50,15 @@ class JobBoundSharedTrialTests(unittest.TestCase):
         runner.assert_called_once()
 
     def test_invalid_job_id_fails_before_physical_run(self):
-        with patch("runtime.llama.job_bound_shared_trial.run_shared_trial") as runner:
-            with self.assertRaisesRegex(ValueError, "job_id"):
-                run_job_bound_shared_trial(
-                    job_id="",
-                    bundle_path=self.root / "bundle.json",
-                    llama_server=self.root / "llama-server",
-                    model_path=self.root / "model.gguf",
-                    worker_rpc=RpcEndpoint("10.0.0.2", 50052),
-                    output_dir=self.output,
-                )
+        with patch("runtime.llama.job_bound_shared_trial.run_shared_trial") as runner, self.assertRaisesRegex(ValueError, "job_id"):
+            run_job_bound_shared_trial(
+                job_id="",
+                bundle_path=self.root / "bundle.json",
+                llama_server=self.root / "llama-server",
+                model_path=self.root / "model.gguf",
+                worker_rpc=RpcEndpoint("10.0.0.2", 50052),
+                output_dir=self.output,
+            )
         runner.assert_not_called()
 
 

@@ -24,9 +24,8 @@ def test_private_config_written_with_owner_only_permissions(tmp_path: Path) -> N
 def test_chmod_failure_preserves_previous_private_file(tmp_path: Path) -> None:
     path = tmp_path / "owner.json"
     path.write_text("existing", encoding="utf-8")
-    with patch.object(storage.os, "chmod", side_effect=PermissionError("chmod unavailable")):
-        with pytest.raises(PermissionError, match="chmod unavailable"):
-            storage._write_private_json(path, {"owner_key": "must-not-publish"})
+    with patch.object(storage.os, "chmod", side_effect=PermissionError("chmod unavailable")), pytest.raises(PermissionError, match="chmod unavailable"):
+        storage._write_private_json(path, {"owner_key": "must-not-publish"})
     assert path.read_text(encoding="utf-8") == "existing"
     assert not list(tmp_path.glob(".owner.json.*.tmp"))
 
@@ -45,9 +44,8 @@ def test_symlinked_config_is_rejected(tmp_path: Path) -> None:
 
 
 def test_private_storage_error_cannot_be_hidden_by_save(tmp_path: Path) -> None:
-    with patch.object(storage, "_write_private_json", side_effect=OSError("storage unavailable")):
-        with pytest.raises(OSError, match="storage unavailable"):
-            storage.save_system_config(storage.ApplianceConfig(owner_key="test"), tmp_path / "system.json")
+    with patch.object(storage, "_write_private_json", side_effect=OSError("storage unavailable")), pytest.raises(OSError, match="storage unavailable"):
+        storage.save_system_config(storage.ApplianceConfig(owner_key="test"), tmp_path / "system.json")
 
 
 def test_invalid_existing_provider_json_does_not_modify_system_config(tmp_path: Path) -> None:
@@ -55,9 +53,8 @@ def test_invalid_existing_provider_json_does_not_modify_system_config(tmp_path: 
     user_dir.mkdir()
     (user_dir / "provider_config.json").write_text("{invalid", encoding="utf-8")
     system_file = tmp_path / "system.json"
-    with patch.object(Path, "home", return_value=tmp_path):
-        with pytest.raises(json.JSONDecodeError):
-            storage.save_system_config(storage.ApplianceConfig(owner_key="test"), system_file)
+    with patch.object(Path, "home", return_value=tmp_path), pytest.raises(json.JSONDecodeError):
+        storage.save_system_config(storage.ApplianceConfig(owner_key="test"), system_file)
     assert not system_file.exists()
 
 
@@ -76,7 +73,6 @@ def test_atomic_replace_keeps_existing_service_user_ownership(tmp_path: Path) ->
 def test_chown_failure_never_replaces_existing_secret(tmp_path: Path) -> None:
     path = tmp_path / "owner.json"
     path.write_text("existing secret", encoding="utf-8")
-    with patch.object(storage.os, "chown", side_effect=PermissionError("chown denied")):
-        with pytest.raises(PermissionError, match="chown denied"):
-            storage._write_private_json(path, {"owner_key": "new-secret"})
+    with patch.object(storage.os, "chown", side_effect=PermissionError("chown denied")), pytest.raises(PermissionError, match="chown denied"):
+        storage._write_private_json(path, {"owner_key": "new-secret"})
     assert path.read_text(encoding="utf-8") == "existing secret"

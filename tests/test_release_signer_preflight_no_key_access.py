@@ -17,12 +17,11 @@ def test_missing_required_assets_fail_before_private_key_lookup(tmp_path: Path) 
     with patch.object(
         release_signer, "get_or_create_keypair",
         side_effect=AssertionError("private signing key was accessed"),
-    ) as lookup:
-        with pytest.raises(FileNotFoundError, match="missing mandatory physical"):
-            release_signer.sign_manifest(
-                "1.2.189", downloads, tmp_path / "manifest.json",
-                base_url="https://mesh.inetconnector.com/downloads",
-            )
+    ) as lookup, pytest.raises(FileNotFoundError, match="missing mandatory physical"):
+        release_signer.sign_manifest(
+            "1.2.189", downloads, tmp_path / "manifest.json",
+            base_url="https://mesh.inetconnector.com/downloads",
+        )
     lookup.assert_not_called()
     assert not (tmp_path / "manifest.json").exists()
 
@@ -40,12 +39,11 @@ def test_symlinked_download_is_rejected_even_in_partial_mode(tmp_path: Path) -> 
     with patch.object(
         release_signer, "get_or_create_keypair",
         side_effect=AssertionError("private signing key was accessed"),
-    ) as lookup:
-        with pytest.raises(ValueError, match="must not be a symlink"):
-            release_signer.sign_manifest(
-                "1.2.189", downloads, tmp_path / "manifest.json",
-                allow_partial=True, base_url="https://mesh.inetconnector.com/downloads",
-            )
+    ) as lookup, pytest.raises(ValueError, match="must not be a symlink"):
+        release_signer.sign_manifest(
+            "1.2.189", downloads, tmp_path / "manifest.json",
+            allow_partial=True, base_url="https://mesh.inetconnector.com/downloads",
+        )
     lookup.assert_not_called()
 
 
@@ -64,13 +62,12 @@ def test_symlinked_staged_artifact_is_rejected(tmp_path: Path) -> None:
     with patch.object(
         release_signer, "get_or_create_keypair",
         side_effect=AssertionError("private signing key was accessed"),
-    ) as lookup:
-        with pytest.raises(ValueError, match="staged release artifact must not be a symlink"):
-            release_signer.sign_manifest(
-                "1.2.189", downloads, tmp_path / "manifest.json",
-                staging_dir=staging, allow_partial=True,
-                base_url="https://mesh.inetconnector.com/downloads",
-            )
+    ) as lookup, pytest.raises(ValueError, match="staged release artifact must not be a symlink"):
+        release_signer.sign_manifest(
+            "1.2.189", downloads, tmp_path / "manifest.json",
+            staging_dir=staging, allow_partial=True,
+            base_url="https://mesh.inetconnector.com/downloads",
+        )
     lookup.assert_not_called()
 
 

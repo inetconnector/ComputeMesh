@@ -38,9 +38,8 @@ class InferenceBackendTests(unittest.TestCase):
             backend.complete(model_id="model", messages=[])
 
     def test_synthetic_requires_explicit_double_opt_in(self) -> None:
-        with patch.dict(os.environ, {"COMPUTEMESH_INFERENCE_BACKEND": "synthetic"}, clear=True):
-            with self.assertRaises(InferenceBackendError):
-                build_inference_backend_from_env()
+        with patch.dict(os.environ, {"COMPUTEMESH_INFERENCE_BACKEND": "synthetic"}, clear=True), self.assertRaises(InferenceBackendError):
+            build_inference_backend_from_env()
 
         env = {
             "COMPUTEMESH_INFERENCE_BACKEND": "synthetic",

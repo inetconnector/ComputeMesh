@@ -32,9 +32,8 @@ def test_unexpected_spawn_programming_error_is_not_disguised_as_normal_calculati
     process.start.side_effect = AssertionError("broken process contract")
     context.Pipe.return_value = (parent, child)
     context.Process.return_value = process
-    with patch.object(python_calc.multiprocessing, "get_context", return_value=context):
-        with pytest.raises(AssertionError, match="broken process contract"):
-            python_calc.run_python_calc(expression="1+1")
+    with patch.object(python_calc.multiprocessing, "get_context", return_value=context), pytest.raises(AssertionError, match="broken process contract"):
+        python_calc.run_python_calc(expression="1+1")
     parent.close.assert_called_once()
     child.close.assert_called_once()
 

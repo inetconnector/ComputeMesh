@@ -108,9 +108,8 @@ class AuthenticationDecision:
     def __post_init__(self) -> None:
         if self.credential_expires_at is not None and self.credential_expires_at.tzinfo is None:
             raise ValueError("credential_expires_at must be timezone-aware")
-        if self.authenticated:
-            if not self.node_id or not self.principal_id or self.credential_expires_at is None:
-                raise ValueError("authenticated decisions require node_id, principal_id, and expiry")
+        if self.authenticated and (not self.node_id or not self.principal_id or self.credential_expires_at is None):
+            raise ValueError("authenticated decisions require node_id, principal_id, and expiry")
 
 
 class AuthenticationVerifier(Protocol):

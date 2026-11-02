@@ -62,13 +62,12 @@ class TestPortalServer(unittest.TestCase):
     def test_serve_subpages(self) -> None:
         subpages = ["/docs", "/status", "/benchmarks", "/terms", "/privacy", "/impressum", "/contact", "/billing/cancel", "/billing/success"]
         for page in subpages:
-            with self.subTest(page=page):
-                with urllib.request.urlopen(f"http://127.0.0.1:13000{page}") as resp:
-                    self.assertEqual(resp.status, 200)
-                    content = resp.read().decode("utf-8")
-                    self.assertIn("ComputeMesh", content)
-                    self.assertIn("<!DOCTYPE html>", content)
-                    self.assertIn('rel="canonical"', content)
+            with self.subTest(page=page), urllib.request.urlopen(f"http://127.0.0.1:13000{page}") as resp:
+                self.assertEqual(resp.status, 200)
+                content = resp.read().decode("utf-8")
+                self.assertIn("ComputeMesh", content)
+                self.assertIn("<!DOCTYPE html>", content)
+                self.assertIn('rel="canonical"', content)
 
     def test_portal_html_has_no_forbidden_third_party_resources(self) -> None:
         violations: list[str] = []

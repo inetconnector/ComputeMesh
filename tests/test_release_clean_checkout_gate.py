@@ -66,7 +66,6 @@ def test_dirty_source_prevents_any_artifact_build(
     _make_checkout(root)
     (root / "tracked.py").write_text("modified = True\n", encoding="utf-8")
     monkeypatch.setattr(release, "REPO_ROOT", root)
-    with patch.object(release, "build_linux_tarball") as tarball:
-        with pytest.raises(release.ReleaseBuildError, match="modified or untracked"):
-            release.main()
+    with patch.object(release, "build_linux_tarball") as tarball, pytest.raises(release.ReleaseBuildError, match="modified or untracked"):
+        release.main()
     tarball.assert_not_called()

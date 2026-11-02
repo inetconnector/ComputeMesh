@@ -427,14 +427,13 @@ class ProviderAgent:
             },
         )
         contracts.validate("RuntimeAdvertisement", self.runtime_advertisement)
-        if inference_executor is not None:
-            if (
-                self.runtime_advertisement.get("inference_state") != "INFERENCE_READY"
-                or self.runtime_advertisement.get("runtime_verified") is not True
-            ):
-                raise ProviderAgentError(
-                    "inference runtime must be advertised only after INFERENCE_READY and runtime verification"
-                )
+        if inference_executor is not None and (
+            self.runtime_advertisement.get("inference_state") != "INFERENCE_READY"
+            or self.runtime_advertisement.get("runtime_verified") is not True
+        ):
+            raise ProviderAgentError(
+                "inference runtime must be advertised only after INFERENCE_READY and runtime verification"
+            )
         contracts.validate("BenchmarkReport", self.prefill)
         contracts.validate("BenchmarkReport", self.decode)
         for report in self.network_reports:

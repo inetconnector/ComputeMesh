@@ -103,9 +103,8 @@ class SecretScanner:
                 for key, nested in item.items():
                     key_text = str(key)
                     nested_location = f"{location}.{key_text}"
-                    if re.search(r"(?:password|secret|token|api[_-]?key|private[_-]?key|authorization)", key_text, re.IGNORECASE):
-                        if nested not in (None, "", False):
-                            findings.append(self._finding(SecretKind.API_KEY, nested_location, str(nested)))
+                    if re.search(r"(?:password|secret|token|api[_-]?key|private[_-]?key|authorization)", key_text, re.IGNORECASE) and nested not in (None, "", False):
+                        findings.append(self._finding(SecretKind.API_KEY, nested_location, str(nested)))
                     walk(nested, nested_location, depth + 1)
                 return
             if isinstance(item, (list, tuple)):

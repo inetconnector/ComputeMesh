@@ -499,10 +499,9 @@ def run_relay(
             on_ready(actual_endpoint)
 
         while not controller.stop_event.is_set():
-            if config.disconnect_after_seconds is not None and controller.connected_mono is not None:
-                if time.monotonic() >= controller.connected_mono + float(config.disconnect_after_seconds):
-                    controller.stop("disconnect_after_seconds")
-                    break
+            if config.disconnect_after_seconds is not None and controller.connected_mono is not None and time.monotonic() >= controller.connected_mono + float(config.disconnect_after_seconds):
+                controller.stop("disconnect_after_seconds")
+                break
 
             with controller.lock:
                 active_count = controller.active_connections

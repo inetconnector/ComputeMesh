@@ -65,10 +65,9 @@ def test_failed_unmount_aborts_and_cannot_delete_tree(tmp_path: Path) -> None:
         patch.object(
             builder.subprocess, "run",
             side_effect=subprocess.CalledProcessError(32, ["umount"]),
-        ),
+        ),pytest.raises(subprocess.CalledProcessError)
     ):
-        with pytest.raises(subprocess.CalledProcessError):
-            builder._cleanup_stale_build_tree()
+        builder._cleanup_stale_build_tree()
     assert marker.read_text(encoding="utf-8") == "keep"
 
 
@@ -81,10 +80,9 @@ def test_still_mounted_after_umount_refuses_cleanup(tmp_path: Path) -> None:
         patch.object(builder, "BUILD_DIR", root),
         patch.object(builder, "CHROOT_DIR", root / "chroot"),
         patch.object(builder, "_mount_points_below", side_effect=[[proc], [proc]]),
-        patch.object(builder.subprocess, "run") as run,
+        patch.object(builder.subprocess, "run") as run,pytest.raises(RuntimeError, match="remain")
     ):
-        with pytest.raises(RuntimeError, match="remain"):
-            builder._cleanup_stale_build_tree()
+        builder._cleanup_stale_build_tree()
     assert (root / "marker").exists()
     run.assert_called_once()
 
@@ -98,19 +96,16 @@ def test_symlinked_build_directory_rejected(tmp_path: Path) -> None:
         link.symlink_to(real, target_is_directory=True)
     except (OSError, NotImplementedError) as exc:
         pytest.skip(f"symlinks unsupported: {exc}")
-    with patch.object(builder, "BUILD_DIR", link):
-        with pytest.raises(RuntimeError, match="symlink"):
-            builder._cleanup_stale_build_tree()
+    with patch.object(builder, "BUILD_DIR", link), pytest.raises(RuntimeError, match="symlink"):
+        builder._cleanup_stale_build_tree()
     assert (real / "marker").exists()
 
 
 def test_malformed_mount_table_fails_closed(tmp_path: Path) -> None:
-    with patch.object(builder.Path, "read_text", return_value="unexpected\n"):
-        with pytest.raises(RuntimeError, match="malformed"):
-            builder._mount_points_below(tmp_path)
+    with patch.object(builder.Path, "read_text", return_value="unexpected\n"), pytest.raises(RuntimeError, match="malformed"):
+        builder._mount_points_below(tmp_path)
 
 
 def test_unreadable_mount_table_fails_closed(tmp_path: Path) -> None:
-    with patch.object(builder.Path, "read_text", side_effect=OSError("permission")):
-        with pytest.raises(RuntimeError, match="cannot inspect"):
-            builder._mount_points_below(tmp_path)
+    with patch.object(builder.Path, "read_text", side_effect=OSError("permission")), pytest.raises(RuntimeError, match="cannot inspect"):
+        builder._mount_points_below(tmp_path)

@@ -247,9 +247,8 @@ class TestDashboardServer(unittest.TestCase):
             }).encode("utf-8")
             req = urllib.request.Request("http://127.0.0.1:18996/v1/chat/completions", data=req_body, headers={"Content-Type": "application/json", "X-Node-Auth-Token": NODE_AUTH_TOKEN}, method="POST")
             before = DashboardHandler.tokens_served
-            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}):
-                with self.assertRaises(urllib.error.HTTPError) as ctx:
-                    urllib.request.urlopen(req, timeout=25)
+            with patch.dict("os.environ", {"OLLAMA_HOST": "http://127.0.0.1:9"}), self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=25)
             self.assertEqual(ctx.exception.code, 503)
             data = json.loads(ctx.exception.read().decode("utf-8"))
             self.assertEqual(data["error"]["code"], "model_catalog_unavailable")

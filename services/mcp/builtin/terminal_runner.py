@@ -51,7 +51,7 @@ def run_terminal_command(
     try:
         proc = subprocess.run(
             clean_cmd,
-            cwd=work_dir,
+            check=False, cwd=work_dir,
             shell=True,
             capture_output=True,
             text=True,

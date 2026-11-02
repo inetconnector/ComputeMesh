@@ -113,9 +113,8 @@ class RpcSpikeTests(unittest.TestCase):
             server.write_bytes(b"x")
             model.write_bytes(b"model")
             plan = SpikePlan(server, model, (), ("CUDA0",), (1,), mode="local_baseline")
-            with patch("runtime.llama.rpc_spike.runtime_version", side_effect=RpcSpikeError("bad version")):
-                with self.assertRaises(RpcSpikeError):
-                    run_spike(plan, prompt="SENSITIVE PROMPT", output_dir=root / "run")
+            with patch("runtime.llama.rpc_spike.runtime_version", side_effect=RpcSpikeError("bad version")), self.assertRaises(RpcSpikeError):
+                run_spike(plan, prompt="SENSITIVE PROMPT", output_dir=root / "run")
             failure = json.loads((root / "run" / "runtime_spike_failure.json").read_text())
             self.assertEqual(failure["phase"], "runtime_version")
             self.assertNotIn("SENSITIVE PROMPT", json.dumps(failure))

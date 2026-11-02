@@ -32,6 +32,5 @@ def test_stale_or_invalid_android_version_fails_before_build(
     with patch.object(
         build_apk, "_verify_signing_environment",
         side_effect=AssertionError("signing was accessed before version preflight"),
-    ):
-        with pytest.raises(RuntimeError, match="does not match|must be positive"):
-            build_apk.build_release()
+    ), pytest.raises(RuntimeError, match="does not match|must be positive"):
+        build_apk.build_release()

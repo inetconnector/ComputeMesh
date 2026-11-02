@@ -117,9 +117,8 @@ class ConfidentialRequestContractTests(unittest.TestCase):
             "cmrc1:" + "0" * 64 + ":aa",
         )
         for nonce in bad_values:
-            with self.subTest(nonce=nonce):
-                with self.assertRaises(ConfidentialRequestContractError):
-                    verify_committed_attestation_nonce(nonce, **self.values)
+            with self.subTest(nonce=nonce), self.assertRaises(ConfidentialRequestContractError):
+                verify_committed_attestation_nonce(nonce, **self.values)
 
     def test_creation_rejects_low_entropy(self) -> None:
         with self.assertRaisesRegex(ConfidentialRequestContractError, "entropy"):

@@ -74,8 +74,7 @@ class RecoveryStateEnforcer:
     """Enforces: recovery never assumes a failed node retained state."""
 
     def validate_recovery(self, node_state: dict[str, Any]) -> None:
-        if node_state.get("failed", False):
-            if node_state.get("retained_state", False):
-                raise InvalidRecoveryStateError(
-                    "Recovery invariant violated: cannot assume a failed node retained state."
-                )
+        if node_state.get("failed", False) and node_state.get("retained_state", False):
+            raise InvalidRecoveryStateError(
+                "Recovery invariant violated: cannot assume a failed node retained state."
+            )

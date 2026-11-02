@@ -129,7 +129,7 @@ def _resolve_source_disk() -> str | None:
     candidates = []
     for probe in ("findmnt -no SOURCE /lib/live/mount/medium", "findmnt -no SOURCE /run/live/medium", "findmnt -no SOURCE /"):
         try:
-            res = subprocess.run(probe.split(), capture_output=True, text=True, timeout=5)
+            res = subprocess.run(probe.split(), check=False, capture_output=True, text=True, timeout=5)
             if res.returncode == 0 and res.stdout.strip():
                 candidates.append(res.stdout.strip())
         except Exception:
@@ -139,7 +139,7 @@ def _resolve_source_disk() -> str | None:
     for dev_path in candidates:
         dev_name = dev_path.rsplit("/", 1)[-1]
         try:
-            res = subprocess.run(["lsblk", "-no", "PKNAME", dev_path], capture_output=True, text=True, timeout=5)
+            res = subprocess.run(["lsblk", "-no", "PKNAME", dev_path], check=False, capture_output=True, text=True, timeout=5)
             pkname = res.stdout.strip()
             if pkname and pkname not in resolved_disks:
                 resolved_disks.append(pkname)
@@ -264,18 +264,18 @@ def _post_clone_fixup(target_dev: str) -> None:
     """
     # 1. GPT Repair (sgdisk -e or parted or sfdisk)
     try:
-        subprocess.run(["sgdisk", "-e", target_dev], capture_output=True, timeout=10)
+        subprocess.run(["sgdisk", "-e", target_dev], check=False, capture_output=True, timeout=10)
     except Exception:
         pass
     try:
-        subprocess.run(["parted", "-s", target_dev, "print"], capture_output=True, timeout=10)
+        subprocess.run(["parted", "-s", target_dev, "print"], check=False, capture_output=True, timeout=10)
     except Exception:
         pass
 
     # 2. Partprobe to reread partition table
     try:
-        subprocess.run(["partprobe", target_dev], capture_output=True, timeout=10)
-        subprocess.run(["udevadm", "settle", "--timeout=5"], capture_output=True, timeout=10)
+        subprocess.run(["partprobe", target_dev], check=False, capture_output=True, timeout=10)
+        subprocess.run(["udevadm", "settle", "--timeout=5"], check=False, capture_output=True, timeout=10)
     except Exception:
         pass
 
@@ -285,7 +285,7 @@ def _post_clone_fixup(target_dev: str) -> None:
         mount_dir = Path("/tmp/cm_efi_target_mount")
         mount_dir.mkdir(parents=True, exist_ok=True)
         try:
-            m_res = subprocess.run(["mount", efi_part, str(mount_dir)], capture_output=True, timeout=5)
+            m_res = subprocess.run(["mount", efi_part, str(mount_dir)], check=False, capture_output=True, timeout=5)
             if m_res.returncode == 0:
                 try:
                     boot_dir = mount_dir / "EFI" / "BOOT"
@@ -301,7 +301,7 @@ def _post_clone_fixup(target_dev: str) -> None:
                                 shutil.copy(src_candidate, boot_file)
                                 break
                 finally:
-                    subprocess.run(["umount", str(mount_dir)], capture_output=True, timeout=5)
+                    subprocess.run(["umount", str(mount_dir)], check=False, capture_output=True, timeout=5)
         except Exception:
             pass
 
@@ -315,13 +315,13 @@ def _post_clone_fixup(target_dev: str) -> None:
                 "-p", part_num,
                 "-L", "ComputeMesh NodeOS",
                 "-l", "\\EFI\\BOOT\\BOOTX64.EFI"
-            ], capture_output=True, timeout=10)
+            ], check=False, capture_output=True, timeout=10)
         except Exception:
             pass
 
     # 5. MBR / Legacy BIOS active flag
     try:
-        subprocess.run(["sfdisk", "-A", target_dev, "1"], capture_output=True, timeout=10)
+        subprocess.run(["sfdisk", "-A", target_dev, "1"], check=False, capture_output=True, timeout=10)
     except Exception:
         pass
 

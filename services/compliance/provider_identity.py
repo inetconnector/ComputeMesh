@@ -653,11 +653,10 @@ def evaluate_provider_requirements(
     has_active_decl = False
     active_version: str | None = None
     for decl in declarations:
-        if decl.declaration_type in {"DSA_ART30_TRADER_COMMITMENT", "dsa_art30"} or decl.version == DSA_TRADER_DECLARATION_VERSION:
-            if decl.accepted_at:
-                has_active_decl = True
-                active_version = decl.version
-                break
+        if (decl.declaration_type in {"DSA_ART30_TRADER_COMMITMENT", "dsa_art30"} or decl.version == DSA_TRADER_DECLARATION_VERSION) and decl.accepted_at:
+            has_active_decl = True
+            active_version = decl.version
+            break
 
     if applicability.article_30_applicable:
         if not has_active_decl:

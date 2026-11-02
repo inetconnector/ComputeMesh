@@ -54,18 +54,16 @@ def test_invalid_persisted_provider_id_fails_closed_instead_of_using_hostname(tm
         encoding="utf-8",
     )
 
-    with patch.dict("os.environ", {"COMPUTEMESH_PROVIDER_ENV": str(provider_env)}, clear=False):
-        with pytest.raises(NodeIdentityError, match="persisted provider identity"):
-            resolve_node_id()
+    with patch.dict("os.environ", {"COMPUTEMESH_PROVIDER_ENV": str(provider_env)}, clear=False), pytest.raises(NodeIdentityError, match="persisted provider identity"):
+        resolve_node_id()
 
 
 def test_explicit_id_cannot_override_enrolled_identity(tmp_path: Path) -> None:
     provider_env = tmp_path / "provider.env"
     _provider_env(provider_env, "enrolled-node-01")
 
-    with patch.dict("os.environ", {"COMPUTEMESH_PROVIDER_ENV": str(provider_env)}, clear=False):
-        with pytest.raises(NodeIdentityError, match="explicit node id does not match"):
-            resolve_node_id("boot-default-node")
+    with patch.dict("os.environ", {"COMPUTEMESH_PROVIDER_ENV": str(provider_env)}, clear=False), pytest.raises(NodeIdentityError, match="explicit node id does not match"):
+        resolve_node_id("boot-default-node")
 
 
 def test_authorized_node_id_migration_updates_provider_env_and_receipt(tmp_path: Path) -> None:
@@ -161,13 +159,12 @@ def test_nodeos_rejects_missing_or_switched_enrollment_key(tmp_path: Path) -> No
             "COMPUTEMESH_NODE_PRIVATE_KEY": str(switched_key),
         },
         clear=False,
-    ), patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"):
-        with pytest.raises(tunnel_relay.NodeAuthTokenStorageError, match="does not match"):
-            tunnel_relay.CloudTunnelRelay(
-                node_id="enrolled-node-01",
-                auth_token="cm_tunnel_" + "b" * 48,
-                autostart=False,
-            )
+    ), patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"), pytest.raises(tunnel_relay.NodeAuthTokenStorageError, match="does not match"):
+        tunnel_relay.CloudTunnelRelay(
+            node_id="enrolled-node-01",
+            auth_token="cm_tunnel_" + "b" * 48,
+            autostart=False,
+        )
 
     provider_env.write_text(
         provider_env.read_text(encoding="utf-8").replace(str(enrolled_key), str(tmp_path / "missing.pem")),
@@ -181,10 +178,9 @@ def test_nodeos_rejects_missing_or_switched_enrollment_key(tmp_path: Path) -> No
             "COMPUTEMESH_NODEOS_PREFLIGHT_MARKER": str(marker),
         },
         clear=False,
-    ), patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"):
-        with pytest.raises(tunnel_relay.NodeAuthTokenStorageError, match="private key"):
-            tunnel_relay.CloudTunnelRelay(
-                node_id="enrolled-node-01",
-                auth_token="cm_tunnel_" + "b" * 48,
-                autostart=False,
-            )
+    ), patch("tools.appliance.lan_discovery_responder.start_lan_discovery_responder"), pytest.raises(tunnel_relay.NodeAuthTokenStorageError, match="private key"):
+        tunnel_relay.CloudTunnelRelay(
+            node_id="enrolled-node-01",
+            auth_token="cm_tunnel_" + "b" * 48,
+            autostart=False,
+        )

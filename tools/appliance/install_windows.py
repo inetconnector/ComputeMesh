@@ -31,7 +31,7 @@ def install():
     
     # Terminate any running ComputeMesh instance before replacing
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "ComputeMesh.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["taskkill", "/F", "/IM", "ComputeMesh.exe"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
     

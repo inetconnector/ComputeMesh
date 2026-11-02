@@ -1136,15 +1136,14 @@ def detect_compound_tool_intents(text: str, registry: ToolRegistry | None = None
 
     # Fallback multi-domain scanner if segmentation missed sub-clauses
     lower = cleaned.lower()
-    if "get_current_weather" not in seen_names and "get_weather_forecast" not in seen_names:
-        if any(w in lower for w in ("wetter", "weather", "temperatur", "regenwahrscheinlichkeit", "regen")):
-            w_res = detect_direct_tool_intent(cleaned, registry, allow_compound=True)
-            if w_res and w_res[0] in ("get_current_weather", "get_weather_forecast"):
-                _add_intent(w_res[0], w_res[1])
-            else:
-                m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
-                city = m_city.group(1).strip().capitalize() if m_city else "Berlin"
-                _add_intent("get_current_weather", {"city": city})
+    if "get_current_weather" not in seen_names and "get_weather_forecast" not in seen_names and any(w in lower for w in ("wetter", "weather", "temperatur", "regenwahrscheinlichkeit", "regen")):
+        w_res = detect_direct_tool_intent(cleaned, registry, allow_compound=True)
+        if w_res and w_res[0] in ("get_current_weather", "get_weather_forecast"):
+            _add_intent(w_res[0], w_res[1])
+        else:
+            m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
+            city = m_city.group(1).strip().capitalize() if m_city else "Berlin"
+            _add_intent("get_current_weather", {"city": city})
 
     if "get_live_news" not in seen_names:
         has_news_kw = any(w in lower for w in ("nachrichten", "news", "schlagzeilen", "tagesschau", "heise", "spiegel", "headlines", "presseschau", "tagesgeschehen", "breaking news")) or bool(re.search(r"\baktuelle\s+(?:nachrichten|news|schlagzeilen|meldungen|berichte)\b", lower))
@@ -1155,33 +1154,32 @@ def detect_compound_tool_intents(text: str, registry: ToolRegistry | None = None
         if has_news_kw and not is_other_single_domain:
             _add_intent("get_live_news", {"topic": "allgemein"})
 
-    if "get_market_quote" not in seen_names:
-        if any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto", "ripple", "xrp", "doge", "cardano", "ada")):
-            found_coins = []
-            if re.search(r"\b(?:btc|bitcoin)\b", cleaned, re.IGNORECASE):
-                found_coins.append("BTC")
-            if re.search(r"\b(?:eth|ethereum)\b", cleaned, re.IGNORECASE):
-                found_coins.append("ETH")
-            if re.search(r"\b(?:sol|solana)\b", cleaned, re.IGNORECASE):
-                found_coins.append("SOL")
-            if re.search(r"\b(?:xrp|ripple)\b", cleaned, re.IGNORECASE):
-                found_coins.append("XRP")
-            if re.search(r"\b(?:ada|cardano)\b", cleaned, re.IGNORECASE):
-                found_coins.append("ADA")
-            if re.search(r"\b(?:doge|dogecoin)\b", cleaned, re.IGNORECASE):
-                found_coins.append("DOGE")
-            if re.search(r"\b(?:nvda|nvidia)\b", cleaned, re.IGNORECASE):
-                found_coins.append("NVDA")
-            if re.search(r"\b(?:tsla|tesla)\b", cleaned, re.IGNORECASE):
-                found_coins.append("TSLA")
-            if re.search(r"\b(?:aapl|apple)\b", cleaned, re.IGNORECASE):
-                found_coins.append("AAPL")
-            if re.search(r"\b(?:msft|microsoft)\b", cleaned, re.IGNORECASE):
-                found_coins.append("MSFT")
-            if found_coins:
-                _add_intent("get_market_quote", {"symbol": " und ".join(found_coins)})
-            else:
-                _add_intent("get_market_quote", {"symbol": "BTC"})
+    if "get_market_quote" not in seen_names and any(w in lower for w in ("bitcoin", "btc", "eth", "ethereum", "solana", "sol", "aktie", "aktienkurs", "dax", "nasdaq", "krypto", "crypto", "ripple", "xrp", "doge", "cardano", "ada")):
+        found_coins = []
+        if re.search(r"\b(?:btc|bitcoin)\b", cleaned, re.IGNORECASE):
+            found_coins.append("BTC")
+        if re.search(r"\b(?:eth|ethereum)\b", cleaned, re.IGNORECASE):
+            found_coins.append("ETH")
+        if re.search(r"\b(?:sol|solana)\b", cleaned, re.IGNORECASE):
+            found_coins.append("SOL")
+        if re.search(r"\b(?:xrp|ripple)\b", cleaned, re.IGNORECASE):
+            found_coins.append("XRP")
+        if re.search(r"\b(?:ada|cardano)\b", cleaned, re.IGNORECASE):
+            found_coins.append("ADA")
+        if re.search(r"\b(?:doge|dogecoin)\b", cleaned, re.IGNORECASE):
+            found_coins.append("DOGE")
+        if re.search(r"\b(?:nvda|nvidia)\b", cleaned, re.IGNORECASE):
+            found_coins.append("NVDA")
+        if re.search(r"\b(?:tsla|tesla)\b", cleaned, re.IGNORECASE):
+            found_coins.append("TSLA")
+        if re.search(r"\b(?:aapl|apple)\b", cleaned, re.IGNORECASE):
+            found_coins.append("AAPL")
+        if re.search(r"\b(?:msft|microsoft)\b", cleaned, re.IGNORECASE):
+            found_coins.append("MSFT")
+        if found_coins:
+            _add_intent("get_market_quote", {"symbol": " und ".join(found_coins)})
+        else:
+            _add_intent("get_market_quote", {"symbol": "BTC"})
 
     return intents
 

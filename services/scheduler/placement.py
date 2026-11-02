@@ -182,13 +182,12 @@ def _resolve_layer_count(
     caller_layer_count: int | None,
 ) -> tuple[int, str]:
     manifest_layer_count = manifest.get("layer_count")
-    if caller_layer_count is not None:
-        if (
-            isinstance(caller_layer_count, bool)
-            or not isinstance(caller_layer_count, int)
-            or not 2 <= caller_layer_count <= 100_000
-        ):
-            raise PlacementInputError("layer_count must be an integer between 2 and 100000")
+    if caller_layer_count is not None and (
+        isinstance(caller_layer_count, bool)
+        or not isinstance(caller_layer_count, int)
+        or not 2 <= caller_layer_count <= 100_000
+    ):
+        raise PlacementInputError("layer_count must be an integer between 2 and 100000")
     if manifest_layer_count is not None:
         resolved = int(manifest_layer_count)
         if caller_layer_count is not None and caller_layer_count != resolved:
@@ -207,13 +206,12 @@ def _resolve_network_binding(
     worker_node_id: str,
     caller_peer_node_id: str | None,
 ) -> tuple[str, str, list[dict[str, Any]]]:
-    if caller_peer_node_id is not None:
-        if (
-            not isinstance(caller_peer_node_id, str)
-            or not caller_peer_node_id
-            or len(caller_peer_node_id) > 128
-        ):
-            raise PlacementInputError("network_peer_node_id must be 1..128 characters")
+    if caller_peer_node_id is not None and (
+        not isinstance(caller_peer_node_id, str)
+        or not caller_peer_node_id
+        or len(caller_peer_node_id) > 128
+    ):
+        raise PlacementInputError("network_peer_node_id must be 1..128 characters")
 
     conditions = network_result.get("conditions", {})
     local_node_id = conditions.get("local_node_id")

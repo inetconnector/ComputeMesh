@@ -94,9 +94,8 @@ class TestModelEngineService(unittest.TestCase):
                 runtime_probe=lambda _binary, _plan: (False, "vulkan_runtime_unavailable"),
             )
             (root / "llama-server").write_bytes(b"binary")
-            with patch.object(service, "_health", return_value=True):
-                with self.assertRaisesRegex(ModelEngineError, "vulkan_runtime_unavailable"):
-                    service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
+            with patch.object(service, "_health", return_value=True), self.assertRaisesRegex(ModelEngineError, "vulkan_runtime_unavailable"):
+                service.start(EngineModel("test/model", artifact, digest, artifact.stat().st_size, 64))
 
     def test_rejects_digest_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

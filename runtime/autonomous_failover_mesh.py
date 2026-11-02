@@ -274,9 +274,8 @@ class AutonomousFailoverMeshFabric:
             return {"status": "duplicate", "job_id": job_id, "result": "already_executed"}
 
         # Ensure active connection
-        if target_node_id not in self.active_connections:
-            if not self.connect_to_node(target_node_id):
-                return {"status": "error", "reason": "node_unreachable", "job_id": job_id}
+        if target_node_id not in self.active_connections and not self.connect_to_node(target_node_id):
+            return {"status": "error", "reason": "node_unreachable", "job_id": job_id}
 
         while True:
             route = self.optimizer.get_optimal_route(target_node_id)

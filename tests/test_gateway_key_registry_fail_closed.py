@@ -16,9 +16,8 @@ from services.gateway.auth import (
 def test_unreadable_configured_key_store_is_not_silently_empty(tmp_path: Path) -> None:
     store = tmp_path / "api-keys.json"
     store.write_text("{}", encoding="utf-8")
-    with patch.object(Path, "read_text", side_effect=PermissionError("registry denied")):
-        with pytest.raises(GatewayCredentialStoreError, match="unreadable"):
-            _load_api_key_store(store)
+    with patch.object(Path, "read_text", side_effect=PermissionError("registry denied")), pytest.raises(GatewayCredentialStoreError, match="unreadable"):
+        _load_api_key_store(store)
 
 
 def test_missing_unconfigured_key_store_remains_empty(tmp_path: Path) -> None:

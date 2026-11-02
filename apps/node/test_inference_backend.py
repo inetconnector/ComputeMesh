@@ -149,18 +149,16 @@ def test_backend_rejects_non_loopback_endpoint() -> None:
 
 def test_backend_rejects_invalid_completion() -> None:
     backend = LocalOpenAIInferenceBackend("http://localhost:8080/v1/chat/completions")
-    with patch("apps.node.inference_backend.urlrequest.urlopen", return_value=_Response({"choices": []})):
-        with pytest.raises(LocalInferenceError):
-            backend(_session(), _request())
+    with patch("apps.node.inference_backend.urlrequest.urlopen", return_value=_Response({"choices": []})), pytest.raises(LocalInferenceError):
+        backend(_session(), _request())
 
 
 def test_backend_stops_before_network_when_cancelled() -> None:
     backend = LocalOpenAIInferenceBackend("http://localhost:8080/v1/chat/completions")
     cancel_event = threading.Event()
     cancel_event.set()
-    with patch("apps.node.inference_backend.urlrequest.urlopen") as open_url:
-        with pytest.raises(LocalInferenceError, match="cancelled"):
-            backend(_session(), _request(), cancel_event)
+    with patch("apps.node.inference_backend.urlrequest.urlopen") as open_url, pytest.raises(LocalInferenceError, match="cancelled"):
+        backend(_session(), _request(), cancel_event)
     open_url.assert_not_called()
 
 
@@ -245,9 +243,8 @@ def test_backend_stops_sse_stream_after_cancel_signal() -> None:
             return line
 
     response = CancellingResponse([b'data: {"choices":[{"delta":{"content":"hel"},"finish_reason":null}]}\n\n'])
-    with patch("apps.node.inference_backend.urlrequest.urlopen", return_value=response):
-        with pytest.raises(LocalInferenceError, match="cancelled"):
-            list(backend.stream(_session(), _request(), cancel_event))
+    with patch("apps.node.inference_backend.urlrequest.urlopen", return_value=response), pytest.raises(LocalInferenceError, match="cancelled"):
+        list(backend.stream(_session(), _request(), cancel_event))
 
 
 def test_backend_preserves_streaming_native_tool_call_deltas() -> None:

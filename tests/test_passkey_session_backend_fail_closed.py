@@ -17,11 +17,10 @@ from services.portal.fleet_accounts import FleetAccountStoreError
 def test_real_fleet_session_outage_propagates(failure: Exception) -> None:
     store = Mock()
     store.get_session_account.side_effect = failure
-    with patch.object(passkey_routes, "FLEET_ACCOUNT_STORE", store):
-        with pytest.raises((OSError, FleetAccountStoreError)):
-            passkey_routes.session_account_from_headers(
-                {"Cookie": "cm_fleet_session=test-cookie"}
-            )
+    with patch.object(passkey_routes, "FLEET_ACCOUNT_STORE", store), pytest.raises((OSError, FleetAccountStoreError)):
+        passkey_routes.session_account_from_headers(
+            {"Cookie": "cm_fleet_session=test-cookie"}
+        )
 
 
 def test_real_fleet_outage_is_unauthed_gateway_503() -> None:
@@ -52,8 +51,7 @@ def test_failed_owner_key_provisioning_is_visible() -> None:
     store = Mock()
     store.get_account_by_owner_key.return_value = None
     store._connection.side_effect = OSError("cannot connect to fleet database")
-    with patch.object(passkey_routes, "FLEET_ACCOUNT_STORE", store):
-        with pytest.raises(FleetAccountStoreError, match="provisioning unavailable"):
-            passkey_routes.session_account_from_headers(
-                {"X-Owner-Key": "inet-test-owner"}
-            )
+    with patch.object(passkey_routes, "FLEET_ACCOUNT_STORE", store), pytest.raises(FleetAccountStoreError, match="provisioning unavailable"):
+        passkey_routes.session_account_from_headers(
+            {"X-Owner-Key": "inet-test-owner"}
+        )

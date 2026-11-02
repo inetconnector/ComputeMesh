@@ -36,7 +36,7 @@ class TelemetryHandler:
 
             def _run(cmd: list[str]) -> dict[str, Any]:
                 try:
-                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+                    res = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=8)
                     return {"cmd": cmd, "returncode": res.returncode, "stdout": res.stdout[-4000:], "stderr": res.stderr[-2000:]}
                 except FileNotFoundError:
                     return {"cmd": cmd, "error": "command not found"}

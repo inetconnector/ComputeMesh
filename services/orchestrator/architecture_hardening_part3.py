@@ -50,9 +50,8 @@ class RuntimeSandbox:
 
             # Simple check for injection attempts in string parameters
             for key, value in parameters.items():
-                if isinstance(value, str):
-                    if "&&" in value or ";" in value or "|" in value or "`" in value or "$" in value:
-                        raise ArbitraryCodeExecutionError(f"Execution rejected: Potential command injection detected in parameter '{key}'.")
+                if isinstance(value, str) and ("&&" in value or ";" in value or "|" in value or "`" in value or "$" in value):
+                    raise ArbitraryCodeExecutionError(f"Execution rejected: Potential command injection detected in parameter '{key}'.")
 
             return True
 
@@ -78,31 +77,23 @@ class HardConstraintScheduler:
     def _evaluate_constraints(self, node: dict[str, Any], constraints: dict[str, Any]) -> bool:
         """Evaluates a single node against a set of hard constraints."""
         # Check model/runtime compatibility
-        if "required_model" in constraints:
-            if constraints["required_model"] not in node.get("supported_models", []):
-                return False
+        if "required_model" in constraints and constraints["required_model"] not in node.get("supported_models", []):
+            return False
 
         # Check memory bounds
-        if "min_memory_bytes" in constraints:
-            if node.get("available_memory_bytes", 0) < constraints["min_memory_bytes"]:
-                return False
+        if "min_memory_bytes" in constraints and node.get("available_memory_bytes", 0) < constraints["min_memory_bytes"]:
+            return False
 
         # Check architecture capability
-        if "required_architecture" in constraints:
-            if node.get("architecture") != constraints["required_architecture"]:
-                return False
+        if "required_architecture" in constraints and node.get("architecture") != constraints["required_architecture"]:
+            return False
 
         # Check privacy tier
-        if "privacy_tier" in constraints:
-            if constraints["privacy_tier"] not in node.get("privacy_policies", []):
-                return False
+        if "privacy_tier" in constraints and constraints["privacy_tier"] not in node.get("privacy_policies", []):
+            return False
 
         # Check explicit region limits
-        if "allowed_regions" in constraints:
-            if node.get("region") not in constraints["allowed_regions"]:
-                return False
-
-        return True
+        return not ("allowed_regions" in constraints and node.get("region") not in constraints["allowed_regions"])
 
 
 class AuditableBillingEventLogger:

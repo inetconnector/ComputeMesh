@@ -161,7 +161,7 @@ def _apply_nvidia_settings(gpu_index: int, mode: str, target: int) -> tuple[bool
         command = ["nvidia-settings", "-c", display]
         for value in values:
             command.extend(["-a", value])
-        result = subprocess.run(command, capture_output=True, text=True, timeout=8, **_flags())
+        result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=8, **_flags())
         if result.returncode != 0:
             return False, (result.stderr or result.stdout or "nvidia-settings fehlgeschlagen").strip()[-300:]
         return True, "NVIDIA-Lüfterprofil angewendet"

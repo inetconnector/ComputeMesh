@@ -178,9 +178,8 @@ class EnvironmentRequest:
         forbidden = _FORBIDDEN_PAYLOAD_KEYS & {str(key).lower() for key in self.payload}
         if forbidden:
             raise EnvironmentPolicyDenied("generic shell/command payloads are not supported")
-        if self.operation.requires_idempotency:
-            if not self.idempotency_key or not _IDENTIFIER.fullmatch(str(self.idempotency_key)):
-                raise EnvironmentPolicyDenied("side-effecting environment requests require an idempotency key")
+        if self.operation.requires_idempotency and (not self.idempotency_key or not _IDENTIFIER.fullmatch(str(self.idempotency_key))):
+            raise EnvironmentPolicyDenied("side-effecting environment requests require an idempotency key")
 
 
 class EnvironmentTransport(Protocol):

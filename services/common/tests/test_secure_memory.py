@@ -38,22 +38,18 @@ class SecureMemoryTests(unittest.TestCase):
         self.assertEqual(value, bytearray(len(value)))
 
     def test_missing_cryptography_fails_closed(self) -> None:
-        with patch.object(secure_memory, "_HAS_CRYPTOGRAPHY", False):
-            with self.assertRaises(CryptographyUnavailableError):
-                SecureMemoryBuffer(b"secret")
+        with patch.object(secure_memory, "_HAS_CRYPTOGRAPHY", False), self.assertRaises(CryptographyUnavailableError):
+            SecureMemoryBuffer(b"secret")
 
     def test_required_memory_lock_fails_closed(self) -> None:
-        with patch.object(secure_memory, "lock_memory_buffer", return_value=False):
-            with self.assertRaises(MemoryLockError):
-                SecureMemoryBuffer(b"secret", require_memory_lock=True)
+        with patch.object(secure_memory, "lock_memory_buffer", return_value=False), self.assertRaises(MemoryLockError):
+            SecureMemoryBuffer(b"secret", require_memory_lock=True)
 
     def test_plaintext_lock_failure_fails_before_yield(self) -> None:
         buf = SecureMemoryBuffer(b"secret")
         buf.require_memory_lock = True
-        with patch.object(secure_memory, "lock_memory_buffer", return_value=False):
-            with self.assertRaises(MemoryLockError):
-                with buf.open_plaintext():
-                    self.fail("plaintext must not be yielded without mandatory lock")
+        with patch.object(secure_memory, "lock_memory_buffer", return_value=False), self.assertRaises(MemoryLockError), buf.open_plaintext():
+            self.fail("plaintext must not be yielded without mandatory lock")
         buf.zeroize()
 
 

@@ -26,10 +26,9 @@ def fetcher() -> SafeFetcher:
 def test_robots_network_error_is_denied(fetcher: SafeFetcher, failure: Exception) -> None:
     with (
         patch("services.concert_research.http_client.validate_public_http_url", side_effect=lambda url: url),
-        patch("services.concert_research.http_client.HardenedSafeFetcher._open", side_effect=failure),
+        patch("services.concert_research.http_client.HardenedSafeFetcher._open", side_effect=failure),pytest.raises(PermissionError, match="cannot verify robots")
     ):
-        with pytest.raises(PermissionError, match="cannot verify robots"):
-            fetcher.allowed("https://concert.example/private")
+        fetcher.allowed("https://concert.example/private")
     assert fetcher._robots == {}
 
 

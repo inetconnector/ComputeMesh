@@ -69,9 +69,8 @@ class ContractTests(unittest.TestCase):
             "policy": {"privacy_tier": "public_compute", "latency_class": "interactive"},
             "created_at": datetime.now(UTC).isoformat(),
         }
-        with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store:
-            with self.assertRaisesRegex(ContractValidationError, "state=CREATED"):
-                ContractAdmission(store, self.validator).admit_job(job)
+        with SQLiteStateStore(Path(self.tmp.name) / "state.db") as store, self.assertRaisesRegex(ContractValidationError, "state=CREATED"):
+            ContractAdmission(store, self.validator).admit_job(job)
 
     def test_valid_reservation_admitted(self):
         reservation = {

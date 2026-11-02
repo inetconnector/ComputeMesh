@@ -15,7 +15,7 @@ def _run_git_cmd(args: list[str], repo_path: str = ".", timeout: float = 10.0) -
     try:
         proc = subprocess.run(
             ["git"] + args,
-            cwd=os.path.abspath(repo_path),
+            check=False, cwd=os.path.abspath(repo_path),
             capture_output=True,
             text=True,
             timeout=timeout,

@@ -241,9 +241,8 @@ class LinuxComputeMeshProviderApp:
     def _tray_watchdog(self) -> None:
         """Periodic watchdog to ensure System Tray Icon stays active continuously on Linux."""
         try:
-            if HAS_PYSTRAY:
-                if self.tray_icon is None or not getattr(self.tray_icon, "visible", False):
-                    self._setup_tray_icon()
+            if HAS_PYSTRAY and (self.tray_icon is None or not getattr(self.tray_icon, "visible", False)):
+                self._setup_tray_icon()
         except Exception:
             pass
         try:

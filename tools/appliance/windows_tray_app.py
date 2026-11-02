@@ -707,7 +707,7 @@ class ComputeMeshProviderApp:
                 try:
                     check = subprocess.run(
                         ["tasklist", "/FI", "IMAGENAME eq LocalCode.exe", "/NH"],
-                        capture_output=True,
+                        check=False, capture_output=True,
                         text=True,
                         timeout=3
                     )

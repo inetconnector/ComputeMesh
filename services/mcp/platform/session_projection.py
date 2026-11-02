@@ -213,7 +213,6 @@ def project_approval(
     is_admin: bool = False,
 ) -> dict[str, Any]:
     approval = store.get_approval(approval_id)
-    if not is_admin:
-        if not principal_id or not hmac.compare_digest(str(principal_id), approval.principal_id):
-            raise SessionProjectionDenied("approval does not belong to the authenticated principal")
+    if not is_admin and (not principal_id or not hmac.compare_digest(str(principal_id), approval.principal_id)):
+        raise SessionProjectionDenied("approval does not belong to the authenticated principal")
     return {"schema_version": 1, "object": "agent_approval", "approval": _approval_dict(approval)}

@@ -268,15 +268,14 @@ class SharedTrialTests(unittest.TestCase):
             bundle_path = root / "bundle.json"
             bundle_path.write_text("{}", encoding="utf-8")
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
-                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 1000 (`deadbee`)\nbuilt with test"):
-                with self.assertRaisesRegex(SharedTrialError, "does not match the build bound"):
-                    run_shared_trial(
-                        bundle_path=bundle_path,
-                        llama_server=server,
-                        model_path=model,
-                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
-                        output_dir=output,
-                    )
+                 patch("runtime.llama.shared_trial.runtime_version", return_value="version: 1000 (`deadbee`)\nbuilt with test"), self.assertRaisesRegex(SharedTrialError, "does not match the build bound"):
+                run_shared_trial(
+                    bundle_path=bundle_path,
+                    llama_server=server,
+                    model_path=model,
+                    worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
+                    output_dir=output,
+                )
             failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))
             self.assertEqual(failure["phase"], "runtime_build_binding")
 
@@ -293,15 +292,14 @@ class SharedTrialTests(unittest.TestCase):
             with patch("runtime.llama.shared_trial.load_trial_plan", return_value=plan()), \
                  patch("runtime.llama.shared_trial.runtime_version", return_value="version: 999 (`abcdef0`)\nbuilt with test"), \
                  patch("runtime.llama.shared_trial.discover_devices", return_value=(DeviceInfo("CUDA0", plan().coordinator_name),)), \
-                 patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA1", "different local"), DeviceInfo("RPC0", "remote"))):
-                with self.assertRaisesRegex(SharedTrialError, "no longer exposes"):
-                    run_shared_trial(
-                        bundle_path=bundle_path,
-                        llama_server=server,
-                        model_path=model,
-                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
-                        output_dir=output,
-                    )
+                 patch("runtime.llama.shared_trial.preflight_server_rpc", return_value=(DeviceInfo("CUDA1", "different local"), DeviceInfo("RPC0", "remote"))), self.assertRaisesRegex(SharedTrialError, "no longer exposes"):
+                run_shared_trial(
+                    bundle_path=bundle_path,
+                    llama_server=server,
+                    model_path=model,
+                    worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
+                    output_dir=output,
+                )
             failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))
             self.assertEqual(failure["phase"], "rpc_preflight")
 
@@ -330,15 +328,14 @@ class SharedTrialTests(unittest.TestCase):
                  patch("runtime.llama.shared_trial.run_spike", side_effect=fake_spike), \
                  patch("runtime.llama.shared_trial.start_measurement_relay", return_value=relay), \
                  patch("runtime.llama.shared_trial.wait_relay_success"), \
-                 patch("runtime.llama.shared_trial.compare_results", return_value={"exact_output_match": False}):
-                with self.assertRaisesRegex(SharedTrialError, "does not exactly match"):
-                    run_shared_trial(
-                        bundle_path=bundle_path,
-                        llama_server=server,
-                        model_path=model,
-                        worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
-                        output_dir=output,
-                    )
+                 patch("runtime.llama.shared_trial.compare_results", return_value={"exact_output_match": False}), self.assertRaisesRegex(SharedTrialError, "does not exactly match"):
+                run_shared_trial(
+                    bundle_path=bundle_path,
+                    llama_server=server,
+                    model_path=model,
+                    worker_rpc=RpcEndpoint.parse("192.168.1.20:50052"),
+                    output_dir=output,
+                )
             failure = json.loads((output / "shared_trial_failure.json").read_text(encoding="utf-8"))
             self.assertEqual(failure["phase"], "comparison")
             self.assertLessEqual(len(failure["message"]), 1024)

@@ -17,9 +17,8 @@ def test_crypto_implementation_bug_is_visible() -> None:
         "cryptography.hazmat.primitives.asymmetric.ed25519."
         "Ed25519PublicKey.from_public_bytes",
         side_effect=RuntimeError("unexpected cryptography fault"),
-    ):
-        with pytest.raises(RuntimeError, match="unexpected cryptography fault"):
-            verify_ed25519_signature(bytes(32), b"message", bytes(64))
+    ), pytest.raises(RuntimeError, match="unexpected cryptography fault"):
+        verify_ed25519_signature(bytes(32), b"message", bytes(64))
 
 
 def test_ssl_transport_error_stays_failed() -> None:
@@ -34,9 +33,8 @@ def test_ssl_transport_error_stays_failed() -> None:
 def test_ssl_programming_error_not_disguised_as_certificate_failure() -> None:
     with patch.object(
         network_tools, "resolve_public_host", side_effect=RuntimeError("unexpected resolver bug"),
-    ):
-        with pytest.raises(RuntimeError, match="unexpected resolver bug"):
-            network_tools._check_ssl("example.com")
+    ), pytest.raises(RuntimeError, match="unexpected resolver bug"):
+        network_tools._check_ssl("example.com")
 
 
 def test_http_expected_network_failure_returns_error() -> None:

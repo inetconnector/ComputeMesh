@@ -1650,15 +1650,14 @@ class AgentsPlatformRuntime:
                     and recovery.decision.selected_skills
                     != plan.routing.selected_skills
                 ):
-                    if policy is not None and policy.allowed_skills:
-                        if not set(recovery.decision.selected_skills).issubset(
-                            set(policy.allowed_skills)
-                        ):
-                            recovery = type(recovery)(
-                                recovery.decision,
-                                recovery.attempts,
-                                True,
-                            )
+                    if policy is not None and policy.allowed_skills and not set(recovery.decision.selected_skills).issubset(
+                        set(policy.allowed_skills)
+                    ):
+                        recovery = type(recovery)(
+                            recovery.decision,
+                            recovery.attempts,
+                            True,
+                        )
                     if not recovery.exhausted:
                         effective_plan = self.pipeline.plan_from_routing(
                             plan.request,

@@ -147,13 +147,12 @@ class WorkerHAClusterManager:
                 raise WorkerHAConstraintError(f"Worker {w_id} has been EJECTED from cluster {c_id}")
 
             # Verify fence token if presented by primary
-            if member.role == WorkerRole.PRIMARY:
-                if fence_token is not None and fence_token < current_token:
-                    member.lease_state = WorkerLeaseState.EJECTED
-                    member.role = WorkerRole.OFFLINE
-                    raise WorkerHAConstraintError(
-                        f"Stale fence_token {fence_token} presented by primary {w_id} (current: {current_token})"
-                    )
+            if member.role == WorkerRole.PRIMARY and fence_token is not None and fence_token < current_token:
+                member.lease_state = WorkerLeaseState.EJECTED
+                member.role = WorkerRole.OFFLINE
+                raise WorkerHAConstraintError(
+                    f"Stale fence_token {fence_token} presented by primary {w_id} (current: {current_token})"
+                )
 
             member.last_heartbeat = now
             member.lease_state = WorkerLeaseState.ACTIVE

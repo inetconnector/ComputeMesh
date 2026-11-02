@@ -24,10 +24,9 @@ def test_authoritative_fleet_store_failure_does_not_create_tmp_db(
     configured = tmp_path / "fleet.db"
     with (
         patch.object(passkey_routes, "_resolve_store_path", return_value=configured),
-        patch.object(passkey_routes, "FleetAccountStore", side_effect=error) as construct,
+        patch.object(passkey_routes, "FleetAccountStore", side_effect=error) as construct,pytest.raises(FleetAccountStoreError, match="authoritative fleet")
     ):
-        with pytest.raises(FleetAccountStoreError, match="authoritative fleet"):
-            passkey_routes._build_store()
+        passkey_routes._build_store()
     construct.assert_called_once_with(configured)
 
 

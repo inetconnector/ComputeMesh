@@ -120,9 +120,8 @@ def is_integrated_display_adapter(vendor: str, model_name: str) -> bool:
         return True
 
     # 3. If Intel vendor and not a discrete Arc/Data Center GPU -> It is an integrated CPU GPU!
-    if v == "intel" or "8086:" in m or "ven_8086" in m:
-        if not any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580", "b570")):
-            return True
+    if (v == "intel" or "8086:" in m or "ven_8086" in m) and not any(arc in m for arc in ("arc", "dg1", "flex", "max", "battlemage", "a770", "a750", "a580", "a380", "a310", "b580", "b570")):
+        return True
 
     for prefix in ("vga compatible controller:", "3d controller:", "display controller:"):
         if prefix in m:

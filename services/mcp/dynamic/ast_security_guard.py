@@ -70,11 +70,10 @@ class SecurityASTVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         # Check direct call to forbidden builtins (e.g. eval(), open())
-        if isinstance(node.func, ast.Name):
-            if node.func.id in self.FORBIDDEN_BUILTINS:
-                raise SecurityASTViolation(
-                    f"Aufruf der verbotenen Builtin-Funktion '{node.func.id}' ist strikt untersagt."
-                )
+        if isinstance(node.func, ast.Name) and node.func.id in self.FORBIDDEN_BUILTINS:
+            raise SecurityASTViolation(
+                f"Aufruf der verbotenen Builtin-Funktion '{node.func.id}' ist strikt untersagt."
+            )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:

@@ -49,6 +49,5 @@ def test_unexpected_gateway_programming_error_remains_visible() -> None:
     with patch(
         "services.portal.passkey_routes.session_account_from_headers",
         side_effect=AssertionError("unexpected authentication bug"),
-    ):
-        with pytest.raises(AssertionError, match="unexpected authentication bug"):
-            manager.authenticate_request({}, allow_teaser=True)
+    ), pytest.raises(AssertionError, match="unexpected authentication bug"):
+        manager.authenticate_request({}, allow_teaser=True)

@@ -22,12 +22,10 @@ class ImageReferences(HTMLParser):
             self.references.append(values["src"])
         if tag in {"img", "source"} and values.get("srcset"):
             self.references.extend(item.strip().split()[0] for item in values["srcset"].split(","))
-        if tag == "link" and ("icon" in values.get("rel", "") or values.get("as") == "image"):
-            if values.get("href"):
-                self.references.append(values["href"])
-        if tag == "meta" and values.get("property") in {"og:image", "twitter:image"}:
-            if values.get("content"):
-                self.references.append(values["content"])
+        if tag == "link" and ("icon" in values.get("rel", "") or values.get("as") == "image") and values.get("href"):
+            self.references.append(values["href"])
+        if tag == "meta" and values.get("property") in {"og:image", "twitter:image"} and values.get("content"):
+            self.references.append(values["content"])
         if tag == "a" and Path(urlsplit(values.get("href", "")).path).suffix.lower() in IMAGE_EXTENSIONS:
             self.references.append(values["href"])
 

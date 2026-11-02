@@ -227,9 +227,9 @@ def stop_ollama_process() -> bool:
     """Stops running Ollama instances gracefully or forcefully so configuration changes take effect."""
     try:
         if sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/IM", "ollama.exe", "/T"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["taskkill", "/F", "/IM", "ollama.exe", "/T"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
-            subprocess.run(["pkill", "-f", "ollama"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["pkill", "-f", "ollama"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1.0)
         return True
     except Exception:
@@ -249,7 +249,7 @@ def reset_ollama_to_default_environment(restart_default: bool = False) -> dict[s
             for key in ["OLLAMA_HOST", "OLLAMA_ORIGINS", "OLLAMA_KEEP_ALIVE", "OLLAMA_NUM_PARALLEL"]:
                 subprocess.run(
                     ["reg", "delete", "HKCU\\Environment", "/v", key, "/f"],
-                    stdout=subprocess.DEVNULL,
+                    check=False, stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
         except Exception:

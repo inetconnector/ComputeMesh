@@ -17,7 +17,7 @@ def _check_command_version(cmd: str, version_flag: str = "--version", timeout: f
     try:
         proc = subprocess.run(
             [cmd, version_flag],
-            stdout=subprocess.PIPE,
+            check=False, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             timeout=timeout,
