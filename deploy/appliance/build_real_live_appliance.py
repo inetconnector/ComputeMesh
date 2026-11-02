@@ -409,6 +409,32 @@ def _cleanup_stale_build_tree() -> None:
         shutil.rmtree(BUILD_DIR)
 
 
+def _copy_matched_boot_pair(source_boot: Path, destination_boot: Path) -> str:
+    """Copy only a nonempty matching Debian kernel/initrd version into NodeOS.
+
+    A valid kernel next to an unrelated initramfs is not a bootable pair.
+    Deterministically choose a complete pair and abort before packaging if
+    none exists; never generate placeholder boot images.
+    """
+    for kernel in sorted(source_boot.glob("vmlinuz-*"), reverse=True):
+        release = kernel.name.removeprefix("vmlinuz-")
+        if not release:
+            continue
+        initrd = source_boot / f"initrd.img-{release}"
+        if not (
+            kernel.is_file() and not kernel.is_symlink()
+            and initrd.is_file() and not initrd.is_symlink()
+            and kernel.stat().st_size > 0 and initrd.stat().st_size > 0
+        ):
+            continue
+        shutil.copy2(kernel, destination_boot / "vmlinuz")
+        shutil.copy2(initrd, destination_boot / "initrd.img")
+        return release
+    raise RuntimeError(
+        "NodeOS build requires a matching nonempty kernel/initramfs pair in chroot /boot"
+    )
+
+
 def build_appliance(
     output_dir: Path | None = None,
     *,
@@ -797,14 +823,8 @@ WantedBy=multi-user.target
     boot_dir = ISO_DIR / "boot"
     boot_dir.mkdir(parents=True, exist_ok=True)
     
-    vmlinuz_files = list((CHROOT_DIR / "boot").glob("vmlinuz-*"))
-    initrd_files = list((CHROOT_DIR / "boot").glob("initrd.img-*"))
-    
-    if not vmlinuz_files or not initrd_files:
-        raise RuntimeError("Kernel or initrd not found in chroot /boot!")
-        
-    shutil.copy(vmlinuz_files[0], boot_dir / "vmlinuz")
-    shutil.copy(initrd_files[0], boot_dir / "initrd.img")
+    selected_kernel_release = _copy_matched_boot_pair(CHROOT_DIR / "boot", boot_dir)
+    print(f"--> NodeOS kernel/initramfs pair: {selected_kernel_release}")
 
     # 5. Build SquashFS Root Filesystem
     print("\n[Step 5/6] Compressing full rootfs into live/filesystem.squashfs...")
