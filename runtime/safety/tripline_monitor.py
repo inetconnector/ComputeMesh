@@ -124,7 +124,7 @@ class TriplineMonitor:
                 if not self._is_running or self._tripped:
                     break
             try:
-                ok, reason = self.verify_integrity_now()
+                ok, _reason = self.verify_integrity_now()
                 if not ok:
                     break
             except Exception as exc:

@@ -221,7 +221,7 @@ def _get_single_time_and_calendar(
 
     tz = _resolve_tz(resolved_tz_name)
     now = datetime.now(tz)
-    iso_year, iso_week, iso_day = now.isocalendar()
+    _iso_year, iso_week, _iso_day = now.isocalendar()
     weekday_de = GERMAN_WEEKDAYS[now.weekday()]
     month_de = GERMAN_MONTHS[now.month]
 

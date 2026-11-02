@@ -262,7 +262,7 @@ def deep_cultural_event_search(
     if not clean_city:
         return {"city": "", "results": [], "categories": {}}
 
-    hl, gl, _, _ = detect_locale_for_query(clean_city)
+    hl, _gl, _, _ = detect_locale_for_query(clean_city)
 
     # Formulate multi-angle research vectors tailored by language & region
     if hl == "fr":

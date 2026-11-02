@@ -87,7 +87,7 @@ def enhance_and_crop_image(
                 
         # Target output path
         if not output_path:
-            base, ext = os.path.splitext(abs_input)
+            base, _ext = os.path.splitext(abs_input)
             out_file = f"{base}_enhanced.png"
         else:
             out_file = os.path.abspath(os.path.join(root, output_path)) if not os.path.isabs(output_path) else output_path

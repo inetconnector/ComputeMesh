@@ -140,7 +140,7 @@ class WorkerHAClusterManager:
             if not cluster or w_id not in cluster:
                 raise WorkerHAConstraintError(f"Worker {w_id} is not registered in cluster {c_id}")
 
-            current_token, active_primary = self._cluster_tokens[c_id]
+            current_token, _active_primary = self._cluster_tokens[c_id]
             member = cluster[w_id]
 
             if member.lease_state == WorkerLeaseState.EJECTED:

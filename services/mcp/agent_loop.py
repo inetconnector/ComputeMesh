@@ -389,7 +389,7 @@ class AgentLoop:
         if not direct_intent and last_user_text and not has_images and len(curr_messages) > 1:
             try:
                 from .builtin.context_resolver import resolve_contextual_query
-                resolved_q, resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
+                resolved_q, _resolved_entity, was_resolved = resolve_contextual_query(last_user_text, curr_messages)
                 if was_resolved and resolved_q:
                     direct_intent = detect_direct_tool_intent(resolved_q, self.registry)
                     if not direct_intent and any(w in resolved_q.lower() for w in ("recherchiere", "tiefenrecherche", "deep research", "hintergründe", "ereignisse")):

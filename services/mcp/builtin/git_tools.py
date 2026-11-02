@@ -29,7 +29,7 @@ def _run_git_cmd(args: list[str], repo_path: str = ".", timeout: float = 10.0) -
 
 def get_git_status(repo_path: str = ".") -> dict[str, Any]:
     """Retrieves current branch and list of staged, modified, and untracked files."""
-    code_br, current_branch, _ = _run_git_cmd(["branch", "--show-current"], repo_path)
+    _code_br, current_branch, _ = _run_git_cmd(["branch", "--show-current"], repo_path)
     code_st, raw_status, err = _run_git_cmd(["status", "--porcelain=v1"], repo_path)
 
     if code_st != 0:

@@ -62,7 +62,7 @@ def validate_code_syntax(code: str, language: str = "python") -> dict[str, Any]:
                     if not stack:
                         errors.append({"line": l_num, "column": col, "message": f"Unerwartetes schließendes Zeichen '{char}'."})
                     else:
-                        top, top_l, top_c = stack.pop()
+                        top, top_l, _top_c = stack.pop()
                         if pairs[char] != top:
                             errors.append({"line": l_num, "column": col, "message": f"Klammer-Mismatch: '{char}' schließt nicht '{top}' aus Zeile {top_l}."})
         while stack:
