@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import re
@@ -147,16 +148,17 @@ def resolve_client_ip(
 ) -> str:
     peer_ip = str(client_address[0]) if client_address and len(client_address) > 0 else "127.0.0.1"
     trusted = trusted_proxies if trusted_proxies is not None else TRUSTED_PROXIES
-    is_trusted_peer = peer_ip in trusted or peer_ip.startswith("127.") or peer_ip == "::1"
-    if headers and is_trusted_peer:
-        forwarded = str(headers.get("X-Forwarded-For", "")).strip()
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-            if ip and len(ip) <= 45:  # IPv6 max length
-                return ip
-        real_ip = str(headers.get("X-Real-IP", "")).strip()
-        if real_ip and len(real_ip) <= 45:
-            return real_ip
+    # Without an authenticated transport peer, X-Forwarded-For is untrusted.
+    if not client_address or peer_ip not in trusted or not headers:
+        return peer_ip
+    for candidate in (
+        str(headers.get("X-Forwarded-For", "")).split(",", 1)[0].strip(),
+        str(headers.get("X-Real-IP", "")).strip(),
+    ):
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
     return peer_ip
 
 

@@ -47,10 +47,16 @@ class TestGatewayAuth(unittest.TestCase):
 
     def test_resolve_client_ip(self) -> None:
         headers_forwarded = {"X-Forwarded-For": "203.0.113.195, 70.41.3.18"}
-        self.assertEqual(resolve_client_ip(headers_forwarded), "203.0.113.195")
+        self.assertEqual(
+            resolve_client_ip(headers_forwarded, client_address=("127.0.0.1", 8080)),
+            "203.0.113.195",
+        )
 
         headers_real_ip = {"X-Real-IP": "198.51.100.42"}
-        self.assertEqual(resolve_client_ip(headers_real_ip), "198.51.100.42")
+        self.assertEqual(
+            resolve_client_ip(headers_real_ip, client_address=("127.0.0.1", 8080)),
+            "198.51.100.42",
+        )
 
         self.assertEqual(resolve_client_ip({}, client_address=("10.0.0.5", 48123)), "10.0.0.5")
         self.assertEqual(resolve_client_ip({}), "127.0.0.1")
