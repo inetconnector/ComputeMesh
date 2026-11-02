@@ -96,7 +96,8 @@ def _safe_resolve_portal_file(filename: str) -> Path | None:
             resolved = c.resolve()
             if resolved.is_file():
                 return resolved
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Candidate path resolution skipped: %s", exc)
             continue
     return None
 
@@ -251,7 +252,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             output = io.BytesIO()
             image.save(output)
             payload = output.getvalue()
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
             log.warning("Local QR generation unavailable: %s", exc)
             self._send_json(
                 {"error": {"message": "Local QR generation is unavailable", "code": 503}},
@@ -521,7 +522,7 @@ def create_dashboard_server(
         from tools.appliance.fan_control import FanSafetyController
         FAN_SAFETY_CONTROLLER = FanSafetyController(inventory, config)
         FAN_SAFETY_CONTROLLER.start()
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
         log.warning("Fan safety controller unavailable: %s", exc)
 
     # The dashboard is a UI/HTTP surface, not a heartbeat owner.  The
@@ -552,17 +553,19 @@ def create_dashboard_server(
             actual_port = server_inst.server_address[1]
 
     try:
-        from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+        from tools.appliance.lan_discovery_responder import (
+            start_lan_discovery_responder,
+        )
         gpu_name = inventory.gpus[0].model_name if getattr(inventory, "gpus", None) else "ComputeMesh AI Node"
         start_lan_discovery_responder(node_id=effective_node_id, port=actual_port, gpu_summary=gpu_name)
-    except Exception:
-        pass
+    except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        log.debug("LAN discovery responder start skipped: %s", exc)
 
     if _mesh_poller_enabled():
         try:
             GLOBAL_MESH_AGGREGATOR.start()
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Mesh aggregator start skipped: %s", exc)
 
     return server_inst, actual_port
 
@@ -580,18 +583,18 @@ def run_dashboard_server(
     try:
         if sys.stdout is not None:
             print(f"ComputeMesh Appliance Dashboard running at http://{host}:{actual_port}")
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Dashboard banner print skipped: %s", exc)
 
     try:
         server.serve_forever()
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Dashboard serve_forever exited: %s", exc)
     finally:
         try:
             server.server_close()
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            log.debug("Dashboard server_close error ignored: %s", exc)
     return actual_port
 
 

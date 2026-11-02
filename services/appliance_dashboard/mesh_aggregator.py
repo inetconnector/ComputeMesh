@@ -41,8 +41,8 @@ def _get_local_ip_set() -> set[str]:
         for ip in socket.gethostbyname_ex(hostname)[2]:
             if ip:
                 ips.add(ip)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -50,8 +50,8 @@ def _get_local_ip_set() -> set[str]:
         s.close()
         if primary:
             ips.add(primary)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        _ = exc
     return ips
 
 
@@ -112,8 +112,8 @@ class MeshRegistryAggregator:
                                     "telemetry": d.get("telemetry", {}),
                                     "last_seen": now_ts,
                                 }
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
 
             # 2. Coordinator Fleet Sync via owner_key
             try:
@@ -176,8 +176,8 @@ class MeshRegistryAggregator:
 
                                 with self._lock:
                                     self._peer_nodes[nid] = peer_dict
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             # 3. Update peer status without silently purging offline nodes
             with self._lock:
@@ -217,7 +217,7 @@ class MeshRegistryAggregator:
                         "inventory": inv.to_dict(),
                         "telemetry": {"tokens_processed": 0, "local_compute_tflops": 0.0},
                     }
-                except Exception:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     local_entry = None
 
             if local_entry:

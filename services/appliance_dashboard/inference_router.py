@@ -25,8 +25,8 @@ def _managed_runtime_status() -> dict[str, Any] | None:
         engine = status.get("engine", {})
         if engine.get("ready") and engine.get("endpoint") and engine.get("model_id"):
             return status
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Managed engine status probe skipped: %s", exc)
     return None
 
 
@@ -82,8 +82,8 @@ def _ensure_image_engine_running(timeout: float = 3.0) -> bool:
         with urllib.request.urlopen(req, timeout=1.0) as resp:
             if resp.status == 200:
                 return True
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        log.debug("Initial image engine probe skipped: %s", exc)
 
     # Check if sd-server binary and script exist to auto-spawn
     try:
@@ -99,9 +99,10 @@ def _ensure_image_engine_running(timeout: float = 3.0) -> bool:
                     with urllib.request.urlopen(req, timeout=0.8) as resp:
                         if resp.status == 200:
                             return True
-                except Exception:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as poll_exc:
+                    log.debug("Image engine poll attempt skipped: %s", poll_exc)
                     continue
-    except Exception as exc:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         log.debug(f"Auto-spawn image engine error: {exc}")
     return False
 
@@ -149,8 +150,8 @@ class InferenceRouter:
                     handler.end_headers()
                     handler.wfile.write(data)
                     return True
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    log.debug("Managed model endpoint probe skipped: %s", exc)
             try:
                 target = f"{ollama_url}/v1/models" if "/models" in clean_path else f"{ollama_url}/api/tags"
                 req = urllib.request.Request(target, headers={"Accept": "application/json"})
@@ -163,7 +164,7 @@ class InferenceRouter:
                     handler.end_headers()
                     handler.wfile.write(data)
                     return True
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 try:
                     from services.gateway.catalog import current_models
                     models = current_models()
@@ -190,7 +191,7 @@ class InferenceRouter:
                         ]
                         handler._send_json({"object": "list", "data": models_data})
                     return True
-                except Exception:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     handler._send_json(
                         {
                             "error": {
@@ -260,12 +261,12 @@ class InferenceRouter:
                         HTTPStatus.SERVICE_UNAVAILABLE,
                     )
                     return True
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                log.debug("Kill-switch guard check skipped: %s", exc)
 
             try:
                 payload = json.loads(post_body.decode("utf-8")) if post_body else {}
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 payload = {}
 
             available_models = [managed["engine"]["model_id"]] if managed is not None else []
@@ -275,8 +276,8 @@ class InferenceRouter:
                     with urllib.request.urlopen(tags_req, timeout=3) as tags_resp:
                         tags_data = json.loads(tags_resp.read().decode("utf-8"))
                         available_models = [m.get("name") or m.get("model") for m in tags_data.get("models", []) if m]
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    log.debug("Local Ollama tags probe skipped: %s", exc)
 
             requested_model = str(payload.get("model", "")).strip()
             messages = payload.get("messages", [])
@@ -412,7 +413,7 @@ class InferenceRouter:
                         with urllib.request.urlopen(req, timeout=120) as resp:
                             result = json.loads(resp.read().decode("utf-8"))
                         if not isinstance(result, dict) or not isinstance(result.get("choices"), list):
-                            raise ValueError("invalid llama-server response")
+                            raise TypeError("invalid llama-server response")
                         return result
                     except Exception as exc:
                         log.warning("Managed llama-server inference unavailable: %s", exc)
@@ -471,8 +472,8 @@ class InferenceRouter:
                     )
                     handler.tokens_served = stats.total_tokens_served
                     handler.earnings_cm = stats.earnings_cm
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    log.debug("Local token stats update skipped: %s", exc)
 
                 if is_stream:
                     handler.send_response(HTTPStatus.OK)
@@ -518,7 +519,7 @@ class InferenceRouter:
                     }
                     handler._send_json(openai_resp)
                 return True
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as e:
                 err_msg = f"Fehler bei Node-Inferenz: {e!s}"
                 handler._send_json({"error": {"message": err_msg, "code": 502}}, HTTPStatus.BAD_GATEWAY)
                 return True
@@ -533,7 +534,7 @@ class InferenceRouter:
         ):
             try:
                 payload = json.loads(post_body.decode("utf-8")) if post_body else {}
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 payload = {}
 
             prompt = str(payload.get("prompt", "")).strip()
@@ -569,12 +570,12 @@ class InferenceRouter:
                                     gen_dir.mkdir(parents=True, exist_ok=True)
                                     (gen_dir / fname).write_bytes(raw_bytes)
                                     item["url"] = f"/generated/{fname}"
-                                except Exception:
+                                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                                     item["url"] = f"data:image/png;base64,{b64}"
                     handler._send_json(img_data)
                     return True
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                log.debug("Local image engine request fell back: %s", exc)
 
             # Fallback to generate_ai_image tool
             try:
@@ -586,7 +587,7 @@ class InferenceRouter:
                     "data": [{"url": img_url, "revised_prompt": prompt}]
                 })
                 return True
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler._send_json({"error": {"message": f"Image generation error: {exc}", "type": "server_error"}}, HTTPStatus.INTERNAL_SERVER_ERROR)
                 return True
 

@@ -96,7 +96,7 @@ class ModelsHandler:
 
         try:
             payload = json.loads(post_body.decode("utf-8")) if post_body else {}
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             payload = {}
 
         if clean_path in ("/api/models/download", "/api/v1/models/download"):
@@ -122,7 +122,7 @@ class ModelsHandler:
                     expected_sha256=expected_sha,
                 )
                 handler._send_json({"success": True, "download_id": dl_id, "filename": filename})
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler._send_json({"error": {"message": str(exc), "code": 400}}, HTTPStatus.BAD_REQUEST)
             return True
 
@@ -182,7 +182,7 @@ class ModelsHandler:
             try:
                 ok = manager.delete_model(filename)
                 handler._send_json({"success": ok, "filename": filename})
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 handler._send_json({"error": {"message": str(exc), "code": 400}}, HTTPStatus.BAD_REQUEST)
             return True
 

@@ -21,7 +21,7 @@ import time
 from typing import Any
 
 from services.billing.ledger import BillingError, InsufficientBalanceError
-from services.billing.owner_accounts import OwnerAccountStore
+from services.billing.owner_accounts import OwnerAccountStore, OwnerAccountStoreError
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
 from services.billing.owner_job_accounting import (
     ProviderOwnerShare,
@@ -43,6 +43,7 @@ from services.gateway.inference import (
 from services.gateway.inference_backend import InferenceBackend
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager
+from services.portal.fleet_accounts import FleetAccountStoreError
 
 
 class UnifiedOwnerInferenceEngine(InferenceEngine):
@@ -209,7 +210,7 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                     try:
                         from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                         disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
-                    except Exception:
+                    except (FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                         disabled_tools = []
                 disabled_set = set(disabled_tools)
 
@@ -379,8 +380,8 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
                             tel = n_data.setdefault("telemetry", {})
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
             return (
                 chat_id,
                 completion_text,
@@ -391,6 +392,6 @@ class UnifiedOwnerInferenceEngine(InferenceEngine):
         except Exception:
             try:
                 self.owner_ledger.release_owner_hold(hold.hold_id)
-            except Exception:
-                pass
+            except (BillingError, OwnerAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as release_exc:
+                _ = release_exc
             raise

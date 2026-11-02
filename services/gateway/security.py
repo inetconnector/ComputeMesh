@@ -117,5 +117,5 @@ def zero_memory_bytes(buf: bytearray | memoryview) -> None:
     try:
         for i in range(len(buf)):
             buf[i] = 0
-    except Exception:
-        pass
+    except (TypeError, ValueError, IndexError, BufferError) as exc:
+        _ = exc

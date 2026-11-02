@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from services.billing.ledger import InsufficientBalanceError, Ledger
+from services.billing.ledger import BillingError, InsufficientBalanceError, Ledger
 from services.common.config import CONFIG
 from services.common.secure_memory import SecureMemoryBuffer
 from services.common.vision_preprocessor import get_vision_preprocessor
@@ -42,6 +42,7 @@ from services.gateway.teaser import TeaserQuotaManager
 from services.mcp.agent_loop import AgentLoop
 from services.mcp.config import get_mcp_config
 from services.mcp.tool_registry import ToolRegistry
+from services.portal.fleet_accounts import FleetAccountStoreError
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 _EXECUTION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -175,7 +176,10 @@ class InferenceEngine:
 
         # Positive Authorization, Emergency Kill Switch & Permanent Ban Check (Global & Fleet-Scoped)
         try:
-            from runtime.safety.dead_mans_switch import EmergencyKillTrippedError, get_lease_guard
+            from runtime.safety.dead_mans_switch import (
+                EmergencyKillTrippedError,
+                get_lease_guard,
+            )
             guard = get_lease_guard()
             if guard.is_tripped:
                 raise EmergencyKillTrippedError(
@@ -253,7 +257,7 @@ class InferenceEngine:
                     try:
                         from services.portal.passkey_routes import FLEET_ACCOUNT_STORE
                         disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
-                    except Exception:
+                    except (FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                         disabled_tools = []
                 _disabled_set = set(disabled_tools)
 
@@ -311,8 +315,8 @@ class InferenceEngine:
                         mem_summary = get_user_memory_store().get_memory_summary()
                         if mem_summary:
                             tool_prompt = f"{tool_prompt}\n\n{mem_summary}"
-                    except Exception:
-                        pass
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
                     enhanced_msgs.insert(0, {"role": "system", "content": tool_prompt})
 
 
@@ -434,8 +438,8 @@ class InferenceEngine:
             try:
                 from tools.appliance.token_metering import record_tokens
                 record_tokens(prompt_tokens=tokens_prompt, completion_tokens=tokens_completion)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             try:
                 from services.gateway.dashboard import (
@@ -463,8 +467,8 @@ class InferenceEngine:
                             tel["tokens_processed"] = int(tel.get("tokens_processed", 0) or 0) + total_job_toks
                             nodes_updated = True
                 save_node_telemetry_registry(NODE_TELEMETRY_REGISTRY)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                _ = exc
 
             return chat_id, completion_text, created_timestamp, tokens_prompt, tokens_completion
 
@@ -472,8 +476,8 @@ class InferenceEngine:
             if hold and hasattr(self.ledger, "release_hold"):
                 try:
                     self.ledger.release_hold(hold.hold_id)
-                except Exception:
-                    pass
+                except (BillingError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as release_exc:
+                    _ = release_exc
             raise
         finally:
             secure_buf.zeroize()
@@ -752,7 +756,7 @@ class InferenceEngine:
             return (None, str(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_chat_completions(
@@ -829,7 +833,7 @@ class InferenceEngine:
             return (None, sanitize_error_message(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_chat(
@@ -904,7 +908,7 @@ class InferenceEngine:
             return (None, sanitize_error_message(exc), 402)
         except InferenceBackendError as exc:
             return (None, sanitize_error_message(exc), 503)
-        except Exception as exc:
+        except (BillingError, FleetAccountStoreError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, sanitize_error_message(exc), 500)
 
     def stream_ollama_generate(

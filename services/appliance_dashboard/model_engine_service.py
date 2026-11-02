@@ -115,7 +115,7 @@ class ModelEngineService:
             )
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 return response.status == 200
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             return False
 
     @staticmethod

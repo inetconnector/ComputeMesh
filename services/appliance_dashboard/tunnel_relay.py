@@ -130,12 +130,12 @@ def get_default_node_id() -> str:
         cfg = load_appliance_config()
         if getattr(cfg, "rig_name", "") and getattr(cfg, "rig_name", "").strip():
             return getattr(cfg, "rig_name", "").strip()
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+        logger.debug("Appliance config rig_name lookup skipped: %s", exc)
     import socket
     try:
         raw_host = socket.gethostname().lower().replace("_", "-").strip()
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         raw_host = "node"
     if sys.platform == "win32":
         return f"cm-win-{raw_host}"
@@ -189,10 +189,12 @@ class CloudTunnelRelay:
         )
         self.public_key_hex = raw_pub.hex()
         try:
-            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+            from tools.appliance.lan_discovery_responder import (
+                start_lan_discovery_responder,
+            )
             start_lan_discovery_responder(node_id=self.node_id, port=8000, gpu_summary="ComputeMesh Node")
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            logger.debug("Initial LAN discovery responder start skipped: %s", exc)
         if autostart:
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
@@ -217,10 +219,15 @@ class CloudTunnelRelay:
     ) -> dict[str, Any]:
         """Performs a synchronous heartbeat and mesh sync to the coordinator."""
         with self._sync_lock:
-            from services.appliance_dashboard.mesh_aggregator import GLOBAL_MESH_AGGREGATOR
+            from services.appliance_dashboard.mesh_aggregator import (
+                GLOBAL_MESH_AGGREGATOR,
+            )
             from tools.appliance.appliance_config import load_appliance_config
             from tools.appliance.hardware_detector import scan_rig_hardware
-            from tools.appliance.token_metering import get_token_stats, sync_with_coordinator
+            from tools.appliance.token_metering import (
+                get_token_stats,
+                sync_with_coordinator,
+            )
 
             if updated_cfg is not None:
                 cfg_now = updated_cfg
@@ -246,7 +253,7 @@ class CloudTunnelRelay:
             else:
                 try:
                     cfg_now = load_appliance_config()
-                except Exception:
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                     cfg_now = None
 
             configured_node_id = (
@@ -275,12 +282,12 @@ class CloudTunnelRelay:
             try:
                 from tools.appliance.hardware_detector import read_all_thermals
                 gpu_thermals = [item.to_dict() for item in read_all_thermals(inv)]
-            except Exception:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
                 gpu_thermals = []
             try:
                 from services.appliance_dashboard.model_manager import get_model_manager
                 model_runtime = get_model_manager().status().get("engine", {})
-            except Exception as exc:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 model_runtime = {"state": "unavailable", "ready": False, "last_error": str(exc)}
         local_vram_gb = round(inv.total_vram_bytes / (1024**3), 1)
         local_payload = {
@@ -308,16 +315,18 @@ class CloudTunnelRelay:
 
         dash_port = int(getattr(cfg_now, "dashboard_port", 8080) or 8080) if cfg_now else 8080
         try:
-            from tools.appliance.lan_discovery_responder import start_lan_discovery_responder
+            from tools.appliance.lan_discovery_responder import (
+                start_lan_discovery_responder,
+            )
             start_lan_discovery_responder(node_id=self.node_id, port=dash_port, gpu_summary="ComputeMesh Node")
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            logger.debug("Sync LAN discovery responder update skipped: %s", exc)
 
         try:
             from services.appliance_dashboard.network import get_network_interfaces
             net_ifaces = get_network_interfaces(node_id=self.node_id, auth_token=self.auth_token, port=dash_port)
             lan_ips = [iface["ip"] for iface in net_ifaces if iface.get("interface") != "tunnel" and iface.get("ip")]
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
             net_ifaces = []
             lan_ips = []
 
@@ -431,9 +440,9 @@ class CloudTunnelRelay:
                                         owner_key=server_key,
                                     )
                                     save_system_config(up_cfg)
-                        except Exception:
-                            pass
-            except Exception as exc:
+                        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                            logger.debug("Owner key auto-persist skipped: %s", exc)
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
                 sync_results[hb_url] = {"error": str(exc)}
 
         return {"node_id": self.node_id, "synced": True, "results": sync_results}
@@ -442,8 +451,8 @@ class CloudTunnelRelay:
         while self._running:
             try:
                 self.perform_sync()
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                logger.debug("Tunnel relay background sync error ignored: %s", exc)
             self._wake_event.wait(timeout=5.0)
             self._wake_event.clear()
 

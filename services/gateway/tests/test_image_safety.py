@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from services.gateway.image_generation import ImageGenerationRejected, ImageGenerationService
+from services.gateway.image_generation import (
+    ImageGenerationRejected,
+    ImageGenerationService,
+)
 from services.gateway.image_safety import (
     ClassifierResult,
     ImageSafetyError,

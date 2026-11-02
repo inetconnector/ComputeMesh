@@ -24,7 +24,7 @@ def _resolve_registry_file() -> Path:
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError):
         return Path("/tmp/computemesh_node_registry.json")
 
 
@@ -37,8 +37,8 @@ def _load_registry() -> dict[str, dict[str, Any]]:
         try:
             if REGISTRY_FILE.exists():
                 return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
         return {}
 
 
@@ -53,8 +53,8 @@ def save_node_telemetry_registry(registry: dict[str, dict[str, Any]]) -> None:
             if registry is not NODE_TELEMETRY_REGISTRY:
                 NODE_TELEMETRY_REGISTRY.clear()
                 NODE_TELEMETRY_REGISTRY.update(registry)
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
 
 # Persistent registry for dynamic node heartbeats and telemetry
@@ -73,7 +73,8 @@ def fresh_node_telemetry_entries(max_age_seconds: int = 45, *, include_peer_rela
             continue
         try:
             timestamp = datetime.fromisoformat(updated_at)
-        except Exception:
+        except (ValueError, TypeError) as exc:
+            _ = exc
             continue
         if (now - timestamp).total_seconds() <= max_age_seconds:
             entries.append(node_data)
@@ -135,8 +136,8 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
                 if u not in seen:
                     seen.add(u)
                     urls.append(u)
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+            _ = exc
 
     for loopback in [f"http://localhost:{port}", f"http://127.0.0.1:{port}"]:
         if loopback not in seen:

@@ -198,7 +198,7 @@ def _runtime_models_from_env() -> list[ModelSpec] | None:
             payload = json.loads(response.read(2 * 1024 * 1024 + 1).decode("utf-8"))
         raw_models = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(raw_models, list):
-            raise ValueError("invalid Ollama model list")
+            raise TypeError("invalid Ollama model list")
         discovered: list[ModelSpec] = []
         for raw in raw_models:
             if not isinstance(raw, dict):

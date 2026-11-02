@@ -1,6 +1,7 @@
 """Request-context wrapper that makes live backend cancellation owner-addressable."""
 from __future__ import annotations
 
+import sqlite3
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -109,7 +110,8 @@ class CancellableInferenceEngine(InferenceEngine):
 
     def validate_request_id(self, value: Any) -> str:
         if not isinstance(value, str):
-            raise ValueError("ComputeMesh request id must be a string")
+            err = ValueError("ComputeMesh request id must be a string")
+            raise err
         value = value.strip()
         if not value or len(value) > 128:
             raise ValueError("ComputeMesh request id must be between 1 and 128 characters")
@@ -166,13 +168,13 @@ class CancellableInferenceEngine(InferenceEngine):
             if execution_job_id and self.billing_intents is not None:
                 try:
                     self.billing_intents.mark_recorded(execution_job_id)
-                except Exception:
-                    pass
+                except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
             if execution_job_id and store is not None:
                 try:
                     acknowledge_job_settlement(store, execution_job_id)
-                except Exception:
-                    pass
+                except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
             return result
         finally:
             self._request_local.execution_job_id = None

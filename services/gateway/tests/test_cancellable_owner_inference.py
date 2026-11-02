@@ -6,7 +6,9 @@ from pathlib import Path
 
 from services.billing.owner_accounts import OwnerAccountStore
 from services.billing.owner_gateway_ledger import GatewayOwnerCreditLedger
-from services.gateway.cancellable_owner_inference import CancellableUnifiedOwnerInferenceEngine
+from services.gateway.cancellable_owner_inference import (
+    CancellableUnifiedOwnerInferenceEngine,
+)
 from services.gateway.inference_backend import BackendResult
 from services.gateway.metrics_exporter import MetricsRegistry
 from services.gateway.teaser import TeaserQuotaManager

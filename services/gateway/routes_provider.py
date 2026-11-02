@@ -16,7 +16,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from services.billing.accounting import AccountingStore, AccountingStoreError
-from services.billing.ledger import MICRO_UNIT_SCALE, InsufficientBalanceError, Ledger
+from services.billing.ledger import (
+    MICRO_UNIT_SCALE,
+    BillingError,
+    InsufficientBalanceError,
+    Ledger,
+)
 from services.billing.stripe_connect import (
     SettlementExecutor,
     StripeConnectService,
@@ -165,7 +170,7 @@ class ProviderRoutesHandler:
                 provider_node_id=str(body.get("provider_node_id", "")),
             )
             return (settlement.to_dict(), None, HTTPStatus.OK)
-        except (AccountingStoreError, InsufficientBalanceError, StripeIntegrationError, Exception) as exc:
+        except (AccountingStoreError, BillingError, InsufficientBalanceError, StripeIntegrationError, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             return (None, str(exc), HTTPStatus.BAD_REQUEST)
 
     def handle_admin_list_settlements(self, headers: Any, query: dict[str, list[str]]) -> tuple[dict[str, Any] | None, str | None, HTTPStatus]:

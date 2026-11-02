@@ -107,7 +107,7 @@ class WebAppsHandler:
             handler.end_headers()
             handler.wfile.write(file_data)
             return True
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             log.error(f"Error serving static app file {target_file}: {exc}")
             handler.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Error reading file")
             return True

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import os
+import sqlite3
 import sys
 from collections.abc import Callable
 from http.server import ThreadingHTTPServer
@@ -17,7 +18,9 @@ from pathlib import Path
 from protocol.node_identity import Ed25519ChallengeVerifier
 from services.billing.threadsafe_ledger import SynchronizedLedgerProxy
 from services.compliance.policy import assert_production_launch_gate
-from services.gateway.cancellable_owner_inference import CancellableUnifiedOwnerInferenceEngine
+from services.gateway.cancellable_owner_inference import (
+    CancellableUnifiedOwnerInferenceEngine,
+)
 from services.gateway.confidential_live_bootstrap import (
     LiveConfidentialRuntime,
     install_live_confidential_gateway,
@@ -33,7 +36,10 @@ from services.identity.store import SQLiteIdentityStore
 from services.identity.threaded_resolver import SQLiteIdentityKeyResolver
 from services.orchestrator.live_control_plane import IntegratedLiveControlPlane
 from services.orchestrator.live_model_catalog import register_verified_live_models
-from services.orchestrator.live_shared_runtime import LIVE_SHARED_RUNTIME, LiveSharedRuntimeRegistry
+from services.orchestrator.live_shared_runtime import (
+    LIVE_SHARED_RUNTIME,
+    LiveSharedRuntimeRegistry,
+)
 from services.orchestrator.settlement_recovery import (
     reconcile_completed_settlements,
     replay_billing_outbox,
@@ -250,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
             control_plane=control_plane,
             runtime_policy_resolver=LIVE_SHARED_RUNTIME.agent_policy_resolver,
         )
-    except Exception as exc:
+    except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
         if agent_worker_runtime is not None:
             agent_worker_runtime.close()
         if gpu_promo_dispatch is not None:

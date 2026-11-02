@@ -46,6 +46,6 @@ class FanControlHandler:
             handler._send_json({"status": "ok" if result["applied"] else "unsupported", **result}, status)
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.BAD_REQUEST)
-        except Exception as exc:
+        except (OSError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
             handler._send_json({"status": "error", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
         return True

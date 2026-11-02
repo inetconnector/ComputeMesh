@@ -78,8 +78,8 @@ class PromoControlPlaneClient:
         except urllib.error.HTTPError as exc:
             try:
                 exc.read(_MAX_RESPONSE_BYTES + 1)
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as read_exc:
+                _ = read_exc
             raise PromoControlPlaneError(
                 "promo control-plane rejected the request",
                 status_code=int(exc.code),

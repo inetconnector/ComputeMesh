@@ -18,7 +18,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from services.billing.ledger import MICRO_UNIT_SCALE, Ledger
 from services.billing.owner_credits import OwnerCreditLedger
-from services.billing.stripe_integration import StripeIntegrationError, StripePaymentService
+from services.billing.stripe_integration import (
+    StripeIntegrationError,
+    StripePaymentService,
+)
 from services.common.config import CONFIG
 from services.gateway.auth import GatewayAuthManager
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -263,8 +264,8 @@ class OpenAICompatibleHTTPBackend:
                     schema = response_format.get("json_schema", {}).get("schema", {})
                     if schema:
                         payload_data["grammar"] = compile_json_schema_to_gbnf(schema)
-                except Exception:
-                    pass
+                except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                    _ = exc
         if grammar and "grammar" not in payload_data:
             payload_data["grammar"] = grammar
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
@@ -447,8 +448,8 @@ class OllamaHTTPBackend:
                     try:
                         from services.grammar import compile_json_schema_to_gbnf
                         options["grammar"] = compile_json_schema_to_gbnf(schema)
-                    except Exception:
-                        pass
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as exc:
+                        _ = exc
         grammar = kwargs.get("grammar")
         if grammar and "grammar" not in options:
             options["grammar"] = grammar
@@ -659,8 +660,8 @@ class OrchestratedInferenceBackend:
                     target=JobState.FAILED,
                     request_fingerprint=f"runtime-failure:{type(exc).__name__}",
                 )
-        except Exception:
-            pass
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError) as transition_exc:
+            _ = transition_exc
 
     def _verify_and_bind_evidence(
         self,

@@ -13,7 +13,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from services.gateway.agent_billing import AgentBillingEvidenceStore, GatewayAgentBilling
+from services.gateway.agent_billing import (
+    AgentBillingEvidenceStore,
+    GatewayAgentBilling,
+)
 from services.gateway.inference_backend import InferenceBackend
 from services.mcp.config import MCPConfig
 from services.mcp.platform.contracts import RuntimePolicyEnvelope
@@ -225,7 +228,8 @@ def build_gateway_agent_worker_runtime(
         definition = registered.definition
         strategy = definition.model_strategy
         if not isinstance(strategy, Mapping):
-            raise RuntimeError("agent definition model strategy is invalid")
+            err = RuntimeError("agent definition model strategy is invalid")
+            raise err
         fixed_model = str(strategy.get("model") or strategy.get("model_id") or "").strip()
         if fixed_model and fixed_model != model:
             raise RuntimeError("agent definition does not allow the requested model")

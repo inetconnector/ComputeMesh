@@ -6,7 +6,10 @@ import urllib.parse
 from http import HTTPStatus
 from typing import Any
 
-from services.appliance_dashboard.model_manager import ModelManagerError, get_model_manager
+from services.appliance_dashboard.model_manager import (
+    ModelManagerError,
+    get_model_manager,
+)
 
 
 class ModelManagerHandler:

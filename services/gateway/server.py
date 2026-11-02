@@ -496,7 +496,11 @@ from services.billing.stripe_integration import (
     stripe_session_store_path_from_env,
 )
 from services.common.config import CONFIG
-from services.gateway.auth import GatewayAuthManager, extract_bearer_token, resolve_client_ip
+from services.gateway.auth import (
+    GatewayAuthManager,
+    extract_bearer_token,
+    resolve_client_ip,
+)
 from services.gateway.catalog import (
     current_models,
     model_modalities,
@@ -521,7 +525,11 @@ from services.gateway.security import (
     sanitize_error_message,
 )
 from services.gateway.teaser import TeaserQuotaManager, get_teaser_paywall_message
-from services.mcp.platform.artifacts import ArtifactAccessDenied, ArtifactNotFound, ArtifactStore
+from services.mcp.platform.artifacts import (
+    ArtifactAccessDenied,
+    ArtifactNotFound,
+    ArtifactStore,
+)
 from services.mcp.platform.session import (
     AgentSessionStore,
     ApprovalStatus,
@@ -1424,7 +1432,9 @@ class GatewayHandler(BaseHTTPRequestHandler):
                     "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
             else:
-                from tools.appliance.hardware_detector import is_integrated_display_adapter
+                from tools.appliance.hardware_detector import (
+                    is_integrated_display_adapter,
+                )
                 total_vram_bytes = 0
                 total_gpus = 0
                 for n in live_nodes:
@@ -3617,7 +3627,9 @@ def run_gateway_server(host: str = "0.0.0.0", port: int = DEFAULT_PORT) -> None:
     worker_runtime = None
     try:
         if os.environ.get("COMPUTEMESH_AGENTS_WORKER_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
-            from services.gateway.agent_worker_runtime import build_gateway_agent_worker_runtime
+            from services.gateway.agent_worker_runtime import (
+                build_gateway_agent_worker_runtime,
+            )
 
             worker_runtime = build_gateway_agent_worker_runtime(
                 backend=GatewayHandler.inference_engine.backend,
