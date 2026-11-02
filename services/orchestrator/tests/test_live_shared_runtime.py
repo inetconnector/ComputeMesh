@@ -99,7 +99,8 @@ class LiveSharedRuntimeTests(unittest.TestCase):
     def test_agent_policy_resolver_is_optional_and_replaceable(self):
         registry = LiveSharedRuntimeRegistry()
         self.assertIsNone(registry.agent_policy_resolver)
-        resolver = lambda _session, _turn: {"allow_agents": True}
+        def resolver(_session, _turn):
+            return {"allow_agents": True}
         registry.set_agent_policy_resolver(resolver)
         self.assertIs(registry.agent_policy_resolver, resolver)
         registry.set_agent_policy_resolver(None)

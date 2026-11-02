@@ -1,6 +1,5 @@
 """WebAuthn verification origins must never be trusted from request headers."""
 
-from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest

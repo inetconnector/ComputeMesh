@@ -26,11 +26,13 @@ def import_seed_file(path: Path, crawler: ConcertCrawler) -> dict[str,int]:
     order={str(v):i+1 for i,v in enumerate(data.get("recommended_crawl_order",[]) or [])}
     for item in _entries(data):
         urls=[]
-        if item.get("url"): urls.append(str(item["url"]))
+        if item.get("url"):
+            urls.append(str(item["url"]))
         urls += [str(u) for u in (item.get("urls") or []) if u]
         strategy=item.get("crawler_strategy") or {}
         urls += [str(u) for u in (strategy.get("also_crawl") or []) if u]
-        if not urls: continue
+        if not urls:
+            continue
         item_id=str(item.get("id") or "")
         priority=int(item.get("priority") or order.get(item_id,50))
         item_type=str(item.get("type") or "legacy_seed")
@@ -46,10 +48,13 @@ def import_seed_file(path: Path, crawler: ConcertCrawler) -> dict[str,int]:
 def import_seed_directory(path: Path, crawler: ConcertCrawler) -> dict[str,int]:
     total={"files":0,"sources":0,"created":0,"urls":0}
     for file in sorted(path.glob("*.json")):
-        try: stats=import_seed_file(file,crawler)
-        except (OSError,json.JSONDecodeError,ValueError,TypeError): continue
+        try:
+            stats=import_seed_file(file,crawler)
+        except (OSError,json.JSONDecodeError,ValueError,TypeError):
+            continue
         total["files"]+=1
-        for key in ("sources","created","urls"): total[key]+=stats[key]
+        for key in ("sources","created","urls"):
+            total[key]+=stats[key]
     return total
 
 
@@ -80,4 +85,5 @@ def main() -> int:
     return 0
 
 
-if __name__=="__main__": raise SystemExit(main())
+if __name__=="__main__":
+    raise SystemExit(main())

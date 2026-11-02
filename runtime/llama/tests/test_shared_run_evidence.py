@@ -269,9 +269,12 @@ class SharedRunEvidenceTests(unittest.TestCase):
     def test_rejects_model_or_runtime_mismatch(self):
         for mutation in ("model", "runtime"):
             value = spike("shared_rpc")
-            if mutation == "model": value["model"]["sha256"] = "f" * 64
-            else: value["runtime"]["version"] = "different build"
-            with self.subTest(mutation=mutation): self.assert_rejected(shared=value)
+            if mutation == "model":
+                value["model"]["sha256"] = "f" * 64
+            else:
+                value["runtime"]["version"] = "different build"
+            with self.subTest(mutation=mutation):
+                self.assert_rejected(shared=value)
 
     def test_rejects_split_or_device_order_not_selected_by_planner(self):
         split = spike("shared_rpc")
@@ -350,15 +353,18 @@ class SharedRunEvidenceTests(unittest.TestCase):
             output = root / "proof.json"
             kwargs = {"bundle_path": paths[0], "baseline_path": paths[1], "shared_path": paths[2], "relay_path": paths[3], "output_path": output}
             write_shared_run_evidence(**kwargs)
-            with self.assertRaises(SharedRunEvidenceError): write_shared_run_evidence(**kwargs)
+            with self.assertRaises(SharedRunEvidenceError):
+                write_shared_run_evidence(**kwargs)
 
     def test_symlink_input_is_rejected_when_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             paths = self.write_inputs(root)
             link = root / "bundle-link.json"
-            try: link.symlink_to(paths[0].name)
-            except (OSError, NotImplementedError): self.skipTest("symlink creation unavailable")
+            try:
+                link.symlink_to(paths[0].name)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
             with self.assertRaises(SharedRunEvidenceError):
                 build_shared_run_evidence(bundle_path=link, baseline_path=paths[1], shared_path=paths[2], relay_path=paths[3])
 
