@@ -116,7 +116,10 @@ def install_vscode_user(
 def _vscode_cli_executable(vscode_executable: Path) -> Path:
     """Resolve the command-line wrapper belonging to a VS Code GUI binary."""
     executable = Path(vscode_executable)
-    if os.name != "nt" or executable.suffix.lower() in {".cmd", ".bat"}:
+    # Windows Code.exe needs the adjacent CLI wrapper; a native Linux
+    # 'code' binary (or a wrapper already ending in .cmd/.bat) is used as-is.
+    # Decide from the executable suffix, not the test runner's host OS.
+    if executable.suffix.lower() != ".exe":
         return executable
 
     cli = executable.parent / "bin" / "code.cmd"
