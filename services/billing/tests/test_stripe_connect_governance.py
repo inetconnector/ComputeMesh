@@ -87,7 +87,7 @@ class TestStripeConnectGovernance(unittest.TestCase):
         )
 
         # Gatekeeper permits B2B marketplace
-        allowed, reason, missing = self.gatekeeper.can_operate_b2b_marketplace(
+        allowed, _reason, _missing = self.gatekeeper.can_operate_b2b_marketplace(
             account_id="acc_owner_99",
             fleet_id="flt_alpha_1",
         )

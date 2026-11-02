@@ -574,7 +574,7 @@ class TestSecurityAuditFixes(unittest.TestCase):
 
         # Quotes handler calculation for 100M tokens of 8B ($0.15*0.75 + $0.25*0.25 = $0.175/M -> $17.50 for 100M)
         quotes = PortalQuotesHandler()
-        res, err, status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
+        res, err, _status = quotes.handle_quote({"tokens_million": 100.0, "model_tier": "8b"})
         self.assertIsNone(err)
         self.assertEqual(res["total_cost_usd"], 17.50)
 

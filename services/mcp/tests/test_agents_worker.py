@@ -509,7 +509,7 @@ class TestMeshAgentWorker(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             store = AgentSessionStore(Path(directory) / "sessions.sqlite3")
             try:
-                session, turn = store.create_task(
+                _session, turn = store.create_task(
                     "mesh.agent",
                     "demo-model",
                     "hello",

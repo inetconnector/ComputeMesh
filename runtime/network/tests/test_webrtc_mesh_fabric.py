@@ -33,7 +33,7 @@ class TestWebRTCMeshFabric(unittest.TestCase):
         payload = b"ComputeMesh WebRTC Resilience Test Payload"
         seq = 42
         frame = pack_frame(WebRTCFrameType.DATA, seq, payload)
-        ftype, unpacked_seq, plen, checksum = unpack_frame_header(frame[:17])
+        ftype, unpacked_seq, plen, _checksum = unpack_frame_header(frame[:17])
         self.assertEqual(ftype, WebRTCFrameType.DATA)
         self.assertEqual(unpacked_seq, seq)
         self.assertEqual(plen, len(payload))

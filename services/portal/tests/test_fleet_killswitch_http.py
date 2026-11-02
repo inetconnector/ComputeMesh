@@ -143,7 +143,7 @@ class TestFleetKillswitchHttp(unittest.TestCase):
         self.assertFalse(g_res["is_tripped"])
 
         # Reset fleet
-        r_status, r_res = self._post(
+        r_status, _r_res = self._post(
             "/api/portal/fleet/killswitch/reset",
             {"scope": "fleet", "reason": "GPU Maintenance Complete"},
             headers={"X-Owner-Key": self.account.owner_key},
@@ -182,7 +182,7 @@ class TestFleetKillswitchHttp(unittest.TestCase):
         self.assertTrue(self.guard.is_tripped)
 
         # Master resets global platform
-        r_status, r_res = self._post(
+        r_status, _r_res = self._post(
             "/api/portal/fleet/killswitch/reset",
             {"scope": "global", "reason": "Platform restored"},
             headers={"X-Master-Killswitch-Key": "master_secret_stripe_inetconnector_key"},

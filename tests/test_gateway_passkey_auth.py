@@ -69,11 +69,11 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         return res.status, payload
 
     def test_me_requires_session(self) -> None:
-        status, data = self._get("/api/auth/me")
+        status, _data = self._get("/api/auth/me")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_portal_fleet_requires_session(self) -> None:
-        status, data = self._get("/api/portal/fleet")
+        status, _data = self._get("/api/portal/fleet")
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
 
     def test_register_begin_for_new_email(self) -> None:
@@ -83,7 +83,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         self.assertIsNone(cookie)
 
     def test_login_begin_unknown_email(self) -> None:
-        status, data, cookie = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
+        status, _data, _cookie = self._post("/api/auth/login/begin", {"email": "ghost@example.com"})
         self.assertEqual(status, HTTPStatus.NOT_FOUND)
 
     def test_me_and_portal_fleet_via_session_cookie(self) -> None:
@@ -117,7 +117,7 @@ class TestGatewayPasskeyAuth(unittest.TestCase):
         token = self.fleet_store.create_session(account.account_id)
         cookie = f"{passkey_routes.SESSION_COOKIE_NAME}={token}"
 
-        status, data, _ = self._post("/api/auth/logout", {}, cookie=cookie)
+        status, _data, _ = self._post("/api/auth/logout", {}, cookie=cookie)
         self.assertEqual(status, HTTPStatus.OK)
 
         status, _ = self._get("/api/auth/me", cookie=cookie)

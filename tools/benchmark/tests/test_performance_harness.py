@@ -1,9 +1,11 @@
 """High-Performance & Concurrency Stress Test Harness for ComputeMesh Gateway."""
+import os
 import sys
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -19,6 +21,16 @@ from services.gateway.teaser import TeaserQuotaManager
 
 class TestPerformanceHarness(unittest.TestCase):
     def setUp(self) -> None:
+        self._synthetic_env = patch.dict(
+            os.environ,
+            {
+                "COMPUTEMESH_INFERENCE_BACKEND": "synthetic",
+                "COMPUTEMESH_ALLOW_SYNTHETIC_INFERENCE": "1",
+                "COMPUTEMESH_ALLOW_STATIC_MODEL_CATALOG": "1",
+            },
+        )
+        self._synthetic_env.start()
+        self.addCleanup(self._synthetic_env.stop)
         self.ledger = Ledger()
         self.metrics = MetricsRegistry()
         self.teaser_manager = TeaserQuotaManager(max_requests=10000, max_tokens=1000000)
@@ -43,7 +55,7 @@ class TestPerformanceHarness(unittest.TestCase):
         iterations = 500
         start = time.perf_counter()
         for i in range(iterations):
-            res, err, status = self.engine.execute_chat_completion(
+            _res, _err, status = self.engine.execute_chat_completion(
                 account_id="perf_customer_01",
                 model_id="qwen/qwen2.5-7b-instruct",
                 messages=[{"role": "user", "content": f"Iteration {i}"}],
@@ -67,7 +79,7 @@ class TestPerformanceHarness(unittest.TestCase):
         def worker(thread_idx: int) -> int:
             success = 0
             for req_idx in range(requests_per_thread):
-                res, err, status = self.engine.execute_chat_completion(
+                res, _err, status = self.engine.execute_chat_completion(
                     account_id="perf_customer_01",
                     model_id="qwen/qwen2.5-7b-instruct",
                     messages=[{"role": "user", "content": f"Thread {thread_idx} Req {req_idx}"}],

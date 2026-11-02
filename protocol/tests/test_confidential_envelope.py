@@ -210,7 +210,7 @@ class ConfidentialEnvelopeTests(unittest.TestCase):
             context.close()
 
     def test_response_from_other_request_is_rejected(self) -> None:
-        request_one, context_one = create_confidential_request(
+        _request_one, context_one = create_confidential_request(
             b"one",
             recipient_public_key=self.recipient_public,
             binding=self.binding,

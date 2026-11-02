@@ -36,7 +36,7 @@ class FleetGatekeeperTests(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_can_create_fleet(self) -> None:
-        allowed, err, missing = self.gatekeeper.can_create_fleet("facc_user1")
+        allowed, err, _missing = self.gatekeeper.can_create_fleet("facc_user1")
         self.assertTrue(allowed)
         self.assertIsNone(err)
 
@@ -59,7 +59,7 @@ class FleetGatekeeperTests(unittest.TestCase):
             address=addr,
             email="felix@example.com",
         )
-        allowed, code, missing = self.gatekeeper.can_operate_marketplace("facc_user1", "fleet-1")
+        allowed, code, _missing = self.gatekeeper.can_operate_marketplace("facc_user1", "fleet-1")
         self.assertFalse(allowed)
         self.assertEqual(code, "TRADER_DECLARATION_REQUIRED")
 
@@ -136,7 +136,7 @@ class FleetGatekeeperTests(unittest.TestCase):
             reason="P2B terms violation",
         )
 
-        allowed, code, missing = self.gatekeeper.can_operate_marketplace("facc_user1", "fleet-1")
+        allowed, code, _missing = self.gatekeeper.can_operate_marketplace("facc_user1", "fleet-1")
         self.assertFalse(allowed)
         self.assertEqual(code, "PROVIDER_SUSPENDED")
 

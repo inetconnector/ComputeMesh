@@ -71,7 +71,7 @@ class TestDiskCloneSafety(unittest.TestCase):
             "source_model": "USB Stick",
         }
         mock_targets.return_value = [{"device": "/dev/sdc", "name": "sdc", "size_bytes": 500_000_000_000, "model": "Real SSD"}]
-        accepted, message = disk_clone.start_clone("/dev/sdc", disk_clone.CONFIRM_PHRASE)
+        accepted, _message = disk_clone.start_clone("/dev/sdc", disk_clone.CONFIRM_PHRASE)
         self.assertTrue(accepted)
         mock_thread.return_value.start.assert_called_once()
         status = disk_clone.get_clone_status()

@@ -77,7 +77,7 @@ class TestPortalModular(unittest.TestCase):
         self.assertEqual(stored["terms_version"], CURRENT_TERMS_VERSION)
 
     def test_registration_is_idempotency_protected_for_repeated_email(self) -> None:
-        first, first_err, first_status = self.reg_handler.handle_register(accepted_registration())
+        _first, first_err, first_status = self.reg_handler.handle_register(accepted_registration())
         second, second_err, second_status = self.reg_handler.handle_register(accepted_registration())
         self.assertIsNone(first_err)
         self.assertEqual(first_status, HTTPStatus.CREATED)

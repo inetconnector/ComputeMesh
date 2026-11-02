@@ -34,7 +34,7 @@ def run_worker_rpc_server(
 
     while not stop_event.is_set():
         try:
-            conn, addr = sock.accept()
+            conn, _addr = sock.accept()
             with conn:
                 data = b""
                 conn.settimeout(1.0)

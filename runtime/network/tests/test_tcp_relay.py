@@ -442,7 +442,7 @@ class TcpRelayTests(unittest.TestCase):
         validator.validate(document)
 
     def test_multi_connection_relay_sequential_and_concurrent(self):
-        target_port, target_thread, target_errors = start_multi_echo_server()
+        target_port, _target_thread, _target_errors = start_multi_echo_server()
         ready = queue.Queue()
         holder = {}
         errors = []
@@ -521,7 +521,7 @@ class TcpRelayTests(unittest.TestCase):
             validator.validate(metrics.to_dict())
 
     def test_multi_connection_max_connections_limit(self):
-        target_port, target_thread, target_errors = start_multi_echo_server()
+        target_port, _target_thread, _target_errors = start_multi_echo_server()
         ready = queue.Queue()
         holder = {}
         errors = []

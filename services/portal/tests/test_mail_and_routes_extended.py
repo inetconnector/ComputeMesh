@@ -70,15 +70,15 @@ class TestMailAndRoutesExtended(unittest.TestCase):
         self.assertEqual(len(list_res["passkeys"]), 2)
 
         # Rename passkey
-        ren_res, ren_status, _ = self.handler.rename_passkey(fake_headers, {"credential_id": "cred_a", "nickname": "Laptop TouchID"})
+        _ren_res, ren_status, _ = self.handler.rename_passkey(fake_headers, {"credential_id": "cred_a", "nickname": "Laptop TouchID"})
         self.assertEqual(ren_status, HTTPStatus.OK)
 
         # Delete passkey
-        del_res, del_status, _ = self.handler.delete_passkey(fake_headers, {"credential_id": "cred_a"})
+        _del_res, del_status, _ = self.handler.delete_passkey(fake_headers, {"credential_id": "cred_a"})
         self.assertEqual(del_status, HTTPStatus.OK)
 
         # Remaining 1 passkey cannot be deleted
-        del_last_res, del_last_status, _ = self.handler.delete_passkey(fake_headers, {"credential_id": "cred_b"})
+        _del_last_res, del_last_status, _ = self.handler.delete_passkey(fake_headers, {"credential_id": "cred_b"})
         self.assertEqual(del_last_status, HTTPStatus.BAD_REQUEST)
 
     def test_enrollment_and_audit_routes(self) -> None:

@@ -178,7 +178,7 @@ class TestFleetAdminBans(unittest.TestCase):
 
     def test_http_admin_ban_requires_master_authorization(self) -> None:
         # Non-master caller attempts to ban Fleet A
-        status, body = self._post(
+        status, _body = self._post(
             "/api/admin/fleet/ban",
             {"owner_id": self.account_a.account_id, "reason": "Hacker attempt"},
             headers={"X-Owner-Key": self.account_b.owner_key},

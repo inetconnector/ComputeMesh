@@ -29,7 +29,7 @@ def run_real_node_server(
     sock.settimeout(0.5)
     while not stop_event.is_set():
         try:
-            conn, addr = sock.accept()
+            conn, _addr = sock.accept()
             with conn:
                 if simulate_stall:
                     # Accept connection but do not read or send anything
