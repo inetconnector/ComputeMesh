@@ -4900,7 +4900,7 @@ passed, 13 skipped`. This is independent hosted automation, not the protected
 TrustedBridge receipt requested for the final source, and it does not prove
 Android production signing, physical QR/WAN/BFT behavior or operator approval.
 
-The tested product-code head is `9967d0d4003aa6439d5b056f750bcc0c28663a3d`.
+The tested product-code head is `dc6031a2cb136068232395897d6535393a707169`.
 The documentation head `c8e78af33ad66a8e5efe5d7417375efd637fcf93` carried that
 code unchanged; hosted run `41428140205` passed on that exact SHA with
 `51 passed, 5 skipped, 9 subtests` and `181 passed, 13 skipped`.
@@ -4925,4 +4925,11 @@ Quality batch `9967d0d4003aa6439d5b056f750bcc0c28663a3d` removed all `48`
 The affected regression block passed `96 passed`; the required repeat then
 passed compileall, diff-check, full Ruff with `1440` findings, and the full
 public suite `2076 passed, 20 skipped, 69 subtests passed` in `295.11s`.
+
+Quality batch `dc6031a2cb136068232395897d6535393a707169` manually renamed
+eight clearly unused production bindings identified by `RUF059`; no unsafe
+Ruff fix option was used. The affected MCP/orchestrator regression set passed
+`219 passed` in `18.27s`, compileall and diff-check passed, and the repeated
+full public suite passed `2076 passed, 20 skipped, 69 subtests passed` in
+`315.01s`. The full inventory is now `1431` findings with `RUF059=56`.
 
