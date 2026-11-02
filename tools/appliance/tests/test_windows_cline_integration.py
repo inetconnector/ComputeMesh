@@ -243,10 +243,13 @@ class TestWindowsClineIntegration(unittest.TestCase):
             cli.write_text("@echo off\n", encoding="utf-8")
             completed = Mock(returncode=0, stdout="", stderr="")
 
-            with patch(
-                "tools.appliance.windows_cline_integration.subprocess.run",
-                return_value=completed,
-            ) as run:
+            with (
+                patch("tools.appliance.windows_cline_integration.os.name", "nt"),
+                patch(
+                    "tools.appliance.windows_cline_integration.subprocess.run",
+                    return_value=completed,
+                ) as run,
+            ):
                 result = _run_vscode_cli(vscode, "--list-extensions")
 
             self.assertIs(result, completed)

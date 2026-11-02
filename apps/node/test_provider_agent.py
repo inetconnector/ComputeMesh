@@ -97,6 +97,8 @@ def _agent(
     inference_ready: bool | None = None,
 ) -> ProviderAgent:
     tmp_path.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        tmp_path.chmod(0o700)  # Secure fixture directory; never weaken key storage.
     key_path = tmp_path / "node.pem"
     _write_key(key_path)
     advertised_ready = inference_executor is not None if inference_ready is None else inference_ready
