@@ -7,6 +7,7 @@ variables (enforced in app/build.gradle.kts):
 - CM_ANDROID_KEYSTORE_PASSWORD
 - CM_ANDROID_KEY_ALIAS
 - CM_ANDROID_KEY_PASSWORD
+- CM_ANDROID_EXPECTED_CERT_SHA256 (approved public signer certificate fingerprint)
 
 For local non-distribution testing only, CM_ANDROID_ALLOW_DEBUG_RELEASE=1 may
 be used. Generated APK/AAB/metadata are copied to portal/downloads and are
@@ -76,6 +77,10 @@ def _verify_signing_environment() -> None:
     keystore = Path(os.environ["CM_ANDROID_KEYSTORE_PATH"])
     if not keystore.is_file() or keystore.stat().st_size == 0:
         raise RuntimeError(f"Android keystore is missing or empty: {keystore}")
+    # Never package a production APK/AAB without an operator-approved cert.
+    _normalize_certificate_sha256(
+        os.environ.get("CM_ANDROID_EXPECTED_CERT_SHA256", "")
+    )
 
 
 def _find_apksigner() -> Path | None:
@@ -96,6 +101,63 @@ def _find_apksigner() -> Path | None:
     return None
 
 
+def _normalize_certificate_sha256(value: str) -> str:
+    """Accept only a complete Android signing certificate SHA-256 pin."""
+    normalized = value.strip().replace(":", "").lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", normalized):
+        raise RuntimeError("CM_ANDROID_EXPECTED_CERT_SHA256 must be a 64-digit SHA-256 fingerprint")
+    return normalized
+
+
+def verify_production_signatures(apk: Path, aab: Path) -> str:
+    """Check both signed packages against an independently approved cert pin.
+
+    A successful Gradle build or a production_signed JSON flag is not proof of
+    signing identity. All verification tools and the operator-held public
+    certificate digest are mandatory before packaging release artifacts.
+    """
+    expected = _normalize_certificate_sha256(
+        os.environ.get("CM_ANDROID_EXPECTED_CERT_SHA256", "")
+    )
+    apksigner = _find_apksigner()
+    jarsigner = shutil.which("jarsigner")
+    keytool = shutil.which("keytool")
+    if not apksigner or not jarsigner or not keytool:
+        raise RuntimeError("Android release requires apksigner, jarsigner, and keytool")
+
+    apk_result = subprocess.run(
+        [str(apksigner), "verify", "--verbose", "--print-certs", str(apk)],
+        capture_output=True, text=True, check=True, timeout=60,
+    )
+    apk_digests = re.findall(
+        r"Signer\s+#\d+\s+certificate\s+SHA-256\s+digest:\s*([0-9a-fA-F:]+)",
+        apk_result.stdout,
+        flags=re.IGNORECASE,
+    )
+    if len(apk_digests) != 1 or _normalize_certificate_sha256(apk_digests[0]) != expected:
+        raise RuntimeError("APK signing certificate does not match the approved SHA-256 pin")
+
+    aab_result = subprocess.run(
+        [jarsigner, "-verify", "-verbose", "-certs", str(aab)],
+        capture_output=True, text=True, check=True, timeout=60,
+    )
+    if "jar verified." not in aab_result.stdout.lower() or "jar is unsigned" in aab_result.stdout.lower():
+        raise RuntimeError("Android App Bundle signature was not verified")
+
+    certificate = subprocess.run(
+        [keytool, "-printcert", "-jarfile", str(aab)],
+        capture_output=True, text=True, check=True, timeout=60,
+    )
+    aab_digests = re.findall(
+        r"^\s*SHA256:\s*([0-9a-fA-F:]+)\s*$",
+        certificate.stdout,
+        flags=re.MULTILINE,
+    )
+    if len(aab_digests) != 1 or _normalize_certificate_sha256(aab_digests[0]) != expected:
+        raise RuntimeError("AAB signing certificate does not match the approved SHA-256 pin")
+    return expected
+
+
 def build_release() -> tuple[Path, Path, Path]:
     _verify_signing_environment()
     wrapper = _gradle_wrapper()
@@ -113,13 +175,8 @@ def build_release() -> tuple[Path, Path, Path]:
         if not path.is_file() or path.stat().st_size == 0:
             raise RuntimeError(f"Expected Android build artifact is missing: {path}")
 
-    apksigner = _find_apksigner()
-    if apksigner and os.environ.get("CM_ANDROID_ALLOW_DEBUG_RELEASE") != "1":
-        subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(built_apk)], check=True)
-
-    jarsigner = shutil.which("jarsigner")
-    if jarsigner and os.environ.get("CM_ANDROID_ALLOW_DEBUG_RELEASE") != "1":
-        subprocess.run([jarsigner, "-verify", str(built_aab)], check=True)
+    if os.environ.get("CM_ANDROID_ALLOW_DEBUG_RELEASE") != "1":
+        verify_production_signatures(built_apk, built_aab)
 
     PORTAL_DOWNLOADS.mkdir(parents=True, exist_ok=True)
     target_apk = PORTAL_DOWNLOADS / "ComputeMesh-Android.apk"

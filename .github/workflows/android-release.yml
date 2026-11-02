@@ -25,6 +25,7 @@ jobs:
       CM_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       CM_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       CM_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      CM_ANDROID_EXPECTED_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
@@ -51,7 +52,7 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          for name in ANDROID_KEYSTORE_BASE64 CM_ANDROID_KEYSTORE_PASSWORD CM_ANDROID_KEY_ALIAS CM_ANDROID_KEY_PASSWORD; do
+          for name in ANDROID_KEYSTORE_BASE64 CM_ANDROID_KEYSTORE_PASSWORD CM_ANDROID_KEY_ALIAS CM_ANDROID_KEY_PASSWORD CM_ANDROID_EXPECTED_CERT_SHA256; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing required Android production signing secret: ${name}"
               exit 1
@@ -74,8 +75,14 @@ jobs:
           AAB='apps/android/app/build/outputs/bundle/release/app-release.aab'
           test -s "$APK"
           test -s "$AAB"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
-          jarsigner -verify "$AAB"
+          python3 - <<'PY'
+          from pathlib import Path
+          from deploy.android.build_apk import verify_production_signatures
+          verify_production_signatures(
+              Path("apps/android/app/build/outputs/apk/release/app-release.apk"),
+              Path("apps/android/app/build/outputs/bundle/release/app-release.aab"),
+          )
+          PY
           mkdir -p release-android
           cp "$APK" release-android/ComputeMesh-Android.apk
           cp "$AAB" release-android/ComputeMesh-Android.aab
