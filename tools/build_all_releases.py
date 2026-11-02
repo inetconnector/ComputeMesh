@@ -53,6 +53,31 @@ def _source_commit() -> str:
     return commit
 
 
+def _require_clean_release_checkout() -> str:
+    """Fail closed if a release would mix tracked and mutable local source."""
+    root = REPO_ROOT.resolve()
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        if Path(top).resolve() != root:
+            raise ReleaseBuildError(
+                "release source must be the Git checkout root, not a nested directory"
+            )
+        status = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ReleaseBuildError("cannot verify clean Git source checkout") from exc
+    if status:
+        raise ReleaseBuildError(
+            "release source has modified or untracked files; use a clean checkout"
+        )
+    return _source_commit()
+
+
 def _expected_nodeos_provenance() -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -287,6 +312,7 @@ def build_linux_tarball() -> Path:
 
 def build_windows_exe() -> Path:
     """Build standalone Windows installer executable via PyInstaller."""
+    _require_clean_release_checkout()
     print("\n[2/4] Building Windows Standalone Executable (ComputeMesh-Setup-x64.exe)...")
     dist_dir = REPO_ROOT / "dist"
     built_exe = dist_dir / "ComputeMesh-Setup-x64.exe"
@@ -377,6 +403,7 @@ def sign_and_verify_release() -> None:
             "release signing requires explicit COMPUTEMESH_RELEASE_SIGNING_APPROVED=1; "
             "no signing key was used"
         )
+    _require_clean_release_checkout()
     from tools.security.release_signer import sign_manifest, verify_manifest
 
     manifest_file = UPDATES_DIR / "version.json"
@@ -392,6 +419,7 @@ def sign_and_verify_release() -> None:
 
 
 def main() -> int:
+    _require_clean_release_checkout()
     print("====================================================================")
     print(f"         Building ComputeMesh Release v{VERSION} (Windows + Linux)  ")
     print("====================================================================")
