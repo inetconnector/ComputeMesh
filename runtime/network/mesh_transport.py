@@ -263,15 +263,16 @@ class MeshTunnelServer:
         if self._server_sock:
             try:
                 self._server_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
     def _accept_loop(self) -> None:
         while self._running:
             try:
                 client_raw, _ = self._server_sock.accept()
                 threading.Thread(target=self._handle_client, args=(client_raw,), daemon=True).start()
-            except Exception:
+            except OSError as exc:
+                logger.debug("mTLS accept loop stopped: %s", exc)
                 break
 
     def _handle_client(self, client_raw: socket.socket) -> None:
@@ -312,18 +313,18 @@ class MeshTunnelServer:
             if client_ssl:
                 try:
                     client_ssl.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
             else:
                 try:
                     client_raw.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
             if target_sock:
                 try:
                     target_sock.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
 
     def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
@@ -343,15 +344,15 @@ class MeshTunnelServer:
                     self.total_bytes_received += n
                 else:
                     self.total_bytes_sent += n
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("mTLS transport pipe interrupted: %s", exc)
         finally:
             stop_event.set()
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
 
 class MeshTunnelClient:
@@ -397,15 +398,16 @@ class MeshTunnelClient:
         if self._server_sock:
             try:
                 self._server_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
 
     def _accept_loop(self) -> None:
         while self._running:
             try:
                 app_sock, _ = self._server_sock.accept()
                 threading.Thread(target=self._handle_app, args=(app_sock,), daemon=True).start()
-            except Exception:
+            except OSError as exc:
+                logger.debug("mTLS accept loop stopped: %s", exc)
                 break
 
     def _handle_app(self, app_sock: socket.socket) -> None:
@@ -449,13 +451,13 @@ class MeshTunnelClient:
         finally:
             try:
                 app_sock.close()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
             if ssl_sock:
                 try:
                     ssl_sock.close()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    logger.debug("mTLS transport socket close failed: %s", exc)
 
     def _pipe(self, src: socket.socket, dst: socket.socket, direction: str, stop_event: threading.Event) -> None:
         buf = bytearray(64 * 1024)
@@ -475,12 +477,12 @@ class MeshTunnelClient:
                     self.total_bytes_sent += n
                 else:
                     self.total_bytes_received += n
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("mTLS transport pipe interrupted: %s", exc)
         finally:
             stop_event.set()
             try:
                 if not isinstance(dst, ssl.SSLSocket):
                     dst.shutdown(socket.SHUT_WR)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.debug("mTLS transport cleanup failed: %s", exc)
