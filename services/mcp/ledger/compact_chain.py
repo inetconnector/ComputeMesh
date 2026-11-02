@@ -78,8 +78,7 @@ class CompactLedger:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_receipts_block ON receipts(block_index)")
 
     def _ensure_genesis(self) -> None:
-        with self._lock:
-            with self._db_session() as conn:
+        with self._lock, self._db_session() as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT COUNT(*) FROM blocks")
                 count = cur.fetchone()[0]

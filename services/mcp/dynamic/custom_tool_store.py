@@ -109,8 +109,7 @@ class CustomToolStore:
         tags_list = list(tags) if isinstance(tags, list) else ["custom", "dynamic"]
         now = time.time()
 
-        with self._lock:
-            with self._db_session() as conn:
+        with self._lock, self._db_session() as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT created_at, execution_count, avg_elapsed_ms, receipt_count FROM custom_tools WHERE name = ?", (clean_name,))
                 existing = cur.fetchone()

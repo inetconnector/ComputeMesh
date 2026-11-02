@@ -98,8 +98,9 @@ def _check_ssl(host: str, port: int = 443, timeout: float = 3.5) -> dict[str, An
         # Connecting to the already resolved public address reduces DNS-rebinding
         # exposure; TLS still verifies the original hostname via SNI.
         address = resolved.addresses[0]
-        with socket.create_connection((address, port), timeout=timeout) as sock:
-            with context.wrap_socket(sock, server_hostname=host) as ssock:
+        with socket.create_connection((address, port), timeout=timeout) as sock, context.wrap_socket(
+            sock, server_hostname=host
+        ) as ssock:
                 cert = ssock.getpeercert()
                 if not cert:
                     return {"status": "no_cert", "error": "Kein SSL-Zertifikat empfangen"}
