@@ -127,7 +127,9 @@ class TestGatewayAuth(unittest.TestCase):
 
     def test_authenticate_teaser_playground(self) -> None:
         headers = {"X-Forwarded-For": "198.51.100.77"}
-        auth = self.auth_manager.authenticate_request(headers, allow_teaser=True)
+        auth = self.auth_manager.authenticate_request(
+            headers, client_address=("127.0.0.1", 8000), allow_teaser=True,
+        )
         self.assertTrue(auth.is_authenticated)
         self.assertEqual(auth.account_id, "teaser_198_51_100_77")
         self.assertTrue(auth.is_teaser)
@@ -143,7 +145,9 @@ class TestGatewayAuth(unittest.TestCase):
         for _ in range(5):
             self.teaser_manager.record_usage(client_ip)
 
-        auth = self.auth_manager.authenticate_request(headers, allow_teaser=True)
+        auth = self.auth_manager.authenticate_request(
+            headers, client_address=("127.0.0.1", 8000), allow_teaser=True,
+        )
         self.assertTrue(auth.is_authenticated)
         self.assertTrue(auth.is_teaser)
         self.assertTrue(auth.is_quota_exceeded)
