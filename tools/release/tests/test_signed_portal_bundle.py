@@ -41,6 +41,11 @@ class TestSignedPortalBundle(unittest.TestCase):
             (self.downloads / name).write_bytes(
                 ("fixture:" + platform).encode("ascii")
             )
+        # Keep the Android fixture bytes explicit before deriving their
+        # metadata. This makes the artifact-binding assertions independent of
+        # fixture ordering and avoids ever using real release binaries.
+        (self.downloads / "ComputeMesh-Android.apk").write_bytes(b"fixture:android-apk")
+        (self.downloads / "ComputeMesh-Android.aab").write_bytes(b"fixture:android-aab")
         apk = (self.downloads / "ComputeMesh-Android.apk").read_bytes()
         aab = (self.downloads / "ComputeMesh-Android.aab").read_bytes()
         self.metadata = {
