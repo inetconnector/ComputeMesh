@@ -4,6 +4,7 @@ No dashboard or gateway imports, no external network, no persisted secrets.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 import socket
 import tempfile
 import threading
@@ -26,6 +27,14 @@ class TestMtlsCredentialBoundary(unittest.TestCase):
             server_creds = generate_node_tls_credentials("server_trusted", folder / "server", ca_creds=ca)
             allowed_creds = generate_node_tls_credentials("client_allowed", folder / "allowed", ca_creds=ca)
             blocked_creds = generate_node_tls_credentials("client_denied", folder / "denied", ca_creds=ca)
+            rogue_ca = generate_mesh_ca(folder / "rogue-ca")
+            # Same allowlisted node identity, but signed by an untrusted CA.
+            # Trust the real server CA on the client side to isolate the
+            # server-side client-certificate verification boundary.
+            rogue_signed = generate_node_tls_credentials(
+                "client_allowed", folder / "rogue-allowed", ca_creds=rogue_ca
+            )
+            rogue_creds = replace(rogue_signed, ca_cert_path=ca.ca_cert_path)
 
             echo_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             echo_sock.bind(("127.0.0.1", 0))
@@ -65,6 +74,7 @@ class TestMtlsCredentialBoundary(unittest.TestCase):
                 for creds, expected_server, expect_reply in (
                     (allowed_creds, "server_trusted", True),
                     (blocked_creds, "server_trusted", False),
+                    (rogue_creds, "server_trusted", False),
                     (allowed_creds, "server_wrong", False),
                 ):
                     with self.subTest(node=creds.node_id, expected_server=expected_server):
