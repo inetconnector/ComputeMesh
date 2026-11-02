@@ -36,7 +36,6 @@ DE_TRANSLATIONS: dict[str, str] = {
     "sauerstoff": "oxygen",
     "stickstoff": "nitrogen",
     "methan": "methane",
-    "traubenzucker": "glucose",
     "fruchtzucker": "fructose",
     "rohrzucker": "sucrose",
     "zucker": "sucrose",

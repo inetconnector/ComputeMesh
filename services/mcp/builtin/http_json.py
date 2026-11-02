@@ -8,7 +8,6 @@ User supplied URLs belong to the web-fetch/network-tool security path instead.
 from __future__ import annotations
 
 import json
-import socket
 import urllib.error
 import urllib.parse
 import urllib.request

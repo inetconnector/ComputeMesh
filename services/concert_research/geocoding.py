@@ -1225,7 +1225,6 @@ KNOWN_CITY_COORDINATES: dict[str, tuple[float, float]] = {
     "warschau": (52.2297, 21.0122),
     "budapest": (47.4979, 19.0402),
     "vienna": (48.2082, 16.3738),
-    "wien": (48.2082, 16.3738),
     "lisbon": (38.7223, -9.1393),
     "lissabon": (38.7223, -9.1393),
     "athens": (37.9838, 23.7275),

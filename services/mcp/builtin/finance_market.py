@@ -298,7 +298,7 @@ def get_market_quote(
         return res
 
     # If simple symbol failed, try with common suffixes if German stock (e.g. SAP -> SAP.DE)
-    if not "." in clean_sym and len(clean_sym) <= 5:
+    if "." not in clean_sym and len(clean_sym) <= 5:
         de_res = fetch_yahoo_quote(f"{clean_sym}.DE", timeout=timeout)
         if de_res:
             return de_res

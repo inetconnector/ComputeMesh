@@ -7,6 +7,7 @@ and autostart registry templates into a self-contained installer executable.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import shutil
 import subprocess
 import sys
@@ -141,7 +142,7 @@ def build_windows_standalone_bundle(
     ]
 
     try:
-        import PyInstaller
+        importlib.import_module("PyInstaller")
     except ImportError as exc:
         raise RuntimeError("PyInstaller is required to build the Windows executable") from exc
 
