@@ -274,7 +274,7 @@ class CustomToolStore:
 
         # Update execution metrics in SQLite
         with self._lock, self._db_session() as conn:
-            cur = conn.cursor()
+            conn.cursor()
             old_count = tool.get("execution_count", 0)
             old_avg = tool.get("avg_elapsed_ms", 0.0)
             new_count = old_count + 1

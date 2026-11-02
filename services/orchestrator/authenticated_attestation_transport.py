@@ -112,7 +112,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         return session
 
     def reserve_capacity(self, *, node_id: str, job_id: str, lease_id: str, ttl_seconds: int, device_id: str = "default", memory_mb: int = 0, timeout_seconds: float = 15.0) -> dict[str, Any]:
-        session = self._require_capacity_session(node_id)
+        _session = self._require_capacity_session(node_id)
         response = self.client.request(
             node_id=node_id,
             message_type="CapacityReserveRequest",
@@ -124,7 +124,7 @@ class SessionAuthenticatedAttestationTransport(NodeAttestationTransport):
         return response
 
     def release_capacity(self, *, node_id: str, job_id: str, lease_id: str, timeout_seconds: float = 15.0) -> bool:
-        session = self._require_capacity_session(node_id)
+        _session = self._require_capacity_session(node_id)
         response = self.client.request(
             node_id=node_id,
             message_type="CapacityReleaseRequest",

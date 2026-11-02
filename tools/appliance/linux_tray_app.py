@@ -715,14 +715,14 @@ def main() -> int:
         inv = scan_rig_hardware()
         node_id = resolve_headless_node_id(cfg)
         from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
-        relay = CloudTunnelRelay(node_id=node_id)
+        CloudTunnelRelay(node_id=node_id)
         run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)
         return 0
 
     try:
         root = tk.Tk()
         root.withdraw()
-        app = LinuxComputeMeshProviderApp(root)
+        _app = LinuxComputeMeshProviderApp(root)
         if "--tray" not in sys.argv:
             root.after(50, root.deiconify)
         root.mainloop()
@@ -732,7 +732,7 @@ def main() -> int:
         inv = scan_rig_hardware()
         node_id = resolve_headless_node_id(cfg)
         from services.appliance_dashboard.tunnel_relay import CloudTunnelRelay
-        relay = CloudTunnelRelay(node_id=node_id)
+        CloudTunnelRelay(node_id=node_id)
         run_dashboard_server(host="0.0.0.0", port=CONFIG.default_dashboard_port, config=cfg, inventory=inv, node_id=node_id)
     return 0
 

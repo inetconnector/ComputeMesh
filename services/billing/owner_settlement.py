@@ -366,7 +366,7 @@ class PayoutCapableOwnerLedger(GatewayOwnerCreditLedger):
         with self._lock:
             event_id = f"owner-withdrawal-cancel:{reference}"
             self._ensure_new_event(event_id)
-            pending = self.owner_withdrawal_pending_micro_units(owner)
+            _ = self.owner_withdrawal_pending_micro_units(owner)
             tx = Transaction(
                 tx_id=_event_tx_id("owner_withdraw_cancel", event_id),
                 event_id=event_id,

@@ -1205,7 +1205,7 @@ class ComputeMeshProviderApp:
                     reset_ollama_to_default_environment()
                     messagebox.showinfo("Reset", "Ollama wurde auf den Ursprungszustand zurückgesetzt.", parent=self.root)
             else:
-                proc = launch_ollama_for_mesh()
+                _proc = launch_ollama_for_mesh()
                 messagebox.showinfo(
                     "Ollama Mesh Pool Gestartet",
                     "✓ Ollama wurde erfolgreich mit ComputeMesh Mesh-Pooling gestartet!\n\n"
@@ -1356,7 +1356,7 @@ def main() -> int:
 
     try:
         root = tk.Tk()
-        app = ComputeMeshProviderApp(root)
+        _app = ComputeMeshProviderApp(root)
         if "--tray" in sys.argv:
             root.withdraw()
         else:

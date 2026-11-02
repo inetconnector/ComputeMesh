@@ -1247,7 +1247,7 @@ class AgentSessionStore:
                     raise SessionStateConflict(f"session cannot resume in state: {session_status.value}")
                 if selected_turn is None or current_turn not in {TurnStatus.PAUSED, TurnStatus.FAILED}:
                     raise SessionStateConflict("resume requires a paused or failed turn")
-                resumed = self._apply_turn_status(
+                _resumed = self._apply_turn_status(
                     connection, selected_turn, TurnStatus.RESUMING, reason="control_resume"
                 )
                 self._set_session_status(
@@ -1256,7 +1256,7 @@ class AgentSessionStore:
                     SessionStatus.RESUMING,
                     reason="control_resume",
                 )
-                ready = self._set_session_status(
+                _ready = self._set_session_status(
                     connection,
                     self._require_session(connection, str(session_id)),
                     SessionStatus.READY,
@@ -1354,7 +1354,7 @@ class AgentSessionStore:
             raise ValueError("arguments_digest must be a SHA-256 digest")
         expires_at = _now() + min(max(float(ttl_seconds), 1.0), 3600.0)
         with self._transaction() as connection:
-            session = self._require_session(connection, str(session_id))
+            self._require_session(connection, str(session_id))
             if turn_id is not None:
                 turn = self._require_turn(connection, str(turn_id))
                 if str(turn["session_id"]) != str(session_id):
@@ -1632,7 +1632,7 @@ class AgentSessionStore:
         if len(items) != 1:
             raise ValueError("steering accepts exactly one item")
         with self._transaction() as connection:
-            session = self._require_session(connection, str(session_id))
+            self._require_session(connection, str(session_id))
             turn = self._require_turn(connection, str(turn_id))
             if str(turn["session_id"]) != str(session_id):
                 raise SessionStateConflict("turn belongs to a different session")

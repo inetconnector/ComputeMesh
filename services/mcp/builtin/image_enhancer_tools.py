@@ -39,7 +39,7 @@ def enhance_and_crop_image(
     try:
         img = Image.open(abs_input)
         orig_width, orig_height = img.size
-        orig_format = img.format or "PNG"
+        _orig_format = img.format or "PNG"
         
         # 1. Crop if specified: [left, upper, right, lower]
         if crop_box and len(crop_box) == 4:

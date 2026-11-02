@@ -106,7 +106,7 @@ def plan_multi_gpu_rig(
     current_layer_idx = 0
 
     for i, dev in enumerate(devices):
-        dev_usable_vram = int(dev.vram_bytes * usable_memory_fraction)
+        _dev_usable_vram = int(dev.vram_bytes * usable_memory_fraction)
         split_ratio = dev.vram_bytes / total_rig_vram
         tensor_splits.append(round(split_ratio, 4))
 

@@ -474,7 +474,7 @@ class SQLiteStateStore:
                         current_revision=row["revision"],
                         response_revision=expected_revision
                     )
-                except Exception as e:
+                except Exception as _e:
                     # In test/original logic StaleRevision is expected to be raised here and caught as a retryable error.
                     # We log/enforce the security invariant but must still raise the core state machine exception
                     pass

@@ -94,7 +94,7 @@ def multi_replace_file_content(
             original_text = f.read()
 
         current_text = original_text
-        diff_all: list[str] = []
+        _diff_all: list[str] = []
         applied_count = 0
 
         # Sort chunks in reverse order by start_line to avoid index shift

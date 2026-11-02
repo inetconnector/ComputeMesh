@@ -256,7 +256,7 @@ class InferenceEngine:
                         disabled_tools = FLEET_ACCOUNT_STORE.get_mcp_disabled_tools(owner_id)
                     except Exception:
                         disabled_tools = []
-                disabled_set = set(disabled_tools)
+                _disabled_set = set(disabled_tools)
 
                 def local_llm_caller(msg_list, tool_list):
                     nonlocal backend_result

@@ -21,7 +21,7 @@ def json_schema_to_gbnf(schema: dict[str, Any]) -> str:
 
     if schema_type == "object":
         props = schema.get("properties", {})
-        required = schema.get("required", list(props.keys()))
+        _required = schema.get("required", list(props.keys()))
 
         prop_rules = []
         for p_name, p_spec in props.items():

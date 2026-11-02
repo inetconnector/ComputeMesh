@@ -106,7 +106,7 @@ def format_tool_content_if_json(content: str) -> str:
             best_p = data.get("best_price", 0.0)
             best_m = data.get("best_merchant") or (data.get("best_deal", {}).get("merchant") if isinstance(data.get("best_deal"), dict) else "Online-Händler")
             avg_p = data.get("average_price", 0.0)
-            max_p = data.get("max_price", 0.0)
+            _max_p = data.get("max_price", 0.0)
             curr = data.get("currency", "EUR")
             curr_sym = "€" if curr == "EUR" else ("$" if curr == "USD" else curr)
             sav_val = data.get("max_savings_val") if data.get("max_savings_val") is not None else data.get("savings_max", 0.0)

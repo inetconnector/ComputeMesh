@@ -881,7 +881,6 @@ menuentry "ComputeMesh NodeOS (Debug / Verbose Console)" {
     run(["mcopy", "-i", str(efi_img), str(bootx64), "::/EFI/BOOT/BOOTX64.EFI"])
 
     out_iso = final_output_dir / "computemesh-nodeos-x86_64.iso"
-    out_img = final_output_dir / "computemesh-nodeos-x86_64.img"
     out_xz = final_output_dir / "computemesh-nodeos-x86_64.img.xz"
     temp_suffix = f".tmp.{os.getpid()}"
     temp_iso = final_output_dir / f"computemesh-nodeos-x86_64.iso{temp_suffix}"

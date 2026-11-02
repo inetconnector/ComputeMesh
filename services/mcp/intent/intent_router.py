@@ -95,7 +95,7 @@ def detect_direct_tool_intent(text: str, registry: ToolRegistry | None = None, a
 
         # 2. Check if weather context
         if re.search(r"(?:wetter\w*|regen\w*|temperatur\w*|weather\w*|klima|sonne\w*)", full_text):
-            m_c = re.search(r"(?:wetter\s+(?:in|für|fuer|von|bei)|weather\s+in|\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+))", cleaned, re.IGNORECASE)
+            _m_c = re.search(r"(?:wetter\s+(?:in|für|fuer|von|bei)|weather\s+in|\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+))", cleaned, re.IGNORECASE)
             city = "Berlin"
             m_city = re.search(r"\b(?:in|für|fuer|von|bei)\s+([a-zA-ZäöüÄÖÜß\-]+)", cleaned, re.IGNORECASE)
             if m_city:

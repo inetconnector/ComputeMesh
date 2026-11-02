@@ -232,7 +232,7 @@ class MeshShardingHandler:
                 target_fps = data.get("target_fps")
                 max_bitrate = data.get("max_bitrate_kbps")
 
-                profile = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.evaluate_network_conditions(
+                _profile = GLOBAL_ADAPTIVE_VIDEO_COMPRESSOR.evaluate_network_conditions(
                     rtt_ms=rtt_ms, packet_loss_pct=loss_pct, bandwidth_kbps=bw_kbps
                 )
                 if target_fps or max_bitrate:

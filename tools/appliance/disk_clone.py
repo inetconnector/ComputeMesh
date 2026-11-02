@@ -367,7 +367,7 @@ def _run_clone(source_dev: str, target_dev: str, total_bytes: int, block_size_mb
         if proc.returncode == 0:
             try:
                 _post_clone_fixup(target_dev)
-            except Exception as fixup_err:
+            except Exception as _fixup_err:
                 # Post-clone fixup warning should not fail the clone if dd succeeded
                 pass
     except Exception as exc:

@@ -141,7 +141,7 @@ class AutoUpdater:
                 is_newer=is_newer,
             )
 
-        except Exception as e:
+        except Exception as _e:
             # Network failure or signature error
             return None
 

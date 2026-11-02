@@ -149,7 +149,7 @@ def _extract_candidate_local_urls(node_data: dict[str, Any]) -> list[str]:
 def render_node_remote_dashboard_html(node_id: str, auth_token: str, node_data: dict[str, Any]) -> str:
     """Renders a responsive, modern dark-mode dashboard for node monitoring with strict XSS escaping."""
     safe_node_id = html.escape(str(node_id))
-    safe_auth_token = html.escape(str(auth_token))
+    _safe_auth_token = html.escape(str(auth_token))
 
     inventory = node_data.get("inventory", {})
     telemetry = node_data.get("telemetry", {})
